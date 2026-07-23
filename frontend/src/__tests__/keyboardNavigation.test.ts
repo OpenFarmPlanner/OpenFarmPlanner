@@ -4,6 +4,7 @@ import {
   getCellLocationFromDomTarget,
   getHorizontalKeyboardNavigationTarget,
   getKeyboardNavigationTarget,
+  getViewModeNavigationRequest,
   getVisibleColumnIndex,
   isCellKeyboardNavigable,
   resolveFocusedCellFromEvent,
@@ -207,6 +208,54 @@ describe('getVisibleColumnIndex', () => {
     expect(getVisibleColumnIndex(api, 'harvest_date')).toBeUndefined();
     expect(getVisibleColumnIndex(null, 'name')).toBeUndefined();
     expect(getVisibleColumnIndex({}, 'name')).toBeUndefined();
+  });
+});
+
+describe('getViewModeNavigationRequest', () => {
+  it('wraps rows and follows shift for Tab', () => {
+    expect(getViewModeNavigationRequest('Tab', false)).toEqual({
+      axis: 'horizontal',
+      direction: 1,
+      wrapRows: true,
+    });
+    expect(getViewModeNavigationRequest('Tab', true)).toEqual({
+      axis: 'horizontal',
+      direction: -1,
+      wrapRows: true,
+    });
+  });
+
+  it('maps arrow keys to axis and direction without row wrapping', () => {
+    expect(getViewModeNavigationRequest('ArrowRight', false)).toEqual({
+      axis: 'horizontal',
+      direction: 1,
+      wrapRows: false,
+    });
+    expect(getViewModeNavigationRequest('ArrowLeft', false)).toEqual({
+      axis: 'horizontal',
+      direction: -1,
+      wrapRows: false,
+    });
+    expect(getViewModeNavigationRequest('ArrowDown', false)).toEqual({
+      axis: 'vertical',
+      direction: 1,
+      wrapRows: false,
+    });
+    expect(getViewModeNavigationRequest('ArrowUp', false)).toEqual({
+      axis: 'vertical',
+      direction: -1,
+      wrapRows: false,
+    });
+  });
+
+  it('ignores shift for arrow keys and returns null for other keys', () => {
+    expect(getViewModeNavigationRequest('ArrowRight', true)).toEqual({
+      axis: 'horizontal',
+      direction: 1,
+      wrapRows: false,
+    });
+    expect(getViewModeNavigationRequest('Enter', false)).toBeNull();
+    expect(getViewModeNavigationRequest('a', false)).toBeNull();
   });
 });
 
