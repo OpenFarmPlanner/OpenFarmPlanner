@@ -8,6 +8,7 @@ const KNOWN_ERROR_CODES = [
   'invalid_state',
   'invalid_response',
   'missing_email',
+  'unverified_email',
   'email_conflict',
   'account_inactive',
   'account_pending_deletion',

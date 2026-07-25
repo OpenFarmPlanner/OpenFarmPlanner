@@ -111,7 +111,8 @@ adopted.
 | Situation | Behavior |
 |---|---|
 | Provider identity already known | Sign in to the linked account |
-| No identity, no account with that email | Create an account, record Terms acceptance |
+| No identity, no account with that email, provider verified the email | Create an account, record Terms acceptance |
+| No identity, no account with that email, provider did **not** verify the email | Reject with `unverified_email` — see below |
 | No identity, account with that email exists | Link only if **both sides verified that mailbox**, otherwise reject with `email_conflict` |
 | Provider sent no email | Reject with `missing_email` |
 | Account is scheduled for deletion | Reject with `account_pending_deletion` |
@@ -126,13 +127,22 @@ adopted.
    emailed activation link, and password reset and email change only ever
    hand over control through a link sent to that address).
 
-In practice that means: **Google can link automatically, Microsoft cannot.**
-Google signs an `email_verified` claim; Microsoft reports no verification
-state at all, and for Entra ID work accounts the address is
-administrator-controlled, which is exactly the "nOAuth" account-takeover
-pattern. An account created *from* a Microsoft login is therefore itself
-not email-verified, so a later Google login for the same address will not
-be handed that account either.
+In practice that means: **Google can link automatically and create new
+accounts; Microsoft can do neither.** Google signs an `email_verified`
+claim; Microsoft reports no verification state at all, and for Entra ID
+work accounts the address is administrator-controlled — a provider account
+with an arbitrary `mail` attribute can be created without ever proving
+control of a mailbox. This is the "nOAuth" account-takeover pattern, and it
+applies just as much to *creating* a brand-new account as it does to
+*linking* to an existing one: an unverified provider email is never trusted
+to establish a fresh account for that address either, so a Microsoft login
+with no matching local account is rejected (`unverified_email`) rather than
+silently signing someone up. The same rule protects any other provider that
+might not verify its email claim, not just Microsoft specifically.
+
+A Microsoft user therefore always has to start from an account created some
+other way (password registration, or a Google login) and connect Microsoft
+explicitly afterward — see the linking flow below.
 
 Whenever automatic linking is refused, the user gets the **explicit linking
 flow** instead: sign in with the method you already have, then connect the

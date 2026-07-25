@@ -48,6 +48,7 @@ from .social_linking import (
     ERROR_LOGIN_REQUIRED,
     ERROR_MISSING_EMAIL,
     ERROR_PROVIDER_ERROR,
+    ERROR_UNVERIFIED_EMAIL,
     SocialLoginRejected,
     assert_account_can_be_used,
     find_user_by_email,
@@ -224,16 +225,22 @@ class OpenFarmPlannerSocialAccountAdapter(DefaultSocialAccountAdapter):
         if not email:
             raise SocialLoginRejected(ERROR_MISSING_EMAIL)
 
+        verified = provider_verified_email(sociallogin, email)
         existing_user = find_user_by_email(email)
         if existing_user is None:
+            # A provider that does not verify its email claim (Microsoft) must
+            # not be trusted to create a brand-new account for that address
+            # either — the same "nOAuth" concern that already blocks it from
+            # auto-linking to an *existing* account below. Without this check,
+            # anyone who can set an arbitrary `mail` attribute on a
+            # self-service Entra tenant (no mailbox proof required) could
+            # sign in as, and permanently pre-empt, someone else's address.
+            if not verified:
+                raise SocialLoginRejected(ERROR_UNVERIFIED_EMAIL)
             return
 
         assert_account_can_be_used(existing_user)
-        if not may_auto_link(
-            user=existing_user,
-            email=email,
-            provider_verified_email=provider_verified_email(sociallogin, email),
-        ):
+        if not may_auto_link(user=existing_user, email=email, provider_verified_email=verified):
             raise SocialLoginRejected(ERROR_EMAIL_CONFLICT)
 
         sociallogin.connect(request, existing_user)

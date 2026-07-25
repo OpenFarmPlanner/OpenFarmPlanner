@@ -183,17 +183,29 @@ class SocialSignupTest(SocialLoginTestCase):
         consent = DocumentConsent.objects.get(user=user, document=DocumentConsent.DOCUMENT_TERMS)
         self.assertEqual(consent.version, CURRENT_VERSIONS[DocumentConsent.DOCUMENT_TERMS])
 
-    def test_microsoft_login_creates_new_account_with_unverified_email(self) -> None:
+    def test_microsoft_login_without_existing_account_is_rejected_as_unverified(self) -> None:
+        # Microsoft asserts no verification state for its email claim, so it
+        # must not be trusted to create a brand-new account either — the same
+        # "nOAuth" concern that already blocks it from auto-linking to an
+        # *existing* account (test_microsoft_email_never_links_automatically).
+        # Without this, anyone able to set an arbitrary `mail` attribute on a
+        # self-service Entra tenant could sign in as, and permanently
+        # pre-empt, someone else's address.
         response = self.complete_login('microsoft', microsoft_profile())
 
-        self.assertRedirectsToFrontend(response, '/app')
-        user = User.objects.get(email='user@example.com')
-        self.assertEqual(user.first_name, 'Max')
-        self.assertLoggedInAs(user)
-        self.assertEqual(SocialAccount.objects.get(user=user).provider, 'microsoft')
-        # Microsoft asserts no verification state, so nothing may be recorded
-        # as verified.
-        self.assertFalse(EmailAddress.objects.filter(user=user, verified=True).exists())
+        self.assertRedirectsToFrontend(response, '/login', {'social_error': 'unverified_email'})
+        self.assertFalse(User.objects.exists())
+        self.assertFalse(SocialAccount.objects.exists())
+        self.assertNotLoggedIn()
+
+    def test_google_login_without_existing_account_and_unverified_email_is_rejected(self) -> None:
+        # Applies to any provider, not just Microsoft: an unverified email
+        # claim must never be trusted to create a new account.
+        response = self.complete_login('google', google_claims(email_verified=False))
+
+        self.assertRedirectsToFrontend(response, '/login', {'social_error': 'unverified_email'})
+        self.assertFalse(User.objects.exists())
+        self.assertFalse(SocialAccount.objects.exists())
 
     def test_google_login_without_email_is_rejected(self) -> None:
         response = self.complete_login('google', google_claims(email=None))
@@ -303,18 +315,22 @@ class SocialAccountLinkingTest(SocialLoginTestCase):
         self.assertEqual(User.objects.count(), 1)
         self.assertFalse(SocialAccount.objects.exists())
 
-    def test_google_does_not_link_to_account_created_from_unverified_email(self) -> None:
-        # A Microsoft signup can claim any address. The account it creates is
-        # therefore not email-verified, and a later Google login for the same
-        # address must not be handed that account.
-        self.complete_login('microsoft', microsoft_profile())
-        self.client.logout()
+    def test_google_does_not_link_to_an_account_without_a_verified_email(self) -> None:
+        # An account can end up without any verified-email proof if it was
+        # created outside the normal flows (e.g. directly via the admin, or
+        # a data migration). Even then, a Google login for the same address
+        # must not be handed that account.
+        user = User.objects.create_user(
+            username='unverified', email='user@example.com', is_active=True
+        )
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
 
         response = self.complete_login('google', google_claims())
 
         self.assertRedirectsToFrontend(response, '/login', {'social_error': 'email_conflict'})
         self.assertEqual(User.objects.count(), 1)
-        self.assertEqual(SocialAccount.objects.count(), 1)
+        self.assertFalse(SocialAccount.objects.filter(user=user).exists())
 
     def test_login_is_rejected_for_account_pending_deletion(self) -> None:
         user = self._create_password_user()
