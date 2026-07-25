@@ -13,8 +13,6 @@ import type { TFunction } from 'i18next';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import AgricultureIcon from '@mui/icons-material/Agriculture';
-import DeleteIcon from '@mui/icons-material/Delete';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import type { HierarchyRow } from './utils/types';
@@ -25,12 +23,16 @@ import {
   type DimensionCellType,
 } from './utils/dimensionCellState';
 import { NotesCell } from '../data-grid/NotesCell';
-import { HierarchyAddIcon } from './HierarchyAddIcon';
+import { renderInlineActions } from './hierarchyRowActions';
+import {
+  NON_BLOCKING_TOOLTIP_PROPS,
+  type HierarchyColumnOptions,
+  type NameCellCallbacks,
+} from './hierarchyColumnShared';
 import { getPlainExcerpt } from '../data-grid/markdown';
 import { CALCULATED_COLUMN_CELL_CLASS, getCalculatedColumnProps } from '../data-grid/calculatedColumns';
-import { ContextMenuIndicator } from '../contextMenu/ContextMenuIndicator';
 import { contextMenuActionsOverlaySx } from '../contextMenu/contextMenuIndicatorStyles';
-import { HierarchyLevelButtons, type HierarchyLevelButtonsProps } from './HierarchyLevelToggle';
+import { HierarchyLevelButtons } from './HierarchyLevelToggle';
 import { FullCellTooltip, FULL_CELL_TOOLTIP_CELL_CLASS } from '../data-grid/FullCellTooltip';
 
 export interface HierarchyColumnWidths {
@@ -49,238 +51,9 @@ export const DEFAULT_HIERARCHY_COLUMN_WIDTHS: HierarchyColumnWidths = {
 
 const EXPAND_ICON_SLOT_SIZE = 32;
 const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
-const NON_BLOCKING_TOOLTIP_PROPS = {
-  disableInteractive: true,
-  slotProps: {
-    popper: {
-      style: { pointerEvents: 'none' as const },
-    },
-  },
-};
-
 const renderImmediateEditInputCell = (
   params: GridRenderEditCellParams<HierarchyRow>,
 ): ReactElement => <GridEditInputCell {...params} debounceMs={0} />;
-
-interface NameCellCallbacks {
-  onToggleExpand: (rowId: string | number) => void;
-  onAddBed: (fieldId: number) => void;
-  onDeleteBed: (bedId: number) => void;
-  onAddField: (locationId?: number) => void;
-  onDeleteField: (fieldId: number) => void;
-  onDeleteLocation: (locationId: number) => void;
-  onCreatePlantingPlan: (bedId: number) => void;
-  onOpenContextMenu: (event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, row: HierarchyRow) => void;
-}
-
-interface HierarchyColumnOptions {
-  disableInlineHoverActions?: boolean;
-  /**
-   * When provided, renders the expand/collapse-one-level buttons directly in
-   * the "Name" column header (see HierarchyLevelButtons) instead of the
-   * caller having to render a separate row above the table.
-   */
-  levelToggle?: HierarchyLevelButtonsProps;
-}
-
-function renderHierarchyAddIconButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-}): ReactElement {
-  return (
-    <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
-      <span>
-        <HierarchyAddIcon
-          ariaLabel={label}
-          tabIndex={-1}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClick(event);
-          }}
-          sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: 18 } }}
-        />
-      </span>
-    </Tooltip>
-  );
-}
-
-function renderPlantingPlanActionButton(
-  row: HierarchyRow,
-  callbacks: NameCellCallbacks,
-  t: TFunction,
-): ReactElement | null {
-  if (row.type !== 'bed' || row.bedId === undefined) {
-    return null;
-  }
-
-  return (
-    <Tooltip title={t('hierarchy:createPlantingPlan')} {...NON_BLOCKING_TOOLTIP_PROPS}>
-      <IconButton
-        size="small"
-        color="primary"
-        aria-label={t('hierarchy:createPlantingPlan')}
-        tabIndex={-1}
-        onClick={(event) => {
-          event.stopPropagation();
-          callbacks.onCreatePlantingPlan(row.bedId!);
-        }}
-        sx={{
-          p: 0.5,
-          '& .MuiSvgIcon-root': { fontSize: 18 },
-          '&:hover': {
-            bgcolor: 'action.hover',
-          },
-          '&.Mui-focusVisible': {
-            outline: '2px solid',
-            outlineColor: 'primary.main',
-            outlineOffset: 1,
-          },
-        }}
-      >
-        <AgricultureIcon />
-      </IconButton>
-    </Tooltip>
-  );
-}
-
-function renderDeleteActionButton(
-  row: HierarchyRow,
-  callbacks: NameCellCallbacks,
-  t: TFunction,
-): ReactElement | null {
-  const label = t('common:actions.delete');
-
-  if (row.type === 'location' && row.locationId !== undefined) {
-    return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
-        <IconButton
-          size="small"
-          color="error"
-          aria-label={label}
-          tabIndex={-1}
-          onClick={(event) => {
-            event.stopPropagation();
-            callbacks.onDeleteLocation(row.locationId!);
-          }}
-          sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: 18 } }}
-        >
-          <DeleteIcon />
-        </IconButton>
-      </Tooltip>
-    );
-  }
-
-  if (row.type === 'field' && row.fieldId !== undefined) {
-    return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
-        <IconButton
-          size="small"
-          color="error"
-          aria-label={label}
-          tabIndex={-1}
-          onClick={(event) => {
-            event.stopPropagation();
-            callbacks.onDeleteField(row.fieldId!);
-          }}
-          sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: 18 } }}
-        >
-          <DeleteIcon />
-        </IconButton>
-      </Tooltip>
-    );
-  }
-
-  if (row.type === 'bed' && row.bedId !== undefined) {
-    return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
-        <IconButton
-          size="small"
-          color="error"
-          aria-label={label}
-          tabIndex={-1}
-          onClick={(event) => {
-            event.stopPropagation();
-            callbacks.onDeleteBed(row.bedId!);
-          }}
-          sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: 18 } }}
-        >
-          <DeleteIcon />
-        </IconButton>
-      </Tooltip>
-    );
-  }
-
-  return null;
-}
-
-function renderMoreActionsButton(
-  row: HierarchyRow,
-  callbacks: NameCellCallbacks,
-  t: TFunction,
-  isStandaloneRender: boolean,
-): ReactElement {
-  return (
-    <ContextMenuIndicator
-      label={t('common:actions.actions')}
-      tabIndex={-1}
-      onClick={(event) => callbacks.onOpenContextMenu(event, row)}
-      sx={isStandaloneRender ? { opacity: 1, pointerEvents: 'auto' } : undefined}
-    />
-  );
-}
-
-function renderInlineActions(
-  row: HierarchyRow,
-  callbacks: NameCellCallbacks,
-  t: TFunction,
-  options: HierarchyColumnOptions,
-  isStandaloneRender: boolean,
-): ReactElement | null {
-  if (options.disableInlineHoverActions) {
-    return null;
-  }
-
-  if (row.type === 'location') {
-    return (
-      <Box className="action-icons" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-        {renderHierarchyAddIconButton({
-          label: t('hierarchy:addField'),
-          onClick: () => callbacks.onAddField(row.locationId),
-        })}
-        {renderDeleteActionButton(row, callbacks, t)}
-        {renderMoreActionsButton(row, callbacks, t, isStandaloneRender)}
-      </Box>
-    );
-  }
-
-  if (row.type === 'field') {
-    return (
-      <Box className="action-icons" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-        {renderHierarchyAddIconButton({
-          label: t('hierarchy:addBedToField'),
-          onClick: () => callbacks.onAddBed(row.fieldId!),
-        })}
-        {renderDeleteActionButton(row, callbacks, t)}
-        {renderMoreActionsButton(row, callbacks, t, isStandaloneRender)}
-      </Box>
-    );
-  }
-
-  if (row.type === 'bed') {
-    return (
-      <Box className="action-icons" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-        {renderPlantingPlanActionButton(row, callbacks, t)}
-        {renderDeleteActionButton(row, callbacks, t)}
-        {renderMoreActionsButton(row, callbacks, t, isStandaloneRender)}
-      </Box>
-    );
-  }
-
-  return null;
-}
 
 function renderNameCell(
   params: GridRenderCellParams<HierarchyRow>,
