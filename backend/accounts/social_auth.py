@@ -18,7 +18,7 @@ Account state itself (activation, deletion, consent) stays owned by
 """
 from __future__ import annotations
 
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
@@ -81,8 +81,21 @@ def social_error_redirect(code: str, *, connecting: bool = False) -> HttpRespons
 
 
 def social_callback_base_url() -> str:
-    """Return the browser-visible origin the OAuth redirect URIs are built from."""
-    return str(getattr(settings, 'SOCIAL_AUTH_CALLBACK_BASE_URL', '')).rstrip('/')
+    """Return the browser-visible origin the OAuth redirect URIs are built from.
+
+    Only the scheme and host matter here: the path is supplied by Django's
+    own routing (``reverse()``), which already includes any configured
+    ``URL_PREFIX``. Discarding a path component here (rather than assuming
+    ``SOCIAL_AUTH_CALLBACK_BASE_URL``/``PUBLIC_FRONTEND_URL`` has none) matters
+    for subpath deployments, where the frontend origin's path and
+    ``URL_PREFIX`` are typically the same string — using the raw configured
+    URL as-is would double that segment into the redirect URI.
+    """
+    raw = str(getattr(settings, 'SOCIAL_AUTH_CALLBACK_BASE_URL', '')).rstrip('/')
+    parsed = urlparse(raw)
+    if parsed.scheme and parsed.netloc:
+        return f'{parsed.scheme}://{parsed.netloc}'
+    return raw
 
 
 def build_provider_callback_url(provider_id: str) -> str:

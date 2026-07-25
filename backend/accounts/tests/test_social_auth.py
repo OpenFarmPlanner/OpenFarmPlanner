@@ -26,6 +26,7 @@ from accounts.services import finalize_account_deletion
 from accounts.social_auth import (
     OpenFarmPlannerGoogleOAuth2Adapter,
     OpenFarmPlannerMicrosoftOAuth2Adapter,
+    social_callback_base_url,
 )
 
 User = get_user_model()
@@ -514,6 +515,19 @@ class SocialLoginErrorTest(SocialLoginTestCase):
             redirect_uri,
             f'{FRONTEND_URL}/api/auth/social/google/login/callback/',
         )
+
+    def test_callback_base_url_strips_a_path_component(self) -> None:
+        # Subpath deployments (URL_PREFIX) configure PUBLIC_FRONTEND_URL /
+        # SOCIAL_AUTH_CALLBACK_BASE_URL with a path, e.g.
+        # "https://host/openfarmplanner" — which is the same segment
+        # reverse() already bakes into the route via URL_PREFIX. Keeping
+        # that path here would double it into the redirect URI actually
+        # registered with Google/Microsoft (observed in production as
+        # ".../openfarmplanner/openfarmplanner/api/auth/social/...").
+        with override_settings(
+            SOCIAL_AUTH_CALLBACK_BASE_URL='https://host.example/openfarmplanner'
+        ):
+            self.assertEqual(social_callback_base_url(), 'https://host.example')
 
     @override_settings(SOCIALACCOUNT_PROVIDERS={'google': {'APPS': []}, 'microsoft': {'APPS': []}})
     def test_login_for_unconfigured_provider_is_not_available(self) -> None:
