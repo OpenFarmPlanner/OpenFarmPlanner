@@ -25,6 +25,8 @@ export interface AuthUser {
   public_library_terms_accepted: boolean;
   is_guest_demo: boolean;
   guest_demo_session_id: number | null;
+  /** False for accounts that sign in only through Google/Microsoft. */
+  has_password: boolean;
 }
 
 export interface ProjectSwitchResponse {

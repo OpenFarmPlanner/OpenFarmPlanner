@@ -1,5 +1,10 @@
 from django.urls import path
 
+from .social_views import (
+    SocialConnectionsView,
+    SocialDisconnectView,
+    SocialProvidersView,
+)
 from .views import (
     ActivateView,
     CsrfTokenView,
@@ -43,6 +48,9 @@ urlpatterns = [
     path('account/restore/', AccountRestoreView.as_view(), name='auth-account-restore'),
     path('account/status/', AccountStatusView.as_view(), name='auth-account-status'),
     path('account/data-export/', AccountDataExportView.as_view(), name='auth-account-data-export'),
+    path('social/providers/', SocialProvidersView.as_view(), name='auth-social-providers'),
+    path('social/connections/', SocialConnectionsView.as_view(), name='auth-social-connections'),
+    path('social/disconnect/', SocialDisconnectView.as_view(), name='auth-social-disconnect'),
     path('resend-activation/', ResendActivationView.as_view(), name='auth-resend-activation'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='auth-password-reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'),

@@ -213,7 +213,7 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
@@ -253,7 +253,7 @@ export async function ensureCsrfCookie(): Promise<void> {
   await request<{ detail: string }>('/auth/csrf/', { method: 'GET' });
 }
 
-function csrfHeader(): Record<string, string> {
+export function csrfHeader(): Record<string, string> {
   return { 'X-CSRFToken': getCookie('csrftoken') ?? '' };
 }
 

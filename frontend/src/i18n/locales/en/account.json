@@ -38,7 +38,17 @@
     "newEmail": "New email address",
     "changePasswordTitle": "Change password",
     "newPassword": "New password",
-    "repeatNewPassword": "Repeat new password"
+    "repeatNewPassword": "Repeat new password",
+    "noPasswordHint": "This account signs in with Google or Microsoft and has no password. You can set one via \"Forgot password\" on the sign in page."
+  },
+  "loginMethods": {
+    "title": "Login methods",
+    "description": "Sign in with Google or Microsoft in addition to email and password. Every connected method signs you in to this account.",
+    "connect": "Connect {{provider}}",
+    "connected": "The login method was connected.",
+    "connectedSince": "{{provider}} · connected since {{date}}",
+    "disconnect": "Disconnect",
+    "lastMethodHint": "Your last login method cannot be removed. Set a password via \"Forgot password\" first."
   },
   "dangerZone": "Danger zone",
   "deleteDescription": "If you delete your account, it is deactivated immediately and anonymized after 14 days. Projects without remaining members are then deleted including project data; published public library entries remain.",
@@ -46,6 +56,7 @@
   "deleteButton": "Delete account",
   "dialogTitle": "Schedule account for deletion",
   "dialogWarning": "Please confirm with your current password and the text \"{{phrase}}\". Your account will be deactivated and anonymized after 14 days. Projects without remaining members are then deleted.",
+  "dialogWarningWithoutPassword": "Please confirm with the text \"{{phrase}}\". Your account is deactivated and anonymized after 14 days. Projects without remaining members are then deleted.",
   "currentPassword": "Current password",
   "deletePhrase": "DELETE",
   "deletePhraseLabel": "Confirmation text",

@@ -71,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
     public_library_terms_accepted = serializers.SerializerMethodField()
     is_guest_demo = serializers.SerializerMethodField()
     guest_demo_session_id = serializers.SerializerMethodField()
+    has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -92,6 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
             'public_library_terms_accepted',
             'is_guest_demo',
             'guest_demo_session_id',
+            'has_password',
         )
         read_only_fields = fields
 
@@ -167,6 +169,14 @@ class UserSerializer(serializers.ModelSerializer):
     def get_guest_demo_session_id(self, obj: User) -> int | None:
         return obj.guest_demo_session.id if self.get_is_guest_demo(obj) else None
 
+    def get_has_password(self, obj: User) -> bool:
+        """Whether the account can sign in with email and password.
+
+        Accounts created through Google/Microsoft have no usable password
+        until they set one via the password reset flow.
+        """
+        return obj.has_usable_password()
+
     def get_public_library_terms_accepted(self, obj: User) -> bool:
         return has_accepted_current(obj, DocumentConsent.DOCUMENT_PUBLIC_LIBRARY)
 
@@ -241,7 +251,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 
 class AccountDeleteRequestSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True)
+    # Optional because accounts created through Google/Microsoft have no
+    # usable password to confirm with; the view enforces it whenever the
+    # account does have one.
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
 
 class AccountRestoreSerializer(serializers.Serializer):
@@ -271,7 +284,8 @@ class AccountPublicProfileSerializer(serializers.Serializer):
 
 class AccountEmailChangeRequestSerializer(serializers.Serializer):
     new_email = serializers.EmailField()
-    current_password = serializers.CharField(write_only=True)
+    # See AccountDeleteRequestSerializer.password.
+    current_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     def validate_new_email(self, value: str) -> str:
         normalized = normalize_email_lower(value)

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { useTranslation } from '../../i18n';
 import { getNextFromSearch, getTokenFromNextPath, storeInvitationRedirect } from '../invitationAcceptance';
@@ -105,6 +106,7 @@ export default function RegisterPage() {
 
   return (
     <AuthPageShell title={t('auth:register.title')} subtitle={t('auth:register.subtitle')} legalLinksDense>
+      {isLoggedIn ? null : <SocialLoginButtons />}
       <Box component="form" onSubmit={handleSubmit} noValidate sx={authFormSx}>
         <Stack spacing={2.25}>
           {isLoggedIn ? (

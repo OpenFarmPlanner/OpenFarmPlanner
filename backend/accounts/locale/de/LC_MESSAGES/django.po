@@ -125,3 +125,17 @@ msgstr "Ungültiges oder abgelaufenes Zurücksetzungs-Token."
 #: accounts/views.py:227
 msgid "Password has been reset successfully."
 msgstr "Das Passwort wurde erfolgreich zurückgesetzt."
+
+#: accounts/social_views.py
+msgid "This login method is not connected to your account."
+msgstr "Diese Anmeldemethode ist nicht mit deinem Konto verknüpft."
+
+#: accounts/social_views.py
+msgid "You cannot remove your last login method. Set a password first."
+msgstr ""
+"Du kannst deine letzte Anmeldemethode nicht entfernen. Lege zuerst ein "
+"Passwort fest."
+
+#: accounts/social_views.py
+msgid "The login method was disconnected."
+msgstr "Die Anmeldemethode wurde entfernt."
