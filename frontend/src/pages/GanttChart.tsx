@@ -118,6 +118,11 @@ import {
   type GanttTaskGroup,
   type OccupancyHierarchyNode,
 } from './ganttChartUtils';
+import {
+  buildGanttContextMenuActions,
+  type GanttContextMenuAction,
+  type GanttContextMenuTarget,
+} from './ganttContextMenuActions';
 import { getFirstMissingCultivationPlanRequirement, getTranslatedProjectSetupActions } from './requirementFlow';
 import {
   getSegmentedActionButtonSx,
@@ -625,16 +630,6 @@ function GanttChartPage() {
   // into the relevant page plus edit/copy/delete. Double-click on a bar
   // is a shortcut for its "Anbauplan öffnen" action.
   // ---------------------------------------------------------------------
-  type GanttContextMenuTarget =
-    | { type: 'task'; task: GanttTask; group: GanttTaskGroup }
-    | { type: 'group'; group: GanttTaskGroup };
-  interface GanttContextMenuAction {
-    id: string;
-    label: string;
-    group: 'navigate' | 'edit' | 'danger';
-    onClick: () => void;
-  }
-
   const isGanttContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target)
     && target instanceof HTMLElement
@@ -730,60 +725,16 @@ function GanttChartPage() {
     }
   }, [t]);
 
-  const getContextMenuActions = useCallback((target: GanttContextMenuTarget): GanttContextMenuAction[] => {
-    if (target.type === 'task') {
-      const { task, group } = target;
-      const actions: GanttContextMenuAction[] = [
-        { id: 'open-plan', label: t('ganttChart:contextMenu.openPlan'), group: 'navigate', onClick: () => openPlantingPlanFromTask(task) },
-      ];
-      if (task.cultureName) {
-        actions.push({ id: 'open-culture', label: t('ganttChart:contextMenu.openCulture'), group: 'navigate', onClick: () => openCultureFromTask(task) });
-      }
-      if (group.bedId) {
-        const bedId = group.bedId;
-        actions.push({ id: 'open-bed', label: t('ganttChart:contextMenu.openBed'), group: 'navigate', onClick: () => openAreasPage({ type: 'bed', id: bedId }) });
-      }
-      if (group.fieldId) {
-        const fieldId = group.fieldId;
-        actions.push({ id: 'open-field', label: t('ganttChart:contextMenu.openField'), group: 'navigate', onClick: () => openAreasPage({ type: 'field', id: fieldId }) });
-      }
-      if (group.locationId) {
-        const locationId = group.locationId;
-        actions.push({ id: 'open-location', label: t('ganttChart:contextMenu.openLocation'), group: 'navigate', onClick: () => openAreasPage({ type: 'location', id: locationId }) });
-      }
-      actions.push(
-        { id: 'edit', label: t('common:actions.edit'), group: 'edit', onClick: () => openPlantingPlanFromTask(task, { edit: true }) },
-        { id: 'copy', label: t('common:actions.copyRow'), group: 'edit', onClick: () => copyTaskSummary(task, group) },
-        { id: 'delete', label: t('common:actions.delete'), group: 'danger', onClick: () => { void deletePlantingPlanFromTask(task); } },
-      );
-      return actions;
-    }
-
-    const { group } = target;
-    if (group.bedId) {
-      const bedId = group.bedId;
-      return [
-        { id: 'open-bed', label: t('ganttChart:contextMenu.openBed'), group: 'navigate', onClick: () => openAreasPage({ type: 'bed', id: bedId }) },
-        { id: 'edit-bed', label: t('ganttChart:contextMenu.editBed'), group: 'edit', onClick: () => openAreasPage({ type: 'bed', id: bedId }) },
-        { id: 'add-plan', label: t('ganttChart:contextMenu.addPlan'), group: 'edit', onClick: () => addPlantingPlanForBed(group) },
-      ];
-    }
-    if (group.fieldId) {
-      const fieldId = group.fieldId;
-      return [
-        { id: 'open-field', label: t('ganttChart:contextMenu.openField'), group: 'navigate', onClick: () => openAreasPage({ type: 'field', id: fieldId }) },
-        { id: 'edit-field', label: t('ganttChart:contextMenu.editField'), group: 'edit', onClick: () => openAreasPage({ type: 'field', id: fieldId }) },
-      ];
-    }
-    if (group.locationId) {
-      const locationId = group.locationId;
-      return [
-        { id: 'open-location', label: t('ganttChart:contextMenu.openLocation'), group: 'navigate', onClick: () => openAreasPage({ type: 'location', id: locationId }) },
-        { id: 'edit-location', label: t('ganttChart:contextMenu.editLocation'), group: 'edit', onClick: () => openAreasPage({ type: 'location', id: locationId }) },
-      ];
-    }
-    return [];
-  }, [addPlantingPlanForBed, copyTaskSummary, deletePlantingPlanFromTask, openAreasPage, openCultureFromTask, openPlantingPlanFromTask, t]);
+  const getContextMenuActions = useCallback((target: GanttContextMenuTarget): GanttContextMenuAction[] => (
+    buildGanttContextMenuActions(target, {
+      openPlantingPlanFromTask,
+      openCultureFromTask,
+      openAreasPage,
+      copyTaskSummary,
+      deletePlantingPlanFromTask,
+      addPlantingPlanForBed,
+    }, t)
+  ), [addPlantingPlanForBed, copyTaskSummary, deletePlantingPlanFromTask, openAreasPage, openCultureFromTask, openPlantingPlanFromTask, t]);
 
   const contextMenuActions = contextMenuState ? getContextMenuActions(contextMenuState.key) : [];
 
