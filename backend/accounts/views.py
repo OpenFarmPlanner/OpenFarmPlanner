@@ -35,6 +35,7 @@ from .services import (
     _normalize_email,
     _set_activation_expiry,
     _validate_serializer_in_german,
+    record_verified_email as _record_verified_email,
 )
 from .models import AccountDeletionRequest, AccountEmailChangeRequest, GuestDemoSession, PendingActivation, PublicProfile
 from .serializers import (
@@ -87,6 +88,19 @@ EMAIL_CHANGE_CONFIRMATION_SUCCESS_MESSAGE = _de('Deine E-Mail-Adresse wurde erfo
 EMAIL_CHANGE_INVALID_LINK_MESSAGE = _de('Der Bestätigungslink ist ungültig oder abgelaufen.')
 PASSWORD_UPDATED_MESSAGE = _de('Dein Passwort wurde erfolgreich geändert.')
 PROFILE_UPDATED_MESSAGE = _de('Dein Profil wurde erfolgreich gespeichert.')
+
+
+def _password_confirmation_is_valid(user: User, password: str) -> bool:
+    """Confirm a sensitive account action with the account password.
+
+    Accounts created through Google/Microsoft have no usable password, so
+    there is nothing to re-enter; the authenticated session is the only
+    confirmation available for them. Accounts that do have a password must
+    still provide it.
+    """
+    if not user.has_usable_password():
+        return True
+    return user.check_password(password)
 
 
 def _registration_success_message() -> str:
@@ -150,6 +164,7 @@ class ActivateView(APIView):
         user.is_active = True
         user.save(update_fields=['is_active'])
         _clear_activation_expiry(user)
+        _record_verified_email(user, user.email)
         login(request, user)
         return Response(UserSerializer(user).data)
 
@@ -268,7 +283,7 @@ class AccountEmailChangeRequestView(APIView):
         serializer = AccountEmailChangeRequestSerializer(data=request.data, context={'request': request})
         _validate_serializer_in_german(serializer)
 
-        if not request.user.check_password(serializer.validated_data['current_password']):
+        if not _password_confirmation_is_valid(request.user, serializer.validated_data.get('current_password', '')):
             return Response({'detail': _de(_('Invalid password.'))}, status=status.HTTP_400_BAD_REQUEST)
 
         AccountEmailChangeRequest.objects.filter(user=request.user, confirmed_at__isnull=True).delete()
@@ -330,6 +345,10 @@ class AccountEmailChangeConfirmView(APIView):
 
         user.email = request_obj.new_email
         user.save(update_fields=['email'])
+        # The confirmation link was delivered to the new address, so it is
+        # verified. Keeping the allauth record in sync keeps social account
+        # linking (accounts.social_linking) working after an email change.
+        _record_verified_email(user, request_obj.new_email)
         request_obj.confirmed_at = timezone.now()
         request_obj.save(update_fields=['confirmed_at', 'updated_at'])
         return Response({'detail': EMAIL_CHANGE_CONFIRMATION_SUCCESS_MESSAGE})
@@ -357,7 +376,7 @@ class AccountDeleteRequestView(APIView):
         _validate_serializer_in_german(serializer)
 
         user = request.user
-        if not user.check_password(serializer.validated_data['password']):
+        if not _password_confirmation_is_valid(user, serializer.validated_data.get('password', '')):
             return Response({'detail': _de(_('Invalid password.'))}, status=status.HTTP_400_BAD_REQUEST)
 
         now = timezone.now()

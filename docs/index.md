@@ -31,6 +31,9 @@ For rules AI agents must follow when changing code, see [`AGENTS.md`](../AGENTS.
 - **[Occupancy Tree / Gantt Hierarchy](./occupancy-tree-hierarchy.md)** —
   the Standort → Parzelle → Beet tree in the bed-occupancy calendar, plus
   the Gantt calendar's context menu, drag-and-drop, and row-height model.
+- **[Social Login](./social-login.md)** — Google/Microsoft sign-in via
+  django-allauth: the OAuth flow, the account-linking rules, and the
+  Google/Microsoft setup steps.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
   project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.

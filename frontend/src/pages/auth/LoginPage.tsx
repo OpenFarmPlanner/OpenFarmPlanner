@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/useAuth';
 import { AuthApiError } from '../../auth/authApi';
 import { getAuthenticatedAppDestination } from '../../auth/authDestination';
 import { useTranslation } from '../../i18n';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { getNextFromSearch } from '../invitationAcceptance';
 import AuthPageShell from './AuthPageShell';
@@ -83,6 +84,7 @@ export default function LoginPage() {
 
   return (
     <AuthPageShell title={t('auth:login.title')} subtitle={t('auth:login.subtitle')}>
+      <SocialLoginButtons />
       <Box component="form" onSubmit={handleSubmit} sx={authFormSx}>
         <Stack spacing={2.25}>
           {pendingInvitation ? (

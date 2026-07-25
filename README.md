@@ -15,7 +15,7 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 - Planting plans, task planning, and Gantt/yield-oriented views
 - Seed demand and supplier workflows
 - Multi-project support with project switching and invitations
-- Session-based authentication (registration, activation, login/logout, password reset, account deletion/restore)
+- Session-based authentication (registration, activation, login/logout, password reset, account deletion/restore), optionally with Google/Microsoft sign-in
 - Notes and media attachments
 
 ## High-Level Architecture
@@ -164,6 +164,7 @@ OpenFarmPlanner uses Django session authentication with CSRF protection:
 - Register account
 - Activate account by email link
 - Login / logout
+- Login with Google or Microsoft (optional, see [`docs/social-login.md`](docs/social-login.md))
 - Password reset request and confirmation
 - Account deletion request with grace period and restoration flow
 

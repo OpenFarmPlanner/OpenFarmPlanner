@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
+from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.db.models import Model, Q, QuerySet
 from django.utils import timezone
@@ -81,7 +82,20 @@ def _build_account_export(user: User) -> dict[str, Any]:
         'document_consents': _serialize_queryset(
             DocumentConsent.objects.filter(user=user).order_by('document', 'version', 'accepted_at')
         ),
+        'social_logins': _build_social_logins_export(user),
     }
+
+
+def _build_social_logins_export(user: User) -> list[dict[str, Any]]:
+    """Export the linked provider identities without their raw profile payloads."""
+    return [
+        {
+            'provider': account.provider,
+            'provider_user_id': account.uid,
+            'connected_at': _to_json_value(account.date_joined),
+        }
+        for account in SocialAccount.objects.filter(user=user).order_by('provider', 'id')
+    ]
 
 
 def _build_projects_export(

@@ -1,12 +1,15 @@
 """Account lifecycle helpers."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.utils import timezone, translation
 from django.utils.encoding import force_str
@@ -19,6 +22,7 @@ from .serializers import normalize_email_lower
 
 User = get_user_model()
 ACTIVATION_EXPIRY_DAYS = 7
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,6 +84,35 @@ def _logout_all_user_sessions(user_id: int) -> None:
             session.delete()
 
 
+def record_verified_email(user: User, email: str) -> None:
+    """Mark ``email`` as the user's verified address in the allauth registry.
+
+    Called from the flows that prove mailbox ownership through an emailed link
+    (activation, confirmed email change). ``accounts.social_linking`` reads
+    these records when deciding whether a provider identity may be linked to
+    an existing account automatically.
+
+    :param user: Account whose address was verified.
+    :param email: The verified address.
+    :return: None.
+    """
+    normalized = normalize_email_lower(email)
+    if not normalized:
+        return
+
+    EmailAddress.objects.filter(user=user).delete()
+    try:
+        # Savepoint: requests run in a transaction (ATOMIC_REQUESTS), where an
+        # unguarded IntegrityError would poison the whole request.
+        with transaction.atomic():
+            EmailAddress.objects.create(user=user, email=normalized, verified=True, primary=True)
+    except IntegrityError:
+        # Another account already claims this address as verified. The account
+        # linking policy falls back to the password-based proof, so a missing
+        # record only makes it stricter, never more permissive.
+        logger.warning('Could not record verified email address', extra={'user_id': user.pk})
+
+
 def _decode_uid(uid: str) -> int | None:
     try:
         return int(force_str(urlsafe_base64_decode(uid)))
@@ -126,6 +159,10 @@ def finalize_account_deletion(
         user.set_unusable_password()
         user.save(update_fields=['email', 'first_name', 'last_name', 'is_active', 'password'])
         PublicProfile.objects.filter(user=user).update(public_display_name='')
+        # Provider identities and email records are personal data and are the
+        # only remaining way to sign in, so they go with the anonymization.
+        SocialAccount.objects.filter(user=user).delete()
+        EmailAddress.objects.filter(user=user).delete()
 
         ProjectMembership.objects.filter(user=user).delete()
         _ensure_remaining_projects_have_admin(project_ids=project_ids)
