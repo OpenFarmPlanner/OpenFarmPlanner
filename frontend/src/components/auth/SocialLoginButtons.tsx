@@ -38,7 +38,7 @@ const socialButtonSx = {
 };
 
 export default function SocialLoginButtons() {
-  const { t } = useTranslation('auth');
+  const { t, i18n } = useTranslation('auth');
   const location = useLocation();
   const [providers, setProviders] = useState<SocialProvider[]>([]);
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
@@ -70,6 +70,14 @@ export default function SocialLoginButtons() {
   if (providers.length === 0 && !redirectErrorCode) {
     return null;
   }
+
+  // Names the legal notice below the buttons by whichever providers this
+  // deployment actually has configured (just "Google", or "Google oder
+  // Microsoft" once both are set up), instead of hardcoding both names.
+  const providerNamesText = new Intl.ListFormat(i18n.language, {
+    style: 'long',
+    type: 'disjunction',
+  }).format(providers.map((provider) => provider.name));
 
   const handleStart = async (provider: SocialProvider): Promise<void> => {
     setError(null);
@@ -114,7 +122,7 @@ export default function SocialLoginButtons() {
       {providers.length > 0 ? (
         <>
           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-            {t('socialLogin.legalNoticePrefix')}
+            {t('socialLogin.legalNoticePrefix', { providers: providerNamesText })}
             <Link component={RouterLink} to="/nutzungsbedingungen" target="_blank" rel="noopener" sx={authLegalLinkSx}>
               {t('socialLogin.legalNoticeTermsLinkLabel')}
             </Link>

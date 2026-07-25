@@ -46,6 +46,25 @@ describe('SocialLoginButtons', () => {
     expect(screen.getByText('oder')).toBeInTheDocument();
   });
 
+  it('names only the configured provider in the legal notice when just Google is enabled', async () => {
+    getSocialProvidersMock.mockResolvedValue([providers[0]]);
+
+    renderButtons();
+
+    expect(await screen.findByText(/Bei der ersten Anmeldung über Google wird/)).toBeInTheDocument();
+    expect(screen.queryByText(/Microsoft/)).not.toBeInTheDocument();
+  });
+
+  it('names both providers in the legal notice once Google and Microsoft are enabled', async () => {
+    getSocialProvidersMock.mockResolvedValue(providers);
+
+    renderButtons();
+
+    expect(
+      await screen.findByText(/Bei der ersten Anmeldung über Google oder Microsoft wird/),
+    ).toBeInTheDocument();
+  });
+
   it('renders nothing when the deployment has no provider configured', async () => {
     getSocialProvidersMock.mockResolvedValue([]);
 
