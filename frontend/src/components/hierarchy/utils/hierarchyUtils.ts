@@ -88,6 +88,81 @@ const sortByConfig = <T extends Location | Field | Bed>(items: T[], sortConfig?:
   return sorted;
 };
 
+export interface HierarchyOrderSnapshot {
+  locationOrder: number[];
+  fieldOrder: number[];
+  bedOrder: number[];
+}
+
+/**
+ * Captures the id order that `sortByConfig` would currently produce for each
+ * entity type. Taking this snapshot only at explicit moments (initial load,
+ * reload, an explicit sort change) — instead of resorting live on every data
+ * change — is what lets `applyHierarchyOrderSnapshot` keep a row in place
+ * after a create/rename instead of jumping to its freshly-sorted position.
+ */
+export function computeHierarchyOrderSnapshot(
+  locations: Location[],
+  fields: Field[],
+  beds: Bed[],
+  sortConfig?: HierarchySortConfig,
+): HierarchyOrderSnapshot {
+  return {
+    locationOrder: sortByConfig(locations, sortConfig).map((location) => location.id!),
+    fieldOrder: sortByConfig(fields, sortConfig).map((field) => field.id!),
+    bedOrder: sortByConfig(beds, sortConfig).map((field) => field.id!),
+  };
+}
+
+const orderByStableIds = <T extends { id?: number }>(
+  entities: T[],
+  orderedIds: readonly number[],
+): T[] => {
+  if (orderedIds.length === 0) {
+    return entities;
+  }
+
+  const entitiesById = new Map(entities.map((entity) => [entity.id, entity]));
+  const orderedEntities: T[] = [];
+  orderedIds.forEach((id) => {
+    const entity = entitiesById.get(id);
+    if (entity) {
+      orderedEntities.push(entity);
+    }
+  });
+
+  const orderedIdSet = new Set(orderedIds);
+  const missingEntities = entities.filter(
+    (entity) => entity.id === undefined || !orderedIdSet.has(entity.id),
+  );
+  // Missing (new/unsnapshotted) entities go first, not last: once grouped by
+  // parent, that puts a newly created row as the first child of whichever
+  // location/field it belongs to — right next to the "add" action that
+  // created it — instead of at the bottom of a potentially long group.
+  return [...missingEntities, ...orderedEntities];
+};
+
+/**
+ * Reorders locations/fields/beds to match a previously captured order
+ * snapshot. Entities absent from the snapshot (a just-created row, still
+ * unsaved or saved after the last snapshot refresh) are placed first within
+ * their entity list, which — once grouped by parent — puts them at the top
+ * of their group (right next to the "add" action that created them) rather
+ * than at whatever position a live re-sort would compute.
+ */
+export function applyHierarchyOrderSnapshot(
+  locations: Location[],
+  fields: Field[],
+  beds: Bed[],
+  orderSnapshot: HierarchyOrderSnapshot,
+): { locations: Location[]; fields: Field[]; beds: Bed[] } {
+  return {
+    locations: orderByStableIds(locations, orderSnapshot.locationOrder),
+    fields: orderByStableIds(fields, orderSnapshot.fieldOrder),
+    beds: orderByStableIds(beds, orderSnapshot.bedOrder),
+  };
+}
+
 /**
  * Build hierarchy rows from flat data
  */
