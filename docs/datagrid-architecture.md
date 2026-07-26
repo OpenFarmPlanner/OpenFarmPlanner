@@ -291,7 +291,16 @@ grid," that's new work, not exposing something that already half-exists.
   (applies the default date edit cell and makes unsaved draft rows immune
   to active column filters), `getSortedRowIds`/`orderRowsByStableIds`
   (rows are kept in a stable client-side order rather than trusting the
-  grid's own post-edit row order).
+  grid's own post-edit row order). `DataGrid.tsx`'s `stableRowOrder` state is
+  only refreshed via `refreshStableRowOrder` on data fetch, an explicit sort
+  change, or a filter change — never as a side effect of a row being
+  created/saved — which is what stops a create/rename in a sorted table from
+  immediately jumping the row to its freshly-sorted position.
+  `FieldsBedsHierarchy.tsx` (see below) is not `EditableDataGrid` and doesn't
+  share this state, but `hierarchyUtils.ts`'s `computeHierarchyOrderSnapshot`/
+  `applyHierarchyOrderSnapshot` implement the same pattern independently for
+  its raw `<DataGrid>`, refreshed via `useHierarchyData`'s `fetchGeneration`
+  (foreground fetches only) and an explicit sort-model-change handler.
 - `handlers.ts` — `handleRowEditStop` deliberately suppresses MUI's default
   Escape-triggers-save-attempt behavior so Escape reliably means "cancel";
   see `AUTOSAVE_IMPLEMENTATION.md` for how the blur-triggered save itself

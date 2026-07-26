@@ -37,6 +37,15 @@ export interface HierarchyDataState {
   beds: Bed[];
   setBeds: Dispatch<SetStateAction<Bed[]>>;
   fetchData: (options?: FetchDataOptions) => Promise<void>;
+  /**
+   * Increments only after a foreground fetch (initial load, or a caller
+   * explicitly requesting `showLoading: true`) finishes applying its data —
+   * unlike the silent `showLoading: false` background refetch after a
+   * create/rename. Consumers that need to know "the table was freshly
+   * (re)loaded" (e.g. to refresh a stable sort-order snapshot) should watch
+   * this instead of `loading`/`hasLoaded`, which don't distinguish the two.
+   */
+  fetchGeneration: number;
 }
 
 export function useHierarchyData(enabled = true): HierarchyDataState {
@@ -47,6 +56,7 @@ export function useHierarchyData(enabled = true): HierarchyDataState {
   const [locations, setLocations] = useState<Location[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
+  const [fetchGeneration, setFetchGeneration] = useState(0);
   const latestFetchRequestRef = useRef(0);
 
   const fetchData = useCallback(async (options: FetchDataOptions = {}): Promise<void> => {
@@ -87,6 +97,9 @@ export function useHierarchyData(enabled = true): HierarchyDataState {
         mergePersistedWithTemporaryEntities(bds, currentBeds),
       );
       setError('');
+      if (showLoading) {
+        setFetchGeneration((generation) => generation + 1);
+      }
     } catch (err) {
       if (fetchRequestId !== latestFetchRequestRef.current) {
         return;
@@ -128,5 +141,6 @@ export function useHierarchyData(enabled = true): HierarchyDataState {
     setBeds,
     setFields,
     fetchData,
+    fetchGeneration,
   };
 }

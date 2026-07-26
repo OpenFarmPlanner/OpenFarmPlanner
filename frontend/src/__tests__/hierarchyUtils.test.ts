@@ -4,9 +4,11 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  applyHierarchyOrderSnapshot,
   buildHierarchyIndex,
   buildHierarchyRows,
   buildHierarchyRowsFromIndex,
+  computeHierarchyOrderSnapshot,
   createHierarchyRowsProjector,
 } from '../components/hierarchy/utils/hierarchyUtils';
 import type { Location, Field, Bed } from '../api/api';
@@ -605,5 +607,91 @@ describe('buildHierarchyRows', () => {
     }
 
     expect(projectedReferences.size).toBeLessThan(directReferences.size);
+  });
+});
+
+// Regression coverage for the "renaming/creating a row inside a sorted
+// hierarchy table shouldn't immediately jump it to its freshly-sorted
+// position" fix: the snapshot is only taken at explicit moments (initial
+// load, reload, an explicit sort change), and applying it to changed data in
+// between must leave renamed rows in place and put new rows at the end of
+// their group instead of resorting live.
+describe('hierarchy stable order snapshot', () => {
+  it('keeps a renamed field in its snapshotted position instead of resorting live', () => {
+    const fields = [
+      { id: 1, name: 'Acker', location: 1, area_sqm: 100 } as Field,
+      { id: 2, name: 'Feld', location: 1, area_sqm: 100 } as Field,
+      { id: 3, name: 'Wiese', location: 1, area_sqm: 100 } as Field,
+    ];
+    const snapshot = computeHierarchyOrderSnapshot([], fields, [], { field: 'name', direction: 'asc' });
+    expect(snapshot.fieldOrder).toEqual([1, 2, 3]);
+
+    // Renaming "Acker" to "Zoo" would sort it last alphabetically, but the
+    // snapshot wasn't refreshed, so it must stay first.
+    const renamedFields = [
+      { id: 1, name: 'Zoo', location: 1, area_sqm: 100 } as Field,
+      { id: 2, name: 'Feld', location: 1, area_sqm: 100 } as Field,
+      { id: 3, name: 'Wiese', location: 1, area_sqm: 100 } as Field,
+    ];
+    const ordered = applyHierarchyOrderSnapshot([], renamedFields, [], snapshot);
+    expect(ordered.fields.map((field) => field.id)).toEqual([1, 2, 3]);
+  });
+
+  it('appends a newly created bed at the end of its group instead of at its sorted position', () => {
+    const beds = [
+      { id: 21, name: 'Beet B', field: 10 } as Bed,
+      { id: 22, name: 'Beet D', field: 10 } as Bed,
+    ];
+    const snapshot = computeHierarchyOrderSnapshot([], [], beds, { field: 'name', direction: 'asc' });
+    expect(snapshot.bedOrder).toEqual([21, 22]);
+
+    // A new "Acker"-style bed is prepended to the raw array (as
+    // useBedOperations.addBed does) and would sort first alphabetically —
+    // it must still render at the end of the group since it's absent from
+    // the snapshot.
+    const bedsWithNewDraft = [
+      { id: -1700000000000, name: 'Acker', field: 10 } as Bed,
+      ...beds,
+    ];
+    const ordered = applyHierarchyOrderSnapshot([], [], bedsWithNewDraft, snapshot);
+    expect(ordered.beds.map((bed) => bed.id)).toEqual([21, 22, -1700000000000]);
+  });
+
+  it('drops an id that no longer exists after a snapshot without erroring', () => {
+    const snapshot = computeHierarchyOrderSnapshot(
+      [],
+      [],
+      [{ id: 21, name: 'Beet A', field: 10 } as Bed, { id: 22, name: 'Beet B', field: 10 } as Bed],
+      { field: 'name', direction: 'asc' },
+    );
+
+    const remainingBeds = [{ id: 22, name: 'Beet B', field: 10 } as Bed];
+    const ordered = applyHierarchyOrderSnapshot([], [], remainingBeds, snapshot);
+    expect(ordered.beds.map((bed) => bed.id)).toEqual([22]);
+  });
+
+  it('re-sorts to the current values when a fresh snapshot is taken (explicit sort / reload)', () => {
+    const fields = [
+      { id: 1, name: 'Zoo', location: 1, area_sqm: 100 } as Field,
+      { id: 2, name: 'Feld', location: 1, area_sqm: 100 } as Field,
+    ];
+    const freshSnapshot = computeHierarchyOrderSnapshot([], fields, [], { field: 'name', direction: 'asc' });
+    const ordered = applyHierarchyOrderSnapshot([], fields, [], freshSnapshot);
+    expect(ordered.fields.map((field) => field.name)).toEqual(['Feld', 'Zoo']);
+  });
+
+  it('preserves per-parent grouping order when reordering fields across multiple locations', () => {
+    const fields = [
+      { id: 1, name: 'Nord', location: 1, area_sqm: 100 } as Field,
+      { id: 2, name: 'Sued', location: 2, area_sqm: 100 } as Field,
+      { id: 3, name: 'Ost', location: 1, area_sqm: 100 } as Field,
+    ];
+    const snapshot = computeHierarchyOrderSnapshot([], fields, [], { field: 'name', direction: 'asc' });
+    // Global alpha order: Nord(1), Ost(3), Sued(2)
+    expect(snapshot.fieldOrder).toEqual([1, 3, 2]);
+
+    const ordered = applyHierarchyOrderSnapshot([], fields, [], snapshot);
+    const location1Fields = ordered.fields.filter((field) => field.location === 1).map((f) => f.id);
+    expect(location1Fields).toEqual([1, 3]);
   });
 });
