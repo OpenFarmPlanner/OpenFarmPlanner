@@ -100,6 +100,11 @@ export interface EditableDataGridProps<T extends EditableRow> {
   onRowsStateChange?: (rows: T[]) => void;
   onLoadStateChange?: (state: { loading: boolean; dataFetched: boolean; error: string }) => void;
   onBeforeSaveRow?: (row: T) => boolean | Partial<T> | Promise<boolean | Partial<T>>;
+  /**
+   * Determines whether an unsaved new row can be discarded on blur without
+   * running save validation.
+   */
+  isNewRowEmpty?: (row: T) => boolean;
   isSaveErrorHandled?: (error: unknown) => boolean;
   surfaceSizing?: 'contentFit' | 'fullWorkspace' | 'compact';
   paginationPageSizeOptions?: number[];

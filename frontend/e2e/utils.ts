@@ -52,7 +52,7 @@ export async function setupUserWithoutProjects(
 // so one resubmit is attempted before failing the test. Anything else — e.g.
 // a slow but ongoing navigation where the form is already gone — rethrows.
 export async function submitLoginFormAndAwaitApp(page: Page): Promise<void> {
-  const submit = page.getByRole('button', { name: 'Anmelden' });
+  const submit = page.getByRole('button', { name: 'Anmelden', exact: true });
   await submit.click();
   try {
     await expect(page).toHaveURL(/\/app\//, { timeout: 10_000 });

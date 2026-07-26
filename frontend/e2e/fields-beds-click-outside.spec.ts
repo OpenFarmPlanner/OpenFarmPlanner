@@ -3,7 +3,7 @@ import { loginWithDeterministicProject } from './utils';
 
 test.describe('fields-beds row edit exit behavior', () => {
   test.beforeEach(async ({ page, request }) => {
-    await loginWithDeterministicProject(page, request, 'fields-click-outside-0');
+    await loginWithDeterministicProject(page, request, 'fields-click-outside-0', { loginAsAdmin: true });
     await page.goto('/app/fields-beds');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(500);

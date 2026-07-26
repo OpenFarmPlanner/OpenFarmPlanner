@@ -4,7 +4,7 @@
  * Provides a numeric input for area editing with optional normalization on blur.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
@@ -35,14 +35,9 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
   const [inputValue, setInputValue] = useState<string>(
     () => getInitialInputValue(value, fallbackValue, locale)
   );
-
-
-  useEffect(() => {
-    if (hasFocus) {
-      return;
-    }
-    setInputValue(getInitialInputValue(value, fallbackValue, locale));
-  }, [fallbackValue, hasFocus, locale, value]);
+  const displayedInputValue = hasFocus
+    ? inputValue
+    : getInitialInputValue(value, fallbackValue, locale);
 
   const selectAll = useCallback((input: HTMLInputElement): void => {
     input.select();
@@ -69,7 +64,7 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
       type="text"
       inputMode="decimal"
       inputRef={inputRef}
-      value={inputValue}
+      value={displayedInputValue}
       onChange={handleChange}
       size="small"
       fullWidth

@@ -36,7 +36,7 @@ import {
   getRowIdFromElement,
   isEnterSaveInputTarget,
 } from './domEventTargets';
-import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel } from '@mui/x-data-grid';
+import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel, GridEventListener } from '@mui/x-data-grid';
 import { Box, Alert, IconButton, Chip, Button, Tooltip, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -95,6 +95,7 @@ import {
 } from './continuousScrollLayout';
 import {
   getSortedRowIds,
+  isEmptyNewDraftRow,
   isSaveBlockedError,
   isUnsavedDraftRow,
   orderRowsByStableIds,
@@ -177,6 +178,7 @@ export function EditableDataGrid<T extends EditableRow>({
   onRowsStateChange,
   onLoadStateChange,
   onBeforeSaveRow,
+  isNewRowEmpty = isEmptyNewDraftRow,
   isSaveErrorHandled,
   surfaceSizing,
   paginationPageSizeOptions,
@@ -1068,6 +1070,54 @@ export function EditableDataGrid<T extends EditableRow>({
     return mergeVisibleEditInputValues(rowId, draftRow);
   }, [getDraftRow, mergeVisibleEditInputValues, rowsById, waitForPendingEditCellUpdates]);
 
+  const getCurrentEditableRow = useCallback((rowId: GridRowId): T | null => {
+    const draftRow = getDraftRow(rowId);
+    if (draftRow) {
+      return mergeVisibleEditInputValues(rowId, draftRow);
+    }
+    return rowsById.get(String(rowId)) as T | undefined ?? null;
+  }, [getDraftRow, mergeVisibleEditInputValues, rowsById]);
+
+  const hasVisibleEditInputValue = useCallback((rowId: GridRowId): boolean => {
+    const root = gridApiRef.current?.rootElementRef?.current;
+    if (!root) {
+      return false;
+    }
+    const rowElement = root.querySelector<HTMLElement>(
+      `[role="row"][data-id="${cssEscape(String(rowId))}"]`,
+    );
+    if (!rowElement) {
+      return false;
+    }
+
+    return Array.from(
+      rowElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+        '.MuiDataGrid-cell--editing input:not([type="hidden"]):not([aria-hidden="true"]), .MuiDataGrid-cell--editing textarea',
+      ),
+    ).some((input) => input.value.trim().length > 0);
+  }, [gridApiRef]);
+
+  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
+    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      const currentRow = getCurrentEditableRow(params.id);
+      if (
+        currentRow &&
+        isUnsavedDraftRow(currentRow) &&
+        isNewRowEmpty(currentRow) &&
+        !hasVisibleEditInputValue(params.id)
+      ) {
+        event.defaultMuiPrevented = true;
+        handleDiscardRowChanges(params.id);
+        return;
+      }
+    }
+
+    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
+      handleDiscardRowChanges(params.id);
+    }
+    handleRowEditStop(params, event, details);
+  }, [getCurrentEditableRow, handleDiscardRowChanges, hasVisibleEditInputValue, isNewRowEmpty]);
+
   const commitEditedRowDraftForKeyboardNavigation = useCallback((
     rowId: GridRowId,
     options: { syncRows: boolean },
@@ -1194,7 +1244,7 @@ export function EditableDataGrid<T extends EditableRow>({
       const errorMessage = extractApiErrorMessage(err, t, saveErrorMessage);
       setError(errorMessage);
       console.error('Error saving data:', err);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: err });
     }
   }, [
     api,
@@ -2292,12 +2342,7 @@ export function EditableDataGrid<T extends EditableRow>({
           onColumnVisibilityModelChange={onColumnVisibilityModelChange}
           rowModesModel={rowModesModel}
           onRowModesModelChange={setRowModesModel}
-          onRowEditStop={(params, event, details) => {
-            if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
-              handleDiscardRowChanges(params.id);
-            }
-            handleRowEditStop(params, event, details);
-          }}
+          onRowEditStop={handleEditableRowEditStop}
           processRowUpdate={processRowUpdate}
           onProcessRowUpdateError={handleProcessRowUpdateError}
           loading={loading}

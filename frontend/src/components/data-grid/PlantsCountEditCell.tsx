@@ -4,7 +4,7 @@
  * Keeps raw input text during editing and lets the save flow normalize it.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
@@ -24,13 +24,9 @@ export function PlantsCountEditCell(props: PlantsCountEditCellProps) {
   const [inputValue, setInputValue] = useState<string>(
     typeof value === 'number' && !isNaN(value) ? value.toString() : ''
   );
-
-  useEffect(() => {
-    if (hasFocus) {
-      return;
-    }
-    setInputValue(typeof value === 'number' && !isNaN(value) ? value.toString() : typeof value === 'string' ? value : '');
-  }, [hasFocus, value]);
+  const displayedInputValue = hasFocus
+    ? inputValue
+    : typeof value === 'number' && !isNaN(value) ? value.toString() : typeof value === 'string' ? value : '';
 
   const selectAll = useCallback((input: HTMLInputElement): void => {
     input.select();
@@ -54,7 +50,7 @@ export function PlantsCountEditCell(props: PlantsCountEditCellProps) {
       type="text"
       inputMode="numeric"
       inputRef={inputRef}
-      value={inputValue}
+      value={displayedInputValue}
       onChange={handleChange}
       placeholder={placeholder}
       slotProps={{

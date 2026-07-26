@@ -751,7 +751,7 @@ const GanttChart = forwardRef<GanttChartRef, GanttChartProps>(
       if (currentIndex < 0) return 0;
 
       // Calculate the position of "now" marker
-      let nowPosition = 0;
+      let nowPosition: number;
 
       switch (mode) {
         case ViewMode.MINUTE: {

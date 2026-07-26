@@ -148,9 +148,9 @@ describe('ProjectSelectionPage', () => {
     render(<MemoryRouter initialEntries={['/app/project-selection?trash=1']}><ProjectSelectionPage /></MemoryRouter>);
 
     expect(await screen.findByRole('heading', { name: 'Papierkorb' })).toBeInTheDocument();
+    expect(await screen.findByText('Gelöschtes Projekt')).toBeInTheDocument();
     expect(screen.getByText('Gelöschte Projekte werden nach 30 Tagen automatisch endgültig gelöscht.')).toBeInTheDocument();
     expect(screen.queryByText('Demo-Projekt ausprobieren')).not.toBeInTheDocument();
-    expect(await screen.findByText('Gelöschtes Projekt')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
 

@@ -107,11 +107,10 @@ export function useHierarchyData(enabled = true): HierarchyDataState {
       setError(t('errors.load'));
       console.error('Error fetching data:', err);
     } finally {
-      if (fetchRequestId !== latestFetchRequestRef.current) {
-        return;
+      if (fetchRequestId === latestFetchRequestRef.current) {
+        setHasLoaded(true);
+        setLoading(false);
       }
-      setHasLoaded(true);
-      setLoading(false);
     }
   }, [enabled, t]);
 

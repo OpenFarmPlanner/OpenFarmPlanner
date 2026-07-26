@@ -41,12 +41,19 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { createServer, preview } from 'vite';
 import type { PublicRoute } from './prerenderSeo.ts';
 
 interface PrerenderSeoModule {
   PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[];
   applyHeadTags: (html: string, route: PublicRoute, env: NodeJS.ProcessEnv) => string;
+}
+
+interface PrerenderedPage {
+  routePath: string;
+  outputPath: string;
+  html: string;
 }
 
 const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -89,6 +96,30 @@ async function loadSeoHelpers(): Promise<PrerenderSeoModule> {
   }
 }
 
+async function serializeCssInJsRules(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const styleElement of document.querySelectorAll<HTMLStyleElement>('style[data-emotion]')) {
+      if (styleElement.textContent?.trim()) {
+        continue;
+      }
+
+      const sheet = styleElement.sheet;
+      if (!sheet) {
+        continue;
+      }
+
+      try {
+        styleElement.textContent = Array.from(sheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join('\n');
+      } catch {
+        // Ignore inaccessible sheets. Emotion/MUI inserts same-document style
+        // sheets, so this should not happen for the styles we need.
+      }
+    }
+  });
+}
+
 async function main(): Promise<void> {
   const distDir = path.resolve(rootDir, outDir);
   const indexHtmlPath = path.join(distDir, 'index.html');
@@ -119,18 +150,28 @@ async function main(): Promise<void> {
     const browser = await chromium.launch({ channel: 'chrome' });
     try {
       const page = await browser.newPage();
+      const prerenderedPages: PrerenderedPage[] = [];
       for (const route of PUBLIC_INDEXABLE_ROUTES) {
         const targetUrl = new URL(route.path.replace(/^\//, ''), localUrl).toString();
         await page.goto(targetUrl, { waitUntil: 'networkidle' });
         await page.waitForSelector('#root h1', { timeout: 10_000 });
 
+        await serializeCssInJsRules(page);
         const html = await page.content();
         const finalHtml = applyHeadTags(html, route, process.env);
 
-        const outputPath = outputPathFor(distDir, route.path);
+        prerenderedPages.push({
+          routePath: route.path,
+          outputPath: outputPathFor(distDir, route.path),
+          html: finalHtml,
+        });
+      }
+
+      for (const prerenderedPage of prerenderedPages) {
+        const outputPath = prerenderedPage.outputPath;
         await mkdir(path.dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, finalHtml, 'utf-8');
-        console.log(`prerender: ${route.path} -> ${path.relative(distDir, outputPath)}`);
+        await writeFile(outputPath, prerenderedPage.html, 'utf-8');
+        console.log(`prerender: ${prerenderedPage.routePath} -> ${path.relative(distDir, outputPath)}`);
       }
     } finally {
       await browser.close();

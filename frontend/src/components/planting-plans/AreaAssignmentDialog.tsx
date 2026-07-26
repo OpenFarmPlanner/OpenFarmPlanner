@@ -67,6 +67,45 @@ const normalizeState = (
   };
 };
 
+const withDefaultSingleLocation = (
+  state: AssignmentState,
+  hasSingleLocation: boolean,
+  selectableLocations: Location[],
+): AssignmentState => {
+  if (!hasSingleLocation || selectableLocations[0]?.id === undefined) {
+    return state;
+  }
+
+  return {
+    ...state,
+    locationId: selectableLocations[0].id,
+  };
+};
+
+const clampStateToAvailableHierarchy = (
+  state: AssignmentState,
+  selectableLocations: Location[],
+  fieldsByLocationId: Map<number, Field[]>,
+  bedsByFieldId: Map<number, BedWithHierarchy[]>,
+): AssignmentState => {
+  const locationStillValid = state.locationId !== null
+    && selectableLocations.some((item) => item.id === state.locationId);
+  const nextLocationId = locationStillValid ? state.locationId : null;
+  const nextFields = nextLocationId ? fieldsByLocationId.get(nextLocationId) ?? [] : [];
+  const fieldStillValid = state.fieldId !== null
+    && nextFields.some((item) => item.id === state.fieldId);
+  const nextFieldId = fieldStillValid ? state.fieldId : null;
+  const nextBeds = nextFieldId ? bedsByFieldId.get(nextFieldId) ?? [] : [];
+  const bedStillValid = state.bedId !== null
+    && nextBeds.some((item) => item.id === state.bedId);
+
+  return {
+    locationId: nextLocationId,
+    fieldId: nextFieldId,
+    bedId: bedStillValid ? state.bedId : null,
+  };
+};
+
 function AreaAssignmentDialogComponent({
   bedId,
   beds,
@@ -155,71 +194,38 @@ function AreaAssignmentDialogComponent({
 
   const hasSingleLocation = selectableLocations.length <= 1;
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  const getOpeningDraft = useCallback((): AssignmentState => (
+    withDefaultSingleLocation(
+      normalizeState(bedId, bedsWithLocation),
+      hasSingleLocation,
+      selectableLocations,
+    )
+  ), [bedId, bedsWithLocation, hasSingleLocation, selectableLocations]);
 
-    const nextState = normalizeState(bedId, bedsWithLocation);
-    if (hasSingleLocation && selectableLocations[0]?.id !== undefined) {
-      nextState.locationId = selectableLocations[0].id;
-    }
-    setDraft(nextState);
-  }, [bedId, bedsWithLocation, hasSingleLocation, isOpen, selectableLocations]);
+  const activeDraft = useMemo(() => (
+    isOpen
+      ? clampStateToAvailableHierarchy(draft, selectableLocations, fieldsByLocationId, bedsByFieldId)
+      : draft
+  ), [bedsByFieldId, draft, fieldsByLocationId, isOpen, selectableLocations]);
 
   const selectableFields = useMemo(() => {
-    if (!draft.locationId) {
+    if (!activeDraft.locationId) {
       return [];
     }
-    return fieldsByLocationId.get(draft.locationId) ?? [];
-  }, [draft.locationId, fieldsByLocationId]);
+    return fieldsByLocationId.get(activeDraft.locationId) ?? [];
+  }, [activeDraft.locationId, fieldsByLocationId]);
 
   const selectableBeds = useMemo(() => {
-    if (!draft.fieldId) {
+    if (!activeDraft.fieldId) {
       return [];
     }
-    return bedsByFieldId.get(draft.fieldId) ?? [];
-  }, [bedsByFieldId, draft.fieldId]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    setDraft((previous) => {
-      const locationStillValid = previous.locationId !== null
-        && selectableLocations.some((item) => item.id === previous.locationId);
-      const nextLocationId = locationStillValid ? previous.locationId : null;
-      const nextFields = nextLocationId ? fieldsByLocationId.get(nextLocationId) ?? [] : [];
-      const fieldStillValid = previous.fieldId !== null
-        && nextFields.some((item) => item.id === previous.fieldId);
-      const nextFieldId = fieldStillValid ? previous.fieldId : null;
-      const nextBeds = nextFieldId ? bedsByFieldId.get(nextFieldId) ?? [] : [];
-      const bedStillValid = previous.bedId !== null
-        && nextBeds.some((item) => item.id === previous.bedId);
-
-      const nextState = {
-        locationId: nextLocationId,
-        fieldId: nextFieldId,
-        bedId: bedStillValid ? previous.bedId : null,
-      };
-
-      if (
-        nextState.locationId === previous.locationId
-        && nextState.fieldId === previous.fieldId
-        && nextState.bedId === previous.bedId
-      ) {
-        return previous;
-      }
-
-      return nextState;
-    });
-  }, [bedsByFieldId, fieldsByLocationId, isOpen, selectableLocations]);
+    return bedsByFieldId.get(activeDraft.fieldId) ?? [];
+  }, [activeDraft.fieldId, bedsByFieldId]);
 
   const handleLocationChange = useCallback((value: number): void => {
     const nextFields = fieldsByLocationId.get(value) ?? [];
-    const selectedFieldId = draft.fieldId && nextFields.some((item) => item.id === draft.fieldId)
-      ? draft.fieldId
+    const selectedFieldId = activeDraft.fieldId && nextFields.some((item) => item.id === activeDraft.fieldId)
+      ? activeDraft.fieldId
       : null;
 
     setDraft({
@@ -227,38 +233,38 @@ function AreaAssignmentDialogComponent({
       fieldId: selectedFieldId,
       bedId: null,
     });
-  }, [draft.fieldId, fieldsByLocationId]);
+  }, [activeDraft.fieldId, fieldsByLocationId]);
 
   const handleFieldChange = useCallback((value: number): void => {
-    if (!draft.locationId) {
+    if (!activeDraft.locationId) {
       return;
     }
 
     const selectedField = fieldsByLocationId
-      .get(draft.locationId)
+      .get(activeDraft.locationId)
       ?.find((item) => item.id === value);
     if (!selectedField) {
       return;
     }
 
     const nextBeds = bedsByFieldId.get(value) ?? [];
-    const selectedBedId = draft.bedId && nextBeds.some((item) => item.id === draft.bedId)
-      ? draft.bedId
+    const selectedBedId = activeDraft.bedId && nextBeds.some((item) => item.id === activeDraft.bedId)
+      ? activeDraft.bedId
       : null;
 
     setDraft({
-      locationId: draft.locationId,
+      locationId: activeDraft.locationId,
       fieldId: value,
       bedId: selectedBedId,
     });
-  }, [bedsByFieldId, draft.bedId, draft.locationId, fieldsByLocationId]);
+  }, [activeDraft.bedId, activeDraft.locationId, bedsByFieldId, fieldsByLocationId]);
 
   const handleBedChange = useCallback((value: number): void => {
-    if (!draft.fieldId) {
+    if (!activeDraft.fieldId) {
       return;
     }
 
-    const selectedBed = (bedsByFieldId.get(draft.fieldId) ?? []).find((item) => item.id === value);
+    const selectedBed = (bedsByFieldId.get(activeDraft.fieldId) ?? []).find((item) => item.id === value);
     if (!selectedBed) {
       return;
     }
@@ -267,7 +273,7 @@ function AreaAssignmentDialogComponent({
       ...previous,
       bedId: value,
     }));
-  }, [bedsByFieldId, draft.fieldId]);
+  }, [activeDraft.fieldId, bedsByFieldId]);
 
   const renderBedLabel = (item: BedWithHierarchy): string => {
     const areaSqm = toNumericValue(item.area_sqm);
@@ -277,15 +283,15 @@ function AreaAssignmentDialogComponent({
     return label;
   };
 
-  const isFieldSelectDisabled = !draft.locationId || selectableFields.length === 0;
-  const isBedSelectDisabled = !draft.fieldId || selectableBeds.length === 0;
-  const isApplyDisabled = !draft.bedId || bedsWithLocation.length === 0;
+  const isFieldSelectDisabled = !activeDraft.locationId || selectableFields.length === 0;
+  const isBedSelectDisabled = !activeDraft.fieldId || selectableBeds.length === 0;
+  const isApplyDisabled = !activeDraft.bedId || bedsWithLocation.length === 0;
 
   const handleApply = async (): Promise<void> => {
-    if (isApplyDisabled || !draft.bedId) {
+    if (isApplyDisabled || !activeDraft.bedId) {
       return;
     }
-    await onApply(draft.bedId);
+    await onApply(activeDraft.bedId);
     setIsOpen(false);
   };
 
@@ -372,6 +378,11 @@ function AreaAssignmentDialogComponent({
     setIsOpen(false);
   };
 
+  const handleOpen = (): void => {
+    setDraft(getOpeningDraft());
+    setIsOpen(true);
+  };
+
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -390,12 +401,12 @@ function AreaAssignmentDialogComponent({
         role="button"
         tabIndex={hasFocus ? 0 : -1}
         aria-label={t('areaAssignment.editButton')}
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpen}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             event.stopPropagation();
-            setIsOpen(true);
+            handleOpen();
           }
         }}
         sx={{
@@ -424,7 +435,7 @@ function AreaAssignmentDialogComponent({
           size="small"
           tabIndex={-1}
           aria-hidden
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
         >
           <EditIcon fontSize="small" />
         </IconButton>
@@ -457,7 +468,7 @@ function AreaAssignmentDialogComponent({
                     ref={locationSelectRef}
                     id="assignment-location"
                     labelId="assignment-location-label"
-                    value={draft.locationId ?? ''}
+                    value={activeDraft.locationId ?? ''}
                     label={t('columns.location')}
                     disabled={selectableLocations.length === 0}
                     onOpen={() => setOpenSelect('location')}
@@ -480,7 +491,7 @@ function AreaAssignmentDialogComponent({
                     ref={fieldSelectRef}
                     id="assignment-field"
                     labelId="assignment-field-label"
-                    value={draft.fieldId ?? ''}
+                    value={activeDraft.fieldId ?? ''}
                     label={t('columns.field')}
                     disabled={isFieldSelectDisabled}
                     onOpen={() => setOpenSelect('field')}
@@ -503,7 +514,7 @@ function AreaAssignmentDialogComponent({
                     ref={bedSelectRef}
                     id="assignment-bed"
                     labelId="assignment-bed-label"
-                    value={draft.bedId ?? ''}
+                    value={activeDraft.bedId ?? ''}
                     label={t('columns.bed')}
                     disabled={isBedSelectDisabled}
                     onOpen={() => setOpenSelect('bed')}

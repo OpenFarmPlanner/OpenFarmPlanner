@@ -17,7 +17,10 @@ export function useKeyboardNavigation(): void {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPathnameRef = useRef(location.pathname);
-  currentPathnameRef.current = location.pathname;
+
+  useEffect(() => {
+    currentPathnameRef.current = location.pathname;
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {

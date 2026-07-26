@@ -71,12 +71,15 @@ always runs right after `vite build`):
    `PUBLIC_INDEXABLE_ROUTES` in a real headless browser and capture the fully
    client-rendered DOM — no backend is required, since none of these pages
    need to fetch data to render their initial content;
-3. normalizes `<head>` (title, canonical, robots, description, OG, Twitter) to
+3. serializes the CSS-in-JS rules that Emotion/MUI inserted through the
+   browser CSSOM back into the prerendered `<style data-emotion>` tags, so the
+   first paint is styled even before the JavaScript bundle boots;
+4. normalizes `<head>` (title, canonical, robots, description, OG, Twitter) to
    the route-specific values from `seoConfig.ts`/`seoAssets.ts` — the same
    source `RouteSeo` and `seoPlugin` already use, via the pure helper
    [`frontend/build/prerenderSeo.ts`](../frontend/build/prerenderSeo.ts) — so
    build-time and runtime tags never disagree or duplicate;
-4. writes the result as a real file per route: `dist/index.html`,
+5. writes the result as a real file per route: `dist/index.html`,
    `dist/impressum/index.html`, `dist/datenschutz/index.html`,
    `dist/nutzungsbedingungen/index.html`.
 

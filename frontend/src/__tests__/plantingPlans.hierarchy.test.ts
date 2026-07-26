@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { Bed, Field } from "../api/types";
 import {
-  buildAreaColumnHeaderLabel,
-  buildBedDisplayLabel,
   collectHierarchyAvailability,
   filterBedOptionsBySelection,
   filterFieldOptionsByLocation,
+} from "../components/planting-plans/areaHierarchySelection";
+import {
+  buildAreaColumnHeaderLabel,
+  buildBedDisplayLabel,
   normalizeSelectionAfterBedChange,
   normalizeSelectionAfterFieldChange,
   normalizeSelectionAfterLocationChange,
   resolveBedCellValue,
-} from "../pages/PlantingPlans";
+} from "../pages/plantingPlansUtils";
 
 const fields: Field[] = [
   { id: 10, name: "Parzelle Nord", location: 1 },

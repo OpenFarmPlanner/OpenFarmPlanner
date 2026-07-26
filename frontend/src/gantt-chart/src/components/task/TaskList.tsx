@@ -8,6 +8,7 @@ import {
   TREE_INDENT_PX,
 } from "../../utils";
 import { ContextMenuIndicator } from "../../../../components/contextMenu/ContextMenuIndicator";
+import { OverflowTooltip } from "../../../../components/OverflowTooltip";
 import { useLongPress } from "../../../../utils/contextMenu";
 
 /**
@@ -189,15 +190,18 @@ const TaskList: React.FC<TaskListProps> = ({
                   />
                 )}
 
-                <span
-                  className="rmg-task-group-name rmg-task-group-tree-name"
-                  data-rmg-component="task-group-name"
+                <OverflowTooltip
                   title={taskGroup.emptyRowLabel
                     ? `${displayName} — ${taskGroup.emptyRowLabel}`
                     : displayName}
                 >
-                  {displayName}
-                </span>
+                  <span
+                    className="rmg-task-group-name rmg-task-group-tree-name"
+                    data-rmg-component="task-group-name"
+                  >
+                    {displayName}
+                  </span>
+                </OverflowTooltip>
               </div>
 
               {showTaskCount && taskGroup.tasks && taskGroup.tasks.length > 0 && (
@@ -254,43 +258,44 @@ const TaskList: React.FC<TaskListProps> = ({
                 <div
                   className="rmg-task-group-hierarchy"
                   data-rmg-component="task-group-hierarchy"
-                  title={fullLabelTitle}
                 >
                   {hierarchyLevels?.map((level, index) => (
-                    <div
-                      key={`task-group-${taskGroup.id}-level-${index}`}
-                      className={`rmg-task-group-level rmg-task-group-level-depth-${index}`}
-                      title={fullLabelTitle || level}
-                      data-rmg-component={
-                        index === hierarchyLevels.length - 1
-                          ? "task-group-name"
-                          : undefined
-                      }
-                    >
-                      {level}
-                    </div>
+                    <OverflowTooltip key={`task-group-${taskGroup.id}-level-${index}`} title={fullLabelTitle || level}>
+                      <div
+                        className={`rmg-task-group-level rmg-task-group-level-depth-${index}`}
+                        data-rmg-component={
+                          index === hierarchyLevels.length - 1
+                            ? "task-group-name"
+                            : undefined
+                        }
+                      >
+                        {level}
+                      </div>
+                    </OverflowTooltip>
                   ))}
                 </div>
               ) : (
-                <div
-                  className="rmg-task-group-name"
-                  data-rmg-component="task-group-name"
-                  title={fullLabelTitle}
-                >
-                  {taskGroup.name || "Unnamed"}
-                </div>
+                <OverflowTooltip title={fullLabelTitle}>
+                  <div
+                    className="rmg-task-group-name"
+                    data-rmg-component="task-group-name"
+                  >
+                    {taskGroup.name || "Unnamed"}
+                  </div>
+                </OverflowTooltip>
               )}
             </div>
 
             {/* Description (if available and enabled) */}
             {showDescription && taskGroup.description && !hasHierarchy && (
-              <div
-                className="rmg-task-group-description"
-                data-rmg-component="task-group-description"
-                title={taskGroup.description}
-              >
-                {taskGroup.description}
-              </div>
+              <OverflowTooltip title={taskGroup.description}>
+                <div
+                  className="rmg-task-group-description"
+                  data-rmg-component="task-group-description"
+                >
+                  {taskGroup.description}
+                </div>
+              </OverflowTooltip>
             )}
 
             {/* Task count (if enabled) */}
