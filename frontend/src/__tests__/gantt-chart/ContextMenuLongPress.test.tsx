@@ -125,6 +125,57 @@ describe("Gantt chart context-menu long press (occupancy + seedling views)", () 
     expect(onTaskContextMenu).not.toHaveBeenCalled();
   });
 
+  it("suppresses the trailing click after a task bar long press", () => {
+    const onTaskContextMenu = vi.fn();
+    render(
+      <GanttChart
+        tasks={tasksWithBar}
+        currentDate={currentDate}
+        viewMode={ViewMode.MONTH}
+        viewModes={false}
+        onTaskContextMenu={onTaskContextMenu}
+      />,
+    );
+    const bar = screen.getByTestId("task-task-1");
+
+    vi.useFakeTimers();
+    fireEvent.touchStart(bar, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS);
+    });
+    expect(onTaskContextMenu).toHaveBeenCalledTimes(1);
+
+    // A real browser would synthesize a trailing click from this touchend
+    // unless its default is prevented — jsdom doesn't perform that
+    // synthesis itself, so defaultPrevented is the testable proxy here.
+    const touchEndEvent = new TouchEvent("touchend", { bubbles: true, cancelable: true });
+    fireEvent(bar, touchEndEvent);
+
+    expect(touchEndEvent.defaultPrevented).toBe(true);
+  });
+
+  it("does not suppress the trailing click on a plain short tap of a task bar", () => {
+    const onTaskContextMenu = vi.fn();
+    render(
+      <GanttChart
+        tasks={tasksWithBar}
+        currentDate={currentDate}
+        viewMode={ViewMode.MONTH}
+        viewModes={false}
+        onTaskContextMenu={onTaskContextMenu}
+      />,
+    );
+    const bar = screen.getByTestId("task-task-1");
+
+    vi.useFakeTimers();
+    fireEvent.touchStart(bar, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+    const touchEndEvent = new TouchEvent("touchend", { bubbles: true, cancelable: true });
+    fireEvent(bar, touchEndEvent);
+
+    expect(onTaskContextMenu).not.toHaveBeenCalled();
+    expect(touchEndEvent.defaultPrevented).toBe(false);
+  });
+
   it("keeps desktop right-click on a task bar working unchanged", () => {
     const onTaskContextMenu = vi.fn();
     render(

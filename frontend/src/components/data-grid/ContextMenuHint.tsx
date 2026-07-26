@@ -1,8 +1,10 @@
 import CloseIcon from '@mui/icons-material/Close';
 import MouseOutlinedIcon from '@mui/icons-material/MouseOutlined';
+import TouchAppOutlinedIcon from '@mui/icons-material/TouchAppOutlined';
 import { Box, IconButton, Typography, useMediaQuery, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../../i18n';
+import { useIsCoarsePointer } from '../../utils/contextMenu';
 
 interface ContextMenuHintProps {
   message: ReactNode;
@@ -11,6 +13,14 @@ interface ContextMenuHintProps {
   compact?: boolean;
   prominent?: boolean;
   sx?: SxProps<Theme>;
+  /**
+   * 'desktop' (default) is the right-click hint, shown only on a fine
+   * (mouse/trackpad) pointer. 'touch' is the long-press hint, shown only on
+   * a coarse (touch) pointer — the two are mutually exclusive by device, so
+   * a page can render both unconditionally and exactly one (or neither, if
+   * already dismissed) ever appears.
+   */
+  variant?: 'desktop' | 'touch';
 }
 
 export function ContextMenuHint({
@@ -20,11 +30,17 @@ export function ContextMenuHint({
   compact = false,
   prominent = false,
   sx,
+  variant = 'desktop',
 }: ContextMenuHintProps) {
   const { t } = useTranslation('common');
-  const isTouchLikePointer = useMediaQuery('(pointer: coarse)');
+  const isCoarsePointer = useIsCoarsePointer();
+  // Desktop kept its original (pointer: fine) and narrow-viewport check —
+  // matching the discovery-hint gate in useContextMenuHint — the touch
+  // variant is new and relies purely on pointer capability.
   const isMobileViewport = useMediaQuery('(max-width:900px)');
-  const shouldHideHint = isTouchLikePointer || isMobileViewport;
+  const shouldHideHint = variant === 'desktop'
+    ? (isCoarsePointer || isMobileViewport)
+    : !isCoarsePointer;
 
   if (shouldHideHint) {
     return null;
@@ -64,7 +80,11 @@ export function ContextMenuHint({
           bgcolor: prominent ? 'success.100' : 'success.50',
         }}
       >
-        <MouseOutlinedIcon sx={{ fontSize: compact ? 15 : 16 }} />
+        {variant === 'touch' ? (
+          <TouchAppOutlinedIcon sx={{ fontSize: compact ? 15 : 16 }} />
+        ) : (
+          <MouseOutlinedIcon sx={{ fontSize: compact ? 15 : 16 }} />
+        )}
       </Box>
       <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.75, flexWrap: 'wrap' }}>
         <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: prominent ? 700 : 600, lineHeight: 1.35 }}>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type TouchEvent } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -27,6 +27,7 @@ import { ContextMenuIndicator } from '../components/contextMenu/ContextMenuIndic
 import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
+import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
 import { useCommandContextTag } from '../commands/useCommandContext';
 import PageContainer from '../components/layout/PageContainer';
 import PageSurface from '../components/layout/PageSurface';
@@ -68,12 +69,20 @@ export default function SeedDemandPage() {
   const hasPlans = planCount > 0;
   const hasSeedData = hasCulturesWithSeedData;
   const canCalculateSeedDemand = locationCount > 0 && fieldCount > 0 && bedCount > 0 && cultureCount > 0 && hasPlans && hasSeedData;
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: 'seedDemand',
     enabled: !shouldShowProjectRequiredState && canCalculateSeedDemand,
     isLoading,
     hasRows: rows.length > 0,
   });
+  const rowLongPressTimer = useLongPressTimer(ROW_LONG_PRESS_MS);
   const firstMissingSetupStep = getFirstMissingProjectSetupStep({
     hasFields: fieldCount > 0,
     hasBeds: bedCount > 0,
@@ -334,6 +343,33 @@ export default function SeedDemandPage() {
     openContextMenuState(row, event.clientX + 2, event.clientY - 6, event.currentTarget);
   }, [isSeedDemandContextMenuTarget, markContextMenuHintUsed, openContextMenuState]);
 
+  const handleRowTouchStart = useCallback((
+    event: TouchEvent<HTMLTableRowElement>,
+    row: SeedDemand,
+  ): void => {
+    if (event.touches.length !== 1 || !isSeedDemandContextMenuTarget(event.target)) {
+      return;
+    }
+    const touch = event.touches[0];
+    const originElement = event.currentTarget;
+    rowLongPressTimer.start(() => {
+      markTouchContextMenuHintUsed();
+      openContextMenuState(row, touch.clientX + 2, touch.clientY - 6, originElement);
+    });
+  }, [isSeedDemandContextMenuTarget, markTouchContextMenuHintUsed, openContextMenuState, rowLongPressTimer]);
+
+  const handleRowTouchMove = useCallback((): void => {
+    rowLongPressTimer.clear();
+  }, [rowLongPressTimer]);
+
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run whatever tap behavior the row's interactive contents have
+  // (culture link, supplier select) right on top of the context menu the
+  // long press just opened.
+  const handleRowTouchEnd = useCallback((event: TouchEvent<HTMLTableRowElement>): void => {
+    rowLongPressTimer.endTouch(event);
+  }, [rowLongPressTimer]);
+
   const openKeyboardContextMenu = useCallback((
     event: KeyboardEvent<HTMLTableRowElement>,
     row: SeedDemand,
@@ -427,8 +463,18 @@ export default function SeedDemandPage() {
 
         {!isLoading && !error && canCalculateSeedDemand && showContextMenuHint ? (
           <ContextMenuHint
+            variant="desktop"
             message={t('common:messages.contextMenuTableHint')}
             onClose={closeContextMenuHint}
+            sx={{ mb: 1.25 }}
+          />
+        ) : null}
+
+        {!isLoading && !error && canCalculateSeedDemand && showTouchContextMenuHint ? (
+          <ContextMenuHint
+            variant="touch"
+            message={t('common:messages.contextMenuTableHintTouch')}
+            onClose={closeTouchContextMenuHint}
             sx={{ mb: 1.25 }}
           />
         ) : null}
@@ -471,6 +517,10 @@ export default function SeedDemandPage() {
                     tabIndex={0}
                     onContextMenu={(event) => openContextMenu(event, row)}
                     onKeyDown={(event) => openKeyboardContextMenu(event, row)}
+                    onTouchStart={(event) => handleRowTouchStart(event, row)}
+                    onTouchMove={handleRowTouchMove}
+                    onTouchEnd={handleRowTouchEnd}
+                    onTouchCancel={handleRowTouchMove}
                     sx={{
                       WebkitTouchCallout: 'none',
                     }}

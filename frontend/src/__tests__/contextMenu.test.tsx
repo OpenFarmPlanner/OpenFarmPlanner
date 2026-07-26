@@ -6,6 +6,7 @@ import {
   closestContextMenuElement,
   shouldOpenCustomContextMenu,
   useCloseCustomContextMenuOnNativeContextMenu,
+  useIsCoarsePointer,
   useLongPress,
 } from '../utils/contextMenu';
 
@@ -213,5 +214,109 @@ describe('useLongPress', () => {
     });
 
     expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it('suppresses the trailing click (preventDefault on touchend) once a long press has fired', () => {
+    const onLongPress = vi.fn();
+    const { getByTestId } = render(<LongPressProbe onLongPress={onLongPress} />);
+    const target = getByTestId('press-target');
+
+    fireEvent.touchStart(target, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS);
+    });
+    expect(onLongPress).toHaveBeenCalledTimes(1);
+
+    const touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+    fireEvent(target, touchEndEvent);
+
+    expect(touchEndEvent.defaultPrevented).toBe(true);
+  });
+
+  it('does not suppress the trailing click on a plain short tap (no long press fired)', () => {
+    const onLongPress = vi.fn();
+    const { getByTestId } = render(<LongPressProbe onLongPress={onLongPress} />);
+    const target = getByTestId('press-target');
+
+    fireEvent.touchStart(target, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+
+    const touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+    fireEvent(target, touchEndEvent);
+
+    expect(onLongPress).not.toHaveBeenCalled();
+    expect(touchEndEvent.defaultPrevented).toBe(false);
+  });
+
+  it('does not suppress the trailing click after a press was cancelled by movement', () => {
+    const onLongPress = vi.fn();
+    const { getByTestId } = render(<LongPressProbe onLongPress={onLongPress} />);
+    const target = getByTestId('press-target');
+
+    fireEvent.touchStart(target, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+    fireEvent.touchMove(target, { touches: [{ identifier: 1, clientX: 40, clientY: 40 }] });
+    act(() => {
+      vi.advanceTimersByTime(LONG_PRESS_THRESHOLD_MS);
+    });
+
+    const touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+    fireEvent(target, touchEndEvent);
+
+    expect(onLongPress).not.toHaveBeenCalled();
+    expect(touchEndEvent.defaultPrevented).toBe(false);
+  });
+});
+
+function CoarsePointerProbe() {
+  const isCoarsePointer = useIsCoarsePointer();
+  return <div data-testid="coarse-pointer-probe" data-coarse={isCoarsePointer ? 'true' : 'false'} />;
+}
+
+describe('useIsCoarsePointer', () => {
+  const originalMatchMedia = window.matchMedia;
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('reflects the (pointer: coarse) media query', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(pointer: coarse)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    const { getByTestId } = render(<CoarsePointerProbe />);
+
+    expect(getByTestId('coarse-pointer-probe')).toHaveAttribute('data-coarse', 'true');
+  });
+
+  it('is false when the device reports a fine pointer', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    const { getByTestId } = render(<CoarsePointerProbe />);
+
+    expect(getByTestId('coarse-pointer-probe')).toHaveAttribute('data-coarse', 'false');
   });
 });

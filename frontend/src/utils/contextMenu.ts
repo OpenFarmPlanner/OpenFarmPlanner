@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 interface SuppressibleEvent {
   preventDefault: () => void;
@@ -11,10 +12,24 @@ export const LONG_PRESS_THRESHOLD_MS = 600;
 
 export interface LongPressHandlers {
   onTouchStart: (event: React.TouchEvent) => void;
-  onTouchEnd: () => void;
+  onTouchEnd: (event: React.TouchEvent) => void;
   onTouchMove: () => void;
   /** True while a touch is held but the long-press threshold hasn't fired yet — for optional, low-overhead "pressed" feedback. */
   isLongPressing: boolean;
+}
+
+/**
+ * Whether the device's primary pointer is coarse (touch) rather than fine
+ * (mouse/trackpad). This is the single signal the table-interaction model
+ * (hover-action visibility, tap-vs-long-press, hint copy) is keyed on —
+ * actual input capability, not viewport width, per the touch/desktop split
+ * documented in docs/datagrid-architecture.md. A hybrid device (laptop with
+ * a touchscreen but a mouse as primary pointer) reports `false` here, same
+ * as a mouse-only desktop — that's the correct simplification: such a
+ * device's *primary* interaction is still mouse-driven.
+ */
+export function useIsCoarsePointer(): boolean {
+  return useMediaQuery('(pointer: coarse)');
 }
 
 /**
@@ -22,12 +37,22 @@ export interface LongPressHandlers {
  * and field occupancy charts to open the same context menu that a desktop
  * right-click opens. A plain tap never fires `onLongPress`; moving the
  * finger or releasing before `thresholdMs` cancels it.
+ *
+ * `onTouchEnd` must be wired up even when the caller doesn't otherwise need
+ * a touchend handler: once a long press has fired, the browser still
+ * synthesizes a trailing `click` on release unless that click is
+ * suppressed, which would otherwise also run the element's own tap
+ * action (open/edit/navigate) right on top of the context menu that long
+ * press just opened. `onTouchEnd` calls `event.preventDefault()` to stop
+ * that synthetic click exactly when a long press fired — never on a plain
+ * tap or a cancelled press, so normal taps are unaffected.
  */
 export function useLongPress(
   onLongPress: (event: React.TouchEvent) => void,
   thresholdMs: number = LONG_PRESS_THRESHOLD_MS,
 ): LongPressHandlers {
   const timeoutRef = useRef<number | null>(null);
+  const firedRef = useRef(false);
   const [isLongPressing, setIsLongPressing] = useState(false);
 
   const clear = useCallback(() => {
@@ -40,15 +65,32 @@ export function useLongPress(
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
     if (!event.touches[0]) return;
+    firedRef.current = false;
     setIsLongPressing(true);
     timeoutRef.current = window.setTimeout(() => {
       timeoutRef.current = null;
+      firedRef.current = true;
       setIsLongPressing(false);
       onLongPress(event);
     }, thresholdMs);
   }, [onLongPress, thresholdMs]);
 
-  return { onTouchStart, onTouchEnd: clear, onTouchMove: clear, isLongPressing };
+  // Cancelling on move (not just clearing the timer) keeps a long-press
+  // gesture from ever fighting normal vertical scrolling — any finger
+  // movement, including the start of a scroll, cancels the pending press.
+  const onTouchMove = useCallback((): void => {
+    clear();
+  }, [clear]);
+
+  const onTouchEnd = useCallback((event: React.TouchEvent): void => {
+    clear();
+    if (firedRef.current) {
+      event.preventDefault();
+      firedRef.current = false;
+    }
+  }, [clear]);
+
+  return { onTouchStart, onTouchEnd, onTouchMove, isLongPressing };
 }
 
 const editableSelector = [

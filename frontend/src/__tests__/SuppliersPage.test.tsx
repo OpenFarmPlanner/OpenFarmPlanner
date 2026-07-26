@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Suppliers from '../pages/Suppliers';
+import { CONTEXT_MENU_HINT_STORAGE_KEY } from '../components/data-grid/useContextMenuHint';
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -47,6 +48,7 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockReset();
     mocks.unlinkAndDelete.mockReset();
     mocks.restoreUnlinkedDelete.mockReset();
+    window.localStorage.clear();
   });
 
   it('does not show the empty state while suppliers are still loading', async () => {
@@ -151,6 +153,163 @@ describe('Suppliers page empty and table states', () => {
     fireEvent.click(supplierName.closest('tr') as HTMLTableRowElement);
 
     expect(await screen.findByRole('heading', { name: 'Lieferant bearbeiten' })).toBeInTheDocument();
+  });
+
+  it('opens supplier row actions from a touch long-press', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    const supplierName = await screen.findByText('Reinsaat');
+    const supplierRow = supplierName.closest('tr') as HTMLTableRowElement;
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(supplierRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.getByRole('menuitem', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
+  });
+
+  it('suppresses the trailing click after a long press, so the edit dialog does not also open', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    const supplierName = await screen.findByText('Reinsaat');
+    const supplierRow = supplierName.closest('tr') as HTMLTableRowElement;
+
+    let touchEndEvent: TouchEvent;
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(supplierRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // A real browser would synthesize a trailing click from this touchend
+      // unless its default is prevented — jsdom doesn't perform that
+      // synthesis itself, so the touchend's defaultPrevented flag is the
+      // testable proxy for "the click will be suppressed".
+      touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+      fireEvent(supplierRow, touchEndEvent);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(touchEndEvent!.defaultPrevented).toBe(true);
+    expect(screen.getByRole('menuitem', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Lieferant bearbeiten' })).not.toBeInTheDocument();
+  });
+
+  it('does not open the edit dialog when tapping the website link (interactive elements keep their own action)', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    const websiteLink = await screen.findByRole('link', { name: 'https://example.com' });
+    fireEvent.click(websiteLink);
+
+    expect(screen.queryByRole('heading', { name: 'Lieferant bearbeiten' })).not.toBeInTheDocument();
+  });
+
+  it('shows the touch hint instead of the desktop hint on a coarse-pointer device, and persists (but does not immediately hide) the dismissal after a successful long press', async () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(pointer: coarse)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    try {
+      mocks.list.mockResolvedValue({
+        data: {
+          results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+        },
+      });
+
+      const { unmount } = render(
+        <MemoryRouter>
+          <Suppliers />
+        </MemoryRouter>,
+      );
+
+      const supplierName = await screen.findByText('Reinsaat');
+      expect(await screen.findByText('Tipp: Zeile länger gedrückt halten für weitere Aktionen.')).toBeInTheDocument();
+      expect(screen.queryByText('Tipp: Rechtsklick auf eine Tabellenzeile öffnet weitere Aktionen.')).not.toBeInTheDocument();
+
+      const supplierRow = supplierName.closest('tr') as HTMLTableRowElement;
+      vi.useFakeTimers();
+      try {
+        fireEvent.touchStart(supplierRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      // Matches the existing desktop hint's contract: a successful
+      // interaction persists the dismissal but does not hide the banner in
+      // the current session — the menu it opened already covers it.
+      expect(window.localStorage.getItem(`${CONTEXT_MENU_HINT_STORAGE_KEY}:context:suppliers:touch`)).toBe('1');
+      expect(screen.getByText('Tipp: Zeile länger gedrückt halten für weitere Aktionen.')).toBeInTheDocument();
+
+      unmount();
+      mocks.list.mockResolvedValue({
+        data: {
+          results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+        },
+      });
+      render(
+        <MemoryRouter>
+          <Suppliers />
+        </MemoryRouter>,
+      );
+
+      await screen.findByText('Reinsaat');
+      expect(screen.queryByText('Tipp: Zeile länger gedrückt halten für weitere Aktionen.')).not.toBeInTheDocument();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 
   it('opens supplier row actions from the keyboard context menu command', async () => {

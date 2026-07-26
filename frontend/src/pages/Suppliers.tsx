@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type TouchEvent } from 'react';
 import axios from 'axios';
 import {
   Alert,
@@ -39,8 +39,13 @@ import { useRegisterCreateActions } from '../commands/useCommandContext';
 import { ContextMenuHint, DELETE_UNDO_DURATION_MS, DeleteUndoSnackbar, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
 import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
+import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
 import { extractApiErrorMessage } from '../api/errors';
-import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
+import {
+  closestContextMenuElement,
+  shouldOpenCustomContextMenu,
+  suppressNativeContextMenu,
+} from '../utils/contextMenu';
 import { showGlobalSnackbar } from '../utils/globalSnackbar';
 import { createTransientId } from '../utils/transientId';
 
@@ -71,12 +76,20 @@ export default function Suppliers() {
   const [deleteUsageDialog, setDeleteUsageDialog] = useState<SupplierDeleteUsageDialogState | null>(null);
   const [unlinkDeletingSupplierId, setUnlinkDeletingSupplierId] = useState<number | null>(null);
   const pendingSupplierDeleteTimersRef = useRef<Map<string, number>>(new Map());
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: 'suppliers',
     enabled: !shouldShowProjectRequiredState && supplierLoadStatus !== 'error',
     isLoading: supplierLoadStatus === 'loading',
     hasRows: supplierLoadStatus === 'success' && suppliers.length > 0,
   });
+  const rowLongPressTimer = useLongPressTimer(ROW_LONG_PRESS_MS);
 
   const loadSuppliers = useCallback(async (): Promise<void> => {
     setSupplierLoadStatus('loading');
@@ -368,6 +381,33 @@ export default function Suppliers() {
     openContextMenuState(supplier, event.clientX + 2, event.clientY - 6, event.currentTarget);
   }, [isSupplierContextMenuTarget, markContextMenuHintUsed, openContextMenuState]);
 
+  const handleSupplierTouchStart = useCallback((
+    event: TouchEvent<HTMLTableRowElement>,
+    supplier: Supplier,
+  ): void => {
+    if (event.touches.length !== 1 || !isSupplierContextMenuTarget(event.target)) {
+      return;
+    }
+    const touch = event.touches[0];
+    const originElement = event.currentTarget;
+    rowLongPressTimer.start(() => {
+      markTouchContextMenuHintUsed();
+      openContextMenuState(supplier, touch.clientX + 2, touch.clientY - 6, originElement);
+    });
+  }, [isSupplierContextMenuTarget, markTouchContextMenuHintUsed, openContextMenuState, rowLongPressTimer]);
+
+  const handleSupplierTouchMove = useCallback((): void => {
+    rowLongPressTimer.clear();
+  }, [rowLongPressTimer]);
+
+  // Clears the timer and, if a long press just fired, suppresses the
+  // browser's trailing synthetic click so it doesn't also run the row's own
+  // onClick (open the edit dialog) right on top of the context menu the
+  // long press just opened.
+  const handleSupplierTouchEnd = useCallback((event: TouchEvent<HTMLTableRowElement>): void => {
+    rowLongPressTimer.endTouch(event);
+  }, [rowLongPressTimer]);
+
   const openSupplierKeyboardContextMenu = useCallback((
     event: KeyboardEvent<HTMLTableRowElement>,
     supplier: Supplier,
@@ -467,8 +507,17 @@ export default function Suppliers() {
         ) : null}
         {showContextMenuHint ? (
           <ContextMenuHint
+            variant="desktop"
             message={t('common:messages.contextMenuTableHint')}
             onClose={closeContextMenuHint}
+            sx={{ mb: 1.25, width: '100%', maxWidth: 880 }}
+          />
+        ) : null}
+        {showTouchContextMenuHint ? (
+          <ContextMenuHint
+            variant="touch"
+            message={t('common:messages.contextMenuTableHintTouch')}
+            onClose={closeTouchContextMenuHint}
             sx={{ mb: 1.25, width: '100%', maxWidth: 880 }}
           />
         ) : null}
@@ -503,6 +552,10 @@ export default function Suppliers() {
                       }
                       openSupplierKeyboardContextMenu(event, supplier);
                     }}
+                    onTouchStart={(event) => handleSupplierTouchStart(event, supplier)}
+                    onTouchMove={handleSupplierTouchMove}
+                    onTouchEnd={handleSupplierTouchEnd}
+                    onTouchCancel={handleSupplierTouchMove}
                     sx={{
                       cursor: 'pointer',
                       WebkitTouchCallout: 'none',

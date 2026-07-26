@@ -1,22 +1,35 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { AuthContext } from '../../auth/authContextShared';
+import { useIsCoarsePointer } from '../../utils/contextMenu';
 
 export const CONTEXT_MENU_HINT_STORAGE_KEY = 'ofp.contextMenuHintDismissed';
 const CONTEXT_MENU_HINT_STORAGE_EVENT = 'ofp:context-menu-hint-dismissed';
+/** Suffix distinguishing the touch (long-press) hint's dismissal from the
+ * desktop (right-click) hint's — see the "independent per input mode"
+ * requirement in the class doc below. */
+const TOUCH_STORAGE_KEY_SUFFIX = ':touch';
 
 interface UseContextMenuHintOptions {
   contextKey: string;
   enabled?: boolean;
   isDesktop?: boolean;
+  /** Override for touch-pointer detection — mainly for tests. Defaults to `(pointer: coarse)`. */
+  isTouch?: boolean;
   isLoading?: boolean;
   hasRows?: boolean;
 }
 
 interface UseContextMenuHintResult {
+  /** Desktop (fine-pointer) right-click hint — unchanged from before the touch hint existed. */
   showContextMenuHint: boolean;
   closeContextMenuHint: () => void;
   markContextMenuHintUsed: () => void;
+  /** Touch (coarse-pointer) long-press hint — dismissal state is entirely
+   * independent of the desktop hint above, per-table, per-user. */
+  showTouchContextMenuHint: boolean;
+  closeTouchContextMenuHint: () => void;
+  markTouchContextMenuHintUsed: () => void;
 }
 
 interface ShouldShowContextMenuHintOptions {
@@ -35,19 +48,39 @@ export function shouldShowContextMenuHint({
   return isDesktop && !isLoading && hasRows && !hasDismissedHint;
 }
 
+/** Same gating logic as `shouldShowContextMenuHint`, keyed on touch instead of desktop. */
+export function shouldShowTouchContextMenuHint({
+  isTouch,
+  isLoading,
+  hasRows,
+  hasDismissedHint,
+}: {
+  isTouch: boolean;
+  isLoading: boolean;
+  hasRows: boolean;
+  hasDismissedHint: boolean;
+}): boolean {
+  return isTouch && !isLoading && hasRows && !hasDismissedHint;
+}
+
 function normalizeContextMenuHintKey(contextKey: string): string {
   const normalizedContextKey = contextKey.trim();
   return normalizedContextKey.length > 0 ? normalizedContextKey : 'default';
 }
 
-function getContextMenuHintStorageKey(contextKey: string, userId?: number | null): string {
+function getContextMenuHintStorageKey(
+  contextKey: string,
+  userId?: number | null,
+  variant: 'desktop' | 'touch' = 'desktop',
+): string {
   const normalizedContextKey = normalizeContextMenuHintKey(contextKey);
+  const suffix = variant === 'touch' ? TOUCH_STORAGE_KEY_SUFFIX : '';
 
   if (userId !== undefined && userId !== null) {
-    return `${CONTEXT_MENU_HINT_STORAGE_KEY}:user:${userId}:context:${normalizedContextKey}`;
+    return `${CONTEXT_MENU_HINT_STORAGE_KEY}:user:${userId}:context:${normalizedContextKey}${suffix}`;
   }
 
-  return `${CONTEXT_MENU_HINT_STORAGE_KEY}:context:${normalizedContextKey}`;
+  return `${CONTEXT_MENU_HINT_STORAGE_KEY}:context:${normalizedContextKey}${suffix}`;
 }
 
 function hasStoredContextMenuHintDismissal(storageKey: string): boolean {
@@ -103,28 +136,23 @@ export function clearContextMenuHintDismissals(userId?: number | null): void {
   window.dispatchEvent(new Event(CONTEXT_MENU_HINT_STORAGE_EVENT));
 }
 
-export function useContextMenuHint({
-  contextKey,
-  enabled = true,
-  isDesktop,
-  isLoading = false,
-  hasRows,
-}: UseContextMenuHintOptions): UseContextMenuHintResult {
-  const authContext = useContext(AuthContext);
-  const storageKey = useMemo(
-    () => getContextMenuHintStorageKey(contextKey, authContext?.user?.id),
-    [authContext?.user?.id, contextKey],
-  );
+/**
+ * One dismissible hint's storage-backed state, for one input-mode variant.
+ *
+ * `markUsed()` (desktop right-click, or touch long press) persists the
+ * dismissal to storage but deliberately does *not* hide the banner in the
+ * current session for either variant — matching the existing, tested
+ * desktop contract: the menu the interaction opens already overlays the
+ * hint, and the banner only actually disappears on the next load/remount
+ * that re-reads storage. Only the explicit close button (`close()`) hides
+ * it immediately.
+ */
+function useHintDismissal(storageKey: string): {
+  hasDismissedHint: boolean;
+  markUsed: () => void;
+  close: () => void;
+} {
   const [hasDismissedHint, setHasDismissedHint] = useState(() => hasStoredContextMenuHintDismissal(storageKey));
-  const isDesktopPointer = useMediaQuery('(pointer: fine) and (min-width:901px)');
-  const resolvedIsDesktop = isDesktop ?? isDesktopPointer;
-  const resolvedHasRows = hasRows ?? enabled;
-  const showContextMenuHint = enabled && shouldShowContextMenuHint({
-    isDesktop: resolvedIsDesktop,
-    isLoading,
-    hasRows: resolvedHasRows,
-    hasDismissedHint,
-  });
 
   useEffect(() => {
     const syncDismissalState = (): void => {
@@ -140,18 +168,64 @@ export function useContextMenuHint({
     };
   }, [storageKey]);
 
-  const markContextMenuHintUsed = useCallback((): void => {
+  const markUsed = useCallback((): void => {
     storeContextMenuHintDismissal(storageKey, false);
   }, [storageKey]);
 
-  const closeContextMenuHint = useCallback((): void => {
+  const close = useCallback((): void => {
     storeContextMenuHintDismissal(storageKey);
     setHasDismissedHint(true);
   }, [storageKey]);
 
+  return { hasDismissedHint, markUsed, close };
+}
+
+export function useContextMenuHint({
+  contextKey,
+  enabled = true,
+  isDesktop,
+  isTouch,
+  isLoading = false,
+  hasRows,
+}: UseContextMenuHintOptions): UseContextMenuHintResult {
+  const authContext = useContext(AuthContext);
+  const userId = authContext?.user?.id;
+  const desktopStorageKey = useMemo(
+    () => getContextMenuHintStorageKey(contextKey, userId, 'desktop'),
+    [userId, contextKey],
+  );
+  const touchStorageKey = useMemo(
+    () => getContextMenuHintStorageKey(contextKey, userId, 'touch'),
+    [userId, contextKey],
+  );
+  const desktop = useHintDismissal(desktopStorageKey);
+  const touch = useHintDismissal(touchStorageKey);
+
+  const isDesktopPointer = useMediaQuery('(pointer: fine) and (min-width:901px)');
+  const isCoarsePointer = useIsCoarsePointer();
+  const resolvedIsDesktop = isDesktop ?? isDesktopPointer;
+  const resolvedIsTouch = isTouch ?? isCoarsePointer;
+  const resolvedHasRows = hasRows ?? enabled;
+
+  const showContextMenuHint = enabled && shouldShowContextMenuHint({
+    isDesktop: resolvedIsDesktop,
+    isLoading,
+    hasRows: resolvedHasRows,
+    hasDismissedHint: desktop.hasDismissedHint,
+  });
+  const showTouchContextMenuHint = enabled && shouldShowTouchContextMenuHint({
+    isTouch: resolvedIsTouch,
+    isLoading,
+    hasRows: resolvedHasRows,
+    hasDismissedHint: touch.hasDismissedHint,
+  });
+
   return {
     showContextMenuHint,
-    closeContextMenuHint,
-    markContextMenuHintUsed,
+    closeContextMenuHint: desktop.close,
+    markContextMenuHintUsed: desktop.markUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint: touch.close,
+    markTouchContextMenuHintUsed: touch.markUsed,
   };
 }

@@ -85,7 +85,8 @@ const TaskList: React.FC<TaskListProps> = ({
   const pressedGroupRef = React.useRef<TaskGroup | null>(null);
   const {
     onTouchStart: startGroupLongPress,
-    onTouchEnd: clearGroupLongPressBase,
+    onTouchMove: clearGroupLongPressMove,
+    onTouchEnd: clearGroupLongPressEnd,
     isLongPressing,
   } = useLongPress((event) => {
     const group = pressedGroupRef.current;
@@ -99,8 +100,15 @@ const TaskList: React.FC<TaskListProps> = ({
     setPressedGroupId(group.id);
     startGroupLongPress(event);
   };
-  const clearGroupLongPress = () => {
-    clearGroupLongPressBase();
+  const handleGroupTouchMove = () => {
+    clearGroupLongPressMove();
+    setPressedGroupId(null);
+  };
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run the row's own onClick right on top of the context menu that
+  // long press just opened.
+  const handleGroupTouchEnd = (event: React.TouchEvent) => {
+    clearGroupLongPressEnd(event);
     setPressedGroupId(null);
   };
 
@@ -144,8 +152,8 @@ const TaskList: React.FC<TaskListProps> = ({
                 onGroupContextMenu ? (event) => onGroupContextMenu(event, taskGroup) : undefined
               }
               onTouchStart={(event) => handleGroupTouchStart(event, taskGroup)}
-              onTouchEnd={clearGroupLongPress}
-              onTouchMove={clearGroupLongPress}
+              onTouchEnd={handleGroupTouchEnd}
+              onTouchMove={handleGroupTouchMove}
               data-testid={`task-group-${taskGroup.id || "unknown"}`}
               data-rmg-component="task-group"
               data-group-id={taskGroup.id}

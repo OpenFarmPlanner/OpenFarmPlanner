@@ -19,11 +19,20 @@ const revealOnHoverOrFocus = {
  * inside it fades in on hover/focus-within. On touch devices it stays
  * hidden at all times — a long press opens the context menu directly
  * instead of relying on the icon.
+ *
+ * Both `:hover` and `:focus-within` are wrapped in `@media (hover: hover)`
+ * — a touch device reports `(hover: none)` even while a finger is actually
+ * pressed on the element, but *tapping* a focusable row (this component
+ * always sets `tabIndex`) still satisfies plain `:focus-within` on any
+ * device. Without the media guard, a single tap on touch would focus the
+ * row and reveal the icon exactly like a real hover would on desktop.
  * Use this for simple cases with no adjacent truncated text to mask — for
  * data-grid-style rows, use `contextMenuActionsOverlaySx` instead.
  */
 export const contextMenuIndicatorHostSx: SystemStyleObject<Theme> = {
-  [`&:hover .${CONTEXT_MENU_INDICATOR_CLASS}, &:focus-within .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
+  '@media (hover: hover)': {
+    [`&:hover .${CONTEXT_MENU_INDICATOR_CLASS}, &:focus-within .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
+  },
 };
 
 /**
@@ -40,10 +49,15 @@ export const contextMenuIndicatorHostSx: SystemStyleObject<Theme> = {
  * background/gradient touch-up `hoverSelector` gets.
  *
  * Like `contextMenuIndicatorHostSx`, this stays hidden at all times on
- * touch devices (no `:hover`/coarse-pointer override) — a long press opens
- * the same context menu directly, so the overlay's icons (edit, delete,
- * the `ContextMenuIndicator`) would otherwise sit on top of the row
- * permanently and truncate its text for no reachability benefit.
+ * touch devices — a long press opens the same context menu directly, so
+ * the overlay's icons (edit, delete, the `ContextMenuIndicator`) would
+ * otherwise sit on top of the row permanently and truncate its text for no
+ * reachability benefit. Every reveal rule below is wrapped in
+ * `@media (hover: hover)`: a touch device reports `(hover: none)` even
+ * while actively pressed, but a *tap* on this row (every caller sets
+ * `tabIndex` on it) still satisfies plain `:focus-within` on any device —
+ * without the media guard, one tap on touch would focus the row and reveal
+ * the icons exactly like a real desktop hover would.
  */
 export function contextMenuActionsOverlaySx(
   hoverSelector: string,
@@ -76,26 +90,28 @@ export function contextMenuActionsOverlaySx(
       background: (theme: Theme) =>
         `linear-gradient(90deg, ${alpha(theme.palette.background.paper, 0)} 0%, ${theme.palette.background.paper} 100%)`,
     },
-    [hoverSelector]: {
-      bgcolor: 'surface.surfaceHoverBackground',
-      ...revealOnHoverOrFocus,
-    },
-    [`${hoverSelector}::before`]: {
-      background: (theme: Theme) => {
-        const hoverBackground = theme.palette.surface?.surfaceHoverBackground ?? theme.palette.action.hover;
-        return `linear-gradient(90deg, ${alpha(hoverBackground, 0)} 0%, ${hoverBackground} 100%)`;
+    '@media (hover: hover)': {
+      [hoverSelector]: {
+        bgcolor: 'surface.surfaceHoverBackground',
+        ...revealOnHoverOrFocus,
       },
+      [`${hoverSelector}::before`]: {
+        background: (theme: Theme) => {
+          const hoverBackground = theme.palette.surface?.surfaceHoverBackground ?? theme.palette.action.hover;
+          return `linear-gradient(90deg, ${alpha(hoverBackground, 0)} 0%, ${hoverBackground} 100%)`;
+        },
+      },
+      // A nested ContextMenuIndicator hides itself by default (for the
+      // simple-host case elsewhere), so it needs its own reveal rule here
+      // too — the panel's own opacity/pointer-events above don't override a
+      // child's explicitly-set opacity:0/pointer-events:none.
+      [`${hoverSelector} .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
+      ...(focusWithinSelector
+        ? {
+            [focusWithinSelector]: revealOnHoverOrFocus,
+            [`${focusWithinSelector} .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
+          }
+        : {}),
     },
-    // A nested ContextMenuIndicator hides itself by default (for the
-    // simple-host case elsewhere), so it needs its own reveal rule here too
-    // — the panel's own opacity/pointer-events above don't override a
-    // child's explicitly-set opacity:0/pointer-events:none.
-    [`${hoverSelector} .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
-    ...(focusWithinSelector
-      ? {
-          [focusWithinSelector]: revealOnHoverOrFocus,
-          [`${focusWithinSelector} .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
-        }
-      : {}),
   };
 }

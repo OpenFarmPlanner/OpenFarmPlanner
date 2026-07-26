@@ -11,7 +11,7 @@ import { useCallback, useMemo } from "react";
 import type { HierarchyRow } from "../utils/types";
 import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from "../../../utils/contextMenu";
 import { useRowContextMenuState } from "../../contextMenu/useRowContextMenuState";
-import { useLongPressTimer } from "../../contextMenu/useLongPressTimer";
+import { ROW_LONG_PRESS_MS, useLongPressTimer } from "../../contextMenu/useLongPressTimer";
 
 interface ContextMenuState {
   row: HierarchyRow;
@@ -22,6 +22,7 @@ interface ContextMenuState {
 interface UseHierarchyContextMenuParams {
   rows: HierarchyRow[];
   markContextMenuHintUsed: () => void;
+  markTouchContextMenuHintUsed: () => void;
   setSelectedRowId: (id: string | number) => void;
   setTreeActive: (active: boolean) => void;
 }
@@ -29,6 +30,7 @@ interface UseHierarchyContextMenuParams {
 export function useHierarchyContextMenu({
   rows,
   markContextMenuHintUsed,
+  markTouchContextMenuHintUsed,
   setSelectedRowId,
   setTreeActive,
 }: UseHierarchyContextMenuParams) {
@@ -46,9 +48,7 @@ export function useHierarchyContextMenu({
 
   const { state: menuState, listRef: menuListRef, open: menuOpen, close: menuClose } =
     useRowContextMenuState<HierarchyRow>({ isContextMenuTarget: isHierarchyContextMenuTarget });
-  // Unlike EditableDataGrid's handleGridTouchMove, this page has no
-  // touch-move cancellation today - only handleGridTouchEnd clears the timer.
-  const longPressTimer = useLongPressTimer(550);
+  const longPressTimer = useLongPressTimer(ROW_LONG_PRESS_MS);
 
   const openContextMenuForRow = useCallback(
     (
@@ -56,16 +56,19 @@ export function useHierarchyContextMenu({
       mouseX: number,
       mouseY: number,
       origin?: HTMLElement | null,
-      options?: { markHintUsed?: boolean },
+      options?: { markHint?: 'desktop' | 'touch' | false },
     ): void => {
-      if (options?.markHintUsed !== false) {
+      const markHint = options?.markHint ?? 'desktop';
+      if (markHint === 'desktop') {
         markContextMenuHintUsed();
+      } else if (markHint === 'touch') {
+        markTouchContextMenuHintUsed();
       }
       setSelectedRowId(row.id as string | number);
       setTreeActive(true);
       menuOpen(row, mouseX, mouseY, origin ?? null);
     },
-    [markContextMenuHintUsed, setSelectedRowId, setTreeActive, menuOpen],
+    [markContextMenuHintUsed, markTouchContextMenuHintUsed, setSelectedRowId, setTreeActive, menuOpen],
   );
 
   const handleNameCellContextMenu = useCallback(
@@ -120,15 +123,25 @@ export function useHierarchyContextMenu({
       if (!targetRow || !touch) return;
       longPressTimer.start(() => {
         openContextMenuForRow(targetRow, touch.clientX, touch.clientY, rowElement, {
-          markHintUsed: false,
+          markHint: 'touch',
         });
       });
     },
     [longPressTimer, openContextMenuForRow, rows],
   );
 
-  const handleGridTouchEnd = useCallback((): void => {
+  // Cancels a pending long press on any finger movement, so it never fights
+  // normal vertical scrolling — this was previously missing here (only
+  // touchend cleared the timer), unlike EditableDataGrid's equivalent.
+  const handleGridTouchMove = useCallback((): void => {
     longPressTimer.clear();
+  }, [longPressTimer]);
+
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run the grid's own tap behavior (cell selection/edit-start) right
+  // on top of the context menu that long press just opened.
+  const handleGridTouchEnd = useCallback((event: React.TouchEvent<HTMLElement>): void => {
+    longPressTimer.endTouch(event);
   }, [longPressTimer]);
 
   const contextMenuState = useMemo((): ContextMenuState | null => (
@@ -142,6 +155,7 @@ export function useHierarchyContextMenu({
     isHierarchyContextMenuTarget,
     handleGridContextMenu,
     handleGridTouchStart,
+    handleGridTouchMove,
     handleGridTouchEnd,
     closeContextMenu: menuClose,
     contextMenuListRef: menuListRef,

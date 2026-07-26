@@ -45,7 +45,8 @@ interface YieldChartSegmentProps {
   ) => void;
   onContextMenuOpen: (event: ReactMouseEvent | ReactTouchEvent, payload: YieldSegmentPayload) => void;
   onTouchStartSegment: (event: ReactTouchEvent, payload: YieldSegmentPayload, segmentKey: string) => void;
-  onTouchEndSegment: () => void;
+  onTouchMoveSegment: () => void;
+  onTouchEndSegment: (event: ReactTouchEvent) => void;
   registerElement: (segmentKey: string, element: HTMLElement | null) => void;
 }
 
@@ -84,6 +85,7 @@ export const YieldChartSegment = memo(function YieldChartSegment({
   onKeyDownSegment,
   onContextMenuOpen,
   onTouchStartSegment,
+  onTouchMoveSegment,
   onTouchEndSegment,
   registerElement,
 }: YieldChartSegmentProps) {
@@ -146,7 +148,7 @@ export const YieldChartSegment = memo(function YieldChartSegment({
         onContextMenu={(event) => onContextMenuOpen(event, payload)}
         onTouchStart={(event) => onTouchStartSegment(event, payload, segmentKey)}
         onTouchEnd={onTouchEndSegment}
-        onTouchMove={onTouchEndSegment}
+        onTouchMove={onTouchMoveSegment}
         sx={{
           position: "relative",
           width: "100%",

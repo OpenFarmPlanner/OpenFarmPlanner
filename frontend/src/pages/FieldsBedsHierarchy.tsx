@@ -295,7 +295,14 @@ function FieldsBedsHierarchy({
     || fields.length > 0
     || beds.length > 0
   );
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: "fieldsBeds",
     enabled: !suppressContextMenuHint,
     isLoading: loading,
@@ -308,12 +315,14 @@ function FieldsBedsHierarchy({
     handleNameCellContextMenu,
     handleGridContextMenu,
     handleGridTouchStart,
+    handleGridTouchMove,
     handleGridTouchEnd,
     closeContextMenu,
     contextMenuListRef,
   } = useHierarchyContextMenu({
     rows: rows as HierarchyRow[],
     markContextMenuHintUsed,
+    markTouchContextMenuHintUsed,
     setSelectedRowId,
     setTreeActive,
   });
@@ -1446,8 +1455,19 @@ function FieldsBedsHierarchy({
 
         {showContextMenuHint && (
           <ContextMenuHint
+            variant="desktop"
             message={t("common:messages.contextMenuTableHint")}
             onClose={closeContextMenuHint}
+            prominent
+            sx={{ mb: 1.5, maxWidth: 560 }}
+          />
+        )}
+
+        {showTouchContextMenuHint && (
+          <ContextMenuHint
+            variant="touch"
+            message={t("common:messages.contextMenuTableHintTouch")}
+            onClose={closeTouchContextMenuHint}
             prominent
             sx={{ mb: 1.5, maxWidth: 560 }}
           />
@@ -1476,9 +1496,9 @@ function FieldsBedsHierarchy({
             onContextMenu={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}
-            onTouchMove={handleGridTouchEnd}
+            onTouchMove={handleGridTouchMove}
             onTouchEnd={handleGridTouchEnd}
-            onTouchCancel={handleGridTouchEnd}
+            onTouchCancel={handleGridTouchMove}
           >
             <DataGrid
               rows={rows}

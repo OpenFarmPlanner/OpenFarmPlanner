@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
+import { contextMenuActionsOverlaySx, contextMenuIndicatorHostSx } from '../components/contextMenu/contextMenuIndicatorStyles';
 
 describe('contextMenuActionsOverlaySx', () => {
   it('stays hidden by default (base state, before any hover/focus selector matches)', () => {
@@ -8,10 +8,16 @@ describe('contextMenuActionsOverlaySx', () => {
     expect(sx.pointerEvents).toBe('none');
   });
 
-  it('reveals on the given hover and focus-within selectors', () => {
+  it('reveals on the given hover and focus-within selectors, but only for devices that can actually hover', () => {
     const sx = contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &') as Record<string, unknown>;
-    expect(sx['tr:hover &']).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
-    expect(sx['tr:focus-within &']).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
+    const hoverMedia = sx['@media (hover: hover)'] as Record<string, unknown>;
+    expect(hoverMedia).toBeDefined();
+    expect(hoverMedia['tr:hover &']).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
+    expect(hoverMedia['tr:focus-within &']).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
+    // The bare (unguarded) selectors must not exist outside the media
+    // query, or they'd reveal on touch too.
+    expect(sx['tr:hover &']).toBeUndefined();
+    expect(sx['tr:focus-within &']).toBeUndefined();
   });
 
   it('does not force the overlay visible on touch/coarse-pointer devices', () => {
@@ -21,5 +27,27 @@ describe('contextMenuActionsOverlaySx', () => {
     // though a long press already opens the same context menu directly.
     const sx = contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &') as Record<string, unknown>;
     expect(sx['@media (pointer: coarse)']).toBeUndefined();
+  });
+
+  it('does not reveal from a tap-triggered focus on a touch device (only true hover-capable devices)', () => {
+    // Regression guard: every row here also sets tabIndex, so a plain tap
+    // on a touchscreen still satisfies bare `:focus-within` — without
+    // wrapping the reveal in `@media (hover: hover)`, one tap would reveal
+    // the icons exactly like a real desktop hover would.
+    const sx = contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &') as Record<string, unknown>;
+    const hoverMedia = sx['@media (hover: hover)'] as Record<string, unknown>;
+    expect(Object.keys(sx)).not.toContain('tr:focus-within &');
+    expect(hoverMedia['tr:focus-within &']).toBeDefined();
+  });
+});
+
+describe('contextMenuIndicatorHostSx', () => {
+  it('only reveals on hover/focus-within for devices that can actually hover (not a touch tap)', () => {
+    const sx = contextMenuIndicatorHostSx as Record<string, unknown>;
+    const hoverMedia = sx['@media (hover: hover)'] as Record<string, unknown> | undefined;
+    expect(hoverMedia).toBeDefined();
+    const revealKey = Object.keys(hoverMedia as Record<string, unknown>).find((key) => key.includes(':focus-within'));
+    expect(revealKey).toBeDefined();
+    expect((hoverMedia as Record<string, unknown>)[revealKey as string]).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
   });
 });

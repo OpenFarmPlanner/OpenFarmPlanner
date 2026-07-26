@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { GridColDef } from '@mui/x-data-grid';
 import { AxiosError } from 'axios';
@@ -1099,6 +1099,68 @@ describe('EditableDataGrid', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
     expect(contextMenuEvent.defaultPrevented).toBe(true);
     expect(stopPropagationSpy).toHaveBeenCalled();
+  });
+
+  it('opens row actions from a touch long-press and suppresses the trailing click, so the cell does not also enter edit mode', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    let touchEndEvent: TouchEvent;
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // A real browser would synthesize a trailing click from this touchend
+      // (which the grid would otherwise treat as a tap-to-edit on the cell
+      // underneath) unless its default is prevented — jsdom doesn't perform
+      // that synthesis itself, so defaultPrevented is the testable proxy.
+      touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+      fireEvent(row, touchEndEvent);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(touchEndEvent!.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+  });
+
+  it('does not open row actions on a short tap (touch)', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      fireEvent.touchEnd(row);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
   });
 
   it('keeps row actions right-click only without a hover trigger', async () => {

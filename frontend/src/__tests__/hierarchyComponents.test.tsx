@@ -298,9 +298,11 @@ describe('hierarchy components and behaviors', () => {
     expect(actionOverlay?.props.sx).toMatchObject({
       position: 'absolute',
       right: 0,
-      '.MuiDataGrid-row:hover &': {
-        opacity: 1,
-        pointerEvents: 'auto',
+      '@media (hover: hover)': {
+        '.MuiDataGrid-row:hover &': {
+          opacity: 1,
+          pointerEvents: 'auto',
+        },
       },
       '.MuiDataGrid-row--editing:hover &': {
         opacity: 0,
@@ -340,9 +342,11 @@ describe('hierarchy components and behaviors', () => {
     expect(actionOverlay?.props.sx).toMatchObject({
       position: 'absolute',
       right: 0,
-      '.MuiDataGrid-row:hover &': {
-        opacity: 1,
-        pointerEvents: 'auto',
+      '@media (hover: hover)': {
+        '.MuiDataGrid-row:hover &': {
+          opacity: 1,
+          pointerEvents: 'auto',
+        },
       },
       '.MuiDataGrid-row--editing:hover &': {
         opacity: 0,
@@ -401,9 +405,11 @@ describe('hierarchy components and behaviors', () => {
         width: 16,
         pointerEvents: 'none',
       },
-      '.MuiDataGrid-row:hover &': {
-        opacity: 1,
-        pointerEvents: 'auto',
+      '@media (hover: hover)': {
+        '.MuiDataGrid-row:hover &': {
+          opacity: 1,
+          pointerEvents: 'auto',
+        },
       },
       '.MuiDataGrid-row--editing:hover &': {
         opacity: 0,
