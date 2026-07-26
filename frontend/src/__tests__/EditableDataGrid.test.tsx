@@ -1194,6 +1194,50 @@ describe('EditableDataGrid', () => {
     expect(screen.getByRole('menuitem', { name: 'actions.copyTable' })).toBeInTheDocument();
   });
 
+  it('opens the app context menu (not the native one) when right-clicking directly on the inline action icon', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    const actionsButton = screen.getByRole('button', { name: 'Aktionen' });
+    // A real right-click on a MUI IconButton icon lands on the inner SVG
+    // <path>, an SVGElement rather than an HTMLElement - regression guard
+    // for the bug where such right-clicks fell through to the native menu.
+    const iconPath = actionsButton.querySelector('svg path');
+    expect(iconPath).not.toBeNull();
+
+    const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(iconPath as Element, contextMenuEvent);
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
+    expect(contextMenuEvent.defaultPrevented).toBe(true);
+  });
+
+  it('left-click on the inline action icon still works normally after the context-menu fix', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Aktionen' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+  });
+
   it('duplicates a row from the contextual menu and starts editing the copy', async () => {
     const user = userEvent.setup();
     render(

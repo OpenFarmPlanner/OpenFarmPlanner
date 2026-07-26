@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LONG_PRESS_THRESHOLD_MS,
+  closestContextMenuElement,
   shouldOpenCustomContextMenu,
   useCloseCustomContextMenuOnNativeContextMenu,
   useLongPress,
@@ -42,6 +43,48 @@ describe('context menu helpers', () => {
     const input = document.createElement('input');
 
     expect(shouldOpenCustomContextMenu(input)).toBe(false);
+  });
+
+  it('still opens the custom context menu for a plain HTML target', () => {
+    const cell = document.createElement('td');
+    expect(shouldOpenCustomContextMenu(cell)).toBe(true);
+  });
+
+  it('still opens the custom context menu when the target is an SVG icon (e.g. an IconButton icon)', () => {
+    // Right-clicking directly on an SVG icon inside a row (MUI's
+    // <IconButton><SomeIcon /></IconButton> pattern used for every inline
+    // row action) makes the native event's target an SVGElement, not an
+    // HTMLElement - SVGElement is a sibling of HTMLElement under Element,
+    // not a subtype of it. This is the regression that let the native
+    // browser context menu leak through for icons/buttons inside table rows.
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    svg.appendChild(path);
+    expect(path instanceof HTMLElement).toBe(false);
+
+    expect(shouldOpenCustomContextMenu(path)).toBe(true);
+  });
+
+  it('closestContextMenuElement finds an ancestor row for SVG targets, unlike a plain instanceof HTMLElement check', () => {
+    const row = document.createElement('tr');
+    row.setAttribute('data-id', '1');
+    row.setAttribute('role', 'row');
+    const button = document.createElement('button');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    svg.appendChild(path);
+    button.appendChild(svg);
+    row.appendChild(button);
+    document.body.appendChild(row);
+
+    expect(closestContextMenuElement(path, '[role="row"][data-id]')).toBe(row);
+
+    document.body.removeChild(row);
+  });
+
+  it('closestContextMenuElement returns null for non-Element targets (e.g. window, text nodes)', () => {
+    expect(closestContextMenuElement(null, 'tr')).toBeNull();
+    expect(closestContextMenuElement(document.createTextNode('x'), 'tr')).toBeNull();
   });
 
   it('does not close the custom menu when right-clicking another supported target', () => {

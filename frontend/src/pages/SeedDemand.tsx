@@ -37,7 +37,7 @@ import EmptyStateCard from '../components/project/EmptyStateCard';
 import { ContextMenuHint, FullCellTooltip, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
 import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { getFirstMissingProjectSetupStep, getTranslatedProjectSetupActions } from './requirementFlow';
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import {
   getPackageBlockerTooltip,
@@ -313,8 +313,7 @@ export default function SeedDemandPage() {
 
   const isSeedDemandContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target) &&
-    target instanceof HTMLElement &&
-    target.closest('tr[data-seed-demand-culture-id]') !== null
+    closestContextMenuElement(target, 'tr[data-seed-demand-culture-id]') !== null
   ), []);
   const {
     state: contextMenuState,

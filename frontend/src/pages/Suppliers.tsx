@@ -40,7 +40,7 @@ import { ContextMenuHint, DELETE_UNDO_DURATION_MS, DeleteUndoSnackbar, TableCopy
 import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
 import { extractApiErrorMessage } from '../api/errors';
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
 import { showGlobalSnackbar } from '../utils/globalSnackbar';
 import { createTransientId } from '../utils/transientId';
 
@@ -347,8 +347,7 @@ export default function Suppliers() {
 
   const isSupplierContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target) &&
-    target instanceof HTMLElement &&
-    target.closest('tr[data-supplier-id]') !== null
+    closestContextMenuElement(target, 'tr[data-supplier-id]') !== null
   ), []);
   const {
     state: contextMenuState,

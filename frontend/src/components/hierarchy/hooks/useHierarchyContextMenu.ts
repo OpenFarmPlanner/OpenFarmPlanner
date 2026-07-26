@@ -9,7 +9,7 @@
 // UX/data-shape choices, not something to unify further.
 import { useCallback, useMemo } from "react";
 import type { HierarchyRow } from "../utils/types";
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from "../../../utils/contextMenu";
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from "../../../utils/contextMenu";
 import { useRowContextMenuState } from "../../contextMenu/useRowContextMenuState";
 import { useLongPressTimer } from "../../contextMenu/useLongPressTimer";
 
@@ -34,10 +34,10 @@ export function useHierarchyContextMenu({
 }: UseHierarchyContextMenuParams) {
   const isHierarchyContextMenuTarget = useCallback(
     (target: EventTarget | null): boolean => {
-      if (!shouldOpenCustomContextMenu(target) || !(target instanceof HTMLElement)) {
+      if (!shouldOpenCustomContextMenu(target)) {
         return false;
       }
-      const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
+      const rowElement = closestContextMenuElement(target, '[role="row"][data-id]');
       const rowId = rowElement?.dataset.id;
       return Boolean(rowId && rows.some((row) => String(row.id) === rowId));
     },
@@ -96,9 +96,7 @@ export function useHierarchyContextMenu({
   const handleGridContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>): void => {
       if (!isHierarchyContextMenuTarget(event.target)) return;
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
+      const rowElement = closestContextMenuElement(event.target, '[role="row"][data-id]');
       const rowId = rowElement?.dataset.id;
       if (!rowId) return;
       const targetRow = rows.find((row) => String(row.id) === rowId);
@@ -114,9 +112,7 @@ export function useHierarchyContextMenu({
   const handleGridTouchStart = useCallback(
     (event: React.TouchEvent<HTMLElement>): void => {
       if (!shouldOpenCustomContextMenu(event.target)) return;
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
+      const rowElement = closestContextMenuElement(event.target, '[role="row"][data-id]');
       const rowId = rowElement?.dataset.id;
       if (!rowId) return;
       const targetRow = rows.find((row) => String(row.id) === rowId);

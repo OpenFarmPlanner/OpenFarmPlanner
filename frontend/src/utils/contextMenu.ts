@@ -62,8 +62,27 @@ const editableSelector = [
 
 const customContextMenuSelector = '.ofp-custom-context-menu, [role="menu"]';
 
+/**
+ * Right-clicking (or long-pressing) directly on an SVG icon inside a button
+ * — e.g. MUI's `<IconButton><SomeIcon /></IconButton>`, used for every
+ * inline row-action affordance — makes the native event's `target` an
+ * `SVGElement`/`SVGPathElement`, not an `HTMLElement`. SVGElement is a
+ * sibling of HTMLElement under `Element`, not a subtype of it, so any
+ * `target instanceof HTMLElement` check silently fails for icon hits even
+ * though `closest()` (defined on `Element`) resolves identically for both.
+ * Row/target matching for context menus must walk up via `Element`, not
+ * `HTMLElement`, or every icon/IconButton inside a row falls through to the
+ * native browser context menu instead of the app's own one.
+ */
+export function closestContextMenuElement<T extends Element = HTMLElement>(
+  target: EventTarget | null,
+  selector: string,
+): T | null {
+  return target instanceof Element ? target.closest<T>(selector) : null;
+}
+
 export function isEditableContextMenuTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest(editableSelector) !== null;
+  return closestContextMenuElement(target, editableSelector) !== null;
 }
 
 export function shouldOpenCustomContextMenu(target: EventTarget | null): boolean {
@@ -91,10 +110,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
         return;
       }
 
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(customContextMenuSelector) !== null
-      ) {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
         event.preventDefault();
         event.stopPropagation();
         onOpenMenuContextMenu?.(event);
@@ -120,10 +136,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
       if (event.button !== 0) {
         return;
       }
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(customContextMenuSelector) !== null
-      ) {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
         return;
       }
 

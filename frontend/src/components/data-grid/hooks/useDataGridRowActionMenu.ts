@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { GridRowId } from '@mui/x-data-grid';
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../../../utils/contextMenu';
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../../../utils/contextMenu';
 import { useRowContextMenuState } from '../../contextMenu/useRowContextMenuState';
 import { useLongPressTimer } from '../../contextMenu/useLongPressTimer';
 
@@ -87,9 +87,7 @@ export function useDataGridRowActionMenu({
     if (rowId === null || !rowsById.has(String(rowId))) {
       return;
     }
-    const originElement = event.target instanceof HTMLElement
-      ? event.target.closest<HTMLElement>('[role="row"][data-id]')
-      : null;
+    const originElement = closestContextMenuElement(event.target, '[role="row"][data-id]');
     const touch = event.touches[0];
     longPressTimer.start(() => {
       markContextMenuHintUsed();

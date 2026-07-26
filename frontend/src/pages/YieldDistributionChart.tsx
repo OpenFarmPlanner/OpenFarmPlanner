@@ -6,6 +6,7 @@ import { copyTextToClipboardSilently } from "../components/data-grid";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
 import { useContextMenuPositionState } from "../components/contextMenu/useContextMenuPositionState";
 import {
+  closestContextMenuElement,
   shouldOpenCustomContextMenu,
   suppressNativeContextMenu,
   useLongPress,
@@ -77,8 +78,7 @@ export function YieldDistributionChart({
 
   const isYieldContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target)
-    && target instanceof HTMLElement
-    && target.closest('[data-rmg-component="yield-segment"]') !== null
+    && closestContextMenuElement(target, '[data-rmg-component="yield-segment"]') !== null
   ), []);
   const {
     state: contextMenuState,
