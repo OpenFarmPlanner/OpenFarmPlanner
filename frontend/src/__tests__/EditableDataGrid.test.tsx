@@ -1136,6 +1136,47 @@ describe('EditableDataGrid', () => {
     expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
   });
 
+  it('a tap outside the open row-action menu (on another cell) only closes it, and does not start editing that cell', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const firstRow = screen.getByTestId('row-1');
+    const otherCell = screen.getByRole('button', { name: 'Zelle 1-area_sqm' });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(firstRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+
+    // A tap that lands outside the menu, on a *different* cell, must only
+    // dismiss the menu — not also start editing that cell.
+    const outsideTap = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+    fireEvent(otherCell, outsideTap);
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+    expect(outsideTap.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+
+    // A further, separate tap on that same cell now behaves completely
+    // normally — the menu is closed, so nothing intercepts it.
+    fireEvent.click(otherCell);
+
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+  });
+
   it('does not open row actions on a short tap (touch)', async () => {
     render(
       <EditableDataGrid

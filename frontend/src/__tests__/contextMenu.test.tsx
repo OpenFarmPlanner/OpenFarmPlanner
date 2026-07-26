@@ -14,10 +14,13 @@ function ContextMenuBoundary({
   open,
   onClose,
   onOpenMenuContextMenu,
+  onNativeTargetActivate,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenMenuContextMenu?: (event: MouseEvent) => void;
+  /** Stands in for a table row/cell's own tap action (e.g. start editing). */
+  onNativeTargetActivate?: () => void;
 }) {
   const isCustomContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     target instanceof HTMLElement && target.closest('[data-custom-context-menu-target]') !== null
@@ -33,7 +36,7 @@ function ContextMenuBoundary({
   return (
     <>
       <div data-testid="custom-target" data-custom-context-menu-target="true" />
-      <div data-testid="native-target" />
+      <div data-testid="native-target" onClick={onNativeTargetActivate} onTouchStart={onNativeTargetActivate} />
       <div role="menu" data-testid="open-menu" />
     </>
   );
@@ -127,6 +130,64 @@ describe('context menu helpers', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
     expect(onOpenMenuContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('a touch tap outside the menu closes it without also triggering the tapped target\'s own action', () => {
+    const onClose = vi.fn();
+    const onNativeTargetActivate = vi.fn();
+    const { getByTestId } = render(
+      <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+
+    const touchStartEvent = new TouchEvent('touchstart', {
+      bubbles: true,
+      cancelable: true,
+      touches: [],
+    });
+    fireEvent(getByTestId('native-target'), touchStartEvent);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    // preventDefault() suppresses the browser's synthetic mousedown/click
+    // sequence a real touch would otherwise generate from this same tap.
+    expect(touchStartEvent.defaultPrevented).toBe(true);
+    // stopPropagation() keeps this same touchstart from also reaching the
+    // target's own handler (which a real cell would use to arm a long
+    // press or start editing) — it must never fire for this closing tap.
+    expect(onNativeTargetActivate).not.toHaveBeenCalled();
+  });
+
+  it('does not intercept a touch tap that lands on the menu itself (menu actions keep working)', () => {
+    const onClose = vi.fn();
+    const { getByTestId } = render(<ContextMenuBoundary open onClose={onClose} />);
+
+    const touchStartEvent = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+    fireEvent(getByTestId('open-menu'), touchStartEvent);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(touchStartEvent.defaultPrevented).toBe(false);
+  });
+
+  it('a later, separate tap on the same target works normally once the menu is closed', () => {
+    const onClose = vi.fn();
+    const onNativeTargetActivate = vi.fn();
+    const { getByTestId, rerender } = render(
+      <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+
+    fireEvent(getByTestId('native-target'), new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onNativeTargetActivate).not.toHaveBeenCalled();
+
+    // The menu is now closed (open=false) — the dismiss-only interception
+    // is torn down, so a fresh, separate tap behaves completely normally.
+    rerender(
+      <ContextMenuBoundary open={false} onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+    const secondTouchStart = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+    fireEvent(getByTestId('native-target'), secondTouchStart);
+
+    expect(onNativeTargetActivate).toHaveBeenCalledTimes(1);
+    expect(secondTouchStart.defaultPrevented).toBe(false);
   });
 });
 

@@ -191,4 +191,42 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
       document.removeEventListener('mousedown', handleDocumentMouseDown, true);
     };
   }, [onClose, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    // `CustomContextMenu` deliberately renders with `hideBackdrop` and
+    // `pointerEvents: 'none'` on its root (see CustomContextMenu.tsx), so a
+    // tap outside it reaches the DOM underneath same as if the menu weren't
+    // there — the mousedown listener above is what actually closes it. On
+    // desktop that's fine and intentional: a left click that dismisses the
+    // menu also acting on whatever's under the cursor matches how a native
+    // context menu behaves, and changing that isn't asked for here.
+    //
+    // On touch a single tap must ONLY dismiss the menu — not also start
+    // editing the cell (or run whatever tap action) the finger landed on.
+    // preventDefault() on `touchstart` suppresses the entire synthetic
+    // mousedown/mouseup/click sequence the browser would otherwise
+    // synthesize from this touch, and stopPropagation() keeps the same
+    // touchstart from also arming that target's own long-press timer. The
+    // next, separate tap is completely unaffected — this listener is torn
+    // down as soon as `open` becomes false.
+    const handleDocumentTouchStart = (event: TouchEvent): void => {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+
+    document.addEventListener('touchstart', handleDocumentTouchStart, { capture: true, passive: false });
+
+    return () => {
+      document.removeEventListener('touchstart', handleDocumentTouchStart, true);
+    };
+  }, [onClose, open]);
 }

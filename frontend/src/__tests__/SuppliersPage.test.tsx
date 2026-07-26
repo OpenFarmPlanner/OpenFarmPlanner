@@ -185,6 +185,87 @@ describe('Suppliers page empty and table states', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
   });
 
+  it('selecting an action from a touch-opened context menu still works', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    const supplierName = await screen.findByText('Reinsaat');
+    const supplierRow = supplierName.closest('tr') as HTMLTableRowElement;
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(supplierRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Bearbeiten' }));
+
+    expect(await screen.findByRole('heading', { name: 'Lieferant bearbeiten' })).toBeInTheDocument();
+  });
+
+  it('a tap outside the open context menu (on another row) only closes it, and does not start editing that row', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [
+          { id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' },
+          { id: 2, name: 'Bingenheimer Saatgut', homepage_url: 'https://example.org' },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    const firstRow = (await screen.findByText('Reinsaat')).closest('tr') as HTMLTableRowElement;
+    const secondRow = screen.getByText('Bingenheimer Saatgut').closest('tr') as HTMLTableRowElement;
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(firstRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole('menuitem', { name: 'Bearbeiten' })).toBeInTheDocument();
+
+    // A tap that lands outside the menu, on a *different* row, must only
+    // dismiss the menu — not also start editing that row.
+    const outsideTap = new TouchEvent('touchstart', {
+      bubbles: true,
+      cancelable: true,
+      touches: [{ identifier: 2, clientX: 10, clientY: 200 }] as unknown as Touch[],
+    });
+    fireEvent(secondRow, outsideTap);
+
+    expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
+    expect(outsideTap.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('heading', { name: 'Lieferant bearbeiten' })).not.toBeInTheDocument();
+
+    // A further, separate tap on that same row now behaves completely
+    // normally — the menu is closed, so nothing intercepts it.
+    fireEvent.click(secondRow);
+
+    expect(await screen.findByRole('heading', { name: 'Lieferant bearbeiten' })).toBeInTheDocument();
+  });
+
   it('suppresses the trailing click after a long press, so the edit dialog does not also open', async () => {
     mocks.list.mockResolvedValue({
       data: {
