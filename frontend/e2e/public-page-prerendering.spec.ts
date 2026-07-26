@@ -37,6 +37,20 @@ test.describe('public page prerendering', () => {
     }
   });
 
+  test('each prerendered page serializes CSS-in-JS rules needed for first paint', () => {
+    for (const route of PUBLIC_INDEXABLE_ROUTES) {
+      const html = readFileSync(distPathFor(route.path), 'utf-8');
+      const emotionStyles = [...html.matchAll(/<style data-emotion="[^"]*"[^>]*>([\s\S]*?)<\/style>/g)]
+        .map((match) => match[1].trim());
+
+      expect(emotionStyles.length, `missing Emotion styles for ${route.path}`).toBeGreaterThan(0);
+      expect(
+        emotionStyles.some((style) => style.length > 0),
+        `empty Emotion styles would leave prerendered ${route.path} unstyled before JS boots`,
+      ).toBe(true);
+    }
+  });
+
   test('each prerendered page has its own correct canonical URL and single description', () => {
     for (const route of PUBLIC_INDEXABLE_ROUTES) {
       const html = readFileSync(distPathFor(route.path), 'utf-8');
@@ -70,6 +84,19 @@ test.describe('public page prerendering', () => {
     await page.goto('/datenschutz/');
     await expect(page.locator('h1')).toHaveText('Datenschutzerklärung');
     await expect(page.getByText('Verantwortlicher', { exact: false }).first()).toBeVisible();
+    await context.close();
+  });
+
+  test('a JS-disabled browser sees the landing page with critical styles applied', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('/');
+
+    await expect(page.locator('h1').first()).toHaveText('OpenFarmPlanner');
+    const logo = page.locator('img[src="/favicon.png"]').first();
+    await expect(logo).toBeVisible();
+    await expect(logo).toHaveCSS('width', '48px');
+    await expect(page.getByRole('link', { name: 'Registrieren' })).toHaveCSS('background-color', 'rgb(37, 111, 42)');
     await context.close();
   });
 
