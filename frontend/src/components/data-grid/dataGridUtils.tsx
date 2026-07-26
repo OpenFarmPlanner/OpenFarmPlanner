@@ -6,6 +6,8 @@ import {
   getGridStringOperators,
 } from '@mui/x-data-grid';
 import type { GridColDef, GridFilterOperator, GridRowId, GridSortModel } from '@mui/x-data-grid';
+import { Box } from '@mui/material';
+import { OverflowTooltip } from '../OverflowTooltip';
 import { DateEditCell } from './DateEditCell';
 import type { EditableRow } from './types';
 
@@ -104,8 +106,36 @@ const applyDefaultDateEditCell = (column: GridColDef): GridColDef => {
   };
 };
 
+const applyDefaultHeaderOverflowTooltip = (column: GridColDef): GridColDef => {
+  if (column.renderHeader) {
+    return column;
+  }
+
+  const headerName = column.headerName ?? column.field;
+  return {
+    ...column,
+    renderHeader: () => (
+      <OverflowTooltip title={headerName}>
+        <Box
+          component="span"
+          sx={{
+            display: 'block',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            width: '100%',
+          }}
+        >
+          {headerName}
+        </Box>
+      </OverflowTooltip>
+    ),
+  };
+};
+
 export const prepareDataGridColumn = (column: GridColDef): GridColDef =>
-  keepDraftRowsVisibleForColumnFilters(applyDefaultDateEditCell(column));
+  keepDraftRowsVisibleForColumnFilters(applyDefaultHeaderOverflowTooltip(applyDefaultDateEditCell(column)));
 
 const getSortableValue = (row: EditableRow, field: string): unknown => row[field];
 

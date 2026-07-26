@@ -42,6 +42,7 @@ frontend/src/components/data-grid/
   NotesCell.tsx, NotesDrawer.tsx, NotesPreviewPopover.tsx,
   useNotesEditor.ts, useNotesPreview.ts, markdown.ts,
   noteAttachmentsCache.ts               rich markdown notes + photo attachments
+  ../OverflowTooltip.tsx                overflow-only desktop tooltip wrapper
   tableClipboard.ts, TableCopyMenuItems.tsx   copy row/table as TSV
   columns.tsx, calculatedColumns.tsx    column builders (select, computed)
   dataGridUtils.tsx, handlers.ts, styles.ts, localeText.ts   shared helpers
@@ -237,6 +238,19 @@ downscale/re-encode to WebP (falling back to JPEG) client-side before
 upload. `noteAttachmentsCache.ts` caches attachment fetches per note id so
 re-hovering a row doesn't refetch; the drawer explicitly invalidates that
 cache after upload/delete.
+
+## Text overflow tooltips
+
+Plain text headers and cells should not use tooltips that simply repeat
+visible content. Shared table code uses `OverflowTooltip` for this: it
+measures the hovered/focused element only on fine-pointer desktop
+interaction (and while the active element resizes) and shows the full text
+only when the element actually overflows. This keeps desktop truncation
+recoverable without adding hover-equivalent popovers or tap targets on
+mobile/touch surfaces. Explanatory tooltips remain separate: icon labels,
+calculated-column explanations, unavailable-value reasons, note previews,
+and package/blocker diagnostics should still use their dedicated tooltip or
+popover components.
 
 `markdown.ts`'s `stripCitationMarkers` strips AI-citation markers of the
 form `【digits†identifier】` from note text. **Unclear/needs check**: trace
