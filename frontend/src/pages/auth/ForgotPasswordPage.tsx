@@ -1,10 +1,11 @@
-import { Alert, Box, Button, Container, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
-import { singleColumnFormSx } from '../../components/forms/formLayout';
+import AuthPageShell from './AuthPageShell';
+import { authFormSx, authPrimaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
 
 export default function ForgotPasswordPage() {
   const { requestPasswordReset } = useAuth();
@@ -26,17 +27,28 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>{t('forgotPassword.title')}</Typography>
-      <Box component="form" onSubmit={handleSubmit} sx={singleColumnFormSx}>
-        <Stack spacing={2}>
+    <AuthPageShell title={t('forgotPassword.title')} subtitle={t('forgotPassword.subtitle')}>
+      <Box component="form" onSubmit={handleSubmit} sx={authFormSx}>
+        <Stack spacing={2.25}>
           {message ? <Alert severity="success">{message}</Alert> : null}
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <TextField label={t('forgotPassword.email')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Button type="submit" variant="contained">{t('forgotPassword.submit')}</Button>
-          <Button component={RouterLink} to="/login">{t('forgotPassword.backToLogin')}</Button>
+          <TextField
+            label={t('forgotPassword.email')}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            fullWidth
+            sx={authTextFieldSx}
+          />
+          <Button type="submit" variant="contained" size="large" fullWidth sx={authPrimaryButtonSx}>
+            {t('forgotPassword.submit')}
+          </Button>
+          <Button component={RouterLink} to="/login" sx={authTextButtonSx}>
+            {t('forgotPassword.backToLogin')}
+          </Button>
         </Stack>
       </Box>
-    </Container>
+    </AuthPageShell>
   );
 }

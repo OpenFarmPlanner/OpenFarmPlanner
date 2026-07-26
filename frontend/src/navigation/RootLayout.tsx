@@ -6,7 +6,7 @@
  * snackbar/help/history dialogs. Extracted verbatim from App.tsx.
  */
 
-import { Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Button,
@@ -29,8 +29,6 @@ import {
   SvgIcon,
   type SvgIconProps,
   Drawer,
-  ListItemButton,
-  ListItemIcon,
   Toolbar,
   Tooltip,
   ToggleButton,
@@ -88,7 +86,9 @@ import { useFocusRegion } from '../focus/useFocusManager';
 import { useTopbarActionsRouteReset } from '../hooks/useTopbarActionsRouteReset';
 import { appRouteUrl } from '../utils/appRouteUrl';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
-import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, normalizeMainRoutePath } from '../navigation/mainNavigation';
+import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, isProjectIndependentRoute, normalizeMainRoutePath, shouldDisableNavItem } from '../navigation/mainNavigation';
+import { useProjectRequirement } from '../hooks/useProjectRequirement';
+import NavListItem from '../navigation/NavListItem';
 import {
   getMobileNavigationIconSx,
   getMobileNavigationItemSx,
@@ -205,17 +205,23 @@ function RootLayout() {
 
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
 
+  const { hasActiveProject } = useProjectRequirement();
+
   const navItems = useMemo(() => ([
-    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <DashboardOutlinedIcon fontSize="small" /> },
+    // Dashboard stays reachable even without a project: it is the "home" nav
+    // entry and already shows the same project-required empty state/CTA as
+    // other pages, so disabling it would be a dead end rather than a guide.
+    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <DashboardOutlinedIcon fontSize="small" />, requiresProject: false },
     ...MAIN_NAV_ITEMS.map((item) => ({
       to: item.to,
       label: t(item.labelKey),
       activeAliases: item.activeAliases ?? [],
       keywords: item.keywords,
+      requiresProject: item.requiresProject,
       icon: item.to.includes('locations') ? <PlaceOutlinedIcon fontSize="small" />
         : item.to.includes('fields-beds') ? <GridViewOutlinedIcon fontSize="small" />
           : item.to.includes('cultures') ? <LocalFloristOutlinedIcon fontSize="small" />
-            : item.to.includes('anbauplaene') ? <EventNoteOutlinedIcon fontSize="small" />
+            : item.to.includes('planting-plans') ? <EventNoteOutlinedIcon fontSize="small" />
               : item.to.includes('gantt-chart') ? <CalendarMonthOutlinedIcon fontSize="small" />
                 : item.to.includes('yield-overview') ? <BarChartOutlinedIcon fontSize="small" />
                 : item.to.includes('seed-demand') ? <ScienceOutlinedIcon fontSize="small" />
@@ -433,12 +439,16 @@ function RootLayout() {
     return () => window.removeEventListener('ofp:project-trash-changed', handleProjectTrashChanged);
   }, [refreshDeletedProjectsCount]);
 
-  useEffect(() => {
-    if (!user || memberships.length > 0 || location.pathname === '/app/project-selection') {
-      return;
-    }
-    navigate('/app/project-selection', { replace: true });
-  }, [location.pathname, memberships.length, navigate, user]);
+  // Users with zero projects can only use project-independent pages (see
+  // PROJECT_INDEPENDENT_APP_ROUTES) — everything else is project-scoped and
+  // redirects to project-selection. This is a render-time guard (mirroring
+  // ProtectedRoute's auth guard below), not a useEffect: an effect-based
+  // `navigate()` runs after the target page has already committed and
+  // painted once, which both flashes the wrong content and, if the target
+  // itself changes location.pathname, can immediately re-trigger the effect.
+  const requiresProjectSelectionRedirect = Boolean(user)
+    && memberships.length === 0
+    && !isProjectIndependentRoute(location.pathname);
 
   const handleOpenCreateProject = useCallback((): void => {
     setProjectMenuAnchor(null);
@@ -777,6 +787,10 @@ function RootLayout() {
     }
   }, [navigate, topbarPrimaryAction]);
 
+  if (requiresProjectSelectionRedirect) {
+    return <Navigate to="/app/project-selection" replace />;
+  }
+
   return (
     <Box className={`app app--${CONTENT_ALIGNMENT_MODE}`} sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
@@ -850,19 +864,22 @@ function RootLayout() {
             <List sx={{ px: 1, pt: 0.5, pb: 1, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
               {navItems.map((item) => {
                 const isActive = location.pathname === item.to || item.activeAliases.includes(location.pathname);
-                const entry = (
-                  <ListItemButton
+                const disabled = shouldDisableNavItem(item, hasActiveProject);
+                return (
+                  <NavListItem
                     key={item.to}
-                    component={RouterLink as React.ElementType}
                     to={item.to}
-                    selected={isActive}
-                    sx={getNavigationItemSx(isActive, sidebarCollapsed)}
-                  >
-                    <ListItemIcon sx={getNavigationIconSx(isActive, sidebarCollapsed)}>{item.icon}</ListItemIcon>
-                    {!sidebarCollapsed ? <ListItemText primary={item.label} primaryTypographyProps={getNavigationTextProps(isActive)} /> : null}
-                  </ListItemButton>
+                    label={item.label}
+                    icon={item.icon}
+                    isActive={isActive}
+                    disabled={disabled}
+                    disabledTooltip={t('disabledNoProjectTooltip')}
+                    itemSx={getNavigationItemSx(isActive, sidebarCollapsed, disabled)}
+                    iconSx={getNavigationIconSx(isActive, sidebarCollapsed, disabled)}
+                    textProps={!sidebarCollapsed ? getNavigationTextProps(isActive, disabled) : undefined}
+                    enabledTooltip={sidebarCollapsed ? item.label : undefined}
+                  />
                 );
-                return sidebarCollapsed ? <Tooltip key={item.to} title={item.label} placement="right">{entry}</Tooltip> : entry;
               })}
             </List>
           </Stack>
@@ -872,6 +889,13 @@ function RootLayout() {
       <Box sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
         {navItems.map((item) => {
           const srLinkLabel = item.to === '/app/dashboard' ? t('globalMenu.dashboardLink') : item.label;
+          if (shouldDisableNavItem(item, hasActiveProject)) {
+            return (
+              <span key={`sr-${item.to}`} aria-disabled="true">
+                <span>{item.label}</span> ({t('disabledNoProjectTooltip')})
+              </span>
+            );
+          }
           return <RouterLink key={`sr-${item.to}`} to={item.to} aria-label={srLinkLabel}>{item.label}</RouterLink>;
         })}
       </Box>
@@ -1703,18 +1727,22 @@ function RootLayout() {
           </ListItem>
           {navItems.map((item) => {
             const isActive = location.pathname === item.to || item.activeAliases.includes(location.pathname);
+            const disabled = shouldDisableNavItem(item, hasActiveProject);
             return (
-                <ListItem key={item.to} disablePadding>
-                  <ListItemButton
-                  component={RouterLink as React.ElementType}
+              <ListItem key={item.to} disablePadding>
+                <NavListItem
                   to={item.to}
-                  selected={isActive}
-                  onClick={closeMobileNav}
-                  sx={getMobileNavigationItemSx(isActive)}
-                >
-                  <ListItemIcon sx={getMobileNavigationIconSx(isActive)}>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.label} primaryTypographyProps={getMobileNavigationTextProps(isActive)} />
-                </ListItemButton>
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={isActive}
+                  disabled={disabled}
+                  disabledTooltip={t('disabledNoProjectTooltip')}
+                  itemSx={getMobileNavigationItemSx(isActive, disabled)}
+                  iconSx={getMobileNavigationIconSx(isActive, disabled)}
+                  textProps={getMobileNavigationTextProps(isActive, disabled)}
+                  enabledTooltipPlacement="top"
+                  onNavigate={closeMobileNav}
+                />
               </ListItem>
             );
           })}

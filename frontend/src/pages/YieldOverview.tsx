@@ -163,7 +163,7 @@ export default function YieldOverviewPage() {
               actions={[
                 {
                   label: t("empty.createPlanAction"),
-                  to: "/app/anbauplaene?action=create",
+                  to: "/app/planting-plans?action=create",
                   icon: <AddIcon fontSize="small" />,
                 },
               ]}
@@ -180,7 +180,7 @@ export default function YieldOverviewPage() {
               title={t("empty.noYieldTitle", { year: selectedYear })}
               description={t("empty.noYieldDescription", { year: selectedYear })}
               actions={[
-                { label: t("empty.openPlansAction"), to: "/app/anbauplaene" },
+                { label: t("empty.openPlansAction"), to: "/app/planting-plans" },
               ]}
               containerSx={{ maxWidth: "none", mb: 0 }}
             />

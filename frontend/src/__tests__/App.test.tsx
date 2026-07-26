@@ -401,13 +401,51 @@ describe('App', () => {
 
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
+    // Without any project, project-dependent nav items stay visible for
+    // onboarding but are disabled — not real navigable links — until a
+    // project exists. See "disables project-dependent navigation..." below
+    // for the full disabled-state assertions.
     expect(await screen.findByText('Anbauflächen')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: translations.navigation.locations })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Zur Übersicht' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Zur Übersicht' }).length).toBeGreaterThan(0);
     expect(screen.getByText(translations.navigation.cultures)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: translations.navigation.plantingPlans })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: translations.navigation.plantingPlans })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Aktives Projekt wechseln' })).toBeInTheDocument();
+  });
+
+  it('disables project-dependent navigation but keeps it visible when the user has no project (onboarding)', async () => {
+    authState.user = {
+      id: 1,
+      email: 'demo@example.com',
+      display_name: 'Demo',
+      display_label: 'Demo',
+      is_active: true,
+      default_project_id: null,
+      last_project_id: null,
+      resolved_project_id: null,
+      needs_project_selection: false,
+      memberships: [],
+      account_pending_deletion: false,
+      scheduled_deletion_at: null,
+      pending_consents: [],
+    };
+    authState.activeProjectId = null;
+    window.history.pushState({}, '', '/app/anbauplaene');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    // Still visible, so new users can see what OpenFarmPlanner offers...
+    const cultureLabel = await screen.findByText(translations.navigation.cultures);
+    expect(cultureLabel).toBeInTheDocument();
+    // ...but not a navigable link, and exposed as disabled for assistive tech.
+    // (The interactive sidebar row itself — including its hover tooltip and
+    // click/keyboard guards — is exercised directly against real pointer/
+    // keyboard events in NavListItem.test.tsx; this only has to confirm the
+    // wiring from RootLayout produces a disabled, non-link entry.)
+    expect(screen.queryByRole('link', { name: translations.navigation.cultures })).not.toBeInTheDocument();
+    const disabledCultureControl = cultureLabel.closest('[aria-disabled]');
+    expect(disabledCultureControl).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('links logo to dashboard when an active project is selected', async () => {
@@ -457,6 +495,111 @@ describe('App', () => {
     fireEvent.click(await screen.findByLabelText('Mehr'));
     expect(await screen.findByText('Kontoeinstellungen')).toBeInTheDocument();
     expect(screen.getByText('Projekteinstellungen')).toBeInTheDocument();
+  });
+
+  // Regression coverage for a routing bug: a user with zero projects who
+  // opened a project-independent page (e.g. account settings) from the
+  // global menu was bounced straight back to "Erstes Projekt starten" —
+  // caused by a useEffect-based redirect that fired on every pathname
+  // change and only special-cased `/app/project-selection`. The redirect is
+  // now a render-time guard driven by the central
+  // PROJECT_INDEPENDENT_APP_ROUTES list in mainNavigation.ts.
+  describe('project-selection redirect guard (no-project onboarding)', () => {
+    function zeroProjectUser(): AuthUser {
+      return {
+        id: 1,
+        email: 'demo@example.com',
+        display_name: 'Demo',
+        display_label: 'Demo',
+        is_active: true,
+        default_project_id: null,
+        last_project_id: null,
+        resolved_project_id: null,
+        needs_project_selection: false,
+        memberships: [],
+        account_pending_deletion: false,
+        scheduled_deletion_at: null,
+        pending_consents: [],
+      };
+    }
+
+    it('1) opens account settings from the menu and stays there instead of bouncing back to onboarding', async () => {
+      authState.user = zeroProjectUser();
+      window.history.pushState({}, '', '/app/project-selection');
+
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+      expect(await screen.findByRole('heading', { name: 'Erstes Projekt starten' })).toBeInTheDocument();
+
+      fireEvent.click(await screen.findByLabelText('Mehr'));
+      fireEvent.click(await screen.findByText('Kontoeinstellungen'));
+
+      // AccountSettingsPage is a larger lazy chunk (profile/social/data-export
+      // cards); give it more room than the default 1s findBy timeout.
+      expect(await screen.findByRole('heading', { name: 'Kontoeinstellungen' }, { timeout: 5000 })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/app/account-settings');
+
+      // It must not bounce back after the initial navigation settles.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(window.location.pathname).toBe('/app/account-settings');
+      expect(screen.getByRole('heading', { name: 'Kontoeinstellungen' })).toBeInTheDocument();
+    });
+
+    it('2) keeps rendering the other project-independent route (project-selection) without looping', async () => {
+      authState.user = zeroProjectUser();
+      window.history.pushState({}, '', '/app/project-selection');
+
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+      expect(await screen.findByRole('heading', { name: 'Erstes Projekt starten' })).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(window.location.pathname).toBe('/app/project-selection');
+      expect(screen.getByRole('heading', { name: 'Erstes Projekt starten' })).toBeInTheDocument();
+    });
+
+    it('3) still redirects project-scoped routes to project-selection for users without a project', async () => {
+      authState.user = zeroProjectUser();
+      window.history.pushState({}, '', '/app/fields-beds');
+
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+      expect(await screen.findByRole('heading', { name: 'Erstes Projekt starten' })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/app/project-selection');
+    });
+
+    it('4) renders a project-independent route correctly on a direct/cold URL load', async () => {
+      authState.user = zeroProjectUser();
+      window.history.pushState({}, '', '/app/account-settings');
+
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+      expect(await screen.findByRole('heading', { name: 'Kontoeinstellungen' }, { timeout: 5000 })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/app/account-settings');
+    });
+
+    it('5) leaves routing for users with an active project unaffected', async () => {
+      authState.user = {
+        id: 1,
+        email: 'demo@example.com',
+        display_name: 'Demo',
+        display_label: 'Demo',
+        is_active: true,
+        default_project_id: 1,
+        last_project_id: 1,
+        resolved_project_id: 1,
+        needs_project_selection: false,
+        memberships: [{ project_id: 1, project_name: 'Alpha', role: 'admin' }],
+        account_pending_deletion: false,
+        scheduled_deletion_at: null,
+        pending_consents: [],
+      };
+      authState.activeProjectId = 1;
+      window.history.pushState({}, '', '/app/account-settings');
+
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+      expect(await screen.findByRole('heading', { name: 'Kontoeinstellungen' }, { timeout: 5000 })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/app/account-settings');
+    });
   });
 
   it('returns guest demo sessions to the public landing page when leaving the demo', async () => {

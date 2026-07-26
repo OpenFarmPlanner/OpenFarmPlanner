@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { GridColDef } from '@mui/x-data-grid';
 import { AxiosError } from 'axios';
@@ -1101,6 +1101,109 @@ describe('EditableDataGrid', () => {
     expect(stopPropagationSpy).toHaveBeenCalled();
   });
 
+  it('opens row actions from a touch long-press and suppresses the trailing click, so the cell does not also enter edit mode', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    let touchEndEvent: TouchEvent;
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // A real browser would synthesize a trailing click from this touchend
+      // (which the grid would otherwise treat as a tap-to-edit on the cell
+      // underneath) unless its default is prevented — jsdom doesn't perform
+      // that synthesis itself, so defaultPrevented is the testable proxy.
+      touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+      fireEvent(row, touchEndEvent);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(touchEndEvent!.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+  });
+
+  it('a tap outside the open row-action menu (on another cell) only closes it, and does not start editing that cell', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const firstRow = screen.getByTestId('row-1');
+    const otherCell = screen.getByRole('button', { name: 'Zelle 1-area_sqm' });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(firstRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+
+    // A tap that lands outside the menu, on a *different* cell, must only
+    // dismiss the menu — not also start editing that cell.
+    const outsideTap = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+    fireEvent(otherCell, outsideTap);
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+    expect(outsideTap.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+
+    // A further, separate tap on that same cell now behaves completely
+    // normally — the menu is closed, so nothing intercepts it.
+    fireEvent.click(otherCell);
+
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+  });
+
+  it('does not open row actions on a short tap (touch)', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      fireEvent.touchEnd(row);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+  });
+
   it('keeps row actions right-click only without a hover trigger', async () => {
     render(
       <EditableDataGrid
@@ -1192,6 +1295,50 @@ describe('EditableDataGrid', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'actions.copyRow' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'actions.copyTable' })).toBeInTheDocument();
+  });
+
+  it('opens the app context menu (not the native one) when right-clicking directly on the inline action icon', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    const actionsButton = screen.getByRole('button', { name: 'Aktionen' });
+    // A real right-click on a MUI IconButton icon lands on the inner SVG
+    // <path>, an SVGElement rather than an HTMLElement - regression guard
+    // for the bug where such right-clicks fell through to the native menu.
+    const iconPath = actionsButton.querySelector('svg path');
+    expect(iconPath).not.toBeNull();
+
+    const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(iconPath as Element, contextMenuEvent);
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
+    expect(contextMenuEvent.defaultPrevented).toBe(true);
+  });
+
+  it('left-click on the inline action icon still works normally after the context-menu fix', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Aktionen' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
   });
 
   it('duplicates a row from the contextual menu and starts editing the copy', async () => {

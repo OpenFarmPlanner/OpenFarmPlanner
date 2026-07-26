@@ -1,11 +1,12 @@
-import { Alert, Box, Button, Container, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, InputAdornment, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { useTranslation } from '../../i18n';
-import { singleColumnFormSx } from '../../components/forms/formLayout';
+import AuthPageShell from './AuthPageShell';
+import { authFormSx, authPrimaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -33,10 +34,9 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>{t('resetPassword.title')}</Typography>
-      <Box component="form" onSubmit={handleSubmit} sx={singleColumnFormSx}>
-        <Stack spacing={2}>
+    <AuthPageShell title={t('resetPassword.title')} subtitle={t('resetPassword.subtitle')}>
+      <Box component="form" onSubmit={handleSubmit} sx={authFormSx}>
+        <Stack spacing={2.25}>
           {message ? <Alert severity="success">{message}</Alert> : null}
           {error ? <Alert severity="error">{error}</Alert> : null}
           <TextField
@@ -45,6 +45,8 @@ export default function ResetPasswordPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            fullWidth
+            sx={authTextFieldSx}
             slotProps={{
               input: {
                 endAdornment: (
@@ -67,6 +69,8 @@ export default function ResetPasswordPage() {
             value={passwordConfirm}
             onChange={(e) => setPasswordConfirm(e.target.value)}
             required
+            fullWidth
+            sx={authTextFieldSx}
             slotProps={{
               input: {
                 endAdornment: (
@@ -83,10 +87,14 @@ export default function ResetPasswordPage() {
               htmlInput: { autoComplete: 'new-password' },
             }}
           />
-          <Button type="submit" variant="contained">{t('resetPassword.submit')}</Button>
-          <Button component={RouterLink} to="/login">{t('resetPassword.backToLogin')}</Button>
+          <Button type="submit" variant="contained" size="large" fullWidth sx={authPrimaryButtonSx}>
+            {t('resetPassword.submit')}
+          </Button>
+          <Button component={RouterLink} to="/login" sx={authTextButtonSx}>
+            {t('resetPassword.backToLogin')}
+          </Button>
         </Stack>
       </Box>
-    </Container>
+    </AuthPageShell>
   );
 }

@@ -8,7 +8,8 @@
     }
   },
   "messages": {
-    "contextMenuTableHint": "Tip: Right-click a row for more actions."
+    "contextMenuTableHint": "Tip: Right-click a row for more actions.",
+    "contextMenuTableHintTouch": "Tip: Press and hold a row for more actions."
   },
   "errors": {
     "sessionExpired": "Your session has expired. Please sign in again.",

@@ -401,7 +401,7 @@ describe("YieldOverviewPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Anbauplan hinzufügen" }),
-    ).toHaveAttribute("href", "/app/anbauplaene?action=create");
+    ).toHaveAttribute("href", "/app/planting-plans?action=create");
   });
 
   it("shows a yield-data empty state when planting plans have no calculable yields", async () => {

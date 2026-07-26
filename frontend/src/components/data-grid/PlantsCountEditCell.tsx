@@ -4,11 +4,12 @@
  * Keeps raw input text during editing and lets the save flow normalize it.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import type { Culture } from '../../api/types';
+import { useEditCellAutoFocus } from './useEditCellAutoFocus';
 
 export interface PlantsCountEditCellProps extends GridRenderEditCellParams {
   cultures: Culture[];
@@ -31,12 +32,10 @@ export function PlantsCountEditCell(props: PlantsCountEditCellProps) {
     setInputValue(typeof value === 'number' && !isNaN(value) ? value.toString() : typeof value === 'string' ? value : '');
   }, [hasFocus, value]);
 
-  useEffect(() => {
-    if (hasFocus) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [hasFocus]);
+  const selectAll = useCallback((input: HTMLInputElement): void => {
+    input.select();
+  }, []);
+  useEditCellAutoFocus(hasFocus, inputRef, selectAll);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

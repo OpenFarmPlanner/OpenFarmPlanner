@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 interface SuppressibleEvent {
   preventDefault: () => void;
@@ -11,10 +12,24 @@ export const LONG_PRESS_THRESHOLD_MS = 600;
 
 export interface LongPressHandlers {
   onTouchStart: (event: React.TouchEvent) => void;
-  onTouchEnd: () => void;
+  onTouchEnd: (event: React.TouchEvent) => void;
   onTouchMove: () => void;
   /** True while a touch is held but the long-press threshold hasn't fired yet — for optional, low-overhead "pressed" feedback. */
   isLongPressing: boolean;
+}
+
+/**
+ * Whether the device's primary pointer is coarse (touch) rather than fine
+ * (mouse/trackpad). This is the single signal the table-interaction model
+ * (hover-action visibility, tap-vs-long-press, hint copy) is keyed on —
+ * actual input capability, not viewport width, per the touch/desktop split
+ * documented in docs/datagrid-architecture.md. A hybrid device (laptop with
+ * a touchscreen but a mouse as primary pointer) reports `false` here, same
+ * as a mouse-only desktop — that's the correct simplification: such a
+ * device's *primary* interaction is still mouse-driven.
+ */
+export function useIsCoarsePointer(): boolean {
+  return useMediaQuery('(pointer: coarse)');
 }
 
 /**
@@ -22,12 +37,22 @@ export interface LongPressHandlers {
  * and field occupancy charts to open the same context menu that a desktop
  * right-click opens. A plain tap never fires `onLongPress`; moving the
  * finger or releasing before `thresholdMs` cancels it.
+ *
+ * `onTouchEnd` must be wired up even when the caller doesn't otherwise need
+ * a touchend handler: once a long press has fired, the browser still
+ * synthesizes a trailing `click` on release unless that click is
+ * suppressed, which would otherwise also run the element's own tap
+ * action (open/edit/navigate) right on top of the context menu that long
+ * press just opened. `onTouchEnd` calls `event.preventDefault()` to stop
+ * that synthetic click exactly when a long press fired — never on a plain
+ * tap or a cancelled press, so normal taps are unaffected.
  */
 export function useLongPress(
   onLongPress: (event: React.TouchEvent) => void,
   thresholdMs: number = LONG_PRESS_THRESHOLD_MS,
 ): LongPressHandlers {
   const timeoutRef = useRef<number | null>(null);
+  const firedRef = useRef(false);
   const [isLongPressing, setIsLongPressing] = useState(false);
 
   const clear = useCallback(() => {
@@ -40,15 +65,32 @@ export function useLongPress(
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
     if (!event.touches[0]) return;
+    firedRef.current = false;
     setIsLongPressing(true);
     timeoutRef.current = window.setTimeout(() => {
       timeoutRef.current = null;
+      firedRef.current = true;
       setIsLongPressing(false);
       onLongPress(event);
     }, thresholdMs);
   }, [onLongPress, thresholdMs]);
 
-  return { onTouchStart, onTouchEnd: clear, onTouchMove: clear, isLongPressing };
+  // Cancelling on move (not just clearing the timer) keeps a long-press
+  // gesture from ever fighting normal vertical scrolling — any finger
+  // movement, including the start of a scroll, cancels the pending press.
+  const onTouchMove = useCallback((): void => {
+    clear();
+  }, [clear]);
+
+  const onTouchEnd = useCallback((event: React.TouchEvent): void => {
+    clear();
+    if (firedRef.current) {
+      event.preventDefault();
+      firedRef.current = false;
+    }
+  }, [clear]);
+
+  return { onTouchStart, onTouchEnd, onTouchMove, isLongPressing };
 }
 
 const editableSelector = [
@@ -62,8 +104,27 @@ const editableSelector = [
 
 const customContextMenuSelector = '.ofp-custom-context-menu, [role="menu"]';
 
+/**
+ * Right-clicking (or long-pressing) directly on an SVG icon inside a button
+ * — e.g. MUI's `<IconButton><SomeIcon /></IconButton>`, used for every
+ * inline row-action affordance — makes the native event's `target` an
+ * `SVGElement`/`SVGPathElement`, not an `HTMLElement`. SVGElement is a
+ * sibling of HTMLElement under `Element`, not a subtype of it, so any
+ * `target instanceof HTMLElement` check silently fails for icon hits even
+ * though `closest()` (defined on `Element`) resolves identically for both.
+ * Row/target matching for context menus must walk up via `Element`, not
+ * `HTMLElement`, or every icon/IconButton inside a row falls through to the
+ * native browser context menu instead of the app's own one.
+ */
+export function closestContextMenuElement<T extends Element = HTMLElement>(
+  target: EventTarget | null,
+  selector: string,
+): T | null {
+  return target instanceof Element ? target.closest<T>(selector) : null;
+}
+
 export function isEditableContextMenuTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest(editableSelector) !== null;
+  return closestContextMenuElement(target, editableSelector) !== null;
 }
 
 export function shouldOpenCustomContextMenu(target: EventTarget | null): boolean {
@@ -91,10 +152,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
         return;
       }
 
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(customContextMenuSelector) !== null
-      ) {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
         event.preventDefault();
         event.stopPropagation();
         onOpenMenuContextMenu?.(event);
@@ -120,10 +178,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
       if (event.button !== 0) {
         return;
       }
-      if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(customContextMenuSelector) !== null
-      ) {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
         return;
       }
 
@@ -134,6 +189,44 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
 
     return () => {
       document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+    };
+  }, [onClose, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    // `CustomContextMenu` deliberately renders with `hideBackdrop` and
+    // `pointerEvents: 'none'` on its root (see CustomContextMenu.tsx), so a
+    // tap outside it reaches the DOM underneath same as if the menu weren't
+    // there — the mousedown listener above is what actually closes it. On
+    // desktop that's fine and intentional: a left click that dismisses the
+    // menu also acting on whatever's under the cursor matches how a native
+    // context menu behaves, and changing that isn't asked for here.
+    //
+    // On touch a single tap must ONLY dismiss the menu — not also start
+    // editing the cell (or run whatever tap action) the finger landed on.
+    // preventDefault() on `touchstart` suppresses the entire synthetic
+    // mousedown/mouseup/click sequence the browser would otherwise
+    // synthesize from this touch, and stopPropagation() keeps the same
+    // touchstart from also arming that target's own long-press timer. The
+    // next, separate tap is completely unaffected — this listener is torn
+    // down as soon as `open` becomes false.
+    const handleDocumentTouchStart = (event: TouchEvent): void => {
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+
+    document.addEventListener('touchstart', handleDocumentTouchStart, { capture: true, passive: false });
+
+    return () => {
+      document.removeEventListener('touchstart', handleDocumentTouchStart, true);
     };
   }, [onClose, open]);
 }

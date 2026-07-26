@@ -531,7 +531,14 @@ export function EditableDataGrid<T extends EditableRow>({
     () => rowsForGrid.some((row) => !isUnsavedDraftRow(row)),
     [rowsForGrid],
   );
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: tableKey ?? 'editableDataGrid',
     enabled: dataFetched && !error,
     isLoading: loading,
@@ -568,16 +575,17 @@ export function EditableDataGrid<T extends EditableRow>({
       window.removeEventListener('resize', measure);
       resizeObserver?.disconnect();
     };
-    // error and showContextMenuHint aren't read inside the effect, but both
-    // toggle sibling banners rendered above gridSurfaceRef (see the error
-    // Alert / ContextMenuHint in the JSX below) — they shift the surface's
-    // top position without changing pageContentRef's own size, so the
-    // ResizeObserver above never fires for them on its own. Without this,
-    // the hint banner appearing after data loads (a later render than this
-    // effect's first run) left availableGridHeight stale/too-tall, letting
-    // the capped grid height push the whole page taller than the viewport —
-    // a second, native page-level scrollbar alongside the grid's own.
-  }, [isContinuousScroll, isMobile, error, showContextMenuHint]);
+    // error, showContextMenuHint and showTouchContextMenuHint aren't read
+    // inside the effect, but all three toggle sibling banners rendered
+    // above gridSurfaceRef (see the error Alert / ContextMenuHint variants
+    // in the JSX below) — they shift the surface's top position without
+    // changing pageContentRef's own size, so the ResizeObserver above never
+    // fires for them on its own. Without this, the hint banner appearing
+    // after data loads (a later render than this effect's first run) left
+    // availableGridHeight stale/too-tall, letting the capped grid height
+    // push the whole page taller than the viewport — a second, native
+    // page-level scrollbar alongside the grid's own.
+  }, [isContinuousScroll, isMobile, error, showContextMenuHint, showTouchContextMenuHint]);
 
   const refreshStableRowOrder = useCallback((sourceRows: readonly T[], model: GridSortModel = sortModel): void => {
     setStableRowOrder(getSortedRowIds(sourceRows, model));
@@ -1563,6 +1571,7 @@ export function EditableDataGrid<T extends EditableRow>({
     rowsById,
     hasContextualRowActions,
     markContextMenuHintUsed,
+    markTouchContextMenuHintUsed,
     setSelectedRowIds,
     getRowIdFromElement,
   });
@@ -2203,8 +2212,17 @@ export function EditableDataGrid<T extends EditableRow>({
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {showContextMenuHint ? (
         <ContextMenuHint
+          variant="desktop"
           message={t('messages.contextMenuTableHint')}
           onClose={closeContextMenuHint}
+          sx={{ mb: 1.25 }}
+        />
+      ) : null}
+      {showTouchContextMenuHint ? (
+        <ContextMenuHint
+          variant="touch"
+          message={t('messages.contextMenuTableHintTouch')}
+          onClose={closeTouchContextMenuHint}
           sx={{ mb: 1.25 }}
         />
       ) : null}

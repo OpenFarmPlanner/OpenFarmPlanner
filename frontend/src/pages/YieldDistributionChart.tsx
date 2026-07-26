@@ -6,6 +6,7 @@ import { copyTextToClipboardSilently } from "../components/data-grid";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
 import { useContextMenuPositionState } from "../components/contextMenu/useContextMenuPositionState";
 import {
+  closestContextMenuElement,
   shouldOpenCustomContextMenu,
   suppressNativeContextMenu,
   useLongPress,
@@ -77,8 +78,7 @@ export function YieldDistributionChart({
 
   const isYieldContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target)
-    && target instanceof HTMLElement
-    && target.closest('[data-rmg-component="yield-segment"]') !== null
+    && closestContextMenuElement(target, '[data-rmg-component="yield-segment"]') !== null
   ), []);
   const {
     state: contextMenuState,
@@ -186,7 +186,12 @@ export function YieldDistributionChart({
   // (keyed by the currently pressed segment's payload) covers every bar.
   const [pressedSegmentKey, setPressedSegmentKey] = useState<string | null>(null);
   const pressedSegmentPayloadRef = useRef<YieldContextMenuPayload | null>(null);
-  const { onTouchStart: startSegmentLongPress, onTouchEnd: clearSegmentLongPressBase, isLongPressing } = useLongPress(
+  const {
+    onTouchStart: startSegmentLongPress,
+    onTouchMove: clearSegmentLongPressMove,
+    onTouchEnd: clearSegmentLongPressEnd,
+    isLongPressing,
+  } = useLongPress(
     (event) => {
       const payload = pressedSegmentPayloadRef.current;
       if (payload) openContextMenu(event, payload);
@@ -201,10 +206,17 @@ export function YieldDistributionChart({
     setPressedSegmentKey(segmentKey);
     startSegmentLongPress(event);
   }, [startSegmentLongPress]);
-  const clearSegmentLongPress = useCallback(() => {
-    clearSegmentLongPressBase();
+  const handleSegmentTouchMove = useCallback(() => {
+    clearSegmentLongPressMove();
     setPressedSegmentKey(null);
-  }, [clearSegmentLongPressBase]);
+  }, [clearSegmentLongPressMove]);
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run the segment's own onClick right on top of the context menu
+  // that long press just opened.
+  const handleSegmentTouchEnd = useCallback((event: React.TouchEvent) => {
+    clearSegmentLongPressEnd(event);
+    setPressedSegmentKey(null);
+  }, [clearSegmentLongPressEnd]);
   const [axisWidth, setAxisWidth] = useState(0);
   const labelStep = getYieldAxisLabelStep(
     axisWidth,
@@ -488,7 +500,8 @@ export function YieldDistributionChart({
                           onKeyDownSegment={handleSegmentKeyDown}
                           onContextMenuOpen={openContextMenu}
                           onTouchStartSegment={handleSegmentTouchStart}
-                          onTouchEndSegment={clearSegmentLongPress}
+                          onTouchMoveSegment={handleSegmentTouchMove}
+                          onTouchEndSegment={handleSegmentTouchEnd}
                           registerElement={registerSegmentElement}
                         />
                       );

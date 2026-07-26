@@ -113,7 +113,11 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
       return;
     }
 
-    inputRef.current?.focus();
+    // preventScroll: true — see useEditCellAutoFocus.ts for why an
+    // unguarded focus() here fights the mobile keyboard's own scroll
+    // adjustment. This effect also re-fires on every segment change
+    // (Left/Right arrow), so it's not a one-time mount focus either.
+    inputRef.current?.focus({ preventScroll: true });
     selectSegment(activeSegment);
   }, [activeSegment, params.hasFocus, selectSegment]);
 
@@ -248,7 +252,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
         onChange={(event) => {
           const nextValue = event.target.value ? new Date(`${event.target.value}T00:00:00`) : null;
           void commitDate(nextValue);
-          inputRef.current?.focus();
+          inputRef.current?.focus({ preventScroll: true });
         }}
         style={{
           position: 'absolute',

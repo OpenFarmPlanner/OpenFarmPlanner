@@ -143,6 +143,7 @@ export function buildHeadTags(options: HeadTagsOptions): string[] {
   const tags = [
     `<link rel="canonical" href="${canonical}" />`,
     `<meta name="robots" content="${indexable ? 'index, follow' : 'noindex, nofollow'}" />`,
+    `<meta name="description" content="${d}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="OpenFarmPlanner" />`,
     `<meta property="og:locale" content="${SITE_LANGUAGE === 'de' ? 'de_DE' : SITE_LANGUAGE}" />`,

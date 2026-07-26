@@ -2,6 +2,7 @@
 // Extracted from DataGrid.tsx; all functions only inspect the event target,
 // they hold no grid state.
 import type { GridRowId } from '@mui/x-data-grid';
+import { closestContextMenuElement } from '../../utils/contextMenu';
 
 export const editModeEditorArrowKeys = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
@@ -19,9 +20,6 @@ export const isEnterSaveInputTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLInputElement && !isComboboxInteractionTarget(target);
 
 export const getRowIdFromElement = (target: EventTarget | null): GridRowId | null => {
-  if (!(target instanceof HTMLElement)) {
-    return null;
-  }
-  const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
+  const rowElement = closestContextMenuElement(target, '[role="row"][data-id]');
   return rowElement?.dataset.id ?? null;
 };

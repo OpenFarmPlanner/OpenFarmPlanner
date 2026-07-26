@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import {
+  closestContextMenuElement,
   shouldOpenCustomContextMenu,
   suppressNativeContextMenu,
 } from '../utils/contextMenu';
@@ -632,8 +633,7 @@ function GanttChartPage() {
   // ---------------------------------------------------------------------
   const isGanttContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target)
-    && target instanceof HTMLElement
-    && target.closest('[data-rmg-component="task"], [data-rmg-component="task-group"]') !== null
+    && closestContextMenuElement(target, '[data-rmg-component="task"], [data-rmg-component="task-group"]') !== null
   ), []);
   const {
     state: contextMenuState,
