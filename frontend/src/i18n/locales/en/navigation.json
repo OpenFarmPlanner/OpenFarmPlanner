@@ -11,6 +11,7 @@
   "graphicalFields": "Graphical view",
   "accountSettings": "Account settings",
   "appVersionLabel": "Version",
+  "disabledNoProjectTooltip": "Create a project first.",
   "project": {
     "settings": "Project settings",
     "members": "Manage members",
