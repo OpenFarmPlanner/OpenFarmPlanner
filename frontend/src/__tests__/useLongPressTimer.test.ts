@@ -11,6 +11,22 @@ describe('useLongPressTimer', () => {
     vi.useRealTimers();
   });
 
+  it('uses a 400ms threshold for table row long presses', () => {
+    expect(ROW_LONG_PRESS_MS).toBe(400);
+  });
+
+  it('does not fire on a short tap held for less than the threshold', () => {
+    const fire = vi.fn();
+    const { result } = renderHook(() => useLongPressTimer(ROW_LONG_PRESS_MS));
+
+    act(() => {
+      result.current.start(fire);
+      vi.advanceTimersByTime(ROW_LONG_PRESS_MS - 1);
+    });
+
+    expect(fire).not.toHaveBeenCalled();
+  });
+
   it('fires after the configured duration', () => {
     const fire = vi.fn();
     const { result } = renderHook(() => useLongPressTimer(ROW_LONG_PRESS_MS));

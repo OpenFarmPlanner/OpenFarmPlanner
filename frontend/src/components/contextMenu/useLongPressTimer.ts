@@ -11,7 +11,7 @@ interface SuppressibleTouchEvent {
  * table-local magic number, so "how long is a long press" stays one
  * decision, not four independently-tunable ones.
  */
-export const ROW_LONG_PRESS_MS = 550;
+export const ROW_LONG_PRESS_MS = 400;
 
 /**
  * Minimal touch-long-press timer: start(fire) (re)arms a single timeout,
