@@ -288,6 +288,10 @@ rendered, and the rest of the login page is unchanged.
    `PUBLIC_FRONTEND_URL`.
 3. Run the migrations (`pdm run migrate`) — allauth adds its own tables.
 4. Restart the backend service.
+5. Run the ops repository verification (`deploy/verify.sh --env production`);
+   it fails if Google is expected but not configured or if the production
+   Google callback URL does not match
+   `https://openfarmplanner.org/api/auth/social/google/login/callback/`.
 
 No cookie, CORS, or CSRF settings need to change: the whole flow runs on
 the existing origin with the existing session cookie
