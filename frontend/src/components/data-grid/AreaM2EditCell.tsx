@@ -4,11 +4,12 @@
  * Provides a numeric input for area editing with optional normalization on blur.
  */
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import { getInitialInputValue } from './areaM2EditCellValue';
+import { useEditCellAutoFocus } from './useEditCellAutoFocus';
 
 export interface AreaM2EditCellProps extends GridRenderEditCellParams {
   onLastEditedFieldChange: (field: 'area_m2') => void;
@@ -43,12 +44,10 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
     setInputValue(getInitialInputValue(value, fallbackValue, locale));
   }, [fallbackValue, hasFocus, locale, value]);
 
-  useEffect(() => {
-    if (hasFocus) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [hasFocus]);
+  const selectAll = useCallback((input: HTMLInputElement): void => {
+    input.select();
+  }, []);
+  useEditCellAutoFocus(hasFocus, inputRef, selectAll);
 
   const applyValue = async (nextValue: string): Promise<void> => {
     onLastEditedFieldChange('area_m2');
