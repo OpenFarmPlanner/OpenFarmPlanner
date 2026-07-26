@@ -74,8 +74,22 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.getVisibleColumns = () => columns;
       apiRef.current.getAllRowIds = () => rows.map((row: TestGridRow) => row.id);
-      apiRef.current.getRowWithUpdatedValues = (id: string | number) =>
-        rows.find((row: TestGridRow) => String(row.id) === String(id)) ?? null;
+      apiRef.current.getRowWithUpdatedValues = (id: string | number) => {
+        const baseRow = rows.find((row: TestGridRow) => String(row.id) === String(id));
+        if (!baseRow) {
+          return null;
+        }
+        const rowKeyPrefix = `${String(id)}-`;
+        return Object.entries(editValues).reduce<TestGridRow>((updatedRow, [editKey, value]) => {
+          if (!editKey.startsWith(rowKeyPrefix)) {
+            return updatedRow;
+          }
+          return {
+            ...updatedRow,
+            [editKey.slice(rowKeyPrefix.length)]: value,
+          };
+        }, baseRow);
+      };
       apiRef.current.getRowIndexRelativeToVisibleRows = (id: string | number) =>
         rows.findIndex((row: TestGridRow) => String(row.id) === String(id));
       apiRef.current.getColumnIndexRelativeToVisibleColumns = (field: string) =>
@@ -95,12 +109,17 @@ vi.mock('@mui/x-data-grid', async () => {
     }
 
     const commit = async (row: TestGridRow, reason: string) => {
+      const event = { defaultMuiPrevented: false };
+      onRowEditStop?.({ id: row.id, reason }, event);
+      if (event.defaultMuiPrevented) {
+        return;
+      }
+      const updatedRow = apiRef?.current?.getRowWithUpdatedValues?.(row.id) ?? row;
       try {
-        await processRowUpdate(row);
+        await processRowUpdate(updatedRow);
       } catch (error) {
         onProcessRowUpdateError?.(error);
       }
-      onRowEditStop?.({ reason }, { defaultMuiPrevented: false });
     };
 
     return (
@@ -271,6 +290,17 @@ describe('EditableDataGrid', () => {
     deleteErrorMessage: 'Löschen fehlgeschlagen',
     deleteConfirmMessage: 'Wirklich löschen?',
     addButtonLabel: 'Neu',
+  });
+
+  const basePropsWithEmptyNewRow = (validateRow = (row: TestGridRow) => (!row.name ? 'Name ist erforderlich' : null)) => ({
+    ...baseProps(validateRow),
+    createNewRow: () => createGridRow({
+      id: -1,
+      isNew: true,
+      name: '',
+      area_sqm: undefined as never,
+      notes: '',
+    }),
   });
 
   const basePropsWithRows = (rows: TestGridRow[]) => {
@@ -620,6 +650,49 @@ describe('EditableDataGrid', () => {
     expect(createSpy).not.toHaveBeenCalled();
   });
 
+  it('discards untouched empty new rows on blur without saving or validating', async () => {
+    const props = basePropsWithEmptyNewRow();
+    const createSpy = vi.spyOn(props.api, 'create');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    fireEvent.click(screen.getByLabelText('Neu'));
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Blur speichern -1/i }));
+
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('messages.validationErrors')).not.toBeInTheDocument();
+    expect(screen.queryByText('Name ist erforderlich')).not.toBeInTheDocument();
+  });
+
+  it('keeps edited new rows on blur and runs the existing validation flow', async () => {
+    const validateRow = vi.fn((row: TestGridRow) => (!row.name ? 'Name ist erforderlich' : null));
+    const props = basePropsWithEmptyNewRow(validateRow);
+    const createSpy = vi.spyOn(props.api, 'create');
+    const commandApiRef: { current: EditableDataGridCommandApi | null } = { current: null };
+
+    render(<EditableDataGrid {...props} commandApiRef={commandApiRef} showDeleteAction={false} />);
+
+    await waitFor(() => expect(commandApiRef.current).not.toBeNull());
+    fireEvent.click(screen.getByLabelText('Neu'));
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
+
+    await act(async () => {
+      await commandApiRef.current?.setDraftValues(-1, { area_sqm: 4 });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Blur speichern -1/i }));
+    });
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(validateRow).toHaveBeenCalledWith(expect.objectContaining({ area_sqm: 4 }));
+    expect(screen.getByText('messages.validationErrors')).toBeInTheDocument();
+    expect(screen.getByTestId('row-count')).toHaveTextContent('2');
+  });
+
   it('runs before-save validation for implicit blur persistence and keeps blocked rows editable', async () => {
     const props = baseProps(() => null);
     const updateSpy = vi.spyOn(props.api, 'update');
@@ -641,6 +714,21 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(onBeforeSaveRow).toHaveBeenCalled());
     expect(updateSpy).not.toHaveBeenCalled();
     expect(screen.getByTestId('mode-1')).toHaveTextContent('edit');
+  });
+
+  it('keeps existing row blur persistence unchanged', async () => {
+    const props = baseProps(() => null);
+    const updateSpy = vi.spyOn(props.api, 'update');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Zelle 1-name' }));
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Blur speichern 1' }));
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Beet A' })));
   });
 
   it('does not autosave an edited row when interacting with a portal dialog', async () => {
@@ -719,12 +807,20 @@ describe('EditableDataGrid', () => {
   });
 
   it('discards draft rows with Escape', async () => {
-    render(<EditableDataGrid {...baseProps()} showDeleteAction={false} />);
+    const props = basePropsWithEmptyNewRow();
+    const createSpy = vi.spyOn(props.api, 'create');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
     fireEvent.click(screen.getByLabelText('Neu'));
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
     fireEvent.click(screen.getByRole('button', { name: 'ESC -1' }));
+
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('messages.validationErrors')).not.toBeInTheDocument();
+    expect(screen.queryByText('Name ist erforderlich')).not.toBeInTheDocument();
   });
 
   it('removes touched draft rows with Escape without saving or validating', async () => {

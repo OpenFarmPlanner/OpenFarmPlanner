@@ -12,6 +12,26 @@ import type { EditableRow } from './types';
 export const isUnsavedDraftRow = (row: EditableRow): boolean =>
   Boolean(row.isNew || row.__draft || Number(row.id) < 0);
 
+const DRAFT_METADATA_FIELDS = new Set(['id', 'isNew', '__draft']);
+
+const isEmptyDraftValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length === 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return false;
+};
+
+export const isEmptyNewDraftRow = (row: EditableRow): boolean =>
+  Object.entries(row).every(([field, value]) =>
+    DRAFT_METADATA_FIELDS.has(field) || isEmptyDraftValue(value),
+  );
+
 export class SaveBlockedError extends Error {
   constructor() {
     super('Save blocked by validation');

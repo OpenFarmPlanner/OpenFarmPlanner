@@ -39,6 +39,7 @@ import {
   formatAreaM2,
   buildBedDisplayLabel,
   getAllowedCultivationTypesForCulture,
+  isEmptyNewPlantingPlanRow,
 } from "./plantingPlansUtils";
 import { usePlantingPlanHierarchy } from "./usePlantingPlanHierarchy";
 import { CultivationTypeEditCell } from "./CultivationTypeEditCell";
@@ -1565,20 +1566,21 @@ function PlantingPlans() {
               setIsPlansLoading(loading || !dataFetched);
             }}
             createNewRow={() => ({
-            id: -Date.now(),
-            culture: 0,
-            cultivation_type: "",
-            location_id: undefined,
-            field_id: undefined,
-            bed: 0,
-            planting_date: "",
-            quantity: undefined,
-            area_m2: undefined,
-            plants_count: undefined,
-            notes: "",
-            note_attachment_count: 0,
-            isNew: true,
-          })}
+              id: -Date.now(),
+              culture: 0,
+              cultivation_type: "",
+              location_id: undefined,
+              field_id: undefined,
+              bed: 0,
+              planting_date: "",
+              quantity: undefined,
+              area_m2: undefined,
+              plants_count: undefined,
+              notes: "",
+              note_attachment_count: 0,
+              isNew: true,
+            })}
+            isNewRowEmpty={isEmptyNewPlantingPlanRow}
           initialRow={
             !isMobile && (initialSelection.cultureId || initialSelection.bedId)
               ? {
