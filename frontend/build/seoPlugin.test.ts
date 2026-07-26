@@ -39,6 +39,8 @@ describe('seoPlugin transformIndexHtml', () => {
     const html = callTransformIndexHtml(plugin, SAMPLE_HTML);
     expect(html).toContain('<link rel="canonical" href="https://openfarmplanner.org/" />');
     expect(html).toContain('<meta name="robots" content="index, follow" />');
+    expect(html).toContain('name="description"');
+    expect(html.match(/<meta name="description"/g)).toHaveLength(1);
     expect(html).toContain('property="og:title"');
     expect(html).toContain('</head>');
     // The original title survives.

@@ -54,6 +54,61 @@ in particular it sets `noindex, nofollow` on every private/app/auth route. This
 complements `robots.txt` (which prevents crawling) for crawlers that render
 JavaScript.
 
+## Build-time prerendering of public pages
+
+OpenFarmPlanner stays a plain client-rendered SPA — there is no SSR server and
+no per-request rendering in production. But `dist/index.html` alone cannot
+carry per-route content, so a JS-less crawler hitting `/impressum` previously
+saw the *landing page's* markup and metadata (served via the SPA fallback)
+until client JS executed and React Router rendered the right page.
+
+[`frontend/build/prerender.ts`](../frontend/build/prerender.ts) closes that
+gap as a one-off **build** step (wired up as the `postbuild` npm script, so it
+always runs right after `vite build`):
+
+1. serves the just-built `dist/` with Vite's own `preview()` server;
+2. uses Playwright (already a devDependency for e2e) to load each entry of
+   `PUBLIC_INDEXABLE_ROUTES` in a real headless browser and capture the fully
+   client-rendered DOM — no backend is required, since none of these pages
+   need to fetch data to render their initial content;
+3. normalizes `<head>` (title, canonical, robots, description, OG, Twitter) to
+   the route-specific values from `seoConfig.ts`/`seoAssets.ts` — the same
+   source `RouteSeo` and `seoPlugin` already use, via the pure helper
+   [`frontend/build/prerenderSeo.ts`](../frontend/build/prerenderSeo.ts) — so
+   build-time and runtime tags never disagree or duplicate;
+4. writes the result as a real file per route: `dist/index.html`,
+   `dist/impressum/index.html`, `dist/datenschutz/index.html`,
+   `dist/nutzungsbedingungen/index.html`.
+
+Every other route (`/app/*`, `/login`, `/register`, password reset,
+invitations, ...) is untouched — only the four files above are written. The
+browser then boots the exact same SPA bundle as before
+(`createRoot(...).render(...)`, no hydration) and takes over normal
+client-side routing/i18n immediately; there is nothing route- or
+language-specific baked into the JS bundle itself, only the initial markup.
+
+Because the app hardcodes German (`SITE_LANGUAGE = 'de'` in `seoConfig.ts`,
+`i18next`'s `lng`/`fallbackLng` both `'de'`, no client-side language
+detection), the prerendered HTML and the first client render are always in
+the same language — there is no content-language flash to guard against
+today. If language detection is ever added, prerendering must be revisited
+together with it.
+
+`PRERENDER_OUT_DIR` (default `dist`) tells the script which build output
+directory to prerender into, mirroring `vite build --outDir`; ops sets this
+alongside `VITE_BASE_PATH` when building into `dist-production`/`dist-staging`
+(see `OpenFarmPlanner-ops/deploy/deploy_frontend.sh`).
+
+**Local verification caveat:** `vite preview`'s static file server only
+resolves a route's prerendered `index.html` for a *trailing-slash* request
+(`/impressum/`), the same way production Apache 301-redirects `/impressum` to
+`/impressum/` before serving it (see `deploy_frontend.sh`'s generated
+`.htaccess`, which passes real files/directories straight through via its
+`-f`/`-d` rewrite condition). `curl`ing `/impressum` (no trailing slash)
+against a local `vite preview` therefore falls back to the SPA shell — that is
+a `vite preview`-only serving detail, not a prerendering bug; add `-L` to
+`curl` or use the trailing-slash URL locally.
+
 ## Environment variables
 
 | Variable               | Default                         | Effect                                                                                                    |
@@ -91,6 +146,24 @@ curl -s http://localhost:4173/sitemap.xml
 curl -s http://localhost:4173/ | grep -E 'rel="canonical"|name="robots"'
 ```
 
+Check the prerendered per-route HTML directly (no server needed — this is the
+actual file a static host will serve for that URL):
+
+```bash
+cd frontend
+npm run build   # postbuild runs prerender.ts automatically
+grep -E '<title>|rel="canonical"|name="description"' dist/impressum/index.html
+grep -E '<title>|rel="canonical"|name="description"' dist/datenschutz/index.html
+grep -E '<title>|rel="canonical"|name="description"' dist/nutzungsbedingungen/index.html
+```
+
+Or over HTTP against `vite preview` — note the trailing slash (see the caveat
+above):
+
+```bash
+curl -sL http://localhost:4173/impressum/ | grep -E '<title>|rel="canonical"'
+```
+
 Confirm a non-production build blocks indexing:
 
 ```bash
@@ -105,6 +178,15 @@ Run the SEO tests:
 ```bash
 cd frontend
 npx vitest run src/seo build
+```
+
+Run the prerendering e2e checks (build output content, canonical/robots per
+route, non-indexable routes never prerendered, no-JS content visibility,
+client nav after loading a prerendered page):
+
+```bash
+cd frontend
+npm run build && npx playwright test e2e/public-page-prerendering.spec.ts
 ```
 
 ## Production diagnosis after deployment

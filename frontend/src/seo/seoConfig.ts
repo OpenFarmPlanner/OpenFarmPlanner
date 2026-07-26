@@ -85,6 +85,17 @@ export interface PublicRoute {
   changefreq: ChangeFrequency;
   /** Sitemap `<priority>` in the range [0.0, 1.0]. */
   priority: number;
+  /**
+   * Route-specific `<title>` / `og:title` / `twitter:title`. Falls back to the
+   * site default (see `buildHeadTags`) when omitted, which only the landing
+   * page (`/`) should rely on.
+   */
+  title?: string;
+  /**
+   * Route-specific meta/OG/Twitter description. Falls back to the site
+   * default when omitted.
+   */
+  description?: string;
 }
 
 /**
@@ -93,13 +104,32 @@ export interface PublicRoute {
  * ONLY genuinely public information pages belong here — never login,
  * registration, password reset, invitations, demo or in-app (`/app/*`) routes.
  * When a new public route is added (e.g. the planned public crop library under
- * `/crops`), add it here and it flows automatically into the sitemap.
+ * `/crops`), add it here and it flows automatically into the sitemap and,
+ * via `build/prerender.ts`, into build-time prerendered HTML.
  */
 export const PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[] = [
   { path: '/', changefreq: 'weekly', priority: 1.0 },
-  { path: '/impressum', changefreq: 'yearly', priority: 0.3 },
-  { path: '/datenschutz', changefreq: 'yearly', priority: 0.3 },
-  { path: '/nutzungsbedingungen', changefreq: 'yearly', priority: 0.3 },
+  {
+    path: '/impressum',
+    changefreq: 'yearly',
+    priority: 0.3,
+    title: 'Impressum – OpenFarmPlanner',
+    description: 'Impressum von OpenFarmPlanner: Anbieterkennzeichnung, Kontaktangaben und verantwortliche Person gemäß § 5 TMG.',
+  },
+  {
+    path: '/datenschutz',
+    changefreq: 'yearly',
+    priority: 0.3,
+    title: 'Datenschutzerklärung – OpenFarmPlanner',
+    description: 'Datenschutzerklärung von OpenFarmPlanner: Informationen zu Hosting, Registrierung, Projektdaten, Cookies und Ihren Rechten nach der DSGVO.',
+  },
+  {
+    path: '/nutzungsbedingungen',
+    changefreq: 'yearly',
+    priority: 0.3,
+    title: 'Nutzungsbedingungen – OpenFarmPlanner',
+    description: 'Nutzungsbedingungen von OpenFarmPlanner: Regeln zu Accounts, Inhalten, der öffentlichen Kulturbibliothek und Haftung.',
+  },
 ];
 
 /**
