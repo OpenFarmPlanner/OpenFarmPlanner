@@ -111,29 +111,40 @@ async function main(): Promise<void> {
     throw new Error('prerender: preview server did not resolve a local URL.');
   }
 
-  const browser = await chromium.launch();
   try {
-    const page = await browser.newPage();
-    for (const route of PUBLIC_INDEXABLE_ROUTES) {
-      const targetUrl = new URL(route.path.replace(/^\//, ''), localUrl).toString();
-      await page.goto(targetUrl, { waitUntil: 'networkidle' });
-      await page.waitForSelector('#root h1', { timeout: 10_000 });
+    // Reuses the same "chrome" channel binary the e2e workflow already
+    // installs (playwright.config.ts's `chromium` project pins the same
+    // channel) instead of the default bundled Chromium/headless-shell,
+    // which is a separate download CI never installs.
+    const browser = await chromium.launch({ channel: 'chrome' });
+    try {
+      const page = await browser.newPage();
+      for (const route of PUBLIC_INDEXABLE_ROUTES) {
+        const targetUrl = new URL(route.path.replace(/^\//, ''), localUrl).toString();
+        await page.goto(targetUrl, { waitUntil: 'networkidle' });
+        await page.waitForSelector('#root h1', { timeout: 10_000 });
 
-      const html = await page.content();
-      const finalHtml = applyHeadTags(html, route, process.env);
+        const html = await page.content();
+        const finalHtml = applyHeadTags(html, route, process.env);
 
-      const outputPath = outputPathFor(distDir, route.path);
-      await mkdir(path.dirname(outputPath), { recursive: true });
-      await writeFile(outputPath, finalHtml, 'utf-8');
-      console.log(`prerender: ${route.path} -> ${path.relative(distDir, outputPath)}`);
+        const outputPath = outputPathFor(distDir, route.path);
+        await mkdir(path.dirname(outputPath), { recursive: true });
+        await writeFile(outputPath, finalHtml, 'utf-8');
+        console.log(`prerender: ${route.path} -> ${path.relative(distDir, outputPath)}`);
+      }
+    } finally {
+      await browser.close();
     }
   } finally {
-    await browser.close();
     await server.close();
   }
 }
 
 main().catch((error: unknown) => {
   console.error(error);
+  // The Vite preview server keeps its listening socket open, which would
+  // otherwise keep the process (and CI, up to its job timeout) alive even
+  // after this handler runs — force an exit once the failure is reported.
   process.exitCode = 1;
+  process.exit(1);
 });
