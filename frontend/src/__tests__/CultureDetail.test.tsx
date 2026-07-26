@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { CultureDetail } from '../cultures/CultureDetail';
 import type { Culture } from '../api/api';
 import translations from '@/test-utils/translations';

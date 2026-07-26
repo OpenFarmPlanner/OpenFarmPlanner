@@ -31,7 +31,7 @@ import {
   type SupplierDeleteUsageDialogState,
 } from '../components/suppliers/SupplierDeleteUsageDialog';
 import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import ProjectRequiredState from '../components/project/ProjectRequiredState';
 import EmptyStateCard from '../components/project/EmptyStateCard';

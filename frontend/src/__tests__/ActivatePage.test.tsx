@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import ActivatePage from '../pages/auth/ActivatePage';
 
 const activateMock = vi.fn();

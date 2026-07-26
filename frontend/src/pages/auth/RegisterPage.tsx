@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Checkbox, FormControlLabel, InputAdornment, Link, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
 import SocialLoginButtons from '../../components/auth/SocialLoginButtons';

@@ -1,5 +1,5 @@
 import { Box, Button, Paper, Typography, type SxProps, type Theme } from '@mui/material';
-import { Link as RouterLink, UNSAFE_LocationContext } from 'react-router-dom';
+import { Link as RouterLink, UNSAFE_LocationContext } from 'react-router';
 import RequirementChecklist from './RequirementChecklist';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useContext, type ReactNode } from 'react';

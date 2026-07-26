@@ -1,6 +1,6 @@
 import { Alert, Button, Container, Stack, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router';
 import { projectAPI } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
 import { getAuthenticatedAppDestination } from '../../auth/authDestination';

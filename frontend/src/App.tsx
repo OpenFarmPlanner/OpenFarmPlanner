@@ -8,7 +8,8 @@
  * @returns The main App component with routing
  */
 
-import { createBrowserRouter, RouterProvider, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router-dom';
+import { createBrowserRouter, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import ProtectedRoute from './auth/ProtectedRoute';

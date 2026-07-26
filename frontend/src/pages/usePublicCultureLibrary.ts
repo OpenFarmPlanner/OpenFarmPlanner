@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import axios from 'axios';
 import { cultureAPI, publicCultureAPI } from '../api/api';
 import type { Culture } from '../api/api';

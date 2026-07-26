@@ -4,7 +4,7 @@
 
 import { Alert, Box, Button, Divider, Stack } from '@mui/material';
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import {
   SOCIAL_ERROR_PARAM,
   startSocialLogin,

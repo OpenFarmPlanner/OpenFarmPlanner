@@ -1,3 +1,14 @@
+// `xlsx` has two open advisories (Prototype Pollution / ReDoS,
+// GHSA-4r6h-8v6p-xvw6 and GHSA-5pgg-2g8v-p4x9) with no fix released by
+// SheetJS. Accepted as a known risk rather than replaced: this parses a
+// file the *authenticated user themselves* uploads, entirely client-side —
+// there is no server-side or cross-user exposure. A full replacement isn't
+// available either: the accepted import formats include .ods (see
+// CulturesImportStartDialog's file input `accept`), which alternatives like
+// exceljs don't support, and exceljs's own dependency footprint (archiver,
+// unzipper, jszip, ...) would need real browser-bundle verification before
+// it could replace even the .xlsx/.csv path. Re-evaluate if SheetJS ships a
+// fix or a lighter, ODS-capable alternative appears.
 import * as XLSX from 'xlsx';
 import { normalizeImportCultureEntry } from './importUtils';
 import { buildHeaderToKeyMap, normalizeHeaderForLookup, CULTURE_COLUMNS } from './spreadsheetColumns';

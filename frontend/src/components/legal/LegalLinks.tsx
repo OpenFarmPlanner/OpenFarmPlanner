@@ -1,6 +1,6 @@
 import { Link, Stack } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router';
 import { useTranslation } from '../../i18n';
 
 interface LegalLinksProps {

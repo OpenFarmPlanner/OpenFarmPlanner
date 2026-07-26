@@ -1,6 +1,6 @@
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { confirmEmailChange } from '../../auth/authApi';
 import { useTranslation } from '../../i18n';
 

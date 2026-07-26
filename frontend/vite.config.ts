@@ -81,7 +81,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
+          react: ['react', 'react-dom', 'react-router'],
           mui: ['@mui/material'],
           muiIcons: ['@mui/icons-material'],
           i18n: ['i18next', 'react-i18next'],

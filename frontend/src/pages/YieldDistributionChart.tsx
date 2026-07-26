@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Box, Button, Card, CardContent, Divider, MenuItem, Typography } from "@mui/material";
 import { type YieldCalendarWeek } from "../api/api";
 import { copyTextToClipboardSilently } from "../components/data-grid";

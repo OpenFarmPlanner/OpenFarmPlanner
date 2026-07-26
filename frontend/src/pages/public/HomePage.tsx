@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import type { TFunction } from 'i18next';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import { AuthApiError } from '../../auth/authApi';
 import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';

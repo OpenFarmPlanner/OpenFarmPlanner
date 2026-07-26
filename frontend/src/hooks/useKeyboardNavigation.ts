@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { getKeyboardNavigationRouteFromPathname, ORDERED_APP_ROUTES } from '../navigation/mainNavigation';
 
 export function useKeyboardNavigation(): void {

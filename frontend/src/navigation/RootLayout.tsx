@@ -6,7 +6,7 @@
  * snackbar/help/history dialogs. Extracted verbatim from App.tsx.
  */
 
-import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   AppBar,
   Button,

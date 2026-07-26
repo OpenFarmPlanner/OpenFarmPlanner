@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from './useAuth';
 import ConsentGate from './ConsentGate';
 import { useTranslation } from '../i18n';
