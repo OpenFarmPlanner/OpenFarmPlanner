@@ -36,7 +36,7 @@
     "lucide-react": "^0.553.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-i18next": "^16.4.0",
+    "react-i18next": "^17.0.11",
     "react-konva": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-router": "^8.3.0",
