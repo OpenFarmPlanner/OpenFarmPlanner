@@ -1194,7 +1194,7 @@ export function EditableDataGrid<T extends EditableRow>({
       const errorMessage = extractApiErrorMessage(err, t, saveErrorMessage);
       setError(errorMessage);
       console.error('Error saving data:', err);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: err });
     }
   }, [
     api,

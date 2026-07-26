@@ -50,8 +50,10 @@ export default function InvitationAcceptPage() {
 
     if (acceptedInvitationTokens.has(token)) {
       terminalSuccessRef.current = true;
-      setStatus("success");
-      setMessage(t("acceptPage.addedToProject"));
+      queueMicrotask(() => {
+        setStatus("success");
+        setMessage(t("acceptPage.addedToProject"));
+      });
       return;
     }
 

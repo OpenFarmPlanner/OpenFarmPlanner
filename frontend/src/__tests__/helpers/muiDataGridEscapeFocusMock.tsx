@@ -44,8 +44,13 @@ export function createMuiDataGridEscapeFocusMock() {
   }) => {
     const { apiRef, rows, columns, onCellClick, onCellKeyDown, onRowSelectionModelChange, rowModesModel } = props;
     const [, forceFocusRender] = React.useState(0);
+    const [focusedCell, setFocusedCell] = React.useState('none');
 
-    if (apiRef?.current) {
+    React.useEffect(() => {
+      if (!apiRef?.current) {
+        return;
+      }
+
       const api = apiRef.current;
       api.state = api.state ?? { focus: { cell: null } };
       api.getVisibleColumns = () => columns;
@@ -65,9 +70,10 @@ export function createMuiDataGridEscapeFocusMock() {
       api.scrollToIndexes = () => {};
       api.setCellFocus = (id: string | number, field: string) => {
         (api.state as { focus: { cell: unknown } }).focus.cell = { id, field };
+        setFocusedCell(`${id}-${field}`);
         forceFocusRender((version) => version + 1);
       };
-    }
+    }, [apiRef, columns, rows]);
 
     return (
       <div>
@@ -83,6 +89,7 @@ export function createMuiDataGridEscapeFocusMock() {
                   onClick={() => {
                     if (apiRef?.current) {
                       (apiRef.current.state as { focus: { cell: unknown } }).focus.cell = { id: row.id, field: col.field };
+                      setFocusedCell(`${row.id}-${col.field}`);
                     }
                     onRowSelectionModelChange?.({ type: 'include', ids: new Set([row.id]) });
                     onCellClick?.(
@@ -107,12 +114,7 @@ export function createMuiDataGridEscapeFocusMock() {
           );
         })}
         <span data-testid="focused-cell">
-          {apiRef?.current?.state
-            ? (() => {
-                const cell = (apiRef.current!.state as { focus: { cell: { id: unknown; field: string } | null } }).focus.cell;
-                return cell ? `${cell.id}-${cell.field}` : 'none';
-              })()
-            : 'none'}
+          {focusedCell}
         </span>
       </div>
     );

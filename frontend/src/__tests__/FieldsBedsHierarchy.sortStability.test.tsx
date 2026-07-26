@@ -129,7 +129,11 @@ vi.mock('@mui/x-data-grid', async () => {
       onRowEditStop?.({ id: row.id, reason: GridRowEditStopReasons.rowFocusOut }, { defaultMuiPrevented: false });
     };
 
-    if (apiRef?.current) {
+    ReactModule.useEffect(() => {
+      if (!apiRef?.current) {
+        return;
+      }
+
       apiRef.current.getRowWithUpdatedValues = (id: string | number) => mockDrafts.get(String(id)) ?? null;
       apiRef.current.stopRowEditMode = ({ id }: { id: string | number }) => {
         const row = rows.find((candidate) => String(candidate.id) === String(id));
@@ -137,7 +141,7 @@ vi.mock('@mui/x-data-grid', async () => {
           void commitBlur(row);
         }
       };
-    }
+    }, [apiRef, commitBlur, rows]);
 
     return (
       <div data-testid="hierarchy-grid">

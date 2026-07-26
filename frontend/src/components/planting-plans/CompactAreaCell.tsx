@@ -1,15 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { shouldShowAreaTooltip } from './compactAreaCellUtils';
 
 interface CompactAreaCellProps {
   label: string;
   hasFocus?: boolean;
-}
-
-const TOOLTIP_TEXT_LENGTH_THRESHOLD = 40;
-
-export function shouldShowAreaTooltip(label: string, isOverflowing: boolean): boolean {
-  return isOverflowing || label.length > TOOLTIP_TEXT_LENGTH_THRESHOLD;
 }
 
 export function CompactAreaCell({ label, hasFocus = false }: CompactAreaCellProps) {

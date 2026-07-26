@@ -93,25 +93,10 @@ import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmen
 import { CompactAreaCell } from "../components/planting-plans/CompactAreaCell";
 import EmptyStateCard from "../components/project/EmptyStateCard";
 
-export {
-  collectHierarchyAvailability,
-  filterBedOptionsBySelection,
-  filterFieldOptionsByLocation,
-} from "../components/planting-plans/areaHierarchySelection";
-
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
 import { MobilePlanFormDialog } from "../components/planting-plans/MobilePlanFormDialog";
 import { MobilePlanActionsMenu } from "../components/planting-plans/MobilePlanActionsMenu";
-export { buildAreaColumnHeaderLabel } from "./plantingPlansUtils";
-export {
-  buildMobileCreateForm,
-  getVisibleMobileRows,
-  normalizeSelectionAfterBedChange,
-  normalizeSelectionAfterFieldChange,
-  normalizeSelectionAfterLocationChange,
-  resolveBedCellValue,
-} from './plantingPlansUtils';
 import {
   areRowsSemanticallyEqual,
   buildMobileCreateForm,
@@ -136,8 +121,6 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
 const CULTURE_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
-
-export { buildBedDisplayLabel } from "./plantingPlansUtils";
 
 function PlantingPlans() {
   const { t } = useTranslation(["plantingPlans", "common"]);

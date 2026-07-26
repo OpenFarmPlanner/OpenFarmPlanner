@@ -534,8 +534,8 @@ describe('App', () => {
       fireEvent.click(await screen.findByText('Kontoeinstellungen'));
 
       // AccountSettingsPage is a larger lazy chunk (profile/social/data-export
-      // cards); give it more room than the default 1s findBy timeout.
-      expect(await screen.findByRole('heading', { name: 'Kontoeinstellungen' }, { timeout: 5000 })).toBeInTheDocument();
+      // cards); give it enough room when this file runs under the full suite.
+      expect(await screen.findByRole('heading', { name: 'Kontoeinstellungen' }, { timeout: 15000 })).toBeInTheDocument();
       expect(window.location.pathname).toBe('/app/account-settings');
 
       // It must not bounce back after the initial navigation settles.

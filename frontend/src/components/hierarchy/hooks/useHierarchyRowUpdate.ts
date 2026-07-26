@@ -323,7 +323,7 @@ export function useHierarchyRowUpdate({
           } catch (err) {
             const extractedError = extractApiErrorMessage(err, t, t("errors.createField"));
             setError(extractedError);
-            throw new Error(extractedError);
+            throw new Error(extractedError, { cause: err });
           }
         }
 
@@ -396,7 +396,7 @@ export function useHierarchyRowUpdate({
               ? t("validation.areaTooLarge")
               : extractedError;
           setError(errorMessage);
-          throw new Error(errorMessage);
+          throw new Error(errorMessage, { cause: err });
         }
       }
 

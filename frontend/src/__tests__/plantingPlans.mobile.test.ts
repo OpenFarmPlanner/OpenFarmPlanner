@@ -3,7 +3,7 @@ import {
   buildAreaColumnHeaderLabel,
   buildMobileCreateForm,
   getVisibleMobileRows,
-} from "../pages/PlantingPlans";
+} from "../pages/plantingPlansUtils";
 
 describe("PlantingPlans mobile create helpers", () => {
   it("prefills selected bed but leaves area empty in the mobile create form", () => {

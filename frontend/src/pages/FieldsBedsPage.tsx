@@ -114,12 +114,6 @@ export default function FieldsBedsPage() {
 
   useRegisterCommands('areas-view-switch', commands);
 
-  useEffect(() => {
-    if (shouldShowProjectRequiredState) {
-      setPendingHierarchyDeletionCount(0);
-    }
-  }, [shouldShowProjectRequiredState]);
-
   const hasAddFieldTarget = locations.some((item) => item.id !== undefined);
   const isSingleLocationMode = locations.length === 1 && locations[0]?.id !== undefined;
   const canUseGlobalAddField = isSingleLocationMode;
@@ -195,18 +189,29 @@ export default function FieldsBedsPage() {
       return;
     }
 
-    requestInlineFieldCreation();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
 
-    searchParams.delete('action');
-    searchParams.delete('create');
-    const nextSearch = searchParams.toString();
-    navigate(
-      {
-        pathname: location.pathname,
-        search: nextSearch ? `?${nextSearch}` : '',
-      },
-      { replace: true },
-    );
+      requestInlineFieldCreation();
+
+      searchParams.delete('action');
+      searchParams.delete('create');
+      const nextSearch = searchParams.toString();
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearch ? `?${nextSearch}` : '',
+        },
+        { replace: true },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     hasAreaDataLoaded,
     isAreaDataLoading,
@@ -232,10 +237,13 @@ export default function FieldsBedsPage() {
   const hasUnsavedBeds = beds.some((bed) => !hasPersistedEntityId(bed.id));
   const hasBeds = beds.some((bed) => hasPersistedEntityId(bed.id) && persistedFieldIds.has(bed.field));
   const hasHierarchyRows = locations.length > 1 || fields.length > 0 || beds.length > 0;
+  const effectivePendingHierarchyDeletionCount = shouldShowProjectRequiredState
+    ? 0
+    : pendingHierarchyDeletionCount;
   const shouldShowAreasEmptyState = hasAreaDataLoaded && !isAreaDataLoading && !hasLocations;
   const shouldShowMissingFieldsState = hasLocations && !hasFields && !hasUnsavedFields && createFieldRequest <= 0;
   const shouldShowMissingBedsHint = hasFields && !hasBeds && !hasUnsavedBeds;
-  const shouldRenderHierarchy = hasHierarchyRows || createFieldRequest > 0 || pendingHierarchyDeletionCount > 0;
+  const shouldRenderHierarchy = hasHierarchyRows || createFieldRequest > 0 || effectivePendingHierarchyDeletionCount > 0;
   const createBedAction = getProjectSetupAction('beds');
   const emptyAreasDescription = shouldShowMissingFieldsState
     ? (locations.length === 1

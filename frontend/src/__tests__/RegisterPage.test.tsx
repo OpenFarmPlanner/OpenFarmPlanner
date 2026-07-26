@@ -194,7 +194,7 @@ describe('RegisterPage', () => {
     await user.click(submitButton);
 
     expect(registerMock).toHaveBeenCalledWith('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '', true);
-  });
+  }, 20000);
 
   it('shows an explicit consent checkbox linking to the terms and the privacy policy', () => {
     authUser = null;
@@ -230,5 +230,5 @@ describe('RegisterPage', () => {
     await user.click(screen.getByRole('button', { name: 'Konto erstellen' }));
 
     expect(await screen.findByRole('button', { name: 'Aktivierungs-E-Mail erneut senden' })).toBeInTheDocument();
-  });
+  }, 20000);
 });

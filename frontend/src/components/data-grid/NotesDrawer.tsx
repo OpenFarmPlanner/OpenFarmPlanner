@@ -162,7 +162,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
     const selectedText = value.substring(start, end);
     const beforeText = value.substring(0, start);
     const afterText = value.substring(end);
-    let newText = '';
+    let newText: string;
     switch (format) {
       case 'bold': newText = `${beforeText}**${selectedText || t('notesDrawer.defaults.bold')}**${afterText}`; break;
       case 'italic': newText = `${beforeText}_${selectedText || t('notesDrawer.defaults.italic')}_${afterText}`; break;

@@ -7,17 +7,15 @@ import { useTranslation } from '../../i18n';
 export default function ConfirmEmailChangePage() {
   const { t } = useTranslation('account');
   const [searchParams] = useSearchParams();
+  const uid = searchParams.get('uid');
+  const token = searchParams.get('token');
+  const requestId = searchParams.get('request_id');
+  const hasRequiredParams = Boolean(uid && token && requestId);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const uid = searchParams.get('uid');
-    const token = searchParams.get('token');
-    const requestId = searchParams.get('request_id');
-
     if (!uid || !token || !requestId) {
-      setStatus('error');
-      setMessage(t('emailConfirm.invalid'));
       return;
     }
 
@@ -31,21 +29,24 @@ export default function ConfirmEmailChangePage() {
         setMessage(error instanceof Error ? error.message : t('emailConfirm.invalid'));
       }
     })();
-  }, [searchParams, t]);
+  }, [requestId, t, token, uid]);
+
+  const effectiveStatus = hasRequiredParams ? status : 'error';
+  const effectiveMessage = hasRequiredParams ? message : t('emailConfirm.invalid');
 
   return (
     <Box sx={{ maxWidth: 640, mx: 'auto', mt: 8, p: 3 }}>
       <Typography variant="h4" sx={{ mb: 2 }}>
         {t('emailConfirm.title')}
       </Typography>
-      {status === 'loading' ? (
+      {effectiveStatus === 'loading' ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <CircularProgress size={20} />
           <Typography>{t('emailConfirm.loading')}</Typography>
         </Box>
       ) : null}
-      {status === 'success' ? <Alert severity="success">{message}</Alert> : null}
-      {status === 'error' ? <Alert severity="error">{message}</Alert> : null}
+      {effectiveStatus === 'success' ? <Alert severity="success">{effectiveMessage}</Alert> : null}
+      {effectiveStatus === 'error' ? <Alert severity="error">{effectiveMessage}</Alert> : null}
     </Box>
   );
 }

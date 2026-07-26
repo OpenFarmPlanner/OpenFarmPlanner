@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CompactAreaCell, shouldShowAreaTooltip } from '../components/planting-plans/CompactAreaCell';
+import { CompactAreaCell } from '../components/planting-plans/CompactAreaCell';
+import { shouldShowAreaTooltip } from '../components/planting-plans/compactAreaCellUtils';
 
 describe('CompactAreaCell', () => {
   it('shows tooltip with full text on hover for long values', async () => {
