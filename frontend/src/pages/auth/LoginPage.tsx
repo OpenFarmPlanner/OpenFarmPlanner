@@ -8,6 +8,7 @@ import { AuthApiError } from '../../auth/authApi';
 import { getAuthenticatedAppDestination } from '../../auth/authDestination';
 import { useTranslation } from '../../i18n';
 import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
+import SocialLoginLegalNotice from '../../components/auth/SocialLoginLegalNotice';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { getNextFromSearch } from '../invitationAcceptance';
 import AuthPageShell from './AuthPageShell';
@@ -84,7 +85,7 @@ export default function LoginPage() {
 
   return (
     <AuthPageShell title={t('auth:login.title')} subtitle={t('auth:login.subtitle')}>
-      <SocialLoginButtons />
+      <SocialLoginButtons hideLegalNotice />
       <Box component="form" onSubmit={handleSubmit} sx={authFormSx}>
         <Stack spacing={2.25}>
           {pendingInvitation ? (
@@ -148,6 +149,9 @@ export default function LoginPage() {
             {t('auth:login.forgotPassword')}
           </Button>
         </Stack>
+      </Box>
+      <Box sx={{ mt: 2.5 }}>
+        <SocialLoginLegalNotice compact />
       </Box>
     </AuthPageShell>
   );

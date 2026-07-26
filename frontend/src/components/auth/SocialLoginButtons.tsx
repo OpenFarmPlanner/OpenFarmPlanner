@@ -2,19 +2,20 @@
 // the login and registration pages. Renders nothing when the deployment has no
 // provider configured, so the pages stay unchanged without OAuth credentials.
 
-import { Alert, Box, Button, Divider, Link, Stack, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { Alert, Box, Button, Divider, Stack } from '@mui/material';
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   SOCIAL_ERROR_PARAM,
-  getSocialProviders,
   startSocialLogin,
   type SocialProvider,
 } from '../../auth/socialAuth';
+import { useSocialProviders } from '../../auth/useSocialProviders';
 import { useTranslation } from '../../i18n';
-import { authLegalLinkSx, authSecondaryButtonSx } from '../../pages/auth/authPageStyles';
+import { authSecondaryButtonSx } from '../../pages/auth/authPageStyles';
 import { GoogleIcon, MicrosoftIcon } from './providerIcons';
 import { socialLoginErrorKey } from './socialLoginErrors';
+import SocialLoginLegalNotice from './SocialLoginLegalNotice';
 
 const providerIcons = {
   google: GoogleIcon,
@@ -37,47 +38,29 @@ const socialButtonSx = {
   },
 };
 
-export default function SocialLoginButtons() {
-  const { t, i18n } = useTranslation('auth');
+interface SocialLoginButtonsProps {
+  /**
+   * Skips rendering the inline "signing in creates an account" notice
+   * below the button(s) — for pages that render `SocialLoginLegalNotice`
+   * themselves elsewhere (LoginPage puts a compact version at the bottom
+   * of the card). Defaults to showing it inline, RegisterPage's unchanged
+   * placement.
+   */
+  hideLegalNotice?: boolean;
+}
+
+export default function SocialLoginButtons({ hideLegalNotice = false }: SocialLoginButtonsProps = {}) {
+  const { t } = useTranslation('auth');
   const location = useLocation();
-  const [providers, setProviders] = useState<SocialProvider[]>([]);
+  const { providers } = useSocialProviders();
   const [pendingProvider, setPendingProvider] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const redirectErrorCode = new URLSearchParams(location.search).get(SOCIAL_ERROR_PARAM);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadProviders = async (): Promise<void> => {
-      try {
-        const available = await getSocialProviders();
-        if (!cancelled) {
-          setProviders(available);
-        }
-      } catch {
-        if (!cancelled) {
-          setProviders([]);
-        }
-      }
-    };
-
-    void loadProviders();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   if (providers.length === 0 && !redirectErrorCode) {
     return null;
   }
-
-  // Names the legal notice below the buttons by whichever providers this
-  // deployment actually has configured (just "Google", or "Google oder
-  // Microsoft" once both are set up), instead of hardcoding both names.
-  const providerNamesText = new Intl.ListFormat(i18n.language, {
-    style: 'long',
-    type: 'disjunction',
-  }).format(providers.map((provider) => provider.name));
 
   const handleStart = async (provider: SocialProvider): Promise<void> => {
     setError(null);
@@ -121,17 +104,7 @@ export default function SocialLoginButtons() {
 
       {providers.length > 0 ? (
         <>
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-            {t('socialLogin.legalNoticePrefix', { providers: providerNamesText })}
-            <Link component={RouterLink} to="/nutzungsbedingungen" target="_blank" rel="noopener" sx={authLegalLinkSx}>
-              {t('socialLogin.legalNoticeTermsLinkLabel')}
-            </Link>
-            {t('socialLogin.legalNoticeMiddle')}
-            <Link component={RouterLink} to="/datenschutz" target="_blank" rel="noopener" sx={authLegalLinkSx}>
-              {t('socialLogin.legalNoticePrivacyLinkLabel')}
-            </Link>
-            {t('socialLogin.legalNoticeSuffix')}
-          </Typography>
+          {!hideLegalNotice ? <SocialLoginLegalNotice /> : null}
           <Divider>
             <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.85rem', px: 0.5 }}>
               {t('socialLogin.dividerLabel')}
