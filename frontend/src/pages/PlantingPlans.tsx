@@ -9,7 +9,7 @@
 
 import { useCallback, useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { isTypingInEditableElement } from "../hooks/useKeyboardShortcuts";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type {
   GridCellParams,
   GridColDef,

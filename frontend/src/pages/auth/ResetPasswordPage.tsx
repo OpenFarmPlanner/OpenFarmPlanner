@@ -1,7 +1,7 @@
 import { Alert, Box, Button, InputAdornment, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/useAuth';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { useTranslation } from '../../i18n';

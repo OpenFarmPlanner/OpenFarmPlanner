@@ -1,5 +1,5 @@
 import { Box, Container, Link, Stack, Typography } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router';
 import { useTranslation } from '../../i18n';
 
 const privacySections = [

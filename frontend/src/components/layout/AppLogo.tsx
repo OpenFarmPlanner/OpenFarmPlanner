@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router';
 import { normalizeMainRoutePath } from '../../navigation/mainNavigation';
 import { useTranslation } from '../../i18n';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';

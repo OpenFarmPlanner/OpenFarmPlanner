@@ -1,6 +1,6 @@
 import { Alert, Button, Container, Stack, Typography } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { projectAPI } from "../api/api";
 import { useAuth } from "../auth/useAuth";
 import { useTranslation } from "../i18n";

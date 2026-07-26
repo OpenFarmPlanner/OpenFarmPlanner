@@ -18,7 +18,7 @@
     "test:e2e:headed": "npm run build && playwright test --headed",
     "mutation:test": "stryker run",
     "mutation:report": "open mutation-report/index.html",
-    "lint:circular": "madge --circular src",
+    "lint:circular": "madge --circular --extensions ts,tsx src",
     "quality:frontend": "npm run lint && npm run lint:circular"
   },
   "dependencies": {
@@ -39,12 +39,12 @@
     "react-i18next": "^16.4.0",
     "react-konva": "^19.2.3",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.9.6",
+    "react-router": "^8.3.0",
     "remark-gfm": "^4.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@stryker-mutator/core": "^9.5.1",
     "@stryker-mutator/typescript-checker": "^9.5.1",
@@ -59,12 +59,12 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.15",
-    "eslint": "^9.39.1",
+    "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^27.2.0",
-    "madge": "7.0.0",
+    "madge": "^8.0.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",

@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useBlocker } from 'react-router-dom';
+import { useBlocker } from 'react-router';
 import { confirmAction } from '../utils/confirmAction';
 
 /**

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { describe, it } from 'vitest';
 import { CultureDetail } from '../cultures/CultureDetail';
 import type { Culture } from '../api/types';

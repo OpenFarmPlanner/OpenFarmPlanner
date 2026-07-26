@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router';
 import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 import AuthPageShell from './AuthPageShell';

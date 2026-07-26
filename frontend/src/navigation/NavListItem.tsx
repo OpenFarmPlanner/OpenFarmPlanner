@@ -19,7 +19,7 @@ import { ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/materi
 import type { SxProps, Theme } from '@mui/material/styles';
 import type React from 'react';
 import type { ComponentProps } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router';
 
 type ListItemTextPrimaryProps = ComponentProps<typeof ListItemText>['primaryTypographyProps'];
 

@@ -5,7 +5,7 @@
 
 import { Alert, Button, Stack, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import {
   SOCIAL_ERROR_PARAM,
   SOCIAL_STATUS_PARAM,
