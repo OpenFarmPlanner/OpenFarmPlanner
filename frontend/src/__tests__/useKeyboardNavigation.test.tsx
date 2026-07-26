@@ -300,6 +300,6 @@ describe('useKeyboardNavigation', () => {
       })
     );
 
-    expect(navigateMock).toHaveBeenCalledWith('/app/anbauplaene');
+    expect(navigateMock).toHaveBeenCalledWith('/app/planting-plans');
   });
 });

@@ -15,7 +15,7 @@ export interface MainNavigationItem {
 export const MAIN_NAV_ITEMS: MainNavigationItem[] = [
   { to: '/app/fields-beds', labelKey: 'fieldsAndBeds', keywords: ['anbauflächen', 'felder', 'beete'], requiresProject: true },
   { to: '/app/cultures', labelKey: 'cultures', keywords: ['kulturen', 'kultur'], requiresProject: true },
-  { to: '/app/anbauplaene', labelKey: 'plantingPlans', activeAliases: ['/app/planting-plans'], keywords: ['anbaupläne', 'pläne', 'planung'], requiresProject: true },
+  { to: '/app/planting-plans', labelKey: 'plantingPlans', activeAliases: ['/app/anbauplaene'], keywords: ['anbaupläne', 'pläne', 'planung'], requiresProject: true },
   { to: '/app/gantt-chart', labelKey: 'ganttChart', keywords: ['anbaukalender', 'kalender', 'gantt'], requiresProject: true },
   { to: '/app/yield-overview', labelKey: 'yieldOverview', keywords: ['ertragsübersicht', 'ertrag', 'ernte'], requiresProject: true },
   { to: '/app/seed-demand', labelKey: 'seedDemand', keywords: ['saatgutbedarf', 'saatgut'], requiresProject: true },
@@ -58,8 +58,8 @@ export const ORDERED_APP_ROUTES = KEYBOARD_NAV_ROUTES;
 
 export const normalizeMainRoutePath = (pathname: string): string => {
   const normalizedPath = pathname.replace(/\/$/, '') || '/';
-  if (normalizedPath === '/planting-plans') {
-    return '/app/anbauplaene';
+  if (normalizedPath === '/anbauplaene') {
+    return '/app/planting-plans';
   }
   if (normalizedPath.startsWith('/app/')) {
     return normalizedPath;
@@ -69,8 +69,8 @@ export const normalizeMainRoutePath = (pathname: string): string => {
 
 export const getActiveMainRouteFromPathname = (pathname: string): string | null => {
   const normalizedPath = normalizeMainRoutePath(pathname);
-  const aliasedPath = normalizedPath === '/app/planting-plans'
-    ? '/app/anbauplaene'
+  const aliasedPath = normalizedPath === '/app/anbauplaene'
+    ? '/app/planting-plans'
     : normalizedPath;
 
   const matchingRoute = KEYBOARD_NAV_ROUTES
