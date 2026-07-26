@@ -38,6 +38,12 @@ export const contextMenuIndicatorHostSx: SystemStyleObject<Theme> = {
  * users on plain tables that don't already have DataGrid's own cell-focus
  * handling — it only toggles opacity/pointer-events, skipping the
  * background/gradient touch-up `hoverSelector` gets.
+ *
+ * Like `contextMenuIndicatorHostSx`, this stays hidden at all times on
+ * touch devices (no `:hover`/coarse-pointer override) — a long press opens
+ * the same context menu directly, so the overlay's icons (edit, delete,
+ * the `ContextMenuIndicator`) would otherwise sit on top of the row
+ * permanently and truncate its text for no reachability benefit.
  */
 export function contextMenuActionsOverlaySx(
   hoverSelector: string,
@@ -91,10 +97,5 @@ export function contextMenuActionsOverlaySx(
           [`${focusWithinSelector} .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
         }
       : {}),
-    '@media (pointer: coarse)': {
-      opacity: 1,
-      pointerEvents: 'auto',
-      [`& .${CONTEXT_MENU_INDICATOR_CLASS}`]: revealOnHoverOrFocus,
-    },
   };
 }
