@@ -637,7 +637,7 @@ describe('hierarchy stable order snapshot', () => {
     expect(ordered.fields.map((field) => field.id)).toEqual([1, 2, 3]);
   });
 
-  it('appends a newly created bed at the end of its group instead of at its sorted position', () => {
+  it('inserts a newly created bed as the first child of its group instead of at its sorted position', () => {
     const beds = [
       { id: 21, name: 'Beet B', field: 10 } as Bed,
       { id: 22, name: 'Beet D', field: 10 } as Bed,
@@ -645,16 +645,17 @@ describe('hierarchy stable order snapshot', () => {
     const snapshot = computeHierarchyOrderSnapshot([], [], beds, { field: 'name', direction: 'asc' });
     expect(snapshot.bedOrder).toEqual([21, 22]);
 
-    // A new "Acker"-style bed is prepended to the raw array (as
-    // useBedOperations.addBed does) and would sort first alphabetically —
-    // it must still render at the end of the group since it's absent from
-    // the snapshot.
+    // A new "Zeta"-style bed is prepended to the raw array (as
+    // useBedOperations.addBed does) and would sort last alphabetically —
+    // it must still render right next to the "add bed" action that created
+    // it (first in the group), not buried below existing beds, since it's
+    // absent from the snapshot.
     const bedsWithNewDraft = [
-      { id: -1700000000000, name: 'Acker', field: 10 } as Bed,
+      { id: -1700000000000, name: 'Zeta', field: 10 } as Bed,
       ...beds,
     ];
     const ordered = applyHierarchyOrderSnapshot([], [], bedsWithNewDraft, snapshot);
-    expect(ordered.beds.map((bed) => bed.id)).toEqual([21, 22, -1700000000000]);
+    expect(ordered.beds.map((bed) => bed.id)).toEqual([-1700000000000, 21, 22]);
   });
 
   it('drops an id that no longer exists after a snapshot without erroring', () => {

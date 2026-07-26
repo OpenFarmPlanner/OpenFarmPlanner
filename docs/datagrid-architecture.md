@@ -301,6 +301,16 @@ grid," that's new work, not exposing something that already half-exists.
   `applyHierarchyOrderSnapshot` implement the same pattern independently for
   its raw `<DataGrid>`, refreshed via `useHierarchyData`'s `fetchGeneration`
   (foreground fetches only) and an explicit sort-model-change handler.
+  Entities absent from the snapshot (new/unsaved rows) are placed *first*
+  within their entity list rather than appended last — once grouped by
+  parent, that puts a newly created Standort/Parzelle/Beet as the first
+  child right next to the "add" action that created it, instead of
+  potentially many screens below the bottom of a long group.
+  `FieldsBedsPage.tsx`'s "Standort hinzufügen" flow follows the same
+  principle: it merges the created location into state directly
+  (`setLocations` prepend) instead of triggering a full `fetchData()`
+  reload, which would otherwise immediately re-sort the table and could
+  place the new location far from the topbar action that created it.
 - `handlers.ts` — `handleRowEditStop` deliberately suppresses MUI's default
   Escape-triggers-save-attempt behavior so Escape reliably means "cancel";
   see `AUTOSAVE_IMPLEMENTATION.md` for how the blur-triggered save itself

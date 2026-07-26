@@ -72,9 +72,9 @@ export default function FieldsBedsPage() {
     loading: isAreaDataLoading,
     hasLoaded: hasAreaDataLoaded,
     locations,
+    setLocations,
     fields,
     beds,
-    fetchData: reloadHierarchyData,
   } = hierarchyData;
 
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
@@ -150,10 +150,17 @@ export default function FieldsBedsPage() {
     }
     try {
       const wasSingleLocationMode = locations.length === 1;
-      await locationAPI.create({ name: trimmedName });
+      const response = await locationAPI.create({ name: trimmedName });
+      // Prepend locally (like new fields/beds) instead of a full reload —
+      // a reload would immediately re-sort the table to the current sort
+      // order, which can push the new location far from the "Standort
+      // hinzufügen" action that just created it. It stays in this
+      // insertion position (first in the list) until an explicit sort or
+      // an actual reload, same as inline row creation elsewhere in the
+      // hierarchy.
+      setLocations((previousLocations) => [response.data, ...previousLocations]);
       setAddLocationDialogOpen(false);
       setNewLocationName('');
-      await reloadHierarchyData();
       setGlobalActionError('');
       setGlobalActionSuccess(wasSingleLocationMode
         ? t('hierarchy:messages.locationsNowVisible')
@@ -162,7 +169,7 @@ export default function FieldsBedsPage() {
       console.error('Error creating additional location:', error);
       setGlobalActionError(t('hierarchy:messages.createLocationError'));
     }
-  }, [locations.length, newLocationName, reloadHierarchyData, t]);
+  }, [locations.length, newLocationName, setLocations, t]);
 
   const handleAdditionalLocationSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();

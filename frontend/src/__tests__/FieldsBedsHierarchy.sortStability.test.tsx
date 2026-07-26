@@ -238,6 +238,12 @@ const renameRow = async (
 const readOrder = (): string[] =>
   Array.from(document.querySelectorAll('[data-testid="row-order"] li')).map((el) => el.textContent ?? '');
 
+const useMultipleLocations = (): void => {
+  locationListMock.mockResolvedValue({
+    data: { results: [{ id: 1, name: 'Hofstelle' }, { id: 2, name: 'Nebenstelle' }] },
+  });
+};
+
 describe('FieldsBedsHierarchy row order stability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -323,7 +329,7 @@ describe('FieldsBedsHierarchy row order stability', () => {
     expect(readOrder()).toEqual(['Ackerfeld', 'Beet A', 'Aaa', 'Bergfeld']);
   });
 
-  it('appends a newly created bed at the end of its group and keeps it there after saving', async () => {
+  it('inserts a newly created bed as the first child of its group, right next to the "add" action, and keeps it there after saving', async () => {
     const user = userEvent.setup();
     renderHierarchy();
     await waitFor(() => expect(readOrder()).toEqual(INITIAL_ORDER));
@@ -332,18 +338,62 @@ describe('FieldsBedsHierarchy row order stability', () => {
     fireEvent.click(within(fieldRow).getByRole('button', { name: 'Beet zu dieser Parzelle hinzufügen' }));
     await waitFor(() => expect(screen.getByTestId('row--1700000000000')).toBeInTheDocument());
 
-    // The new draft (empty name) is expected to render at the end of
-    // Ackerfeld's bed group right away, before it's even saved.
-    expect(readOrder()).toEqual(['Ackerfeld', 'Beet A', 'Beet C', '', 'Bergfeld']);
+    // The new draft (empty name) is expected to render as the first bed
+    // under Ackerfeld right away, next to the action that created it —
+    // not below the existing beds.
+    expect(readOrder()).toEqual(['Ackerfeld', '', 'Beet A', 'Beet C', 'Bergfeld']);
 
     await user.click(screen.getByRole('button', { name: 'Rename -1700000000000' }));
     await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
 
     await waitFor(() => expect(bedCreateMock).toHaveBeenCalled());
-    // "Aaa" would sort first alphabetically among beds under a live
-    // re-sort; it must stay at the position it was created in (end of the
-    // group) since the order snapshot wasn't refreshed by the save.
-    expect(readOrder()).toEqual(['Ackerfeld', 'Beet A', 'Beet C', 'Aaa', 'Bergfeld']);
+    // "Aaa" would sort first alphabetically among beds anyway here, but the
+    // point is it stays at its insertion position (first in the group)
+    // since the order snapshot wasn't refreshed by the save.
+    expect(readOrder()).toEqual(['Ackerfeld', 'Aaa', 'Beet A', 'Beet C', 'Bergfeld']);
+  });
+
+  it('inserts a newly created field as the first child of its location', async () => {
+    useMultipleLocations();
+    let currentFields = [
+      { id: 10, name: 'Ackerfeld', location: 1, area_sqm: 20 },
+      { id: 11, name: 'Bergfeld', location: 1, area_sqm: 20 },
+    ];
+    fieldListMock.mockImplementation(() => Promise.resolve({ data: { results: currentFields } }));
+    // Creating a field also triggers a silent background refetch
+    // (useHierarchyRowUpdate's `fetchData({ showLoading: false })`); keep
+    // fieldListMock's fixture in sync so that refetch doesn't drop the row
+    // this test just created.
+    fieldCreateMock.mockImplementation((data: { name: string; location: number }) => {
+      const created = { id: 200 + Number(fieldCreateMock.mock.calls.length), ...data };
+      currentFields = [...currentFields, created];
+      return Promise.resolve({ data: created });
+    });
+    const user = userEvent.setup();
+    renderHierarchy();
+    // "Beet A"/"Beet C" are the default bedListMock fixture, nested under
+    // "Ackerfeld" (field 10).
+    await waitFor(() => expect(readOrder()).toEqual(
+      ['Hofstelle', 'Ackerfeld', 'Beet A', 'Beet C', 'Bergfeld', 'Nebenstelle'],
+    ));
+
+    const locationRow = screen.getByTestId('row-location-1');
+    fireEvent.click(within(locationRow).getByRole('button', { name: 'Parzelle hinzufügen' }));
+    await waitFor(() => expect(screen.getByTestId('row-field--1700000000000')).toBeInTheDocument());
+
+    // The new field renders directly under "Hofstelle", before the
+    // existing fields, not appended after "Bergfeld".
+    expect(readOrder()).toEqual(
+      ['Hofstelle', '', 'Ackerfeld', 'Beet A', 'Beet C', 'Bergfeld', 'Nebenstelle'],
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Rename field--1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Blur field--1700000000000' }));
+
+    await waitFor(() => expect(fieldCreateMock).toHaveBeenCalled());
+    expect(readOrder()).toEqual(
+      ['Hofstelle', 'Aaa', 'Ackerfeld', 'Beet A', 'Beet C', 'Bergfeld', 'Nebenstelle'],
+    );
   });
 
   it('re-sorts on reload (remount), applying the current sort to the fresh data', async () => {

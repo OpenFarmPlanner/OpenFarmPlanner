@@ -135,16 +135,20 @@ const orderByStableIds = <T extends { id?: number }>(
   const missingEntities = entities.filter(
     (entity) => entity.id === undefined || !orderedIdSet.has(entity.id),
   );
-  return [...orderedEntities, ...missingEntities];
+  // Missing (new/unsnapshotted) entities go first, not last: once grouped by
+  // parent, that puts a newly created row as the first child of whichever
+  // location/field it belongs to — right next to the "add" action that
+  // created it — instead of at the bottom of a potentially long group.
+  return [...missingEntities, ...orderedEntities];
 };
 
 /**
  * Reorders locations/fields/beds to match a previously captured order
  * snapshot. Entities absent from the snapshot (a just-created row, still
- * unsaved or saved after the last snapshot refresh) are appended at the end
- * of their entity list, which — once grouped by parent — places them at the
- * bottom of their group rather than at whatever position a live re-sort
- * would compute.
+ * unsaved or saved after the last snapshot refresh) are placed first within
+ * their entity list, which — once grouped by parent — puts them at the top
+ * of their group (right next to the "add" action that created them) rather
+ * than at whatever position a live re-sort would compute.
  */
 export function applyHierarchyOrderSnapshot(
   locations: Location[],
