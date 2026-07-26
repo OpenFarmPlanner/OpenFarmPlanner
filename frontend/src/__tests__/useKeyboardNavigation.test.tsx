@@ -43,7 +43,7 @@ describe('useKeyboardNavigation', () => {
     expect(navigateMock).toHaveBeenCalledWith('/app/gantt-chart');
   });
 
-  it('wraps to last route on Ctrl+Shift+ArrowUp from Anbaupläne', () => {
+  it('navigates to Kulturbibliothek on Ctrl+Shift+ArrowUp from Anbaupläne', () => {
     window.history.pushState({}, '', '/anbauplaene');
     render(<TestComponent />);
 
@@ -56,7 +56,7 @@ describe('useKeyboardNavigation', () => {
       })
     );
 
-    expect(navigateMock).toHaveBeenCalledWith('/app/cultures');
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library');
   });
 
 
@@ -300,6 +300,6 @@ describe('useKeyboardNavigation', () => {
       })
     );
 
-    expect(navigateMock).toHaveBeenCalledWith('/app/anbauplaene');
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library');
   });
 });
