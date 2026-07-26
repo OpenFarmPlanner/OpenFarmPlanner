@@ -1,0 +1,102 @@
+name: Dependency Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  pip-audit:
+    name: pip-audit (backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PDM
+        run: python -m pip install --upgrade pip pdm
+
+      - name: Ensure pdm.lock exists
+        run: |
+          test -f backend/pdm.lock || (echo 'backend/pdm.lock is missing' >&2; exit 1)
+
+      - name: Install backend dependencies with PDM
+        run: |
+          cd backend
+          pdm install
+
+      - name: Install pip-audit into the PDM-managed environment
+        run: |
+          cd backend
+          pdm run pip install pip-audit
+
+      # Audits the actual locked/installed backend environment (pdm.lock)
+      # rather than a hand-maintained requirements.txt, which this project
+      # doesn't use (see AGENTS.md — backend deps are managed with PDM).
+      - name: Run pip-audit
+        run: |
+          cd backend
+          {
+            echo "## pip-audit (backend)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          set +o pipefail
+          pdm run pip-audit --desc 2>&1 | tee /tmp/pip-audit.txt
+          exit_code=${PIPESTATUS[0]}
+          {
+            cat /tmp/pip-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$exit_code" -ne 0 ]; then
+            echo "::error title=pip-audit found vulnerabilities::Review the pip-audit job summary for affected backend packages and available fix versions."
+          fi
+          exit "$exit_code"
+
+  npm-audit:
+    name: npm audit (frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      # --audit-level=high: only fail the build on High/Critical findings,
+      # so low/moderate advisories (often unfixable transitive dev-tooling
+      # noise) don't block every push/PR.
+      - name: Run npm audit
+        run: |
+          cd frontend
+          {
+            echo "## npm audit (frontend, --audit-level=high)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          set +o pipefail
+          npm audit --audit-level=high 2>&1 | tee /tmp/npm-audit.txt
+          exit_code=${PIPESTATUS[0]}
+          {
+            cat /tmp/npm-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$exit_code" -ne 0 ]; then
+            echo "::error title=npm audit found High/Critical vulnerabilities::Review the npm audit job summary for affected frontend packages and available fix versions."
+          fi
+          exit "$exit_code"
