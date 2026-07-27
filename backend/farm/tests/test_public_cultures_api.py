@@ -802,6 +802,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             source_project=self.project,
             source_project_culture=self.culture,
         )
+        self.culture.source_public_culture = public_culture
+        self.culture.source_public_version = public_culture.version
+        self.culture.save(update_fields=['source_public_culture', 'source_public_version'])
         self.client.force_authenticate(user=moderator)
 
         response = self.client.get('/openfarmplanner/api/cultures/')
