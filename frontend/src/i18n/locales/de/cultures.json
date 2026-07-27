@@ -480,6 +480,9 @@
     "openButton": "Aus Bibliothek importieren",
     "dialogTitle": "Aus Kulturbibliothek importieren",
     "openFullPage": "Kulturbibliothek öffnen",
+    "importDialog": {
+      "emptyDescription": "Veröffentliche deine bewährten Kulturen und teile dein Wissen mit anderen. Öffne dazu bei einer Kultur das ⋮-Menü und wähle <publish>Veröffentlichen</publish>."
+    },
     "page": {
       "title": "Öffentliche Kulturbibliothek",
       "description": "Durchsuche öffentliche Kulturen, importiere passende Einträge schnell in dein Projekt und hilf dabei, die gemeinsamen Stammdaten Schritt für Schritt zu verbessern.",

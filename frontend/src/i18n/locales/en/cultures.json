@@ -45,6 +45,9 @@
     "openButton": "Import from library",
     "dialogTitle": "Import from crop library",
     "openFullPage": "Open crop library",
+    "importDialog": {
+      "emptyDescription": "Publish your proven crops and share your knowledge with others. Open the ⋮ menu on a crop and choose <publish>Publish</publish>."
+    },
     "searchLabel": "Search public crops",
     "importButton": "Import into project",
     "importing": "Importing…",

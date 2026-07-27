@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
+import { Trans } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
@@ -69,7 +70,7 @@ function LibraryEmptyState({
   compact = false,
 }: {
   title: string;
-  description: string;
+  description: ReactNode;
   secondaryDescription?: string;
   compact?: boolean;
 }) {
@@ -297,7 +298,15 @@ export function PublicCultureLibraryDialog({
   const listEmptyTitle = hasLibraryEntries ? t('library.emptyState.noResultsTitle') : t('library.emptyState.emptyLibraryTitle');
   const listEmptyDescription = hasLibraryEntries ? t('library.empty') : t('library.emptyState.emptyLibraryDescription');
   const detailEmptyTitle = hasLibraryEntries ? t('library.emptyState.noSelectionTitle') : t('library.emptyState.emptyLibraryTitle');
-  const detailEmptyDescription = hasLibraryEntries ? t('library.emptyState.noSelectionDescription') : t('library.emptyState.emptyLibraryDescription');
+  const detailEmptyDescription = hasLibraryEntries ? (
+    <Trans
+      t={t}
+      i18nKey="library.importDialog.emptyDescription"
+      components={{
+        publish: <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }} />,
+      }}
+    />
+  ) : t('library.emptyState.emptyLibraryDescription');
 
   const handleDialogClose = (): void => {
     if (useMobileFilterLayout && mobileStep === 'detail') {

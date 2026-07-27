@@ -172,7 +172,8 @@ describe('PublicCultureLibraryDialog', () => {
     await screen.findByRole('dialog');
 
     expect(screen.getByText('Die Kulturbibliothek wächst mit der Community')).toBeInTheDocument();
-    expect(screen.getByText(/Veröffentliche deine bewährten Kulturen und teile dein Wissen/)).toBeInTheDocument();
+    expect(screen.getByText(/Öffne dazu bei einer Kultur das ⋮-Menü/)).toBeInTheDocument();
+    expect(screen.getByText('Veröffentlichen').tagName).toBe('STRONG');
     expect(screen.queryByText(/Eigene Kulturen können später direkt aus den Kulturdetails veröffentlicht werden/)).not.toBeInTheDocument();
   });
 
