@@ -722,9 +722,6 @@ export function CultureForm({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
             <Typography variant="h6">{t('form.generalInfoSectionTitle')}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('form.generalInfoSectionDescription')}
-            </Typography>
             {!isProjectForm ? (
               <Box
                 sx={{

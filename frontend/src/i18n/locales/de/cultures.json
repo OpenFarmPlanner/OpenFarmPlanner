@@ -111,7 +111,6 @@
     "createSuppliers": "Lieferant anlegen",
     "supplierHomepage": "Lieferanten-Homepage",
     "generalInfoSectionTitle": "Allgemeine Informationen",
-    "generalInfoSectionDescription": "Diese Angaben gelten allgemein für die Sorte und sind nicht vom Saatgutlieferanten abhängig.",
     "supplierDataSectionTitle": "Kulturspezifische Lieferantendaten",
     "supplierDataSectionDescription": "Die folgenden Angaben gelten nur für den ausgewählten Lieferanten dieser Kultur.",
     "noSupplierDataRows": "Noch keine kulturspezifischen Lieferanteninformationen vorhanden.",
