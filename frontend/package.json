@@ -29,6 +29,7 @@
     "@mui/x-data-grid": "^8.20.0",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
+    "fflate": "^0.8.3",
     "html2canvas": "^1.4.1",
     "i18next": "^25.7.2",
     "jspdf": "^4.1.0",
@@ -40,8 +41,7 @@
     "react-konva": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-router": "^8.3.0",
-    "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5"
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
