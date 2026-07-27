@@ -6,7 +6,7 @@ import { useTopbarContextActions } from '../hooks/useTopbarContextActions';
 import type { TopbarContextAction } from '../navigation/topbarTypes';
 
 /**
- * Regression test for a bug where the "Kulturbibliothek" toolbar button (and
+ * Regression test for a bug where the culture import toolbar button (and
  * any other page-registered topbar action) vanished after navigating away
  * from a page and back.
  *
@@ -22,7 +22,7 @@ import type { TopbarContextAction } from '../navigation/topbarTypes';
 
 function Page({ setTopbarContextActions }: { setTopbarContextActions: (actions: TopbarContextAction[]) => void }) {
   const actions = useMemo<TopbarContextAction[]>(() => [
-    { id: 'open-library', label: 'Kulturbibliothek öffnen', onClick: () => {} },
+    { id: 'open-library', label: 'Aus Bibliothek importieren', onClick: () => {} },
   ], []);
   useTopbarContextActions(setTopbarContextActions, actions);
   return null;
@@ -48,7 +48,7 @@ function Layout({ pathname }: { pathname: string }) {
 describe('useTopbarActionsRouteReset', () => {
   it('keeps a page-registered action visible when the page remounts in the same commit as the route change', () => {
     const { rerender } = render(<Layout pathname="/cultures" />);
-    expect(screen.getByTestId('actions')).toHaveTextContent('Kulturbibliothek öffnen');
+    expect(screen.getByTestId('actions')).toHaveTextContent('Aus Bibliothek importieren');
 
     rerender(<Layout pathname="/other" />);
     expect(screen.getByTestId('actions')).toHaveTextContent('');
@@ -57,6 +57,6 @@ describe('useTopbarActionsRouteReset', () => {
     // exactly like a route change where the target page's lazy chunk is
     // already cached and mounts synchronously with the route transition.
     rerender(<Layout pathname="/cultures" />);
-    expect(screen.getByTestId('actions')).toHaveTextContent('Kulturbibliothek öffnen');
+    expect(screen.getByTestId('actions')).toHaveTextContent('Aus Bibliothek importieren');
   });
 });

@@ -23,6 +23,9 @@ describe('i18n Configuration', () => {
 
     const locations = i18n.t('navigation:locations');
     expect(locations).toBe('Standorte');
+
+    expect(i18n.t('navigation:cropLibrary')).toBe('Öffentliche Kulturbibliothek');
+    expect(i18n.t('navigation:cultureActions.library')).toBe('Aus Bibliothek importieren');
   });
 
   it('should load page-specific translations', () => {
@@ -31,6 +34,18 @@ describe('i18n Configuration', () => {
     
     const culturesTitle = i18n.t('cultures:title');
     expect(culturesTitle).toBe('Kulturen');
+
+    expect(i18n.t('cultures:library.dialogTitle')).toBe('Aus Kulturbibliothek importieren');
+    expect(i18n.t('cultures:library.page.title')).toBe('Öffentliche Kulturbibliothek');
+  });
+
+  it('keeps English library naming distinct for navigation and import flows', () => {
+    const t = i18n.getFixedT('en');
+
+    expect(t('navigation:cropLibrary')).toBe('Public crop library');
+    expect(t('navigation:cultureActions.library')).toBe('Import from library');
+    expect(t('cultures:library.dialogTitle')).toBe('Import from crop library');
+    expect(t('cultures:library.page.title')).toBe('Public crop library');
   });
 
   it('should support interpolation', () => {

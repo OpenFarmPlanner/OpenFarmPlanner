@@ -501,8 +501,8 @@ function Cultures() {
   const contextActions = useMemo<TopbarContextAction[]>(() => ([
     {
       id: 'cultures-open-library',
-      label: 'Kulturbibliothek öffnen',
-      ariaLabel: 'Kulturbibliothek öffnen',
+      label: t('library.openButton'),
+      ariaLabel: t('library.openButton'),
       onClick: () => {
         void handleOpenPublicLibrary();
       },

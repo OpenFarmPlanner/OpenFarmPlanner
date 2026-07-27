@@ -42,8 +42,8 @@
     }
   },
   "library": {
-    "openButton": "Crop library",
-    "dialogTitle": "Crop library",
+    "openButton": "Import from library",
+    "dialogTitle": "Import from crop library",
     "openFullPage": "Open crop library",
     "searchLabel": "Search public crops",
     "importButton": "Import into project",
@@ -54,7 +54,7 @@
     "createdByLabel": "By",
     "anonymousAuthor": "Anonymous",
     "page": {
-      "title": "Crop library",
+      "title": "Public crop library",
       "description": "Browse public crops, import useful entries quickly into your project, and help improve the shared reference data step by step.",
       "tabs": {
         "details": "Details",

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import type { PublicCulture } from '../api/types';
@@ -47,6 +48,14 @@ function mockDesktopViewport(): void {
   });
 }
 
+function renderDialog(props: Parameters<typeof PublicCultureLibraryDialog>[0]): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter>
+      <PublicCultureLibraryDialog {...props} />
+    </MemoryRouter>,
+  );
+}
+
 describe('PublicCultureLibraryDialog', () => {
   beforeEach(() => {
     mockMobileViewport();
@@ -56,17 +65,17 @@ describe('PublicCultureLibraryDialog', () => {
   it('closes the mobile dialog when the browser history entry is popped', async () => {
     const onClose = vi.fn();
 
-    render(
-      <PublicCultureLibraryDialog
-        open
-        loading={false}
-        error={null}
-        cultures={[culture]}
-        importingId={null}
-        onClose={onClose}
-        onSearch={vi.fn()}
-        onImport={vi.fn()}
-      />,
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture],
+        importingId: null,
+        onClose,
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
     );
 
     await waitFor(() => {
@@ -103,7 +112,11 @@ describe('PublicCultureLibraryDialog', () => {
       );
     }
 
-    render(<ClosableDialog />);
+    render(
+      <MemoryRouter>
+        <ClosableDialog />
+      </MemoryRouter>,
+    );
 
     await screen.findByRole('dialog');
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
@@ -115,17 +128,17 @@ describe('PublicCultureLibraryDialog', () => {
   });
 
   it('uses a full viewport mobile paper with an opaque background', async () => {
-    render(
-      <PublicCultureLibraryDialog
-        open
-        loading={false}
-        error={null}
-        cultures={[culture]}
-        importingId={null}
-        onClose={vi.fn()}
-        onSearch={vi.fn()}
-        onImport={vi.fn()}
-      />,
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
     );
 
     const dialog = await screen.findByRole('dialog');
@@ -143,17 +156,17 @@ describe('PublicCultureLibraryDialog', () => {
   it('shows a community invitation in the desktop detail empty state', async () => {
     mockDesktopViewport();
 
-    render(
-      <PublicCultureLibraryDialog
-        open
-        loading={false}
-        error={null}
-        cultures={[culture]}
-        importingId={null}
-        onClose={vi.fn()}
-        onSearch={vi.fn()}
-        onImport={vi.fn()}
-      />,
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
     );
 
     await screen.findByRole('dialog');
@@ -163,18 +176,45 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.queryByText(/Eigene Kulturen können später direkt aus den Kulturdetails veröffentlicht werden/)).not.toBeInTheDocument();
   });
 
+  it('presents the picker as an import dialog and imports the selected culture', async () => {
+    mockDesktopViewport();
+    const onImport = vi.fn();
+
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport,
+      },
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kulturbibliothek öffnen' })).toHaveAttribute('href', '/app/crop-library');
+    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeDisabled();
+
+    fireEvent.click(screen.getByText('Tomate (Roma)'));
+    fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));
+
+    expect(onImport).toHaveBeenCalledWith(culture);
+  });
+
   it('shows the community contribution empty state on mobile when the library is empty', async () => {
-    render(
-      <PublicCultureLibraryDialog
-        open
-        loading={false}
-        error={null}
-        cultures={[]}
-        importingId={null}
-        onClose={vi.fn()}
-        onSearch={vi.fn()}
-        onImport={vi.fn()}
-      />,
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
     );
 
     await screen.findByRole('dialog');

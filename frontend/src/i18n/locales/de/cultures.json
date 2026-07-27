@@ -477,11 +477,11 @@
     }
   },
   "library": {
-    "openButton": "Kulturbibliothek",
-    "dialogTitle": "Kulturbibliothek",
+    "openButton": "Aus Bibliothek importieren",
+    "dialogTitle": "Aus Kulturbibliothek importieren",
     "openFullPage": "Kulturbibliothek öffnen",
     "page": {
-      "title": "Kulturbibliothek",
+      "title": "Öffentliche Kulturbibliothek",
       "description": "Durchsuche öffentliche Kulturen, importiere passende Einträge schnell in dein Projekt und hilf dabei, die gemeinsamen Stammdaten Schritt für Schritt zu verbessern.",
       "tabs": {
         "details": "Details",

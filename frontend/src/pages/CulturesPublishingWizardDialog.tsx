@@ -20,7 +20,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router';
 import { cropSpeciesAPI, cultureAPI, type Culture } from '../api/api';
 import type { CropSpecies, PublishPublicCulturePreview } from '../api/types';
 import { useTranslation } from '../i18n';

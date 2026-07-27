@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
@@ -542,7 +543,7 @@ export function PublicCultureLibraryDialog({
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: isMobileLandscape ? 1.25 : isMobile ? 1.25 : 3, py: isMobileLandscape ? 0.75 : isMobile ? 1 : 1.5, flexShrink: 0, bgcolor: 'background.paper', gap: 1, flexWrap: 'wrap' }}>
-        <Button href="../crop-library" onClick={closeDialog} sx={{ mr: 'auto' }}>
+        <Button component={RouterLink} to="/app/crop-library" onClick={closeDialog} sx={{ mr: 'auto' }}>
           {t('library.openFullPage')}
         </Button>
         <Button onClick={closeDialog}>{t('form.cancel')}</Button>

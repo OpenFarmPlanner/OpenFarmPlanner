@@ -86,8 +86,24 @@ test('public crop library supports quick import, discussion, proposal, and mobil
   await loginWithDeterministicProject(page, request, `public-crop-library-${Date.now()}`, { loginAsAdmin: true });
   const publicCulture = await publishUniquePublicCulture(page);
 
+  await page.goto('/app/cultures');
+  await page.getByRole('button', { name: 'Aus Bibliothek importieren' }).click();
+  const importDialog = page.getByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
+  await expect(importDialog).toBeVisible();
+  await importDialog.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
+  await expect(importDialog.getByRole('button', { name: new RegExp(publicCulture.variety) })).toBeVisible();
+  await importDialog.getByRole('button', { name: new RegExp(publicCulture.variety) }).click();
+  await expect(page.getByRole('button', { name: 'In Projekt importieren' })).toBeEnabled();
+  await page.getByRole('button', { name: 'In Projekt importieren' }).click();
+  await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Aus Bibliothek importieren' }).click();
+  await expect(importDialog).toBeVisible();
+  await importDialog.getByRole('link', { name: 'Kulturbibliothek öffnen' }).click();
+  await expect(page).toHaveURL(/\/app\/crop-library/);
+
   await page.goto('/app/crop-library');
-  await expect(page.getByRole('heading', { name: 'Kulturbibliothek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
   await expect(page.getByText('Die Kulturbibliothek wächst mit der Community')).toBeVisible();
   await expect(page.getByText(/Veröffentliche deine bewährten Kulturen/)).toBeVisible();
   await page.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
@@ -133,7 +149,7 @@ test('public crop library supports quick import, discussion, proposal, and mobil
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Kulturbibliothek' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
   await page.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
   await page.keyboard.press('Enter');
   await expect(page.getByText(publicCulture.variety).first()).toBeVisible();

@@ -3,7 +3,7 @@
   "locations": "Locations",
   "fieldsAndBeds": "Fields",
   "cultures": "Cultures",
-  "cropLibrary": "Crop library",
+  "cropLibrary": "Public crop library",
   "suppliers": "Suppliers",
   "plantingPlans": "Planting plans",
   "ganttChart": "Planting calendar",
@@ -67,9 +67,9 @@
     "openAria": "Open {{label}}"
   },
   "cultureActions": {
-    "openLibrary": "Open crop library",
-    "library": "Crop library",
-    "libraryShort": "Library",
+    "openLibrary": "Import from library",
+    "library": "Import from library",
+    "libraryShort": "Import",
     "openImportExport": "Open import/export",
     "importExport": "Import/Export",
     "openCultureActions": "Open crop actions",

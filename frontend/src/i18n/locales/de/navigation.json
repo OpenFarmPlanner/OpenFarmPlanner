@@ -4,7 +4,7 @@
   "locations": "Standorte",
   "fieldsAndBeds": "Anbauflächen",
   "cultures": "Kulturen",
-  "cropLibrary": "Kulturbibliothek",
+  "cropLibrary": "Öffentliche Kulturbibliothek",
   "suppliers": "Lieferanten",
   "plantingPlans": "Anbaupläne",
   "ganttChart": "Anbaukalender",
@@ -68,9 +68,9 @@
     "openAria": "{{label}} öffnen"
   },
   "cultureActions": {
-    "openLibrary": "Kulturbibliothek öffnen",
-    "library": "Kulturbibliothek",
-    "libraryShort": "Bibliothek",
+    "openLibrary": "Aus Bibliothek importieren",
+    "library": "Aus Bibliothek importieren",
+    "libraryShort": "Importieren",
     "openImportExport": "Import/Export öffnen",
     "importExport": "Import/Export",
     "openCultureActions": "Kultur-Aktionen öffnen",
