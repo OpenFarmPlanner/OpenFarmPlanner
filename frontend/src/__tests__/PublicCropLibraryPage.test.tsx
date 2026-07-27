@@ -112,6 +112,27 @@ describe('PublicCropLibraryPage', () => {
     });
   });
 
+  it('shows a compact, single-surface empty state before any culture is selected', async () => {
+    publicCultureApiMocks.list.mockResolvedValue({ data: { results: [] } });
+    renderPage();
+
+    await screen.findByText('Keine öffentlichen Kulturen gefunden.');
+
+    // Regression guard for a layout bug where the empty state's intro used
+    // a separate grey header block (bgcolor + border-bottom) on top of the
+    // three feature blocks, with a large forced min-height creating a big
+    // empty gap below them. The intro and the three blocks should now sit
+    // in one unified surface with a short subtitle.
+    expect(screen.getByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).toBeInTheDocument();
+    expect(screen.getByText('Teile deine bewährten Kulturen mit anderen.')).toBeInTheDocument();
+    expect(screen.queryByText(/Jede veröffentlichte Kultur erweitert die gemeinsame Kulturbibliothek/)).not.toBeInTheDocument();
+
+    expect(screen.getByText('Entdecken')).toBeInTheDocument();
+    expect(screen.getByText('Übernehmen')).toBeInTheDocument();
+    expect(screen.getByText('Verbessern')).toBeInTheDocument();
+    expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus/)).toBeInTheDocument();
+  });
+
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {
     const user = userEvent.setup();
     renderPage();

@@ -658,11 +658,11 @@
     "empty": "Keine öffentlichen Kulturen gefunden.",
     "emptyState": {
       "noSelectionTitle": "Die Kulturbibliothek wächst mit der Community",
-      "noSelectionDescription": "Veröffentliche deine bewährten Kulturen und teile dein Wissen mit anderen. Jede veröffentlichte Kultur erweitert die gemeinsame Kulturbibliothek und kann von anderen Projekten übernommen werden.",
+      "noSelectionDescription": "Teile deine bewährten Kulturen mit anderen.",
       "discoverTitle": "Entdecken",
       "discoverDescription": "Durchsuche vorhandene Einträge und vergleiche Kulturarten, Sorten und Anbaudaten.",
       "importTitle": "Übernehmen",
-      "importDescription": "Importiere passende Kulturen als eigene Projektkopie, ohne öffentliche Daten zu verändern.",
+      "importDescription": "Importiere passende Kulturen als eigene Projektkopie. Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus.",
       "improveTitle": "Verbessern",
       "improveDescription": "Bearbeite öffentliche Kulturen direkt. Jede Änderung wird als Version gespeichert.",
       "emptyLibraryTitle": "Noch keine öffentlichen Kulturen vorhanden",

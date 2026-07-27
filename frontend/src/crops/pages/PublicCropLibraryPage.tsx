@@ -793,64 +793,57 @@ export default function PublicCropLibraryPage() {
             <Box sx={{ minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
               <Card variant="outlined" sx={{ ...libraryCardSx, width: '100%', maxWidth: { sm: 920, lg: 980, xl: 1040 }, minHeight: 420 }}>
                 {!selectedCulture ? (
-                <Box sx={{ height: '100%', minHeight: { xs: 360, md: 520 }, display: 'flex', flexDirection: 'column' }}>
-                  <Box sx={{ p: { xs: 3, sm: 4 }, bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'center', sm: 'flex-start' }} sx={{ maxWidth: 780 }}>
-                      <Box
-                        sx={{
-                          width: 64,
-                          minWidth: 64,
-                          height: 64,
-                          borderRadius: '50%',
-                          bgcolor: 'success.50',
-                          color: 'success.main',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <SpaOutlinedIcon sx={{ fontSize: 36 }} />
-                      </Box>
-                      <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
-                        <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                          {t('library.emptyState.noSelectionTitle')}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25, maxWidth: 560, lineHeight: 1.65 }}>
-                          {t('library.emptyState.noSelectionDescription')}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Box>
-                  <Box sx={{ flex: 1, display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, p: { xs: 3, sm: 4 } }}>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2.5, sm: 3 }, width: '100%', maxWidth: 780 }}>
-                      <Stack spacing={0.75} alignItems="center">
-                        <SearchOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          {t('library.emptyState.discoverTitle')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                          {t('library.emptyState.discoverDescription')}
-                        </Typography>
-                      </Stack>
-                      <Stack spacing={0.75} alignItems="center">
-                        <DownloadOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          {t('library.emptyState.importTitle')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                          {t('library.emptyState.importDescription')}
-                        </Typography>
-                      </Stack>
-                      <Stack spacing={0.75} alignItems="center">
-                        <HistoryOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                          {t('library.emptyState.improveTitle')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-                          {t('library.emptyState.improveDescription')}
-                        </Typography>
-                      </Stack>
+                <Box sx={{ p: { xs: 3, sm: 4 }, display: 'flex', flexDirection: 'column', gap: { xs: 3, sm: 3.5 } }}>
+                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto' }}>
+                    <Box
+                      sx={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: '50%',
+                        bgcolor: 'success.50',
+                        color: 'success.main',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <SpaOutlinedIcon sx={{ fontSize: 30 }} />
                     </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, textWrap: 'balance' }}>
+                      {t('library.emptyState.noSelectionTitle')}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('library.emptyState.noSelectionDescription')}
+                    </Typography>
+                  </Stack>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2.5, sm: 3 } }}>
+                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                      <SearchOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                        {t('library.emptyState.discoverTitle')}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                        {t('library.emptyState.discoverDescription')}
+                      </Typography>
+                    </Stack>
+                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                      <DownloadOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                        {t('library.emptyState.importTitle')}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                        {t('library.emptyState.importDescription')}
+                      </Typography>
+                    </Stack>
+                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                      <HistoryOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                        {t('library.emptyState.improveTitle')}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                        {t('library.emptyState.improveDescription')}
+                      </Typography>
+                    </Stack>
                   </Box>
                 </Box>
                 ) : (

@@ -301,11 +301,11 @@
     "empty": "No public cultures found.",
     "emptyState": {
       "noSelectionTitle": "The crop library grows with the community",
-      "noSelectionDescription": "Publish your proven cultures and share your knowledge with others. Every published culture expands the shared crop library and can be adopted by other projects.",
+      "noSelectionDescription": "Share your proven crops with others.",
       "discoverTitle": "Discover",
       "discoverDescription": "Browse existing entries and compare crop species, varieties, and cultivation data.",
       "importTitle": "Adopt",
-      "importDescription": "Import useful crops as your own project copy without changing public data.",
+      "importDescription": "Import matching crops as your own project copy. Later changes to the public crop won't affect project cultures you've already imported.",
       "improveTitle": "Improve",
       "improveDescription": "Edit public crops directly. Every change is saved as a version.",
       "emptyLibraryTitle": "No public cultures yet",
