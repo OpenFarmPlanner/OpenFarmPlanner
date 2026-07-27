@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { Trans } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
@@ -33,6 +32,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 // Cross-domain import: a markdown helper that today lives under the
 // app-specific data-grid module. Kept as-is rather than duplicated/moved —
 // see docs/crop-library-architecture.md for why this is flagged as a
@@ -68,11 +68,13 @@ function LibraryEmptyState({
   title,
   description,
   secondaryDescription,
+  secondaryDescriptionAriaLabel,
   compact = false,
 }: {
   title: string;
   description: ReactNode;
-  secondaryDescription?: string;
+  secondaryDescription?: ReactNode;
+  secondaryDescriptionAriaLabel?: string;
   compact?: boolean;
 }) {
   return (
@@ -106,7 +108,7 @@ function LibraryEmptyState({
       >
         <SpaOutlinedIcon fontSize={compact ? 'small' : 'medium'} />
       </Box>
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75, color: 'text.primary' }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75, color: 'text.primary', textWrap: 'balance' }}>
         {title}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: compact ? 360 : 420, lineHeight: 1.6 }}>
@@ -116,7 +118,17 @@ function LibraryEmptyState({
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: 'block', maxWidth: compact ? 360 : 420, mt: 1.25, lineHeight: 1.5 }}
+          aria-label={secondaryDescriptionAriaLabel}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: 0.5,
+            maxWidth: compact ? 360 : 420,
+            mt: 1.25,
+            lineHeight: 1.5,
+          }}
         >
           {secondaryDescription}
         </Typography>
@@ -314,15 +326,46 @@ export function PublicCultureLibraryDialog({
   const listEmptyTitle = hasLibraryEntries ? t('library.emptyState.noResultsTitle') : t('library.emptyState.emptyLibraryTitle');
   const listEmptyDescription = hasLibraryEntries ? t('library.empty') : t('library.emptyState.emptyLibraryDescription');
   const detailEmptyTitle = hasLibraryEntries ? t('library.emptyState.noSelectionTitle') : t('library.emptyState.emptyLibraryTitle');
-  const detailEmptyDescription = hasLibraryEntries ? (
-    <Trans
-      t={t}
-      i18nKey="library.importDialog.emptyDescription"
-      components={{
-        publish: <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }} />,
-      }}
-    />
-  ) : t('library.emptyState.emptyLibraryDescription');
+  const detailEmptyDescription = hasLibraryEntries ? t('library.importDialog.emptyMotivation') : t('library.emptyState.emptyLibraryDescription');
+  const detailEmptySecondaryDescription = hasLibraryEntries ? (
+    <>
+      <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
+        {t('library.importDialog.emptyInstructionStep')}
+      </Box>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+        {t('library.importDialog.emptyInstructionContext')}
+      </Box>
+      <Box
+        component="span"
+        aria-hidden="true"
+        sx={{
+          width: 24,
+          height: 24,
+          borderRadius: 1,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.secondary',
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+          verticalAlign: 'middle',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.06)',
+        }}
+      >
+        <MoreVertIcon sx={{ fontSize: 18 }} />
+      </Box>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+        <Box component="span" aria-hidden="true">→</Box>
+        <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
+          {t('library.publishButton')}
+        </Box>
+      </Box>
+    </>
+  ) : undefined;
+  const detailEmptySecondaryDescriptionAriaLabel = hasLibraryEntries
+    ? t('library.importDialog.emptyInstructionAria', { publish: t('library.publishButton') })
+    : undefined;
 
   const handleDialogClose = (): void => {
     if (useMobileFilterLayout && mobileStep === 'detail') {
@@ -561,6 +604,8 @@ export function PublicCultureLibraryDialog({
               <LibraryEmptyState
                 title={detailEmptyTitle}
                 description={detailEmptyDescription}
+                secondaryDescription={detailEmptySecondaryDescription}
+                secondaryDescriptionAriaLabel={detailEmptySecondaryDescriptionAriaLabel}
               />
             )}
             </Box>

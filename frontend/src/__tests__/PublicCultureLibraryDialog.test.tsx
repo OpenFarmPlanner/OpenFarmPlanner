@@ -195,8 +195,13 @@ describe('PublicCultureLibraryDialog', () => {
     await screen.findByRole('dialog');
 
     expect(screen.getByText('Die Kulturbibliothek wächst mit der Community')).toBeInTheDocument();
-    expect(screen.getByText(/Öffne dazu bei einer Kultur das ⋮-Menü/)).toBeInTheDocument();
+    expect(screen.getByText('Teile deine bewährten Kulturen mit anderen.')).toBeInTheDocument();
+    expect(screen.getByText('So geht’s:').tagName).toBe('STRONG');
+    expect(screen.getByTestId('MoreVertIcon')).toBeInTheDocument();
+    expect(screen.getByTestId('MoreVertIcon').closest('button')).toBeNull();
     expect(screen.getByText('Veröffentlichen').tagName).toBe('STRONG');
+    expect(screen.queryByText(/⋮/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.')).toHaveTextContent('So geht’s:Bei einer Kultur→Veröffentlichen');
     expect(screen.queryByText(/Eigene Kulturen können später direkt aus den Kulturdetails veröffentlicht werden/)).not.toBeInTheDocument();
   });
 

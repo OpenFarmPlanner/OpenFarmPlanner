@@ -481,7 +481,10 @@
     "dialogTitle": "Aus Kulturbibliothek importieren",
     "openFullPage": "Kulturbibliothek öffnen",
     "importDialog": {
-      "emptyDescription": "Veröffentliche deine bewährten Kulturen und teile dein Wissen mit anderen. Öffne dazu bei einer Kultur das ⋮-Menü und wähle <publish>Veröffentlichen</publish>."
+      "emptyMotivation": "Teile deine bewährten Kulturen mit anderen.",
+      "emptyInstructionStep": "So geht’s:",
+      "emptyInstructionContext": "Bei einer Kultur",
+      "emptyInstructionAria": "So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und {{publish}} wählen."
     },
     "page": {
       "title": "Öffentliche Kulturbibliothek",

@@ -37,6 +37,10 @@ describe('i18n Configuration', () => {
 
     expect(i18n.t('cultures:library.dialogTitle')).toBe('Aus Kulturbibliothek importieren');
     expect(i18n.t('cultures:library.page.title')).toBe('Öffentliche Kulturbibliothek');
+    expect(i18n.t('cultures:library.importDialog.emptyMotivation')).toBe('Teile deine bewährten Kulturen mit anderen.');
+    expect(i18n.t('cultures:library.importDialog.emptyInstructionStep')).toBe('So geht’s:');
+    expect(i18n.t('cultures:library.importDialog.emptyInstructionContext')).toBe('Bei einer Kultur');
+    expect(i18n.t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Veröffentlichen' })).toBe('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.');
   });
 
   it('keeps English library naming distinct for navigation and import flows', () => {
@@ -46,6 +50,10 @@ describe('i18n Configuration', () => {
     expect(t('navigation:cultureActions.library')).toBe('Import from library');
     expect(t('cultures:library.dialogTitle')).toBe('Import from crop library');
     expect(t('cultures:library.page.title')).toBe('Public crop library');
+    expect(t('cultures:library.importDialog.emptyMotivation')).toBe('Share your proven crops with others.');
+    expect(t('cultures:library.importDialog.emptyInstructionStep')).toBe('How it works:');
+    expect(t('cultures:library.importDialog.emptyInstructionContext')).toBe('On a crop');
+    expect(t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Publish' })).toBe('How it works: open the three-dot menu on a crop and choose Publish.');
   });
 
   it('should support interpolation', () => {
