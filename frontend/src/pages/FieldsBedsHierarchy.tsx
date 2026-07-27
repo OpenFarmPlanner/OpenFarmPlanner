@@ -16,7 +16,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "../i18n";
 import {
   DataGrid,
@@ -83,8 +83,11 @@ import { useHierarchyGridKeyboard } from "../components/hierarchy/hooks/useHiera
 import { usePersistentSortModel } from "../hooks/usePersistentSortModel";
 import { fieldAPI, bedAPI, locationAPI, type Field } from "../api/api";
 import {
+  applyHierarchyOrderSnapshot,
   buildHierarchyIndex,
+  computeHierarchyOrderSnapshot,
   createHierarchyRowsProjector,
+  type HierarchyOrderSnapshot,
   type HierarchySortConfig,
 } from "../components/hierarchy/utils/hierarchyUtils";
 import {
@@ -180,6 +183,7 @@ function FieldsBedsHierarchy({
     setBeds,
     setFields,
     fetchData,
+    fetchGeneration,
   } = hierarchyData ?? internalHierarchyData;
 
   // Expansion state
@@ -212,9 +216,56 @@ function FieldsBedsHierarchy({
     useBedOperations(setBeds, setError, t);
   const [pendingFieldEditRow, setPendingFieldEditRow] = useState<string | number | null>(null);
 
+  // Row order is only recomputed from the current sort field on a fresh
+  // load/reload or when the user explicitly changes the sort — not on every
+  // locations/fields/beds change. Otherwise creating or renaming a row would
+  // immediately re-sort it to its new alphabetical/numeric position instead
+  // of leaving it where the user was just working. See
+  // applyHierarchyOrderSnapshot/computeHierarchyOrderSnapshot.
+  const [hierarchyOrderSnapshot, setHierarchyOrderSnapshot] = useState<HierarchyOrderSnapshot>(
+    () => computeHierarchyOrderSnapshot(locations, fields, beds, hierarchySortConfig),
+  );
+  const lastOrderedFetchGenerationRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (fetchGeneration === lastOrderedFetchGenerationRef.current) {
+      return;
+    }
+    lastOrderedFetchGenerationRef.current = fetchGeneration;
+    setHierarchyOrderSnapshot(
+      computeHierarchyOrderSnapshot(locations, fields, beds, hierarchySortConfig),
+    );
+    // Only re-run when a fetch actually completes; locations/fields/beds and
+    // hierarchySortConfig are read for their current value at that point,
+    // not tracked as re-trigger sources here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchGeneration]);
+
+  const handleHierarchySortModelChange = useCallback(
+    (nextSortModel: typeof sortModel): void => {
+      setSortModel(nextSortModel);
+      const [nextSort] = nextSortModel;
+      const nextSortConfig: HierarchySortConfig | undefined = nextSort?.sort
+        ? { field: nextSort.field, direction: nextSort.sort }
+        : undefined;
+      setHierarchyOrderSnapshot(
+        computeHierarchyOrderSnapshot(locations, fields, beds, nextSortConfig),
+      );
+    },
+    [beds, fields, locations, setSortModel],
+  );
+
+  const orderedHierarchyEntities = useMemo(
+    () => applyHierarchyOrderSnapshot(locations, fields, beds, hierarchyOrderSnapshot),
+    [locations, fields, beds, hierarchyOrderSnapshot],
+  );
+
   const hierarchyIndex = useMemo(
-    () => buildHierarchyIndex(locations, fields, beds, hierarchySortConfig),
-    [locations, fields, beds, hierarchySortConfig],
+    () => buildHierarchyIndex(
+      orderedHierarchyEntities.locations,
+      orderedHierarchyEntities.fields,
+      orderedHierarchyEntities.beds,
+    ),
+    [orderedHierarchyEntities],
   );
 
   const projectRows = useMemo(
@@ -296,7 +347,14 @@ function FieldsBedsHierarchy({
     || fields.length > 0
     || beds.length > 0
   );
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: "fieldsBeds",
     enabled: !suppressContextMenuHint,
     isLoading: loading,
@@ -309,12 +367,14 @@ function FieldsBedsHierarchy({
     handleNameCellContextMenu,
     handleGridContextMenu,
     handleGridTouchStart,
+    handleGridTouchMove,
     handleGridTouchEnd,
     closeContextMenu,
     contextMenuListRef,
   } = useHierarchyContextMenu({
     rows: rows as HierarchyRow[],
     markContextMenuHintUsed,
+    markTouchContextMenuHintUsed,
     setSelectedRowId,
     setTreeActive,
   });
@@ -1448,8 +1508,19 @@ function FieldsBedsHierarchy({
 
         {showContextMenuHint && (
           <ContextMenuHint
+            variant="desktop"
             message={t("common:messages.contextMenuTableHint")}
             onClose={closeContextMenuHint}
+            prominent
+            sx={{ mb: 1.5, maxWidth: 560 }}
+          />
+        )}
+
+        {showTouchContextMenuHint && (
+          <ContextMenuHint
+            variant="touch"
+            message={t("common:messages.contextMenuTableHintTouch")}
+            onClose={closeTouchContextMenuHint}
             prominent
             sx={{ mb: 1.5, maxWidth: 560 }}
           />
@@ -1478,9 +1549,9 @@ function FieldsBedsHierarchy({
             onContextMenu={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}
-            onTouchMove={handleGridTouchEnd}
+            onTouchMove={handleGridTouchMove}
             onTouchEnd={handleGridTouchEnd}
-            onTouchCancel={handleGridTouchEnd}
+            onTouchCancel={handleGridTouchMove}
           >
             <DataGrid
               rows={rows}
@@ -1518,7 +1589,7 @@ function FieldsBedsHierarchy({
               onPaginationModelChange={() => {}}
               sortingMode="server"
               sortModel={sortModel}
-              onSortModelChange={setSortModel}
+              onSortModelChange={handleHierarchySortModelChange}
               isRowSelectable={() => true}
               isCellEditable={isCellEditable}
               sx={

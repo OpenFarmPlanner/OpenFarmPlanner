@@ -1,26 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CompactAreaCell, shouldShowAreaTooltip } from '../components/planting-plans/CompactAreaCell';
+import { CompactAreaCell } from '../components/planting-plans/CompactAreaCell';
+
+function mockElementOverflow(element: HTMLElement, sizes: { clientWidth: number; scrollWidth: number }): void {
+  Object.defineProperty(element, 'clientWidth', { configurable: true, value: sizes.clientWidth });
+  Object.defineProperty(element, 'scrollWidth', { configurable: true, value: sizes.scrollWidth });
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: 20 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 20 });
+}
 
 describe('CompactAreaCell', () => {
-  it('shows tooltip with full text on hover for long values', async () => {
+  it('shows tooltip with full text on hover only when the value overflows', async () => {
     const user = userEvent.setup();
     const label = 'Regenbogenland · 8 Karotte + Zwiebel · Beet 5 (10,00 m²)';
 
     render(<CompactAreaCell label={label} />);
 
+    mockElementOverflow(screen.getByText(label).closest('div') as HTMLElement, {
+      clientWidth: 120,
+      scrollWidth: 420,
+    });
     await user.hover(screen.getByText(label));
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent(label);
   });
 
-  it('is keyboard focusable with full accessible text when the grid cell has focus', async () => {
+  it('does not show a tooltip for long values that are fully visible', async () => {
+    const user = userEvent.setup();
+    const label = 'Regenbogenland · 8 Karotte + Zwiebel · Beet 5 (10,00 m²)';
+
+    render(<CompactAreaCell label={label} />);
+
+    mockElementOverflow(screen.getByText(label).closest('div') as HTMLElement, {
+      clientWidth: 420,
+      scrollWidth: 420,
+    });
+    await user.hover(screen.getByText(label));
+
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('is keyboard focusable when the grid cell has focus', async () => {
     const label = 'Regenbogenland · 8 Karotte + Zwiebel · Beet 5 (10,00 m²)';
 
     render(<CompactAreaCell label={label} hasFocus />);
 
-    const focusTarget = screen.getByLabelText(label);
+    const focusTarget = screen.getByText(label).closest('div') as HTMLElement;
     expect(focusTarget).toHaveAttribute('tabindex', '0');
     await waitFor(() => expect(focusTarget).toHaveFocus());
   });
@@ -30,7 +56,7 @@ describe('CompactAreaCell', () => {
 
     render(<CompactAreaCell label={label} />);
 
-    expect(screen.getByLabelText(label)).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByText(label).closest('div')).toHaveAttribute('tabindex', '-1');
   });
 
   it('keeps short values compact without tooltip interaction', async () => {
@@ -50,11 +76,5 @@ describe('CompactAreaCell', () => {
 
     const wrapper = container.firstElementChild as HTMLElement;
     expect(wrapper).toHaveStyle({ overflow: 'hidden' });
-  });
-
-  it('decides tooltip visibility only when value is long or overflowing', () => {
-    expect(shouldShowAreaTooltip('kurz', false)).toBe(false);
-    expect(shouldShowAreaTooltip('x'.repeat(45), false)).toBe(true);
-    expect(shouldShowAreaTooltip('kurz', true)).toBe(true);
   });
 });

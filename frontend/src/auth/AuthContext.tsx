@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   acceptConsent as acceptConsentRequest,
   activate as activateRequest,
   getMe,
   login as loginRequest,
+  startGuestDemo as startGuestDemoRequest,
+  endGuestDemo as endGuestDemoRequest,
   logout as logoutRequest,
   register as registerRequest,
   resendActivation as resendActivationRequest,
@@ -13,9 +16,37 @@ import {
   restoreAccount as restoreAccountRequest,
   switchActiveProject as switchActiveProjectRequest,
 } from "./authApi";
-import { AUTHENTICATION_EXPIRED_EVENT } from "./authEvents";
+import {
+  AUTHENTICATION_EXPIRED_EVENT,
+  type AuthenticationExpiredEventDetail,
+} from "./authEvents";
 import type { AuthUser } from "./types";
 import { AuthContext, type AuthContextValue } from "./authContextShared";
+
+const GUEST_DEMO_SESSION_KEY = 'guestDemoSessionId';
+const PUBLIC_PATHS_WITHOUT_AUTH_PROBE = new Set([
+  '/',
+  '/impressum',
+  '/datenschutz',
+  '/nutzungsbedingungen',
+]);
+
+function currentRelativePathname(): string {
+  const basePath = import.meta.env.BASE_URL.replace(/\/+$/, '');
+  const pathname = window.location.pathname;
+  const relativePath = basePath && pathname.startsWith(basePath)
+    ? pathname.slice(basePath.length) || '/'
+    : pathname;
+  return relativePath.replace(/\/+$/, '') || '/';
+}
+
+function shouldSkipStartupAuthProbe(): boolean {
+  return PUBLIC_PATHS_WITHOUT_AUTH_PROBE.has(currentRelativePathname());
+}
+
+function clearGuestDemoSession(): void {
+  window.sessionStorage.removeItem(GUEST_DEMO_SESSION_KEY);
+}
 
 function clearStoredProjectId(): void {
   window.localStorage.removeItem("activeProjectId");
@@ -57,31 +88,62 @@ export function AuthProvider({
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const authGenerationRef = useRef(0);
+  const lastAuthenticatedAtRef = useRef(0);
+
+  const beginAuthMutation = useCallback((): number => {
+    authGenerationRef.current += 1;
+    return authGenerationRef.current;
+  }, []);
 
   const clearAuthenticatedUser = useCallback((): void => {
+    lastAuthenticatedAtRef.current = 0;
     setUser(null);
     setActiveProjectId(null);
     clearStoredProjectId();
+    clearGuestDemoSession();
   }, []);
 
   const applyAuthenticatedUser = useCallback((me: AuthUser): void => {
+    lastAuthenticatedAtRef.current = Date.now();
     setUser(me);
     setActiveProjectId(applyResolvedProjectId(me));
   }, []);
 
+  const applyAuthenticatedUserBeforeNavigation = useCallback((me: AuthUser): void => {
+    flushSync(() => {
+      applyAuthenticatedUser(me);
+    });
+  }, [applyAuthenticatedUser]);
+
   const refreshUser = useCallback(async (): Promise<AuthUser | null> => {
+    const requestGeneration = authGenerationRef.current;
     try {
       const me = await getMe();
+      if (requestGeneration !== authGenerationRef.current) {
+        return null;
+      }
+      if (me.is_guest_demo && String(me.guest_demo_session_id) !== window.sessionStorage.getItem(GUEST_DEMO_SESSION_KEY)) {
+        await logoutRequest();
+        clearAuthenticatedUser();
+        return null;
+      }
       applyAuthenticatedUser(me);
       return me;
     } catch {
-      clearAuthenticatedUser();
+      if (requestGeneration === authGenerationRef.current) {
+        clearAuthenticatedUser();
+      }
       return null;
     }
   }, [applyAuthenticatedUser, clearAuthenticatedUser]);
 
   useEffect(() => {
     void (async () => {
+      if (shouldSkipStartupAuthProbe()) {
+        setIsLoading(false);
+        return;
+      }
       try {
         await refreshUser();
       } catch {
@@ -93,7 +155,16 @@ export function AuthProvider({
   }, [clearAuthenticatedUser, refreshUser]);
 
   useEffect(() => {
-    function handleAuthenticationExpired(): void {
+    function handleAuthenticationExpired(event: Event): void {
+      const detail = 'detail' in event
+        ? event.detail as Partial<AuthenticationExpiredEventDetail> | undefined
+        : undefined;
+      const requestStartedAt = typeof detail?.requestStartedAt === 'number'
+        ? detail.requestStartedAt
+        : null;
+      if (requestStartedAt !== null && requestStartedAt <= lastAuthenticatedAtRef.current) {
+        return;
+      }
       clearAuthenticatedUser();
     }
     window.addEventListener(AUTHENTICATION_EXPIRED_EVENT, handleAuthenticationExpired);
@@ -120,14 +191,36 @@ export function AuthProvider({
       user,
       isLoading,
       activeProjectId,
+      startGuestDemo: async () => {
+        const generation = beginAuthMutation();
+        const me = await startGuestDemoRequest();
+        if (generation === authGenerationRef.current) {
+          window.sessionStorage.setItem(GUEST_DEMO_SESSION_KEY, String(me.guest_demo_session_id));
+          applyAuthenticatedUserBeforeNavigation(me);
+        }
+        return me;
+      },
+      endGuestDemo: async () => {
+        const generation = beginAuthMutation();
+        await endGuestDemoRequest();
+        if (generation === authGenerationRef.current) {
+          clearAuthenticatedUser();
+        }
+      },
       login: async (email, password) => {
+        const generation = beginAuthMutation();
         const me = await loginRequest(email, password);
-        applyAuthenticatedUser(me);
+        if (generation === authGenerationRef.current) {
+          applyAuthenticatedUserBeforeNavigation(me);
+        }
         return me;
       },
       logout: async () => {
+        const generation = beginAuthMutation();
         await logoutRequest();
-        clearAuthenticatedUser();
+        if (generation === authGenerationRef.current) {
+          clearAuthenticatedUser();
+        }
       },
       register: async (email, password, passwordConfirm, displayName = "", acceptTerms = false) => {
         const response = await registerRequest(
@@ -140,13 +233,19 @@ export function AuthProvider({
         return response.detail;
       },
       acceptConsent: async (document) => {
+        const generation = beginAuthMutation();
         const me = await acceptConsentRequest(document);
-        applyAuthenticatedUser(me);
+        if (generation === authGenerationRef.current) {
+          applyAuthenticatedUserBeforeNavigation(me);
+        }
         return me;
       },
       activate: async (uid, token) => {
+        const generation = beginAuthMutation();
         const me = await activateRequest(uid, token);
-        applyAuthenticatedUser(me);
+        if (generation === authGenerationRef.current) {
+          applyAuthenticatedUserBeforeNavigation(me);
+        }
         return me;
       },
       resendActivation: async (email) => {
@@ -167,13 +266,19 @@ export function AuthProvider({
         return response.detail;
       },
       requestAccountDeletion: async (password) => {
+        const generation = beginAuthMutation();
         const response = await requestAccountDeletionRequest(password);
-        clearAuthenticatedUser();
+        if (generation === authGenerationRef.current) {
+          clearAuthenticatedUser();
+        }
         return response;
       },
       restoreAccount: async (email, password) => {
+        const generation = beginAuthMutation();
         const me = await restoreAccountRequest(email, password);
-        applyAuthenticatedUser(me);
+        if (generation === authGenerationRef.current) {
+          applyAuthenticatedUserBeforeNavigation(me);
+        }
         return me;
       },
       switchActiveProject: async (projectId: number) => {
@@ -188,7 +293,15 @@ export function AuthProvider({
       },
       refreshUser,
     }),
-    [activeProjectId, applyAuthenticatedUser, clearAuthenticatedUser, isLoading, refreshUser, user],
+    [
+      activeProjectId,
+      applyAuthenticatedUserBeforeNavigation,
+      beginAuthMutation,
+      clearAuthenticatedUser,
+      isLoading,
+      refreshUser,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

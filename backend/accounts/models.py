@@ -195,3 +195,23 @@ class AccountEmailChangeRequest(models.Model):
     def __str__(self) -> str:
         identifier = getattr(self.user, 'email', '') or getattr(self.user, 'username', '')
         return f'Email change request for {identifier} -> {self.new_email}'
+
+
+class GuestDemoSession(models.Model):
+    """Temporary anonymous workspace created from the reusable demo template."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='guest_demo_session',
+    )
+    project = models.OneToOneField(
+        'farm.Project',
+        on_delete=models.CASCADE,
+        related_name='guest_demo_session',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    def __str__(self) -> str:
+        return f'Guest demo session {self.pk}'

@@ -1,4 +1,5 @@
 import type { Culture } from '../api/types';
+import { formatIsoDate } from '../utils/isoDate';
 
 interface ExportEnvelopeBase {
   schemaVersion: 1;
@@ -48,8 +49,6 @@ export interface AllCulturesExport extends ExportEnvelopeBase {
   type: 'cultures';
   cultures: PortableCulture[];
 }
-
-const formatDate = (date = new Date()): string => date.toISOString().split('T')[0];
 
 export const slugifyFilenamePart = (value: string): string => {
   const normalized = value
@@ -102,14 +101,14 @@ export const toPortableCulture = (culture: Culture): PortableCulture => {
 
 export const buildSingleCultureExport = (culture: Culture, date = new Date()): SingleCultureExport => ({
   schemaVersion: 1,
-  exportedAt: formatDate(date),
+  exportedAt: formatIsoDate(date),
   type: 'culture',
   culture: toPortableCulture(culture),
 });
 
 export const buildAllCulturesExport = (cultures: Culture[], date = new Date()): AllCulturesExport => ({
   schemaVersion: 1,
-  exportedAt: formatDate(date),
+  exportedAt: formatIsoDate(date),
   type: 'cultures',
   cultures: cultures.map(toPortableCulture),
 });
@@ -132,7 +131,7 @@ export const downloadJsonFile = (data: object, filename: string): void => {
 export const buildSingleCultureFilename = (culture: Culture, date = new Date()): string => {
   const name = slugifyFilenamePart(culture.name);
   const variety = slugifyFilenamePart(culture.variety ?? '');
-  return `kultur_${name}_${variety}_${formatDate(date)}.json`;
+  return `kultur_${name}_${variety}_${formatIsoDate(date)}.json`;
 };
 
-export const buildAllCulturesFilename = (date = new Date()): string => `kulturen_export_${formatDate(date)}.json`;
+export const buildAllCulturesFilename = (date = new Date()): string => `kulturen_export_${formatIsoDate(date)}.json`;

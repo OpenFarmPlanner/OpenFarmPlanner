@@ -1,10 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { GridRowId } from '@mui/x-data-grid';
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../../../utils/contextMenu';
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../../../utils/contextMenu';
 import { useRowContextMenuState } from '../../contextMenu/useRowContextMenuState';
-import { useLongPressTimer } from '../../contextMenu/useLongPressTimer';
-
-const ROW_ACTION_LONG_PRESS_MS = 550;
+import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../../contextMenu/useLongPressTimer';
 
 export interface RowActionMenuState {
   rowId: GridRowId;
@@ -17,6 +15,7 @@ export interface UseDataGridRowActionMenuParams {
   rowsById: Map<string, unknown>;
   hasContextualRowActions: boolean;
   markContextMenuHintUsed: () => void;
+  markTouchContextMenuHintUsed: () => void;
   setSelectedRowIds: React.Dispatch<React.SetStateAction<GridRowId[]>>;
   getRowIdFromElement: (target: EventTarget | null) => GridRowId | null;
 }
@@ -25,6 +24,7 @@ export function useDataGridRowActionMenu({
   rowsById,
   hasContextualRowActions,
   markContextMenuHintUsed,
+  markTouchContextMenuHintUsed,
   setSelectedRowIds,
   getRowIdFromElement,
 }: UseDataGridRowActionMenuParams) {
@@ -40,7 +40,7 @@ export function useDataGridRowActionMenu({
 
   const { state: menuState, originRef: menuOriginRef, listRef: menuListRef, open: menuOpen, close: menuClose, clearIf: menuClearIf } =
     useRowContextMenuState<GridRowId>({ isContextMenuTarget: isRowActionContextMenuTarget });
-  const longPressTimer = useLongPressTimer(ROW_ACTION_LONG_PRESS_MS);
+  const longPressTimer = useLongPressTimer(ROW_LONG_PRESS_MS);
 
   const openRowActionMenuAt = useCallback((
     rowId: GridRowId,
@@ -87,24 +87,25 @@ export function useDataGridRowActionMenu({
     if (rowId === null || !rowsById.has(String(rowId))) {
       return;
     }
-    const originElement = event.target instanceof HTMLElement
-      ? event.target.closest<HTMLElement>('[role="row"][data-id]')
-      : null;
+    const originElement = closestContextMenuElement(event.target, '[role="row"][data-id]');
     const touch = event.touches[0];
     longPressTimer.start(() => {
-      markContextMenuHintUsed();
+      markTouchContextMenuHintUsed();
       setSelectedRowIds([rowId]);
       setLongPressFeedbackRowId(rowId);
       menuOpen(rowId, touch.clientX + 2, touch.clientY - 6, originElement);
     });
-  }, [longPressTimer, getRowIdFromElement, hasContextualRowActions, markContextMenuHintUsed, rowsById, setSelectedRowIds, menuOpen]);
+  }, [longPressTimer, getRowIdFromElement, hasContextualRowActions, markTouchContextMenuHintUsed, rowsById, setSelectedRowIds, menuOpen]);
 
   const handleGridTouchMove = useCallback((): void => {
     longPressTimer.clear();
   }, [longPressTimer]);
 
-  const handleGridTouchEnd = useCallback((): void => {
-    longPressTimer.clear();
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run the grid's own tap behavior (cell selection/edit-start) right
+  // on top of the row-action menu that long press just opened.
+  const handleGridTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
+    longPressTimer.endTouch(event);
   }, [longPressTimer]);
 
   const rowActionMenuState = useMemo((): RowActionMenuState | null => (

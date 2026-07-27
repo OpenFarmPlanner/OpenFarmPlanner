@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import type { Culture } from '../api/types';
 import { toPortableCulture, slugifyFilenamePart } from './exportUtils';
 import { CULTURE_COLUMNS } from './spreadsheetColumns';
+import { formatIsoDate } from '../utils/isoDate';
 
 export type SpreadsheetExportFormat = 'xlsx' | 'ods' | 'csv';
 
@@ -59,8 +60,6 @@ export const exportCulturesToSpreadsheet = (
   triggerDownload(output, filename, MIME_TYPES[format]);
 };
 
-const formatDate = (date = new Date()): string => date.toISOString().split('T')[0];
-
 export const buildSpreadsheetFilename = (
   format: SpreadsheetExportFormat,
   scope: 'single' | 'all',
@@ -70,7 +69,7 @@ export const buildSpreadsheetFilename = (
   if (scope === 'single' && culture) {
     const supplier = slugifyFilenamePart(culture.supplier?.name ?? culture.seed_supplier ?? '');
     const variety = slugifyFilenamePart(culture.variety ?? '');
-    return `kultur_${supplier}_${variety}_${formatDate()}.${ext}`;
+    return `kultur_${supplier}_${variety}_${formatIsoDate()}.${ext}`;
   }
-  return `kulturen_export_${formatDate()}.${ext}`;
+  return `kulturen_export_${formatIsoDate()}.${ext}`;
 };

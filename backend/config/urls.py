@@ -28,6 +28,10 @@ def _with_prefix(path_suffix: str) -> str:
 
 urlpatterns = [
     path(_with_prefix('admin/'), admin.site.urls),
+    # Registered exactly once, unlike the legacy-prefixed duplicates below:
+    # the OAuth redirect URIs are reversed from these names and must resolve
+    # to the single path registered with Google/Microsoft.
+    path(_with_prefix('api/auth/social/'), include('accounts.social_urls')),
     path(_with_prefix('api/auth/'), include('accounts.urls')),
     path(_with_prefix('api/'), include('farm.urls')),
     # Additive, forward-looking crop-library surface — see

@@ -38,7 +38,17 @@
     "newEmail": "Neue E-Mail-Adresse",
     "changePasswordTitle": "Passwort ändern",
     "newPassword": "Neues Passwort",
-    "repeatNewPassword": "Neues Passwort wiederholen"
+    "repeatNewPassword": "Neues Passwort wiederholen",
+    "noPasswordHint": "Dieses Konto meldet sich über Google oder Microsoft an und hat kein Passwort. Über „Passwort vergessen“ auf der Anmeldeseite kannst du eines festlegen."
+  },
+  "loginMethods": {
+    "title": "Anmeldemethoden",
+    "description": "Melde dich zusätzlich zu E-Mail und Passwort auch über Google oder Microsoft an. Alle verknüpften Methoden führen zu diesem Konto.",
+    "connect": "Mit {{provider}} verknüpfen",
+    "connected": "Die Anmeldemethode wurde verknüpft.",
+    "connectedSince": "{{provider}} · verknüpft seit {{date}}",
+    "disconnect": "Entfernen",
+    "lastMethodHint": "Deine letzte Anmeldemethode kann nicht entfernt werden. Lege zuerst über „Passwort vergessen“ ein Passwort fest."
   },
   "dangerZone": "Gefährlicher Bereich",
   "deleteDescription": "Wenn du dein Konto löschst, wird es sofort deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann einschließlich Projektdaten gelöscht; veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen.",
@@ -46,6 +56,7 @@
   "deleteButton": "Konto löschen",
   "dialogTitle": "Konto zur Löschung vormerken",
   "dialogWarning": "Bitte bestätige mit deinem aktuellen Passwort und dem Text „{{phrase}}“. Dein Konto wird deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann gelöscht.",
+  "dialogWarningWithoutPassword": "Bitte bestätige mit dem Text „{{phrase}}“. Dein Konto wird deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann gelöscht.",
   "currentPassword": "Aktuelles Passwort",
   "deletePhrase": "LÖSCHEN",
   "deletePhraseLabel": "Bestätigungstext",

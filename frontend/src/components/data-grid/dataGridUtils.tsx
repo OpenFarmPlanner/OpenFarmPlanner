@@ -6,11 +6,33 @@ import {
   getGridStringOperators,
 } from '@mui/x-data-grid';
 import type { GridColDef, GridFilterOperator, GridRowId, GridSortModel } from '@mui/x-data-grid';
+import { Box } from '@mui/material';
+import { OverflowTooltip } from '../OverflowTooltip';
 import { DateEditCell } from './DateEditCell';
 import type { EditableRow } from './types';
 
 export const isUnsavedDraftRow = (row: EditableRow): boolean =>
   Boolean(row.isNew || row.__draft || Number(row.id) < 0);
+
+const DRAFT_METADATA_FIELDS = new Set(['id', 'isNew', '__draft']);
+
+const isEmptyDraftValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length === 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return false;
+};
+
+export const isEmptyNewDraftRow = (row: EditableRow): boolean =>
+  Object.entries(row).every(([field, value]) =>
+    DRAFT_METADATA_FIELDS.has(field) || isEmptyDraftValue(value),
+  );
 
 export class SaveBlockedError extends Error {
   constructor() {
@@ -84,8 +106,36 @@ const applyDefaultDateEditCell = (column: GridColDef): GridColDef => {
   };
 };
 
+const applyDefaultHeaderOverflowTooltip = (column: GridColDef): GridColDef => {
+  if (column.renderHeader) {
+    return column;
+  }
+
+  const headerName = column.headerName ?? column.field;
+  return {
+    ...column,
+    renderHeader: () => (
+      <OverflowTooltip title={headerName}>
+        <Box
+          component="span"
+          sx={{
+            display: 'block',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            width: '100%',
+          }}
+        >
+          {headerName}
+        </Box>
+      </OverflowTooltip>
+    ),
+  };
+};
+
 export const prepareDataGridColumn = (column: GridColDef): GridColDef =>
-  keepDraftRowsVisibleForColumnFilters(applyDefaultDateEditCell(column));
+  keepDraftRowsVisibleForColumnFilters(applyDefaultHeaderOverflowTooltip(applyDefaultDateEditCell(column)));
 
 const getSortableValue = (row: EditableRow, field: string): unknown => row[field];
 

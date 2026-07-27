@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GridRowEditStopReasons, GridRowModes } from '@mui/x-data-grid';
+import type { GridSortModel } from '@mui/x-data-grid';
 import { handleEditableCellClick, handleRowEditStop } from '../components/data-grid/handlers';
 import { getPlainExcerpt, stripMarkdown } from '../components/data-grid/markdown';
+import { getSortedRowIds, orderRowsByStableIds } from '../components/data-grid/dataGridUtils';
+import type { EditableRow } from '../components/data-grid/types';
+
+interface TestRow extends EditableRow {
+  name: string;
+}
 
 describe('data-grid utility handlers', () => {
   it('enters edit mode on editable cell click when row is not already editing', () => {
@@ -83,5 +90,63 @@ describe('data-grid markdown utilities', () => {
     expect(excerpt).toBe('Ein sehr...');
 
     expect(getPlainExcerpt('Kurz', 10)).toBe('Kurz');
+  });
+});
+
+// getSortedRowIds/orderRowsByStableIds back EditableDataGrid's stable client-side
+// row order (see DataGrid.tsx's stableRowOrder/refreshStableRowOrder), which is
+// what keeps every EditableDataGrid-based table (Anbaupläne/PlantingPlans,
+// Cultures, ...) from jumping a row to a new sorted position as a side effect of
+// saving it — the order snapshot is only refreshed on load, an explicit sort
+// change, or a filter change, never as a reaction to row data changing.
+describe('stable row order (EditableDataGrid)', () => {
+  const sortByNameAsc: GridSortModel = [{ field: 'name', sort: 'asc' }];
+
+  it('keeps a renamed row in its snapshotted position instead of resorting live', () => {
+    const rows: TestRow[] = [
+      { id: 1, name: 'Ackerfeld' },
+      { id: 2, name: 'Bergfeld' },
+    ];
+    const snapshot = getSortedRowIds(rows, sortByNameAsc);
+    expect(snapshot).toEqual([1, 2]);
+
+    // Renaming "Bergfeld" to "Aaa" would sort it first alphabetically, but
+    // the snapshot wasn't refreshed by the save, so it must stay last.
+    const renamedRows: TestRow[] = [
+      { id: 1, name: 'Ackerfeld' },
+      { id: 2, name: 'Aaa' },
+    ];
+    const ordered = orderRowsByStableIds(renamedRows, snapshot);
+    expect(ordered.map((row) => row.id)).toEqual([1, 2]);
+  });
+
+  it('appends a newly created row at the end instead of at its sorted position', () => {
+    const rows: TestRow[] = [{ id: 1, name: 'Bergfeld' }];
+    const snapshot = getSortedRowIds(rows, sortByNameAsc);
+
+    // A new draft row is appended to the raw rows array (as
+    // DataGrid.tsx's handleAddClick does) and would sort before "Bergfeld"
+    // — it must still render last since it's absent from the snapshot.
+    const rowsWithNewDraft: TestRow[] = [...rows, { id: -1, name: 'Aaa', isNew: true }];
+    const ordered = orderRowsByStableIds(rowsWithNewDraft, snapshot);
+    expect(ordered.map((row) => row.id)).toEqual([1, -1]);
+  });
+
+  it('re-sorts to the current values when a fresh snapshot is taken (explicit sort / reload)', () => {
+    const rows: TestRow[] = [
+      { id: 1, name: 'Zoo' },
+      { id: 2, name: 'Feld' },
+    ];
+    const freshSnapshot = getSortedRowIds(rows, sortByNameAsc);
+    const ordered = orderRowsByStableIds(rows, freshSnapshot);
+    expect(ordered.map((row) => row.name)).toEqual(['Feld', 'Zoo']);
+  });
+
+  it('falls back to array order when no sort is active', () => {
+    const rows: TestRow[] = [
+      { id: 2, name: 'Zoo' },
+      { id: 1, name: 'Feld' },
+    ];
+    expect(getSortedRowIds(rows, [])).toEqual([2, 1]);
   });
 });

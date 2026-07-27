@@ -10,14 +10,17 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { getKeyboardNavigationRouteFromPathname, ORDERED_APP_ROUTES } from '../navigation/mainNavigation';
 
 export function useKeyboardNavigation(): void {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPathnameRef = useRef(location.pathname);
-  currentPathnameRef.current = location.pathname;
+
+  useEffect(() => {
+    currentPathnameRef.current = location.pathname;
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {

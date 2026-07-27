@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import SeedDemandPage from '../pages/SeedDemand';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
@@ -351,6 +351,239 @@ describe('SeedDemandPage', () => {
         'Bohne (Canadian Wonder)\tReinsaat\t184,20 seedDemand.unitGrams\t25 seedDemand.unitGrams × 8',
       );
     });
+  });
+
+  it('opens the app context menu when right-clicking directly on an icon inside the row (not the native browser menu)', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Bohne',
+            variety: 'Canadian Wonder',
+            supplier: 'Reinsaat',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
+            selected_supplier_id: 10,
+            required_amount_value: 184.2,
+            required_amount_unit: 'g',
+            total_grams: 184.2,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const actionsButton = screen.getByRole('button', { name: 'common:actions.actions' });
+    // The right-click lands on the icon's inner <path>, an SVGElement, not the
+    // <button> (HTMLElement) itself - this is what a real right-click on a
+    // MUI icon hits, and is the regression this test guards against.
+    const iconPath = actionsButton.querySelector('svg path');
+    expect(iconPath).not.toBeNull();
+
+    const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(iconPath as Element, contextMenuEvent);
+
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCulture' })).toBeInTheDocument();
+    // The native browser context menu must not appear alongside the app's own.
+    expect(contextMenuEvent.defaultPrevented).toBe(true);
+    expect(cultureLink).toBeInTheDocument();
+  });
+
+  it('opens the app context menu from a touch long-press on the row, and suppresses the trailing click', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Bohne',
+            variety: 'Canadian Wonder',
+            supplier: 'Reinsaat',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
+            selected_supplier_id: 10,
+            required_amount_value: 184.2,
+            required_amount_unit: 'g',
+            total_grams: 184.2,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const row = cultureLink.closest('tr') as HTMLTableRowElement;
+
+    let touchEndEvent: TouchEvent;
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // A real browser would synthesize a trailing click from this touchend
+      // unless its default is prevented — jsdom doesn't perform that
+      // synthesis itself, so defaultPrevented is the testable proxy here.
+      touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+      fireEvent(row, touchEndEvent);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
+    expect(touchEndEvent!.defaultPrevented).toBe(true);
+  });
+
+  it('does not open the context menu on a short tap of a seed demand row', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Bohne',
+            variety: 'Canadian Wonder',
+            supplier: 'Reinsaat',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
+            selected_supplier_id: 10,
+            required_amount_value: 184.2,
+            required_amount_unit: 'g',
+            total_grams: 184.2,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const row = cultureLink.closest('tr') as HTMLTableRowElement;
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      fireEvent.touchEnd(row);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).not.toBeInTheDocument();
+  });
+
+  it('still opens the icon normally on left-click after the context-menu fix (unchanged behavior)', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Bohne',
+            variety: 'Canadian Wonder',
+            supplier: 'Reinsaat',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
+            selected_supplier_id: 10,
+            required_amount_value: 184.2,
+            required_amount_unit: 'g',
+            total_grams: 184.2,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    fireEvent.click(screen.getByRole('button', { name: 'common:actions.actions' }));
+
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
+  });
+
+  it('leaves the native browser context menu untouched outside the table', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Bohne',
+            variety: 'Canadian Wonder',
+            supplier: 'Reinsaat',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
+            selected_supplier_id: 10,
+            required_amount_value: 184.2,
+            required_amount_unit: 'g',
+            total_grams: 184.2,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+
+    const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(document.body, contextMenuEvent);
+
+    expect(contextMenuEvent.defaultPrevented).toBe(false);
+    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).not.toBeInTheDocument();
   });
 
   it('opens row actions from the inline actions menu', async () => {

@@ -37,6 +37,7 @@ coverage/
 *.lcov
 
 # Test results / Playwright output
+.playwright-mcp/
 frontend/test-results/
 
 # Mutation testing

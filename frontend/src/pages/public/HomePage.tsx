@@ -1,50 +1,57 @@
 import GitHubIcon from '@mui/icons-material/GitHub';
 import {
+  Alert,
   Box,
   Button,
   Container,
+  CircularProgress,
   Link,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SyntheticEvent } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import type { TFunction } from 'i18next';
+import { Link as RouterLink, useNavigate } from 'react-router';
+import { AuthApiError } from '../../auth/authApi';
+import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 import LegalLinks from '../../components/legal/LegalLinks';
+import { publicAssetUrl } from '../../utils/publicAssetUrl';
 
 const PRODUCT_TOUR_ITEMS = [
   {
     key: 'areas',
-    image: '/landing/screenshots/demo-areas.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-areas.webp'),
   },
   {
     key: 'cultures',
-    image: '/landing/screenshots/demo-cultures.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
   },
   {
     key: 'plantingPlans',
-    image: '/landing/screenshots/demo-planting-plans.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-planting-plans.webp'),
   },
   {
     key: 'calendar',
-    image: '/landing/screenshots/demo-calendar.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-calendar.webp'),
   },
   {
     key: 'yieldOverview',
-    image: '/landing/screenshots/demo-yield-overview.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-yield-overview.webp'),
   },
   {
     key: 'seedDemand',
-    image: '/landing/screenshots/demo-seed-demand.webp',
+    image: publicAssetUrl('/landing/screenshots/demo-seed-demand.webp'),
   },
 ] as const;
 
 type ProductTourKey = (typeof PRODUCT_TOUR_ITEMS)[number]['key'];
 
 const HERO_TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5)';
+const RETRY_DETAIL_PATTERN = /available in (\d+(?:\.\d+)?) seconds/i;
 
 // Single glassmorphism card behind all hero content (heading, description,
 // buttons, beta note, GitHub link) - one clearly-bounded, semi-transparent
@@ -56,8 +63,8 @@ const HERO_CARD_SX = {
   width: '100%',
   maxWidth: 640,
   mx: 'auto',
-  px: { xs: 3, sm: 4, md: 5 },
-  py: { xs: 3.5, sm: 4, md: 5 },
+  px: { xs: 3, sm: 4, md: 4.5 },
+  py: { xs: 3, sm: 3.5, md: 4 },
   borderRadius: { xs: 4, md: 6 },
   border: '1px solid rgba(255,255,255,0.28)',
   backgroundColor: 'rgba(8,24,14,0.5)',
@@ -66,6 +73,69 @@ const HERO_CARD_SX = {
   boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
 };
 
+function parsePositiveSeconds(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.ceil(parsed);
+}
+
+function getRetrySeconds(error: AuthApiError): number | null {
+  const explicitRetry = parsePositiveSeconds(error.retryAfterSeconds);
+  if (explicitRetry !== null) {
+    return explicitRetry;
+  }
+
+  const payloadRetry = parsePositiveSeconds(error.payload?.retry_after);
+  if (payloadRetry !== null) {
+    return payloadRetry;
+  }
+
+  if (typeof error.payload?.detail !== 'string') {
+    return null;
+  }
+
+  const match = RETRY_DETAIL_PATTERN.exec(error.payload.detail);
+  return match ? parsePositiveSeconds(match[1]) : null;
+}
+
+function formatRetryTime(seconds: number, t: TFunction<'home'>): string {
+  if (seconds < 60) {
+    return t('landing.retryTime.lessThanMinute');
+  }
+
+  const totalMinutes = Math.ceil(seconds / 60);
+  if (totalMinutes < 60) {
+    return t('landing.retryTime.minutes', { count: totalMinutes });
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return t('landing.retryTime.hours', { count: hours });
+  }
+  return t('landing.retryTime.hoursAndMinutes', { hours, minutes });
+}
+
+function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
+  if (seconds < 60) {
+    return t('landing.retryTime.compact.lessThanMinute');
+  }
+
+  const totalMinutes = Math.ceil(seconds / 60);
+  if (totalMinutes < 60) {
+    return t('landing.retryTime.compact.minutes', { count: totalMinutes });
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return t('landing.retryTime.compact.hours', { count: hours });
+  }
+  return t('landing.retryTime.compact.hoursAndMinutes', { hours, minutes });
+}
+
 /**
  * Public landing page with refined spacing and modern visual hierarchy.
  *
@@ -73,14 +143,83 @@ const HERO_CARD_SX = {
  */
 export default function HomePage() {
   const { t } = useTranslation('home');
+  const navigate = useNavigate();
+  const { startGuestDemo } = useAuth();
+  const [isStartingDemo, setIsStartingDemo] = useState(false);
+  const [demoStartError, setDemoStartError] = useState<string | null>(null);
+  const [retryAvailableAt, setRetryAvailableAt] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [activeTourKey, setActiveTourKey] = useState<ProductTourKey>('areas');
   const activeTourItem = PRODUCT_TOUR_ITEMS.find((item) => item.key === activeTourKey) ?? PRODUCT_TOUR_ITEMS[0];
+  const retryRemainingSeconds = retryAvailableAt === null
+    ? 0
+    : Math.max(0, Math.ceil((retryAvailableAt - currentTime) / 1000));
+  const isDemoRetryBlocked = retryRemainingSeconds > 0;
+  const isDemoButtonDisabled = isStartingDemo || isDemoRetryBlocked;
+
+  useEffect(() => {
+    if (retryAvailableAt === null) {
+      return undefined;
+    }
+
+    if (retryAvailableAt <= Date.now()) {
+      setRetryAvailableAt(null);
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const nextTime = Date.now();
+      setCurrentTime(nextTime);
+      if (retryAvailableAt <= nextTime) {
+        setRetryAvailableAt(null);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [retryAvailableAt]);
 
   const handleTourChange = (_event: SyntheticEvent, value: ProductTourKey): void => {
     setActiveTourKey(value);
   };
 
-  
+  const handleStartDemo = async (): Promise<void> => {
+    if (isDemoButtonDisabled) {
+      return;
+    }
+
+    setIsStartingDemo(true);
+    setDemoStartError(null);
+    try {
+      await startGuestDemo();
+      navigate('/app/fields-beds');
+    } catch (error) {
+      if (error instanceof AuthApiError && error.status === 429) {
+        const retrySeconds = getRetrySeconds(error);
+        if (retrySeconds !== null) {
+          const retryUntil = Date.now() + retrySeconds * 1000;
+          setCurrentTime(Date.now());
+          setRetryAvailableAt(retryUntil);
+          setDemoStartError(t('landing.actions.demoRateLimitedWithTime', {
+            time: formatRetryTime(retrySeconds, t),
+          }));
+        } else {
+          setDemoStartError(t('landing.actions.demoRateLimited'));
+        }
+      } else if (error instanceof AuthApiError && error.isNetworkError) {
+        setDemoStartError(t('landing.actions.demoNetworkError'));
+      } else if (error instanceof AuthApiError && error.status !== undefined && error.status >= 500) {
+        setDemoStartError(t('landing.actions.demoServerError'));
+      } else if (error instanceof AuthApiError && error.code === 'unexpected_response') {
+        setDemoStartError(t('landing.actions.demoUnexpectedResponse'));
+      } else {
+        console.error('Error starting guest demo:', error);
+        setDemoStartError(t('landing.actions.demoStartError'));
+      }
+    } finally {
+      setIsStartingDemo(false);
+    }
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
@@ -88,7 +227,7 @@ export default function HomePage() {
           <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
             <Box
               component="img"
-              src="/favicon.png"
+              src={publicAssetUrl('/favicon.png')}
               alt=""
               aria-hidden
               sx={{
@@ -123,15 +262,15 @@ export default function HomePage() {
             justifyContent: 'center',
             textAlign: 'center',
             px: 2,
-            py: { xs: 4.5, md: 6 },
+            py: { xs: 4, md: 5 },
             overflow: 'hidden',
-            backgroundImage: 'url(/landing/hero-field.webp)',
+            backgroundImage: `url(${publicAssetUrl('/landing/hero-field.webp')})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
           <Box sx={HERO_CARD_SX}>
-            <Stack spacing={2.4} alignItems="center">
+            <Stack spacing={{ xs: 2, md: 2.2 }} alignItems="center">
               <Typography
                 variant="h6"
                 sx={{
@@ -155,58 +294,132 @@ export default function HomePage() {
                 {t('landing.description')}
               </Typography>
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ width: '100%', maxWidth: 380, pt: 0.5 }}>
-                <Button
-                  component={RouterLink}
-                  to="/login"
-                  variant="contained"
-                  size="large"
-                  sx={{
-                    flex: 1,
-                    minHeight: 46,
-                    borderRadius: 2.5,
-                    boxShadow: (theme) => theme.shadows[2],
-                    transition: 'transform 160ms ease, box-shadow 160ms ease',
-                    '&:hover': {
-                      transform: 'translateY(-1px)',
-                      boxShadow: (theme) => theme.shadows[5],
-                    },
-                  }}
+              <Stack spacing={1.15} alignItems="center" sx={{ width: '100%', pt: 0.3 }}>
+                <Stack
+                  direction="row"
+                  spacing={{ xs: 1, sm: 1.2 }}
+                  alignItems="center"
+                  justifyContent="center"
+                  sx={{ width: '100%', flexWrap: 'nowrap' }}
                 >
-                  {t('landing.actions.openApp')}
-                </Button>
-
-                <Button
-                  component={RouterLink}
-                  to="/register"
-                  variant="outlined"
-                  size="large"
-                  sx={{
-                    flex: 1,
-                    minHeight: 46,
-                    borderRadius: 2.5,
-                    bgcolor: '#fff',
-                    boxShadow: (theme) => theme.shadows[2],
-                    transition: 'transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease',
-                    '&:hover': {
+                  <Button
+                    component={RouterLink}
+                    to="/register"
+                    variant="contained"
+                    size="large"
+                    sx={{
+                      minHeight: 46,
+                      borderRadius: 2,
+                      px: { xs: 2, sm: 3.2 },
+                      whiteSpace: 'nowrap',
+                      boxShadow: (theme) => theme.shadows[3],
+                      transition: 'transform 160ms ease, box-shadow 160ms ease',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                        boxShadow: (theme) => theme.shadows[5],
+                      },
+                    }}
+                  >
+                    {t('landing.actions.register')}
+                  </Button>
+                  <Button
+                    component={RouterLink}
+                    to="/login"
+                    variant="outlined"
+                    size="large"
+                    sx={{
+                      minHeight: 46,
+                      borderRadius: 2,
+                      px: { xs: 2, sm: 3.2 },
+                      color: 'primary.main',
+                      borderColor: '#fff',
                       bgcolor: '#fff',
-                      transform: 'translateY(-1px)',
-                      boxShadow: (theme) => theme.shadows[5],
+                      whiteSpace: 'nowrap',
+                      boxShadow: (theme) => theme.shadows[2],
+                      transition: 'transform 160ms ease, color 160ms ease, box-shadow 160ms ease, background-color 160ms ease',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                        color: 'primary.dark',
+                        borderColor: '#fff',
+                        bgcolor: 'rgba(255,255,255,0.92)',
+                        boxShadow: (theme) => theme.shadows[4],
+                      },
+                    }}
+                  >
+                    {t('landing.actions.openApp')}
+                  </Button>
+                </Stack>
+                <Button
+                  variant="text"
+                  disabled={isDemoButtonDisabled}
+                  onClick={() => {
+                    void handleStartDemo();
+                  }}
+                  sx={{
+                    minHeight: 34,
+                    px: 1.2,
+                    py: 0.4,
+                    borderRadius: 1,
+                    color: 'rgba(255,255,255,0.94)',
+                    fontSize: { xs: '0.9rem', sm: '0.94rem' },
+                    fontWeight: 600,
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px',
+                    textShadow: HERO_TEXT_SHADOW,
+                    whiteSpace: 'nowrap',
+                    '&:hover, &:focus-visible': {
+                      color: '#fff',
+                      bgcolor: 'rgba(255,255,255,0.1)',
+                      textDecoration: 'underline',
+                    },
+                    '&.Mui-disabled': {
+                      color: 'rgba(255,255,255,0.58)',
                     },
                   }}
                 >
-                  {t('landing.actions.register')}
+                  {isStartingDemo ? (
+                    <Stack component="span" direction="row" spacing={0.8} alignItems="center">
+                      <CircularProgress color="inherit" size={14} />
+                      <span>{t('landing.actions.startingDemo')}</span>
+                    </Stack>
+                  ) : isDemoRetryBlocked ? (
+                    t('landing.actions.demoAvailableIn', {
+                      time: formatCompactRetryTime(retryRemainingSeconds, t),
+                    })
+                  ) : (
+                    t('landing.actions.demoWithoutRegistration')
+                  )}
                 </Button>
               </Stack>
+              {demoStartError ? (
+                <Alert
+                  severity="error"
+                  sx={{
+                    width: '100%',
+                    maxWidth: 520,
+                    minHeight: 48,
+                    textAlign: 'left',
+                    color: 'error.dark',
+                    bgcolor: 'rgba(255,255,255,0.96)',
+                    border: '1px solid',
+                    borderColor: 'error.light',
+                    '& .MuiAlert-icon': {
+                      color: 'error.main',
+                    },
+                  }}
+                >
+                  {demoStartError}
+                </Alert>
+              ) : null}
 
-              <Stack spacing={0.8} alignItems="center" textAlign="center" sx={{ pt: { xs: 0.6, md: 0.9 } }}>
-                <Typography sx={{ lineHeight: 1.5, color: '#fff', textShadow: HERO_TEXT_SHADOW }}>
+              <Stack spacing={0.7} alignItems="center" textAlign="center" sx={{ pt: { xs: 0.3, md: 0.5 } }}>
+                <Typography sx={{ lineHeight: 1.45, color: '#fff', textShadow: HERO_TEXT_SHADOW }}>
                   {t('statusNote')}
                 </Typography>
                 <Typography
                   sx={{
                     fontSize: { xs: '0.84rem', md: '0.9rem' },
-                    lineHeight: 1.45,
+                    lineHeight: 1.4,
                     color: 'rgba(255,255,255,0.92)',
                     textShadow: HERO_TEXT_SHADOW,
                   }}
@@ -226,7 +439,7 @@ export default function HomePage() {
                     gap: 0.55,
                     px: 1.1,
                     py: 0.5,
-                    mt: 0.5,
+                    mt: 0.3,
                     borderRadius: 1,
                     border: 2,
                     borderColor: 'primary.main',

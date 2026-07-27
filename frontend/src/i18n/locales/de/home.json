@@ -7,7 +7,33 @@
     "description": "Speziell entwickelt für Marktgärtnereien, Solidarische Landwirtschaft und andere Betriebe mit vielen Kulturen und kleinteiligen Anbauflächen.",
     "actions": {
       "openApp": "Anmelden",
-      "register": "Registrieren"
+      "register": "Registrieren",
+      "demo": "Demo ansehen",
+      "demoWithoutRegistration": "Demo ohne Registrierung ansehen",
+      "startingDemo": "Demo wird gestartet…",
+      "demoStartError": "Demo konnte nicht gestartet werden. Bitte versuche es erneut.",
+      "demoRateLimited": "Die Demo wurde vor Kurzem bereits gestartet. Bitte versuche es später erneut.",
+      "demoRateLimitedWithTime": "Die Demo wurde vor Kurzem bereits gestartet. Bitte versuche es {{time}} erneut.",
+      "demoNetworkError": "Die Demo ist derzeit nicht erreichbar. Bitte prüfe deine Internetverbindung und versuche es später erneut.",
+      "demoServerError": "Die Demo konnte wegen eines Serverfehlers nicht gestartet werden. Bitte versuche es später erneut.",
+      "demoUnexpectedResponse": "Die Demo konnte nicht gestartet werden, weil die Serverantwort unerwartet war. Bitte versuche es erneut.",
+      "demoAvailableIn": "Demo wieder verfügbar in {{time}}"
+    },
+    "retryTime": {
+      "lessThanMinute": "in weniger als einer Minute",
+      "minutes_one": "in etwa {{count}} Minute",
+      "minutes_other": "in etwa {{count}} Minuten",
+      "hours_one": "in etwa {{count}} Stunde",
+      "hours_other": "in etwa {{count}} Stunden",
+      "hoursAndMinutes": "in etwa {{hours}} Stunden und {{minutes}} Minuten",
+      "compact": {
+        "lessThanMinute": "< 1 Min.",
+        "minutes_one": "{{count}} Min.",
+        "minutes_other": "{{count}} Min.",
+        "hours_one": "{{count}} Std.",
+        "hours_other": "{{count}} Std.",
+        "hoursAndMinutes": "{{hours}} Std. {{minutes}} Min."
+      }
     }
   },
   "statusNote": "OpenFarmPlanner befindet sich aktuell in der Beta-Phase und wird laufend weiterentwickelt.",

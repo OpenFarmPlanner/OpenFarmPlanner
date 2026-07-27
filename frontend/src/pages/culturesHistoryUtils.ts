@@ -263,7 +263,7 @@ export function getHistoryEntryTarget(entry: CultureHistoryEntry): string | null
   }
 
   if (entry.object_type === 'planting_plan') {
-    return '/app/anbauplaene';
+    return '/app/planting-plans';
   }
 
   return null;

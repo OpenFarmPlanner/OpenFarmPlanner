@@ -36,7 +36,7 @@ import {
   getRowIdFromElement,
   isEnterSaveInputTarget,
 } from './domEventTargets';
-import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel } from '@mui/x-data-grid';
+import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel, GridEventListener } from '@mui/x-data-grid';
 import { Box, Alert, IconButton, Chip, Button, Tooltip, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -74,21 +74,49 @@ import { useScrollDrivenRowWindow } from './hooks/useScrollDrivenRowWindow';
 import { useStableDataGridScrollbar } from './hooks/useStableDataGridScrollbar';
 import { StableScrollbarTrack } from './StableScrollbarTrack';
 import {
+  CONTINUOUS_SCROLL_PAGE_SIZE,
+  CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
+  CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX,
+  CONTINUOUS_SCROLL_HEADER_HEIGHT_PX,
+  CONTINUOUS_SCROLL_FOOTER_HEIGHT_PX,
+  CONTINUOUS_SCROLL_BOTTOM_MARGIN_PX,
+  CONTINUOUS_SCROLL_MIN_HEIGHT_PX,
+  DATA_GRID_ROOT_SELECTOR,
+  DATA_GRID_VIRTUAL_SCROLLER_SELECTOR,
+  DATA_GRID_MAIN_SELECTOR,
+  DATA_GRID_CONTINUOUS_SCROLL_FOOTER_CLASS,
+  CONTINUOUS_SCROLL_FIT_EPSILON_PX,
+  cssEscape,
+  DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS,
+  getElementHeight,
+  getVerticalBorderHeight,
+  continuousScrollLayoutHeightsEqual,
+  type ContinuousScrollLayoutHeights,
+} from './continuousScrollLayout';
+import {
   getSortedRowIds,
+  isEmptyNewDraftRow,
   isSaveBlockedError,
   isUnsavedDraftRow,
   orderRowsByStableIds,
   prepareDataGridColumn,
   SaveBlockedError,
 } from './dataGridUtils';
-import { parseGermanDateText } from './GermanDateEditCell';
+import { mergeVisibleDateEditInputValues, readDraftRow } from './draftRowReaders';
+import {
+  collectRowValidationErrors,
+  hasInvalidRowInEditMode as hasInvalidRowInEditModeState,
+} from './rowValidation';
 import {
   focusKeyboardNavigableCell as focusDataGridKeyboardNavigableCell,
   getKeyboardNavigationTarget,
   getVerticalKeyboardNavigationTarget,
+  getCellLocationFromDomTarget,
+  getHorizontalKeyboardNavigationTarget,
   isCellKeyboardNavigable,
   isInteractiveCellTarget,
   preventReadOnlyCellMouseFocus,
+  resolveFocusedCellFromEvent,
 } from './keyboardNavigation';
 import { useSpreadsheetEditStarter } from './keyboardEditing';
 import type {
@@ -114,72 +142,6 @@ export type {
 type DataGridKeyboardEvent = KeyboardEvent & {
   defaultMuiPrevented?: boolean;
 };
-
-const CONTINUOUS_SCROLL_PAGE_SIZE = 100;
-const CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX = 44;
-const CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX = 30;
-const CONTINUOUS_SCROLL_HEADER_HEIGHT_PX = 56;
-const CONTINUOUS_SCROLL_FOOTER_HEIGHT_PX = 61;
-const CONTINUOUS_SCROLL_BORDER_HEIGHT_PX = 2;
-// Slack kept below the grid so it sits comfortably above the fold. Small
-// margins here are risky: any tiny under-measurement (rounding, a font
-// metrics difference, browser chrome) can push the page a few pixels taller
-// than the viewport, which brings in a second, native page-level scrollbar
-// right alongside the grid's own continuous-scroll thumb.
-const CONTINUOUS_SCROLL_BOTTOM_MARGIN_PX = 35;
-const CONTINUOUS_SCROLL_MIN_HEIGHT_PX = 240;
-const DATA_GRID_ROOT_SELECTOR = '.MuiDataGrid-root';
-const DATA_GRID_VIRTUAL_SCROLLER_SELECTOR = '.MuiDataGrid-virtualScroller';
-const DATA_GRID_MAIN_SELECTOR = '.MuiDataGrid-main';
-const DATA_GRID_CONTINUOUS_SCROLL_FOOTER_CLASS = 'ofp-data-grid-continuous-footer';
-const CONTINUOUS_SCROLL_FIT_EPSILON_PX = 2;
-
-const cssEscape = (value: string): string => {
-  if (typeof window !== 'undefined' && window.CSS?.escape) {
-    return window.CSS.escape(value);
-  }
-  return value.replace(/["\\]/g, '\\$&');
-};
-
-type ContinuousScrollLayoutHeights = {
-  header: number;
-  footer: number;
-  border: number;
-};
-
-const DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS: ContinuousScrollLayoutHeights = {
-  header: CONTINUOUS_SCROLL_HEADER_HEIGHT_PX,
-  footer: CONTINUOUS_SCROLL_FOOTER_HEIGHT_PX,
-  border: CONTINUOUS_SCROLL_BORDER_HEIGHT_PX,
-};
-
-const getElementHeight = (element: Element | null, fallback: number): number => {
-  if (!(element instanceof HTMLElement)) {
-    return fallback;
-  }
-
-  const measuredHeight = element.getBoundingClientRect().height;
-  return measuredHeight > 0 ? measuredHeight : fallback;
-};
-
-const getVerticalBorderHeight = (element: Element | null, fallback: number): number => {
-  if (!(element instanceof HTMLElement)) {
-    return fallback;
-  }
-
-  const styles = window.getComputedStyle(element);
-  const borderHeight = Number.parseFloat(styles.borderTopWidth || '0') + Number.parseFloat(styles.borderBottomWidth || '0');
-  return Number.isFinite(borderHeight) ? borderHeight : fallback;
-};
-
-const continuousScrollLayoutHeightsEqual = (
-  current: ContinuousScrollLayoutHeights,
-  next: ContinuousScrollLayoutHeights,
-): boolean => (
-  current.header === next.header
-  && current.footer === next.footer
-  && current.border === next.border
-);
 
 export function EditableDataGrid<T extends EditableRow>({
   columns,
@@ -216,6 +178,7 @@ export function EditableDataGrid<T extends EditableRow>({
   onRowsStateChange,
   onLoadStateChange,
   onBeforeSaveRow,
+  isNewRowEmpty = isEmptyNewDraftRow,
   isSaveErrorHandled,
   surfaceSizing,
   paginationPageSizeOptions,
@@ -570,7 +533,14 @@ export function EditableDataGrid<T extends EditableRow>({
     () => rowsForGrid.some((row) => !isUnsavedDraftRow(row)),
     [rowsForGrid],
   );
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: tableKey ?? 'editableDataGrid',
     enabled: dataFetched && !error,
     isLoading: loading,
@@ -607,16 +577,17 @@ export function EditableDataGrid<T extends EditableRow>({
       window.removeEventListener('resize', measure);
       resizeObserver?.disconnect();
     };
-    // error and showContextMenuHint aren't read inside the effect, but both
-    // toggle sibling banners rendered above gridSurfaceRef (see the error
-    // Alert / ContextMenuHint in the JSX below) — they shift the surface's
-    // top position without changing pageContentRef's own size, so the
-    // ResizeObserver above never fires for them on its own. Without this,
-    // the hint banner appearing after data loads (a later render than this
-    // effect's first run) left availableGridHeight stale/too-tall, letting
-    // the capped grid height push the whole page taller than the viewport —
-    // a second, native page-level scrollbar alongside the grid's own.
-  }, [isContinuousScroll, isMobile, error, showContextMenuHint]);
+    // error, showContextMenuHint and showTouchContextMenuHint aren't read
+    // inside the effect, but all three toggle sibling banners rendered
+    // above gridSurfaceRef (see the error Alert / ContextMenuHint variants
+    // in the JSX below) — they shift the surface's top position without
+    // changing pageContentRef's own size, so the ResizeObserver above never
+    // fires for them on its own. Without this, the hint banner appearing
+    // after data loads (a later render than this effect's first run) left
+    // availableGridHeight stale/too-tall, letting the capped grid height
+    // push the whole page taller than the viewport — a second, native
+    // page-level scrollbar alongside the grid's own.
+  }, [isContinuousScroll, isMobile, error, showContextMenuHint, showTouchContextMenuHint]);
 
   const refreshStableRowOrder = useCallback((sourceRows: readonly T[], model: GridSortModel = sortModel): void => {
     setStableRowOrder(getSortedRowIds(sourceRows, model));
@@ -742,32 +713,9 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [gridApiRef]);
 
-  const getFocusedCellFromEvent = useCallback((event: KeyboardEvent): { id: GridRowId; field: string } | null => {
-    const api = gridApiRef.current;
-    const focusedCell = api?.state.focus.cell;
-    if (focusedCell) {
-      return focusedCell;
-    }
-
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return null;
-    }
-
-    const cellElement = target.closest<HTMLElement>('[role="gridcell"][data-field]');
-    const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
-    const field = cellElement?.dataset.field;
-    const id = rowElement?.dataset.id;
-    if (!field || id === undefined) {
-      return null;
-    }
-
-    const numericId = Number(id);
-    return {
-      id: Number.isNaN(numericId) ? id : numericId,
-      field,
-    };
-  }, [gridApiRef]);
+  const getFocusedCellFromEvent = useCallback((event: KeyboardEvent): { id: GridRowId; field: string } | null => (
+    resolveFocusedCellFromEvent(gridApiRef.current, event)
+  ), [gridApiRef]);
 
   const isActionCellKeyboardNavigable = useCallback((params: GridCellParams<T>): boolean => (
     notesFieldNames.includes(params.field)
@@ -840,20 +788,14 @@ export function EditableDataGrid<T extends EditableRow>({
     rowId: GridRowId,
     field: string,
     direction: 1 | -1,
-  ): { id: GridRowId; field: string } | null => {
-    const editableFields = getKeyboardNavigableFieldsForRow(rowId);
-    const fieldIndex = editableFields.indexOf(field);
-    if (fieldIndex === -1) {
-      return null;
-    }
-
-    const nextField = editableFields[fieldIndex + direction];
-    if (nextField) {
-      return { id: rowId, field: nextField };
-    }
-
-    return null;
-  }, [getKeyboardNavigableFieldsForRow]);
+  ): { id: GridRowId; field: string } | null => (
+    getHorizontalKeyboardNavigationTarget(
+      getKeyboardNavigableFieldsForRow(rowId),
+      rowId,
+      field,
+      direction,
+    )
+  ), [getKeyboardNavigableFieldsForRow]);
 
   const handleReadOnlyCellMouseDown = useCallback((event: React.MouseEvent<HTMLElement>): void => {
     const target = event.target;
@@ -864,21 +806,16 @@ export function EditableDataGrid<T extends EditableRow>({
       return;
     }
 
-    const cellElement = target.closest<HTMLElement>('[role="gridcell"][data-field]');
-    const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
-    const field = cellElement?.dataset.field;
-    const id = rowElement?.dataset.id;
-    if (!field || id === undefined) {
+    const cellLocation = getCellLocationFromDomTarget(target);
+    if (!cellLocation) {
       return;
     }
 
-    const numericId = Number(id);
-    const rowId = Number.isNaN(numericId) ? id : numericId;
     if (isCellKeyboardNavigable<T>({
       api: gridApiRef.current,
-      field,
+      field: cellLocation.field,
       isActionCell: isActionCellKeyboardNavigable,
-      rowId,
+      rowId: cellLocation.id,
     })) {
       return;
     }
@@ -888,31 +825,12 @@ export function EditableDataGrid<T extends EditableRow>({
 
   const hasInvalidRowInEditMode = useMemo(() => {
     if (!hasRowsInEditMode) return false;
-    
-    // Find rows that are in edit mode
-    const editingRowIds = Object.entries(rowModesModel)
-      .filter(([, mode]) => mode.mode === GridRowModes.Edit)
-      .map(([id]) => id);
-    
-    // Check if any of those rows have validation errors
-    return editingRowIds.some(id => {
-      const row = rowsById.get(String(id));
-      if (!row) return false;
-      const validationError = validateRow(row);
-      return validationError !== null;
-    });
+    return hasInvalidRowInEditModeState(rowModesModel, rowsById, validateRow);
   }, [hasRowsInEditMode, rowModesModel, rowsById, validateRow]);
 
   const rowValidationErrors = useMemo(() => {
     if (!getRowValidationErrors) return {};
-    const errorsByRow: Record<string, Record<string, string>> = {};
-    for (const row of rows as T[]) {
-      const errors = getRowValidationErrors(row);
-      if (Object.keys(errors).length > 0) {
-        errorsByRow[String(row.id)] = errors;
-      }
-    }
-    return errorsByRow;
+    return collectRowValidationErrors(rows as T[], getRowValidationErrors);
   }, [getRowValidationErrors, rows]);
 
   /**
@@ -1075,49 +993,17 @@ export function EditableDataGrid<T extends EditableRow>({
     if (!baseRow) {
       return null;
     }
-
-    const draftRow = { ...baseRow } as Record<string, unknown>;
-    for (const column of columns) {
-      const rowWithUpdatedField = api.getRowWithUpdatedValues(rowId, column.field) as Record<string, unknown> | null;
-      if (rowWithUpdatedField && Object.prototype.hasOwnProperty.call(rowWithUpdatedField, column.field)) {
-        draftRow[column.field] = rowWithUpdatedField[column.field];
-      }
-    }
-    return draftRow as T;
+    return readDraftRow(api, columns, baseRow, rowId);
   }, [columns, gridApiRef, rowsById]);
 
-  const mergeVisibleEditInputValues = useCallback((rowId: GridRowId, draftRow: T): T => {
-    const root = gridApiRef.current?.rootElementRef?.current;
-    if (!root) {
-      return draftRow;
-    }
-
-    const rowElement = root.querySelector<HTMLElement>(`[role="row"][data-id="${cssEscape(String(rowId))}"]`);
-    if (!rowElement) {
-      return draftRow;
-    }
-
-    const nextDraft = { ...draftRow } as Record<string, unknown>;
-    for (const column of columns) {
-      if (column.type !== 'date') {
-        continue;
-      }
-
-      const cellElement = rowElement.querySelector<HTMLElement>(
-        `[data-field="${cssEscape(column.field)}"].MuiDataGrid-cell--editing`,
-      );
-      const inputElement = cellElement?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-        'input:not([type="hidden"]):not([aria-hidden="true"]), textarea',
-      );
-      const inputValue = inputElement?.value;
-      if (inputValue === undefined) {
-        continue;
-      }
-
-      nextDraft[column.field] = parseGermanDateText(inputValue) ?? inputValue;
-    }
-    return nextDraft as T;
-  }, [columns, gridApiRef]);
+  const mergeVisibleEditInputValues = useCallback((rowId: GridRowId, draftRow: T): T => (
+    mergeVisibleDateEditInputValues(
+      gridApiRef.current?.rootElementRef?.current ?? null,
+      columns,
+      rowId,
+      draftRow,
+    )
+  ), [columns, gridApiRef]);
 
   const applyDraftValues = useCallback(async (rowId: GridRowId, values: Partial<T>): Promise<void> => {
     const rowKey = String(rowId);
@@ -1183,6 +1069,54 @@ export function EditableDataGrid<T extends EditableRow>({
     }
     return mergeVisibleEditInputValues(rowId, draftRow);
   }, [getDraftRow, mergeVisibleEditInputValues, rowsById, waitForPendingEditCellUpdates]);
+
+  const getCurrentEditableRow = useCallback((rowId: GridRowId): T | null => {
+    const draftRow = getDraftRow(rowId);
+    if (draftRow) {
+      return mergeVisibleEditInputValues(rowId, draftRow);
+    }
+    return rowsById.get(String(rowId)) as T | undefined ?? null;
+  }, [getDraftRow, mergeVisibleEditInputValues, rowsById]);
+
+  const hasVisibleEditInputValue = useCallback((rowId: GridRowId): boolean => {
+    const root = gridApiRef.current?.rootElementRef?.current;
+    if (!root) {
+      return false;
+    }
+    const rowElement = root.querySelector<HTMLElement>(
+      `[role="row"][data-id="${cssEscape(String(rowId))}"]`,
+    );
+    if (!rowElement) {
+      return false;
+    }
+
+    return Array.from(
+      rowElement.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+        '.MuiDataGrid-cell--editing input:not([type="hidden"]):not([aria-hidden="true"]), .MuiDataGrid-cell--editing textarea',
+      ),
+    ).some((input) => input.value.trim().length > 0);
+  }, [gridApiRef]);
+
+  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
+    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      const currentRow = getCurrentEditableRow(params.id);
+      if (
+        currentRow &&
+        isUnsavedDraftRow(currentRow) &&
+        isNewRowEmpty(currentRow) &&
+        !hasVisibleEditInputValue(params.id)
+      ) {
+        event.defaultMuiPrevented = true;
+        handleDiscardRowChanges(params.id);
+        return;
+      }
+    }
+
+    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
+      handleDiscardRowChanges(params.id);
+    }
+    handleRowEditStop(params, event, details);
+  }, [getCurrentEditableRow, handleDiscardRowChanges, hasVisibleEditInputValue, isNewRowEmpty]);
 
   const commitEditedRowDraftForKeyboardNavigation = useCallback((
     rowId: GridRowId,
@@ -1310,7 +1244,7 @@ export function EditableDataGrid<T extends EditableRow>({
       const errorMessage = extractApiErrorMessage(err, t, saveErrorMessage);
       setError(errorMessage);
       console.error('Error saving data:', err);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: err });
     }
   }, [
     api,
@@ -1687,6 +1621,7 @@ export function EditableDataGrid<T extends EditableRow>({
     rowsById,
     hasContextualRowActions,
     markContextMenuHintUsed,
+    markTouchContextMenuHintUsed,
     setSelectedRowIds,
     getRowIdFromElement,
   });
@@ -2327,8 +2262,17 @@ export function EditableDataGrid<T extends EditableRow>({
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {showContextMenuHint ? (
         <ContextMenuHint
+          variant="desktop"
           message={t('messages.contextMenuTableHint')}
           onClose={closeContextMenuHint}
+          sx={{ mb: 1.25 }}
+        />
+      ) : null}
+      {showTouchContextMenuHint ? (
+        <ContextMenuHint
+          variant="touch"
+          message={t('messages.contextMenuTableHintTouch')}
+          onClose={closeTouchContextMenuHint}
           sx={{ mb: 1.25 }}
         />
       ) : null}
@@ -2398,12 +2342,7 @@ export function EditableDataGrid<T extends EditableRow>({
           onColumnVisibilityModelChange={onColumnVisibilityModelChange}
           rowModesModel={rowModesModel}
           onRowModesModelChange={setRowModesModel}
-          onRowEditStop={(params, event, details) => {
-            if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
-              handleDiscardRowChanges(params.id);
-            }
-            handleRowEditStop(params, event, details);
-          }}
+          onRowEditStop={handleEditableRowEditStop}
           processRowUpdate={processRowUpdate}
           onProcessRowUpdateError={handleProcessRowUpdateError}
           loading={loading}

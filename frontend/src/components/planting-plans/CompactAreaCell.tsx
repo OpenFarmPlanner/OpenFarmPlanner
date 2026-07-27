@@ -1,70 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Tooltip, Typography } from '@mui/material';
+import { useEffect, useRef } from 'react';
+import { Box, Typography } from '@mui/material';
+import { OverflowTooltip } from '../OverflowTooltip';
 
 interface CompactAreaCellProps {
   label: string;
   hasFocus?: boolean;
 }
 
-const TOOLTIP_TEXT_LENGTH_THRESHOLD = 40;
-
-export function shouldShowAreaTooltip(label: string, isOverflowing: boolean): boolean {
-  return isOverflowing || label.length > TOOLTIP_TEXT_LENGTH_THRESHOLD;
-}
-
 export function CompactAreaCell({ label, hasFocus = false }: CompactAreaCellProps) {
-  const textRef = useRef<HTMLParagraphElement | null>(null);
   const triggerRef = useRef<HTMLDivElement | null>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
 
   useEffect(() => {
-    const element = textRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateOverflow = (): void => {
-      setIsOverflowing(element.scrollWidth > element.clientWidth);
-    };
-
-    updateOverflow();
-    window.addEventListener('resize', updateOverflow);
-    return () => {
-      window.removeEventListener('resize', updateOverflow);
-    };
-  }, [label]);
-
-  const showTooltip = useMemo(
-    () => shouldShowAreaTooltip(label, isOverflowing),
-    [isOverflowing, label],
-  );
-
-  useEffect(() => {
-    if (!hasFocus || !showTooltip) {
+    if (!hasFocus) {
       return;
     }
 
     requestAnimationFrame(() => {
       triggerRef.current?.focus();
     });
-  }, [hasFocus, showTooltip]);
+  }, [hasFocus]);
 
   return (
-    <Tooltip
-      title={showTooltip ? label : ''}
-      disableHoverListener={!showTooltip}
-      disableFocusListener={!showTooltip}
-      disableTouchListener={!showTooltip}
-      enterTouchDelay={450}
-    >
+    <OverflowTooltip title={label}>
       <Box
         ref={triggerRef}
         sx={{ width: '100%', minWidth: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', height: '100%' }}
-        tabIndex={hasFocus && showTooltip ? 0 : -1}
-        aria-label={showTooltip ? label : undefined}
+        tabIndex={hasFocus ? 0 : -1}
       >
         <Typography
-          ref={textRef}
           variant="body2"
           noWrap
           sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -72,6 +35,6 @@ export function CompactAreaCell({ label, hasFocus = false }: CompactAreaCellProp
           {label}
         </Typography>
       </Box>
-    </Tooltip>
+    </OverflowTooltip>
   );
 }

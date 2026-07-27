@@ -18,6 +18,7 @@ import {
 } from 'react';
 import { useTranslation } from '../../i18n';
 import { formatDateAsGerman, parseGermanDateText } from './GermanDateEditCell';
+import { toIsoDateString } from './dateEditCellUtils';
 
 type DateSegment = 'day' | 'month' | 'year';
 
@@ -26,19 +27,6 @@ const SEGMENT_RANGES: Record<DateSegment, [number, number]> = {
   day: [0, 2],
   month: [3, 5],
   year: [6, 10],
-};
-
-export const toIsoDateString = (value: unknown): string | null => {
-  if (value instanceof Date) {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, '0');
-    const day = String(value.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value;
-  }
-  return null;
 };
 
 const toDateValue = (value: unknown): Date | null => {
@@ -92,30 +80,40 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
   const { t } = useTranslation(['plantingPlans']);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
+  const isProgrammaticFocusRef = useRef(false);
   const [text, setText] = useState(formatDateAsGerman(params.value as Date | string | null));
   const [activeSegment, setActiveSegment] = useState<DateSegment>('day');
+  const displayedText = params.hasFocus
+    ? text
+    : formatDateAsGerman(params.value as Date | string | null);
 
-  const selectSegment = useCallback((segment: DateSegment): void => {
+  const focusSegment = useCallback((segment: DateSegment): void => {
     const input = inputRef.current;
     const [start, end] = SEGMENT_RANGES[segment];
-    setActiveSegment(segment);
     window.requestAnimationFrame(() => {
       input?.setSelectionRange(start, end);
     });
   }, []);
 
-  useEffect(() => {
-    setText(formatDateAsGerman(params.value as Date | string | null));
-  }, [params.value]);
+  const selectSegment = useCallback((segment: DateSegment): void => {
+    setActiveSegment(segment);
+    focusSegment(segment);
+  }, [focusSegment]);
 
   useEffect(() => {
     if (!params.hasFocus) {
       return;
     }
 
-    inputRef.current?.focus();
-    selectSegment(activeSegment);
-  }, [activeSegment, params.hasFocus, selectSegment]);
+    // preventScroll: true — see useEditCellAutoFocus.ts for why an
+    // unguarded focus() here fights the mobile keyboard's own scroll
+    // adjustment. This effect also re-fires on every segment change
+    // (Left/Right arrow), so it's not a one-time mount focus either.
+    isProgrammaticFocusRef.current = true;
+    inputRef.current?.focus({ preventScroll: true });
+    isProgrammaticFocusRef.current = false;
+    focusSegment(activeSegment);
+  }, [activeSegment, focusSegment, params.hasFocus]);
 
   const commitDate = useCallback(async (nextValue: Date | null): Promise<void> => {
     setText(formatDateAsGerman(nextValue));
@@ -175,7 +173,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
       return;
     }
 
-    const currentDate = parseGermanDateText(text) ?? toDateValue(params.value) ?? new Date();
+    const currentDate = parseGermanDateText(displayedText) ?? toDateValue(params.value) ?? new Date();
     const nextDate = adjustDateSegment(currentDate, currentSegment, event.key === 'ArrowUp' ? 1 : -1);
     await commitDate(nextDate);
     selectSegment(currentSegment);
@@ -195,7 +193,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
     pickerInput.click();
   };
 
-  const pickerValue = toIsoDateString(parseGermanDateText(text) ?? params.value) ?? '';
+  const pickerValue = toIsoDateString(parseGermanDateText(displayedText) ?? params.value) ?? '';
 
   return (
     <>
@@ -204,7 +202,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
         fullWidth
         size="small"
         inputRef={inputRef}
-        value={text}
+        value={displayedText}
         placeholder="TT.MM.JJJJ"
         sx={{
           '& .MuiInputBase-input': {
@@ -215,7 +213,12 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
           htmlInput: {
             tabIndex: params.hasFocus ? 0 : -1,
             inputMode: 'numeric',
-            onFocus: (event: FocusEvent<HTMLInputElement>) => selectSegment(getSegmentFromSelection(event.currentTarget.selectionStart)),
+            onFocus: (event: FocusEvent<HTMLInputElement>) => {
+              if (isProgrammaticFocusRef.current) {
+                return;
+              }
+              selectSegment(getSegmentFromSelection(event.currentTarget.selectionStart));
+            },
             onClick: (event: MouseEvent<HTMLInputElement>) => selectSegment(getSegmentFromSelection(event.currentTarget.selectionStart)),
             onKeyDown: handleKeyDown,
           },
@@ -248,7 +251,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
         onChange={(event) => {
           const nextValue = event.target.value ? new Date(`${event.target.value}T00:00:00`) : null;
           void commitDate(nextValue);
-          inputRef.current?.focus();
+          inputRef.current?.focus({ preventScroll: true });
         }}
         style={{
           position: 'absolute',

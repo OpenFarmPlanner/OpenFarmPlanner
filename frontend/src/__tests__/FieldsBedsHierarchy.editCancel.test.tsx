@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import type { GridColDef } from '@mui/x-data-grid';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import FieldsBedsHierarchy from '../pages/FieldsBedsHierarchy';
 import {
   isCompletelyEmptyNewHierarchyRow,
@@ -139,7 +139,11 @@ vi.mock('@mui/x-data-grid', async () => {
       onRowEditStop?.({ id: row.id, reason: GridRowEditStopReasons.rowFocusOut }, { defaultMuiPrevented: false });
     };
 
-    if (apiRef?.current) {
+    ReactModule.useEffect(() => {
+      if (!apiRef?.current) {
+        return;
+      }
+
       apiRef.current.getRowWithUpdatedValues = (id: string | number) => mockDrafts.get(String(id)) ?? null;
       // Mirrors MUI's real stopRowEditMode: forces the same commit path the
       // "Blur"/"Enter" test buttons use, since production code relies on this
@@ -150,7 +154,7 @@ vi.mock('@mui/x-data-grid', async () => {
           void commitBlur(row);
         }
       };
-    }
+    }, [apiRef, commitBlur, rows]);
 
     return (
       <div data-testid="hierarchy-grid">

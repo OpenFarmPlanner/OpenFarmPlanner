@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type TouchEvent } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import {
   Alert,
   Box,
@@ -27,6 +27,7 @@ import { ContextMenuIndicator } from '../components/contextMenu/ContextMenuIndic
 import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
+import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
 import { useCommandContextTag } from '../commands/useCommandContext';
 import PageContainer from '../components/layout/PageContainer';
 import PageSurface from '../components/layout/PageSurface';
@@ -37,56 +38,19 @@ import EmptyStateCard from '../components/project/EmptyStateCard';
 import { ContextMenuHint, FullCellTooltip, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
 import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { getFirstMissingProjectSetupStep, getTranslatedProjectSetupActions } from './requirementFlow';
-import { formatLocalizedNumber } from '../utils/numberLocalization';
-import { shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
+import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import {
-  getEffectivePackageBlocker,
   getPackageBlockerTooltip,
+  getPackageCellState,
   getRequiredAmountDiagnostic,
+  hasPackageCellTooltip,
 } from './seedDemandDiagnostics';
-
-const formatUnit = (unit: 'g' | 'seeds', t: (key: string) => string): string => (
-  unit === 'seeds' ? t('seedDemand.unitSeeds') : t('seedDemand.unitGrams')
-);
-
-const formatSeedAmount = (value: number, options?: Intl.NumberFormatOptions): string => (
-  formatLocalizedNumber(value, 'de-DE', options)
-);
-
-const formatRequiredSeedAmount = (value: number): string => (
-  formatSeedAmount(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-);
-
-type Translator = (key: string, options?: Record<string, unknown>) => string;
-
-const formatPackageSelection = (row: SeedDemand, t: Translator): string => (
-  (row.package_suggestion?.selection ?? [])
-    .map((item) => `${formatSeedAmount(item.size_value)} ${formatUnit(item.size_unit, t)}${item.count > 1 ? ` × ${item.count}` : ''}`)
-    .join(' + ')
-);
-
-type PackageCellState = 'computed' | 'chooseSupplier' | 'notConfigured' | 'unavailableRequirement' | 'calculationError';
-
-const getPackageCellState = (row: SeedDemand): PackageCellState => {
-  const blocker = getEffectivePackageBlocker(row);
-  if (!blocker) {
-    return 'computed';
-  }
-  switch (blocker) {
-    case 'supplier_data_missing':
-    case 'supplier_not_selected':
-      return 'chooseSupplier';
-    case 'package_sizes_missing':
-      return 'notConfigured';
-    case 'required_amount_unavailable':
-      return 'unavailableRequirement';
-    default:
-      return 'calculationError';
-  }
-};
-
-const hasPackageCellTooltip = (row: SeedDemand): boolean => getEffectivePackageBlocker(row) !== null;
+import {
+  formatPackageSelection,
+  formatRequiredSeedAmount,
+  formatUnit,
+} from './seedDemandFormat';
 
 export default function SeedDemandPage() {
   useCommandContextTag('seedDemand');
@@ -105,12 +69,20 @@ export default function SeedDemandPage() {
   const hasPlans = planCount > 0;
   const hasSeedData = hasCulturesWithSeedData;
   const canCalculateSeedDemand = locationCount > 0 && fieldCount > 0 && bedCount > 0 && cultureCount > 0 && hasPlans && hasSeedData;
-  const { showContextMenuHint, closeContextMenuHint, markContextMenuHintUsed } = useContextMenuHint({
+  const {
+    showContextMenuHint,
+    closeContextMenuHint,
+    markContextMenuHintUsed,
+    showTouchContextMenuHint,
+    closeTouchContextMenuHint,
+    markTouchContextMenuHintUsed,
+  } = useContextMenuHint({
     contextKey: 'seedDemand',
     enabled: !shouldShowProjectRequiredState && canCalculateSeedDemand,
     isLoading,
     hasRows: rows.length > 0,
   });
+  const rowLongPressTimer = useLongPressTimer(ROW_LONG_PRESS_MS);
   const firstMissingSetupStep = getFirstMissingProjectSetupStep({
     hasFields: fieldCount > 0,
     hasBeds: bedCount > 0,
@@ -350,8 +322,7 @@ export default function SeedDemandPage() {
 
   const isSeedDemandContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target) &&
-    target instanceof HTMLElement &&
-    target.closest('tr[data-seed-demand-culture-id]') !== null
+    closestContextMenuElement(target, 'tr[data-seed-demand-culture-id]') !== null
   ), []);
   const {
     state: contextMenuState,
@@ -371,6 +342,33 @@ export default function SeedDemandPage() {
     markContextMenuHintUsed();
     openContextMenuState(row, event.clientX + 2, event.clientY - 6, event.currentTarget);
   }, [isSeedDemandContextMenuTarget, markContextMenuHintUsed, openContextMenuState]);
+
+  const handleRowTouchStart = useCallback((
+    event: TouchEvent<HTMLTableRowElement>,
+    row: SeedDemand,
+  ): void => {
+    if (event.touches.length !== 1 || !isSeedDemandContextMenuTarget(event.target)) {
+      return;
+    }
+    const touch = event.touches[0];
+    const originElement = event.currentTarget;
+    rowLongPressTimer.start(() => {
+      markTouchContextMenuHintUsed();
+      openContextMenuState(row, touch.clientX + 2, touch.clientY - 6, originElement);
+    });
+  }, [isSeedDemandContextMenuTarget, markTouchContextMenuHintUsed, openContextMenuState, rowLongPressTimer]);
+
+  const handleRowTouchMove = useCallback((): void => {
+    rowLongPressTimer.clear();
+  }, [rowLongPressTimer]);
+
+  // Suppresses the trailing click after a long press fired, so it doesn't
+  // also run whatever tap behavior the row's interactive contents have
+  // (culture link, supplier select) right on top of the context menu the
+  // long press just opened.
+  const handleRowTouchEnd = useCallback((event: TouchEvent<HTMLTableRowElement>): void => {
+    rowLongPressTimer.endTouch(event);
+  }, [rowLongPressTimer]);
 
   const openKeyboardContextMenu = useCallback((
     event: KeyboardEvent<HTMLTableRowElement>,
@@ -465,8 +463,18 @@ export default function SeedDemandPage() {
 
         {!isLoading && !error && canCalculateSeedDemand && showContextMenuHint ? (
           <ContextMenuHint
+            variant="desktop"
             message={t('common:messages.contextMenuTableHint')}
             onClose={closeContextMenuHint}
+            sx={{ mb: 1.25 }}
+          />
+        ) : null}
+
+        {!isLoading && !error && canCalculateSeedDemand && showTouchContextMenuHint ? (
+          <ContextMenuHint
+            variant="touch"
+            message={t('common:messages.contextMenuTableHintTouch')}
+            onClose={closeTouchContextMenuHint}
             sx={{ mb: 1.25 }}
           />
         ) : null}
@@ -509,6 +517,10 @@ export default function SeedDemandPage() {
                     tabIndex={0}
                     onContextMenu={(event) => openContextMenu(event, row)}
                     onKeyDown={(event) => openKeyboardContextMenu(event, row)}
+                    onTouchStart={(event) => handleRowTouchStart(event, row)}
+                    onTouchMove={handleRowTouchMove}
+                    onTouchEnd={handleRowTouchEnd}
+                    onTouchCancel={handleRowTouchMove}
                     sx={{
                       WebkitTouchCallout: 'none',
                     }}

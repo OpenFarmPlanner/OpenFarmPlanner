@@ -42,6 +42,7 @@ frontend/src/components/data-grid/
   NotesCell.tsx, NotesDrawer.tsx, NotesPreviewPopover.tsx,
   useNotesEditor.ts, useNotesPreview.ts, markdown.ts,
   noteAttachmentsCache.ts               rich markdown notes + photo attachments
+  ../OverflowTooltip.tsx                overflow-only desktop tooltip wrapper
   tableClipboard.ts, TableCopyMenuItems.tsx   copy row/table as TSV
   columns.tsx, calculatedColumns.tsx    column builders (select, computed)
   dataGridUtils.tsx, handlers.ts, styles.ts, localeText.ts   shared helpers
@@ -238,6 +239,19 @@ upload. `noteAttachmentsCache.ts` caches attachment fetches per note id so
 re-hovering a row doesn't refetch; the drawer explicitly invalidates that
 cache after upload/delete.
 
+## Text overflow tooltips
+
+Plain text headers and cells should not use tooltips that simply repeat
+visible content. Shared table code uses `OverflowTooltip` for this: it
+measures the hovered/focused element only on fine-pointer desktop
+interaction (and while the active element resizes) and shows the full text
+only when the element actually overflows. This keeps desktop truncation
+recoverable without adding hover-equivalent popovers or tap targets on
+mobile/touch surfaces. Explanatory tooltips remain separate: icon labels,
+calculated-column explanations, unavailable-value reasons, note previews,
+and package/blocker diagnostics should still use their dedicated tooltip or
+popover components.
+
 `markdown.ts`'s `stripCitationMarkers` strips AI-citation markers of the
 form `【digits†identifier】` from note text. **Unclear/needs check**: trace
 where such markers actually get inserted (an LLM-assisted import/enrichment
@@ -291,7 +305,26 @@ grid," that's new work, not exposing something that already half-exists.
   (applies the default date edit cell and makes unsaved draft rows immune
   to active column filters), `getSortedRowIds`/`orderRowsByStableIds`
   (rows are kept in a stable client-side order rather than trusting the
-  grid's own post-edit row order).
+  grid's own post-edit row order). `DataGrid.tsx`'s `stableRowOrder` state is
+  only refreshed via `refreshStableRowOrder` on data fetch, an explicit sort
+  change, or a filter change — never as a side effect of a row being
+  created/saved — which is what stops a create/rename in a sorted table from
+  immediately jumping the row to its freshly-sorted position.
+  `FieldsBedsHierarchy.tsx` (see below) is not `EditableDataGrid` and doesn't
+  share this state, but `hierarchyUtils.ts`'s `computeHierarchyOrderSnapshot`/
+  `applyHierarchyOrderSnapshot` implement the same pattern independently for
+  its raw `<DataGrid>`, refreshed via `useHierarchyData`'s `fetchGeneration`
+  (foreground fetches only) and an explicit sort-model-change handler.
+  Entities absent from the snapshot (new/unsaved rows) are placed *first*
+  within their entity list rather than appended last — once grouped by
+  parent, that puts a newly created Standort/Parzelle/Beet as the first
+  child right next to the "add" action that created it, instead of
+  potentially many screens below the bottom of a long group.
+  `FieldsBedsPage.tsx`'s "Standort hinzufügen" flow follows the same
+  principle: it merges the created location into state directly
+  (`setLocations` prepend) instead of triggering a full `fetchData()`
+  reload, which would otherwise immediately re-sort the table and could
+  place the new location far from the topbar action that created it.
 - `handlers.ts` — `handleRowEditStop` deliberately suppresses MUI's default
   Escape-triggers-save-attempt behavior so Escape reliably means "cancel";
   see `AUTOSAVE_IMPLEMENTATION.md` for how the blur-triggered save itself

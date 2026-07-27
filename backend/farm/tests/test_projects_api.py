@@ -165,6 +165,13 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(Culture.objects.filter(project=project).count(), 8)
         self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 12)
 
+        me_response = self.client.get('/openfarmplanner/api/auth/me/')
+        demo_membership = next(
+            row for row in me_response.data['memberships']
+            if row['project_id'] == project.id
+        )
+        self.assertTrue(demo_membership['is_demo_project'])
+
     def test_demo_project_creation_is_idempotent_for_repeated_requests(self) -> None:
         first = self.client.post('/openfarmplanner/api/projects/create-demo/', {}, format='json')
         second = self.client.post('/openfarmplanner/api/projects/create-demo/', {}, format='json')

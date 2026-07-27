@@ -4,7 +4,6 @@ import {
   formRowSx,
   fullWidthFieldSx,
   mediumFieldSx,
-  singleColumnFormSx,
   smallFieldSx,
   wideFieldSx,
 } from '../components/forms/formLayout';
@@ -24,9 +23,5 @@ describe('form layout widths', () => {
   it('keeps prose fields full width and allows compact rows to wrap', () => {
     expect(fullWidthFieldSx.width).toBe('100%');
     expect(formRowSx.flexWrap).toBe('wrap');
-  });
-
-  it('uses a comfortable maximum for single-column forms', () => {
-    expect(singleColumnFormSx).toEqual({ width: '100%', maxWidth: 440 });
   });
 });

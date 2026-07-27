@@ -90,7 +90,7 @@ describe('culturesHistoryUtils', () => {
       summary: 'Field #2 updated',
     });
 
-    expect(getHistoryEntryTarget(plantingPlanEntry)).toBe('/app/anbauplaene');
+    expect(getHistoryEntryTarget(plantingPlanEntry)).toBe('/app/planting-plans');
     expect(getHistoryEntryTarget(unsupportedEntry)).toBeNull();
   });
 

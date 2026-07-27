@@ -47,6 +47,7 @@ export default defineConfig({
         // defaults in config/settings.py are unchanged.
         THROTTLE_AUTH_LOGIN: '1000/minute',
         THROTTLE_AUTH_REGISTER: '1000/minute',
+        GUEST_DEMO_THROTTLE_RATE: '1000/minute',
         THROTTLE_INVITATION_ACCEPT: '1000/hour',
       },
     },

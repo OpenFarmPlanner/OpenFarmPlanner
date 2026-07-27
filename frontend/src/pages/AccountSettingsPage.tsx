@@ -2,9 +2,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,11 +10,9 @@ import {
   Stack,
   TextField,
   Typography,
-  type SxProps,
-  type Theme,
 } from '@mui/material';
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   changePassword,
   getAccountDataExport,
@@ -31,105 +26,13 @@ import { useNavigationBlocker } from '../hooks/useNavigationBlocker';
 import { enableDevOnboardingPreview } from '../projects/devOnboardingPreview';
 import { clearContextMenuHintDismissals } from '../components/data-grid';
 import { mediumFieldSx, wideFieldSx } from '../components/forms/formLayout';
-
-const actionButtonSx = { width: { xs: '100%', sm: 'auto' } } as const;
-
-interface SectionSubmit {
-  message: string | null;
-  error: string | null;
-  submitting: boolean;
-  submit: (action: () => Promise<{ detail: string }>, onSuccess?: () => void | Promise<void>) => Promise<void>;
-  clearError: () => void;
-}
-
-function useSectionSubmit(genericErrorMessage: string): SectionSubmit {
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async (
-    action: () => Promise<{ detail: string }>,
-    onSuccess?: () => void | Promise<void>,
-  ): Promise<void> => {
-    setSubmitting(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const response = await action();
-      setMessage(response.detail);
-      await onSuccess?.();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : genericErrorMessage);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return { message, error, submitting, submit, clearError: () => setError(null) };
-}
-
-function SectionAlerts({ message, error }: Pick<SectionSubmit, 'message' | 'error'>) {
-  return (
-    <>
-      {message ? <Alert severity="success">{message}</Alert> : null}
-      {error ? <Alert severity="error">{error}</Alert> : null}
-    </>
-  );
-}
-
-interface InlineEditorProps {
-  open: boolean;
-  saveLabel: ReactNode;
-  onSave: () => void;
-  onCancel: () => void;
-  submitting: boolean;
-  saveDisabled?: boolean;
-  sx?: SxProps<Theme>;
-  children: ReactNode;
-}
-
-function InlineEditor({ open, saveLabel, onSave, onCancel, submitting, saveDisabled = false, sx, children }: InlineEditorProps) {
-  const { t } = useTranslation('account');
-  return (
-    <Collapse in={open} unmountOnExit>
-      <Stack spacing={2} sx={sx}>
-        {children}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <Button variant="contained" onClick={onSave} disabled={submitting || saveDisabled} sx={actionButtonSx}>
-            {saveLabel}
-          </Button>
-          <Button variant="text" onClick={onCancel} disabled={submitting} sx={actionButtonSx}>
-            {t('cancel')}
-          </Button>
-        </Stack>
-      </Stack>
-    </Collapse>
-  );
-}
-
-interface SettingsCardProps {
-  title: ReactNode;
-  description?: ReactNode;
-  children: ReactNode;
-}
-
-function SettingsCard({ title, description, children }: SettingsCardProps) {
-  return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" sx={{ mb: description ? 0.5 : 2 }}>
-          {title}
-        </Typography>
-        {description ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {description}
-          </Typography>
-        ) : null}
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
+import { actionButtonSx, useSectionSubmit } from './accountSettingsForm';
+import {
+  InlineEditor,
+  SectionAlerts,
+  SettingsCard,
+} from './accountSettingsCards';
+import AccountSettingsSocialCard from './accountSettingsSocialCard';
 
 export default function AccountSettingsPage() {
   const { user, requestAccountDeletion, refreshUser } = useAuth();
@@ -158,9 +61,13 @@ export default function AccountSettingsPage() {
   const [activeEditor, setActiveEditor] = useState<'displayName' | 'publicDisplayName' | 'email' | 'password' | null>(null);
   const [hintsResetDone, setHintsResetDone] = useState(false);
 
+  // Accounts created through Google/Microsoft have no password to confirm
+  // sensitive actions with; the backend accepts the authenticated session
+  // instead (see accounts/views.py `_password_confirmation_is_valid`).
+  const hasPassword = user?.has_password ?? true;
   const deletePhrase = t('deletePhrase');
   const requiresDeletePhrase = deleteConfirmationText.trim() === deletePhrase;
-  const canDelete = deletePassword.trim().length > 0 && requiresDeletePhrase;
+  const canDelete = (!hasPassword || deletePassword.trim().length > 0) && requiresDeletePhrase;
 
   const hasUnsavedChanges = useMemo(() => {
     if (activeEditor === 'displayName') return displayName !== (user?.display_name ?? '');
@@ -367,14 +274,22 @@ export default function AccountSettingsPage() {
             >
               {t('security.changeEmailTitle')}
             </Button>
-            <Button
-              variant={activeEditor === 'password' ? 'contained' : 'outlined'}
-              onClick={() => setActiveEditor('password')}
-              sx={actionButtonSx}
-            >
-              {t('security.changePasswordTitle')}
-            </Button>
+            {hasPassword ? (
+              <Button
+                variant={activeEditor === 'password' ? 'contained' : 'outlined'}
+                onClick={() => setActiveEditor('password')}
+                sx={actionButtonSx}
+              >
+                {t('security.changePasswordTitle')}
+              </Button>
+            ) : null}
           </Stack>
+
+          {hasPassword ? null : (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('security.noPasswordHint')}
+            </Typography>
+          )}
 
           <InlineEditor
             open={activeEditor === 'email'}
@@ -382,7 +297,7 @@ export default function AccountSettingsPage() {
             onSave={() => void handleEmailChangeRequest()}
             onCancel={closeEmailEditor}
             submitting={emailSection.submitting}
-            saveDisabled={!newEmail.trim() || !emailPassword.trim()}
+            saveDisabled={!newEmail.trim() || (hasPassword && !emailPassword.trim())}
             sx={{ mb: 2 }}
           >
             <TextField
@@ -392,13 +307,15 @@ export default function AccountSettingsPage() {
               value={newEmail}
               onChange={(event) => setNewEmail(event.target.value)}
             />
-            <TextField
-              label={t('currentPassword')}
-              type="password"
-              sx={mediumFieldSx}
-              value={emailPassword}
-              onChange={(event) => setEmailPassword(event.target.value)}
-            />
+            {hasPassword ? (
+              <TextField
+                label={t('currentPassword')}
+                type="password"
+                sx={mediumFieldSx}
+                value={emailPassword}
+                onChange={(event) => setEmailPassword(event.target.value)}
+              />
+            ) : null}
           </InlineEditor>
 
           <InlineEditor
@@ -432,6 +349,8 @@ export default function AccountSettingsPage() {
             />
           </InlineEditor>
         </SettingsCard>
+
+        <AccountSettingsSocialCard />
 
         <SettingsCard title={t('sections.privacy')} description={t('dataExport.description')}>
           <SectionAlerts message={dataExportSection.message} error={dataExportSection.error} />
@@ -473,16 +392,22 @@ export default function AccountSettingsPage() {
         <DialogTitle>{t('dialogTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <Alert severity="warning">{t('dialogWarning', { phrase: deletePhrase })}</Alert>
+            <Alert severity="warning">
+              {hasPassword
+                ? t('dialogWarning', { phrase: deletePhrase })
+                : t('dialogWarningWithoutPassword', { phrase: deletePhrase })}
+            </Alert>
             <Typography>{t('deleteDescription')}</Typography>
             <Typography>{t('restoreDescription')}</Typography>
-            <TextField
-              sx={mediumFieldSx}
-              type="password"
-              label={t('currentPassword')}
-              value={deletePassword}
-              onChange={(event) => setDeletePassword(event.target.value)}
-            />
+            {hasPassword ? (
+              <TextField
+                sx={mediumFieldSx}
+                type="password"
+                label={t('currentPassword')}
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+              />
+            ) : null}
             <TextField
               sx={wideFieldSx}
               label={t('deletePhraseLabel')}

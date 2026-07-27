@@ -314,6 +314,34 @@ export const getVisibleMobileRows = (
   rows: PlantingPlanRow[],
 ): PlantingPlanRow[] => rows.filter((row) => !row.isNew);
 
+const hasPositiveId = (value: unknown): boolean =>
+  typeof value === "number" && value > 0;
+
+const hasEnteredValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+  return true;
+};
+
+export const isEmptyNewPlantingPlanRow = (row: PlantingPlanRow): boolean =>
+  !hasPositiveId(row.culture) &&
+  !hasPositiveId(row.bed) &&
+  !hasPositiveId(row.location_id) &&
+  !hasPositiveId(row.field_id) &&
+  !hasEnteredValue(row.cultivation_type) &&
+  !hasEnteredValue(row.planting_date) &&
+  !hasEnteredValue(row.quantity) &&
+  !hasEnteredValue(row.area_m2) &&
+  !hasEnteredValue(row.plants_count) &&
+  !hasEnteredValue(row.notes);
+
 export const areRowsSemanticallyEqual = (
   previousRows: PlantingPlanRow[],
   nextRows: PlantingPlanRow[],

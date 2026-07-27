@@ -1,16 +1,18 @@
-import { Alert, Box, Button, Container, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, InputAdornment, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router';
 import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
 import { AuthApiError } from '../../auth/authApi';
 import { getAuthenticatedAppDestination } from '../../auth/authDestination';
 import { useTranslation } from '../../i18n';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
+import SocialLoginLegalNotice from '../../components/auth/SocialLoginLegalNotice';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
-import LegalLinks from '../../components/legal/LegalLinks';
-import { singleColumnFormSx } from '../../components/forms/formLayout';
 import { getNextFromSearch } from '../invitationAcceptance';
+import AuthPageShell from './AuthPageShell';
+import { authFormSx, authPrimaryButtonSx, authSecondaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
 
 export default function LoginPage() {
   const { user, login, restoreAccount } = useAuth();
@@ -82,10 +84,10 @@ export default function LoginPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>{t('auth:login.title')}</Typography>
-      <Box component="form" onSubmit={handleSubmit} sx={singleColumnFormSx}>
-        <Stack spacing={2}>
+    <AuthPageShell title={t('auth:login.title')} subtitle={t('auth:login.subtitle')}>
+      <SocialLoginButtons hideLegalNotice />
+      <Box component="form" onSubmit={handleSubmit} sx={authFormSx}>
+        <Stack spacing={2.25}>
           {pendingInvitation ? (
             <Alert severity="info">
               {t('projectInvitations:authHint', {
@@ -100,13 +102,23 @@ export default function LoginPage() {
               {t('auth:login.pendingDeletion', { date: new Date(pendingDeletionAt).toLocaleString('de-DE') })}
             </Alert>
           ) : null}
-          <TextField label={t('auth:login.email')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <TextField
+            label={t('auth:login.email')}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            fullWidth
+            sx={authTextFieldSx}
+          />
           <TextField
             label={t('auth:login.password')}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            fullWidth
+            sx={authTextFieldSx}
             slotProps={{
               input: {
                 endAdornment: (
@@ -122,17 +134,25 @@ export default function LoginPage() {
               },
             }}
           />
-          <Button type="submit" variant="contained" disabled={submitting}>{submitting ? t('auth:login.submitting') : t('auth:login.submit')}</Button>
+          <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth sx={authPrimaryButtonSx}>
+            {submitting ? t('auth:login.submitting') : t('auth:login.submit')}
+          </Button>
           {pendingDeletionAt ? (
-            <Button variant="outlined" disabled={submitting} onClick={() => void handleRestore()}>
+            <Button variant="outlined" size="large" disabled={submitting} onClick={() => void handleRestore()} fullWidth sx={authSecondaryButtonSx}>
               {t('auth:login.restoreAccount')}
             </Button>
           ) : null}
-          <Button component={RouterLink} to={nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : '/register'} state={location.state}>{t('auth:login.noAccount')}</Button>
-          <Button component={RouterLink} to="/forgot-password" state={{ email }}>{t('auth:login.forgotPassword')}</Button>
+          <Button component={RouterLink} to={nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : '/register'} state={location.state} sx={authTextButtonSx}>
+            {t('auth:login.noAccount')}
+          </Button>
+          <Button component={RouterLink} to="/forgot-password" state={{ email }} sx={authTextButtonSx}>
+            {t('auth:login.forgotPassword')}
+          </Button>
         </Stack>
       </Box>
-      <LegalLinks sx={{ mt: 4, justifyContent: 'center' }} />
-    </Container>
+      <Box sx={{ mt: 2.5 }}>
+        <SocialLoginLegalNotice compact />
+      </Box>
+    </AuthPageShell>
   );
 }

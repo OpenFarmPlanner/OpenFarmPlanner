@@ -1,14 +1,15 @@
-import { Alert, Box, Button, Checkbox, Container, FormControlLabel, InputAdornment, Link, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, FormControlLabel, InputAdornment, Link, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
+import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
-import LegalLinks from '../../components/legal/LegalLinks';
-import { singleColumnFormSx } from '../../components/forms/formLayout';
 import { useTranslation } from '../../i18n';
 import { getNextFromSearch, getTokenFromNextPath, storeInvitationRedirect } from '../invitationAcceptance';
+import AuthPageShell from './AuthPageShell';
+import { authFormSx, authLegalLinkSx, authPrimaryButtonSx, authSecondaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
 
 export default function RegisterPage() {
   const { user, register, resendActivation, logout } = useAuth();
@@ -104,10 +105,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>{t('auth:register.title')}</Typography>
-      <Box component="form" onSubmit={handleSubmit} noValidate sx={singleColumnFormSx}>
-        <Stack spacing={2}>
+    <AuthPageShell title={t('auth:register.title')} subtitle={t('auth:register.subtitle')} legalLinksDense>
+      {isLoggedIn ? null : <SocialLoginButtons />}
+      <Box component="form" onSubmit={handleSubmit} noValidate sx={authFormSx}>
+        <Stack spacing={2.25}>
           {isLoggedIn ? (
             <Alert severity="info">
               <Stack spacing={1.5}>
@@ -115,10 +116,10 @@ export default function RegisterPage() {
                   {t('auth:register.loggedInHint', { user: currentUserLabel })}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-                  <Button type="button" variant="contained" onClick={() => void handleLogoutAndCreate()}>
+                  <Button type="button" variant="contained" size="large" onClick={() => void handleLogoutAndCreate()} sx={authPrimaryButtonSx}>
                     {t('auth:register.logoutAndCreate')}
                   </Button>
-                  <Button type="button" variant="outlined" onClick={() => navigate('/app')}>
+                  <Button type="button" variant="outlined" size="large" onClick={() => navigate('/app')} sx={authSecondaryButtonSx}>
                     {t('auth:register.backToApp')}
                   </Button>
                 </Stack>
@@ -135,8 +136,24 @@ export default function RegisterPage() {
           ) : null}
           {error ? <Alert severity="error">{error}</Alert> : null}
           {success ? <Alert severity="success">{success}</Alert> : null}
-          <TextField label={t('auth:register.email')} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoggedIn} />
-          <TextField label={t('auth:register.displayName')} value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={isLoggedIn} />
+          <TextField
+            label={t('auth:register.email')}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={isLoggedIn}
+            fullWidth
+            sx={authTextFieldSx}
+          />
+          <TextField
+            label={t('auth:register.displayName')}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            disabled={isLoggedIn}
+            fullWidth
+            sx={authTextFieldSx}
+          />
           <TextField
             label={t('auth:register.password')}
             type={showPassword ? 'text' : 'password'}
@@ -144,6 +161,8 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={isLoggedIn}
+            fullWidth
+            sx={authTextFieldSx}
             slotProps={{
               input: {
                 endAdornment: (
@@ -168,6 +187,8 @@ export default function RegisterPage() {
             onChange={(e) => setPasswordConfirm(e.target.value)}
             required
             disabled={isLoggedIn}
+            fullWidth
+            sx={authTextFieldSx}
             slotProps={{
               input: {
                 endAdornment: (
@@ -186,37 +207,50 @@ export default function RegisterPage() {
             }}
           />
           <FormControlLabel
+            sx={{
+              alignItems: 'flex-start',
+              gap: 1,
+              m: 0,
+              p: 1.25,
+              borderRadius: 2,
+              bgcolor: 'rgba(46, 125, 50, 0.04)',
+              '& .MuiFormControlLabel-label': {
+                mt: 0.2,
+              },
+            }}
             control={(
               <Checkbox
                 checked={acceptTerms}
                 onChange={(event) => setAcceptTerms(event.target.checked)}
                 disabled={isLoggedIn}
+                sx={{ mt: -0.55 }}
               />
             )}
             label={(
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
                 {t('auth:register.termsNoticePrefix')}
-                <Link component={RouterLink} to="/nutzungsbedingungen" target="_blank" rel="noopener">
+                <Link component={RouterLink} to="/nutzungsbedingungen" target="_blank" rel="noopener" sx={authLegalLinkSx}>
                   {t('auth:register.termsNoticeTermsLinkLabel')}
                 </Link>
                 {t('auth:register.termsNoticeMiddle')}
-                <Link component={RouterLink} to="/datenschutz" target="_blank" rel="noopener">
+                <Link component={RouterLink} to="/datenschutz" target="_blank" rel="noopener" sx={authLegalLinkSx}>
                   {t('auth:register.termsNoticePrivacyLinkLabel')}
                 </Link>
                 {t('auth:register.termsNoticeSuffix')}
               </Typography>
             )}
           />
-          <Button type="submit" variant="contained" disabled={submitting || isLoggedIn || !acceptTerms}>
+          <Button type="submit" variant="contained" size="large" disabled={submitting || isLoggedIn || !acceptTerms} fullWidth sx={authPrimaryButtonSx}>
             {submitting ? t('auth:register.submitting') : t('auth:register.submit')}
           </Button>
           {registrationSucceeded && !isLoggedIn ? (
-            <Button type="button" onClick={() => void handleResend()}>{t('auth:register.resendActivation')}</Button>
+            <Button type="button" onClick={() => void handleResend()} sx={authTextButtonSx}>{t('auth:register.resendActivation')}</Button>
           ) : null}
-          <Button type="button" component={RouterLink} to={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'} state={location.state}>{t('auth:register.hasAccount')}</Button>
+          <Button type="button" component={RouterLink} to={nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login'} state={location.state} sx={authTextButtonSx}>
+            {t('auth:register.hasAccount')}
+          </Button>
         </Stack>
       </Box>
-      <LegalLinks dense sx={{ mt: 4, justifyContent: 'center' }} />
-    </Container>
+    </AuthPageShell>
   );
 }

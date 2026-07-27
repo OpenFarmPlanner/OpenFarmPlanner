@@ -1,5 +1,6 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
+import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 
 export interface GanttTask {
   id: string;
@@ -97,14 +98,7 @@ export interface OccupancyTooltipDetail {
 }
 
 export function parseDateString(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-function addUtcDays(value: Date, days: number): Date {
-  const next = new Date(value);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
+  return parseIsoDate(dateStr) ?? new Date(Number.NaN);
 }
 
 export function getDefaultCultureColor(cultureName: string): string {
@@ -677,8 +671,8 @@ export function buildSeedlingTaskGroups({
     };
     const aggregateKey = [
       plan.culture,
-      propagationStartDate.toISOString().slice(0, 10),
-      transplantDate.toISOString().slice(0, 10),
+      formatIsoDate(propagationStartDate),
+      formatIsoDate(transplantDate),
     ].join('|');
     const plantsCount = typeof plan.plants_count === 'number' ? plan.plants_count : null;
     const existingTask = aggregatedTasksByKey.get(aggregateKey);
@@ -692,7 +686,7 @@ export function buildSeedlingTaskGroups({
     }
 
     const task: GanttTask = {
-      id: `seedling-${plan.culture}-${propagationStartDate.toISOString().slice(0, 10)}-${transplantDate.toISOString().slice(0, 10)}`,
+      id: `seedling-${plan.culture}-${formatIsoDate(propagationStartDate)}-${formatIsoDate(transplantDate)}`,
       name: cultureLabel,
       startDate: propagationStartDate,
       endDate: transplantDate,

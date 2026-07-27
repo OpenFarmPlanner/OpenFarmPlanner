@@ -133,6 +133,27 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
 - Assume SSH works unless push errors indicate otherwise.
 - Never commit directly to `main`. Always work on a feature/fix branch and open a pull request, even for small changes.
 
+## Release and Production Deploy Workflow
+- Production deploys must use an exact release tag in the `OpenFarmPlanner`
+  checkout. Before deploying production, run
+  `git describe --tags --exact-match HEAD` from this repo and confirm it
+  returns the intended `vX.Y.Z` tag.
+- If `HEAD` is not exactly tagged, do not proceed as though the build is a
+  release. Either deploy an existing tag intentionally, or create the release
+  through the repository's existing version/release flow first.
+- Use the existing version bump tooling for manual release preparation:
+  `make bump-version TYPE={feat|fix|breaking}`. This updates the central
+  backend version via `scripts/bump_version.py`; do not edit version files by
+  hand when the script applies.
+- The normal GitHub release flow is driven by Conventional Commits,
+  `release:*` labels, and `.github/workflows/release.yml`, which creates tags
+  using the `v{version}` format configured in `pyproject.toml`. If a merge to
+  `main` should have produced a release tag but did not, inspect and fix the
+  release workflow before production deploy instead of bypassing the tag check.
+- Use `--allow-untagged` for production only when the user explicitly asks for
+  an emergency untagged deploy and the final summary calls out the exact commit
+  that was deployed.
+
 ## Commit and PR Title Rules
 
 - Use Conventional Commits only:

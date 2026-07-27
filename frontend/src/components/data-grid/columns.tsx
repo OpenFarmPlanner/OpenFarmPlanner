@@ -3,7 +3,8 @@
  */
 
 import type { GridColDef } from '@mui/x-data-grid';
-import { Box, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
+import { OverflowTooltip } from '../OverflowTooltip';
 import { SearchableSelectEditCell } from './SearchableSelectEditCell';
 import type { SearchableSelectOption } from './SearchableSelectEditCell';
 import { StandardSingleSelectEditCell } from './StandardSingleSelectEditCell';
@@ -69,7 +70,7 @@ export const createSearchableSelectColumn = <Row extends { [key: string]: unknow
 
       const text = String(params.formattedValue ?? '');
       return (
-        <Tooltip title={text} disableHoverListener={!text}>
+        <OverflowTooltip title={text}>
           <Box
             component="span"
             sx={{
@@ -82,7 +83,7 @@ export const createSearchableSelectColumn = <Row extends { [key: string]: unknow
           >
             {text}
           </Box>
-        </Tooltip>
+        </OverflowTooltip>
       );
     },
     renderEditCell: (params) => (
@@ -153,7 +154,7 @@ export const createSingleSelectColumn = <Row extends { [key: string]: unknown }>
 
       const text = String(params.formattedValue ?? '');
       return (
-        <Tooltip title={text} disableHoverListener={!text}>
+        <OverflowTooltip title={text}>
           <Box
             component="span"
             sx={{
@@ -166,7 +167,7 @@ export const createSingleSelectColumn = <Row extends { [key: string]: unknown }>
           >
             {text}
           </Box>
-        </Tooltip>
+        </OverflowTooltip>
       );
     },
     renderEditCell: (params) => (

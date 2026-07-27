@@ -1,5 +1,5 @@
 import { Alert, Box, Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../i18n';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';

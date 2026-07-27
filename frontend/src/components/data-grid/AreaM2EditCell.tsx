@@ -4,41 +4,12 @@
  * Provides a numeric input for area editing with optional normalization on blur.
  */
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
-import { formatLocalizedNumber } from '../../utils/numberLocalization';
-
-function getInitialInputValue(
-  value: unknown,
-  fallbackValue: number | null | undefined,
-  locale: string,
-): string {
-  if (typeof value === 'string' && value.trim() !== '' && Number.isNaN(Number(value))) {
-    return value;
-  }
-  const normalizedValue =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string' && value.trim() !== ''
-        ? Number(value)
-        : null;
-  if (typeof normalizedValue === 'number' && !Number.isNaN(normalizedValue)) {
-    return formatLocalizedNumber(normalizedValue, locale, {
-      useGrouping: false,
-      maximumFractionDigits: 2,
-    });
-  }
-  if (typeof fallbackValue === 'number' && !Number.isNaN(fallbackValue)) {
-    return formatLocalizedNumber(fallbackValue, locale, {
-      useGrouping: false,
-      maximumFractionDigits: 2,
-    });
-  }
-  return '';
-}
-
+import { getInitialInputValue } from './areaM2EditCellValue';
+import { useEditCellAutoFocus } from './useEditCellAutoFocus';
 
 export interface AreaM2EditCellProps extends GridRenderEditCellParams {
   onLastEditedFieldChange: (field: 'area_m2') => void;
@@ -64,21 +35,14 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
   const [inputValue, setInputValue] = useState<string>(
     () => getInitialInputValue(value, fallbackValue, locale)
   );
+  const displayedInputValue = hasFocus
+    ? inputValue
+    : getInitialInputValue(value, fallbackValue, locale);
 
-
-  useEffect(() => {
-    if (hasFocus) {
-      return;
-    }
-    setInputValue(getInitialInputValue(value, fallbackValue, locale));
-  }, [fallbackValue, hasFocus, locale, value]);
-
-  useEffect(() => {
-    if (hasFocus) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [hasFocus]);
+  const selectAll = useCallback((input: HTMLInputElement): void => {
+    input.select();
+  }, []);
+  useEditCellAutoFocus(hasFocus, inputRef, selectAll);
 
   const applyValue = async (nextValue: string): Promise<void> => {
     onLastEditedFieldChange('area_m2');
@@ -100,7 +64,7 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
       type="text"
       inputMode="decimal"
       inputRef={inputRef}
-      value={inputValue}
+      value={displayedInputValue}
       onChange={handleChange}
       size="small"
       fullWidth

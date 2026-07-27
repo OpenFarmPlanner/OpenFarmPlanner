@@ -1,4 +1,5 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
+import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 
 export type DerivedTaskType =
   | 'sowing'
@@ -18,21 +19,6 @@ export interface DerivedLocationTask {
 
 const DIRECT_SOWING = 'direct_sowing';
 const PRE_CULTIVATION = 'pre_cultivation';
-
-const toIsoDate = (value: Date): string => value.toISOString().slice(0, 10);
-
-const parseIsoDate = (value?: string | null): Date | null => {
-  if (!value) return null;
-  const [year, month, day] = value.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const addDays = (value: Date, days: number): Date => {
-  const next = new Date(value);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-};
 
 const isDirectSowingPlan = (plan: PlantingPlan, culture?: Culture): boolean => {
   const planType = plan.cultivation_type || plan.culture_cultivation_type;
@@ -67,7 +53,7 @@ export function deriveLocationTasks({
   const cultureById = new Map(cultures.filter((culture): culture is Culture & { id: number } => typeof culture.id === 'number').map((culture) => [culture.id, culture]));
   const byLocation: Record<number, DerivedLocationTask[]> = {};
   const dedupe = new Set<string>();
-  const todayIso = toIsoDate(today);
+  const todayIso = formatIsoDate(today);
 
   const pushTask = (task: DerivedLocationTask): void => {
     if (task.date < todayIso) return;
@@ -92,7 +78,7 @@ export function deriveLocationTasks({
 
     pushTask({
       type: baseTaskType,
-      date: toIsoDate(plantingDate),
+      date: formatIsoDate(plantingDate),
       locationId: field.location,
       planId: plan.id,
       cultureName: plan.culture_name || culture?.name,
@@ -104,7 +90,7 @@ export function deriveLocationTasks({
     if (propagationDuration && propagationDuration > 0) {
       pushTask({
         type: 'propagationStart',
-        date: toIsoDate(addDays(plantingDate, -propagationDuration)),
+        date: formatIsoDate(addUtcDays(plantingDate, -propagationDuration)),
         locationId: field.location,
         planId: plan.id,
         cultureName: plan.culture_name || culture?.name,
@@ -117,7 +103,7 @@ export function deriveLocationTasks({
     if (growthDuration && growthDuration > 0) {
       pushTask({
         type: 'harvestStart',
-        date: toIsoDate(addDays(plantingDate, growthDuration)),
+        date: formatIsoDate(addUtcDays(plantingDate, growthDuration)),
         locationId: field.location,
         planId: plan.id,
         cultureName: plan.culture_name || culture?.name,

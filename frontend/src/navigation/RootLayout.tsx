@@ -6,7 +6,7 @@
  * snackbar/help/history dialogs. Extracted verbatim from App.tsx.
  */
 
-import { Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   AppBar,
   Button,
@@ -29,8 +29,6 @@ import {
   SvgIcon,
   type SvgIconProps,
   Drawer,
-  ListItemButton,
-  ListItemIcon,
   Toolbar,
   Tooltip,
   ToggleButton,
@@ -60,17 +58,10 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
-import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { ProjectMenu } from './ProjectMenu';
+import { GlobalMenu } from './GlobalMenu';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
-import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import LogoutIcon from '@mui/icons-material/Logout';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
 import { MobileProjectSwitcherDialog } from './MobileProjectSwitcherDialog';
@@ -93,7 +84,11 @@ import { OPEN_CREATE_PROJECT_EVENT } from '../projects/projectCreationFlow';
 import { useGlobalOverlayKeyboardScroll } from '../hooks/useDialogKeyboardScroll';
 import { useFocusRegion } from '../focus/useFocusManager';
 import { useTopbarActionsRouteReset } from '../hooks/useTopbarActionsRouteReset';
-import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, normalizeMainRoutePath } from '../navigation/mainNavigation';
+import { appRouteUrl } from '../utils/appRouteUrl';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
+import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, isProjectIndependentRoute, normalizeMainRoutePath, shouldDisableNavItem } from '../navigation/mainNavigation';
+import { useProjectRequirement } from '../hooks/useProjectRequirement';
+import NavListItem from '../navigation/NavListItem';
 import {
   getMobileNavigationIconSx,
   getMobileNavigationItemSx,
@@ -111,8 +106,6 @@ import {
 import { PanelLeft } from 'lucide-react';
 
 const CONTENT_ALIGNMENT_MODE = 'centered';
-const ACTION_MENU_ITEM_ICON_SX = { minWidth: 32, color: 'text.secondary' } as const;
-const ACTION_MENU_ICON_PROPS = { fontSize: 'small' } as const;
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
@@ -132,163 +125,6 @@ interface SnackbarState {
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
 }
-
-interface ProjectMenuProps {
-  anchorEl: HTMLElement | null;
-  open: boolean;
-  memberships: { project_id: number; project_name: string; role: 'admin' | 'member' }[];
-  activeProjectId: number | null;
-  isSwitchingProject: boolean;
-  isCreatingDemoProject: boolean;
-  deletedProjectsCount: number;
-  onClose: () => void;
-  onSwitchProject: (projectId: number) => Promise<void>;
-  onOpenProjectSettings: () => void;
-  onOpenProjectSelection: () => void;
-  onOpenCreateProject: () => void;
-  onCreateDemoProject: () => void;
-  onOpenProjectTrash: () => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
-}
-
-function ProjectMenu(props: ProjectMenuProps) {
-  const {
-    anchorEl,
-    open,
-    memberships,
-    activeProjectId,
-    isSwitchingProject,
-    isCreatingDemoProject,
-    deletedProjectsCount,
-    onClose,
-    onSwitchProject,
-    onOpenProjectSettings,
-    onOpenProjectSelection,
-    onOpenCreateProject,
-    onCreateDemoProject,
-    onOpenProjectTrash,
-    t,
-  } = props;
-
-  return (
-    <Menu
-      id="project-switcher-menu"
-      anchorEl={anchorEl}
-      open={open}
-      onClose={onClose}
-    >
-      {memberships.length === 0 ? (
-        <MenuItem disabled>{t('projectSwitcher.zeroProjects')}</MenuItem>
-      ) : (
-        memberships.map((membership) => (
-          <MenuItem
-            key={membership.project_id}
-            onClick={() => void onSwitchProject(membership.project_id)}
-            selected={membership.project_id === activeProjectId}
-            disabled={isSwitchingProject}
-          >
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{membership.project_name}</span>
-              {membership.project_id === activeProjectId ? <CheckIcon fontSize="small" /> : null}
-            </Stack>
-          </MenuItem>
-        ))
-      )}
-      <Divider />
-      <MenuItem onClick={onOpenProjectSelection}>
-        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SwapHorizIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
-        {t('project.switch')}
-      </MenuItem>
-      <MenuItem onClick={onOpenProjectSettings}>
-        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
-        {t('project.settings')}
-      </MenuItem>
-      <Divider />
-      <MenuItem onClick={onOpenCreateProject}>
-        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><AddIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
-        {t('project.create')}
-      </MenuItem>
-      <MenuItem onClick={onCreateDemoProject} disabled={isCreatingDemoProject}>
-        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><PlayCircleOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
-        {t('projectSwitcher.loadDemoProject')}
-      </MenuItem>
-      {deletedProjectsCount > 0 ? (
-        <MenuItem onClick={onOpenProjectTrash}>
-          <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><DeleteOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
-          {t('projectSwitcher.trash', { count: deletedProjectsCount })}
-        </MenuItem>
-      ) : null}
-    </Menu>
-  );
-}
-
-interface GlobalMenuProps {
-  anchorEl: HTMLElement | null;
-  open: boolean;
-  historyLoading: boolean;
-  userLabel: string;
-  isMobile: boolean;
-  onClose: () => void;
-  onOpenProjectSwitcher: () => void;
-  onOpenCreateProject: () => void;
-  onOpenProjectSettings: () => void;
-  onOpenProjectHistory: () => Promise<void>;
-  onOpenAccountSettings: () => void;
-  onOpenShortcuts: () => void;
-  onOpenHelp: () => void;
-  onLogout: () => Promise<void>;
-  t: (key: string) => string;
-}
-
-function GlobalMenu(props: GlobalMenuProps) {
-  const {
-    anchorEl,
-    open,
-    historyLoading,
-    userLabel,
-    isMobile,
-    onClose,
-    onOpenProjectSwitcher,
-    onOpenCreateProject,
-    onOpenProjectSettings,
-    onOpenProjectHistory,
-    onOpenAccountSettings,
-    onOpenShortcuts,
-    onOpenHelp,
-    onLogout,
-    t,
-  } = props;
-
-  const wrap = (fn: () => void): () => void => () => { onClose(); fn(); };
-  const wrapAsync = (fn: () => Promise<void>): () => void => () => { onClose(); void fn(); };
-
-  const mobileMenuItems = [
-    <MenuItem key="mobile-section-project" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.projectActions')}</MenuItem>,
-    <MenuItem key="mobile-project-switcher" onClick={wrap(onOpenProjectSwitcher)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SwapHorizIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('projectSwitcher.ariaLabel')}</MenuItem>,
-    <MenuItem key="mobile-project-create" onClick={wrap(onOpenCreateProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><AddIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.create')}</MenuItem>,
-    <MenuItem key="mobile-project-settings" onClick={wrap(onOpenProjectSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.settings')}</MenuItem>,
-    <MenuItem key="mobile-project-history" onClick={wrapAsync(onOpenProjectHistory)} disabled={historyLoading}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HistoryOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.openVersionHistory')}</MenuItem>,
-    <Divider key="mobile-divider-project-app" />,
-    <MenuItem key="mobile-section-app" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.app')}</MenuItem>,
-    <MenuItem key="mobile-app-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
-    <MenuItem key="mobile-app-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
-    <MenuItem key="mobile-app-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
-    <Divider key="mobile-divider-app-account" />,
-    <MenuItem key="mobile-section-account" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.account')}</MenuItem>,
-    <MenuItem key="mobile-account-logout" onClick={wrapAsync(onLogout)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><LogoutIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.logout')} {userLabel}</MenuItem>,
-  ];
-  const desktopMenuItems = [
-    <MenuItem key="desktop-project-settings" onClick={wrap(onOpenProjectSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.settings')}</MenuItem>,
-    <MenuItem key="desktop-history" onClick={wrapAsync(onOpenProjectHistory)} disabled={historyLoading}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HistoryOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.openVersionHistory')}</MenuItem>,
-    <Divider key="desktop-divider" />,
-    <MenuItem key="desktop-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
-    <MenuItem key="desktop-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
-    <MenuItem key="desktop-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
-    <MenuItem key="desktop-logout" onClick={wrapAsync(onLogout)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><LogoutIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.logout')} {userLabel}</MenuItem>,
-  ];
-  return <Menu id="global-actions-menu" anchorEl={anchorEl} open={open} onClose={onClose}>{isMobile ? mobileMenuItems : desktopMenuItems}</Menu>;
-}
-
 
 function getCompactTopbarActionIcon(actionId: string): React.ReactNode {
   switch (actionId) {
@@ -346,7 +182,7 @@ function RootLayout() {
   const isVeryNarrowMobile = useMediaQuery('(max-width:360px)');
   const isPhonePortrait = useMediaQuery(`${theme.breakpoints.down('sm')} and (orientation: portrait)`);
   const isTabletOrNarrowDesktop = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
-  const { user, logout, activeProjectId, switchActiveProject } = useAuth();
+  const { user, endGuestDemo, logout, activeProjectId, switchActiveProject } = useAuth();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
   const { activeCreateActions, openPalette, runPrimaryCreateAction, openShortcutsHelp } = useCommandContext();
   const [globalMenuAnchor, setGlobalMenuAnchor] = useState<null | HTMLElement>(null);
@@ -369,18 +205,24 @@ function RootLayout() {
 
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
 
+  const { hasActiveProject } = useProjectRequirement();
+
   const navItems = useMemo(() => ([
-    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <DashboardOutlinedIcon fontSize="small" /> },
+    // Dashboard stays reachable even without a project: it is the "home" nav
+    // entry and already shows the same project-required empty state/CTA as
+    // other pages, so disabling it would be a dead end rather than a guide.
+    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <DashboardOutlinedIcon fontSize="small" />, requiresProject: false },
     ...MAIN_NAV_ITEMS.map((item) => ({
       to: item.to,
       label: t(item.labelKey),
       activeAliases: item.activeAliases ?? [],
       keywords: item.keywords,
+      requiresProject: item.requiresProject,
       icon: item.to.includes('locations') ? <PlaceOutlinedIcon fontSize="small" />
         : item.to.includes('fields-beds') ? <GridViewOutlinedIcon fontSize="small" />
           : item.to.includes('crop-library') ? <PublicIcon fontSize="small" />
           : item.to.includes('cultures') ? <LocalFloristOutlinedIcon fontSize="small" />
-            : item.to.includes('anbauplaene') ? <EventNoteOutlinedIcon fontSize="small" />
+            : item.to.includes('planting-plans') ? <EventNoteOutlinedIcon fontSize="small" />
               : item.to.includes('gantt-chart') ? <CalendarMonthOutlinedIcon fontSize="small" />
                 : item.to.includes('yield-overview') ? <BarChartOutlinedIcon fontSize="small" />
                 : item.to.includes('seed-demand') ? <ScienceOutlinedIcon fontSize="small" />
@@ -524,6 +366,39 @@ function RootLayout() {
     setGlobalHelpOpen(false);
   };
 
+  const memberships = useMemo(() => user?.memberships ?? [], [user?.memberships]);
+  const activeMembership = memberships.find((membership) => membership.project_id === activeProjectId) ?? null;
+  const isGuestDemoSession = Boolean(user?.is_guest_demo);
+  const isPersonalDemoProject = !isGuestDemoSession && activeMembership?.is_demo_project === true;
+  const canLeaveDemoProject = isGuestDemoSession || isPersonalDemoProject;
+  const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
+
+  const handleLeaveDemoProject = useCallback(async (): Promise<void> => {
+    try {
+      handleGlobalMenuClose();
+      if (user?.is_guest_demo) {
+        navigate('/', { replace: true });
+        await endGuestDemo();
+        return;
+      }
+
+      const fallbackProject = memberships.find((membership) => (
+        membership.project_id !== activeProjectId
+        && membership.is_demo_project !== true
+      ));
+      if (fallbackProject) {
+        await switchActiveProject(fallbackProject.project_id);
+        navigate('/app/dashboard', { replace: true });
+        return;
+      }
+
+      navigate('/app/project-selection', { replace: true });
+    } catch (error) {
+      console.error('Error leaving demo project:', error);
+      showSnackbar(t('commandPalette.feedback.leaveDemoError'), 'error');
+    }
+  }, [activeProjectId, endGuestDemo, memberships, navigate, showSnackbar, switchActiveProject, t, user?.is_guest_demo]);
+
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
       await logout();
@@ -534,10 +409,6 @@ function RootLayout() {
       showSnackbar(t('commandPalette.feedback.logoutError'), 'error');
     }
   }, [logout, navigate, showSnackbar, t]);
-
-  const memberships = useMemo(() => user?.memberships ?? [], [user?.memberships]);
-  const activeMembership = memberships.find((membership) => membership.project_id === activeProjectId) ?? null;
-  const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
 
   const refreshDeletedProjectsCount = useCallback(async (): Promise<void> => {
     if (!user) {
@@ -569,12 +440,16 @@ function RootLayout() {
     return () => window.removeEventListener('ofp:project-trash-changed', handleProjectTrashChanged);
   }, [refreshDeletedProjectsCount]);
 
-  useEffect(() => {
-    if (!user || memberships.length > 0 || location.pathname === '/app/project-selection') {
-      return;
-    }
-    navigate('/app/project-selection', { replace: true });
-  }, [location.pathname, memberships.length, navigate, user]);
+  // Users with zero projects can only use project-independent pages (see
+  // PROJECT_INDEPENDENT_APP_ROUTES) — everything else is project-scoped and
+  // redirects to project-selection. This is a render-time guard (mirroring
+  // ProtectedRoute's auth guard below), not a useEffect: an effect-based
+  // `navigate()` runs after the target page has already committed and
+  // painted once, which both flashes the wrong content and, if the target
+  // itself changes location.pathname, can immediately re-trigger the effect.
+  const requiresProjectSelectionRedirect = Boolean(user)
+    && memberships.length === 0
+    && !isProjectIndependentRoute(location.pathname);
 
   const handleOpenCreateProject = useCallback((): void => {
     setProjectMenuAnchor(null);
@@ -607,7 +482,7 @@ function RootLayout() {
 
   const applyProjectContextChange = useCallback(async (projectId: number): Promise<void> => {
     await switchActiveProject(projectId);
-    window.location.href = '/app/dashboard';
+    window.location.href = appRouteUrl('/app/dashboard');
   }, [switchActiveProject]);
 
   const closeCreateProjectDialog = (): void => {
@@ -801,7 +676,8 @@ function RootLayout() {
     onSwitchProject: (projectId) => { void handleSwitchProject(projectId); },
     onOpenAccountSettings: () => navigate('/app/account-settings'),
     onOpenVersionHistory: () => { void handleOpenProjectHistory(); },
-    onLogout: () => { void handleLogout(); },
+    onLeaveDemoProject: canLeaveDemoProject ? () => { void handleLeaveDemoProject(); } : undefined,
+    onLogout: isGuestDemoSession ? undefined : () => { void handleLogout(); },
     onOpenPalette: openPalette,
     onOpenPageHelp: openCurrentPageHelp,
     onOpenShortcutsHelp: openShortcutsHelp,
@@ -815,6 +691,7 @@ function RootLayout() {
       switchProjectPrefix: t('commandPalette.commands.switchProjectPrefix'),
       openAccountSettings: t('commandPalette.commands.openAccountSettings'),
       openVersionHistory: t('commandPalette.commands.openVersionHistory'),
+      leaveDemo: t('commandPalette.commands.leaveDemo'),
       logout: t('commandPalette.commands.logout'),
       openPalette: t('commandPalette.label'),
       openPageHelp: t('commandPalette.commands.openPageHelp'),
@@ -826,12 +703,15 @@ function RootLayout() {
     getCurrentRouteFromLocation,
     goToNextPage,
     goToPreviousPage,
+    handleLeaveDemoProject,
     handleLogout,
     handleOpenCreateProject,
     handleOpenProjectHistory,
     handleOpenProjectSettings,
     handleSwitchProject,
+    canLeaveDemoProject,
     isDesktopUp,
+    isGuestDemoSession,
     memberships,
     navigate,
     openCurrentPageHelp,
@@ -908,6 +788,10 @@ function RootLayout() {
     }
   }, [navigate, topbarPrimaryAction]);
 
+  if (requiresProjectSelectionRedirect) {
+    return <Navigate to="/app/project-selection" replace />;
+  }
+
   return (
     <Box className={`app app--${CONTENT_ALIGNMENT_MODE}`} sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
@@ -929,7 +813,7 @@ function RootLayout() {
                 >
                   <Box
                     component="img"
-                    src="/favicon.png"
+                    src={publicAssetUrl('/favicon.png')}
                     alt="OpenFarmPlanner"
                     sx={{ width: 24, height: 24, borderRadius: 0.5, flexShrink: 0 }}
                   />
@@ -981,19 +865,22 @@ function RootLayout() {
             <List sx={{ px: 1, pt: 0.5, pb: 1, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
               {navItems.map((item) => {
                 const isActive = location.pathname === item.to || item.activeAliases.includes(location.pathname);
-                const entry = (
-                  <ListItemButton
+                const disabled = shouldDisableNavItem(item, hasActiveProject);
+                return (
+                  <NavListItem
                     key={item.to}
-                    component={RouterLink as React.ElementType}
                     to={item.to}
-                    selected={isActive}
-                    sx={getNavigationItemSx(isActive, sidebarCollapsed)}
-                  >
-                    <ListItemIcon sx={getNavigationIconSx(isActive, sidebarCollapsed)}>{item.icon}</ListItemIcon>
-                    {!sidebarCollapsed ? <ListItemText primary={item.label} primaryTypographyProps={getNavigationTextProps(isActive)} /> : null}
-                  </ListItemButton>
+                    label={item.label}
+                    icon={item.icon}
+                    isActive={isActive}
+                    disabled={disabled}
+                    disabledTooltip={t('disabledNoProjectTooltip')}
+                    itemSx={getNavigationItemSx(isActive, sidebarCollapsed, disabled)}
+                    iconSx={getNavigationIconSx(isActive, sidebarCollapsed, disabled)}
+                    textProps={!sidebarCollapsed ? getNavigationTextProps(isActive, disabled) : undefined}
+                    enabledTooltip={sidebarCollapsed ? item.label : undefined}
+                  />
                 );
-                return sidebarCollapsed ? <Tooltip key={item.to} title={item.label} placement="right">{entry}</Tooltip> : entry;
               })}
             </List>
           </Stack>
@@ -1003,6 +890,13 @@ function RootLayout() {
       <Box sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
         {navItems.map((item) => {
           const srLinkLabel = item.to === '/app/dashboard' ? t('globalMenu.dashboardLink') : item.label;
+          if (shouldDisableNavItem(item, hasActiveProject)) {
+            return (
+              <span key={`sr-${item.to}`} aria-disabled="true">
+                <span>{item.label}</span> ({t('disabledNoProjectTooltip')})
+              </span>
+            );
+          }
           return <RouterLink key={`sr-${item.to}`} to={item.to} aria-label={srLinkLabel}>{item.label}</RouterLink>;
         })}
       </Box>
@@ -1397,6 +1291,9 @@ function RootLayout() {
             onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
             onOpenShortcuts={handleOpenShortcuts}
             onOpenHelp={openGlobalHelp}
+            canLeaveDemoProject={canLeaveDemoProject}
+            isGuestDemoSession={isGuestDemoSession}
+            onLeaveDemoProject={handleLeaveDemoProject}
             onLogout={handleLogout}
             t={t}
           />
@@ -1661,6 +1558,9 @@ function RootLayout() {
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
+                canLeaveDemoProject={canLeaveDemoProject}
+                isGuestDemoSession={isGuestDemoSession}
+                onLeaveDemoProject={handleLeaveDemoProject}
                 onLogout={handleLogout}
                 t={t}
               />
@@ -1828,18 +1728,22 @@ function RootLayout() {
           </ListItem>
           {navItems.map((item) => {
             const isActive = location.pathname === item.to || item.activeAliases.includes(location.pathname);
+            const disabled = shouldDisableNavItem(item, hasActiveProject);
             return (
-                <ListItem key={item.to} disablePadding>
-                  <ListItemButton
-                  component={RouterLink as React.ElementType}
+              <ListItem key={item.to} disablePadding>
+                <NavListItem
                   to={item.to}
-                  selected={isActive}
-                  onClick={closeMobileNav}
-                  sx={getMobileNavigationItemSx(isActive)}
-                >
-                  <ListItemIcon sx={getMobileNavigationIconSx(isActive)}>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.label} primaryTypographyProps={getMobileNavigationTextProps(isActive)} />
-                </ListItemButton>
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={isActive}
+                  disabled={disabled}
+                  disabledTooltip={t('disabledNoProjectTooltip')}
+                  itemSx={getMobileNavigationItemSx(isActive, disabled)}
+                  iconSx={getMobileNavigationIconSx(isActive, disabled)}
+                  textProps={getMobileNavigationTextProps(isActive, disabled)}
+                  enabledTooltipPlacement="top"
+                  onNavigate={closeMobileNav}
+                />
               </ListItem>
             );
           })}

@@ -118,3 +118,31 @@ export const getPackageBlockerTooltip = (row: SeedDemand, t: SeedDemandTranslato
   };
   return t(keyByBlocker[blocker ?? ''] ?? 'seedDemand.noPackageCalculationPossibleTooltip');
 };
+
+export type PackageCellState =
+  | 'computed'
+  | 'chooseSupplier'
+  | 'notConfigured'
+  | 'unavailableRequirement'
+  | 'calculationError';
+
+export const getPackageCellState = (row: SeedDemand): PackageCellState => {
+  const blocker = getEffectivePackageBlocker(row);
+  if (!blocker) {
+    return 'computed';
+  }
+  switch (blocker) {
+    case 'supplier_data_missing':
+    case 'supplier_not_selected':
+      return 'chooseSupplier';
+    case 'package_sizes_missing':
+      return 'notConfigured';
+    case 'required_amount_unavailable':
+      return 'unavailableRequirement';
+    default:
+      return 'calculationError';
+  }
+};
+
+export const hasPackageCellTooltip = (row: SeedDemand): boolean =>
+  getEffectivePackageBlocker(row) !== null;

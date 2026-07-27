@@ -47,6 +47,36 @@ def _env_list(name: str, default: str = '') -> list[str]:
     return [value.strip() for value in os.getenv(name, default).split(',') if value.strip()]
 
 
+def _validate_throttle_rate(name: str, value: str) -> str:
+    """Validate a DRF throttle rate string before the server starts."""
+    try:
+        requests, period = value.split('/', 1)
+        request_count = int(requests)
+    except ValueError as exc:
+        raise ImproperlyConfigured(
+            f'{name} must use Django REST Framework throttle syntax, for example "10/hour".'
+        ) from exc
+
+    if request_count <= 0:
+        raise ImproperlyConfigured(f'{name} must allow at least one request per period.')
+    if not period or period[0] not in {'s', 'm', 'h', 'd'}:
+        raise ImproperlyConfigured(
+            f'{name} period must be seconds, minutes, hours, or days.'
+        )
+    return value
+
+
+def _guest_demo_throttle_rate_for_env(
+    django_env: str,
+    guest_demo_rate: str = '',
+    legacy_rate: str = '',
+) -> str:
+    """Resolve the guest demo throttle rate from explicit env and safe defaults."""
+    configured_rate = guest_demo_rate or legacy_rate
+    default_rate = '1000/minute' if django_env == 'development' else '10/hour'
+    return _validate_throttle_rate('GUEST_DEMO_THROTTLE_RATE', configured_rate or default_rate)
+
+
 def _dedupe(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
 
@@ -135,6 +165,15 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # django-allauth provides the OAuth 2.0 / OpenID Connect machinery for
+    # social login. `allauth.account` is a hard dependency of
+    # `allauth.socialaccount`; only its models (EmailAddress) are used here —
+    # none of its views/URLs are routed. See docs/social-login.md.
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.microsoft',
     'crops',
     'farm',
     'accounts',
@@ -155,6 +194,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Required by django-allauth; must run after AuthenticationMiddleware.
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 # Debug Toolbar Einstellungen nur in Entwicklung
@@ -391,6 +432,11 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'auth_login': _env_str('THROTTLE_AUTH_LOGIN', '10/minute'),
+        'guest_demo_start': _guest_demo_throttle_rate_for_env(
+            DJANGO_ENV,
+            _env_str('GUEST_DEMO_THROTTLE_RATE'),
+            _env_str('THROTTLE_GUEST_DEMO_START'),
+        ),
         'auth_register': _env_str('THROTTLE_AUTH_REGISTER', '5/minute'),
         'auth_activation': _env_str('THROTTLE_AUTH_ACTIVATION', '10/minute'),
         'auth_resend_activation': _env_str('THROTTLE_AUTH_RESEND_ACTIVATION', '5/minute'),
@@ -399,9 +445,88 @@ REST_FRAMEWORK = {
         'invitation_accept': _env_str('THROTTLE_INVITATION_ACCEPT', '20/hour'),
         'agent_login_consume': _env_str('THROTTLE_AGENT_LOGIN_CONSUME', '30/hour'),
     },
+    'EXCEPTION_HANDLER': 'config.exceptions.api_exception_handler',
     'DEFAULT_PAGINATION_CLASS': 'config.pagination.OpenFarmPlannerPageNumberPagination',
     'PAGE_SIZE': 100,
 }
+
+# Social login (Google / Microsoft) via django-allauth — see docs/social-login.md.
+#
+# Providers are configured entirely through environment variables: a provider
+# without both a client id and a client secret is simply not offered, so a
+# deployment that has not registered an OAuth application keeps working with
+# email/password login only.
+GOOGLE_OAUTH_CLIENT_ID = _env_str('GOOGLE_OAUTH_CLIENT_ID')
+GOOGLE_OAUTH_CLIENT_SECRET = _env_str('GOOGLE_OAUTH_CLIENT_SECRET')
+MICROSOFT_OAUTH_CLIENT_ID = _env_str('MICROSOFT_OAUTH_CLIENT_ID')
+MICROSOFT_OAUTH_CLIENT_SECRET = _env_str('MICROSOFT_OAUTH_CLIENT_SECRET')
+# "common" accepts both personal Microsoft accounts and Microsoft 365 /
+# Entra ID work accounts, which is what a public web application needs.
+MICROSOFT_OAUTH_TENANT = _env_str('MICROSOFT_OAUTH_TENANT', 'common')
+
+# Origin the browser reaches the API under. The OAuth redirect URIs are built
+# from it, so it must match what is registered at Google/Microsoft. The public
+# frontend origin is the right default because the SPA and the API are served
+# from the same origin (in development through the Vite dev-server proxy).
+SOCIAL_AUTH_CALLBACK_BASE_URL = (
+    _env_str('SOCIAL_AUTH_CALLBACK_BASE_URL') or PUBLIC_FRONTEND_URL
+).rstrip('/')
+
+
+def _social_provider_app(
+    client_id: str,
+    secret: str,
+    app_settings: dict[str, str] | None = None,
+) -> list[dict[str, object]]:
+    """Build the allauth ``APPS`` entry for a provider configured via environment."""
+    if not client_id or not secret:
+        return []
+    return [{'client_id': client_id, 'secret': secret, 'settings': app_settings or {}}]
+
+
+SOCIALACCOUNT_PROVIDERS: dict[str, dict[str, object]] = {
+    'google': {
+        'provider_class': 'accounts.social_auth.OpenFarmPlannerGoogleProvider',
+        'APPS': _social_provider_app(GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET),
+        # Only what is needed to identify the user; no Google API access.
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online', 'prompt': 'select_account'},
+        'OAUTH_PKCE_ENABLED': True,
+    },
+    'microsoft': {
+        'provider_class': 'accounts.social_auth.OpenFarmPlannerMicrosoftProvider',
+        'APPS': _social_provider_app(
+            MICROSOFT_OAUTH_CLIENT_ID,
+            MICROSOFT_OAUTH_CLIENT_SECRET,
+            {'tenant': MICROSOFT_OAUTH_TENANT},
+        ),
+        # Delegated permission to read the signed-in user's own profile only.
+        'SCOPE': ['User.Read'],
+        'AUTH_PARAMS': {'prompt': 'select_account'},
+        'OAUTH_PKCE_ENABLED': True,
+    },
+}
+
+# allauth is used exclusively for the social login flow: its own account views
+# and emails stay switched off, and account state stays owned by `accounts`.
+ACCOUNT_ADAPTER = 'accounts.social_auth.OpenFarmPlannerAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'accounts.social_auth.OpenFarmPlannerSocialAccountAdapter'
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*']
+# The signup form is never rendered: accounts.social_auth decides up front
+# whether a social login may create or link an account.
+SOCIALACCOUNT_AUTO_SIGNUP = True
+# OpenFarmPlanner does not call Google/Microsoft APIs, so provider tokens are
+# discarded once the login is complete.
+SOCIALACCOUNT_STORE_TOKENS = False
+# Linking a provider identity to an existing account by email is handled by
+# accounts.social_auth under stricter rules than allauth's built-in variant.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = False
+# Provider logins must be started with a CSRF-protected POST (login CSRF).
+SOCIALACCOUNT_LOGIN_ON_GET = False
+# AUTHENTICATION_BACKENDS intentionally keeps Django's ModelBackend only:
+# allauth falls back to it when its own backend is absent, and the existing
+# login/activation/restore views rely on there being exactly one backend.
 
 CSRF_COOKIE_SAMESITE = _env_str('CSRF_COOKIE_SAMESITE', CSRF_COOKIE_SAMESITE)
 SESSION_COOKIE_SAMESITE = _env_str('SESSION_COOKIE_SAMESITE', SESSION_COOKIE_SAMESITE)

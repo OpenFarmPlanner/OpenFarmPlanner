@@ -1,6 +1,6 @@
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Link, TextField, Typography, useMediaQuery } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
+import { useLocation, useNavigate, useOutletContext } from 'react-router';
 import FieldsBedsHierarchy from './FieldsBedsHierarchy';
 import GraphicalFields from './GraphicalFields';
 import { AddBedIcon } from '../components/hierarchy/AddBedIcon';
@@ -72,9 +72,9 @@ export default function FieldsBedsPage() {
     loading: isAreaDataLoading,
     hasLoaded: hasAreaDataLoaded,
     locations,
+    setLocations,
     fields,
     beds,
-    fetchData: reloadHierarchyData,
   } = hierarchyData;
 
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
@@ -114,12 +114,6 @@ export default function FieldsBedsPage() {
 
   useRegisterCommands('areas-view-switch', commands);
 
-  useEffect(() => {
-    if (shouldShowProjectRequiredState) {
-      setPendingHierarchyDeletionCount(0);
-    }
-  }, [shouldShowProjectRequiredState]);
-
   const hasAddFieldTarget = locations.some((item) => item.id !== undefined);
   const isSingleLocationMode = locations.length === 1 && locations[0]?.id !== undefined;
   const canUseGlobalAddField = isSingleLocationMode;
@@ -150,10 +144,17 @@ export default function FieldsBedsPage() {
     }
     try {
       const wasSingleLocationMode = locations.length === 1;
-      await locationAPI.create({ name: trimmedName });
+      const response = await locationAPI.create({ name: trimmedName });
+      // Prepend locally (like new fields/beds) instead of a full reload —
+      // a reload would immediately re-sort the table to the current sort
+      // order, which can push the new location far from the "Standort
+      // hinzufügen" action that just created it. It stays in this
+      // insertion position (first in the list) until an explicit sort or
+      // an actual reload, same as inline row creation elsewhere in the
+      // hierarchy.
+      setLocations((previousLocations) => [response.data, ...previousLocations]);
       setAddLocationDialogOpen(false);
       setNewLocationName('');
-      await reloadHierarchyData();
       setGlobalActionError('');
       setGlobalActionSuccess(wasSingleLocationMode
         ? t('hierarchy:messages.locationsNowVisible')
@@ -162,7 +163,7 @@ export default function FieldsBedsPage() {
       console.error('Error creating additional location:', error);
       setGlobalActionError(t('hierarchy:messages.createLocationError'));
     }
-  }, [locations.length, newLocationName, reloadHierarchyData, t]);
+  }, [locations.length, newLocationName, setLocations, t]);
 
   const handleAdditionalLocationSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -188,18 +189,29 @@ export default function FieldsBedsPage() {
       return;
     }
 
-    requestInlineFieldCreation();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
 
-    searchParams.delete('action');
-    searchParams.delete('create');
-    const nextSearch = searchParams.toString();
-    navigate(
-      {
-        pathname: location.pathname,
-        search: nextSearch ? `?${nextSearch}` : '',
-      },
-      { replace: true },
-    );
+      requestInlineFieldCreation();
+
+      searchParams.delete('action');
+      searchParams.delete('create');
+      const nextSearch = searchParams.toString();
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearch ? `?${nextSearch}` : '',
+        },
+        { replace: true },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     hasAreaDataLoaded,
     isAreaDataLoading,
@@ -225,10 +237,13 @@ export default function FieldsBedsPage() {
   const hasUnsavedBeds = beds.some((bed) => !hasPersistedEntityId(bed.id));
   const hasBeds = beds.some((bed) => hasPersistedEntityId(bed.id) && persistedFieldIds.has(bed.field));
   const hasHierarchyRows = locations.length > 1 || fields.length > 0 || beds.length > 0;
+  const effectivePendingHierarchyDeletionCount = shouldShowProjectRequiredState
+    ? 0
+    : pendingHierarchyDeletionCount;
   const shouldShowAreasEmptyState = hasAreaDataLoaded && !isAreaDataLoading && !hasLocations;
   const shouldShowMissingFieldsState = hasLocations && !hasFields && !hasUnsavedFields && createFieldRequest <= 0;
   const shouldShowMissingBedsHint = hasFields && !hasBeds && !hasUnsavedBeds;
-  const shouldRenderHierarchy = hasHierarchyRows || createFieldRequest > 0 || pendingHierarchyDeletionCount > 0;
+  const shouldRenderHierarchy = hasHierarchyRows || createFieldRequest > 0 || effectivePendingHierarchyDeletionCount > 0;
   const createBedAction = getProjectSetupAction('beds');
   const emptyAreasDescription = shouldShowMissingFieldsState
     ? (locations.length === 1

@@ -7,7 +7,33 @@
     "description": "OpenFarmPlanner helps small-scale vegetable production with clear planning for crops, beds, growing areas, cultivation periods, and sowing dates.",
     "actions": {
       "openApp": "Open OpenFarmPlanner",
-      "register": "Register"
+      "register": "Register",
+      "demo": "View demo",
+      "demoWithoutRegistration": "View demo without registering",
+      "startingDemo": "Starting demo...",
+      "demoStartError": "Demo could not be started. Please try again.",
+      "demoRateLimited": "The demo was started recently. Please try again later.",
+      "demoRateLimitedWithTime": "The demo was started recently. Please try again {{time}}.",
+      "demoNetworkError": "The demo is currently unreachable. Please check your internet connection and try again later.",
+      "demoServerError": "The demo could not be started because of a server error. Please try again later.",
+      "demoUnexpectedResponse": "The demo could not be started because the server response was unexpected. Please try again.",
+      "demoAvailableIn": "Demo available again in {{time}}"
+    },
+    "retryTime": {
+      "lessThanMinute": "in less than a minute",
+      "minutes_one": "in about {{count}} minute",
+      "minutes_other": "in about {{count}} minutes",
+      "hours_one": "in about {{count}} hour",
+      "hours_other": "in about {{count}} hours",
+      "hoursAndMinutes": "in about {{hours}} hours and {{minutes}} minutes",
+      "compact": {
+        "lessThanMinute": "< 1 min",
+        "minutes_one": "{{count}} min",
+        "minutes_other": "{{count}} min",
+        "hours_one": "{{count}} hr",
+        "hours_other": "{{count}} hr",
+        "hoursAndMinutes": "{{hours}} hr {{minutes}} min"
+      }
     }
   },
   "statusNote": "Currently in beta - continuously improved.",

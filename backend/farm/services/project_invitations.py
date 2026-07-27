@@ -108,6 +108,18 @@ def normalize_email(email: str) -> str:
     return ProjectInvitation.normalize_email(email)
 
 
+def _mask_token(token: str | None) -> str:
+    """Mask an invitation token for logging.
+
+    Invitation tokens are bearer-style credentials; writing them verbatim to
+    application logs (CWE-532) would let anyone with log access reuse them.
+    Keep only a short, non-reversible prefix for correlation.
+    """
+    if not token:
+        return '***'
+    return f'{token[:6]}…' if len(token) > 6 else '***'
+
+
 def mask_email(email: str) -> str:
     """Mask an email for public display.
 
@@ -191,7 +203,7 @@ def get_invitation_by_token(token: str) -> ProjectInvitation:
         .first()
     )
     if not invitation:
-        logger.warning('Invitation token lookup failed', extra={'token': token})
+        logger.warning('Invitation token lookup failed', extra={'token': _mask_token(token)})
         raise InvitationFlowError('invalid_token', 'Invalid invitation token.')
     return invitation
 
@@ -228,20 +240,20 @@ def accept_invitation(*, invitation: ProjectInvitation, user: User) -> Invitatio
     :return: Accept result.
     """
     if normalize_email(user.email) != invitation.email_normalized:
-        logger.warning('Invitation accept rejected due to email mismatch', extra={'user_id': user.id, 'token': invitation.token, 'invitation_email': invitation.email_normalized, 'user_email': normalize_email(user.email)})
+        logger.warning('Invitation accept rejected due to email mismatch', extra={'user_id': user.id, 'invitation_id': invitation.pk, 'token': _mask_token(invitation.token), 'invitation_email': invitation.email_normalized, 'user_email': normalize_email(user.email)})
         raise InvitationFlowError('email_mismatch', 'Invitation belongs to another email address.')
 
     with transaction.atomic():
         locked = ProjectInvitation.objects.select_for_update().get(pk=invitation.pk)
 
         if locked.resolved_status == 'expired':
-            logger.warning('Invitation accept rejected because invitation expired', extra={'user_id': user.id, 'token': locked.token})
+            logger.warning('Invitation accept rejected because invitation expired', extra={'user_id': user.id, 'invitation_id': locked.pk, 'token': _mask_token(locked.token)})
             raise InvitationFlowError('expired', 'Invitation has expired.')
         if locked.status == ProjectInvitation.STATUS_REVOKED:
-            logger.warning('Invitation accept rejected because invitation was revoked', extra={'user_id': user.id, 'token': locked.token})
+            logger.warning('Invitation accept rejected because invitation was revoked', extra={'user_id': user.id, 'invitation_id': locked.pk, 'token': _mask_token(locked.token)})
             raise InvitationFlowError('revoked', 'Invitation was revoked.')
         if locked.status == ProjectInvitation.STATUS_ACCEPTED:
-            logger.warning('Invitation accept rejected because invitation was already used', extra={'user_id': user.id, 'token': locked.token, 'project_id': locked.project_id})
+            logger.warning('Invitation accept rejected because invitation was already used', extra={'user_id': user.id, 'invitation_id': locked.pk, 'token': _mask_token(locked.token), 'project_id': locked.project_id})
             raise InvitationFlowError('accepted', 'Invitation has already been used.')
 
         existing_membership = ProjectMembership.objects.filter(
@@ -249,7 +261,7 @@ def accept_invitation(*, invitation: ProjectInvitation, user: User) -> Invitatio
             user=user,
         ).first()
         if existing_membership is not None:
-            logger.info('Invitation accept found existing project membership', extra={'user_id': user.id, 'token': locked.token, 'project_id': locked.project_id})
+            logger.info('Invitation accept found existing project membership', extra={'user_id': user.id, 'invitation_id': locked.pk, 'token': _mask_token(locked.token), 'project_id': locked.project_id})
             locked.status = ProjectInvitation.STATUS_ACCEPTED
             locked.accepted_by = user
             locked.accepted_at = locked.accepted_at or timezone.now()
@@ -262,7 +274,7 @@ def accept_invitation(*, invitation: ProjectInvitation, user: User) -> Invitatio
             role=locked.role,
         )
 
-        logger.info('Invitation accepted and membership created', extra={'user_id': user.id, 'token': locked.token, 'project_id': locked.project_id, 'membership_id': membership.id})
+        logger.info('Invitation accepted and membership created', extra={'user_id': user.id, 'invitation_id': locked.pk, 'token': _mask_token(locked.token), 'project_id': locked.project_id, 'membership_id': membership.id})
         locked.status = ProjectInvitation.STATUS_ACCEPTED
         locked.accepted_by = user
         locked.accepted_at = timezone.now()

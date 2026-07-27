@@ -80,7 +80,21 @@ For production, configure these environment variables:
 - `PUBLIC_FRONTEND_URL` - Public frontend base URL used in activation, password reset, and invitation links
 - `FRONTEND_URL` - Optional local/development fallback for frontend links
 - `DEV_LAN_HOSTS` - Optional comma-separated LAN hosts/IPs added to `ALLOWED_HOSTS`, CORS, and CSRF only when `DEBUG=True` and `DJANGO_ENV=development`
+- `GUEST_DEMO_THROTTLE_RATE` - Rate limit for `POST /api/auth/guest-demo/start/`. Defaults to `1000/minute` when `DJANGO_ENV=development`, otherwise `10/hour`. Invalid values fail startup instead of disabling protection.
 - `URL_PREFIX` - Optional backend URL prefix (default: root). Example: `openfarmplanner` for legacy prefixed routing.
+
+The guest demo endpoint uses Django REST Framework `ScopedRateThrottle` with the
+`guest_demo_start` scope. Anonymous public starts are limited per client IP, while
+authenticated requests would be limited per user; it is not a single global
+bucket. Throttled responses include the standard `Retry-After` header and a
+machine-readable `retry_after` value in the JSON body. With the production
+default of `10/hour`, a user who has exhausted the bucket may see a remaining
+wait of roughly 40 minutes depending on the request history inside that hour.
+
+To manually test the guest demo throttle locally, set a low value such as
+`GUEST_DEMO_THROTTLE_RATE=1/minute`, restart Django, and submit repeated
+`POST /api/auth/guest-demo/start/` requests. Remove the override or set a higher
+value again for normal local testing.
 
 ### SMTP configuration for Uberspace (production)
 

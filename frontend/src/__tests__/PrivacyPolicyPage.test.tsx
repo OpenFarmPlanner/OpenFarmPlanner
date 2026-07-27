@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import PrivacyPolicyPage from '../pages/public/PrivacyPolicyPage';
 
 function renderPrivacyPolicyPage(): ReturnType<typeof render> {

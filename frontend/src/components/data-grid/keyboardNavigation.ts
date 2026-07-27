@@ -240,6 +240,26 @@ export function getVerticalKeyboardNavigationTarget<Row extends GridValidRowMode
   return null;
 }
 
+/**
+ * Resolves the next horizontally-adjacent navigable cell within the same row,
+ * given the row's already-computed ordered list of navigable fields. Returns
+ * null at the row edges. Pure function of its arguments.
+ */
+export function getHorizontalKeyboardNavigationTarget(
+  navigableFields: readonly string[],
+  rowId: GridRowId,
+  field: string,
+  direction: Direction,
+): CellLocation | null {
+  const fieldIndex = navigableFields.indexOf(field);
+  if (fieldIndex === -1) {
+    return null;
+  }
+
+  const nextField = navigableFields[fieldIndex + direction];
+  return nextField ? { id: rowId, field: nextField } : null;
+}
+
 export function focusKeyboardNavigableCell<Row extends GridValidRowModel>({
   api,
   cell,
@@ -284,4 +304,51 @@ export function preventReadOnlyCellMouseFocus(event: MouseEvent<HTMLElement>): v
 
 export function isInteractiveCellTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest(INTERACTIVE_CELL_TARGET_SELECTOR));
+}
+
+interface FocusStateApi {
+  state?: { focus?: { cell?: CellLocation | null } };
+}
+
+/**
+ * Walks up from a DOM event target to the enclosing grid cell and resolves its
+ * row id and field. Row ids are returned as numbers when they parse cleanly and
+ * kept as strings otherwise. Pure read; it never mutates the grid or the DOM.
+ */
+export function getCellLocationFromDomTarget(target: EventTarget | null): CellLocation | null {
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+
+  const cellElement = target.closest<HTMLElement>('[role="gridcell"][data-field]');
+  const rowElement = target.closest<HTMLElement>('[role="row"][data-id]');
+  const field = cellElement?.dataset.field;
+  const id = rowElement?.dataset.id;
+  if (!field || id === undefined) {
+    return null;
+  }
+
+  const numericId = Number(id);
+  return {
+    id: Number.isNaN(numericId) ? id : numericId,
+    field,
+  };
+}
+
+/**
+ * Resolves the currently focused cell for a keyboard event: it prefers the
+ * grid's tracked focus state and falls back to walking up from the event
+ * target's DOM when the grid has not recorded a focused cell. Pure read; it
+ * never mutates the grid or the DOM.
+ */
+export function resolveFocusedCellFromEvent(
+  api: FocusStateApi | null | undefined,
+  event: { target: EventTarget | null },
+): CellLocation | null {
+  const focusedCell = api?.state?.focus?.cell;
+  if (focusedCell) {
+    return focusedCell;
+  }
+
+  return getCellLocationFromDomTarget(event.target);
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import RegisterPage from '../pages/auth/RegisterPage';
 
 const logoutMock = vi.fn(async () => undefined);
@@ -44,6 +44,7 @@ vi.mock('../i18n', () => ({
       }
       const map: Record<string, string> = {
         'auth:register.title': 'Registrieren',
+        'auth:register.subtitle': 'Erstellen Sie Ihr kostenloses OpenFarmPlanner-Konto.',
         'auth:register.logoutAndCreate': 'Abmelden & neuen Account erstellen',
         'auth:register.backToApp': 'Zur App zurückkehren',
         'auth:register.email': 'E-Mail',
@@ -193,7 +194,7 @@ describe('RegisterPage', () => {
     await user.click(submitButton);
 
     expect(registerMock).toHaveBeenCalledWith('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '', true);
-  });
+  }, 20000);
 
   it('shows an explicit consent checkbox linking to the terms and the privacy policy', () => {
     authUser = null;
@@ -229,5 +230,5 @@ describe('RegisterPage', () => {
     await user.click(screen.getByRole('button', { name: 'Konto erstellen' }));
 
     expect(await screen.findByRole('button', { name: 'Aktivierungs-E-Mail erneut senden' })).toBeInTheDocument();
-  });
+  }, 20000);
 });

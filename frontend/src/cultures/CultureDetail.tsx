@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../i18n';
@@ -83,6 +83,7 @@ import {
   formatPackageSizes,
   formatSeedRateNumber,
   formatSeedUnitLabel,
+  getSowingMonths,
   type PersistedCultureFilters,
 } from './cultureDetailFormatters';
 
@@ -321,27 +322,6 @@ export function CultureDetail({
     const parsedGrowthDaysMax = filters.growthDaysMax ? Number(filters.growthDaysMax) : null;
     const parsedYieldMin = filters.yieldMin ? Number(filters.yieldMin) : null;
     const parsedYieldMax = filters.yieldMax ? Number(filters.yieldMax) : null;
-
-    const getSowingMonths = (culture: Culture): number[] => {
-      const dynamicCulture = culture as Culture & {
-        sowing_month?: number | null;
-        sowing_months?: number[] | null;
-        sowing_start_month?: number | null;
-        sowing_end_month?: number | null;
-      };
-      if (Array.isArray(dynamicCulture.sowing_months)) {
-        return dynamicCulture.sowing_months.filter((month) => Number.isInteger(month) && month >= 1 && month <= 12);
-      }
-      if (typeof dynamicCulture.sowing_month === 'number') {
-        return dynamicCulture.sowing_month >= 1 && dynamicCulture.sowing_month <= 12 ? [dynamicCulture.sowing_month] : [];
-      }
-      if (typeof dynamicCulture.sowing_start_month === 'number' && typeof dynamicCulture.sowing_end_month === 'number') {
-        const start = Math.min(dynamicCulture.sowing_start_month, dynamicCulture.sowing_end_month);
-        const end = Math.max(dynamicCulture.sowing_start_month, dynamicCulture.sowing_end_month);
-        return Array.from({ length: end - start + 1 }, (_, index) => start + index).filter((month) => month >= 1 && month <= 12);
-      }
-      return [];
-    };
 
     const normalizedQuery = filters.searchQuery.trim().toLowerCase();
     const selectedSupplierId = filters.selectedSupplierFilter ? Number(filters.selectedSupplierFilter) : null;

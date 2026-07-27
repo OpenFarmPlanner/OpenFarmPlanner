@@ -7,15 +7,69 @@ const API_BASE = computeBaseURL(import.meta.env.PROD, import.meta.env.VITE_API_B
 export class AuthApiError extends Error {
   code?: string;
   scheduledDeletionAt?: string;
+  status?: number;
+  retryAfterSeconds?: number;
+  payload?: Record<string, unknown>;
+  isNetworkError?: boolean;
 
-  constructor(message: string, code?: string, scheduledDeletionAt?: string) {
+  constructor(
+    message: string,
+    options: {
+      code?: string;
+      scheduledDeletionAt?: string;
+      status?: number;
+      retryAfterSeconds?: number;
+      payload?: Record<string, unknown>;
+      isNetworkError?: boolean;
+    } | string = {},
+    scheduledDeletionAt?: string,
+  ) {
     super(message);
-    this.code = code;
-    this.scheduledDeletionAt = scheduledDeletionAt;
+    if (typeof options === 'string') {
+      this.code = options;
+      this.scheduledDeletionAt = scheduledDeletionAt;
+      return;
+    }
+    this.code = options.code;
+    this.scheduledDeletionAt = options.scheduledDeletionAt;
+    this.status = options.status;
+    this.retryAfterSeconds = options.retryAfterSeconds;
+    this.payload = options.payload;
+    this.isNetworkError = options.isNetworkError;
   }
 }
 
-function extractError(raw: string): AuthApiError {
+function parsePositiveSeconds(value: unknown): number | undefined {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Math.ceil(parsed);
+}
+
+function parseRetrySecondsFromDetail(detail: string): number | undefined {
+  const match = /available in (\d+(?:\.\d+)?) seconds/i.exec(detail);
+  return match ? parsePositiveSeconds(match[1]) : undefined;
+}
+
+function resolveRetryAfterSeconds(
+  response: Response,
+  payload?: Record<string, unknown>,
+): number | undefined {
+  const headerSeconds = parsePositiveSeconds(response.headers.get('Retry-After'));
+  if (headerSeconds !== undefined) {
+    return headerSeconds;
+  }
+
+  const payloadSeconds = parsePositiveSeconds(payload?.retry_after);
+  if (payloadSeconds !== undefined) {
+    return payloadSeconds;
+  }
+
+  return typeof payload?.detail === 'string' ? parseRetrySecondsFromDetail(payload.detail) : undefined;
+}
+
+function extractError(response: Response, raw: string): AuthApiError {
   const fallbackMessage = translateOrFallback('auth:error.requestFailed', 'Anfrage fehlgeschlagen.');
   const looksLikeHtml = /^\s*<!doctype html/i.test(raw) || /^\s*<html/i.test(raw) || /<body[\s>]/i.test(raw);
   try {
@@ -23,12 +77,18 @@ function extractError(raw: string): AuthApiError {
     const detail = toUserFriendlyErrorMessage(parsed);
     const code = typeof parsed.code === 'string' ? parsed.code : undefined;
     const scheduledDeletionAt = typeof parsed.scheduled_deletion_at === 'string' ? parsed.scheduled_deletion_at : undefined;
-    return new AuthApiError(detail || fallbackMessage, code, scheduledDeletionAt);
+    return new AuthApiError(detail || fallbackMessage, {
+      code,
+      scheduledDeletionAt,
+      status: response.status,
+      retryAfterSeconds: resolveRetryAfterSeconds(response, parsed),
+      payload: parsed,
+    });
   } catch {
     if (looksLikeHtml) {
-      return new AuthApiError(fallbackMessage);
+      return new AuthApiError(fallbackMessage, { status: response.status });
     }
-    return new AuthApiError(fallbackMessage);
+    return new AuthApiError(fallbackMessage, { status: response.status });
   }
 }
 
@@ -153,32 +213,47 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-  });
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new AuthApiError(
+      translateOrFallback('auth:error.network', 'Die Anfrage konnte nicht gesendet werden.'),
+      { isNetworkError: true },
+    );
+  }
 
   if (!response.ok) {
-    throw extractError(await response.text());
+    throw extractError(response, await response.text());
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new AuthApiError(
+      translateOrFallback('auth:error.unexpectedResponse', 'Die Antwort des Servers konnte nicht gelesen werden.'),
+      { status: response.status, code: 'unexpected_response' },
+    );
+  }
 }
 
 export async function ensureCsrfCookie(): Promise<void> {
   await request<{ detail: string }>('/auth/csrf/', { method: 'GET' });
 }
 
-function csrfHeader(): Record<string, string> {
+export function csrfHeader(): Record<string, string> {
   return { 'X-CSRFToken': getCookie('csrftoken') ?? '' };
 }
 
@@ -232,6 +307,16 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     headers: csrfHeader(),
     body: JSON.stringify({ email, password }),
   });
+}
+
+export async function startGuestDemo(): Promise<AuthUser> {
+  await ensureCsrfCookie();
+  return request<AuthUser>('/auth/guest-demo/start/', { method: 'POST', headers: csrfHeader(), body: JSON.stringify({}) });
+}
+
+export async function endGuestDemo(): Promise<void> {
+  await ensureCsrfCookie();
+  await request('/auth/guest-demo/end/', { method: 'POST', headers: csrfHeader(), body: JSON.stringify({}) });
 }
 
 export async function logout(): Promise<void> {

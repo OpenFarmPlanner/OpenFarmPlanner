@@ -8,7 +8,8 @@
  * @returns The main App component with routing
  */
 
-import { createBrowserRouter, RouterProvider, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router-dom';
+import { createBrowserRouter, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import ProtectedRoute from './auth/ProtectedRoute';
@@ -17,6 +18,7 @@ export type { RootLayoutOutletContext, TopbarContextAction } from './navigation/
 import { buildInvitationAcceptPath } from './pages/invitationAcceptance';
 import { resolveRouterBasename } from './routerBasename';
 import RuntimeErrorState from './components/runtime/RuntimeErrorState';
+import RouteSeo from './seo/RouteSeo';
 import {
   isDynamicImportLoadError,
   reloadOnceForDynamicImportError,
@@ -155,11 +157,20 @@ function GlobalRuntimeErrorHandler({ children }: GlobalRuntimeErrorHandlerProps)
   return children;
 }
 
+function RootSeoLayout() {
+  return (
+    <>
+      <RouteSeo />
+      <Outlet />
+    </>
+  );
+}
+
 function createAppRouter(basename: string) {
   return createBrowserRouter([
     {
       path: '/',
-      element: <Outlet />,
+      element: <RootSeoLayout />,
       errorElement: <RouteErrorBoundary />,
       children: [
         {

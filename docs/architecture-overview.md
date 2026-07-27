@@ -69,7 +69,11 @@ docs/                  # This documentation
   password reset, per-user project settings (`UserProjectSettings`:
   default/last project), account deletion with a grace period, self-service
   personal data export, and document-consent tracking. There is no custom
-  `AUTH_USER_MODEL`.
+  `AUTH_USER_MODEL`. Sign-in with Google/Microsoft is layered on top via
+  django-allauth, which contributes only the provider handshake and the
+  external-identity records — the session, the account state, and the
+  account-linking rules stay in `accounts`; see
+  [social-login.md](./social-login.md).
 - **`crops`** is a real Django app but defines **no models** — it's a
   read-only API surface (`/api/crops/`) over `farm.PublicCulture`, kept
   deliberately one-directional (crops never imports from farm) in

@@ -33,9 +33,3 @@ export const fullWidthFieldSx = {
   flex: '1 1 100%',
   alignItems: 'flex-start',
 } as const;
-
-/** Comfortable maximum for single-column identity and authentication forms. */
-export const singleColumnFormSx = {
-  width: '100%',
-  maxWidth: 440,
-} as const;

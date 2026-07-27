@@ -60,7 +60,7 @@ describe('AreaAssignmentDialog', () => {
 
     expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveTextContent('Regenbogenland');
     expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveTextContent('8 Karotte + Zwiebel');
-    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent('5 (10,00 m²)');
+    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent(/5 \(10,00\s+m²\)/);
   });
 
   it('filters fields and beds when location changes', async () => {
@@ -89,7 +89,7 @@ describe('AreaAssignmentDialog', () => {
 
     await openSelect('Beet');
     const listbox = await screen.findByRole('listbox');
-    expect(within(listbox).getByRole('option', { name: '6 (8,00 m²)' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: /^6 \(8,00\s+m²\)$/ })).toBeInTheDocument();
     expect(within(listbox).queryByRole('option', { name: '5 (10,00 m²)' })).not.toBeInTheDocument();
   });
 
@@ -101,7 +101,7 @@ describe('AreaAssignmentDialog', () => {
     await openDialog();
     await openSelect('Beet');
     const listbox = await screen.findByRole('listbox');
-    expect(within(listbox).getByRole('option', { name: '5 (10,00 m²)' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: /^5 \(10,00\s+m²\)$/ })).toBeInTheDocument();
     expect(within(listbox).queryByRole('option', { name: '8 Karotte + Zwiebel | 5 (10,00 m²)' })).not.toBeInTheDocument();
   });
 
@@ -116,11 +116,11 @@ describe('AreaAssignmentDialog', () => {
     await openSelect('Parzelle');
     await userEvent.setup().click(screen.getByRole('option', { name: '5 Tomate' }));
     await openSelect('Beet');
-    await userEvent.setup().click(screen.getByRole('option', { name: '5 (12,50 m²)' }));
+    await userEvent.setup().click(screen.getByRole('option', { name: /^5 \(12,50\s+m²\)$/ }));
 
     expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveTextContent('Sonnengarten');
     expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveTextContent('5 Tomate');
-    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent('5 (12,50 m²)');
+    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent(/5 \(12,50\s+m²\)/);
   });
 
   it('applies the changed bed selection', async () => {
@@ -133,7 +133,7 @@ describe('AreaAssignmentDialog', () => {
     await openSelect('Parzelle');
     await userEvent.setup().click(screen.getByRole('option', { name: '9 Pastinake' }));
     await openSelect('Beet');
-    await userEvent.setup().click(screen.getByRole('option', { name: '6 (8,00 m²)' }));
+    await userEvent.setup().click(screen.getByRole('option', { name: /^6 \(8,00\s+m²\)$/ }));
     await userEvent.setup().click(screen.getByRole('button', { name: 'Übernehmen' }));
 
     expect(onApply).toHaveBeenCalledWith(102);
@@ -152,13 +152,13 @@ describe('AreaAssignmentDialog', () => {
     await openSelect('Parzelle');
     await userEvent.setup().click(screen.getByRole('option', { name: '9 Pastinake' }));
     await openSelect('Beet');
-    await userEvent.setup().click(screen.getByRole('option', { name: '6 (8,00 m²)' }));
+    await userEvent.setup().click(screen.getByRole('option', { name: /^6 \(8,00\s+m²\)$/ }));
     await userEvent.setup().click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     expect(onApply).not.toHaveBeenCalled();
 
     await openDialog();
-    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent('5 (10,00 m²)');
+    expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent(/5 \(10,00\s+m²\)/);
   });
 
   it('keeps the location selector visible when only one selectable location exists', async () => {

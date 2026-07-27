@@ -1,11 +1,12 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FieldsBedsPage from '../pages/FieldsBedsPage';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
-const { locationListMock, fieldListMock, bedListMock, addFieldMock, navigateMock } = vi.hoisted(() => ({
+const { locationListMock, locationCreateMock, fieldListMock, bedListMock, addFieldMock, navigateMock } = vi.hoisted(() => ({
   locationListMock: vi.fn(),
+  locationCreateMock: vi.fn(),
   fieldListMock: vi.fn(),
   bedListMock: vi.fn(),
   addFieldMock: vi.fn(),
@@ -17,10 +18,19 @@ const projectRequirementState = vi.hoisted(() => ({
 }));
 
 vi.mock('../pages/FieldsBedsHierarchy', () => ({
-  default: ({ createFieldRequest }: { createFieldRequest?: number }) => (
+  default: ({
+    createFieldRequest,
+    hierarchyData,
+  }: {
+    createFieldRequest?: number;
+    hierarchyData?: { locations: { name: string }[] };
+  }) => (
     <div>
       <div>Hierarchieansicht</div>
       <div data-testid="create-field-request">{createFieldRequest ?? 0}</div>
+      <div data-testid="location-order">
+        {hierarchyData?.locations.map((l) => l.name).join(', ')}
+      </div>
     </div>
   ),
 }));
@@ -46,6 +56,7 @@ vi.mock('../api/api', async () => {
     locationAPI: {
       list: locationListMock,
       listAll: async () => (await locationListMock()).data,
+      create: locationCreateMock,
     },
     fieldAPI: {
       list: fieldListMock,
@@ -69,7 +80,14 @@ vi.mock('../hooks/useProjectRequirement', () => ({
   useProjectRequirement: () => projectRequirementState,
 }));
 
-const registeredUiState: { topbarActions: { id: string; label: string; hidden?: boolean; menuActions?: { id: string; label: string }[] }[] } = { topbarActions: [] };
+interface RegisteredTopbarAction {
+  id: string;
+  label: string;
+  hidden?: boolean;
+  onClick?: () => void;
+  menuActions?: RegisteredTopbarAction[];
+}
+const registeredUiState: { topbarActions: RegisteredTopbarAction[] } = { topbarActions: [] };
 
 vi.mock('../hooks/useTopbarContextActions', () => ({
   useTopbarContextActions: (_setter: unknown, actions: typeof registeredUiState.topbarActions) => {
@@ -77,8 +95,8 @@ vi.mock('../hooks/useTopbarContextActions', () => ({
   },
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router');
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -96,6 +114,7 @@ describe('FieldsBedsPage', () => {
 
   beforeEach(() => {
     locationListMock.mockReset();
+    locationCreateMock.mockReset();
     fieldListMock.mockReset();
     bedListMock.mockReset();
     projectRequirementState.shouldShowProjectRequiredState = false;
@@ -192,6 +211,36 @@ describe('FieldsBedsPage', () => {
 
     expect(await screen.findByText('Hierarchieansicht')).toBeInTheDocument();
     expect(screen.getByTestId('create-field-request')).toHaveTextContent('1');
+  });
+
+  it('inserts a newly created location first, near the "Standort hinzufügen" action, without a full reload', async () => {
+    const user = userEvent.setup();
+    locationCreateMock.mockResolvedValue({ data: { id: 2, name: 'Nebenstelle' } });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('location-order')).toHaveTextContent('Hofstelle'));
+    expect(locationListMock).toHaveBeenCalledTimes(1);
+
+    // The hierarchy is fully populated here (a location, a field, a bed),
+    // so "Standort hinzufügen" lives in the global add-field topbar
+    // dropdown's menu, not as an inline empty-state link.
+    const addFieldAction = registeredUiState.topbarActions.find((action) => action.id === 'fields-global-add-field');
+    const addLocationMenuItem = addFieldAction?.menuActions?.find((action) => action.id === 'fields-global-add-location-menu-item');
+    expect(addLocationMenuItem?.label).toBe('Standort hinzufügen');
+    act(() => {
+      addLocationMenuItem?.onClick?.();
+    });
+
+    await user.type(await screen.findByLabelText('Name des Standorts'), 'Nebenstelle');
+    await user.click(screen.getByRole('button', { name: 'Standort anlegen' }));
+
+    await waitFor(() => expect(locationCreateMock).toHaveBeenCalledWith({ name: 'Nebenstelle' }));
+    // Inserted first (right next to the action that created it), not
+    // reloaded/re-sorted to wherever it would fall alphabetically.
+    await waitFor(() => expect(screen.getByTestId('location-order')).toHaveTextContent('Nebenstelle, Hofstelle'));
+    // No full reload was triggered by the create — the location list was
+    // only ever fetched once, on initial load.
+    expect(locationListMock).toHaveBeenCalledTimes(1);
   });
 
   it('shows location rows and missing field guidance without an action when multiple locations exist', async () => {

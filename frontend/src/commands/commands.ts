@@ -11,7 +11,8 @@ export interface RootCommandFactoryOptions {
   onSwitchProject: (projectId: number) => void | Promise<void>;
   onOpenAccountSettings: () => void;
   onOpenVersionHistory: () => void | Promise<void>;
-  onLogout: () => void | Promise<void>;
+  onLeaveDemoProject?: () => void | Promise<void>;
+  onLogout?: () => void | Promise<void>;
   onOpenPalette: () => void;
   onOpenPageHelp: () => void;
   onOpenShortcutsHelp: () => void;
@@ -25,6 +26,7 @@ export interface RootCommandFactoryOptions {
     switchProjectPrefix: string;
     openAccountSettings: string;
     openVersionHistory: string;
+    leaveDemo?: string;
     logout: string;
     openPalette: string;
     openPageHelp: string;
@@ -96,14 +98,22 @@ export function createRootCommands(options: RootCommandFactoryOptions): CommandS
       isVisible: () => options.activeProjectId !== null,
       action: options.onOpenVersionHistory,
     },
-    {
+    ...(options.onLeaveDemoProject && options.labels.leaveDemo ? [{
+      id: 'account.leaveDemo',
+      label: options.labels.leaveDemo,
+      keywords: ['demo', 'verlassen', 'zurück'],
+      group: 'account',
+      contextTags: ['global'],
+      action: options.onLeaveDemoProject,
+    } satisfies CommandSpec] : []),
+    ...(options.onLogout ? [{
       id: 'account.logout',
       label: options.labels.logout,
       keywords: ['logout', 'abmelden', 'konto'],
       group: 'account',
       contextTags: ['global'],
       action: options.onLogout,
-    },
+    } satisfies CommandSpec] : []),
   ];
 
   const navigationCommands: CommandSpec[] = [

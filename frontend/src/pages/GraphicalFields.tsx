@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -378,107 +378,102 @@ export default function GraphicalFields({
     }, 250);
   };
 
-  const fieldsByLocation = useMemo(() => {
-    const map = new Map<number, typeof fields>();
-    locations.forEach((location) => {
-      if (!location.id) return;
-      map.set(
-        location.id,
-        fields.filter(
-          (field) => field.location === location.id && field.id !== undefined,
-        ),
-      );
-    });
-    return map;
-  }, [fields, locations]);
+  const fieldsByLocation = new Map<number, typeof fields>();
+  locations.forEach((location) => {
+    if (!location.id) return;
+    fieldsByLocation.set(
+      location.id,
+      fields.filter(
+        (field) => field.location === location.id && field.id !== undefined,
+      ),
+    );
+  });
 
-  const locationLayouts = useMemo(() => {
-    return locations.flatMap((location) => {
-      if (!location.id) return [];
-      const locationFields = fieldsByLocation.get(location.id) ?? [];
-      const sizedFields = locationFields.map((field) => {
-        const size = getFieldRectSize(field, FIELD_WORLD_PX_PER_METER, {
-          baseWidth: FIELD_WORLD_BASE_WIDTH,
-          minWidth: FIELD_WORLD_MIN_WIDTH,
-          maxWidth: FIELD_WORLD_MAX_WIDTH,
-          minHeight: FIELD_WORLD_MIN_HEIGHT,
-          scaleFactor: FIELD_WORLD_SCALE_FACTOR,
-        });
-        return {
-          field,
-          width: size.width,
-          height: size.height,
-        };
+  const locationLayouts = locations.flatMap((location) => {
+    if (!location.id) return [];
+    const locationFields = fieldsByLocation.get(location.id) ?? [];
+    const sizedFields = locationFields.map((field) => {
+      const size = getFieldRectSize(field, FIELD_WORLD_PX_PER_METER, {
+        baseWidth: FIELD_WORLD_BASE_WIDTH,
+        minWidth: FIELD_WORLD_MIN_WIDTH,
+        maxWidth: FIELD_WORLD_MAX_WIDTH,
+        minHeight: FIELD_WORLD_MIN_HEIGHT,
+        scaleFactor: FIELD_WORLD_SCALE_FACTOR,
       });
-      const totalFieldsHeight =
-        sizedFields.reduce((sum, entry) => sum + entry.height, 0) +
-        Math.max(0, sizedFields.length - 1) * LOCATION_FIELD_GAP;
-      let fieldY = Math.max(
-        LOCATION_LAYOUT_PADDING,
-        Math.round(WORKSPACE_MIN_HEIGHT / 2 - totalFieldsHeight / 2),
-      );
-
-      const defaultFieldRects = sizedFields.map((entry) => {
-        const y = fieldY;
-        fieldY += entry.height + LOCATION_FIELD_GAP;
-        return {
-          ...entry,
-          defaultX: Math.max(
-            LOCATION_LAYOUT_PADDING,
-            Math.round(WORKSPACE_MIN_WIDTH / 2 - entry.width / 2),
-          ),
-          defaultY: y,
-        };
-      });
-
-      const contentHeight = Math.max(
-        WORKSPACE_MIN_HEIGHT,
-        DEFAULT_STAGE_HEIGHT,
-        fieldY + 20,
-      );
-      const contentWidth = Math.max(
-        WORKSPACE_MIN_WIDTH,
-        ...defaultFieldRects.map(
-          (rect) =>
-            rect.width + rect.defaultX + LOCATION_LAYOUT_PADDING,
-        ),
-      );
-      const fieldViewModels: RectViewModel[] = defaultFieldRects.map(
-        (baseRect) => {
-          const fieldId = baseRect.field.id!;
-          const savedFieldLayout = layoutsByField[fieldId];
-          const clamped = clampInsideParent(
-            {
-              x: savedFieldLayout?.x ?? baseRect.defaultX,
-              y: savedFieldLayout?.y ?? baseRect.defaultY,
-            },
-            { width: baseRect.width, height: baseRect.height },
-            { width: contentWidth, height: contentHeight },
-          );
-
-          return {
-            id: fieldId,
-            x: clamped.x,
-            y: clamped.y,
-            width: baseRect.width,
-            height: baseRect.height,
-          };
-        },
-      );
-
-      return [
-        {
-          location,
-          defaultFieldRects,
-          fieldViewModels,
-          contentWidth,
-          contentHeight,
-        },
-      ];
+      return {
+        field,
+        width: size.width,
+        height: size.height,
+      };
     });
-  }, [fieldsByLocation, layoutsByField, locations]);
+    const totalFieldsHeight =
+      sizedFields.reduce((sum, entry) => sum + entry.height, 0) +
+      Math.max(0, sizedFields.length - 1) * LOCATION_FIELD_GAP;
+    let fieldY = Math.max(
+      LOCATION_LAYOUT_PADDING,
+      Math.round(WORKSPACE_MIN_HEIGHT / 2 - totalFieldsHeight / 2),
+    );
 
-  const getContentBoundsForLocation = useCallback((locationId: number): ContentBounds => {
+    const defaultFieldRects = sizedFields.map((entry) => {
+      const y = fieldY;
+      fieldY += entry.height + LOCATION_FIELD_GAP;
+      return {
+        ...entry,
+        defaultX: Math.max(
+          LOCATION_LAYOUT_PADDING,
+          Math.round(WORKSPACE_MIN_WIDTH / 2 - entry.width / 2),
+        ),
+        defaultY: y,
+      };
+    });
+
+    const contentHeight = Math.max(
+      WORKSPACE_MIN_HEIGHT,
+      DEFAULT_STAGE_HEIGHT,
+      fieldY + 20,
+    );
+    const contentWidth = Math.max(
+      WORKSPACE_MIN_WIDTH,
+      ...defaultFieldRects.map(
+        (rect) =>
+          rect.width + rect.defaultX + LOCATION_LAYOUT_PADDING,
+      ),
+    );
+    const fieldViewModels: RectViewModel[] = defaultFieldRects.map(
+      (baseRect) => {
+        const fieldId = baseRect.field.id!;
+        const savedFieldLayout = layoutsByField[fieldId];
+        const clamped = clampInsideParent(
+          {
+            x: savedFieldLayout?.x ?? baseRect.defaultX,
+            y: savedFieldLayout?.y ?? baseRect.defaultY,
+          },
+          { width: baseRect.width, height: baseRect.height },
+          { width: contentWidth, height: contentHeight },
+        );
+
+        return {
+          id: fieldId,
+          x: clamped.x,
+          y: clamped.y,
+          width: baseRect.width,
+          height: baseRect.height,
+        };
+      },
+    );
+
+    return [
+      {
+        location,
+        defaultFieldRects,
+        fieldViewModels,
+        contentWidth,
+        contentHeight,
+      },
+    ];
+  });
+
+  const getContentBoundsForLocation = (locationId: number): ContentBounds => {
     const layout = locationLayouts.find((item) => item.location.id === locationId);
     if (!layout) {
       return toContentBounds({ width: stageWidth, height: stageHeight });
@@ -492,7 +487,7 @@ export default function GraphicalFields({
         height: layout.contentHeight,
       })
     );
-  }, [locationLayouts, stageHeight, stageWidth]);
+  };
 
   const resetViewport = (locationId: number): void => {
     setViewportByLocation((prev) => {
@@ -509,7 +504,7 @@ export default function GraphicalFields({
     });
   };
 
-  const updateViewport = useCallback((
+  const updateViewport = (
     locationId: number,
     updater: (current: ViewportState) => ViewportState,
   ): void => {
@@ -531,7 +526,7 @@ export default function GraphicalFields({
       );
       return { ...prev, [locationId]: nextClamped };
     });
-  }, [getContentBoundsForLocation, stageHeight, stageWidth]);
+  };
 
   const handleZoom = (locationId: number, factor: number): void => {
     updateViewport(locationId, (current) =>
@@ -542,7 +537,7 @@ export default function GraphicalFields({
     );
   };
 
-  const handlePanByOffset = useCallback((
+  const handlePanByOffset = (
     locationId: number,
     deltaX: number,
     deltaY: number,
@@ -552,7 +547,7 @@ export default function GraphicalFields({
       x: current.x + deltaX,
       y: current.y + deltaY,
     }));
-  }, [updateViewport]);
+  };
 
   const handleStageWheel = (
     locationId: number,

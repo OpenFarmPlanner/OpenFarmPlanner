@@ -27,6 +27,7 @@
     "tableCopied": "Tabelle kopiert.",
     "copyError": "Daten konnten nicht kopiert werden.",
     "contextMenuTableHint": "Tipp: Rechtsklick auf eine Tabellenzeile öffnet weitere Aktionen.",
+    "contextMenuTableHintTouch": "Tipp: Zeile länger gedrückt halten für weitere Aktionen.",
     "contextMenuHintKeyboard": "Alternativ: Kontextmenütaste oder Shift+F10.",
     "confirmation": "Bestätigung",
     "rowChanged": "Geändert",

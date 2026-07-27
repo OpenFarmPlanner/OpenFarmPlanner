@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { GridColDef } from '@mui/x-data-grid';
 import { AxiosError } from 'axios';
@@ -74,8 +74,22 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.getVisibleColumns = () => columns;
       apiRef.current.getAllRowIds = () => rows.map((row: TestGridRow) => row.id);
-      apiRef.current.getRowWithUpdatedValues = (id: string | number) =>
-        rows.find((row: TestGridRow) => String(row.id) === String(id)) ?? null;
+      apiRef.current.getRowWithUpdatedValues = (id: string | number) => {
+        const baseRow = rows.find((row: TestGridRow) => String(row.id) === String(id));
+        if (!baseRow) {
+          return null;
+        }
+        const rowKeyPrefix = `${String(id)}-`;
+        return Object.entries(editValues).reduce<TestGridRow>((updatedRow, [editKey, value]) => {
+          if (!editKey.startsWith(rowKeyPrefix)) {
+            return updatedRow;
+          }
+          return {
+            ...updatedRow,
+            [editKey.slice(rowKeyPrefix.length)]: value,
+          };
+        }, baseRow);
+      };
       apiRef.current.getRowIndexRelativeToVisibleRows = (id: string | number) =>
         rows.findIndex((row: TestGridRow) => String(row.id) === String(id));
       apiRef.current.getColumnIndexRelativeToVisibleColumns = (field: string) =>
@@ -95,12 +109,17 @@ vi.mock('@mui/x-data-grid', async () => {
     }
 
     const commit = async (row: TestGridRow, reason: string) => {
+      const event = { defaultMuiPrevented: false };
+      onRowEditStop?.({ id: row.id, reason }, event);
+      if (event.defaultMuiPrevented) {
+        return;
+      }
+      const updatedRow = apiRef?.current?.getRowWithUpdatedValues?.(row.id) ?? row;
       try {
-        await processRowUpdate(row);
+        await processRowUpdate(updatedRow);
       } catch (error) {
         onProcessRowUpdateError?.(error);
       }
-      onRowEditStop?.({ reason }, { defaultMuiPrevented: false });
     };
 
     return (
@@ -271,6 +290,17 @@ describe('EditableDataGrid', () => {
     deleteErrorMessage: 'Löschen fehlgeschlagen',
     deleteConfirmMessage: 'Wirklich löschen?',
     addButtonLabel: 'Neu',
+  });
+
+  const basePropsWithEmptyNewRow = (validateRow = (row: TestGridRow) => (!row.name ? 'Name ist erforderlich' : null)) => ({
+    ...baseProps(validateRow),
+    createNewRow: () => createGridRow({
+      id: -1,
+      isNew: true,
+      name: '',
+      area_sqm: undefined as never,
+      notes: '',
+    }),
   });
 
   const basePropsWithRows = (rows: TestGridRow[]) => {
@@ -620,6 +650,49 @@ describe('EditableDataGrid', () => {
     expect(createSpy).not.toHaveBeenCalled();
   });
 
+  it('discards untouched empty new rows on blur without saving or validating', async () => {
+    const props = basePropsWithEmptyNewRow();
+    const createSpy = vi.spyOn(props.api, 'create');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    fireEvent.click(screen.getByLabelText('Neu'));
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Blur speichern -1/i }));
+
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('messages.validationErrors')).not.toBeInTheDocument();
+    expect(screen.queryByText('Name ist erforderlich')).not.toBeInTheDocument();
+  });
+
+  it('keeps edited new rows on blur and runs the existing validation flow', async () => {
+    const validateRow = vi.fn((row: TestGridRow) => (!row.name ? 'Name ist erforderlich' : null));
+    const props = basePropsWithEmptyNewRow(validateRow);
+    const createSpy = vi.spyOn(props.api, 'create');
+    const commandApiRef: { current: EditableDataGridCommandApi | null } = { current: null };
+
+    render(<EditableDataGrid {...props} commandApiRef={commandApiRef} showDeleteAction={false} />);
+
+    await waitFor(() => expect(commandApiRef.current).not.toBeNull());
+    fireEvent.click(screen.getByLabelText('Neu'));
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
+
+    await act(async () => {
+      await commandApiRef.current?.setDraftValues(-1, { area_sqm: 4 });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Blur speichern -1/i }));
+    });
+
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(validateRow).toHaveBeenCalledWith(expect.objectContaining({ area_sqm: 4 }));
+    expect(screen.getByText('messages.validationErrors')).toBeInTheDocument();
+    expect(screen.getByTestId('row-count')).toHaveTextContent('2');
+  });
+
   it('runs before-save validation for implicit blur persistence and keeps blocked rows editable', async () => {
     const props = baseProps(() => null);
     const updateSpy = vi.spyOn(props.api, 'update');
@@ -641,6 +714,21 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(onBeforeSaveRow).toHaveBeenCalled());
     expect(updateSpy).not.toHaveBeenCalled();
     expect(screen.getByTestId('mode-1')).toHaveTextContent('edit');
+  });
+
+  it('keeps existing row blur persistence unchanged', async () => {
+    const props = baseProps(() => null);
+    const updateSpy = vi.spyOn(props.api, 'update');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Zelle 1-name' }));
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Blur speichern 1' }));
+
+    await waitFor(() => expect(updateSpy).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Beet A' })));
   });
 
   it('does not autosave an edited row when interacting with a portal dialog', async () => {
@@ -719,12 +807,20 @@ describe('EditableDataGrid', () => {
   });
 
   it('discards draft rows with Escape', async () => {
-    render(<EditableDataGrid {...baseProps()} showDeleteAction={false} />);
+    const props = basePropsWithEmptyNewRow();
+    const createSpy = vi.spyOn(props.api, 'create');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
     fireEvent.click(screen.getByLabelText('Neu'));
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
     fireEvent.click(screen.getByRole('button', { name: 'ESC -1' }));
+
     await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('1'));
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('messages.validationErrors')).not.toBeInTheDocument();
+    expect(screen.queryByText('Name ist erforderlich')).not.toBeInTheDocument();
   });
 
   it('removes touched draft rows with Escape without saving or validating', async () => {
@@ -1101,6 +1197,109 @@ describe('EditableDataGrid', () => {
     expect(stopPropagationSpy).toHaveBeenCalled();
   });
 
+  it('opens row actions from a touch long-press and suppresses the trailing click, so the cell does not also enter edit mode', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    let touchEndEvent: TouchEvent;
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      // A real browser would synthesize a trailing click from this touchend
+      // (which the grid would otherwise treat as a tap-to-edit on the cell
+      // underneath) unless its default is prevented — jsdom doesn't perform
+      // that synthesis itself, so defaultPrevented is the testable proxy.
+      touchEndEvent = new TouchEvent('touchend', { bubbles: true, cancelable: true });
+      fireEvent(row, touchEndEvent);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(touchEndEvent!.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+  });
+
+  it('a tap outside the open row-action menu (on another cell) only closes it, and does not start editing that cell', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const firstRow = screen.getByTestId('row-1');
+    const otherCell = screen.getByRole('button', { name: 'Zelle 1-area_sqm' });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(firstRow, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+
+    // A tap that lands outside the menu, on a *different* cell, must only
+    // dismiss the menu — not also start editing that cell.
+    const outsideTap = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+    fireEvent(otherCell, outsideTap);
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+    expect(outsideTap.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+
+    // A further, separate tap on that same cell now behaves completely
+    // normally — the menu is closed, so nothing intercepts it.
+    fireEvent.click(otherCell);
+
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+  });
+
+  it('does not open row actions on a short tap (touch)', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.touchStart(row, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+      fireEvent.touchEnd(row);
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+  });
+
   it('keeps row actions right-click only without a hover trigger', async () => {
     render(
       <EditableDataGrid
@@ -1192,6 +1391,50 @@ describe('EditableDataGrid', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'actions.copyRow' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'actions.copyTable' })).toBeInTheDocument();
+  });
+
+  it('opens the app context menu (not the native one) when right-clicking directly on the inline action icon', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    const actionsButton = screen.getByRole('button', { name: 'Aktionen' });
+    // A real right-click on a MUI IconButton icon lands on the inner SVG
+    // <path>, an SVGElement rather than an HTMLElement - regression guard
+    // for the bug where such right-clicks fell through to the native menu.
+    const iconPath = actionsButton.querySelector('svg path');
+    expect(iconPath).not.toBeNull();
+
+    const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(iconPath as Element, contextMenuEvent);
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
+    expect(contextMenuEvent.defaultPrevented).toBe(true);
+  });
+
+  it('left-click on the inline action icon still works normally after the context-menu fix', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        inlineRowActionField="name"
+        showInlineRowActionMenu
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Aktionen' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
   });
 
   it('duplicates a row from the contextual menu and starts editing the copy', async () => {

@@ -13,6 +13,7 @@
   "graphicalFields": "Grafische Ansicht",
   "accountSettings": "Kontoeinstellungen",
   "appVersionLabel": "Version",
+  "disabledNoProjectTooltip": "Erstelle zuerst ein Projekt.",
   "project": {
     "settings": "Projekteinstellungen",
     "members": "Mitglieder verwalten",
@@ -144,6 +145,7 @@
       "openVersionHistory": "Versionsverlauf öffnen",
       "toggleSidebar": "Sidebar ein-/ausklappen",
       "openPageHelp": "Seitenhilfe öffnen",
+      "leaveDemo": "Demo verlassen",
       "logout": "Abmelden",
       "openShortcutsHelp": "Tastenkürzel anzeigen",
       "closeDialog": "Dialog schließen",
@@ -163,6 +165,7 @@
       "versionHistoryLoadError": "Versionsverlauf konnte nicht geladen werden.",
       "versionRestored": "Projektversion wurde wiederhergestellt.",
       "versionRestoreError": "Projektversion konnte nicht wiederhergestellt werden.",
+      "leaveDemoError": "Demo konnte nicht verlassen werden. Bitte versuche es erneut.",
       "logoutError": "Abmeldung fehlgeschlagen. Bitte versuche es erneut."
     },
     "shortcutHint": "Tipp: Drücke Alt+K für die Command Palette."

@@ -7,15 +7,17 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
-from django.utils import translation
+from django.utils import timezone, translation
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from farm.models import ProjectMembership
 from farm.project_context import resolve_project_for_user
+from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION
+
 from .consent import get_pending_consent_documents, has_accepted_current, record_acceptance
-from .models import AccountDeletionRequest, DocumentConsent, PublicProfile
+from .models import AccountDeletionRequest, DocumentConsent, GuestDemoSession, PublicProfile
 
 User = get_user_model()
 _username_validator = UnicodeUsernameValidator()
@@ -67,6 +69,9 @@ class UserSerializer(serializers.ModelSerializer):
     scheduled_deletion_at = serializers.SerializerMethodField()
     pending_consents = serializers.SerializerMethodField()
     public_library_terms_accepted = serializers.SerializerMethodField()
+    is_guest_demo = serializers.SerializerMethodField()
+    guest_demo_session_id = serializers.SerializerMethodField()
+    has_password = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -88,6 +93,9 @@ class UserSerializer(serializers.ModelSerializer):
             'scheduled_deletion_at',
             'pending_consents',
             'public_library_terms_accepted',
+            'is_guest_demo',
+            'guest_demo_session_id',
+            'has_password',
         )
         read_only_fields = fields
 
@@ -117,7 +125,7 @@ class UserSerializer(serializers.ModelSerializer):
             return None
         return project.id
 
-    def get_memberships(self, obj: User) -> list[dict[str, str | int]]:
+    def get_memberships(self, obj: User) -> list[dict[str, str | int | bool]]:
         rows = ProjectMembership.objects.select_related('project').filter(
             user=obj,
             project__is_active=True,
@@ -128,6 +136,7 @@ class UserSerializer(serializers.ModelSerializer):
                 'project_id': row.project_id,
                 'project_name': row.project.name,
                 'role': row.role,
+                'is_demo_project': row.project.description == DEMO_PROJECT_DESCRIPTION,
             }
             for row in rows
         ]
@@ -151,7 +160,24 @@ class UserSerializer(serializers.ModelSerializer):
         return deletion.scheduled_deletion_at.isoformat()
 
     def get_pending_consents(self, obj: User) -> list[str]:
-        return get_pending_consent_documents(obj)
+        return [] if self.get_is_guest_demo(obj) else get_pending_consent_documents(obj)
+
+    def get_is_guest_demo(self, obj: User) -> bool:
+        try:
+            return obj.guest_demo_session.expires_at > timezone.now()
+        except GuestDemoSession.DoesNotExist:
+            return False
+
+    def get_guest_demo_session_id(self, obj: User) -> int | None:
+        return obj.guest_demo_session.id if self.get_is_guest_demo(obj) else None
+
+    def get_has_password(self, obj: User) -> bool:
+        """Whether the account can sign in with email and password.
+
+        Accounts created through Google/Microsoft have no usable password
+        until they set one via the password reset flow.
+        """
+        return obj.has_usable_password()
 
     def get_public_library_terms_accepted(self, obj: User) -> bool:
         return has_accepted_current(obj, DocumentConsent.DOCUMENT_PUBLIC_LIBRARY)
@@ -227,7 +253,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 
 class AccountDeleteRequestSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True)
+    # Optional because accounts created through Google/Microsoft have no
+    # usable password to confirm with; the view enforces it whenever the
+    # account does have one.
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
 
 class AccountRestoreSerializer(serializers.Serializer):
@@ -257,7 +286,8 @@ class AccountPublicProfileSerializer(serializers.Serializer):
 
 class AccountEmailChangeRequestSerializer(serializers.Serializer):
     new_email = serializers.EmailField()
-    current_password = serializers.CharField(write_only=True)
+    # See AccountDeleteRequestSerializer.password.
+    current_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     def validate_new_email(self, value: str) -> str:
         normalized = normalize_email_lower(value)

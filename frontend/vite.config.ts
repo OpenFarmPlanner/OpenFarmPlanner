@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { seoPlugin } from './build/seoPlugin'
 
 function normalizeBasePath(input?: string): string {
   const value = input && input.trim().length > 0 ? input.trim() : '/'
@@ -24,7 +25,7 @@ const backendProxy = {
 // https://vite.dev/config/
 export default defineConfig({
   base: basePath,
-  plugins: [react()],
+  plugins: [react(), seoPlugin(process.env)],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -54,7 +55,7 @@ export default defineConfig({
     teardownTimeout: 5000,
     pool: process.env.CI ? 'forks' : 'threads',
     fileParallelism: !process.env.CI,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'build/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     server: {
       deps: {
@@ -80,7 +81,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
+          react: ['react', 'react-dom', 'react-router'],
           mui: ['@mui/material'],
           muiIcons: ['@mui/icons-material'],
           i18n: ['i18next', 'react-i18next'],

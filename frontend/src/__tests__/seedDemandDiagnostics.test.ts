@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { SeedDemand } from '../api/types';
 import {
   getPackageBlockerTooltip,
+  getPackageCellState,
   getRequiredAmountDiagnostic,
+  hasPackageCellTooltip,
   type SeedDemandTranslator,
 } from '../pages/seedDemandDiagnostics';
 
@@ -79,5 +81,42 @@ describe('seed demand diagnostics', () => {
       required_amount_value: 12.5,
       required_amount_unit: 'g',
     }), t)).toBeNull();
+  });
+});
+
+describe('getPackageCellState', () => {
+  it('returns "computed" when a package selection exists', () => {
+    expect(getPackageCellState(row({
+      required_amount_value: 10,
+      package_suggestion: { selection: [{ size_value: 5, size_unit: 'g', count: 2 }] },
+    } as Partial<SeedDemand>))).toBe('computed');
+  });
+
+  it('returns "unavailableRequirement" when the required amount is missing', () => {
+    expect(getPackageCellState(row({ required_amount_value: null }))).toBe('unavailableRequirement');
+  });
+
+  it('returns "chooseSupplier" when no supplier data is available', () => {
+    expect(getPackageCellState(row({
+      required_amount_value: 10,
+      supplier_options: [],
+    } as Partial<SeedDemand>))).toBe('chooseSupplier');
+  });
+
+  it('returns "calculationError" for a non-actionable blocker', () => {
+    expect(getPackageCellState(row({ package_blocker: 'unit_conversion_unavailable' }))).toBe('calculationError');
+  });
+});
+
+describe('hasPackageCellTooltip', () => {
+  it('is false when a package selection exists', () => {
+    expect(hasPackageCellTooltip(row({
+      required_amount_value: 10,
+      package_suggestion: { selection: [{ size_value: 5, size_unit: 'g', count: 1 }] },
+    } as Partial<SeedDemand>))).toBe(false);
+  });
+
+  it('is true when a blocker prevents a package suggestion', () => {
+    expect(hasPackageCellTooltip(row({ required_amount_value: null }))).toBe(true);
   });
 });

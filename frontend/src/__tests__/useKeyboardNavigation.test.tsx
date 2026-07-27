@@ -10,7 +10,7 @@ const { navigateMock, useLocationMock, useNavigateMock } = vi.hoisted(() => ({
 useNavigateMock.mockImplementation(() => navigateMock);
 useLocationMock.mockImplementation(() => ({ pathname: window.location.pathname }));
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useLocation: useLocationMock,
   useNavigate: useNavigateMock,
 }));

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Tooltip, type TooltipProps } from '@mui/material';
 
 const FLOATING_DROPDOWN_SELECTOR = [
@@ -54,22 +54,16 @@ function useFloatingDropdownOpen(): boolean {
 }
 
 function useDropdownInteractionSuppressed(dropdownOpen: boolean): boolean {
-  const [suppressed, setSuppressed] = useState(false);
+  const [triggerSuppressed, setTriggerSuppressed] = useState(false);
 
-  useEffect(() => {
-    if (dropdownOpen) {
-      setSuppressed(true);
-      return;
-    }
-
-    setSuppressed(false);
-  }, [dropdownOpen]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const suppressForDropdownTrigger = (event: Event): void => {
       if (isDropdownTrigger(event.target)) {
-        setSuppressed(true);
+        setTriggerSuppressed(true);
+        return;
       }
+
+      setTriggerSuppressed(false);
     };
 
     document.addEventListener('mousedown', suppressForDropdownTrigger, true);
@@ -83,7 +77,7 @@ function useDropdownInteractionSuppressed(dropdownOpen: boolean): boolean {
     };
   }, []);
 
-  return suppressed;
+  return dropdownOpen || triggerSuppressed;
 }
 
 export function DropdownAwareTooltip({

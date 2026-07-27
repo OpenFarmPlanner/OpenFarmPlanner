@@ -3,7 +3,7 @@
 OpenFarmPlanner defines its reusable demo project data in
 `backend/farm/services/demo_project.py`.
 
-The service has two entry points:
+The service has two persistent-data entry points:
 
 - `create_personal_demo_project(user=...)` creates one normal, editable
   project for the authenticated user and is used by first-project onboarding
@@ -16,6 +16,8 @@ locations, four fields, twelve beds, three suppliers, eight vegetable cultures,
 seed package data, and twelve planting plans for the 2026 season. All created
 records are project-scoped and owned by the receiving user through a regular
 admin `ProjectMembership`.
+
+The public landing page also starts an isolated anonymous guest project from this template. Guest workspaces are editable but session-bound, reset on the next browser session, and removed after their short server-side retention period by `cleanup_guest_demo_sessions`. This is separate from the persistent personal demo project.
 
 The frontend opens the first-project onboarding automatically only while the
 authenticated user's project membership list is empty. Loading the demo project

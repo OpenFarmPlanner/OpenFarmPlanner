@@ -6,7 +6,13 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // ESLint 10 no longer implicitly skips every dotfolder/build-cache
+  // directory the way earlier versions did — `.vite`'s prebundled deps
+  // (@mui_material.js etc.) started getting linted as plain JS and failing
+  // with "rule not found" errors for rules this config never enables.
+  // List every local build/tooling output explicitly instead of relying on
+  // implicit defaults that can change across major versions.
+  globalIgnores(['dist', 'dist-staging', 'dist-ssr', '.vite', 'coverage', 'mutation-report']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

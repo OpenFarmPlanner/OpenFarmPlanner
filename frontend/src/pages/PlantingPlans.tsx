@@ -7,14 +7,13 @@
  * @returns The Planting Plans page component
  */
 
-import { memo, useCallback, useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { isTypingInEditableElement } from "../hooks/useKeyboardShortcuts";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type {
   GridCellParams,
   GridColDef,
   GridRenderCellParams,
-  GridRenderEditCellParams,
   GridValueOptionsParams,
 } from "@mui/x-data-grid";
 import {
@@ -22,9 +21,7 @@ import {
   Button,
   CircularProgress,
   IconButton,
-  MenuItem,
   Stack,
-  TextField,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -42,8 +39,10 @@ import {
   formatAreaM2,
   buildBedDisplayLabel,
   getAllowedCultivationTypesForCulture,
+  isEmptyNewPlantingPlanRow,
 } from "./plantingPlansUtils";
-import { usePlantingPlanHierarchy, type CultivationTypeSelectOption } from "./usePlantingPlanHierarchy";
+import { usePlantingPlanHierarchy } from "./usePlantingPlanHierarchy";
+import { CultivationTypeEditCell } from "./CultivationTypeEditCell";
 import PageContainer from "../components/layout/PageContainer";
 import PageSurface from "../components/layout/PageSurface";
 import { AlertSnackbar } from "../components/feedback/AlertSnackbar";
@@ -94,27 +93,11 @@ import {
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
 import { CompactAreaCell } from "../components/planting-plans/CompactAreaCell";
 import EmptyStateCard from "../components/project/EmptyStateCard";
-import { useClosedSelectTypeahead } from "../components/inputs/selectTypeahead";
-
-export {
-  collectHierarchyAvailability,
-  filterBedOptionsBySelection,
-  filterFieldOptionsByLocation,
-} from "../components/planting-plans/areaHierarchySelection";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
 import { MobilePlanFormDialog } from "../components/planting-plans/MobilePlanFormDialog";
 import { MobilePlanActionsMenu } from "../components/planting-plans/MobilePlanActionsMenu";
-export { buildAreaColumnHeaderLabel } from "./plantingPlansUtils";
-export {
-  buildMobileCreateForm,
-  getVisibleMobileRows,
-  normalizeSelectionAfterBedChange,
-  normalizeSelectionAfterFieldChange,
-  normalizeSelectionAfterLocationChange,
-  resolveBedCellValue,
-} from './plantingPlansUtils';
 import {
   areRowsSemanticallyEqual,
   buildMobileCreateForm,
@@ -139,101 +122,6 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
 const CULTURE_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
-
-interface CultivationTypeEditCellProps extends GridRenderEditCellParams {
-  options: CultivationTypeSelectOption[];
-  placeholder: string;
-}
-
-const CultivationTypeEditCell = memo(function CultivationTypeEditCell({
-  id,
-  field,
-  value,
-  hasFocus,
-  api,
-  options,
-  placeholder,
-}: CultivationTypeEditCellProps) {
-  const selectedValue = normalizeCultivationType(value) ?? "";
-  const selectedOption = options.find((option) => option.value === selectedValue);
-  const handleTypeaheadSelect = useCallback((nextValue: string | string[]): void => {
-    const nextSelectedValue = Array.isArray(nextValue) ? nextValue[0] : nextValue;
-    void api.setEditCellValue({
-      id,
-      field,
-      value: nextSelectedValue,
-    });
-  }, [api, field, id]);
-  const handleSelectKeyDown = useClosedSelectTypeahead<string>({
-    options,
-    value: selectedValue,
-    onSelect: handleTypeaheadSelect,
-  });
-
-  return (
-    <TextField
-      select
-      fullWidth
-      size="small"
-      autoFocus={hasFocus}
-      value={selectedValue}
-      slotProps={{
-        htmlInput: {
-          tabIndex: hasFocus ? 0 : -1,
-        },
-        select: {
-          displayEmpty: true,
-          onKeyDown: handleSelectKeyDown,
-          renderValue: () => selectedOption?.label ?? (
-            <Box
-              component="span"
-              sx={{
-                display: "block",
-                minWidth: 0,
-                overflow: "hidden",
-                color: "text.disabled",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {placeholder}
-            </Box>
-          ),
-        },
-      }}
-      sx={{
-        "& .MuiSelect-select": {
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        },
-      }}
-      onChange={async (event) => {
-        await api.setEditCellValue({
-          id,
-          field,
-          value: event.target.value,
-        });
-      }}
-    >
-      {options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {option.label}
-        </MenuItem>
-      ))}
-    </TextField>
-  );
-}, (previous, next) => (
-  previous.id === next.id
-  && previous.field === next.field
-  && previous.value === next.value
-  && previous.hasFocus === next.hasFocus
-  && previous.options === next.options
-  && previous.placeholder === next.placeholder
-));
-
-export { buildBedDisplayLabel } from "./plantingPlansUtils";
 
 function PlantingPlans() {
   const { t } = useTranslation(["plantingPlans", "common"]);
@@ -1678,20 +1566,21 @@ function PlantingPlans() {
               setIsPlansLoading(loading || !dataFetched);
             }}
             createNewRow={() => ({
-            id: -Date.now(),
-            culture: 0,
-            cultivation_type: "",
-            location_id: undefined,
-            field_id: undefined,
-            bed: 0,
-            planting_date: "",
-            quantity: undefined,
-            area_m2: undefined,
-            plants_count: undefined,
-            notes: "",
-            note_attachment_count: 0,
-            isNew: true,
-          })}
+              id: -Date.now(),
+              culture: 0,
+              cultivation_type: "",
+              location_id: undefined,
+              field_id: undefined,
+              bed: 0,
+              planting_date: "",
+              quantity: undefined,
+              area_m2: undefined,
+              plants_count: undefined,
+              notes: "",
+              note_attachment_count: 0,
+              isNew: true,
+            })}
+            isNewRowEmpty={isEmptyNewPlantingPlanRow}
           initialRow={
             !isMobile && (initialSelection.cultureId || initialSelection.bedId)
               ? {

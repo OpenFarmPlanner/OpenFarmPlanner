@@ -68,9 +68,13 @@ export const navigationTooltipSx: SxProps<Theme> = (theme) => ({
   bgcolor: theme.palette.navigation.tooltipBackground,
 });
 
+/** Shared opacity applied to icon + text of a disabled-during-onboarding nav item. */
+export const NAV_ITEM_DISABLED_OPACITY = 0.5;
+
 export const getNavigationItemSx = (
   isActive: boolean,
   sidebarCollapsed: boolean,
+  disabled = false,
 ): SxProps<Theme> => (theme) => ({
   minHeight: 44,
   borderRadius: 1.5,
@@ -83,11 +87,18 @@ export const getNavigationItemSx = (
   borderColor: isActive ? theme.palette.navigation.activeBorder : 'transparent',
   position: 'relative',
   transition: NAVIGATION_TRANSITIONS.item,
-  '&:hover': {
-    bgcolor: isActive ? theme.palette.navigation.activeHoverBackground : theme.palette.navigation.hoverBackground,
-    color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
-    borderColor: isActive ? theme.palette.navigation.activeHoverBorder : theme.palette.navigation.hoverBorder,
-  },
+  ...(disabled
+    ? {
+      cursor: 'not-allowed',
+      '&.Mui-disabled': { opacity: 1 },
+    }
+    : {
+      '&:hover': {
+        bgcolor: isActive ? theme.palette.navigation.activeHoverBackground : theme.palette.navigation.hoverBackground,
+        color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
+        borderColor: isActive ? theme.palette.navigation.activeHoverBorder : theme.palette.navigation.hoverBorder,
+      },
+    }),
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -103,23 +114,30 @@ export const getNavigationItemSx = (
 export const getNavigationIconSx = (
   isActive: boolean,
   sidebarCollapsed: boolean,
+  disabled = false,
 ): SxProps<Theme> => (theme) => ({
   minWidth: sidebarCollapsed ? 0 : 36,
   color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveIcon,
   transition: NAVIGATION_TRANSITIONS.icon,
-  '.MuiListItemButton-root:hover &': {
-    color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveHoverIcon,
-  },
+  opacity: disabled ? NAV_ITEM_DISABLED_OPACITY : 1,
+  ...(disabled ? {} : {
+    '.MuiListItemButton-root:hover &': {
+      color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveHoverIcon,
+    },
+  }),
 });
 
-export const getNavigationTextProps = (isActive: boolean) => ({
+export const getNavigationTextProps = (isActive: boolean, disabled = false) => ({
   fontWeight: isActive ? 600 : 500,
   fontSize: '0.95rem',
   sx: (theme: Theme) => ({
     color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveText,
-    '.MuiListItemButton-root:hover &': {
-      color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
-    },
+    opacity: disabled ? NAV_ITEM_DISABLED_OPACITY : 1,
+    ...(disabled ? {} : {
+      '.MuiListItemButton-root:hover &': {
+        color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
+      },
+    }),
   }),
 });
 
@@ -134,7 +152,7 @@ export const mobileNavigationDrawerPaperSx: SxProps<Theme> = (theme) => ({
   overflow: 'hidden',
 });
 
-export const getMobileNavigationItemSx = (isActive: boolean): SxProps<Theme> => (theme) => ({
+export const getMobileNavigationItemSx = (isActive: boolean, disabled = false): SxProps<Theme> => (theme) => ({
   justifyContent: 'flex-start',
   borderRadius: 0,
   px: 2,
@@ -142,27 +160,37 @@ export const getMobileNavigationItemSx = (isActive: boolean): SxProps<Theme> => 
   color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveText,
   bgcolor: isActive ? theme.palette.navigation.activeBackground : 'transparent',
   transition: NAVIGATION_TRANSITIONS.item,
-  '&:hover': {
-    bgcolor: isActive ? theme.palette.navigation.activeHoverBackground : theme.palette.navigation.hoverBackground,
-    color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
-  },
+  ...(disabled
+    ? { cursor: 'not-allowed', '&.Mui-disabled': { opacity: 1 } }
+    : {
+      '&:hover': {
+        bgcolor: isActive ? theme.palette.navigation.activeHoverBackground : theme.palette.navigation.hoverBackground,
+        color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
+      },
+    }),
 });
 
-export const getMobileNavigationTextProps = (isActive: boolean) => ({
+export const getMobileNavigationTextProps = (isActive: boolean, disabled = false) => ({
   fontWeight: isActive ? 600 : 500,
   sx: (theme: Theme) => ({
     color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveText,
-    '.MuiListItemButton-root:hover &': {
-      color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
-    },
+    opacity: disabled ? NAV_ITEM_DISABLED_OPACITY : 1,
+    ...(disabled ? {} : {
+      '.MuiListItemButton-root:hover &': {
+        color: isActive ? theme.palette.navigation.activeText : theme.palette.navigation.inactiveHoverText,
+      },
+    }),
   }),
 });
 
-export const getMobileNavigationIconSx = (isActive: boolean): SxProps<Theme> => (theme) => ({
+export const getMobileNavigationIconSx = (isActive: boolean, disabled = false): SxProps<Theme> => (theme) => ({
   minWidth: 36,
   color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveIcon,
   transition: NAVIGATION_TRANSITIONS.icon,
-  '.MuiListItemButton-root:hover &': {
-    color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveHoverIcon,
-  },
+  opacity: disabled ? NAV_ITEM_DISABLED_OPACITY : 1,
+  ...(disabled ? {} : {
+    '.MuiListItemButton-root:hover &': {
+      color: isActive ? theme.palette.navigation.activeIcon : theme.palette.navigation.inactiveHoverIcon,
+    },
+  }),
 });

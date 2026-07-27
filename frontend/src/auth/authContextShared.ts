@@ -6,6 +6,8 @@ export interface AuthContextValue {
   isLoading: boolean;
   activeProjectId: number | null;
   login: (email: string, password: string) => Promise<AuthUser>;
+  startGuestDemo: () => Promise<AuthUser>;
+  endGuestDemo: () => Promise<void>;
   logout: () => Promise<void>;
   register: (
     email: string,

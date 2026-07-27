@@ -1,6 +1,7 @@
 import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
 import { isAuthenticationExpiredError } from './errors';
-import { AUTHENTICATION_EXPIRED_EVENT } from '../auth/authEvents';
+import { createAuthenticationExpiredEvent } from '../auth/authEvents';
 
 const PROD_API_PATH = '/api';
 
@@ -101,7 +102,11 @@ const httpClient = axios.create({
   },
 });
 
+const requestStartedAt = new WeakMap<InternalAxiosRequestConfig, number>();
+
 httpClient.interceptors.request.use((config) => {
+  requestStartedAt.set(config, Date.now());
+
   if (config.data instanceof FormData) {
     if (config.headers && typeof config.headers === 'object') {
       delete config.headers['Content-Type'];
@@ -136,7 +141,10 @@ httpClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (isAuthenticationExpiredError(error) && typeof window !== 'undefined') {
-      window.dispatchEvent(new Event(AUTHENTICATION_EXPIRED_EVENT));
+      const startedAt = error.config
+        ? requestStartedAt.get(error.config as InternalAxiosRequestConfig)
+        : undefined;
+      window.dispatchEvent(createAuthenticationExpiredEvent(startedAt ?? Date.now()));
     }
     return Promise.reject(error);
   },

@@ -19,6 +19,7 @@ function installFetchMock(responses: MockResponse[]): void {
     return {
       ok: next.ok,
       status: next.status,
+      headers: new Headers(),
       text: async () => bodyText,
       json: async () => JSON.parse(bodyText),
     } as Response;
