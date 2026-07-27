@@ -134,6 +134,16 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        public_culture = self._get_public_culture_for_status_action()
+        try:
+            hard_delete_public_culture(public_culture=public_culture, user=request.user)
+        except PublicCulturePermissionError as error:
+            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
+        except PublicCultureStatusTransitionError as error:
+            return self._transition_error_response(error, status.HTTP_409_CONFLICT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=False, methods=['get'], url_path='match')
     def match(self, request):
         """Check whether an exact normalized public culture match exists."""

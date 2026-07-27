@@ -154,6 +154,38 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(proposal.status, CropSpecies.STATUS_REJECTED)
         self.assertEqual(proposal.review_note, 'Duplicate common name.')
 
+    def test_normal_user_cannot_edit_or_delete_published_species(self):
+        species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
+        self.client.force_authenticate(user=self.user)
+
+        update_response = self.client.patch(f'/openfarmplanner/api/crop-species/{species.id}/', {'name': 'Hacked'}, format='json')
+        delete_response = self.client.delete(f'/openfarmplanner/api/crop-species/{species.id}/')
+
+        self.assertEqual(update_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
+        species.refresh_from_db()
+        self.assertEqual(species.name, 'Purple Sprouting Broccoli')
+
+    def test_moderator_can_edit_and_delete_published_species(self):
+        moderator = User.objects.create_user(
+            username='species-edit-moderator',
+            email='species-edit-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
+        self.client.force_authenticate(user=moderator)
+
+        update_response = self.client.patch(f'/openfarmplanner/api/crop-species/{species.id}/', {'name': 'Purple Sprouting Broccoli (renamed)'}, format='json')
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        species.refresh_from_db()
+        self.assertEqual(species.name, 'Purple Sprouting Broccoli (renamed)')
+
+        delete_response = self.client.delete(f'/openfarmplanner/api/crop-species/{species.id}/')
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(CropSpecies.objects.filter(id=species.id).exists())
+
     def test_user_can_request_moderator_access_once(self):
         self.client.force_authenticate(user=self.user)
 

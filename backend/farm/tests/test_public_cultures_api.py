@@ -894,3 +894,68 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_is_blocked_for_non_moderators(self):
+        public_culture = PublicCulture.objects.create(
+            name='Radish',
+            variety='Cherry Belle',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=None,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_enforces_provenance_safety_for_moderators(self):
+        moderator = User.objects.create_user(
+            username='destroy-route-moderator',
+            email='destroy-route-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        Culture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            project=self.project,
+            source_public_culture=public_culture,
+            source_public_version=1,
+            origin_type=Culture.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_permanently_deletes_orphan_culture_for_moderators(self):
+        moderator = User.objects.create_user(
+            username='destroy-route-orphan-moderator',
+            email='destroy-route-orphan-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Orphan',
+            variety='DestroyRoute',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=None,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PublicCulture.objects.filter(id=public_culture.id).exists())

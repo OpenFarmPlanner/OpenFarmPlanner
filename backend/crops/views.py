@@ -64,6 +64,21 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         species = serializer.save(status=CropSpecies.STATUS_PROPOSED, proposed_by=request.user)
         return Response(self.get_serializer(species).data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        if not is_public_library_moderator(request.user):
+            return self._moderator_required_response()
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_public_library_moderator(request.user):
+            return self._moderator_required_response()
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not is_public_library_moderator(request.user):
+            return self._moderator_required_response()
+        return super().destroy(request, *args, **kwargs)
+
     @staticmethod
     def _moderator_required_response() -> Response:
         return Response(
