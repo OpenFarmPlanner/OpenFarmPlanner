@@ -12,6 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from crops.permissions import is_public_library_moderator
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
@@ -87,7 +88,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _is_moderator(user: Any) -> bool:
-        return bool(getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False))
+        return is_public_library_moderator(user)
 
     @staticmethod
     def _proposal_status_error() -> Response:

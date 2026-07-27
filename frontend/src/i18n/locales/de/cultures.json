@@ -102,6 +102,7 @@
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
     "publicLibraryMatchHint": "In der öffentlichen Kulturbibliothek gibt es bereits eine passende Kultur. Prüfe, ob du sie übernehmen möchtest, statt sie neu anzulegen.",
     "viewPublicLibraryMatch": "In Kulturbibliothek ansehen",
+    "publicIdentityLabel": "Öffentliche Identität",
     "supplier": "Saatgutlieferant",
     "supplierPlaceholder": "Lieferant auswählen",
     "supplierRequired": "Saatgutlieferant ist erforderlich",
@@ -717,6 +718,38 @@
     "versionLabel": "Version",
     "createdByLabel": "Von",
     "anonymousAuthor": "Anonym",
+    "moderation": {
+      "title": "Kulturbibliothek moderieren",
+      "forbidden": "Du hast keine Berechtigung für die Moderation der öffentlichen Kulturbibliothek.",
+      "loadError": "Die Moderationsdaten konnten nicht geladen werden.",
+      "actionError": "Die Moderationsaktion konnte nicht ausgeführt werden.",
+      "approve": "Annehmen",
+      "reject": "Ablehnen",
+      "saving": "Speichere…",
+      "unknownDate": "Datum unbekannt",
+      "none": "Keine",
+      "columns": {
+        "name": "Name",
+        "proposer": "Vorgeschlagen von",
+        "similar": "Ähnliche Kulturarten",
+        "actions": "Aktionen",
+        "user": "Nutzer",
+        "motivation": "Motivation",
+        "date": "Datum"
+      },
+      "species": {
+        "title": "Kulturart-Vorschläge",
+        "empty": "Keine offenen Kulturart-Vorschläge.",
+        "approveSuccess": "Die Kulturart wurde angenommen.",
+        "rejectSuccess": "Der Kulturart-Vorschlag wurde abgelehnt."
+      },
+      "requests": {
+        "title": "Moderator-Anfragen",
+        "empty": "Keine offenen Moderator-Anfragen.",
+        "approveSuccess": "Die Moderator-Anfrage wurde angenommen.",
+        "rejectSuccess": "Die Moderator-Anfrage wurde abgelehnt."
+      }
+    },
     "publishConfirm": {
       "title": "Kultur veröffentlichen?",
       "intro": "„{{name}}“ wird als Anbaudatensatz veröffentlicht.",

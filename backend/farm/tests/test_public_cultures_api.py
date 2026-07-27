@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 
 from accounts.models import DocumentConsent
 from crops.models import CropSpecies
+from crops.permissions import grant_public_library_moderator_access
 from farm.models import (
     Culture,
     Project,
@@ -448,6 +449,33 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             revisions[1].changed_fields,
         )
 
+    def test_public_culture_direct_edit_rejects_identity_changes(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Original notes',
+            version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {
+                'base_version': 1,
+                'name': 'Cherry tomato',
+                'variety': 'Black Cherry',
+                'notes': 'Edited notes',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.name, 'Tomato')
+        self.assertEqual(public_culture.variety, 'Roma')
+        self.assertEqual(public_culture.notes, 'Original notes')
+
     def test_public_culture_versions_endpoint_returns_author_time_and_diff(self):
         public_culture = PublicCulture.objects.create(
             name='Tomato',
@@ -572,8 +600,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='proposal-moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         public_culture = PublicCulture.objects.create(
             name='Tomato',
             variety='Roma',
@@ -617,8 +645,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='proposal-reject-moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         public_culture = PublicCulture.objects.create(
             name='Tomato',
             variety='Roma',
@@ -730,8 +758,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         self.client.force_authenticate(user=moderator)
         public_culture = PublicCulture.objects.create(
             name='Tomato',
@@ -763,8 +791,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='list-moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         ProjectMembership.objects.create(user=moderator, project=self.project, role='admin')
         public_culture = PublicCulture.objects.create(
             name='Lettuce',
@@ -801,8 +829,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='moderator-missing@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         self.client.force_authenticate(user=moderator)
         missing_reason_response = self.client.post(
             f'/openfarmplanner/api/public-cultures/{public_culture.id}/remove/',
@@ -818,8 +846,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='delete-moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         self.client.force_authenticate(user=moderator)
         public_culture = PublicCulture.objects.create(
             name='Bean',
@@ -849,8 +877,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             email='orphan-delete-moderator@example.com',
             password='testpass',
             is_active=True,
-            is_staff=True,
         )
+        grant_public_library_moderator_access(moderator)
         self.client.force_authenticate(user=moderator)
         public_culture = PublicCulture.objects.create(
             name='Orphan',

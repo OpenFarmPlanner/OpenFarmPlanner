@@ -212,6 +212,7 @@ export function CultureForm({
 
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture));
+  const identityLabel = [formData.name, formData.variety].filter(Boolean).join(' · ');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [duplicateErrorKey, setDuplicateErrorKey] = useState<string>('');
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
@@ -724,11 +725,31 @@ export function CultureForm({
             <Typography variant="body2" color="text.secondary">
               {t('form.generalInfoSectionDescription')}
             </Typography>
+            {!isProjectForm ? (
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  px: 1.5,
+                  py: 1.25,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                  {t('form.publicIdentityLabel')}
+                </Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
+                  {identityLabel || t('noData')}
+                </Typography>
+              </Box>
+            ) : null}
             <BasicInfoSection
               formData={formData}
               errors={displayErrors}
               onChange={handleChange}
               t={t}
+              showIdentityFields={isProjectForm}
               identityHint={!isEdit && publicLibraryMatch && currentIdentityKey !== null && projectDuplicateClearedKey === currentIdentityKey && !duplicateErrorKey && !isDuplicateChecking ? (
                 <Box
                   sx={(theme) => ({

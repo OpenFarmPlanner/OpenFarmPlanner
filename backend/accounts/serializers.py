@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from crops.permissions import is_public_library_moderator
 from farm.models import ProjectMembership
 from farm.project_context import resolve_project_for_user
 from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION
@@ -69,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
     scheduled_deletion_at = serializers.SerializerMethodField()
     pending_consents = serializers.SerializerMethodField()
     public_library_terms_accepted = serializers.SerializerMethodField()
+    is_public_library_moderator = serializers.SerializerMethodField()
     is_guest_demo = serializers.SerializerMethodField()
     guest_demo_session_id = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
@@ -93,6 +95,7 @@ class UserSerializer(serializers.ModelSerializer):
             'scheduled_deletion_at',
             'pending_consents',
             'public_library_terms_accepted',
+            'is_public_library_moderator',
             'is_guest_demo',
             'guest_demo_session_id',
             'has_password',
@@ -181,6 +184,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_public_library_terms_accepted(self, obj: User) -> bool:
         return has_accepted_current(obj, DocumentConsent.DOCUMENT_PUBLIC_LIBRARY)
+
+    def get_is_public_library_moderator(self, obj: User) -> bool:
+        return is_public_library_moderator(obj)
 
 
 class ConsentAcceptSerializer(serializers.Serializer):

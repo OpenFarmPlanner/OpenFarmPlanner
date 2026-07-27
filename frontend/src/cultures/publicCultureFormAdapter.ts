@@ -97,8 +97,6 @@ export function buildPublicCultureUpdatePayload(
 
   return {
     base_version: baseVersion,
-    name: draft.name.trim(),
-    variety: draft.variety?.trim() ?? '',
     notes: draft.notes ?? '',
     crop_family: draft.crop_family ?? '',
     nutrient_demand: normalizeNutrientDemand(draft.nutrient_demand),

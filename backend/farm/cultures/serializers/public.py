@@ -110,8 +110,6 @@ class PublicCultureUpdateSerializer(serializers.ModelSerializer):
         model = PublicCulture
         fields = [*PUBLIC_CULTURE_EDITABLE_FIELDS, 'base_version']
         extra_kwargs = {
-            'name': {'required': False, 'allow_blank': False},
-            'variety': {'required': False, 'allow_blank': True},
             'notes': {'required': False, 'allow_blank': True},
             'seed_supplier': {'required': False, 'allow_blank': True},
             'supplier_name': {'required': False, 'allow_blank': True},
@@ -123,6 +121,16 @@ class PublicCultureUpdateSerializer(serializers.ModelSerializer):
             'seeding_requirement_type': {'required': False, 'allow_blank': True},
             'display_color': {'required': False, 'allow_blank': True},
         }
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        incoming_fields = set(getattr(self, 'initial_data', {}) or {})
+        allowed_fields = set(PUBLIC_CULTURE_EDITABLE_FIELDS) | {'base_version'}
+        unknown_fields = sorted(incoming_fields - allowed_fields)
+        if unknown_fields:
+            raise serializers.ValidationError({
+                'non_field_errors': [f"Unsupported public culture fields: {', '.join(unknown_fields)}"],
+            })
+        return attrs
 
 
 class PublicCultureRevertSerializer(serializers.Serializer):

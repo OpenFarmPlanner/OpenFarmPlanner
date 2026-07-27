@@ -14,35 +14,38 @@ interface BasicInfoSectionProps {
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
   identityHint?: ReactNode;
+  showIdentityFields?: boolean;
 }
 
-export function BasicInfoSection({ formData, errors, onChange, t, identityHint }: BasicInfoSectionProps) {
+export function BasicInfoSection({ formData, errors, onChange, t, identityHint, showIdentityFields = true }: BasicInfoSectionProps) {
   return (
     <>
-      <Box sx={fieldRowSx}>
-        <TextField
-          sx={wideFieldSx}
-          required
-          label={t('form.name')}
-          placeholder={t('form.namePlaceholder')}
-          value={formData.name}
-          onChange={e => onChange('name', e.target.value)}
-          error={Boolean(errors.name)}
-          helperText={errors.name}
-          slotProps={{ htmlInput: { maxLength: 200 } }}
-        />
-        <TextField
-          sx={wideFieldSx}
-          required
-          label={t('form.variety')}
-          placeholder={t('form.varietyPlaceholder')}
-          value={formData.variety}
-          onChange={e => onChange('variety', e.target.value)}
-          error={Boolean(errors.variety)}
-          helperText={errors.variety}
-          slotProps={{ htmlInput: { maxLength: 200 } }}
-        />
-      </Box>
+      {showIdentityFields ? (
+        <Box sx={fieldRowSx}>
+          <TextField
+            sx={wideFieldSx}
+            required
+            label={t('form.name')}
+            placeholder={t('form.namePlaceholder')}
+            value={formData.name}
+            onChange={e => onChange('name', e.target.value)}
+            error={Boolean(errors.name)}
+            helperText={errors.name}
+            slotProps={{ htmlInput: { maxLength: 200 } }}
+          />
+          <TextField
+            sx={wideFieldSx}
+            required
+            label={t('form.variety')}
+            placeholder={t('form.varietyPlaceholder')}
+            value={formData.variety}
+            onChange={e => onChange('variety', e.target.value)}
+            error={Boolean(errors.variety)}
+            helperText={errors.variety}
+            slotProps={{ htmlInput: { maxLength: 200 } }}
+          />
+        </Box>
+      ) : null}
       {identityHint}
       <Box sx={fieldRowSx}>
         <TextField

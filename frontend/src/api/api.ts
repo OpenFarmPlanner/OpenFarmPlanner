@@ -21,6 +21,8 @@ import type {
   PublicCultureRevision,
   PublicCultureDuplicateCandidate,
   CropSpecies,
+  PublicLibraryModeratorRequest,
+  PublicLibraryModeratorRequestMine,
   PublishPublicCulturePreview,
   PublishPublicCultureResponse,
   RemainingAreaResponse,
@@ -131,9 +133,22 @@ export const cultureAPI = {
 };
 
 export const cropSpeciesAPI = {
-  list: (params?: { q?: string; include_proposed?: boolean }) =>
+  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status'] }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
   propose: (name: string) => http.post<CropSpecies>('/crop-species/', { name }),
+  approve: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/approve/`, { review_note: reviewNote }),
+  reject: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/reject/`, { review_note: reviewNote }),
+};
+
+export const publicLibraryModeratorRequestAPI = {
+  mine: () => http.get<PublicLibraryModeratorRequestMine>('/public-library/moderator-requests/mine/'),
+  create: (motivation: string) => http.post<PublicLibraryModeratorRequest>('/public-library/moderator-requests/', { motivation }),
+  list: (params?: { status?: PublicLibraryModeratorRequest['status'] }) =>
+    http.get<PaginatedResponse<PublicLibraryModeratorRequest>>('/public-library/moderator-requests/', { params }),
+  approve: (id: number, reviewNote = '') =>
+    http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/approve/`, { review_note: reviewNote }),
+  reject: (id: number, reviewNote = '') =>
+    http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/reject/`, { review_note: reviewNote }),
 };
 
 

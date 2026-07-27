@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
+from crops.permissions import is_public_library_moderator
 from farm.common.serializer_fields import (
     CentimetersField,
     LocalizedDecimalField,
@@ -185,7 +186,7 @@ class CultureSerializer(serializers.ModelSerializer):
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:
             return None
-        can_moderate_public_cultures = user.is_staff or user.is_superuser
+        can_moderate_public_cultures = is_public_library_moderator(user)
 
         if obj.source_public_culture_id:
             if (

@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 
 from accounts.consent import has_accepted_current, record_acceptance
 from accounts.models import DocumentConsent
+from crops.permissions import is_public_library_moderator
 from farm.common.mixins import ProjectScopedMixin
 from farm.history import (
     _build_entity_revision_changes,
@@ -75,7 +76,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         include_deleted = self.request.query_params.get('include_deleted') in {'1', 'true', 'True'}
         manager = Culture.all_objects if include_deleted else Culture.objects
         public_cultures_queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED)
-        if not (self.request.user.is_staff or self.request.user.is_superuser):
+        if not is_public_library_moderator(self.request.user):
             public_cultures_queryset = public_cultures_queryset.filter(created_by=self.request.user)
         owned_public_cultures_prefetch = Prefetch(
             'published_public_cultures',
@@ -159,7 +160,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         :param supplier_name: Supplier name from import data for legacy matching
         :return: Matching Culture instance or None
         """
-        from farm.utils import normalize_text, normalize_supplier_name
+        from farm.utils import normalize_supplier_name, normalize_text
         
         name_norm = normalize_text(name) or ''
         variety_norm = normalize_text(variety)

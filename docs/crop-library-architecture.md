@@ -29,6 +29,11 @@ The public Crop Library follows an open-data model:
   immediately published as the current public version and records an immutable
   `PublicCultureRevision` snapshot with author, timestamp, changed fields, and
   old/new values where they are displayable.
+- The public entry identity is fixed after publication: `name`/`variety`
+  (`Kulturart` + `Sorte`) define the public-library record and are not part of
+  the wiki-style edit payload. The UI shows that identity as static context in
+  the shared culture form, while the API rejects manipulated direct edit
+  requests that try to change it.
 - Reverting a public entry restores an older snapshot by creating another new
   version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future
@@ -57,6 +62,20 @@ touch project-owned `Culture` rows. Editing or reverting a public entry changes
 only the shared public-library row; projects that already imported an entry
 continue using their private copied snapshot until a future explicit
 update/merge flow is built.
+
+Official `CropSpecies` rows are global master data and remain moderated. Users
+may propose missing species from the publishing wizard, but proposed species
+stay out of the official list until a public-library moderator approves them.
+Approving a proposal promotes that same `CropSpecies` row to `published`;
+rejecting it keeps an auditable rejected proposal.
+
+Public-library moderators are granted through the Django group
+`Public Library Moderators`, which carries only the `crops.moderate_crop_species`
+permission. Staff/superusers inherit moderation capability for operational
+management, but ordinary moderators do not receive Django admin or staff
+rights. Normal users can request moderator access from account settings; admins
+review those requests through the public-library moderation queue and approval
+grants only the moderator group.
 
 Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
 in the database for audit and transition safety. The active frontend no longer

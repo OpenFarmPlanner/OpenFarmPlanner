@@ -11,13 +11,24 @@ at `/api/crops/` that can later be made genuinely public (e.g. by
 swapping the permission class) without touching anything that already
 works. See docs/crop-library-architecture.md.
 """
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from . import services
-from .models import CropSpecies
-from .serializers import CropSerializer, CropSpeciesSerializer
+from .models import CropSpecies, PublicLibraryModeratorRequest
+from .permissions import (
+    grant_public_library_moderator_access,
+    is_public_library_admin,
+    is_public_library_moderator,
+)
+from .serializers import (
+    CropSerializer,
+    CropSpeciesSerializer,
+    PublicLibraryModeratorRequestSerializer,
+)
 
 
 class CropSpeciesViewSet(viewsets.ModelViewSet):
@@ -27,9 +38,20 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = CropSpecies.objects.all().order_by('name')
-        include_proposed = self.request.query_params.get('include_proposed') in {'1', 'true', 'True'}
-        if not include_proposed:
+        queryset = CropSpecies.objects.select_related(
+            'proposed_by__public_profile',
+            'reviewed_by__public_profile',
+        ).order_by('name')
+        include_proposed = (
+            self.request.query_params.get('include_proposed') in {'1', 'true', 'True'}
+        )
+        status_filter = (self.request.query_params.get('status') or '').strip()
+        can_review = is_public_library_moderator(self.request.user)
+        if not can_review:
+            queryset = queryset.filter(status=CropSpecies.STATUS_PUBLISHED)
+        elif status_filter:
+            queryset = queryset.filter(status=status_filter)
+        elif not include_proposed:
             queryset = queryset.filter(status=CropSpecies.STATUS_PUBLISHED)
         query = (self.request.query_params.get('q') or '').strip()
         if query:
@@ -39,8 +61,200 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        species = serializer.save(status=CropSpecies.STATUS_PROPOSED)
+        species = serializer.save(status=CropSpecies.STATUS_PROPOSED, proposed_by=request.user)
         return Response(self.get_serializer(species).data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _moderator_required_response() -> Response:
+        return Response(
+            {'detail': 'Moderator privileges are required.', 'code': 'moderator_required'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    @staticmethod
+    def _proposal_status_error() -> Response:
+        return Response(
+            {
+                'detail': 'Only pending crop species proposals can be reviewed.',
+                'code': 'proposal_not_pending',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        if not is_public_library_moderator(request.user):
+            return self._moderator_required_response()
+        review_note = (request.data.get('review_note') or '').strip()
+        with transaction.atomic():
+            species = CropSpecies.objects.select_for_update().get(pk=pk)
+            if species.status != CropSpecies.STATUS_PROPOSED:
+                return self._proposal_status_error()
+            duplicate = CropSpecies.objects.filter(
+                status=CropSpecies.STATUS_PUBLISHED,
+                name_normalized=species.name_normalized,
+            ).exclude(pk=species.pk).first()
+            if duplicate is not None:
+                return Response(
+                    {
+                        'detail': 'A published crop species with this name already exists.',
+                        'code': 'duplicate_crop_species',
+                        'duplicate': {'id': duplicate.id, 'name': duplicate.name},
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            species.status = CropSpecies.STATUS_PUBLISHED
+            species.reviewed_by = request.user
+            species.reviewed_at = timezone.now()
+            species.review_note = review_note
+            species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        return Response(self.get_serializer(species).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        if not is_public_library_moderator(request.user):
+            return self._moderator_required_response()
+        species = CropSpecies.objects.get(pk=pk)
+        if species.status != CropSpecies.STATUS_PROPOSED:
+            return self._proposal_status_error()
+        species.status = CropSpecies.STATUS_REJECTED
+        species.reviewed_by = request.user
+        species.reviewed_at = timezone.now()
+        species.review_note = (request.data.get('review_note') or '').strip()
+        species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        return Response(self.get_serializer(species).data)
+
+
+class PublicLibraryModeratorRequestViewSet(viewsets.ModelViewSet):
+    """Moderator access requests for the public crop library."""
+
+    serializer_class = PublicLibraryModeratorRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = PublicLibraryModeratorRequest.objects.select_related(
+            'user__public_profile',
+            'reviewed_by__public_profile',
+        )
+        if is_public_library_admin(self.request.user):
+            status_filter = (self.request.query_params.get('status') or '').strip()
+            return queryset.filter(status=status_filter) if status_filter else queryset
+        return queryset.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        if not is_public_library_admin(request.user):
+            return Response(
+                {'detail': 'Administrator privileges are required.', 'code': 'admin_required'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        if is_public_library_moderator(request.user):
+            return Response(
+                {
+                    'detail': 'This account already has moderator privileges.',
+                    'code': 'already_moderator',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if PublicLibraryModeratorRequest.objects.filter(
+            user=request.user,
+            status=PublicLibraryModeratorRequest.STATUS_PENDING,
+        ).exists():
+            return Response(
+                {
+                    'detail': 'A moderator request is already pending.',
+                    'code': 'moderator_request_pending',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_row = serializer.save(user=request.user)
+        return Response(self.get_serializer(request_row).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='mine')
+    def mine(self, request):
+        latest_request = (
+            PublicLibraryModeratorRequest.objects
+            .filter(user=request.user)
+            .order_by('-created_at')
+            .first()
+        )
+        return Response({
+            'is_moderator': is_public_library_moderator(request.user),
+            'request': (
+                self.get_serializer(latest_request).data
+                if latest_request is not None
+                else None
+            ),
+        })
+
+    @staticmethod
+    def _admin_required_response() -> Response:
+        return Response(
+            {'detail': 'Administrator privileges are required.', 'code': 'admin_required'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    @staticmethod
+    def _request_status_error() -> Response:
+        return Response(
+            {
+                'detail': 'Only pending moderator requests can be reviewed.',
+                'code': 'moderator_request_not_pending',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        if not is_public_library_admin(request.user):
+            return self._admin_required_response()
+        review_note = (request.data.get('review_note') or '').strip()
+        with transaction.atomic():
+            moderator_request = (
+                PublicLibraryModeratorRequest.objects
+                .select_for_update()
+                .select_related('user')
+                .get(pk=pk)
+            )
+            if moderator_request.status != PublicLibraryModeratorRequest.STATUS_PENDING:
+                return self._request_status_error()
+            grant_public_library_moderator_access(moderator_request.user)
+            moderator_request.status = PublicLibraryModeratorRequest.STATUS_APPROVED
+            moderator_request.reviewed_by = request.user
+            moderator_request.reviewed_at = timezone.now()
+            moderator_request.review_note = review_note
+            moderator_request.save(update_fields=[
+                'status',
+                'reviewed_by',
+                'reviewed_at',
+                'review_note',
+                'updated_at',
+            ])
+        return Response(self.get_serializer(moderator_request).data)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        if not is_public_library_admin(request.user):
+            return self._admin_required_response()
+        moderator_request = self.get_object()
+        if moderator_request.status != PublicLibraryModeratorRequest.STATUS_PENDING:
+            return self._request_status_error()
+        moderator_request.status = PublicLibraryModeratorRequest.STATUS_REJECTED
+        moderator_request.reviewed_by = request.user
+        moderator_request.reviewed_at = timezone.now()
+        moderator_request.review_note = (request.data.get('review_note') or '').strip()
+        moderator_request.save(update_fields=[
+            'status',
+            'reviewed_by',
+            'reviewed_at',
+            'review_note',
+            'updated_at',
+        ])
+        return Response(self.get_serializer(moderator_request).data)
 
 
 class CropViewSet(viewsets.ReadOnlyModelViewSet):

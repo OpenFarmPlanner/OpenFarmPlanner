@@ -11,8 +11,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import {
+  publicLibraryModeratorRequestAPI,
+} from '../api/api';
 import {
   changePassword,
   getAccountDataExport,
@@ -41,6 +44,8 @@ export default function AccountSettingsPage() {
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
   const [publicDisplayName, setPublicDisplayName] = useState(user?.public_display_name ?? '');
+  const [moderatorMotivation, setModeratorMotivation] = useState('');
+  const [moderatorRequestStatus, setModeratorRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected' | 'moderator' | 'loading'>('loading');
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -49,6 +54,7 @@ export default function AccountSettingsPage() {
 
   const profileSection = useSectionSubmit(t('errors.generic'));
   const publicProfileSection = useSectionSubmit(t('errors.generic'));
+  const moderatorRequestSection = useSectionSubmit(t('errors.generic'));
   const emailSection = useSectionSubmit(t('errors.generic'));
   const passwordSection = useSectionSubmit(t('errors.generic'));
   const dataExportSection = useSectionSubmit(t('errors.generic'));
@@ -87,6 +93,27 @@ export default function AccountSettingsPage() {
     user?.display_name,
     user?.public_display_name,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    publicLibraryModeratorRequestAPI.mine()
+      .then((response) => {
+        if (cancelled) return;
+        if (response.data.is_moderator) {
+          setModeratorRequestStatus('moderator');
+          return;
+        }
+        setModeratorRequestStatus(response.data.request?.status ?? 'none');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setModeratorRequestStatus('none');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useNavigationBlocker(hasUnsavedChanges, t('unsavedChangesWarning'));
 
@@ -132,6 +159,18 @@ export default function AccountSettingsPage() {
       async () => {
         await refreshUser();
         setActiveEditor(null);
+      },
+    );
+
+  const handleModeratorRequestSubmit = (): Promise<void> =>
+    moderatorRequestSection.submit(
+      async () => {
+        await publicLibraryModeratorRequestAPI.create(moderatorMotivation.trim());
+        return { detail: t('moderatorRequest.success') };
+      },
+      () => {
+        setModeratorMotivation('');
+        setModeratorRequestStatus('pending');
       },
     );
 
@@ -259,6 +298,48 @@ export default function AccountSettingsPage() {
                 slotProps={{ htmlInput: { maxLength: 255 } }}
               />
             </InlineEditor>
+
+            <Divider />
+
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {t('moderatorRequest.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('moderatorRequest.description')}
+            </Typography>
+            <SectionAlerts message={moderatorRequestSection.message} error={moderatorRequestSection.error} />
+            {moderatorRequestStatus === 'loading' ? (
+              <Typography variant="body2" color="text.secondary">{t('moderatorRequest.loading')}</Typography>
+            ) : moderatorRequestStatus === 'moderator' ? (
+              <Alert severity="success">{t('moderatorRequest.alreadyModerator')}</Alert>
+            ) : moderatorRequestStatus === 'pending' ? (
+              <Alert severity="info">{t('moderatorRequest.pending')}</Alert>
+            ) : (
+              <Stack spacing={1.5}>
+                {moderatorRequestStatus === 'rejected' ? (
+                  <Alert severity="info">{t('moderatorRequest.rejectedHint')}</Alert>
+                ) : null}
+                <TextField
+                  label={t('moderatorRequest.motivationLabel')}
+                  value={moderatorMotivation}
+                  onChange={(event) => setModeratorMotivation(event.target.value)}
+                  multiline
+                  minRows={3}
+                  sx={wideFieldSx}
+                  slotProps={{ htmlInput: { maxLength: 2000 } }}
+                />
+                <Box>
+                  <Button
+                    variant="outlined"
+                    onClick={() => void handleModeratorRequestSubmit()}
+                    disabled={!moderatorMotivation.trim() || moderatorRequestSection.submitting}
+                    sx={actionButtonSx}
+                  >
+                    {moderatorRequestSection.submitting ? t('moderatorRequest.sending') : t('moderatorRequest.submit')}
+                  </Button>
+                </Box>
+              </Stack>
+            )}
           </Stack>
         </SettingsCard>
 

@@ -17,6 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from crops.models import CropSpecies
+from crops.permissions import is_public_library_moderator
 from farm.models import Culture, Project, PublicCulture, PublicCultureRevision, PublicCultureStatusEvent
 
 User = get_user_model()
@@ -50,8 +51,6 @@ CULTURE_COPY_FIELDS = [
 ]
 
 PUBLIC_CULTURE_EDITABLE_FIELDS = [
-    'name',
-    'variety',
     'notes',
     'seed_supplier',
     'supplier_name',
@@ -543,7 +542,7 @@ def _set_public_culture_status(
 
 
 def _is_public_library_moderator(user: User | None) -> bool:
-    return bool(user and user.is_authenticated and (user.is_staff or user.is_superuser))
+    return is_public_library_moderator(user)
 
 
 def _update_public_culture_from_project_culture(*, public_culture: PublicCulture, culture: Culture) -> PublicCulture:

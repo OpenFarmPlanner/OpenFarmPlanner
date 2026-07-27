@@ -24,6 +24,18 @@
       "editPublicDisplayName": "Change name"
     }
   },
+  "moderatorRequest": {
+    "title": "Help as a moderator",
+    "description": "Help review crop species proposals and the shared public crop library.",
+    "loading": "Loading status…",
+    "alreadyModerator": "You already have moderator rights for the public crop library.",
+    "pending": "Your request is being reviewed.",
+    "rejectedHint": "You can send a new request if you still want to help.",
+    "motivationLabel": "Why would you like to moderate?",
+    "submit": "Send request",
+    "sending": "Sending…",
+    "success": "Your request has been sent."
+  },
   "actions": {
     "saveProfile": "Save profile",
     "requestEmailChange": "Request email change",

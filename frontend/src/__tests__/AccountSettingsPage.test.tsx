@@ -32,6 +32,15 @@ vi.mock('../hooks/useNavigationBlocker', () => ({
   useNavigationBlocker: vi.fn(),
 }));
 
+const moderatorRequestApiMocks = vi.hoisted(() => ({
+  mine: vi.fn(async () => ({ data: { is_moderator: false, request: null } })),
+  create: vi.fn(async () => ({ data: { id: 1, user: 1, user_label: 'Demo', motivation: 'I can help.', status: 'pending' } })),
+}));
+
+vi.mock('../api/api', () => ({
+  publicLibraryModeratorRequestAPI: moderatorRequestApiMocks,
+}));
+
 vi.mock('../auth/authApi', () => ({
   updateProfile: vi.fn(async () => ({ detail: 'Profil aktualisiert.', user: authState.user })),
   updatePublicDisplayName: vi.fn(async () => ({ detail: 'Profil aktualisiert.', user: authState.user })),
@@ -55,6 +64,9 @@ describe('AccountSettingsPage', () => {
     createObjectURLMock.mockClear();
     revokeObjectURLMock.mockClear();
     anchorClickMock.mockClear();
+    moderatorRequestApiMocks.mine.mockClear();
+    moderatorRequestApiMocks.create.mockClear();
+    moderatorRequestApiMocks.mine.mockResolvedValue({ data: { is_moderator: false, request: null } });
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURLMock });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURLMock });
   });
@@ -93,6 +105,17 @@ describe('AccountSettingsPage', () => {
     expect(confirmButton).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('Bestätigungstext'), { target: { value: 'LÖSCHEN' } });
     expect(confirmButton).toBeEnabled();
+  });
+
+  it('submits a public library moderator request from account settings', async () => {
+    render(<MemoryRouter><AccountSettingsPage /></MemoryRouter>);
+
+    expect(await screen.findByText('Als Moderator mithelfen')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Warum möchtest du moderieren?'), { target: { value: 'Ich kenne mich mit Kulturarten aus.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+
+    expect(moderatorRequestApiMocks.create).toHaveBeenCalledWith('Ich kenne mich mit Kulturarten aus.');
+    expect(await screen.findByText('Deine Anfrage wird geprüft.')).toBeInTheDocument();
   });
 
   it('starts the developer onboarding preview without deleting data', () => {

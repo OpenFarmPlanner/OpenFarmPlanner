@@ -127,7 +127,11 @@ describe('PublicCropLibraryPage', () => {
 
     const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
     expect(editDialog).toHaveTextContent('Allgemeine Informationen');
+    expect(editDialog).toHaveTextContent('Öffentliche Identität');
+    expect(editDialog).toHaveTextContent('Tomate · Roma');
     expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Sorte')).not.toBeInTheDocument();
 
     const growthInput = screen.getByLabelText('Wachstumszeit (Tage)');
     fireEvent.change(growthInput, { target: { value: '48' } });
@@ -142,11 +146,11 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
     expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
-      name: 'Tomate',
-      variety: 'Roma',
       growth_duration_days: 48,
       row_spacing_m: null,
     }));
+    expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
+    expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
 });

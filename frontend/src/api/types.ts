@@ -305,7 +305,36 @@ export interface PublishPublicCultureDuplicateError {
 export interface CropSpecies {
   id: number;
   name: string;
-  status: 'published' | 'proposed';
+  status: 'published' | 'proposed' | 'rejected';
+  proposed_by_label?: string;
+  reviewed_by_label?: string;
+  review_note?: string;
+  reviewed_at?: string | null;
+  similar_species?: Array<{
+    id: number;
+    name: string;
+    match_type: 'exact' | 'similar';
+  }>;
+}
+
+export type PublicLibraryModeratorRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PublicLibraryModeratorRequest {
+  id: number;
+  user: number;
+  user_label: string;
+  motivation: string;
+  status: PublicLibraryModeratorRequestStatus;
+  reviewed_by_label?: string;
+  review_note?: string;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PublicLibraryModeratorRequestMine {
+  is_moderator: boolean;
+  request: PublicLibraryModeratorRequest | null;
 }
 
 export interface PublishPublicCulturePreview {

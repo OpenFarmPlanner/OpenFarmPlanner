@@ -43,6 +43,7 @@ export const shouldDisableNavItem = (
 export const PROJECT_INDEPENDENT_APP_ROUTES: readonly string[] = [
   '/app/project-selection',
   '/app/account-settings',
+  '/app/public-library-moderation',
 ];
 
 /** Whether `pathname` is exempt from the "no project yet" redirect guard. */
