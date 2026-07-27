@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
@@ -13,6 +14,28 @@ const culture: PublicCulture = {
   seed_supplier: 'Open Seeds',
   growth_duration_days: 70,
   harvest_duration_days: 28,
+  version: 1,
+};
+
+const lettuceCulture: PublicCulture = {
+  id: 2,
+  status: 'published',
+  name: 'Salat',
+  variety: 'Maikönig',
+  seed_supplier: 'Open Seeds',
+  growth_duration_days: 45,
+  harvest_duration_days: 10,
+  version: 1,
+};
+
+const carrotCulture: PublicCulture = {
+  id: 3,
+  status: 'published',
+  name: 'Möhre',
+  variety: 'Nantaise',
+  seed_supplier: 'Open Seeds',
+  growth_duration_days: 90,
+  harvest_duration_days: 21,
   version: 1,
 };
 
@@ -202,6 +225,74 @@ describe('PublicCultureLibraryDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));
 
     expect(onImport).toHaveBeenCalledWith(culture);
+  });
+
+  it('supports keyboard navigation in the desktop import list', async () => {
+    mockDesktopViewport();
+    const user = userEvent.setup();
+    const onImport = vi.fn();
+
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture, lettuceCulture, carrotCulture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport,
+      },
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
+
+    screen.getByRole('option', { name: /Tomate/ }).focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Salat' })).toBeInTheDocument();
+
+    await user.keyboard('{End}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Tomate' })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Tomate/ })).toHaveFocus();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));
+    expect(onImport).toHaveBeenCalledWith(culture);
+  });
+
+  it('keeps list navigation scoped away from the import dialog search field', async () => {
+    mockDesktopViewport();
+    const user = userEvent.setup();
+
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [culture, lettuceCulture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
+    );
+
+    await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
+    const searchInput = screen.getByLabelText('Öffentliche Kulturen durchsuchen');
+    searchInput.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByText('Die Kulturbibliothek wächst mit der Community')).toBeInTheDocument();
+    expect(searchInput).toHaveFocus();
   });
 
   it('shows the community contribution empty state on mobile when the library is empty', async () => {

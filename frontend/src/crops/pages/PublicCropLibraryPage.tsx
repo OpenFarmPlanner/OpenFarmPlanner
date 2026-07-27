@@ -43,6 +43,7 @@ import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
+import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type ProposalField = 'notes' | 'growth_duration_days' | 'harvest_duration_days';
@@ -465,6 +466,13 @@ export default function PublicCropLibraryPage() {
     [cultures, selectedCultureId],
   );
 
+  const cultureListNavigation = useCultureListKeyboardNavigation({
+    items: cultures,
+    selectedId: selectedCultureId,
+    getId: (culture) => culture.id,
+    onSelect: (culture) => updateSelectedCultureId(culture.id),
+  });
+
   useEffect(() => {
     selectedCultureIdRef.current = selectedCultureId;
   }, [selectedCultureId]);
@@ -677,12 +685,18 @@ export default function PublicCropLibraryPage() {
                   </Typography>
                 </Box>
               ) : (
-                <List disablePadding sx={{ maxHeight: { xs: 280, sm: 'calc(100vh - 290px)' }, overflow: 'auto' }}>
+                <List
+                  disablePadding
+                  role="listbox"
+                  aria-label={t('library.page.title')}
+                  sx={{ maxHeight: { xs: 280, sm: 'calc(100vh - 290px)' }, overflow: 'auto' }}
+                >
                   {cultures.map((culture) => (
                     <ListItemButton
                       key={culture.id}
+                      {...cultureListNavigation.getItemProps(culture)}
                       selected={culture.id === selectedCultureId}
-                      onClick={() => updateSelectedCultureId(culture.id)}
+                      onClick={() => cultureListNavigation.selectItem(culture)}
                       sx={{
                         borderBottom: '1px solid',
                         borderColor: 'divider',

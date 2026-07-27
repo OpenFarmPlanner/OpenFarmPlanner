@@ -151,6 +151,15 @@ layout) and to DataGrid (which already has its own cell-navigation code) is
 future work — the reference implementation and this write-up are meant to
 make that a mechanical port rather than a fresh design exercise each time.
 
+Culture master-detail lists use the same local-widget approach through
+`cultures/useCultureListKeyboardNavigation.ts`: the visible list rows are a
+`listbox`/`option` set with roving tabindex, ArrowUp/ArrowDown/Home/End move
+selection within the currently rendered rows, the selected row scrolls into
+view, and focus stays in the list. The hook is shared by the project
+`Kulturen` page, the public Crop Library page, and the quick import dialog, so
+filter/search state continues to define what "visible rows" means in each
+surface without adding global arrow-key handlers.
+
 ### Closed Select typeahead
 
 Plain MUI `<Select>` menus already provide text typeahead while their menu is

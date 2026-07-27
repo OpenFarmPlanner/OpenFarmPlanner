@@ -40,6 +40,7 @@ import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { createTransientId } from '../../utils/transientId';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
+import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -294,6 +295,21 @@ export function PublicCultureLibraryDialog({
     () => filteredCultures.find((entry) => entry.id === selectedId) ?? null,
     [filteredCultures, selectedId],
   );
+
+  const selectCultureFromList = useCallback((culture: PublicCulture): void => {
+    setSelectedId(culture.id);
+    if (useMobileFilterLayout) {
+      setMobileStep('detail');
+    }
+  }, [useMobileFilterLayout]);
+
+  const cultureListNavigation = useCultureListKeyboardNavigation({
+    items: filteredCultures,
+    selectedId,
+    getId: (culture) => culture.id,
+    onSelect: selectCultureFromList,
+  });
+
   const hasLibraryEntries = cultures.length > 0;
   const listEmptyTitle = hasLibraryEntries ? t('library.emptyState.noResultsTitle') : t('library.emptyState.emptyLibraryTitle');
   const listEmptyDescription = hasLibraryEntries ? t('library.empty') : t('library.emptyState.emptyLibraryDescription');
@@ -443,7 +459,11 @@ export function PublicCultureLibraryDialog({
             </Box>
           ) : null}
           {(!useMobileFilterLayout || mobileStep === 'list') ? (
-            <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+            <List
+              role="listbox"
+              aria-label={t('library.dialogTitle')}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}
+            >
             {filteredCultures.length === 0 ? (
               useMobileFilterLayout ? (
                 <LibraryEmptyState title={listEmptyTitle} description={listEmptyDescription} compact />
@@ -453,13 +473,9 @@ export function PublicCultureLibraryDialog({
             ) : filteredCultures.map((culture) => (
                 <ListItemButton
                   key={culture.id}
+                  {...cultureListNavigation.getItemProps(culture)}
                   selected={culture.id === selectedId}
-                  onClick={() => {
-                    setSelectedId(culture.id);
-                    if (useMobileFilterLayout) {
-                      setMobileStep('detail');
-                    }
-                  }}
+                  onClick={() => cultureListNavigation.selectItem(culture)}
                   alignItems="flex-start"
                   sx={{ py: 0.75, px: 1.25 }}
                 >

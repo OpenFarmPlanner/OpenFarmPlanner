@@ -91,8 +91,8 @@ test('public crop library supports quick import, discussion, proposal, and mobil
   const importDialog = page.getByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
   await expect(importDialog).toBeVisible();
   await importDialog.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
-  await expect(importDialog.getByRole('button', { name: new RegExp(publicCulture.variety) })).toBeVisible();
-  await importDialog.getByRole('button', { name: new RegExp(publicCulture.variety) }).click();
+  await expect(importDialog.getByRole('option', { name: new RegExp(publicCulture.variety) })).toBeVisible();
+  await importDialog.getByRole('option', { name: new RegExp(publicCulture.variety) }).click();
   await expect(page.getByRole('button', { name: 'In Projekt importieren' })).toBeEnabled();
   await page.getByRole('button', { name: 'In Projekt importieren' }).click();
   await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
