@@ -55,12 +55,11 @@
   },
   "loginMethods": {
     "title": "Anmeldemethoden",
-    "description": "Melde dich zusätzlich zu E-Mail und Passwort auch über Google oder Microsoft an. Alle verknüpften Methoden führen zu diesem Konto.",
+    "description": "Verwalte die mit deinem Konto verknüpften Anmeldemethoden.",
+    "emailPasswordActive": "E-Mail & Passwort · Aktiv",
     "connect": "Mit {{provider}} verknüpfen",
     "connected": "Die Anmeldemethode wurde verknüpft.",
-    "connectedSince": "{{provider}} · verknüpft seit {{date}}",
-    "disconnect": "Entfernen",
-    "lastMethodHint": "Deine letzte Anmeldemethode kann nicht entfernt werden. Lege zuerst über „Passwort vergessen“ ein Passwort fest."
+    "connectedSince": "{{provider}} · verknüpft seit {{date}}"
   },
   "dangerZone": "Gefährlicher Bereich",
   "deleteDescription": "Wenn du dein Konto löschst, wird es sofort deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann einschließlich Projektdaten gelöscht; veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen.",

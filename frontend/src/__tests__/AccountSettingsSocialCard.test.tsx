@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router';
 import AccountSettingsSocialCard from '../pages/accountSettingsSocialCard';
 import type { SocialConnection, SocialProvider } from '../auth/socialAuth';
 
-const authUser = { is_guest_demo: false };
+const authUser = { is_guest_demo: false, has_password: true };
 
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ user: authUser }),
@@ -13,7 +13,6 @@ vi.mock('../auth/useAuth', () => ({
 
 const getSocialProvidersMock = vi.fn();
 const getSocialConnectionsMock = vi.fn();
-const disconnectSocialConnectionMock = vi.fn();
 const startSocialLoginMock = vi.fn();
 
 vi.mock('../auth/socialAuth', async () => {
@@ -22,7 +21,6 @@ vi.mock('../auth/socialAuth', async () => {
     ...actual,
     getSocialProviders: () => getSocialProvidersMock(),
     getSocialConnections: () => getSocialConnectionsMock(),
-    disconnectSocialConnection: (id: number) => disconnectSocialConnectionMock(id),
     startSocialLogin: (provider: SocialProvider, options?: { process?: string }) =>
       startSocialLoginMock(provider, options),
   };
@@ -56,9 +54,9 @@ describe('AccountSettingsSocialCard', () => {
   beforeEach(() => {
     getSocialProvidersMock.mockReset();
     getSocialConnectionsMock.mockReset();
-    disconnectSocialConnectionMock.mockReset();
     startSocialLoginMock.mockReset();
     authUser.is_guest_demo = false;
+    authUser.has_password = true;
   });
 
   it('lists linked identities and offers the missing provider', async () => {
@@ -84,27 +82,33 @@ describe('AccountSettingsSocialCard', () => {
     expect(startSocialLoginMock).toHaveBeenCalledWith(providers[0], { process: 'connect' });
   });
 
-  it('blocks removing the only remaining login method', async () => {
-    getSocialProvidersMock.mockResolvedValue(providers);
-    getSocialConnectionsMock.mockResolvedValue([connection({ can_disconnect: false })]);
+  it('shows a provider-neutral description that does not announce unavailable providers', async () => {
+    getSocialProvidersMock.mockResolvedValue([providers[0]]);
+    getSocialConnectionsMock.mockResolvedValue([connection()]);
 
     renderCard();
 
-    expect(await screen.findByRole('button', { name: 'Entfernen' })).toBeDisabled();
-    expect(screen.getByText(/letzte Anmeldemethode kann nicht entfernt werden/)).toBeInTheDocument();
+    expect(await screen.findByText('Verwalte die mit deinem Konto verknüpften Anmeldemethoden.')).toBeInTheDocument();
+    expect(screen.queryByText(/Microsoft/)).not.toBeInTheDocument();
   });
 
-  it('removes a linked identity and reloads the list', async () => {
-    const user = userEvent.setup();
+  it('shows email/password as an active login method when the account has a usable password', async () => {
     getSocialProvidersMock.mockResolvedValue(providers);
-    getSocialConnectionsMock.mockResolvedValueOnce([connection()]).mockResolvedValue([]);
-    disconnectSocialConnectionMock.mockResolvedValue({ detail: 'Die Anmeldemethode wurde entfernt.' });
+    getSocialConnectionsMock.mockResolvedValue([connection()]);
 
     renderCard();
-    await user.click(await screen.findByRole('button', { name: 'Entfernen' }));
 
-    await waitFor(() => expect(disconnectSocialConnectionMock).toHaveBeenCalledWith(1));
-    expect(await screen.findByText('Die Anmeldemethode wurde entfernt.')).toBeInTheDocument();
+    expect(await screen.findByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
+  });
+
+  it('does not offer disconnecting a linked login method', async () => {
+    getSocialProvidersMock.mockResolvedValue(providers);
+    getSocialConnectionsMock.mockResolvedValue([connection()]);
+
+    renderCard();
+
+    await screen.findByText(/Google · verknüpft seit/);
+    expect(screen.queryByRole('button', { name: 'Entfernen' })).not.toBeInTheDocument();
   });
 
   it('confirms a completed connect reported by the backend redirect', async () => {
