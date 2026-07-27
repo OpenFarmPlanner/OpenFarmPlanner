@@ -80,9 +80,14 @@ export function GlobalMenu(props: GlobalMenuProps) {
   const desktopMenuItems = [
     <MenuItem key="desktop-project-settings" onClick={wrap(onOpenProjectSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.settings')}</MenuItem>,
     <MenuItem key="desktop-history" onClick={wrapAsync(onOpenProjectHistory)} disabled={historyLoading}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HistoryOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.openVersionHistory')}</MenuItem>,
-    <Divider key="desktop-divider" />,
+    <Divider key="desktop-divider-project" />,
+    ...(canModeratePublicLibrary
+      ? [
+          <MenuItem key="desktop-public-library-moderation" onClick={wrap(onOpenPublicLibraryModeration)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><GavelOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.publicLibraryModeration')}</MenuItem>,
+          <Divider key="desktop-divider-moderation" />,
+        ]
+      : []),
     <MenuItem key="desktop-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
-    canModeratePublicLibrary ? <MenuItem key="desktop-public-library-moderation" onClick={wrap(onOpenPublicLibraryModeration)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><GavelOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.publicLibraryModeration')}</MenuItem> : null,
     <MenuItem key="desktop-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
     <MenuItem key="desktop-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
     canLeaveDemoProject ? <MenuItem key="desktop-leave-demo" onClick={wrapAsync(onLeaveDemoProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><ExitToAppIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.leaveDemo')}</MenuItem> : null,
