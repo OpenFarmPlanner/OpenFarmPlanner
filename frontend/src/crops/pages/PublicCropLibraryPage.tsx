@@ -22,10 +22,6 @@ import {
   Tooltip,
   Typography,
   useMediaQuery,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
 } from '@mui/material';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -36,6 +32,7 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import { publicCultureAPI } from '../../api/api';
 import type {
+  Culture,
   PublicCulture,
   PublicCultureDiscussionComment,
   PublicCultureRevision,
@@ -47,10 +44,13 @@ import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
+import { CultureForm } from '../../cultures/CultureForm';
+import {
+  buildPublicCultureUpdatePayload,
+  publicCultureToCultureFormData,
+} from '../../cultures/publicCultureFormAdapter';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
-type EditablePublicCultureField = 'name' | 'variety' | 'notes' | 'growth_duration_days' | 'harvest_duration_days' | 'propagation_duration_days';
-type PublicCultureEditDraft = Record<EditablePublicCultureField, string>;
 
 const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
 
@@ -405,8 +405,6 @@ export default function PublicCropLibraryPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editDraft, setEditDraft] = useState<PublicCultureEditDraft | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
 
@@ -551,7 +549,6 @@ export default function PublicCropLibraryPage() {
   useEffect(() => {
     setCommentBody('');
     setEditDialogOpen(false);
-    setEditDraft(null);
   }, [selectedCultureId]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -578,35 +575,11 @@ export default function PublicCropLibraryPage() {
     if (!selectedCulture) {
       return;
     }
-    setEditDraft({
-      name: selectedCulture.name ?? '',
-      variety: selectedCulture.variety ?? '',
-      growth_duration_days: selectedCulture.growth_duration_days?.toString() ?? '',
-      harvest_duration_days: selectedCulture.harvest_duration_days?.toString() ?? '',
-      propagation_duration_days: selectedCulture.propagation_duration_days?.toString() ?? '',
-      notes: selectedCulture.notes ?? '',
-    });
     setEditDialogOpen(true);
   };
 
   const closeEditDialog = (): void => {
-    if (savingEdit) {
-      return;
-    }
     setEditDialogOpen(false);
-  };
-
-  const updateEditDraft = (field: EditablePublicCultureField, value: string): void => {
-    setEditDraft((current) => current ? { ...current, [field]: value } : current);
-  };
-
-  const parseOptionalNumber = (value: string): number | null => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : Number.NaN;
   };
 
   const upsertCultureInList = (updatedCulture: PublicCulture): void => {
@@ -621,42 +594,21 @@ export default function PublicCropLibraryPage() {
     });
   };
 
-  const handleEditSave = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    if (!selectedCulture || !editDraft) {
+  const handleEditSave = async (draft: Culture): Promise<void> => {
+    if (!selectedCulture) {
       return;
     }
-    const growthDuration = parseOptionalNumber(editDraft.growth_duration_days);
-    const harvestDuration = parseOptionalNumber(editDraft.harvest_duration_days);
-    const propagationDuration = parseOptionalNumber(editDraft.propagation_duration_days);
-    if ([growthDuration, harvestDuration, propagationDuration].some((value) => Number.isNaN(value))) {
-      showGlobalSnackbar({ message: t('library.page.edit.invalidNumber'), severity: 'error' });
-      return;
-    }
-    if (!editDraft.name.trim()) {
-      showGlobalSnackbar({ message: t('library.page.edit.nameRequired'), severity: 'error' });
-      return;
-    }
-
-    setSavingEdit(true);
     try {
-      const response = await publicCultureAPI.update(selectedCulture.id, {
-        base_version: selectedCulture.version,
-        name: editDraft.name.trim(),
-        variety: editDraft.variety.trim(),
-        growth_duration_days: growthDuration,
-        harvest_duration_days: harvestDuration,
-        propagation_duration_days: propagationDuration,
-        notes: editDraft.notes,
-      });
+      const response = await publicCultureAPI.update(
+        selectedCulture.id,
+        buildPublicCultureUpdatePayload(draft, selectedCulture.version),
+      );
       upsertCultureInList(response.data);
       setEditDialogOpen(false);
       await loadCollaboration(response.data.id);
       showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
     } catch {
       showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
-    } finally {
-      setSavingEdit(false);
     }
   };
 
@@ -1160,72 +1112,15 @@ export default function PublicCropLibraryPage() {
           </Box>
         </Stack>
       </Box>
-      <Dialog open={editDialogOpen} onClose={closeEditDialog} fullWidth maxWidth="sm">
-        <Box component="form" onSubmit={(event) => void handleEditSave(event)}>
-          <DialogTitle>{t('library.page.edit.title')}</DialogTitle>
-          <DialogContent sx={{ display: 'grid', gap: 1.5, pt: 1 }}>
-            {editDraft ? (
-              <>
-                <TextField
-                  value={editDraft.name}
-                  onChange={(event) => updateEditDraft('name', event.target.value)}
-                  label={getPublicCultureFieldLabel('name', t)}
-                  fullWidth
-                  required
-                  size="small"
-                />
-                <TextField
-                  value={editDraft.variety}
-                  onChange={(event) => updateEditDraft('variety', event.target.value)}
-                  label={getPublicCultureFieldLabel('variety', t)}
-                  fullWidth
-                  size="small"
-                />
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.25 }}>
-                  <TextField
-                    value={editDraft.growth_duration_days}
-                    onChange={(event) => updateEditDraft('growth_duration_days', event.target.value)}
-                    label={getPublicCultureFieldLabel('growth_duration_days', t)}
-                    type="number"
-                    size="small"
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                  <TextField
-                    value={editDraft.harvest_duration_days}
-                    onChange={(event) => updateEditDraft('harvest_duration_days', event.target.value)}
-                    label={getPublicCultureFieldLabel('harvest_duration_days', t)}
-                    type="number"
-                    size="small"
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                  <TextField
-                    value={editDraft.propagation_duration_days}
-                    onChange={(event) => updateEditDraft('propagation_duration_days', event.target.value)}
-                    label={getPublicCultureFieldLabel('propagation_duration_days', t)}
-                    type="number"
-                    size="small"
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                </Box>
-                <TextField
-                  value={editDraft.notes}
-                  onChange={(event) => updateEditDraft('notes', event.target.value)}
-                  label={getPublicCultureFieldLabel('notes', t)}
-                  multiline
-                  minRows={5}
-                  fullWidth
-                />
-              </>
-            ) : null}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={closeEditDialog} disabled={savingEdit}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" variant="contained" disabled={savingEdit}>
-              {savingEdit ? t('library.page.edit.saving') : t('library.page.edit.save')}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+      {editDialogOpen && selectedCulture ? (
+        <CultureForm
+          culture={publicCultureToCultureFormData(selectedCulture)}
+          onSave={handleEditSave}
+          onCancel={closeEditDialog}
+          title={t('library.page.edit.title')}
+          variant="publicLibrary"
+        />
+      ) : null}
     </PageContainer>
   );
 }

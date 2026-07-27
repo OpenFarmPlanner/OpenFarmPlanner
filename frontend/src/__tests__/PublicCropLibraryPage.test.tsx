@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   comments: vi.fn(),
   versions: vi.fn(),
   importToProject: vi.fn(),
+  update: vi.fn(),
 }));
 
 vi.mock('../auth/useAuth', () => ({
@@ -49,6 +50,7 @@ vi.mock('../api/api', async () => {
       comments: publicCultureApiMocks.comments,
       versions: publicCultureApiMocks.versions,
       importToProject: publicCultureApiMocks.importToProject,
+      update: publicCultureApiMocks.update,
     },
   };
 });
@@ -93,6 +95,7 @@ describe('PublicCropLibraryPage', () => {
     publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
     publicCultureApiMocks.comments.mockResolvedValue({ data: [] });
     publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.update.mockResolvedValue({ data: { ...publicCultures[0], growth_duration_days: 48, version: 2 } });
   });
 
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {
@@ -113,4 +116,37 @@ describe('PublicCropLibraryPage', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
   });
+
+  it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
+    expect(editDialog).toHaveTextContent('Allgemeine Informationen');
+    expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
+
+    const growthInput = screen.getByLabelText('Wachstumszeit (Tage)');
+    fireEvent.change(growthInput, { target: { value: '48' } });
+    growthInput.focus();
+    fireEvent.keyDown(window, {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: 's',
+    });
+
+    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
+    expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
+      base_version: 1,
+      name: 'Tomate',
+      variety: 'Roma',
+      growth_duration_days: 48,
+      row_spacing_m: null,
+    }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+  }, 30000);
 });
