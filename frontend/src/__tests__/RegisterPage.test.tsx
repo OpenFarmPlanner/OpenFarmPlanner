@@ -61,7 +61,6 @@ vi.mock('../i18n', () => ({
         'auth:register.termsNoticeMiddle': ' zu. Informationen zur Verarbeitung Ihrer personenbezogenen Daten finden Sie in der ',
         'auth:register.termsNoticePrivacyLinkLabel': 'Datenschutzerklärung',
         'auth:register.termsNoticeSuffix': '.',
-        'auth:register.termsRequired': 'Bitte akzeptiere die Nutzungsbedingungen, um ein Konto zu erstellen.',
       };
       return map[key] ?? key;
     },
@@ -136,10 +135,9 @@ describe('RegisterPage', () => {
     const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
     const toggleButton = screen.getAllByRole('button', { name: 'Passwort anzeigen' })[0];
 
-    await user.tab();
-    await user.tab();
-    await user.tab();
-    await user.tab();
+    for (let tabs = 0; tabs < 10 && document.activeElement !== toggleButton; tabs += 1) {
+      await user.tab();
+    }
 
     expect(toggleButton).toHaveFocus();
 
@@ -171,7 +169,7 @@ describe('RegisterPage', () => {
     expect(logoutMock).toHaveBeenCalledTimes(1);
   });
 
-  it('requires an explicit terms-acceptance checkbox before registration', async () => {
+  it('registers without a terms-acceptance checkbox (account creation implies consent)', async () => {
     authUser = null;
     const user = userEvent.setup();
 
@@ -181,22 +179,22 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     );
 
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
     const submitButton = screen.getByRole('button', { name: 'Konto erstellen' });
-    expect(submitButton).toBeDisabled();
+    expect(submitButton).toBeEnabled();
 
     await user.type(screen.getByLabelText(/E-Mail/i), 'new@example.com');
     const passwordInputs = screen.getAllByLabelText(/^Passwort/i).filter((el) => el.tagName === 'INPUT');
     await user.type(passwordInputs[0], 'new-safe-password-123');
     await user.type(passwordInputs[1], 'new-safe-password-123');
-    await user.click(screen.getByRole('checkbox', { name: /Nutzungsbedingungen/ }));
 
-    expect(submitButton).toBeEnabled();
     await user.click(submitButton);
 
-    expect(registerMock).toHaveBeenCalledWith('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '', true);
+    expect(registerMock).toHaveBeenCalledWith('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '');
   }, 20000);
 
-  it('shows an explicit consent checkbox linking to the terms and the privacy policy', () => {
+  it('shows a shared legal notice linking to the terms and the privacy policy', () => {
     authUser = null;
 
     render(
@@ -205,7 +203,6 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('checkbox', { name: /Nutzungsbedingungen/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Nutzungsbedingungen' })).toHaveAttribute('href', '/nutzungsbedingungen');
     expect(screen.getByRole('link', { name: 'Datenschutzerklärung' })).toHaveAttribute('href', '/datenschutz');
   });
@@ -226,7 +223,6 @@ describe('RegisterPage', () => {
     const passwordInputs = screen.getAllByLabelText(/^Passwort/i).filter((el) => el.tagName === 'INPUT');
     await user.type(passwordInputs[0], 'new-safe-password-123');
     await user.type(passwordInputs[1], 'new-safe-password-123');
-    await user.click(screen.getByRole('checkbox', { name: /Nutzungsbedingungen/ }));
     await user.click(screen.getByRole('button', { name: 'Konto erstellen' }));
 
     expect(await screen.findByRole('button', { name: 'Aktivierungs-E-Mail erneut senden' })).toBeInTheDocument();

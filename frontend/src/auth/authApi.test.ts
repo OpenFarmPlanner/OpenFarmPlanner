@@ -36,7 +36,7 @@ describe('authApi error mapping', () => {
     });
   });
 
-  it('sends explicit terms acceptance during registration', async () => {
+  it('does not send an accept_terms field during registration', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => ({
       ok: true,
       status: 201,
@@ -45,7 +45,7 @@ describe('authApi error mapping', () => {
     } as Response));
     vi.stubGlobal('fetch', fetchMock);
 
-    await register('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '', true);
+    await register('new@example.com', 'new-safe-password-123', 'new-safe-password-123', '');
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const registerInit = fetchMock.mock.calls[1]?.[1];
@@ -53,7 +53,7 @@ describe('authApi error mapping', () => {
       throw new Error('Expected registration request body');
     }
     const body = JSON.parse(String(registerInit.body)) as Record<string, unknown>;
-    expect(body).toMatchObject({ accept_terms: true });
+    expect(body).not.toHaveProperty('accept_terms');
   });
 
   it('does not expose non_field_errors and translates typical login messages', async () => {

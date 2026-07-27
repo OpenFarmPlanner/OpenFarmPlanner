@@ -222,14 +222,8 @@ export function AuthProvider({
           clearAuthenticatedUser();
         }
       },
-      register: async (email, password, passwordConfirm, displayName = "", acceptTerms = false) => {
-        const response = await registerRequest(
-          email,
-          password,
-          passwordConfirm,
-          displayName,
-          acceptTerms,
-        );
+      register: async (email, password, passwordConfirm, displayName = "") => {
+        const response = await registerRequest(email, password, passwordConfirm, displayName);
         return response.detail;
       },
       acceptConsent: async (document) => {

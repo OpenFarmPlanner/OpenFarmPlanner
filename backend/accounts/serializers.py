@@ -198,7 +198,6 @@ class RegisterSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     password = serializers.CharField(**_password_field_kwargs)
     password_confirm = serializers.CharField(**_password_field_kwargs)
-    accept_terms = serializers.BooleanField(required=True)
 
     def validate_email(self, value: str) -> str:
         normalized = normalize_email_lower(value)
@@ -209,8 +208,6 @@ class RegisterSerializer(serializers.Serializer):
     def validate(self, attrs: dict[str, object]) -> dict[str, object]:
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': _de(_('Passwords do not match.'))})
-        if attrs.get('accept_terms') is not True:
-            raise serializers.ValidationError({'accept_terms': _de(_('You must accept the Terms of Service.'))})
         validate_password(str(attrs['password']))
         return attrs
 

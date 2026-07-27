@@ -1,15 +1,16 @@
-import { Alert, Box, Button, Checkbox, FormControlLabel, InputAdornment, Link, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, InputAdornment, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
+import AccountCreationLegalNotice from '../../components/auth/AccountCreationLegalNotice';
 import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
 import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
 import { useTranslation } from '../../i18n';
 import { getNextFromSearch, getTokenFromNextPath, storeInvitationRedirect } from '../invitationAcceptance';
 import AuthPageShell from './AuthPageShell';
-import { authFormSx, authLegalLinkSx, authPrimaryButtonSx, authSecondaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
+import { authFormSx, authPrimaryButtonSx, authSecondaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
 
 export default function RegisterPage() {
   const { user, register, resendActivation, logout } = useAuth();
@@ -27,7 +28,6 @@ export default function RegisterPage() {
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [registrationSucceeded, setRegistrationSucceeded] = useState(false);
   const [pendingInvitation, setPendingInvitation] = useState<InvitationPublicStatus | null>(null);
-  const [acceptTerms, setAcceptTerms] = useState(false);
   const nextPath = getNextFromSearch(location.search);
   const isLoggedIn = user !== null;
   const currentUserLabel = user?.display_label || user?.email || '–';
@@ -64,17 +64,13 @@ export default function RegisterPage() {
       setError(t('auth:register.passwordMismatch'));
       return;
     }
-    if (!acceptTerms) {
-      setError(t('auth:register.termsRequired'));
-      return;
-    }
 
     setSubmitting(true);
     try {
       if (nextPath) {
         storeInvitationRedirect(nextPath, getTokenFromNextPath(nextPath));
       }
-      const message = await register(email.trim().toLowerCase(), password, passwordConfirm, displayName.trim(), acceptTerms);
+      const message = await register(email.trim().toLowerCase(), password, passwordConfirm, displayName.trim());
       setSuccess(pendingInvitation ? t('projectInvitations:registerSuccessWithInvitation', { detail: message }) : message);
       setRegistrationSucceeded(true);
     } catch (err) {
@@ -106,7 +102,8 @@ export default function RegisterPage() {
 
   return (
     <AuthPageShell title={t('auth:register.title')} subtitle={t('auth:register.subtitle')} legalLinksDense>
-      {isLoggedIn ? null : <SocialLoginButtons />}
+      {isLoggedIn ? null : <AccountCreationLegalNotice />}
+      {isLoggedIn ? null : <SocialLoginButtons hideLegalNotice />}
       <Box component="form" onSubmit={handleSubmit} noValidate sx={authFormSx}>
         <Stack spacing={2.25}>
           {isLoggedIn ? (
@@ -206,41 +203,7 @@ export default function RegisterPage() {
               htmlInput: { autoComplete: 'new-password' },
             }}
           />
-          <FormControlLabel
-            sx={{
-              alignItems: 'flex-start',
-              gap: 1,
-              m: 0,
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: 'rgba(46, 125, 50, 0.04)',
-              '& .MuiFormControlLabel-label': {
-                mt: 0.2,
-              },
-            }}
-            control={(
-              <Checkbox
-                checked={acceptTerms}
-                onChange={(event) => setAcceptTerms(event.target.checked)}
-                disabled={isLoggedIn}
-                sx={{ mt: -0.55 }}
-              />
-            )}
-            label={(
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
-                {t('auth:register.termsNoticePrefix')}
-                <Link component={RouterLink} to="/nutzungsbedingungen" target="_blank" rel="noopener" sx={authLegalLinkSx}>
-                  {t('auth:register.termsNoticeTermsLinkLabel')}
-                </Link>
-                {t('auth:register.termsNoticeMiddle')}
-                <Link component={RouterLink} to="/datenschutz" target="_blank" rel="noopener" sx={authLegalLinkSx}>
-                  {t('auth:register.termsNoticePrivacyLinkLabel')}
-                </Link>
-                {t('auth:register.termsNoticeSuffix')}
-              </Typography>
-            )}
-          />
-          <Button type="submit" variant="contained" size="large" disabled={submitting || isLoggedIn || !acceptTerms} fullWidth sx={authPrimaryButtonSx}>
+          <Button type="submit" variant="contained" size="large" disabled={submitting || isLoggedIn} fullWidth sx={authPrimaryButtonSx}>
             {submitting ? t('auth:register.submitting') : t('auth:register.submit')}
           </Button>
           {registrationSucceeded && !isLoggedIn ? (

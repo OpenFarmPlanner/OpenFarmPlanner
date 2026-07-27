@@ -149,22 +149,24 @@ class AuthApiTest(APITestCase):
         self.assertIn('email', response.data)
         self.assertIn('password', response.data)
         self.assertIn('password_confirm', response.data)
-        self.assertIn('accept_terms', response.data)
 
-    def test_registration_requires_explicit_terms_acceptance(self) -> None:
+    def test_registration_succeeds_without_an_accept_terms_field(self) -> None:
+        # Creating an account implies agreement to the Terms of Service for
+        # both email/password and social registration alike - there is no
+        # separate consent checkbox to fail validation on.
         response = self.client.post(
             '/openfarmplanner/api/auth/register/',
             {
-                'email': 'no-terms@example.com',
+                'email': 'no-checkbox@example.com',
                 'password': 'new-safe-password-123',
                 'password_confirm': 'new-safe-password-123',
-                'accept_terms': False,
             },
             format='json',
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('accept_terms', response.data)
-        self.assertFalse(User.objects.filter(email='no-terms@example.com').exists())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = User.objects.get(email='no-checkbox@example.com')
+        record = DocumentConsent.objects.get(user=created, document=DocumentConsent.DOCUMENT_TERMS)
+        self.assertEqual(record.version, CURRENT_VERSIONS[DocumentConsent.DOCUMENT_TERMS])
 
     def test_registration_records_acceptance_of_the_current_terms_version(self) -> None:
         response = self.client.post(
