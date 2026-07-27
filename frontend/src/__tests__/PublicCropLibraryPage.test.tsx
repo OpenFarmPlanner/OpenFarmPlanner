@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture } from '../api/types';
+import { CommandProvider } from '../commands/CommandProvider';
+import { FocusManagerProvider } from '../focus/FocusManager';
 
 const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -81,11 +83,15 @@ const publicCultures: PublicCulture[] = [
 
 function renderPage(): ReturnType<typeof render> {
   return render(
-    <MemoryRouter initialEntries={['/app/crop-library']}>
-      <Routes>
-        <Route path="/app/crop-library" element={<PublicCropLibraryPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <FocusManagerProvider>
+      <CommandProvider>
+        <MemoryRouter initialEntries={['/app/crop-library']}>
+          <Routes>
+            <Route path="/app/crop-library" element={<PublicCropLibraryPage />} />
+          </Routes>
+        </MemoryRouter>
+      </CommandProvider>
+    </FocusManagerProvider>,
   );
 }
 
@@ -165,4 +171,28 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
+
+  it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
+    publicCultureApiMocks.importToProject.mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    await user.keyboard('{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+
+    await user.keyboard('{Alt>}{Shift>}{ArrowLeft}{/Shift}{/Alt}');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+
+    await user.keyboard('{Alt>}e{/Alt}');
+    expect(await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+
+    await user.keyboard('{Alt>}i{/Alt}');
+    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1));
+  });
 });
