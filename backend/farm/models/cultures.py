@@ -1013,6 +1013,43 @@ class PublicCultureChangeProposal(models.Model):
         ordering = ['-created_at', '-id']
 
 
+class PublicCultureRevision(models.Model):
+    """Immutable version snapshot for a shared public-library culture."""
+
+    ACTION_CREATED = 'created'
+    ACTION_UPDATED = 'updated'
+    ACTION_RESTORED = 'restored'
+    ACTION_CHOICES = [
+        (ACTION_CREATED, 'Created'),
+        (ACTION_UPDATED, 'Updated'),
+        (ACTION_RESTORED, 'Restored'),
+    ]
+
+    public_culture = models.ForeignKey(PublicCulture, on_delete=models.CASCADE, related_name='revisions')
+    version = models.PositiveIntegerField()
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, default=ACTION_UPDATED)
+    snapshot = models.JSONField(default=dict, encoder=DjangoJSONEncoder)
+    changed_fields = models.JSONField(default=list, blank=True, encoder=DjangoJSONEncoder)
+    restored_from_version = models.PositiveIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='public_culture_revisions',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version', '-id']
+        constraints = [
+            models.UniqueConstraint(fields=['public_culture', 'version'], name='unique_public_culture_revision_version'),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.public_culture} v{self.version}"
+
+
 class SeedPackage(TimestampedModel):
     """Sold package option for a culture."""
 

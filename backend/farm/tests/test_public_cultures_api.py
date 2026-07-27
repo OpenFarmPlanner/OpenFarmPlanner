@@ -13,6 +13,7 @@ from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
+    PublicCultureRevision,
     PublicCultureStatusEvent,
     SeedPackage,
 )
@@ -397,6 +398,140 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(PublicCultureDiscussionComment.objects.count(), 1)
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(list_response.data[0]['body'], 'Works well under cover in spring.')
+
+    def test_unauthenticated_user_cannot_edit_public_culture(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        self.client.force_authenticate(user=None)
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'notes': 'Anonymous edit'},
+            format='json',
+        )
+
+        self.assertIn(response.status_code, {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN})
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, '')
+
+    def test_authenticated_user_can_edit_foreign_public_culture_and_version_is_recorded(self):
+        other_user = User.objects.create_user(username='foreign-author', email='foreign@example.com', password='testpass', is_active=True)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=other_user,
+            notes='Original notes',
+            version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {
+                'base_version': 1,
+                'notes': 'Community-improved notes',
+                'growth_duration_days': 68,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Community-improved notes')
+        self.assertEqual(public_culture.growth_duration_days, 68)
+        self.assertEqual(public_culture.version, 2)
+        revisions = list(PublicCultureRevision.objects.filter(public_culture=public_culture).order_by('version'))
+        self.assertEqual([revision.version for revision in revisions], [1, 2])
+        self.assertEqual(revisions[0].snapshot['notes'], 'Original notes')
+        self.assertEqual(revisions[1].created_by, self.user)
+        self.assertIn(
+            {'field': 'notes', 'old_value': 'Original notes', 'new_value': 'Community-improved notes'},
+            revisions[1].changed_fields,
+        )
+
+    def test_public_culture_versions_endpoint_returns_author_time_and_diff(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Original notes',
+            version=1,
+        )
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Updated notes'},
+            format='json',
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/versions/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['version'], 2)
+        self.assertIsNotNone(response.data[0]['created_at'])
+        self.assertEqual(response.data[0]['changed_fields'][0]['field'], 'notes')
+        self.assertEqual(response.data[0]['changed_fields'][0]['old_value'], 'Original notes')
+        self.assertEqual(response.data[0]['changed_fields'][0]['new_value'], 'Updated notes')
+
+    def test_revert_creates_new_version_without_deleting_history(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Version 1 notes',
+            version=1,
+        )
+        edit_response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Version 2 notes'},
+            format='json',
+        )
+        self.assertEqual(edit_response.status_code, status.HTTP_200_OK)
+
+        revert_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/revert/',
+            {'version': 1, 'base_version': 2},
+            format='json',
+        )
+
+        self.assertEqual(revert_response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Version 1 notes')
+        self.assertEqual(public_culture.version, 3)
+        revisions = PublicCultureRevision.objects.filter(public_culture=public_culture).order_by('version')
+        self.assertEqual(revisions.count(), 3)
+        self.assertEqual(revisions.last().action, PublicCultureRevision.ACTION_RESTORED)
+        self.assertEqual(revisions.last().restored_from_version, 1)
+
+    def test_public_culture_edit_and_revert_do_not_mutate_imported_project_culture(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Neckargold',
+            status='published',
+            created_by=self.user,
+            notes='Public v1',
+            growth_duration_days=55,
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported = Culture.objects.get(id=import_response.data['id'])
+
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Public v2', 'growth_duration_days': 60},
+            format='json',
+        )
+        self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/revert/',
+            {'version': 1, 'base_version': 2},
+            format='json',
+        )
+
+        imported.refresh_from_db()
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Public v1')
+        self.assertEqual(imported.notes, 'Public v1')
+        self.assertEqual(imported.growth_duration_days, 55)
+        self.assertEqual(imported.source_public_culture, public_culture)
 
     def test_authenticated_user_can_create_change_proposal_for_allowed_fields(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)

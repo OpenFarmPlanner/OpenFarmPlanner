@@ -238,6 +238,24 @@ export interface PublicCultureChangeProposal {
   updated_at?: string;
 }
 
+export interface PublicCultureRevisionChange {
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
+}
+
+export interface PublicCultureRevision {
+  id: number;
+  public_culture: number;
+  version: number;
+  action: 'created' | 'updated' | 'restored';
+  snapshot: Partial<PublicCulture>;
+  changed_fields: PublicCultureRevisionChange[];
+  restored_from_version?: number | null;
+  created_by_label?: string;
+  created_at?: string;
+}
+
 export interface PublicCultureDiscussionComment {
   id: number;
   public_culture: number;

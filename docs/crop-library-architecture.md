@@ -8,9 +8,9 @@ Goal: prepare and evolve the architecture for a public Crop Library
 now treated as a long-lived, community-built knowledge base for crop data.
 Users can withdraw their own accidental publications through a non-destructive
 status transition; moderation and cleanup use stronger staff-only states.
-The first collaborative editing slice is now also in place: public entries
-have discussion comments and reviewed change proposals, while the import
-picker stays optimized for quickly copying a crop into the active project.
+The collaborative editing model is now direct: public entries have discussion
+comments and immutable version history, while the import picker stays optimized
+for quickly copying a crop into the active project.
 
 ## 0. Product and legal model
 
@@ -25,11 +25,12 @@ The public Crop Library follows an open-data model:
 - Moderator removal is reserved for exceptional cases such as test data,
   duplicates, unlawful content, personal data in a published record, spam,
   obvious abuse, or another moderation decision. It is also non-destructive.
-- Public entries are not edited directly by ordinary users. Users discuss an
-  entry and submit reviewed change proposals; staff/moderators can approve a
-  proposal, which applies allowlisted fields to the public master row and
-  increments its version. This keeps the workflow collaborative while
-  preserving auditability.
+- Public entries can be edited directly by logged-in users. Each edit is
+  immediately published as the current public version and records an immutable
+  `PublicCultureRevision` snapshot with author, timestamp, changed fields, and
+  old/new values where they are displayable.
+- Reverting a public entry restores an older snapshot by creating another new
+  version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future
   public APIs, future downloads/exports, and external open-source or
   commercial projects.
@@ -50,12 +51,17 @@ permissible. Hard delete is intentionally exceptional and only available to
 administrators when no imports, source-project provenance, or other
 dependencies remain.
 
-Discussion comments (`PublicCultureDiscussionComment`) and change proposals
-(`PublicCultureChangeProposal`) are child records of `PublicCulture`. They do
-not touch project-owned `Culture` rows. Approving a proposal changes only the
-shared public-library row; projects that already imported an entry continue
-using their private copied snapshot until a future explicit update/merge flow
-is built.
+Discussion comments (`PublicCultureDiscussionComment`) and public revisions
+(`PublicCultureRevision`) are child records of `PublicCulture`. They do not
+touch project-owned `Culture` rows. Editing or reverting a public entry changes
+only the shared public-library row; projects that already imported an entry
+continue using their private copied snapshot until a future explicit
+update/merge flow is built.
+
+Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
+in the database for audit and transition safety. The active frontend no longer
+creates, reviews, or displays them, and existing proposals are not
+automatically applied.
 
 ## 1. The current situation (before this pass)
 
@@ -154,8 +160,8 @@ architecture pass.
 `App.tsx` now exposes `/app/crop-library` (with `/app/crops` as an alias) as
 an authenticated full-page library workspace. The existing
 `PublicCultureLibraryDialog` remains the quick import picker from the project
-Cultures page and links to the full page for discussion and reviewed
-changes.
+Cultures page and links to the full page for details, version history, and
+discussion.
 
 ## 3. The domain rule, and where it bites
 
@@ -230,7 +236,8 @@ for no functional benefit right now. German UI text (`"Kultur"`,
 - The project Cultures page still uses `PublicCultureLibraryDialog` for quick
   import into the active project.
 - `/app/crop-library` is the full authenticated library workspace for
-  browsing, importing, discussing entries, and proposing/reviewing changes.
+  browsing, importing, discussing entries, editing public crop data directly,
+  reviewing versions, and restoring older versions.
 
 ## 7. Publishing Wizard quality gate
 

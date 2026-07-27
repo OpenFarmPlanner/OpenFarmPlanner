@@ -8,7 +8,9 @@ from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
+    PublicCultureRevision,
 )
+from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
 PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
     'notes',
@@ -36,6 +38,15 @@ PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
     'seeding_requirement_type',
     'seed_packages',
 }
+
+
+def get_public_user_label(user: Any) -> str:
+    if user is None:
+        return ''
+    public_profile = getattr(user, 'public_profile', None)
+    if public_profile and public_profile.public_display_name:
+        return public_profile.public_display_name
+    return ''
 
 
 class PublicCultureSerializer(serializers.ModelSerializer):
@@ -92,6 +103,55 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         return obj.created_by_label
 
 
+class PublicCultureUpdateSerializer(serializers.ModelSerializer):
+    base_version = serializers.IntegerField(required=False, min_value=1, write_only=True)
+
+    class Meta:
+        model = PublicCulture
+        fields = [*PUBLIC_CULTURE_EDITABLE_FIELDS, 'base_version']
+        extra_kwargs = {
+            'name': {'required': False, 'allow_blank': False},
+            'variety': {'required': False, 'allow_blank': True},
+            'notes': {'required': False, 'allow_blank': True},
+            'seed_supplier': {'required': False, 'allow_blank': True},
+            'supplier_name': {'required': False, 'allow_blank': True},
+            'crop_family': {'required': False, 'allow_blank': True},
+            'nutrient_demand': {'required': False, 'allow_blank': True},
+            'cultivation_type': {'required': False, 'allow_blank': True},
+            'harvest_method': {'required': False, 'allow_blank': True},
+            'seed_rate_unit': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'seeding_requirement_type': {'required': False, 'allow_blank': True},
+            'display_color': {'required': False, 'allow_blank': True},
+        }
+
+
+class PublicCultureRevertSerializer(serializers.Serializer):
+    version = serializers.IntegerField(min_value=1)
+    base_version = serializers.IntegerField(required=False, min_value=1)
+
+
+class PublicCultureRevisionSerializer(serializers.ModelSerializer):
+    created_by_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PublicCultureRevision
+        fields = [
+            'id',
+            'public_culture',
+            'version',
+            'action',
+            'snapshot',
+            'changed_fields',
+            'restored_from_version',
+            'created_by_label',
+            'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_created_by_label(self, obj: PublicCultureRevision) -> str:
+        return get_public_user_label(obj.created_by)
+
+
 class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
     created_by_label = serializers.SerializerMethodField()
 
@@ -114,13 +174,7 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
         ]
 
     def get_created_by_label(self, obj: PublicCultureDiscussionComment) -> str:
-        user = obj.created_by
-        if user is None:
-            return ''
-        public_profile = getattr(user, 'public_profile', None)
-        if public_profile and public_profile.public_display_name:
-            return public_profile.public_display_name
-        return ''
+        return get_public_user_label(obj.created_by)
 
 
 class PublicCultureChangeProposalSerializer(serializers.ModelSerializer):
@@ -165,16 +219,7 @@ class PublicCultureChangeProposalSerializer(serializers.ModelSerializer):
         return value
 
     def get_proposed_by_label(self, obj: PublicCultureChangeProposal) -> str:
-        return self._get_user_label(obj.proposed_by)
+        return get_public_user_label(obj.proposed_by)
 
     def get_reviewed_by_label(self, obj: PublicCultureChangeProposal) -> str:
-        return self._get_user_label(obj.reviewed_by)
-
-    @staticmethod
-    def _get_user_label(user: Any) -> str:
-        if user is None:
-            return ''
-        public_profile = getattr(user, 'public_profile', None)
-        if public_profile and public_profile.public_display_name:
-            return public_profile.public_display_name
-        return ''
+        return get_public_user_label(obj.reviewed_by)

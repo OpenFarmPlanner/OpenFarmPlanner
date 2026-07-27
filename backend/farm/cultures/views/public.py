@@ -1,4 +1,4 @@
-"""Read-only public culture library endpoints."""
+"""Public culture library endpoints."""
 
 
 from typing import Any
@@ -18,11 +18,15 @@ from farm.models import (
 )
 from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
+    PublicCultureEditConflictError,
     PublicCulturePermissionError,
+    PublicCultureRevisionNotFoundError,
     PublicCultureStatusTransitionError,
     hard_delete_public_culture,
     import_public_culture_into_project,
     remove_public_culture,
+    restore_public_culture_version,
+    update_public_culture_directly,
     withdraw_public_culture,
 )
 
@@ -33,15 +37,18 @@ from ..serializers import (
 from ..serializers.public import (
     PublicCultureChangeProposalSerializer,
     PublicCultureDiscussionCommentSerializer,
+    PublicCultureRevertSerializer,
+    PublicCultureRevisionSerializer,
+    PublicCultureUpdateSerializer,
 )
 
 
-class PublicCultureViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read-only public library for published cultures with project import action.
+class PublicCultureViewSet(viewsets.ModelViewSet):
+    """Public library for published cultures with project import and direct edit actions.
 
     Candidate for extraction into a separate service consumed by OFP over an
-    API (under discussion as of 2026-07) — avoid deepening its coupling to
-    project-scoped concerns like EntityRevision/history.
+    API (under discussion as of 2026-07). Keep edits on the public row and do
+    not couple this API to project-scoped history.
     """
 
     queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED).order_by('name', 'variety')
@@ -61,6 +68,11 @@ class PublicCultureViewSet(viewsets.ReadOnlyModelViewSet):
         if variety:
             queryset = queryset.filter(variety__icontains=variety)
         return queryset
+
+    def get_serializer_class(self):
+        if self.action in {'update', 'partial_update'}:
+            return PublicCultureUpdateSerializer
+        return super().get_serializer_class()
 
     def _get_public_culture_for_status_action(self) -> PublicCulture:
         return get_object_or_404(
@@ -83,6 +95,43 @@ class PublicCultureViewSet(viewsets.ReadOnlyModelViewSet):
             {'detail': 'Only pending change proposals can be reviewed.', 'code': 'proposal_not_pending'},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    @staticmethod
+    def _edit_conflict_response(error: PublicCultureEditConflictError) -> Response:
+        return Response(
+            {
+                'detail': str(error),
+                'code': error.code,
+                'current_version': error.current_version,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    def update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        partial = kwargs.pop('partial', False)
+        public_culture = self.get_object()
+        serializer = PublicCultureUpdateSerializer(public_culture, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        validated_data = dict(serializer.validated_data)
+        base_version = validated_data.pop('base_version', None)
+        try:
+            updated = update_public_culture_directly(
+                public_culture=public_culture,
+                user=request.user,
+                data=validated_data,
+                base_version=base_version,
+            )
+        except PublicCulturePermissionError as error:
+            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
+        except PublicCultureEditConflictError as error:
+            return self._edit_conflict_response(error)
+        except ValueError as error:
+            return Response({'detail': str(error), 'code': 'unsupported_public_culture_fields'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(PublicCultureSerializer(updated).data)
+
+    def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'], url_path='match')
     def match(self, request):
@@ -131,6 +180,33 @@ class PublicCultureViewSet(viewsets.ReadOnlyModelViewSet):
         comment = serializer.save(public_culture=public_culture, created_by=request.user)
         return Response(PublicCultureDiscussionCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['get'], url_path='versions')
+    def versions(self, request: Request, pk: int | None = None) -> Response:
+        public_culture = self.get_object()
+        revisions = public_culture.revisions.select_related('created_by__public_profile')
+        serializer = PublicCultureRevisionSerializer(revisions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='revert')
+    def revert(self, request: Request, pk: int | None = None) -> Response:
+        public_culture = self.get_object()
+        serializer = PublicCultureRevertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated = restore_public_culture_version(
+                public_culture=public_culture,
+                user=request.user,
+                version=serializer.validated_data['version'],
+                base_version=serializer.validated_data.get('base_version'),
+            )
+        except PublicCulturePermissionError as error:
+            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
+        except PublicCultureEditConflictError as error:
+            return self._edit_conflict_response(error)
+        except PublicCultureRevisionNotFoundError as error:
+            return Response({'detail': str(error), 'code': error.code}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PublicCultureSerializer(updated).data)
+
     @action(detail=True, methods=['get', 'post'], url_path='change-proposals')
     def change_proposals(self, request: Request, pk: int | None = None) -> Response:
         public_culture = self.get_object()
@@ -159,13 +235,11 @@ class PublicCultureViewSet(viewsets.ReadOnlyModelViewSet):
 
         review_note = (request.data.get('review_note') or '').strip()
         with transaction.atomic():
-            updated_fields = []
-            for field, value in proposal.proposed_data.items():
-                setattr(public_culture, field, value)
-                updated_fields.append(field)
-            public_culture.version += 1
-            updated_fields.extend(['version', 'updated_at'])
-            public_culture.save(update_fields=updated_fields)
+            update_public_culture_directly(
+                public_culture=public_culture,
+                user=request.user,
+                data=proposal.proposed_data,
+            )
             proposal.status = PublicCultureChangeProposal.STATUS_APPROVED
             proposal.reviewed_by = request.user
             proposal.reviewed_at = timezone.now()

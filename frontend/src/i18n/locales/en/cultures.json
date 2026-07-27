@@ -62,9 +62,13 @@
     "page": {
       "title": "Public crop library",
       "description": "Browse public crops, import useful entries quickly into your project, and help improve the shared reference data step by step.",
+      "help": {
+        "tooltip": "Help for the public crop library",
+        "openAria": "Open help for the public crop library"
+      },
       "tabs": {
         "details": "Details",
-        "proposals": "Changes",
+        "versions": "Versions",
         "discussion": "Discussion"
       },
       "byAuthor": "By {{author}}",
@@ -72,7 +76,7 @@
       "unknownDate": "Unknown date",
       "notSpecified": "Not specified",
       "noNotes": "No notes yet.",
-      "collaborationLoadError": "Discussion and change proposals could not be loaded.",
+      "collaborationLoadError": "Discussion and version history could not be loaded.",
       "sections": {
         "general": "General information",
         "timing": "Timing",
@@ -116,6 +120,7 @@
       },
       "fields": {
         "cropSpecies": "Crop species",
+        "name": "Crop species",
         "variety": "Variety",
         "growthDurationDays": "Growth duration (days)",
         "harvestDurationDays": "Harvest duration (days)",
@@ -163,6 +168,32 @@
         "commentSuccess": "Comment saved.",
         "commentError": "Comment could not be saved.",
         "empty": "No discussion for this crop yet."
+      },
+      "edit": {
+        "open": "Edit",
+        "title": "Edit public crop",
+        "save": "Save",
+        "saving": "Saving…",
+        "success": "The public crop was updated.",
+        "error": "The public crop could not be updated.",
+        "invalidNumber": "Please enter valid numbers.",
+        "nameRequired": "Please enter a crop species."
+      },
+      "versions": {
+        "empty": "No versions yet.",
+        "versionTitle": "Version {{version}}",
+        "current": "Current version",
+        "revert": "Restore",
+        "reverting": "Restoring…",
+        "revertSuccess": "The version was restored.",
+        "revertError": "The version could not be restored.",
+        "restoredFrom": "Restored from version {{version}}",
+        "noFieldChanges": "Initial version without field changes.",
+        "actions": {
+          "created": "Created",
+          "updated": "Edited",
+          "restored": "Restored"
+        }
       },
       "proposals": {
         "intro": "Public crops are not overwritten directly. Suggest changes so they can be reviewed and adopted transparently.",
@@ -238,7 +269,7 @@
       "importTitle": "Adopt",
       "importDescription": "Import useful crops as your own project copy without changing public data.",
       "improveTitle": "Improve",
-      "improveDescription": "Discuss content and suggest changes so the library gets better over time.",
+      "improveDescription": "Edit public crops directly. Every change is saved as a version.",
       "emptyLibraryTitle": "No public cultures yet",
       "emptyLibraryDescription": "The crop library lives from community contributions. Once suitable project cultures are published, everyone can use and improve them here.",
       "noResultsTitle": "No matching public culture found"

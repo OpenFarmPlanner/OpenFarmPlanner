@@ -22,7 +22,7 @@ type PublishResponse = {
 
 async function apiRequest<T>(
   page: Page,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PATCH',
   path: string,
   data?: Record<string, unknown>,
 ): Promise<T> {
@@ -82,7 +82,7 @@ async function publishUniquePublicCulture(page: Page): Promise<PublishResponse['
   return published.public_culture;
 }
 
-test('public crop library supports quick import, discussion, proposal, and mobile layout', async ({ page, request }) => {
+test('public crop library supports quick import, direct edit, versions, discussion, and mobile layout', async ({ page, request }) => {
   await loginWithDeterministicProject(page, request, `public-crop-library-${Date.now()}`, { loginAsAdmin: true });
   const publicCulture = await publishUniquePublicCulture(page);
 
@@ -137,15 +137,27 @@ test('public crop library supports quick import, discussion, proposal, and mobil
   await page.getByRole('button', { name: 'Kommentieren' }).click();
   await expect(page.getByText('E2E-Kommentar zur öffentlichen Kultur.')).toBeVisible();
 
-  await page.getByRole('tab', { name: /Änderungen/ }).click();
-  await page.getByLabel('Kurze Zusammenfassung').fill('E2E Wachstumszeit verbessern');
-  await page.getByLabel('Feld').click();
-  await page.getByRole('option', { name: 'Wachstumszeit (Tage)' }).click();
-  await page.getByLabel('Vorgeschlagener Wert').fill('48');
-  await page.getByRole('button', { name: 'Änderung vorschlagen' }).click();
-  await expect(page.getByText('E2E Wachstumszeit verbessern')).toBeVisible();
-  await expect(page.getByText('48', { exact: true })).toBeVisible();
-  await expect(page.getByText('Offen')).toBeVisible();
+  await page.getByRole('tab', { name: /Details/ }).click();
+  await page.getByRole('button', { name: 'Bearbeiten' }).click();
+  const editDialog = page.getByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByLabel('Wachstumszeit (Tage)').fill('48');
+  await editDialog.getByLabel('Notizen').fill('E2E direkt bearbeitete öffentliche Notiz.');
+  await editDialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(editDialog).not.toBeVisible();
+  await expect(page.getByText('48 Tage')).toBeVisible();
+  await expect(page.getByText('E2E direkt bearbeitete öffentliche Notiz.')).toBeVisible();
+
+  await page.getByRole('tab', { name: /Versionen/ }).click();
+  await expect(page.getByRole('heading', { name: 'Version 2' })).toBeVisible();
+  await expect(page.getByText('Aktuelle Version')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Version 1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Wiederherstellen' }).click();
+  await expect(page.getByRole('heading', { name: 'Version 3' })).toBeVisible();
+  await expect(page.getByText('Aus Version 1 wiederhergestellt')).toBeVisible();
+  await page.getByRole('tab', { name: /Details/ }).click();
+  await expect(page.getByText('42 Tage')).toBeVisible();
+  await expect(page.getByText('Bestehende öffentliche Notiz.')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();

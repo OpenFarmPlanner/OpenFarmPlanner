@@ -489,9 +489,13 @@
     "page": {
       "title": "Öffentliche Kulturbibliothek",
       "description": "Durchsuche öffentliche Kulturen, importiere passende Einträge schnell in dein Projekt und hilf dabei, die gemeinsamen Stammdaten Schritt für Schritt zu verbessern.",
+      "help": {
+        "tooltip": "Hilfe zur öffentlichen Kulturbibliothek",
+        "openAria": "Hilfe zur öffentlichen Kulturbibliothek öffnen"
+      },
       "tabs": {
         "details": "Details",
-        "proposals": "Änderungen",
+        "versions": "Versionen",
         "discussion": "Diskussion"
       },
       "byAuthor": "Von {{author}}",
@@ -499,7 +503,7 @@
       "unknownDate": "Datum unbekannt",
       "notSpecified": "Keine Angabe",
       "noNotes": "Keine Notizen vorhanden.",
-      "collaborationLoadError": "Diskussion und Änderungsvorschläge konnten nicht geladen werden.",
+      "collaborationLoadError": "Diskussion und Versionsverlauf konnten nicht geladen werden.",
       "sections": {
         "general": "Allgemeine Informationen",
         "timing": "Zeitplanung",
@@ -543,6 +547,7 @@
       },
       "fields": {
         "cropSpecies": "Kulturart",
+        "name": "Kulturart",
         "variety": "Sorte",
         "growthDurationDays": "Wachstumszeit (Tage)",
         "harvestDurationDays": "Erntezeit (Tage)",
@@ -591,6 +596,32 @@
         "commentError": "Kommentar konnte nicht gespeichert werden.",
         "empty": "Noch keine Diskussion zu dieser Kultur."
       },
+      "edit": {
+        "open": "Bearbeiten",
+        "title": "Öffentliche Kultur bearbeiten",
+        "save": "Speichern",
+        "saving": "Speichere…",
+        "success": "Die öffentliche Kultur wurde aktualisiert.",
+        "error": "Die öffentliche Kultur konnte nicht aktualisiert werden.",
+        "invalidNumber": "Bitte gib gültige Zahlen ein.",
+        "nameRequired": "Bitte gib eine Kulturart ein."
+      },
+      "versions": {
+        "empty": "Noch keine Versionen vorhanden.",
+        "versionTitle": "Version {{version}}",
+        "current": "Aktuelle Version",
+        "revert": "Wiederherstellen",
+        "reverting": "Stelle wieder her…",
+        "revertSuccess": "Die Version wurde wiederhergestellt.",
+        "revertError": "Die Version konnte nicht wiederhergestellt werden.",
+        "restoredFrom": "Aus Version {{version}} wiederhergestellt",
+        "noFieldChanges": "Startversion ohne Feldänderungen.",
+        "actions": {
+          "created": "Erstellt",
+          "updated": "Bearbeitet",
+          "restored": "Wiederhergestellt"
+        }
+      },
       "proposals": {
         "intro": "Öffentliche Kulturen werden nicht direkt überschrieben. Schlage Änderungen vor, damit sie geprüft und nachvollziehbar übernommen werden können.",
         "summaryLabel": "Kurze Zusammenfassung",
@@ -633,7 +664,7 @@
       "importTitle": "Übernehmen",
       "importDescription": "Importiere passende Kulturen als eigene Projektkopie, ohne öffentliche Daten zu verändern.",
       "improveTitle": "Verbessern",
-      "improveDescription": "Diskutiere Inhalte und schlage Änderungen vor, damit die Bibliothek besser wird.",
+      "improveDescription": "Bearbeite öffentliche Kulturen direkt. Jede Änderung wird als Version gespeichert.",
       "emptyLibraryTitle": "Noch keine öffentlichen Kulturen vorhanden",
       "emptyLibraryDescription": "Die Kulturbibliothek lebt von den Beiträgen der Community. Sobald passende Projektkulturen veröffentlicht werden, können sie hier von allen genutzt und weiterentwickelt werden.",
       "noResultsTitle": "Keine passende öffentliche Kultur gefunden"

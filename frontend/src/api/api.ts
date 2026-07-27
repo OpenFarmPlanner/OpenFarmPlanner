@@ -18,6 +18,7 @@ import type {
   PublicCultureDiscussionComment,
   PublicCultureMatchResponse,
   PublicCultureRemovalReason,
+  PublicCultureRevision,
   PublicCultureDuplicateCandidate,
   CropSpecies,
   PublishPublicCulturePreview,
@@ -139,6 +140,8 @@ export const cropSpeciesAPI = {
 export const publicCultureAPI = {
   list: (params?: { q?: string; name?: string; variety?: string }) => http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params }),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
+  update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
+    http.patch<PublicCulture>(`/public-cultures/${id}/`, data),
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
   importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
@@ -149,6 +152,9 @@ export const publicCultureAPI = {
   comments: (id: number) => http.get<PublicCultureDiscussionComment[]>(`/public-cultures/${id}/comments/`),
   createComment: (id: number, body: string) =>
     http.post<PublicCultureDiscussionComment>(`/public-cultures/${id}/comments/`, { body }),
+  versions: (id: number) => http.get<PublicCultureRevision[]>(`/public-cultures/${id}/versions/`),
+  revert: (id: number, data: { version: number; base_version?: number }) =>
+    http.post<PublicCulture>(`/public-cultures/${id}/revert/`, data),
   changeProposals: (id: number) => http.get<PublicCultureChangeProposal[]>(`/public-cultures/${id}/change-proposals/`),
   createChangeProposal: (id: number, data: { summary: string; proposed_data: Partial<PublicCulture> }) =>
     http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/`, data),
@@ -387,6 +393,7 @@ export type {
   PublicCultureChangeProposal,
   PublicCultureDiscussionComment,
   PublicCultureRemovalReason,
+  PublicCultureRevision,
   PublicCultureDuplicateCandidate,
   CropSpecies,
   PublishPublicCulturePreview,

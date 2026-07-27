@@ -7,14 +7,17 @@ from __future__ import annotations
 # project-history/EntityRevision or other farm-app-internal concerns here.
 
 from dataclasses import dataclass
+import json
 import re
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db import transaction
 from django.utils import timezone
 
 from crops.models import CropSpecies
-from farm.models import Culture, Project, PublicCulture, PublicCultureStatusEvent
+from farm.models import Culture, Project, PublicCulture, PublicCultureRevision, PublicCultureStatusEvent
 
 User = get_user_model()
 
@@ -44,6 +47,36 @@ CULTURE_COPY_FIELDS = [
     'seeding_requirement',
     'seeding_requirement_type',
     'display_color',
+]
+
+PUBLIC_CULTURE_EDITABLE_FIELDS = [
+    'name',
+    'variety',
+    'notes',
+    'seed_supplier',
+    'supplier_name',
+    'crop_family',
+    'nutrient_demand',
+    'cultivation_types',
+    'cultivation_type',
+    'growth_duration_days',
+    'harvest_duration_days',
+    'propagation_duration_days',
+    'harvest_method',
+    'expected_yield',
+    'allow_deviation_delivery_weeks',
+    'distance_within_row_m',
+    'row_spacing_m',
+    'sowing_depth_m',
+    'seed_rate_value',
+    'seed_rate_unit',
+    'seed_rate_by_cultivation',
+    'sowing_calculation_safety_percent',
+    'thousand_kernel_weight_g',
+    'seeding_requirement',
+    'seeding_requirement_type',
+    'display_color',
+    'seed_packages',
 ]
 
 PUBLIC_ORIGINAL_LANGUAGE_CODES = {'de', 'en'}
@@ -116,11 +149,189 @@ class PublicCulturePermissionError(Exception):
         self.code = code
 
 
+class PublicCultureEditConflictError(Exception):
+    """Raised when a public culture edit is based on a stale version."""
+
+    def __init__(self, message: str, *, current_version: int) -> None:
+        super().__init__(message)
+        self.message = message
+        self.current_version = current_version
+        self.code = 'stale_public_culture_version'
+
+
+class PublicCultureRevisionNotFoundError(Exception):
+    """Raised when a requested public culture version snapshot is missing."""
+
+    def __init__(self, message: str = 'The requested public culture version was not found.') -> None:
+        super().__init__(message)
+        self.message = message
+        self.code = 'public_culture_revision_not_found'
+
+
 def _copy_fields(instance: Any) -> dict[str, Any]:
     payload = {field: getattr(instance, field) for field in CULTURE_COPY_FIELDS}
     payload['cultivation_types'] = list(payload.get('cultivation_types') or [])
     payload['seed_rate_by_cultivation'] = payload.get('seed_rate_by_cultivation') or None
     return payload
+
+
+def _json_safe(value: Any) -> Any:
+    return json.loads(json.dumps(value, cls=DjangoJSONEncoder))
+
+
+def build_public_culture_snapshot(public_culture: PublicCulture) -> dict[str, Any]:
+    snapshot = {
+        field: _json_safe(getattr(public_culture, field))
+        for field in PUBLIC_CULTURE_EDITABLE_FIELDS
+    }
+    snapshot['crop_species'] = public_culture.crop_species_id
+    snapshot['original_language_code'] = public_culture.original_language_code
+    return snapshot
+
+
+def build_public_culture_changed_fields(
+    *,
+    previous_snapshot: dict[str, Any],
+    current_snapshot: dict[str, Any],
+) -> list[dict[str, Any]]:
+    changes: list[dict[str, Any]] = []
+    for field in sorted(current_snapshot):
+        old_value = previous_snapshot.get(field)
+        new_value = current_snapshot.get(field)
+        if old_value == new_value:
+            continue
+        changes.append({
+            'field': field,
+            'old_value': old_value,
+            'new_value': new_value,
+        })
+    return changes
+
+
+def create_public_culture_revision(
+    *,
+    public_culture: PublicCulture,
+    user: User | None,
+    action: str,
+    previous_snapshot: dict[str, Any] | None = None,
+    restored_from_version: int | None = None,
+) -> PublicCultureRevision:
+    current_snapshot = build_public_culture_snapshot(public_culture)
+    changed_fields = build_public_culture_changed_fields(
+        previous_snapshot=previous_snapshot or {},
+        current_snapshot=current_snapshot,
+    ) if previous_snapshot is not None else []
+    return PublicCultureRevision.objects.create(
+        public_culture=public_culture,
+        version=public_culture.version,
+        action=action,
+        snapshot=current_snapshot,
+        changed_fields=changed_fields,
+        restored_from_version=restored_from_version,
+        created_by=user,
+    )
+
+
+def ensure_public_culture_revision(public_culture: PublicCulture) -> PublicCultureRevision:
+    revision = public_culture.revisions.filter(version=public_culture.version).first()
+    if revision is not None:
+        return revision
+    return create_public_culture_revision(
+        public_culture=public_culture,
+        user=public_culture.created_by,
+        action=PublicCultureRevision.ACTION_CREATED,
+    )
+
+
+def _validate_public_culture_edit_user(user: User | None) -> None:
+    if not user or not user.is_authenticated:
+        raise PublicCulturePermissionError('Authentication is required to edit public cultures.')
+
+
+def _validate_base_version(public_culture: PublicCulture, base_version: int | None) -> None:
+    if base_version is None:
+        return
+    if public_culture.version != base_version:
+        raise PublicCultureEditConflictError(
+            'The public culture has changed since it was loaded.',
+            current_version=public_culture.version,
+        )
+
+
+def update_public_culture_directly(
+    *,
+    public_culture: PublicCulture,
+    user: User | None,
+    data: dict[str, Any],
+    base_version: int | None = None,
+) -> PublicCulture:
+    _validate_public_culture_edit_user(user)
+    unknown_fields = sorted(set(data) - set(PUBLIC_CULTURE_EDITABLE_FIELDS))
+    if unknown_fields:
+        raise ValueError(f"Unsupported public culture fields: {', '.join(unknown_fields)}")
+
+    with transaction.atomic():
+        locked = PublicCulture.objects.select_for_update().get(pk=public_culture.pk)
+        _validate_base_version(locked, base_version)
+        ensure_public_culture_revision(locked)
+        previous_snapshot = build_public_culture_snapshot(locked)
+        changed_field_names = []
+        for field, value in data.items():
+            if previous_snapshot.get(field) == _json_safe(value):
+                continue
+            setattr(locked, field, value)
+            changed_field_names.append(field)
+        if not changed_field_names:
+            return locked
+
+        locked.version = max(locked.version, 1) + 1
+        locked.save(update_fields=[*changed_field_names, 'version', 'updated_at'])
+        create_public_culture_revision(
+            public_culture=locked,
+            user=user,
+            action=PublicCultureRevision.ACTION_UPDATED,
+            previous_snapshot=previous_snapshot,
+        )
+        return locked
+
+
+def restore_public_culture_version(
+    *,
+    public_culture: PublicCulture,
+    user: User | None,
+    version: int,
+    base_version: int | None = None,
+) -> PublicCulture:
+    _validate_public_culture_edit_user(user)
+
+    with transaction.atomic():
+        locked = PublicCulture.objects.select_for_update().get(pk=public_culture.pk)
+        _validate_base_version(locked, base_version)
+        ensure_public_culture_revision(locked)
+        revision = locked.revisions.filter(version=version).first()
+        if revision is None:
+            raise PublicCultureRevisionNotFoundError()
+        previous_snapshot = build_public_culture_snapshot(locked)
+        update_fields = []
+        for field in PUBLIC_CULTURE_EDITABLE_FIELDS:
+            value = revision.snapshot.get(field)
+            if previous_snapshot.get(field) == value:
+                continue
+            setattr(locked, field, value)
+            update_fields.append(field)
+        if not update_fields:
+            return locked
+
+        locked.version = max(locked.version, 1) + 1
+        locked.save(update_fields=[*update_fields, 'version', 'updated_at'])
+        create_public_culture_revision(
+            public_culture=locked,
+            user=user,
+            action=PublicCultureRevision.ACTION_RESTORED,
+            previous_snapshot=previous_snapshot,
+            restored_from_version=version,
+        )
+        return locked
 
 
 def _seed_packages_payload_from_culture(culture: Culture) -> list[dict[str, Any]]:
@@ -336,6 +547,8 @@ def _is_public_library_moderator(user: User | None) -> bool:
 
 
 def _update_public_culture_from_project_culture(*, public_culture: PublicCulture, culture: Culture) -> PublicCulture:
+    ensure_public_culture_revision(public_culture)
+    previous_snapshot = build_public_culture_snapshot(public_culture)
     payload = build_public_culture_payload(culture)
     payload.pop('published_at', None)
     for field, value in payload.items():
@@ -346,6 +559,12 @@ def _update_public_culture_from_project_culture(*, public_culture: PublicCulture
         public_culture.published_at = timezone.now()
         public_culture.status_changed_at = timezone.now()
     public_culture.save()
+    create_public_culture_revision(
+        public_culture=public_culture,
+        user=public_culture.created_by,
+        action=PublicCultureRevision.ACTION_UPDATED,
+        previous_snapshot=previous_snapshot,
+    )
     return public_culture
 
 
@@ -410,6 +629,11 @@ def publish_culture_to_public_library(
         from_status='',
         to_status=PublicCulture.STATUS_PUBLISHED,
         user=user,
+    )
+    create_public_culture_revision(
+        public_culture=public_culture,
+        user=user,
+        action=PublicCultureRevision.ACTION_CREATED,
     )
     return public_culture, duplicates, 'created'
 

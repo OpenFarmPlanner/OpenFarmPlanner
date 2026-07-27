@@ -9,7 +9,7 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
   get: vi.fn(),
   comments: vi.fn(),
-  changeProposals: vi.fn(),
+  versions: vi.fn(),
   importToProject: vi.fn(),
 }));
 
@@ -47,7 +47,7 @@ vi.mock('../api/api', async () => {
       list: publicCultureApiMocks.list,
       get: publicCultureApiMocks.get,
       comments: publicCultureApiMocks.comments,
-      changeProposals: publicCultureApiMocks.changeProposals,
+      versions: publicCultureApiMocks.versions,
       importToProject: publicCultureApiMocks.importToProject,
     },
   };
@@ -92,7 +92,7 @@ describe('PublicCropLibraryPage', () => {
     window.localStorage.clear();
     publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
     publicCultureApiMocks.comments.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.changeProposals.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
   });
 
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {
