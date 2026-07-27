@@ -36,11 +36,43 @@ describe('culture form UI sections', () => {
 
     const colorInput = screen.getByLabelText('form.displayColor');
     expect(colorInput).toHaveValue('#00ff00');
+    expect(screen.getByText('#00FF00')).toBeInTheDocument();
 
     fireEvent.change(colorInput, { target: { value: '#123456' } });
 
     expect(onChange).toHaveBeenCalledWith('display_color', '#123456');
     expect(screen.getByText('form.displayColorHelp')).toBeInTheDocument();
+  });
+
+  it('renders the saved display color as a visible hex value', () => {
+    render(
+      <ColorSection
+        formData={{ display_color: '#7cb342' }}
+        errors={{}}
+        onChange={vi.fn()}
+        t={t}
+        defaultColor="#00ff00"
+      />
+    );
+
+    expect(screen.getByLabelText('form.displayColor')).toHaveValue('#7cb342');
+    expect(screen.getByText('#7CB342')).toBeInTheDocument();
+  });
+
+  it('keeps invalid display color validation visible', () => {
+    render(
+      <ColorSection
+        formData={{ display_color: '#12ZZ00' }}
+        errors={{ display_color: 'form.displayColorError' }}
+        onChange={vi.fn()}
+        t={t}
+        defaultColor="#00ff00"
+      />
+    );
+
+    expect(screen.getByLabelText('form.displayColor')).toHaveValue('#00ff00');
+    expect(screen.getByText('#12ZZ00')).toBeInTheDocument();
+    expect(screen.getByText('form.displayColorError')).toBeInTheDocument();
   });
 
   it('renders NotesSection and emits note changes', () => {

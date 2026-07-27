@@ -170,7 +170,7 @@
     "sowingDepthCmPlaceholder": "z.B. 1.5",
     "sowingDepthCmError": "Saattiefe muss ≥ 0 sein",
     "displayColor": "Anzeigefarbe",
-    "displayColorHelp": "Farbe zur Darstellung im Anbaukalender (wird automatisch generiert)",
+    "displayColorHelp": "Farbe zur Darstellung im Anbaukalender.",
     "displayColorError": "Ungültiges Farbformat (verwenden Sie #RRGGBB)",
     "seedRateSectionTitle": "Saatgutbedarf",
     "seedRateDirectSectionTitle": "Saatgutbedarf Direktsaat",

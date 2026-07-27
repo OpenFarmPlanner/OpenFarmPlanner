@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,6 +64,7 @@ const publicCultures: PublicCulture[] = [
     crop_species_name: 'Tomate',
     growth_duration_days: 70,
     harvest_duration_days: 28,
+    display_color: '#7cb342',
     version: 1,
   },
   {
@@ -95,7 +96,14 @@ describe('PublicCropLibraryPage', () => {
     publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
     publicCultureApiMocks.comments.mockResolvedValue({ data: [] });
     publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.update.mockResolvedValue({ data: { ...publicCultures[0], growth_duration_days: 48, version: 2 } });
+    publicCultureApiMocks.update.mockResolvedValue({
+      data: {
+        ...publicCultures[0],
+        growth_duration_days: 48,
+        display_color: '#123456',
+        version: 2,
+      },
+    });
   });
 
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {
@@ -129,12 +137,15 @@ describe('PublicCropLibraryPage', () => {
     expect(editDialog).toHaveTextContent('Allgemeine Informationen');
     expect(editDialog).toHaveTextContent('Öffentliche Identität');
     expect(editDialog).toHaveTextContent('Tomate · Roma');
+    expect(editDialog).toHaveTextContent('#7CB342');
     expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sorte')).not.toBeInTheDocument();
 
     const growthInput = screen.getByLabelText('Wachstumszeit (Tage)');
+    const colorInput = within(editDialog).getByLabelText('Anzeigefarbe');
     fireEvent.change(growthInput, { target: { value: '48' } });
+    fireEvent.change(colorInput, { target: { value: '#123456' } });
     growthInput.focus();
     fireEvent.keyDown(window, {
       bubbles: true,
@@ -147,6 +158,7 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
       growth_duration_days: 48,
+      display_color: '#123456',
       row_spacing_m: null,
     }));
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');

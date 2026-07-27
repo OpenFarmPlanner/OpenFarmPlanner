@@ -17,7 +17,10 @@
     "restoreError": "Version could not be restored"
   },
   "form": {
-    "publicIdentityLabel": "Public identity"
+    "publicIdentityLabel": "Public identity",
+    "displayColor": "Display color",
+    "displayColorHelp": "Color used in the planting calendar.",
+    "displayColorError": "Invalid color format (use #RRGGBB)."
   },
   "buttons": {
     "edit": "Edit",
