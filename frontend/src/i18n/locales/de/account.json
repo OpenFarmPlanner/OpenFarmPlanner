@@ -26,7 +26,7 @@
   },
   "moderatorRequest": {
     "title": "Als Moderator mithelfen",
-    "description": "Hilf dabei, Kulturart-Vorschläge und die gemeinsame Kulturbibliothek zu prüfen.",
+    "description": "Hilf dabei, Vorschläge für neue Kulturarten zu prüfen und die Kulturbibliothek konsistent zu halten.",
     "loading": "Status wird geladen…",
     "alreadyModerator": "Du hast bereits Moderator-Rechte für die öffentliche Kulturbibliothek.",
     "pending": "Deine Anfrage wird geprüft.",

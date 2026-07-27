@@ -28,7 +28,7 @@ import { useTranslation } from '../i18n';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker';
 import { enableDevOnboardingPreview } from '../projects/devOnboardingPreview';
 import { clearContextMenuHintDismissals } from '../components/data-grid';
-import { mediumFieldSx, wideFieldSx } from '../components/forms/formLayout';
+import { mediumFieldSx, wideFieldSx, wideStackedFieldSx } from '../components/forms/formLayout';
 import { actionButtonSx, useSectionSubmit } from './accountSettingsForm';
 import {
   InlineEditor,
@@ -325,7 +325,8 @@ export default function AccountSettingsPage() {
                   onChange={(event) => setModeratorMotivation(event.target.value)}
                   multiline
                   minRows={3}
-                  sx={wideFieldSx}
+                  maxRows={4}
+                  sx={wideStackedFieldSx}
                   slotProps={{ htmlInput: { maxLength: 2000 } }}
                 />
                 <Box>

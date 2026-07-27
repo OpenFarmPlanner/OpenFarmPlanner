@@ -118,6 +118,12 @@ describe('AccountSettingsPage', () => {
     expect(await screen.findByText('Deine Anfrage wird geprüft.')).toBeInTheDocument();
   });
 
+  it('describes the moderator role in terms of reviewing proposals, not approving all public culture edits (BUG-M03 copy regression guard)', async () => {
+    render(<MemoryRouter><AccountSettingsPage /></MemoryRouter>);
+
+    expect(await screen.findByText('Hilf dabei, Vorschläge für neue Kulturarten zu prüfen und die Kulturbibliothek konsistent zu halten.')).toBeInTheDocument();
+  });
+
   it('starts the developer onboarding preview without deleting data', () => {
     localStorage.setItem('activeProjectId', '1');
 

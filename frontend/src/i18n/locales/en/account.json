@@ -26,7 +26,7 @@
   },
   "moderatorRequest": {
     "title": "Help as a moderator",
-    "description": "Help review crop species proposals and the shared public crop library.",
+    "description": "Help review proposals for new crop species and keep the crop library consistent.",
     "loading": "Loading status…",
     "alreadyModerator": "You already have moderator rights for the public crop library.",
     "pending": "Your request is being reviewed.",
