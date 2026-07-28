@@ -51,13 +51,13 @@
         "tab": "Flächen",
         "title": "Flächen und Beete direkt bearbeiten",
         "description": "Standorte, Parzellen und Beete bleiben in einer klaren Hierarchie sichtbar. Änderungen erfolgen direkt in der Tabelle – ohne separate Formulare oder Seitenwechsel.",
-        "alt": "Tabellenansicht der Anbauflächen mit editierbaren Zellen für Standorte, Parzellen und Beete"
+        "alt": "Tabellenansicht der Anbauflächen mit Standorten, Parzellen und Beeten"
       },
       "plantingPlans": {
         "tab": "Anbaupläne",
         "title": "Anbaupläne direkt bearbeiten",
         "description": "Aussaat-, Pflanz- und Erntetermine sowie Mengen und Kulturen lassen sich direkt in der Tabelle bearbeiten. Änderungen sind sofort sichtbar und ermöglichen eine schnelle Saisonplanung.",
-        "alt": "Anbauplan-Tabelle mit einem im Bearbeitungsmodus geöffneten Pflanzdatum"
+        "alt": "Anbauplan-Tabelle mit Kulturen, Flächen, Terminen und geplanten Mengen"
       },
       "calendar": {
         "tab": "Kalender",

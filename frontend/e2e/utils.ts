@@ -69,12 +69,13 @@ export async function loginWithDeterministicProject(
   page: Page,
   request: APIRequestContext,
   scenarioId: string,
-  options: { demoProject?: boolean; loginAsAdmin?: boolean } = {},
+  options: { demoProject?: boolean; loginAsAdmin?: boolean; languageCode?: 'de' | 'en' } = {},
 ): Promise<void> {
   await invokeE2EAction(request, 'reset', { scenario_id: scenarioId });
   const fixture = await invokeE2EAction(request, options.demoProject ? 'setup_demo' : 'setup', {
     scenario_id: scenarioId,
     invitation_state: 'pending',
+    ...(options.languageCode ? { language_code: options.languageCode } : {}),
   }) as {
     inviteUrl: string;
     admin: { email: string; password: string };

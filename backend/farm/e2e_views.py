@@ -17,7 +17,7 @@ from config.frontend_urls import build_public_frontend_url
 from accounts.consent import record_acceptance
 from accounts.models import DocumentConsent
 from farm.models import Project, ProjectInvitation, ProjectMembership
-from farm.services.demo_project import DEMO_PROJECT_NAME, populate_demo_project
+from farm.services.demo_project import get_demo_project_name, populate_demo_project, resolve_demo_language
 
 User = get_user_model()
 E2E_PASSWORD = 'Pass12345!'
@@ -94,7 +94,8 @@ class E2EInvitationFixtureView(APIView):
     def _setup(self, request: Request, scenario: str, *, demo_project: bool = False) -> dict[str, object]:
         self._reset(scenario)
         invitation_state = str(request.data.get('invitation_state', 'pending')).strip().lower() or 'pending'
-        project_name = DEMO_PROJECT_NAME if demo_project else f'E2E Project {scenario}'
+        demo_language = resolve_demo_language(str(request.data.get('language_code', 'de'))) if demo_project else 'de'
+        project_name = get_demo_project_name(demo_language) if demo_project else f'E2E Project {scenario}'
         project = Project.objects.create(name=project_name, slug=scenario)
 
         admin = User.objects.create_user(
@@ -122,7 +123,7 @@ class E2EInvitationFixtureView(APIView):
             record_acceptance(fixture_user, DocumentConsent.DOCUMENT_TERMS)
         ProjectMembership.objects.create(user=admin, project=project, role=ProjectMembership.ROLE_ADMIN)
         if demo_project:
-            populate_demo_project(project, owner=admin)
+            populate_demo_project(project, owner=admin, language_code=demo_language)
 
         invitation = ProjectInvitation.objects.create(
             project=project,

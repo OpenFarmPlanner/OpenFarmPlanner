@@ -8,6 +8,7 @@ import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import translations from '@/test-utils/translations';
 import type { AuthUser } from '../auth/types';
+import i18n from '../i18n/config';
 
 function createGuestDemoUser(): AuthUser {
   return {
@@ -136,7 +137,7 @@ vi.mock('../commands/useCommandContext', () => ({
 }));
 
 describe('App', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useRealTimers();
     authState.user = null;
     authState.isLoading = false;
@@ -162,6 +163,7 @@ describe('App', () => {
         updated_at: '2026-01-01T00:00:00Z',
       },
     });
+    await i18n.changeLanguage('de');
     localStorage.clear();
     window.history.pushState({}, '', '/');
   });
@@ -190,7 +192,7 @@ describe('App', () => {
       'Saatgut',
     ]);
     expect(screen.getByRole('img', {
-      name: 'Tabellenansicht der Anbauflächen mit editierbaren Zellen für Standorte, Parzellen und Beete',
+      name: 'Tabellenansicht der Anbauflächen mit Standorten, Parzellen und Beeten',
     })).toHaveAttribute('src', '/landing/screenshots/demo-areas.webp');
 
     await user.click(screen.getByRole('tab', { name: 'Saatgut' }));
@@ -208,6 +210,43 @@ describe('App', () => {
     expect(screen.getByRole('img', {
       name: 'Ertragsübersicht mit erwarteten Erntemengen nach Kalenderwochen und Kulturen',
     })).toHaveAttribute('src', '/landing/screenshots/demo-yield-overview.webp');
+  });
+
+  it('uses English product tour screenshots when the landing page is displayed in English', async () => {
+    const user = userEvent.setup();
+    await i18n.changeLanguage('en');
+    localStorage.setItem('ui.language', 'en');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    expect(await screen.findByRole('tab', { name: 'Areas' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Areas',
+      'Crop library',
+      'Planting plans',
+      'Calendar',
+      'Yields',
+      'Seeds',
+    ]);
+    expect(screen.getByRole('img', {
+      name: 'Table view of growing areas with locations, fields, and beds',
+    })).toHaveAttribute('src', '/landing/screenshots/demo-areas-en.webp');
+
+    await user.click(screen.getByRole('tab', { name: 'Seeds' }));
+
+    expect(screen.getByRole('tab', { name: 'Seeds' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Derive seed demand from plans' })).toBeInTheDocument();
+    expect(screen.getByRole('img', {
+      name: 'Seed demand table with crops, suppliers, required amount, and package suggestions',
+    })).toHaveAttribute('src', '/landing/screenshots/demo-seed-demand-en.webp');
+
+    await user.click(screen.getByRole('tab', { name: 'Yields' }));
+
+    expect(screen.getByRole('tab', { name: 'Yields' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Keep expected harvests in view' })).toBeInTheDocument();
+    expect(screen.getByRole('img', {
+      name: 'Yield overview with expected harvest quantities by calendar week and crop',
+    })).toHaveAttribute('src', '/landing/screenshots/demo-yield-overview-en.webp');
   });
 
   it('starts the public guest demo from the landing page', async () => {

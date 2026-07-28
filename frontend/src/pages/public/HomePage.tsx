@@ -25,27 +25,45 @@ import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 const PRODUCT_TOUR_ITEMS = [
   {
     key: 'areas',
-    image: publicAssetUrl('/landing/screenshots/demo-areas.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-areas.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-areas-en.webp'),
+    },
   },
   {
     key: 'cultures',
-    image: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-cultures-en.webp'),
+    },
   },
   {
     key: 'plantingPlans',
-    image: publicAssetUrl('/landing/screenshots/demo-planting-plans.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-planting-plans.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-planting-plans-en.webp'),
+    },
   },
   {
     key: 'calendar',
-    image: publicAssetUrl('/landing/screenshots/demo-calendar.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-calendar.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-calendar-en.webp'),
+    },
   },
   {
     key: 'yieldOverview',
-    image: publicAssetUrl('/landing/screenshots/demo-yield-overview.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-yield-overview.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-yield-overview-en.webp'),
+    },
   },
   {
     key: 'seedDemand',
-    image: publicAssetUrl('/landing/screenshots/demo-seed-demand.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-seed-demand.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-seed-demand-en.webp'),
+    },
   },
 ] as const;
 
@@ -143,7 +161,7 @@ function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
  * @returns Landing page UI.
  */
 export default function HomePage() {
-  const { t } = useTranslation('home');
+  const { t, i18n } = useTranslation('home');
   const navigate = useNavigate();
   const { startGuestDemo } = useAuth();
   const [isStartingDemo, setIsStartingDemo] = useState(false);
@@ -152,6 +170,8 @@ export default function HomePage() {
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [activeTourKey, setActiveTourKey] = useState<ProductTourKey>('areas');
   const activeTourItem = PRODUCT_TOUR_ITEMS.find((item) => item.key === activeTourKey) ?? PRODUCT_TOUR_ITEMS[0];
+  const screenshotLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'de').split('-')[0] === 'en' ? 'en' : 'de';
+  const activeTourImage = activeTourItem.images[screenshotLanguage];
   const retryRemainingSeconds = retryAvailableAt === null
     ? 0
     : Math.max(0, Math.ceil((retryAvailableAt - currentTime) / 1000));
@@ -568,7 +588,7 @@ export default function HomePage() {
                       >
                         <Box
                           component="img"
-                          src={activeTourItem.image}
+                          src={activeTourImage}
                           alt={t(`productTour.items.${activeTourItem.key}.alt`)}
                           loading="eager"
                           decoding="async"
