@@ -29,6 +29,7 @@ const baseUser: AuthUser = {
 };
 
 const getMeMock = vi.hoisted(() => vi.fn(async () => baseUser));
+const logoutMock = vi.hoisted(() => vi.fn(async () => undefined));
 const startGuestDemoMock = vi.hoisted(() => vi.fn(async () => ({
   ...baseUser,
   id: 2,
@@ -46,7 +47,7 @@ vi.mock('../auth/authApi', () => ({
   login: vi.fn(),
   startGuestDemo: startGuestDemoMock,
   endGuestDemo: vi.fn(),
-  logout: vi.fn(),
+  logout: logoutMock,
   register: vi.fn(),
   activate: vi.fn(),
   resendActivation: vi.fn(),
@@ -72,6 +73,7 @@ function GuestDemoStartProbe() {
   return (
     <>
       <button type="button" onClick={() => { void auth?.startGuestDemo(); }}>Start demo</button>
+      <button type="button" onClick={() => { void auth?.refreshUser(); }}>Refresh</button>
       <div data-testid="active-project-id">{auth?.activeProjectId ?? 'none'}</div>
     </>
   );
@@ -216,5 +218,27 @@ describe('AuthProvider cross-tab project sync', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('active-project-id')).toHaveTextContent('none'));
+  });
+
+  it('drops its own view of a foreign guest demo session without logging out the tab that owns it', async () => {
+    // Simulates a second, already-open tab: its sessionStorage never learned
+    // about the demo this tab didn't start, but the (tab-shared) session
+    // cookie now belongs to that other demo after a resync reload.
+    sessionStorage.setItem('guestDemoSessionId', '999');
+
+    render(<AuthProvider><GuestDemoStartProbe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('active-project-id')).toHaveTextContent('1'));
+
+    getMeMock.mockResolvedValueOnce({
+      ...baseUser,
+      id: 2,
+      is_guest_demo: true,
+      guest_demo_session_id: 77,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(screen.getByTestId('active-project-id')).toHaveTextContent('none'));
+
+    expect(getMeMock).toHaveBeenCalledTimes(2);
+    expect(logoutMock).not.toHaveBeenCalled();
   });
 });

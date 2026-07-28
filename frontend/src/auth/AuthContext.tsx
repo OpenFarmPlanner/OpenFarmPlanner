@@ -124,7 +124,11 @@ export function AuthProvider({
         return null;
       }
       if (me.is_guest_demo && String(me.guest_demo_session_id) !== window.sessionStorage.getItem(GUEST_DEMO_SESSION_KEY)) {
-        await logoutRequest();
+        // The session cookie now belongs to a guest demo this tab didn't start
+        // (sessionStorage, unlike the cookie, isn't shared across tabs — e.g. a
+        // stale tab reloaded after another tab started a fresh demo). Only drop
+        // this tab's own view of it; a real server-side logout would end the
+        // *shared* session and sign the other, perfectly valid tab out too.
         clearAuthenticatedUser();
         return null;
       }
