@@ -60,6 +60,7 @@ import { useCommandContextTag, useRegisterCommands } from '../../commands/useCom
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
+type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
 
 const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
 const MAX_VISIBLE_REPLY_DEPTH = 3;
@@ -803,7 +804,7 @@ export default function PublicCropLibraryPage() {
   const [cultures, setCultures] = useState<PublicCulture[]>([]);
   const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => selectedCultureIdFromUrl ?? getStoredPublicCultureId());
   const selectedCultureIdRef = useRef<number | null>(selectedCultureId);
-  const [loading, setLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState<PublicCultureLoadStatus>('loading');
   const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [topics, setTopics] = useState<PublicCultureDiscussionTopic[]>([]);
@@ -830,6 +831,7 @@ export default function PublicCropLibraryPage() {
   const commentRefs = useRef(new Map<number, HTMLDivElement>());
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
+  const isCultureLoading = loadStatus === 'loading';
 
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus();
@@ -978,7 +980,7 @@ export default function PublicCropLibraryPage() {
   }, [replaceSelectedCultureSearchParam, selectedCultureId, selectedCultureIdFromUrl]);
 
   const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
-    setLoading(true);
+    setLoadStatus('loading');
     setLoadError('');
     try {
       const response = await publicCultureAPI.list(searchQuery.trim() ? { q: searchQuery.trim() } : undefined);
@@ -993,12 +995,12 @@ export default function PublicCropLibraryPage() {
         }
       }
       setCultures(results);
+      setLoadStatus('success');
     } catch {
       setLoadError(t('library.loadError'));
       setCultures([]);
       updateSelectedCultureId(null);
-    } finally {
-      setLoading(false);
+      setLoadStatus('error');
     }
   }, [t, updateSelectedCultureId]);
 
@@ -1334,9 +1336,16 @@ export default function PublicCropLibraryPage() {
                   fullWidth
                 />
               </Box>
-              {loading ? (
+              {isCultureLoading ? (
                 <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CircularProgress size={28} />
+                  <Stack spacing={1} alignItems="center">
+                    <CircularProgress size={28} />
+                    <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
+                  </Stack>
+                </Box>
+              ) : loadStatus === 'error' ? (
+                <Box sx={{ p: 2 }}>
+                  <Alert severity="error">{loadError}</Alert>
                 </Box>
               ) : cultures.length === 0 ? (
                 <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -1391,7 +1400,18 @@ export default function PublicCropLibraryPage() {
 
             <Box sx={{ minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
               <Card variant="outlined" sx={{ ...libraryCardSx, width: '100%', maxWidth: { sm: 920, lg: 980, xl: 1040 }, minHeight: 420 }}>
-                {!selectedCulture ? (
+                {isCultureLoading ? (
+                  <Box sx={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+                    <Stack spacing={1} alignItems="center">
+                      <CircularProgress size={28} />
+                      <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
+                    </Stack>
+                  </Box>
+                ) : loadStatus === 'error' ? (
+                  <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+                    <Alert severity="error">{loadError}</Alert>
+                  </Box>
+                ) : !selectedCulture ? (
                 <Box sx={{ p: { xs: 3, sm: 4 }, display: 'flex', flexDirection: 'column', gap: { xs: 3, sm: 3.5 } }}>
                   <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto' }}>
                     <Box

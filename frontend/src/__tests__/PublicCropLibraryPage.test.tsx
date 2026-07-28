@@ -113,6 +113,20 @@ function renderPage(): ReturnType<typeof render> {
   );
 }
 
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('PublicCropLibraryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -129,6 +143,27 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+  });
+
+  it('does not show the empty state while public cultures are still loading', () => {
+    const deferredList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    publicCultureApiMocks.list.mockReturnValue(deferredList.promise);
+
+    renderPage();
+
+    expect(screen.getAllByText('Kulturen werden geladen…').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).not.toBeInTheDocument();
+  });
+
+  it('shows loaded public cultures without flashing an empty state first', async () => {
+    window.localStorage.setItem('selectedPublicCultureId', '1');
+    renderPage();
+
+    expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
   });
 
   it('shows a compact, single-surface empty state before any culture is selected', async () => {
@@ -151,6 +186,16 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Verbessern')).toBeInTheDocument();
     expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus/)).toBeInTheDocument();
   });
+
+  it('shows the public library load error without rendering an empty state', async () => {
+    publicCultureApiMocks.list.mockRejectedValue(new Error('Network error'));
+    renderPage();
+
+    expect(await screen.findAllByText('Die Kulturbibliothek konnte nicht geladen werden.')).toHaveLength(3);
+    expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).not.toBeInTheDocument();
+  });
+
 
   it('shows discussion topics empty state and opens the new topic form', async () => {
     renderPage();
