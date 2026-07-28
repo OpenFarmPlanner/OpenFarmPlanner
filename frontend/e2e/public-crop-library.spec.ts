@@ -105,7 +105,7 @@ test('public crop library supports quick import, direct edit, versions, discussi
   await page.goto('/app/crop-library');
   await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
   await expect(page.getByText('Die Kulturbibliothek wächst mit der Community')).toBeVisible();
-  await expect(page.getByText(/Veröffentliche deine bewährten Kulturen/)).toBeVisible();
+  await expect(page.getByText('Teile deine bewährten Kulturen mit anderen.')).toBeVisible();
   await page.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
   await page.keyboard.press('Enter');
   await expect(page.getByText(publicCulture.variety).first()).toBeVisible();
@@ -134,14 +134,14 @@ test('public crop library supports quick import, direct edit, versions, discussi
 
   await page.getByRole('tab', { name: /Diskussion/ }).click();
   await expect(page.getByText('Noch keine Diskussionen')).toBeVisible();
-  await page.getByRole('button', { name: '+ Neue Diskussion' }).click();
+  await page.getByRole('button', { name: 'Neue Diskussion' }).click();
   await page.getByLabel('Titel').fill('Wachstumszeit prüfen');
   await page.getByLabel('Kommentar').fill('E2E-Kommentar zur öffentlichen Kultur.');
   await page.getByRole('button', { name: 'Diskussion starten' }).click();
   await page.getByText('Wachstumszeit prüfen').click();
   await expect(page.getByText('E2E-Kommentar zur öffentlichen Kultur.')).toBeVisible();
   await page.getByRole('button', { name: 'Antworten' }).click();
-  await page.getByLabel('Antwort').fill('E2E-Antwort.');
+  await page.getByRole('textbox', { name: 'Antwort' }).fill('E2E-Antwort.');
   await page.getByRole('button', { name: 'Absenden' }).click();
   await expect(page.getByText('E2E-Antwort.')).toBeVisible();
 
@@ -170,8 +170,13 @@ test('public crop library supports quick import, direct edit, versions, discussi
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
-  await page.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
-  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Öffentliche Kulturen durchsuchen')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Kultur auswählen' }).click();
+  const mobileSelector = page.getByRole('dialog', { name: 'Kultur auswählen' });
+  await expect(mobileSelector).toBeVisible();
+  await mobileSelector.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
+  await mobileSelector.getByRole('option', { name: new RegExp(publicCulture.variety) }).click();
+  await expect(mobileSelector).not.toBeVisible();
   await expect(page.getByText(publicCulture.variety).first()).toBeVisible();
   await expect(page.locator('body')).not.toHaveCSS('overflow-x', 'scroll');
 });
