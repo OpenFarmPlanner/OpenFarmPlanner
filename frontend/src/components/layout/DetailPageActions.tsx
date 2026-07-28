@@ -1,4 +1,4 @@
-import { Button, IconButton, Stack, Tooltip } from '@mui/material';
+import { Button, Stack, Tooltip } from '@mui/material';
 import type { MouseEvent, ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
@@ -61,19 +61,21 @@ export function DetailPageActions({
       })}
       {overflowLabel && onOpenOverflow ? (
         <Tooltip title={overflowLabel}>
-          <IconButton
+          <Button
             aria-label={overflowLabel}
             onClick={onOpenOverflow}
+            variant="outlined"
+            size="medium"
             sx={{
-              alignSelf: { xs: 'flex-start', sm: 'center' },
-              border: '1px solid',
-              borderColor: 'divider',
-              height: 40,
-              width: 40,
+              alignSelf: { xs: 'stretch', sm: 'center' },
+              minHeight: 40,
+              minWidth: 48,
+              px: 1.25,
+              width: 'auto',
             }}
           >
             <MoreVertIcon fontSize="small" />
-          </IconButton>
+          </Button>
         </Tooltip>
       ) : null}
     </Stack>
