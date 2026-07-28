@@ -12,6 +12,7 @@
     "cultureProjectMismatch": "The culture does not belong to the active project."
   },
   "messages": {
+    "loadingCultures": "Loading crops…",
     "restoreDeleteError": "Culture could not be restored.",
     "restoreSuccess": "Version restored",
     "restoreError": "Version could not be restored"
@@ -26,6 +27,7 @@
     "edit": "Edit",
     "versions": "Versions",
     "delete": "Delete",
+    "moreActions": "More actions",
     "deleteProjectCulture": "Delete project culture"
   },
   "history": {
@@ -107,7 +109,7 @@
       "tabs": {
         "details": "Details",
         "versions": "Versions",
-        "discussion": "Discussion"
+        "discussion": "Discussions"
       },
       "byAuthor": "By {{author}}",
       "metaByDate": "{{author}} · {{date}}",
@@ -185,7 +187,7 @@
         "originalLanguage": "Original language",
         "createdAt": "Created at",
         "publishedAt": "Published at",
-        "updatedAt": "Updated at",
+        "updatedAt": "Last changed",
         "status": "Status",
         "displayColor": "Display color",
         "notes": "Notes",
@@ -200,12 +202,36 @@
         }
       },
       "discussion": {
+        "newTopic": "New discussion",
+        "titleLabel": "Title",
         "commentLabel": "Comment",
         "comment": "Comment",
         "commenting": "Commenting…",
         "commentSuccess": "Comment saved.",
         "commentError": "Comment could not be saved.",
-        "empty": "No discussion for this crop yet."
+        "emptyTitle": "No discussions yet",
+        "empty": "Do you have a question about the data or want to discuss this crop?",
+        "create": "Start discussion",
+        "cancel": "Cancel",
+        "back": "All discussions",
+        "topicMeta_one": "{{author}} · {{count}} post · last active {{date}}",
+        "topicMeta_other": "{{author}} · {{count}} posts · last active {{date}}",
+        "versionReference": "Reference:",
+        "reply": "Reply",
+        "replyLabel": "Reply",
+        "replyToAuthor": "Reply to post by {{author}}",
+        "replyContext": "Reply to {{author}}",
+        "repliesForAuthor": "Replies to post by {{author}}",
+        "moreActions": "More actions",
+        "edit": "Edit",
+        "delete": "Delete",
+        "discardDraftConfirm": "Discard the current draft?",
+        "edited": "edited",
+        "deleted": "This post was deleted.",
+        "authorDeleted": "This post was deleted by the author.",
+        "moderatorDeleted": "This post was removed by a moderator.",
+        "rootDeleteBlocked": "The opening post cannot be deleted while visible replies exist.",
+        "submit": "Submit"
       },
       "edit": {
         "open": "Edit",
@@ -225,6 +251,7 @@
         "reverting": "Restoring…",
         "revertSuccess": "The version was restored.",
         "revertError": "The version could not be restored.",
+        "discuss": "Discuss",
         "restoredFrom": "Restored from version {{version}}",
         "noFieldChanges": "Initial version without field changes.",
         "actions": {

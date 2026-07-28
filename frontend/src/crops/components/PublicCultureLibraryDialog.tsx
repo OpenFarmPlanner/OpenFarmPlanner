@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -38,7 +38,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 // see docs/crop-library-architecture.md for why this is flagged as a
 // future cleanup candidate rather than fixed now.
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
-import { createTransientId } from '../../utils/transientId';
+import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
 
@@ -158,25 +158,17 @@ export function PublicCultureLibraryDialog({
   const [mobileStep, setMobileStep] = useState<'list' | 'detail'>('list');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isMobileLandscape = useMediaQuery(`(orientation: landscape) and (max-height: 560px) and (max-width: 960px)`);
-  const useMobileFilterLayout = isMobile || isMobileLandscape;
-  const modalHistoryIdRef = useRef<string | null>(null);
-  const closingFromHistoryRef = useRef(false);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  const isCurrentModalHistoryEntry = useCallback((): boolean => {
-    const modalState = window.history.state as Record<string, unknown> | null;
-    return modalHistoryIdRef.current !== null
-      && modalState?.[PUBLIC_CULTURE_LIBRARY_HISTORY_KEY] === modalHistoryIdRef.current;
-  }, []);
-
+  const useMobileFilterLayout = useMediaQuery(theme.breakpoints.down('md'));
   const closeDialog = useCallback((): void => {
     onClose();
   }, [onClose]);
+
+  useOverlayHistory({
+    open,
+    onClose,
+    historyKey: PUBLIC_CULTURE_LIBRARY_HISTORY_KEY,
+    enabled: useMobileFilterLayout,
+  });
 
   useEffect(() => {
     if (open) {
@@ -211,48 +203,6 @@ export function PublicCultureLibraryDialog({
       });
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !useMobileFilterLayout || typeof window === 'undefined') {
-      modalHistoryIdRef.current = null;
-      return undefined;
-    }
-
-    if (modalHistoryIdRef.current === null) {
-      const currentHistoryState = window.history.state;
-      modalHistoryIdRef.current = createTransientId();
-      window.history.pushState(
-        {
-          ...(currentHistoryState && typeof currentHistoryState === 'object' ? currentHistoryState as Record<string, unknown> : {}),
-          [PUBLIC_CULTURE_LIBRARY_HISTORY_KEY]: modalHistoryIdRef.current,
-        },
-        '',
-        window.location.href,
-      );
-    }
-
-    const handlePopState = (): void => {
-      if (modalHistoryIdRef.current === null || isCurrentModalHistoryEntry()) {
-        return;
-      }
-      closingFromHistoryRef.current = true;
-      modalHistoryIdRef.current = null;
-      onCloseRef.current();
-      queueMicrotask(() => {
-        closingFromHistoryRef.current = false;
-      });
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      if (!closingFromHistoryRef.current && isCurrentModalHistoryEntry()) {
-        window.history.back();
-      }
-      modalHistoryIdRef.current = null;
-    };
-  }, [isCurrentModalHistoryEntry, open, useMobileFilterLayout]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const varietyOptions = useMemo(
@@ -397,11 +347,9 @@ export function PublicCultureLibraryDialog({
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: isMobileLandscape
-          ? 'repeat(2, minmax(0, 1fr))'
-          : { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' },
         gap: 1,
-        mb: isMobileLandscape ? 1 : 2,
+        mb: 2,
       }}
     >
       <FormControl size="small">
@@ -447,15 +395,15 @@ export function PublicCultureLibraryDialog({
         },
       }}
     >
-      <DialogTitle sx={{ py: isMobileLandscape ? 1 : 2, px: isMobileLandscape ? 1.5 : 3, flexShrink: 0, bgcolor: 'background.paper' }}>
+      <DialogTitle sx={{ py: 2, px: useMobileFilterLayout ? 1.5 : 3, flexShrink: 0, bgcolor: 'background.paper' }}>
         {t('library.dialogTitle')}
       </DialogTitle>
       <DialogContent
         dividers
         sx={{
           minHeight: useMobileFilterLayout ? 0 : 560,
-          px: isMobileLandscape ? 1.25 : useMobileFilterLayout ? 1.25 : 3,
-          py: isMobileLandscape ? 1 : 2,
+          px: useMobileFilterLayout ? 1.25 : 3,
+          py: 2,
           display: 'flex',
           flexDirection: 'column',
           flex: useMobileFilterLayout ? '1 1 auto' : undefined,
@@ -473,8 +421,8 @@ export function PublicCultureLibraryDialog({
             onSearch(nextValue);
           }}
           InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
-          size={isMobileLandscape ? 'small' : 'medium'}
-          sx={{ mb: isMobileLandscape ? 1 : 2 }}
+          size="medium"
+          sx={{ mb: 2 }}
         />
 
         {useMobileFilterLayout ? (
@@ -495,7 +443,7 @@ export function PublicCultureLibraryDialog({
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
-        <Box sx={{ position: 'relative', display: 'grid', gridTemplateColumns: useMobileFilterLayout ? '1fr' : { xs: '1fr', md: '1.2fr 1fr' }, gap: isMobileLandscape ? 1 : 2, minHeight: 0, flex: 1 }}>
+        <Box sx={{ position: 'relative', display: 'grid', gridTemplateColumns: useMobileFilterLayout ? '1fr' : { xs: '1fr', md: '1.2fr 1fr' }, gap: 2, minHeight: 0, flex: 1 }}>
           {loading ? (
             <Box sx={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'rgba(255,255,255,0.6)', zIndex: 1 }}>
               <CircularProgress />
@@ -534,7 +482,7 @@ export function PublicCultureLibraryDialog({
           ) : null}
 
           {(!useMobileFilterLayout || mobileStep === 'detail') ? (
-            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: isMobileLandscape ? 1.25 : useMobileFilterLayout ? 1.5 : 2, minHeight: useMobileFilterLayout ? '100%' : 420, maxHeight: useMobileFilterLayout ? 'none' : 420, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: useMobileFilterLayout ? 1.5 : 2, minHeight: useMobileFilterLayout ? '100%' : 420, maxHeight: useMobileFilterLayout ? 'none' : 420, overflowY: 'auto', scrollbarGutter: 'stable' }}>
             {selectedCulture ? (
               <>
                 <Typography variant="h6" sx={{ lineHeight: 1.25 }}>{selectedCulture.name}</Typography>
@@ -612,7 +560,7 @@ export function PublicCultureLibraryDialog({
           ) : null}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: isMobileLandscape ? 1.25 : isMobile ? 1.25 : 3, py: isMobileLandscape ? 0.75 : isMobile ? 1 : 1.5, flexShrink: 0, bgcolor: 'background.paper', gap: 1, flexWrap: 'wrap' }}>
+      <DialogActions sx={{ px: isMobile ? 1.25 : useMobileFilterLayout ? 1.5 : 3, py: isMobile ? 1 : 1.5, flexShrink: 0, bgcolor: 'background.paper', gap: 1, flexWrap: 'wrap' }}>
         <Button component={RouterLink} to="/app/crop-library" onClick={closeDialog} sx={{ mr: 'auto' }}>
           {t('library.openFullPage')}
         </Button>

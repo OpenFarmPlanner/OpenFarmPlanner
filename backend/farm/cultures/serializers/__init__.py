@@ -13,6 +13,7 @@ from .imports import (
 from .public import (
     PublicCultureChangeProposalSerializer,
     PublicCultureDiscussionCommentSerializer,
+    PublicCultureDiscussionTopicSerializer,
     PublicCultureRevertSerializer,
     PublicCultureRevisionSerializer,
     PublicCultureSerializer,
@@ -36,6 +37,7 @@ __all__ = [
     'PRE_CULTIVATION_SEED_RATE_UNITS',
     'PublicCultureChangeProposalSerializer',
     'PublicCultureDiscussionCommentSerializer',
+    'PublicCultureDiscussionTopicSerializer',
     'PublicCultureRevertSerializer',
     'PublicCultureRevisionSerializer',
     'PublicCultureSerializer',

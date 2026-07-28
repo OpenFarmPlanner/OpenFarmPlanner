@@ -422,6 +422,7 @@
     "edit": "Bearbeiten",
     "versions": "Versionen",
     "delete": "Löschen",
+    "moreActions": "Weitere Aktionen",
     "deleteProjectCulture": "Projektkultur löschen",
     "deleteConfirm": "Möchten Sie diese Kultur wirklich löschen?",
     "createPlantingPlan": "Anbauplan hinzufügen",
@@ -496,7 +497,7 @@
       "tabs": {
         "details": "Details",
         "versions": "Versionen",
-        "discussion": "Diskussion"
+        "discussion": "Diskussionen"
       },
       "byAuthor": "Von {{author}}",
       "metaByDate": "{{author}} · {{date}}",
@@ -574,7 +575,7 @@
         "originalLanguage": "Originalsprache",
         "createdAt": "Angelegt am",
         "publishedAt": "Veröffentlicht am",
-        "updatedAt": "Aktualisiert am",
+        "updatedAt": "Zuletzt geändert",
         "status": "Status",
         "displayColor": "Anzeigefarbe",
         "notes": "Notizen",
@@ -589,12 +590,36 @@
         }
       },
       "discussion": {
+        "newTopic": "Neue Diskussion",
+        "titleLabel": "Titel",
         "commentLabel": "Kommentar",
         "comment": "Kommentieren",
         "commenting": "Kommentiere…",
         "commentSuccess": "Kommentar wurde gespeichert.",
         "commentError": "Kommentar konnte nicht gespeichert werden.",
-        "empty": "Noch keine Diskussion zu dieser Kultur."
+        "emptyTitle": "Noch keine Diskussionen",
+        "empty": "Hast du eine Frage zu den Daten oder möchtest du etwas zur Kultur besprechen?",
+        "create": "Diskussion starten",
+        "cancel": "Abbrechen",
+        "back": "Alle Diskussionen",
+        "topicMeta_one": "{{author}} · {{count}} Beitrag · zuletzt aktiv {{date}}",
+        "topicMeta_other": "{{author}} · {{count}} Beiträge · zuletzt aktiv {{date}}",
+        "versionReference": "Bezug:",
+        "reply": "Antworten",
+        "replyLabel": "Antwort",
+        "replyToAuthor": "Auf Beitrag von {{author}} antworten",
+        "replyContext": "Antwort auf {{author}}",
+        "repliesForAuthor": "Antworten auf Beitrag von {{author}}",
+        "moreActions": "Weitere Aktionen",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "discardDraftConfirm": "Die aktuelle Eingabe verwerfen?",
+        "edited": "bearbeitet",
+        "deleted": "Dieser Beitrag wurde gelöscht.",
+        "authorDeleted": "Dieser Beitrag wurde vom Autor gelöscht.",
+        "moderatorDeleted": "Dieser Beitrag wurde von einem Moderator entfernt.",
+        "rootDeleteBlocked": "Der Eröffnungsbeitrag kann nicht gelöscht werden, solange sichtbare Antworten vorhanden sind.",
+        "submit": "Absenden"
       },
       "edit": {
         "open": "Bearbeiten",
@@ -614,6 +639,7 @@
         "reverting": "Stelle wieder her…",
         "revertSuccess": "Die Version wurde wiederhergestellt.",
         "revertError": "Die Version konnte nicht wiederhergestellt werden.",
+        "discuss": "Diskutieren",
         "restoredFrom": "Aus Version {{version}} wiederhergestellt",
         "noFieldChanges": "Startversion ohne Feldänderungen.",
         "actions": {

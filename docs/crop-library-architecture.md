@@ -56,12 +56,41 @@ permissible. Hard delete is intentionally exceptional and only available to
 administrators when no imports, source-project provenance, or other
 dependencies remain.
 
-Discussion comments (`PublicCultureDiscussionComment`) and public revisions
-(`PublicCultureRevision`) are child records of `PublicCulture`. They do not
+Structured discussions use `PublicCultureDiscussionTopic` as a culture-owned
+container and `PublicCultureDiscussionComment` for both top-level contributions
+and replies. A nullable self-referencing `parent` preserves the exact reply
+target while the frontend renders a real reply tree with capped visual
+indentation, so deep discussions keep their logical parent chain without
+shrinking the content column indefinitely.
+The topic overview is activity-oriented: the API returns topics ordered by the
+newest comment activity and includes the comment count, latest activity time,
+latest comment preview, and optional revision reference needed for the compact
+discussion list without per-topic comment fetches.
+Topics may reference an immutable `PublicCultureRevision`, so the version being
+discussed remains stable when newer revisions are created. Comments use soft
+deletion (`deleted_at`/`deleted_by`) and retain their row and replies, with the
+body cleared and a neutral placeholder shown in the UI. Normal authors may
+soft-delete their replies and may delete the root discussion post only while no
+visible, non-deleted replies remain. Public-library moderators may remove any
+comment, including root posts with visible replies. Discussion topics with no
+visible comments are hidden from the normal topic overview so users do not see
+threads made only of deletion placeholders. Edits keep the original author and
+creation timestamp and record `edited_at`. Existing pre-topic comments are
+grouped per culture by migration 0081 into an `Allgemeine Diskussion` topic
+without changing their authors, timestamps, text, or chronological order.
+
+Discussion records and public revisions (`PublicCultureRevision`) do not
 touch project-owned `Culture` rows. Editing or reverting a public entry changes
 only the shared public-library row; projects that already imported an entry
 continue using their private copied snapshot until a future explicit
 update/merge flow is built.
+
+The public crop-library page treats URL state as the source of truth for
+navigable selections (`cultureId`, `tab`, `discussionId`). When users return
+through the main navigation to the bare library route, the last valid
+crop-library view state is restored from local storage and written back into
+the URL; explicit URLs always override that saved state. Temporary UI state
+such as drafts, edit forms, and reply targets is intentionally not restored.
 
 Official `CropSpecies` rows are global master data and remain moderated. Users
 may propose missing species from the publishing wizard, but proposed species

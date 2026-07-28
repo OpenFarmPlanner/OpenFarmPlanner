@@ -1687,17 +1687,25 @@ function RootLayout() {
                 }
                 return [
                   ...visibleNodes,
-                  <IconButton
+                  <Button
                     key="mobile-actions-overflow-trigger"
                     aria-label="Weitere Aktionen"
                     aria-controls={mobileActionsOverflowAnchor ? 'mobile-actions-overflow-menu' : undefined}
                     aria-haspopup="true"
                     aria-expanded={Boolean(mobileActionsOverflowAnchor)}
                     onClick={handleMobileActionsOverflowOpen}
-                    sx={{ border: '1px solid', borderColor: 'divider', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
+                    variant="outlined"
+                    size="small"
+                    color="inherit"
+                    sx={{
+                      ...getSegmentedActionButtonSx({ active: false }),
+                      minHeight: COMPACT_TOPBAR_TOGGLE_SIZE,
+                      minWidth: COMPACT_TOPBAR_TOGGLE_SIZE,
+                      px: 1,
+                    }}
                   >
                     <MoreVertIcon fontSize="small" />
-                  </IconButton>,
+                  </Button>,
                   <Menu
                     key="mobile-actions-overflow-menu"
                     id="mobile-actions-overflow-menu"

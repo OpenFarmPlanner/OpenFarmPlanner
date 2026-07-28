@@ -258,11 +258,31 @@ export interface PublicCultureRevision {
 
 export interface PublicCultureDiscussionComment {
   id: number;
-  public_culture: number;
+  topic: number;
+  parent?: number | null;
   body: string;
   created_by_label?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
+  deletion_kind?: 'author' | 'moderator' | 'unknown' | null;
+  delete_blocked_reason?: 'visible_replies' | null;
+  is_edited: boolean;
+  can_edit: boolean;
+  can_delete?: boolean;
+}
+
+export interface PublicCultureDiscussionTopic {
+  id: number;
+  public_culture: number;
+  title: string;
+  created_by_label?: string;
+  created_at?: string;
+  revision?: number | null;
+  version?: number | null;
+  comment_count: number;
+  last_activity_at?: string | null;
+  last_comment_preview?: string | null;
 }
 
 export type PublicCultureRemovalReason =

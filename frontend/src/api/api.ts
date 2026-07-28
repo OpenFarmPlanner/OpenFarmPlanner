@@ -16,6 +16,7 @@ import type {
   PublicCulture,
   PublicCultureChangeProposal,
   PublicCultureDiscussionComment,
+  PublicCultureDiscussionTopic,
   PublicCultureMatchResponse,
   PublicCultureRemovalReason,
   PublicCultureRevision,
@@ -164,9 +165,17 @@ export const publicCultureAPI = {
   remove: (id: number, reason: PublicCultureRemovalReason) =>
     http.post<PublicCulture>(`/public-cultures/${id}/remove/`, { reason }),
   hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
-  comments: (id: number) => http.get<PublicCultureDiscussionComment[]>(`/public-cultures/${id}/comments/`),
-  createComment: (id: number, body: string) =>
-    http.post<PublicCultureDiscussionComment>(`/public-cultures/${id}/comments/`, { body }),
+  discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
+  createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>
+    http.post<PublicCultureDiscussionTopic>(`/public-cultures/${id}/discussion-topics/`, data),
+  discussionComments: (id: number, topicId: number) =>
+    http.get<PublicCultureDiscussionComment[]>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`),
+  createDiscussionComment: (id: number, topicId: number, body: string, parent?: number) =>
+    http.post<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`, { body, parent }),
+  updateDiscussionComment: (id: number, commentId: number, body: string) =>
+    http.patch<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-comments/${commentId}/`, { body }),
+  deleteDiscussionComment: (id: number, commentId: number) =>
+    http.delete(`/public-cultures/${id}/discussion-comments/${commentId}/`),
   versions: (id: number) => http.get<PublicCultureRevision[]>(`/public-cultures/${id}/versions/`),
   revert: (id: number, data: { version: number; base_version?: number }) =>
     http.post<PublicCulture>(`/public-cultures/${id}/revert/`, data),

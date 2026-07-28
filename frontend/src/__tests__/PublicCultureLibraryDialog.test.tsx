@@ -43,7 +43,7 @@ function mockMobileViewport(): void {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width:599.95px'),
+      matches: query.includes('max-width:599.95px') || query.includes('max-width:899.95px'),
       media: query,
       onchange: null,
       addEventListener: vi.fn(),

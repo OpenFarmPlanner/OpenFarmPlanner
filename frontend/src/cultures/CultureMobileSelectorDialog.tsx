@@ -10,6 +10,7 @@ import {
 import type { TFunction } from 'i18next';
 
 import type { Culture } from '../api/api';
+import { useOverlayHistory } from '../hooks/useOverlayHistory';
 
 interface CultureMobileSelectorDialogProps {
   open: boolean;
@@ -36,6 +37,12 @@ export function CultureMobileSelectorDialog({
   onSelect,
   t,
 }: CultureMobileSelectorDialogProps) {
+  useOverlayHistory({
+    open,
+    onClose,
+    historyKey: 'openFarmPlannerCultureSelector',
+  });
+
   return (
     <Dialog fullScreen open={open} onClose={onClose}>
       <DialogTitle>{t('selectCulture')}</DialogTitle>
