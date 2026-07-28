@@ -334,6 +334,67 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
   });
 
+  it('keeps the discussion overview unchanged when clicking the already selected discussions tab', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Übersicht bleibt offen',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion']);
+    expect(await screen.findByText('Übersicht bleibt offen')).toBeInTheDocument();
+    const routeBeforeClick = screen.getByLabelText('current route').textContent;
+
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+
+    expect(screen.getByText('Übersicht bleibt offen')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent(routeBeforeClick ?? '');
+    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalled();
+  });
+
+  it('opens the discussion overview when clicking the discussions tab from an open thread', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Thread im Tab',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Kommentar im Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    expect(await screen.findByText('Kommentar im Thread')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+
+    expect(await screen.findByText('Thread im Tab')).toBeInTheDocument();
+    expect(screen.queryByText('Kommentar im Thread')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+
+    await user.click(screen.getByRole('button', { name: 'Browser zurück' }));
+    expect(await screen.findByText('Kommentar im Thread')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+  });
+
   it('restores the selected discussion thread when returning through main navigation', async () => {
     const user = userEvent.setup();
     const topics: PublicCultureDiscussionTopic[] = [{
@@ -495,7 +556,7 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 10);
   });
 
-  it('uses a deterministic discussion overview target for the internal back action', async () => {
+  it('uses the same deterministic discussion overview target for the internal back action', async () => {
     const user = userEvent.setup();
     publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,

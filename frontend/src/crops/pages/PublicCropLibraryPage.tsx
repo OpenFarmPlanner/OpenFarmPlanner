@@ -1893,7 +1893,16 @@ export default function PublicCropLibraryPage() {
                   >
                     <Tab icon={isMobile ? undefined : <SpaOutlinedIcon />} iconPosition="start" label={t('library.page.tabs.details')} />
                     <Tab icon={isMobile ? undefined : <HistoryOutlinedIcon />} iconPosition="start" label={t('library.page.tabs.versions')} />
-                    <Tab icon={isMobile ? undefined : <ForumOutlinedIcon />} iconPosition="start" label={t('library.page.tabs.discussion')} />
+                    <Tab
+                      icon={isMobile ? undefined : <ForumOutlinedIcon />}
+                      iconPosition="start"
+                      label={t('library.page.tabs.discussion')}
+                      onClick={() => {
+                        if (selectedTopicId !== null) {
+                          closeSelectedTopic();
+                        }
+                      }}
+                    />
                   </Tabs>
                   <Divider />
 
