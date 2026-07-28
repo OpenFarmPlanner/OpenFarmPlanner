@@ -146,7 +146,8 @@ test('public crop library supports quick import, direct edit, versions, discussi
   await expect(page.getByText('E2E-Antwort.')).toBeVisible();
 
   await page.getByRole('tab', { name: /Details/ }).click();
-  await page.getByRole('button', { name: 'Bearbeiten' }).click();
+  await expect(page.getByRole('heading', { name: 'Allgemeine Informationen' })).toBeVisible();
+  await page.getByTestId('public-crop-detail-header').getByRole('button', { name: 'Bearbeiten' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
   await expect(editDialog).toBeVisible();
   await editDialog.getByLabel('Wachstumszeit (Tage)').fill('48');
