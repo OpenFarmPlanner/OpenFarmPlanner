@@ -14,11 +14,21 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
+from config.languages import SUPPORTED_LANGUAGE_CODES, normalize_language_tag
 from crops.models import CropSpecies
+from crops.services import find_species_by_common_name
 from crops.permissions import is_public_library_moderator
-from farm.models import Culture, Project, PublicCulture, PublicCultureRevision, PublicCultureStatusEvent
+from farm.models import (
+    Culture,
+    Project,
+    PublicCulture,
+    PublicCultureRevision,
+    PublicCultureStatusEvent,
+    PublicCultureTranslation,
+)
 
 User = get_user_model()
 
@@ -78,7 +88,9 @@ PUBLIC_CULTURE_EDITABLE_FIELDS = [
     'seed_packages',
 ]
 
-PUBLIC_ORIGINAL_LANGUAGE_CODES = {'de', 'en'}
+# Kept as a module-level name for existing importers; the supported set
+# itself now lives in config.languages so UI and content stay in sync.
+PUBLIC_ORIGINAL_LANGUAGE_CODES = set(SUPPORTED_LANGUAGE_CODES)
 
 PUBLIC_REQUIRED_FIELDS = [
     'variety',
@@ -285,6 +297,8 @@ def update_public_culture_directly(
 
         locked.version = max(locked.version, 1) + 1
         locked.save(update_fields=[*changed_field_names, 'version', 'updated_at'])
+        if 'notes' in changed_field_names:
+            sync_original_language_translation(locked)
         create_public_culture_revision(
             public_culture=locked,
             user=user,
@@ -372,17 +386,115 @@ def build_public_culture_payload(culture: Culture) -> dict[str, Any]:
 
 
 def normalize_language_code(value: str | None) -> str:
-    normalized = (value or '').strip().lower()
-    if normalized in PUBLIC_ORIGINAL_LANGUAGE_CODES:
-        return normalized
-    return ''
+    """A supported content language code, or '' when unsupported/missing."""
+    return normalize_language_tag(value)
+
+
+def sync_original_language_translation(public_culture: PublicCulture) -> None:
+    """Mirror ``notes`` into the entry's original-language translation row.
+
+    ``notes`` stays the original-language copy (imports into projects and
+    older consumers read it directly); the translation rows are the
+    multi-language source of truth. Writing both keeps the two consistent
+    without a second free-text field in the publishing UI.
+
+    Translations in *other* languages are never touched here — they are
+    editorial content that belongs to the library entry, not to the
+    publisher's project culture.
+    """
+    language_code = normalize_language_code(public_culture.original_language_code)
+    if not language_code:
+        return
+    description = (public_culture.notes or '').strip()
+    if description:
+        PublicCultureTranslation.objects.update_or_create(
+            public_culture=public_culture,
+            language_code=language_code,
+            defaults={'description': description},
+        )
+    else:
+        PublicCultureTranslation.objects.filter(
+            public_culture=public_culture,
+            language_code=language_code,
+        ).delete()
+
+
+def replace_public_culture_translations(
+    *,
+    public_culture: PublicCulture,
+    user: User | None,
+    descriptions: dict[str, str],
+) -> PublicCulture:
+    """Upsert the public description for the supplied languages.
+
+    Languages present with blank text are removed; languages not mentioned at
+    all are left untouched, because "I did not fill in English yet" must not
+    mean "delete the English version". At least one non-empty language has to
+    remain — an entry with no description in any language would render as an
+    empty card.
+
+    ``notes`` is kept in step with the original language so the import-into-a-
+    project path keeps copying real text.
+    """
+    _validate_public_culture_edit_user(user)
+
+    cleaned: dict[str, str] = {}
+    for language_code, description in descriptions.items():
+        normalized_code = normalize_language_code(language_code)
+        if not normalized_code:
+            continue
+        cleaned[normalized_code] = (description or '').strip()
+
+    with transaction.atomic():
+        locked = PublicCulture.objects.select_for_update().get(pk=public_culture.pk)
+        existing = {
+            row.language_code: row.description
+            for row in PublicCultureTranslation.objects.filter(public_culture=locked)
+        }
+        merged = {**existing, **cleaned}
+        if not any(text.strip() for text in merged.values()):
+            raise PublicCultureStatusTransitionError(
+                'At least one language version must have a description.',
+                code='translation_required',
+            )
+
+        for language_code, description in cleaned.items():
+            if description:
+                PublicCultureTranslation.objects.update_or_create(
+                    public_culture=locked,
+                    language_code=language_code,
+                    defaults={'description': description},
+                )
+            else:
+                PublicCultureTranslation.objects.filter(
+                    public_culture=locked,
+                    language_code=language_code,
+                ).delete()
+
+        original_code = normalize_language_code(locked.original_language_code)
+        if original_code and original_code in cleaned:
+            locked.notes = cleaned[original_code]
+            locked.save(update_fields=['notes', 'updated_at'])
+        return locked
 
 
 def detect_available_language_codes(culture: Culture) -> list[str]:
-    # Legacy public cultures are single-language records. Until translated
-    # content rows exist, non-empty project text represents the source language
-    # the user selects in the wizard.
-    return []
+    """Languages a *project* culture already has public content for.
+
+    Project cultures are single-language by design (their text is the user's
+    own input, never duplicated per UI language), so this reports the
+    languages of the public entry that was already published from it, if any.
+    """
+    public_culture = (
+        PublicCulture.objects
+        .filter(source_project_culture=culture)
+        .prefetch_related('translations')
+        .order_by('-published_at', '-id')
+        .first()
+    )
+    if public_culture is None:
+        return []
+    return sorted(public_culture.descriptions_by_language())
 
 
 def get_public_required_field_gaps(culture: Culture) -> list[MissingRequiredField]:
@@ -412,13 +524,34 @@ def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, An
 
 
 def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpecies | None = None) -> list[DuplicateCandidate]:
+    """Published entries that would be duplicates of this culture.
+
+    Identity is the *language-independent* species plus a normalized variety
+    name plus the supplier — never a localized name plus variety. Otherwise
+    "Tomate + Moneymaker" and "Tomato + Moneymaker" would look like two
+    different crops when they are one.
+
+    When the caller did not pass a species, the culture's own name is resolved
+    against every species translation first, so publishing an English-named
+    culture still finds the German-named entry (and vice versa). Only if no
+    species can be determined at all does this fall back to name matching, for
+    legacy entries that predate species links.
+
+    Normalization is intentionally shallow — trim, collapse whitespace,
+    case-fold — and never touches the stored or displayed original name.
+    """
     normalized_supplier = normalize_identity_value(get_culture_supplier_label(culture))
     queryset = PublicCulture.objects.filter(
         variety_normalized=culture.variety_normalized,
         status=PublicCulture.STATUS_PUBLISHED,
     )
-    if crop_species is not None:
-        queryset = queryset.filter(crop_species=crop_species)
+    species = crop_species or culture.crop_species or find_species_by_common_name(culture.name)
+    if species is not None:
+        # Match the species either directly or through a legacy entry that
+        # carries the same localized name but no species link yet.
+        queryset = queryset.filter(
+            Q(crop_species=species) | Q(crop_species__isnull=True, name_normalized=culture.name_normalized),
+        )
     else:
         queryset = queryset.filter(name_normalized=culture.name_normalized)
     queryset = queryset.select_related('created_by').order_by('-published_at', '-id')
@@ -600,6 +733,7 @@ def publish_culture_to_public_library(
                 to_status=PublicCulture.STATUS_PUBLISHED,
                 user=user,
             )
+        sync_original_language_translation(updated_public_culture)
         non_target_duplicates = [item for item in duplicates if item.id != update_target.id]
         return updated_public_culture, non_target_duplicates, 'updated'
 
@@ -623,6 +757,7 @@ def publish_culture_to_public_library(
         original_language_code=check_result.original_language_code,
         **build_public_culture_payload(culture),
     )
+    sync_original_language_translation(public_culture)
     _record_public_culture_status_event(
         public_culture=public_culture,
         from_status='',

@@ -21,6 +21,7 @@ import { type SxProps, type Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import { useHierarchyData } from '../components/hierarchy/hooks/useHierarchyData';
 import { hasPersistedEntityId } from '../components/hierarchy/utils/hierarchyUtils';
+import { keywordList } from '../commands/keywordList';
 
 const VIEW_MODE_STORAGE_KEY = 'fieldsBedsViewMode';
 const ADD_PARCEL_ACTION = 'add-parcel';
@@ -86,9 +87,9 @@ export default function FieldsBedsPage() {
   const commands = useMemo<CommandSpec[]>(() => [
     {
       id: 'areas.showListView',
-      label: 'Listenansicht anzeigen',
+      label: t('fields:commands.showList'),
       group: 'navigation',
-      keywords: ['liste', 'tabelle', 'anbauflächen'],
+      keywords: keywordList(t, 'fields:commands.keywords.showList'),
       shortcutHint: 'L',
       keys: { key: 'l' },
       contextTags: ['areas'],
@@ -99,9 +100,9 @@ export default function FieldsBedsPage() {
     },
     {
       id: 'areas.showGraphicalView',
-      label: 'Grafikansicht anzeigen',
+      label: t('fields:commands.showGraphical'),
       group: 'navigation',
-      keywords: ['grafik', 'grafisch', 'anbauflächen'],
+      keywords: keywordList(t, 'fields:commands.keywords.showGraphical'),
       shortcutHint: 'G',
       keys: { key: 'g' },
       contextTags: ['areas'],
@@ -110,7 +111,7 @@ export default function FieldsBedsPage() {
         setViewMode('graphical');
       },
     },
-  ], [viewMode]);
+  ], [t, viewMode]);
 
   useRegisterCommands('areas-view-switch', commands);
 

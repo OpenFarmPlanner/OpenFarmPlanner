@@ -31,6 +31,8 @@ export interface AuthUser {
   guest_demo_session_id: number | null;
   /** False for accounts that sign in only through Google/Microsoft. */
   has_password: boolean;
+  /** Personal UI language: 'auto' (follow the browser), 'de' or 'en'. */
+  ui_language?: string;
 }
 
 export interface ProjectSwitchResponse {

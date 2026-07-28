@@ -83,6 +83,7 @@ import {
   useRegisterCreateActions,
 } from "../commands/useCommandContext";
 import type { CommandSpec } from "../commands/types";
+import { keywordList } from "../commands/keywordList";
 import { useProjectRequirement } from "../hooks/useProjectRequirement";
 import { useColumnVisibility } from "../hooks/useColumnVisibility";
 import {
@@ -360,9 +361,9 @@ function PlantingPlans() {
     () => [
       {
         id: "plans.edit",
-        label: "Anbauplan bearbeiten (Alt+E)",
+        label: t("plantingPlans:commands.edit"),
         group: 'navigation',
-        keywords: ["anbauplan", "bearbeiten", "edit"],
+        keywords: keywordList(t, "plantingPlans:commands.keywords.edit"),
         shortcutHint: "Alt+E",
         keys: { alt: true, key: "e" },
         contextTags: ["plans"],
@@ -371,9 +372,9 @@ function PlantingPlans() {
       },
       {
         id: "plans.delete",
-        label: "Anbauplan löschen (Entf)",
+        label: t("plantingPlans:commands.delete"),
         group: 'navigation',
-        keywords: ["anbauplan", "löschen", "delete"],
+        keywords: keywordList(t, "plantingPlans:commands.keywords.delete"),
         shortcutHint: "Entf",
         keys: { key: "Delete" },
         contextTags: ["plans"],
@@ -381,7 +382,7 @@ function PlantingPlans() {
         action: () => gridCommandApiRef.current?.deleteSelectedRow(),
       },
     ],
-    [selectedPlan],
+    [selectedPlan, t],
   );
 
   useRegisterCommands("plans-page", commands);

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import type { TFunction } from 'i18next';
+import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -65,6 +67,12 @@ import {
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
+import {
+  getFallbackNotice,
+  getPublicCultureDescription,
+  getPublicCultureName,
+  getPublicCultureTitle,
+} from '../publicCultureDisplay';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -158,9 +166,14 @@ function storePublicCropLibraryViewState(viewState: PublicCropLibraryViewState):
   window.localStorage.setItem(PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY, JSON.stringify(viewState));
 }
 
-const getCultureTitle = (culture: PublicCulture): string => (
-  culture.variety ? `${culture.name} (${culture.variety})` : culture.name
-);
+/**
+ * Entry title in the active UI language.
+ *
+ * The species name follows the translation fallback chain; the variety name is
+ * a proper name and is appended verbatim in every language.
+ */
+const getCultureTitle = (culture: PublicCulture, t: TFunction, language: string): string =>
+  getPublicCultureTitle(culture, language, t('library.translation.missingName'));
 
 function getCommentTimestamp(comment: PublicCultureDiscussionComment): number {
   if (!comment.created_at) {
@@ -929,7 +942,8 @@ function PublicCultureMobileSelectorDialog({
   onSelect,
   onListScroll,
 }: PublicCultureMobileSelectorDialogProps) {
-  const { t } = useTranslation('cultures');
+  const { t, i18n } = useTranslation('cultures');
+  const language = i18n.resolvedLanguage ?? i18n.language;
 
   useOverlayHistory({
     open,
@@ -988,7 +1002,7 @@ function PublicCultureMobileSelectorDialog({
                 sx={{ borderRadius: 1.25, mb: 0.375 }}
               >
                 <ListItemText
-                  primary={getCultureTitle(culture)}
+                  primary={getCultureTitle(culture, t, language)}
                   secondary={culture.crop_species_name || culture.crop_family || undefined}
                   primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 600 }}
                   secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
@@ -1007,6 +1021,7 @@ function PublicCultureMobileSelectorDialog({
 
 export default function PublicCropLibraryPage() {
   const { t, i18n } = useTranslation('cultures');
+  const language = i18n.resolvedLanguage ?? i18n.language;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1170,6 +1185,28 @@ export default function PublicCropLibraryPage() {
   const selectedCulture = useMemo(
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
+  );
+  // Localized species name for the selected entry, plus the notice shown when
+  // only another language's text is available.
+  const selectedCultureName = useMemo(
+    () => (selectedCulture
+      ? getPublicCultureName(selectedCulture, language, t('library.translation.missingName'))
+      : { text: '', languageCode: null, isFallback: false }),
+    [language, selectedCulture, t],
+  );
+  const nameFallbackNotice = useMemo(
+    () => getFallbackNotice(selectedCultureName, t),
+    [selectedCultureName, t],
+  );
+  const selectedCultureDescription = useMemo(
+    () => (selectedCulture
+      ? getPublicCultureDescription(selectedCulture, language)
+      : { text: '', languageCode: null, isFallback: false }),
+    [language, selectedCulture],
+  );
+  const descriptionFallbackNotice = useMemo(
+    () => getFallbackNotice(selectedCultureDescription, t),
+    [selectedCultureDescription, t],
   );
   const selectedTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
@@ -1480,13 +1517,13 @@ export default function PublicCropLibraryPage() {
     setImportingId(selectedCulture.id);
     try {
       await publicCultureAPI.importToProject(selectedCulture.id);
-      showGlobalSnackbar({ message: t('library.importSuccess', { name: getCultureTitle(selectedCulture) }), severity: 'success' });
+      showGlobalSnackbar({ message: t('library.importSuccess', { name: getCultureTitle(selectedCulture, t, language) }), severity: 'success' });
     } catch {
       showGlobalSnackbar({ message: t('library.importError'), severity: 'error' });
     } finally {
       setImportingId(null);
     }
-  }, [selectedCulture, t]);
+  }, [language, selectedCulture, t]);
 
   const openEditDialog = useCallback((): void => {
     if (!selectedCulture) {
@@ -1500,6 +1537,7 @@ export default function PublicCropLibraryPage() {
   };
 
   const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
+    t,
     cultures,
     focusSearch,
     goToRelativeCulture,
@@ -1507,7 +1545,7 @@ export default function PublicCropLibraryPage() {
     openEditDialog,
     selectedCulture,
     importing: importingId !== null,
-  }), [cultures, focusSearch, goToRelativeCulture, handleImport, importingId, openEditDialog, selectedCulture]);
+  }), [cultures, focusSearch, goToRelativeCulture, handleImport, importingId, openEditDialog, selectedCulture, t]);
 
   useRegisterCommands('public-crop-library-page', commandSpecs);
 
@@ -1852,7 +1890,7 @@ export default function PublicCropLibraryPage() {
                       }}
                     >
                       <ListItemText
-                        primary={getCultureTitle(culture)}
+                        primary={getCultureTitle(culture, t, language)}
                         secondary={culture.crop_species_name || culture.name}
                         primaryTypographyProps={{ fontWeight: 700, noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
@@ -1959,14 +1997,14 @@ export default function PublicCropLibraryPage() {
                         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', py: 0.25 }}>
                           {useCompactLibraryLayout ? (
                             <CultureTitleSelectorButton
-                              title={selectedCulture.name}
+                              title={selectedCultureName.text}
                               ariaLabel={t('selectCulture')}
                               onClick={() => setMobileSelectorOpen(true)}
                               titleSx={{ fontSize: '1.5rem' }}
                             />
                           ) : (
                             <Typography variant="h5" component="h2" sx={{ fontWeight: 600, overflowWrap: 'anywhere', lineHeight: 1.2 }}>
-                              {selectedCulture.name}
+                              {selectedCultureName.text}
                             </Typography>
                           )}
                           {selectedCulture.variety ? (
@@ -1975,8 +2013,22 @@ export default function PublicCropLibraryPage() {
                             </Typography>
                           ) : null}
                           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                            <Chip size="small" label={t('library.versionLabel', { defaultValue: 'Version' }) + ` ${selectedCulture.version}`} />
-                            <Chip size="small" label={selectedCulture.crop_species_name || selectedCulture.name} variant="outlined" />
+                            <Chip size="small" label={t('library.versionLabel') + ` ${selectedCulture.version}`} />
+                            <Chip size="small" label={selectedCultureName.text} variant="outlined" />
+                            {/* Say plainly that this is another language's text
+                                rather than letting an English name read as a
+                                German translation. */}
+                            {nameFallbackNotice ? (
+                              <Tooltip title={nameFallbackNotice.tooltip}>
+                                <Chip
+                                  size="small"
+                                  icon={<TranslateOutlinedIcon fontSize="small" />}
+                                  label={nameFallbackNotice.label}
+                                  variant="outlined"
+                                  color="warning"
+                                />
+                              </Tooltip>
+                            ) : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCulture.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>
                         </Box>
@@ -2118,7 +2170,22 @@ export default function PublicCropLibraryPage() {
                       <Divider />
 
                       <DetailSection title={t('library.page.sections.notes')} outlined>
-                        {selectedCulture.notes ? (
+                        {/* The public description is translatable; when only
+                            another language exists, say so instead of showing
+                            it as if it were this language. */}
+                        {descriptionFallbackNotice ? (
+                          <Tooltip title={descriptionFallbackNotice.tooltip}>
+                            <Chip
+                              size="small"
+                              icon={<TranslateOutlinedIcon fontSize="small" />}
+                              label={descriptionFallbackNotice.label}
+                              variant="outlined"
+                              color="warning"
+                              sx={{ mb: 1 }}
+                            />
+                          </Tooltip>
+                        ) : null}
+                        {selectedCultureDescription.text ? (
                           <Box
                             sx={{
                               '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
@@ -2131,7 +2198,7 @@ export default function PublicCropLibraryPage() {
                             }}
                           >
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {stripCitationMarkers(selectedCulture.notes)}
+                              {stripCitationMarkers(selectedCultureDescription.text)}
                             </ReactMarkdown>
                           </Box>
                         ) : (

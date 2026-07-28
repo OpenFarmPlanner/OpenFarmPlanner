@@ -546,7 +546,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             }, status=status.HTTP_409_CONFLICT)
         if not has_library_consent:
             record_acceptance(request.user, DocumentConsent.DOCUMENT_PUBLIC_LIBRARY)
-        serializer = PublicCultureSerializer(public_culture)
+        serializer = PublicCultureSerializer(public_culture, context={'request': request})
         return Response({
             'operation': operation,
             'public_culture': serializer.data,

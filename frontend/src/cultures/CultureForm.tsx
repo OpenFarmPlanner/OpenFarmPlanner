@@ -958,7 +958,7 @@ export function CultureForm({
             disabled={isSaveDisabled}
           >
             {isSaving
-              ? t('messages.saving', { defaultValue: 'Speichern...' })
+              ? t('messages.saving')
               : isEdit ? t('form.save') : t('form.create')}
           </Button>
         </DialogActions>

@@ -13,6 +13,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from crops.permissions import is_public_library_moderator
+from crops.services import find_exact_crop_match
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
@@ -27,6 +28,7 @@ from farm.services.public_cultures import (
     hard_delete_public_culture,
     import_public_culture_into_project,
     remove_public_culture,
+    replace_public_culture_translations,
     restore_public_culture_version,
     update_public_culture_directly,
     withdraw_public_culture,
@@ -42,6 +44,7 @@ from ..serializers.public import (
     PublicCultureDiscussionTopicSerializer,
     PublicCultureRevertSerializer,
     PublicCultureRevisionSerializer,
+    PublicCultureTranslationsUpdateSerializer,
     PublicCultureUpdateSerializer,
 )
 
@@ -64,16 +67,39 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = super().get_queryset().select_related('created_by__public_profile')
+        """Published entries, searchable across every language.
+
+        Free-text and name search span all species translations so a query in
+        one language finds entries whose UI name is in another ("Tomato" finds
+        "Tomate / Tomato"). Species translations and descriptions are
+        prefetched because the serializer resolves a localized name and
+        description for every row — without this, search would add one query
+        per result.
+        """
+        queryset = (
+            super().get_queryset()
+            .select_related('created_by__public_profile', 'crop_species')
+            .prefetch_related('crop_species__translations', 'translations')
+        )
         query = (self.request.query_params.get('q') or '').strip()
         name = (self.request.query_params.get('name') or '').strip()
         variety = (self.request.query_params.get('variety') or '').strip()
 
         if query:
-            queryset = queryset.filter(Q(name__icontains=query) | Q(variety__icontains=query))
+            queryset = queryset.filter(
+                Q(name__icontains=query)
+                | Q(variety__icontains=query)
+                | Q(crop_species__name__icontains=query)
+                | Q(crop_species__translations__common_name__icontains=query),
+            ).distinct()
         if name:
-            queryset = queryset.filter(name__icontains=name)
+            queryset = queryset.filter(
+                Q(name__icontains=name)
+                | Q(crop_species__name__icontains=name)
+                | Q(crop_species__translations__common_name__icontains=name),
+            ).distinct()
         if variety:
+            # Variety names are proper names — matched verbatim, not translated.
             queryset = queryset.filter(variety__icontains=variety)
         return queryset
 
@@ -135,7 +161,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._edit_conflict_response(error)
         except ValueError as error:
             return Response({'detail': str(error), 'code': 'unsupported_public_culture_fields'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(PublicCultureSerializer(updated).data)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
 
     def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         kwargs['partial'] = True
@@ -153,18 +179,18 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='match')
     def match(self, request):
-        """Check whether an exact normalized public culture match exists."""
-        from farm.utils import normalize_text
+        """Check whether this crop identity already exists in the library.
 
-        normalized_name = normalize_text(request.query_params.get('name'))
-        normalized_variety = normalize_text(request.query_params.get('variety'))
-        if not normalized_name or not normalized_variety:
-            return Response({'exists': False, 'culture': None})
-
-        culture = self.queryset.filter(
-            name_normalized=normalized_name,
-            variety_normalized=normalized_variety,
-        ).only('id', 'name', 'variety', 'published_at').order_by('-published_at', '-id').first()
+        Matching is language-independent: the supplied name is resolved to a
+        species through every translation first, so looking up
+        "Tomato + Moneymaker" finds an entry published as
+        "Tomate + Moneymaker". Only if the name resolves to no species at all
+        does this fall back to matching the stored name, for legacy entries.
+        """
+        culture = find_exact_crop_match(
+            name=request.query_params.get('name'),
+            variety=request.query_params.get('variety'),
+        )
         if culture is None:
             return Response({'exists': False, 'culture': None})
 
@@ -175,6 +201,43 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
                 'name': culture.name,
                 'variety': culture.variety,
             },
+        })
+
+    @action(detail=True, methods=['get', 'put'], url_path='translations')
+    def translations(self, request: Request, pk: int | None = None) -> Response:
+        """Read or replace the per-language editorial text of one entry.
+
+        GET always returns every language (editorial and moderation screens
+        need them all, regardless of the caller's UI language). PUT accepts a
+        ``{language_code: description}`` map and upserts it, so a single crop
+        keeps one record with language sections instead of turning into two
+        crops.
+        """
+        public_culture = self.get_object()
+        if request.method == 'GET':
+            return Response({
+                'original_language_code': public_culture.original_language_code,
+                'translations': public_culture.descriptions_by_language(),
+                'crop_species_translations': (
+                    public_culture.crop_species.translations_by_language()
+                    if public_culture.crop_species is not None
+                    else {}
+                ),
+            })
+
+        serializer = PublicCultureTranslationsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated = replace_public_culture_translations(
+                public_culture=public_culture,
+                user=request.user,
+                descriptions=serializer.validated_data['translations'],
+            )
+        except PublicCulturePermissionError as error:
+            return Response({'detail': error.message, 'code': error.code}, status=status.HTTP_403_FORBIDDEN)
+        return Response({
+            'original_language_code': updated.original_language_code,
+            'translations': updated.descriptions_by_language(),
         })
 
     @action(detail=True, methods=['post'], url_path='import')
@@ -310,7 +373,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._edit_conflict_response(error)
         except PublicCultureRevisionNotFoundError as error:
             return Response({'detail': str(error), 'code': error.code}, status=status.HTTP_404_NOT_FOUND)
-        return Response(PublicCultureSerializer(updated).data)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
 
     @action(detail=True, methods=['get', 'post'], url_path='change-proposals')
     def change_proposals(self, request: Request, pk: int | None = None) -> Response:
@@ -382,7 +445,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
         except PublicCultureStatusTransitionError as error:
             return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
-        return Response(PublicCultureSerializer(updated).data)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
 
     @action(detail=True, methods=['post'], url_path='remove')
     def remove(self, request, pk=None):
@@ -397,7 +460,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
         except PublicCultureStatusTransitionError as error:
             return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
-        return Response(PublicCultureSerializer(updated).data)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
 
     @action(detail=True, methods=['post'], url_path='hard-delete')
     def hard_delete(self, request, pk=None):

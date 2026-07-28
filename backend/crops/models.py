@@ -8,7 +8,15 @@ from django.db.models import Q
 
 
 class CropSpecies(models.Model):
-    """Official language-independent species used at the publishing boundary."""
+    """Official language-independent species used at the publishing boundary.
+
+    ``name`` is the canonical *reference* label, not a UI label: it exists so
+    the species has one stable, unique, human-readable identity (and so the
+    unique ``name_normalized`` constraint keeps working). Everything the user
+    sees comes from :class:`CropSpeciesTranslation` via
+    :meth:`localized_name`, which falls back to ``name`` only as a last resort
+    so the UI can never render an empty species.
+    """
 
     STATUS_PUBLISHED = 'published'
     STATUS_PROPOSED = 'proposed'
@@ -53,8 +61,80 @@ class CropSpecies(models.Model):
         self.name_normalized = normalize_text(self.name) or ''
         super().save(*args, **kwargs)
 
+    def translations_by_language(self) -> dict[str, str]:
+        """language code → common name, for every stored translation.
+
+        Uses ``self.translations.all()`` so a ``prefetch_related`` on the
+        queryset is reused instead of triggering one query per species.
+        """
+        return {
+            translation.language_code: translation.common_name
+            for translation in self.translations.all()
+            if translation.common_name
+        }
+
+    def localized_name(self, language_code: str | None) -> tuple[str, str]:
+        """Best available common name plus the language it came from.
+
+        Fallback order is the project-wide one (requested → English → any
+        other translation → technical replacement); see
+        ``config.languages.resolve_translation``. The returned language code
+        is ``''`` only when the canonical ``name`` had to stand in, which is
+        how callers know not to claim the text is a real translation.
+        """
+        from config.languages import resolve_translation
+
+        return resolve_translation(
+            self.translations_by_language(),
+            language_code,
+            fallback=self.name,
+        )
+
     def __str__(self) -> str:
         return self.name
+
+
+class CropSpeciesTranslation(models.Model):
+    """The common name of one species in one language.
+
+    "Tomate" and "Tomato" are two rows here pointing at the *same*
+    ``CropSpecies`` — never two species. Only genuinely language-dependent
+    text belongs here; growing data, spacings and variety names stay on the
+    language-independent records.
+    """
+
+    species = models.ForeignKey(
+        CropSpecies,
+        on_delete=models.CASCADE,
+        related_name='translations',
+    )
+    language_code = models.CharField(max_length=10, db_index=True)
+    common_name = models.CharField(max_length=200)
+    common_name_normalized = models.CharField(max_length=200, db_index=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['language_code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['species', 'language_code'],
+                name='unique_crop_species_translation_per_language',
+            ),
+        ]
+        verbose_name = 'Crop species translation'
+        verbose_name_plural = 'Crop species translations'
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        from farm.utils import normalize_text
+
+        self.language_code = (self.language_code or '').strip().lower()
+        self.common_name = ' '.join((self.common_name or '').split())
+        self.common_name_normalized = normalize_text(self.common_name) or ''
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f'{self.language_code}: {self.common_name}'
 
 
 class PublicLibraryModeratorRequest(models.Model):

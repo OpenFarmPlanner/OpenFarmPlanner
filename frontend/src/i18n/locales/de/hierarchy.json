@@ -115,5 +115,14 @@
   "confirm": {
     "deleteFieldWithBeds": "Möchten Sie diese Parzelle wirklich löschen? Alle zugehörigen Beete werden ebenfalls gelöscht.",
     "deleteBed": "Möchten Sie dieses Beet wirklich löschen?"
+  },
+  "commands": {
+    "create": "Neu erstellen",
+    "delete": "Löschen (Alt+Shift+D)",
+    "keywords": {
+      "create": "neu, anbauflächen, erstellen",
+      "edit": "bearbeiten",
+      "delete": "löschen"
+    }
   }
 }

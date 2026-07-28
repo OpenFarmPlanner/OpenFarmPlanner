@@ -144,5 +144,13 @@
       "addCulture": "Kultur hinzufügen",
       "createPlan": "Anbauplan hinzufügen"
     }
+  },
+  "commands": {
+    "edit": "Anbauplan bearbeiten (Alt+E)",
+    "delete": "Anbauplan löschen (Entf)",
+    "keywords": {
+      "edit": "anbauplan, bearbeiten",
+      "delete": "anbauplan, löschen"
+    }
   }
 }

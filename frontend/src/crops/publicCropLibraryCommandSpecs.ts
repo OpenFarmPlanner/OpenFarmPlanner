@@ -1,7 +1,12 @@
+import type { TFunction } from 'i18next';
+
 import type { PublicCulture } from '../api/types';
 import type { CommandSpec } from '../commands/types';
+import { keywordList } from '../commands/keywordList';
 
 export type CreatePublicCropLibraryCommandSpecsOptions = {
+  /** Command palette labels and search keywords follow the UI language. */
+  t: TFunction;
   cultures: PublicCulture[];
   focusSearch: () => void;
   goToRelativeCulture: (direction: 'next' | 'previous') => void;
@@ -12,6 +17,7 @@ export type CreatePublicCropLibraryCommandSpecsOptions = {
 };
 
 export function createPublicCropLibraryCommandSpecs({
+  t,
   cultures,
   focusSearch,
   goToRelativeCulture,
@@ -23,9 +29,9 @@ export function createPublicCropLibraryCommandSpecs({
   return [
     {
       id: 'publicCropLibrary.focusSearch',
-      label: 'Kulturbibliothek durchsuchen fokussieren (/)',
+      label: t('cultures:library.commands.focusSearch'),
       group: 'navigation',
-      keywords: ['kultur', 'suchen', 'search', 'filter', 'bibliothek'],
+      keywords: keywordList(t, 'cultures:library.commands.keywords.search'),
       shortcutHint: '/',
       keys: { key: '/' },
       contextTags: ['publicCropLibrary'],
@@ -34,9 +40,9 @@ export function createPublicCropLibraryCommandSpecs({
     },
     {
       id: 'publicCropLibrary.edit',
-      label: 'Öffentliche Kultur bearbeiten (Alt+E)',
+      label: t('cultures:library.commands.edit'),
       group: 'navigation',
-      keywords: ['kultur', 'bearbeiten', 'edit', 'bibliothek'],
+      keywords: keywordList(t, 'cultures:library.commands.keywords.edit'),
       shortcutHint: 'Alt+E',
       keys: { alt: true, key: 'e' },
       contextTags: ['publicCropLibrary'],
@@ -45,9 +51,9 @@ export function createPublicCropLibraryCommandSpecs({
     },
     {
       id: 'publicCropLibrary.import',
-      label: 'Kultur ins Projekt übernehmen (Alt+I)',
+      label: t('cultures:library.commands.import'),
       group: 'navigation',
-      keywords: ['import', 'übernehmen', 'projekt', 'kultur'],
+      keywords: keywordList(t, 'cultures:library.commands.keywords.import'),
       shortcutHint: 'Alt+I',
       keys: { alt: true, key: 'i' },
       contextTags: ['publicCropLibrary'],
@@ -56,9 +62,9 @@ export function createPublicCropLibraryCommandSpecs({
     },
     {
       id: 'publicCropLibrary.previous',
-      label: 'Vorherige Kultur (Alt+Shift+←)',
+      label: t('cultures:library.commands.previous'),
       group: 'navigation',
-      keywords: ['vorherige', 'kultur', 'left'],
+      keywords: keywordList(t, 'cultures:library.commands.keywords.previous'),
       shortcutHint: 'Alt+Shift+←',
       keys: { alt: true, shift: true, key: 'ArrowLeft' },
       contextTags: ['publicCropLibrary'],
@@ -67,9 +73,9 @@ export function createPublicCropLibraryCommandSpecs({
     },
     {
       id: 'publicCropLibrary.next',
-      label: 'Nächste Kultur (Alt+Shift+→)',
+      label: t('cultures:library.commands.next'),
       group: 'navigation',
-      keywords: ['nächste', 'kultur', 'right'],
+      keywords: keywordList(t, 'cultures:library.commands.keywords.next'),
       shortcutHint: 'Alt+Shift+→',
       keys: { alt: true, shift: true, key: 'ArrowRight' },
       contextTags: ['publicCropLibrary'],

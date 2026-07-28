@@ -15,12 +15,32 @@
 
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
   buildCanonicalUrl,
   isPathIndexable,
   resolveIndexable,
   resolveSiteUrl,
 } from './seoConfig';
+import { FALLBACK_LANGUAGE, normalizeLanguageTag } from '../i18n/languages';
+
+/**
+ * Page-title keys per route, in the `home` namespace.
+ *
+ * Only routes with a meaningful, stable title are listed; everything else
+ * keeps the app-wide title. Build-time SEO metadata (canonical, robots,
+ * prerendered `<title>`) stays in the site's canonical language — see
+ * `seoConfig.SITE_LANGUAGE` and docs/i18n.md; this only keeps the *runtime*
+ * title and `<html lang>` in step with what the user is actually reading.
+ */
+const ROUTE_TITLE_KEYS: Record<string, string> = {
+  '/': 'seo.titles.landing',
+  '/impressum': 'seo.titles.imprint',
+  '/datenschutz': 'seo.titles.privacy',
+  '/nutzungsbedingungen': 'seo.titles.terms',
+  '/login': 'seo.titles.login',
+  '/register': 'seo.titles.register',
+};
 
 const SITE_URL = resolveSiteUrl(import.meta.env);
 const DEPLOYMENT_INDEXABLE = resolveIndexable(import.meta.env);
@@ -55,12 +75,22 @@ function upsertCanonical(href: string): void {
  */
 export default function RouteSeo(): null {
   const { pathname } = useLocation();
+  const { t, i18n } = useTranslation('home');
+  const language = normalizeLanguageTag(i18n.resolvedLanguage ?? i18n.language) ?? FALLBACK_LANGUAGE;
 
   useEffect(() => {
     const indexable = isPathIndexable(pathname, DEPLOYMENT_INDEXABLE);
     upsertMeta('robots', indexable ? 'index, follow' : 'noindex, nofollow');
     upsertCanonical(buildCanonicalUrl(SITE_URL, pathname));
   }, [pathname]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    const titleKey = ROUTE_TITLE_KEYS[pathname.replace(/\/+$/, '') || '/'];
+    if (titleKey) {
+      document.title = t(titleKey);
+    }
+  }, [language, pathname, t]);
 
   return null;
 }

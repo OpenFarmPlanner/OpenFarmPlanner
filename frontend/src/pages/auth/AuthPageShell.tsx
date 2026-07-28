@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import LegalLinks from '../../components/legal/LegalLinks';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { authLegalLinkSx } from './authPageStyles';
+import PublicPageLanguageBar from '../../i18n/PublicPageLanguageBar';
 
 type AuthPageShellProps = {
   title: string;
@@ -36,6 +37,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
           py: { xs: 3, sm: 5, md: 7 },
         }}
       >
+        <PublicPageLanguageBar sx={{ width: '100%', maxWidth: 560, alignSelf: 'center' }} />
         <Stack spacing={{ xs: 2.5, md: 3.5 }} alignItems="center">
           <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
             <Box

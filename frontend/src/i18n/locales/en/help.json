@@ -6,21 +6,27 @@
   "intro": "OpenFarmPlanner consists of several pages that work together:",
   "sections": [
     {
-      "title": "Growing areas",
+      "title": "Overview",
       "points": [
-        "Create locations, fields, and beds here."
+        "See upcoming sowing, planting, propagation and harvest dates at a glance."
       ]
     },
     {
-      "title": "Cultures",
+      "title": "Growing areas",
       "points": [
-        "Enter your crop data here."
+        "Create fields and beds here. Add extra locations when you need them."
+      ]
+    },
+    {
+      "title": "Crops",
+      "points": [
+        "Enter your crop data here, or draw on the public crop library."
       ]
     },
     {
       "title": "Planting plans",
       "points": [
-        "Plan which crop is grown in which bed here."
+        "Plan which crop is grown on which bed and when."
       ]
     },
     {
@@ -30,9 +36,21 @@
       ]
     },
     {
+      "title": "Yield overview",
+      "points": [
+        "See the harvest quantities expected from your planting plans."
+      ]
+    },
+    {
       "title": "Seed demand",
       "points": [
         "This calculates how much seed you need."
+      ]
+    },
+    {
+      "title": "Suppliers",
+      "points": [
+        "Record your suppliers here so you can link them to crops."
       ]
     }
   ],
@@ -57,7 +75,8 @@
         {
           "title": "How this connects to other pages",
           "points": [
-            "On the growing areas page, you add fields and beds for each location."
+            "On the growing areas page, you add fields and beds for each location.",
+            "Tasks are derived from the planting plans."
           ]
         }
       ],
@@ -102,22 +121,7 @@
     },
     "areas": {
       "title": "Help: Growing areas - list view",
-      "intro": "Manage your growing area structure from location to bed here. The hierarchical list is useful for creating and editing areas.",
-      "sections": [
-        {
-          "title": "How to use it",
-          "points": [
-            "Click a cell to edit entries directly.",
-            "Click table headers to sort or filter."
-          ]
-        },
-        {
-          "title": "How this connects to other pages",
-          "points": [
-            "In planting plans, you assign crops to individual beds."
-          ]
-        }
-      ],
+      "intro": "Manage your farm's area structure here — from locations through plots down to individual beds.\n\nNew locations, plots and beds are added with the {{addIcon}} that appears when you hover over an element.\n\nEntries can be edited directly in the table. The {{createPlanIcon}} on a bed creates a planting plan for it straight away. Further actions such as renaming or deleting are in the right-click context menu.",
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "expandToggle": "Expand or collapse section",
@@ -135,7 +139,7 @@
           "title": "How to use it",
           "points": [
             "Select a crop to view or edit details.",
-            "Create, export, delete, or use crops directly for a planting plan.",
+            "The {{moreIcon}} opens further actions such as versions, publishing to the public crop library, or deleting the selected crop.",
             "Use the public crop library to share or import crops."
           ]
         },
@@ -153,8 +157,7 @@
         "library": "Open public crop library",
         "createPlan": "Create a planting plan for this crop",
         "more": "Open more actions",
-        "edit": "Edit crop data",
-        "delete": "Remove crop"
+        "edit": "Edit crop data"
       }
     },
     "cropLibrary": {
@@ -181,24 +184,6 @@
     "plantingPlans": {
       "title": "Help: Planting plans",
       "intro": "Plan which crop is grown in which bed and when.",
-      "sections": [
-        {
-          "title": "How to use it",
-          "points": [
-            "Create and edit entries directly in the table.",
-            "Use “New” to add another plan.",
-            "Changes to area, time period, or crop are applied directly.",
-            "On mobile, create entries with the floating plus button."
-          ]
-        },
-        {
-          "title": "How this connects to other pages",
-          "points": [
-            "The planting calendar shows the resulting timeline.",
-            "Seed demand is calculated from these plans."
-          ]
-        }
-      ],
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "add": "Create a new planting plan",
@@ -210,22 +195,6 @@
     "calendar": {
       "title": "Help: Planting calendar",
       "intro": "The planting calendar shows the timeline of your planting plans. It helps you spot occupancy, propagation phases, and possible overlaps.",
-      "sections": [
-        {
-          "title": "How to use it",
-          "points": [
-            "Use tabs to switch between occupancy and propagation views.",
-            "Move through the timeline to review upcoming periods.",
-            "Hover entries to see details in a tooltip."
-          ]
-        },
-        {
-          "title": "How this connects to other pages",
-          "points": [
-            "Changes to time periods in planting plans update this view."
-          ]
-        }
-      ],
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "tabs": "Switch between occupancy and propagation views",
@@ -235,22 +204,6 @@
     "seedDemand": {
       "title": "Help: Seed demand",
       "intro": "See how much seed you need for your planned crops. Quantities are calculated from crop data, areas, and planting plan entries.",
-      "sections": [
-        {
-          "title": "How to use it",
-          "points": [
-            "Choose a supplier per crop to receive package suggestions.",
-            "Review required quantities and suggested package combinations in the table.",
-            "Use the view to align orders with your plan."
-          ]
-        },
-        {
-          "title": "How this connects to other pages",
-          "points": [
-            "Supplier and package information adds purchasing context."
-          ]
-        }
-      ],
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "supplierSelect": "Set supplier per crop",
@@ -260,23 +213,6 @@
     "suppliers": {
       "title": "Help: Suppliers",
       "intro": "Manage seed suppliers and their package information here.",
-      "sections": [
-        {
-          "title": "How to use it",
-          "points": [
-            "Use “New” to add a supplier.",
-            "Edit existing entries directly in the list.",
-            "Remove suppliers you no longer need."
-          ]
-        },
-        {
-          "title": "How this connects to other pages",
-          "points": [
-            "Suppliers add purchasing information to crops.",
-            "In seed demand, they help select matching packages and sources."
-          ]
-        }
-      ],
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "add": "Add supplier",
@@ -310,14 +246,9 @@
         "zoomIn": "Zoom in",
         "zoomOut": "Zoom out",
         "fit": "Fit whole view",
-        "fullscreen": "Show fullscreen"
-      },
-      "modeTitle": "Mode",
-      "modeLabel": "Mode",
-      "modeView": "View",
-      "modeEdit": "Edit",
-      "modeViewDescription": "Only view, navigate, and zoom",
-      "modeEditDescription": "Move and arrange elements"
+        "fullscreen": "Show fullscreen",
+        "editToggle": "Edit layout: drag and drop to move and arrange a location's beds and fields"
+      }
     },
     "yieldOverview": {
       "title": "Help: Yield overview",

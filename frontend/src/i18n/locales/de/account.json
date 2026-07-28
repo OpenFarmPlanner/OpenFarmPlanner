@@ -7,7 +7,8 @@
     "publicProfile": "Öffentliche Kulturbibliothek",
     "security": "Login & Sicherheit",
     "privacy": "Datenschutz & Datenexport",
-    "account": "Konto"
+    "account": "Konto",
+    "language": "Sprache"
   },
   "dataExport": {
     "description": "Lade eine strukturierte Kopie deiner Konto-, Projekt- und Kulturbibliotheksdaten als JSON-Datei herunter.",
@@ -92,5 +93,8 @@
     "hintsResetDone": "Hinweise zurückgesetzt.",
     "resetHintsAction": "Hinweise zurücksetzen",
     "showOnboardingAction": "Onboarding erneut anzeigen"
+  },
+  "language": {
+    "description": "Die Sprache der Oberfläche gehört zu deinem Konto, nicht zum Projekt. Andere Mitglieder desselben Projekts können OpenFarmPlanner gleichzeitig in einer anderen Sprache verwenden. Frei eingegebene Inhalte wie Projekt-, Standort- und Beetnamen werden nie übersetzt."
   }
 }

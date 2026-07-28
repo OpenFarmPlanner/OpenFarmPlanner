@@ -37,8 +37,12 @@ For rules AI agents must follow when changing code, see [`AGENTS.md`](../AGENTS.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
   project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.
+- **[Internationalization (i18n)](./i18n.md)** — supported languages, how the
+  UI language is resolved and stored, the crop-library translation model and
+  its fallback rules, cross-language search and duplicate detection, and the
+  data-migration assumptions.
 - **[International Public Crop Library Data Model](./public-crop-library-data-model.md)** — the
-  proposed language-independent species/variety architecture, translation
+  language-independent species/variety architecture, translation
   strategy, attribute inheritance, and incremental migration plan.
 - **[Seed Demand Calculation](./seed-demand-calculation.md)** — how
   required seed amounts and package suggestions are computed, with worked

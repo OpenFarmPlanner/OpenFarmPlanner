@@ -14,7 +14,10 @@
   "confirmDelete": "Möchten Sie diesen Standort wirklich löschen?",
   "addButton": "Standort hinzufügen",
   "editTitle": "Standort bearbeiten",
-  "emptyState": "Noch keine Standorte vorhanden.",
+  "emptyState": {
+    "title": "Noch keine Standorte vorhanden.",
+    "description": "Standorte helfen dir, deine Anbauflächen zu strukturieren, zum Beispiel verschiedene Gärten oder Felder."
+  },
   "openInGoogleMaps": "In Google Maps öffnen",
   "upcomingTasks": "Anstehende Aufgaben",
   "noUpcomingTasks": "Keine anstehenden Aufgaben",

@@ -50,8 +50,7 @@ describe('LoginPage deletion flow', () => {
     const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
     const toggleButton = screen.getByRole('button', { name: 'Passwort anzeigen' });
 
-    await user.tab();
-    await user.tab();
+    passwordInput.focus();
     await user.tab();
 
     expect(toggleButton).toHaveFocus();

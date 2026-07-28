@@ -16,7 +16,9 @@
     "reset": "Zurücksetzen",
     "search": "Suchen",
     "close": "Schließen",
-    "actions": "Aktionen"
+    "actions": "Aktionen",
+    "moreOptions": "Weitere Optionen",
+    "moreActions": "Weitere Aktionen"
   },
   "messages": {
     "loading": "Lädt...",
@@ -32,7 +34,9 @@
     "confirmation": "Bestätigung",
     "rowChanged": "Geändert",
     "unsavedChanges": "Sie haben ungespeicherte Änderungen in der Tabelle. Wenn Sie außerhalb einer Zeile klicken, wird gespeichert. Möchten Sie wirklich fortfahren?",
-    "validationErrors": "Es gibt Validierungsfehler, die behoben werden müssen, bevor Sie fortfahren können. Bitte korrigieren Sie die Fehler oder brechen Sie die Bearbeitung ab (Escape-Taste)."
+    "validationErrors": "Es gibt Validierungsfehler, die behoben werden müssen, bevor Sie fortfahren können. Bitte korrigieren Sie die Fehler oder brechen Sie die Bearbeitung ab (Escape-Taste).",
+    "noRows": "Keine Einträge vorhanden",
+    "noResults": "Keine passenden Einträge gefunden"
   },
   "fields": {
     "name": "Name",
@@ -166,5 +170,26 @@
   "runtime": {
     "applicationUpdatedFallback": "Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte versuche es später erneut.",
     "routeErrorFallback": "Die Seite konnte nicht automatisch wiederhergestellt werden. Bitte versuche es später erneut."
-  }
+  },
+  "language": {
+    "label": "Sprache",
+    "auto": "Automatisch (Browsersprache)",
+    "switcherLabel": "Sprache ändern, aktuell: {{language}}"
+  },
+  "errorFieldLabels": {
+    "area_input_value": "Fläche",
+    "area_usage_sqm": "Fläche (m²)",
+    "area_sqm": "Fläche (m²)",
+    "planting_date": "Pflanzdatum",
+    "harvest_date": "Erntebeginn",
+    "harvest_end_date": "Ernteende",
+    "quantity": "Pflanzen",
+    "cultivation_type": "Anbauart",
+    "culture": "Kultur",
+    "bed": "Beet",
+    "field": "Parzelle",
+    "location": "Standort",
+    "non_field_errors": "Fehler"
+  },
+  "dateFormatPlaceholder": "TT.MM.JJJJ"
 }

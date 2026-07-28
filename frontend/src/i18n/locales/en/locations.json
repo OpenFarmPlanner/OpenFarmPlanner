@@ -14,7 +14,10 @@
   "confirmDelete": "Do you really want to delete this location?",
   "addButton": "Add location",
   "editTitle": "Edit location",
-  "emptyState": "No locations yet.",
+  "emptyState": {
+    "title": "No locations yet.",
+    "description": "Locations help you structure your growing areas, for example different gardens or fields."
+  },
   "openInGoogleMaps": "Open in Google Maps",
   "upcomingTasks": "Upcoming tasks",
   "noUpcomingTasks": "No upcoming tasks",

@@ -6,6 +6,8 @@ from django.conf import settings
 from django.db import models
 from django.db.models.functions import Lower
 
+from config.languages import UI_LANGUAGE_AUTO, UI_LANGUAGE_CHOICES
+
 
 class PendingActivation(models.Model):
     """Stores activation expiry metadata for users that are not active yet."""
@@ -30,12 +32,22 @@ class PendingActivation(models.Model):
 
 
 class UserProjectSettings(models.Model):
-    """Stores per-user project preferences for default and last active project."""
+    """Per-user preferences: default/last active project and the UI language.
+
+    The UI language lives on the *user*, never on a project, so two members of
+    the same project can use it in different languages at the same time.
+    """
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='project_settings',
+    )
+    ui_language = models.CharField(
+        max_length=10,
+        choices=UI_LANGUAGE_CHOICES,
+        default=UI_LANGUAGE_AUTO,
+        help_text="Preferred interface language; 'auto' follows the browser language.",
     )
     default_project = models.ForeignKey(
         'farm.Project',

@@ -176,6 +176,7 @@ describe('extractApiErrorMessage', () => {
   it('falls back to raw field name when translation is empty', () => {
     const t = createT({
       'messages.error': '',
+      'common:errorFieldLabels.non_field_errors': 'Fehler',
     });
 
     const error = createAxiosError(400, {
@@ -189,6 +190,7 @@ describe('extractApiErrorMessage', () => {
   it('uses generic error translation for non_field_errors and raw field as final fallback', () => {
     const t = createT({
       'messages.error': 'Allgemeiner Fehler',
+      'common:errorFieldLabels.non_field_errors': 'Fehler',
     });
 
     const error = createAxiosError(400, {
@@ -204,8 +206,11 @@ describe('extractApiErrorMessage', () => {
     ].join('\n'));
   });
 
-  it('uses German fallback labels for known backend fields', () => {
-    const t = createT({});
+  it('translates the fallback labels for known backend fields', () => {
+    const t = createT({
+      'common:errorFieldLabels.area_usage_sqm': 'Fläche (m²)',
+      'common:errorFieldLabels.planting_date': 'Pflanzdatum',
+    });
     const error = createAxiosError(400, {
       area_usage_sqm: ['Zu groß'],
       planting_date: ['Ungültiges Datum'],
@@ -222,6 +227,7 @@ describe('extractApiErrorMessage', () => {
   it('localizes planting plan area input validation errors', () => {
     const t = createT({
       'validation.areaInputPositive': 'Der Wert muss größer als 0 sein.',
+      'common:errorFieldLabels.area_input_value': 'Fläche',
     });
     const error = createAxiosError(400, {
       area_input_value: ['Area input value must be greater than 0.'],

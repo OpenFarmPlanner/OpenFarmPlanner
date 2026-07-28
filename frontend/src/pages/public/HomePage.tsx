@@ -20,6 +20,7 @@ import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 import LegalLinks from '../../components/legal/LegalLinks';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
+import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 
 const PRODUCT_TOUR_ITEMS = [
   {
@@ -223,7 +224,11 @@ export default function HomePage() {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
-        <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 2.5, md: 3.5 }, pb: { xs: 2.5, md: 3 } }}>
+        <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 1.5, md: 2 }, pb: { xs: 2.5, md: 3 } }}>
+          {/* Reachable but not dominant: quiet, right-aligned, above the hero. */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: { xs: 0.5, md: 1 } }}>
+            <PublicLanguageSwitcher dense />
+          </Box>
           <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
             <Box
               component="img"

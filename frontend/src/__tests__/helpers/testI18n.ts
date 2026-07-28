@@ -1,4 +1,18 @@
 export const i18nMap: Record<string, string> = {
+  // Backend validation field labels, resolved through the common namespace.
+  'common:errorFieldLabels.area_input_value': 'Fläche',
+  'common:errorFieldLabels.area_usage_sqm': 'Fläche (m²)',
+  'common:errorFieldLabels.area_sqm': 'Fläche (m²)',
+  'common:errorFieldLabels.planting_date': 'Pflanzdatum',
+  'common:errorFieldLabels.harvest_date': 'Erntebeginn',
+  'common:errorFieldLabels.harvest_end_date': 'Ernteende',
+  'common:errorFieldLabels.quantity': 'Pflanzen',
+  'common:errorFieldLabels.cultivation_type': 'Anbauart',
+  'common:errorFieldLabels.culture': 'Kultur',
+  'common:errorFieldLabels.bed': 'Beet',
+  'common:errorFieldLabels.field': 'Parzelle',
+  'common:errorFieldLabels.location': 'Standort',
+  'common:errorFieldLabels.non_field_errors': 'Fehler',
   'common:messages.unsavedChanges': 'Ungespeicherte Änderungen',
   'common:messages.validationErrors': 'Validierungsfehler vorhanden',
   'actions.edit': 'Bearbeiten',

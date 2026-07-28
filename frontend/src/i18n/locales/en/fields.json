@@ -64,5 +64,13 @@
     "location": "Location",
     "parentField": "Field",
     "area": "Area"
+  },
+  "commands": {
+    "showList": "Show list view",
+    "showGraphical": "Show graphical view",
+    "keywords": {
+      "showList": "list, table, growing areas",
+      "showGraphical": "graphic, graphical, growing areas"
+    }
   }
 }

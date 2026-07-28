@@ -1,16 +1,33 @@
 # International Public Crop Library: Target Data Model and Migration Plan
 
-Date: 2026-07-22<br>
-Status: architecture decision record and migration plan. The first
-publishing-boundary slice now exists: `CropSpecies`, optional private
+Date: 2026-07-22 (status updated 2026-07-28)<br>
+Status: architecture decision record and migration plan. The
+publishing-boundary slice exists: `CropSpecies`, optional private
 `Culture.crop_species`, `PublicCulture.crop_species`,
-`PublicCulture.original_language_code`, the Publishing Wizard, and the first
+`PublicCulture.original_language_code`, the Publishing Wizard, and the
 non-destructive public-library lifecycle statuses (`draft`, `published`,
-`withdrawn`, `removed`) with status events. The first collaborative layer
-also exists: users can discuss public entries and submit reviewed
+`withdrawn`, `removed`) with status events. The collaborative layer also
+exists: users can discuss public entries and submit reviewed
 `PublicCultureChangeProposal` rows before moderators apply changes to the
-public master data. The larger variety/translation migration remains future
-work.
+public master data.
+
+**The translation layer of this plan is now implemented** for German and
+English — see [`i18n.md`](./i18n.md) for the shipped behaviour:
+
+- `CropSpeciesTranslation` (species + language → common name) and
+  `PublicCultureTranslation` (entry + language → public description), each
+  unique per language;
+- the fallback resolver of section 5, with the resolved language returned by
+  the API so the UI can label content shown in another language;
+- cross-language search and duplicate detection based on the
+  language-independent species rather than on a localized name;
+- additive, idempotent backfill migrations that neither lose data nor invent
+  translations.
+
+Still future work from this plan: the separate `CropVariety` entity (varieties
+remain fields on `PublicCulture`), attribute inheritance from species to
+variety (section 2.3), and the controlled retirement of the legacy
+single-language columns (phase 5).
 
 ## 1. Scope and current-state analysis
 

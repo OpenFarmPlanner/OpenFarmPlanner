@@ -29,7 +29,8 @@
     "yieldMax": "Ertrag/m² max",
     "toggle": "Filter",
     "reset": "Filter zurücksetzen",
-    "openAdvanced": "Erweiterte Filter öffnen"
+    "openAdvanced": "Erweiterte Filter öffnen",
+    "title": "Filter"
   },
   "emptySearch": {
     "title": "Keine Kulturen gefunden",
@@ -207,7 +208,8 @@
     "seedRatePreCultivationUnit": "Pflanzung Einheit",
     "packageUnitLabel": "Packungseinheit",
     "packageUnitGram": "g",
-    "packageUnitSeeds": "Korn"
+    "packageUnitSeeds": "Korn",
+    "displayColorAria": "Kulturfarbe"
   },
   "messages": {
     "createSuccess": "Kultur erfolgreich erstellt",
@@ -841,6 +843,60 @@
       "local": "Lokal",
       "imported": "Importiert",
       "modified": "Lokal geändert"
+    },
+    "translation": {
+      "fallbackNotice": "Nur auf {{language}} verfügbar",
+      "fallbackNoticeTooltip": "Für diese Angabe gibt es noch keine Übersetzung in deiner Sprache. Angezeigt wird die Version auf {{language}}.",
+      "missingName": "Ohne Bezeichnung",
+      "sectionGeneral": "Allgemeine Daten",
+      "sectionGeneralHint": "Sprachunabhängige Angaben: Sortenname, Lieferant, Abstände, Zeiträume und Mengen. Sie gelten für alle Sprachen und werden nicht übersetzt.",
+      "sectionLanguage": "Sprachversion: {{language}}",
+      "descriptionLabel": "Öffentliche Beschreibung ({{language}})",
+      "descriptionPlaceholder": "Beschreibung und Anbauhinweise in dieser Sprache…",
+      "atLeastOneRequired": "Mindestens eine Sprachversion muss eine Beschreibung enthalten.",
+      "saveError": "Die Sprachversionen konnten nicht gespeichert werden.",
+      "saveSuccess": "Die Sprachversionen wurden gespeichert.",
+      "languageNames": {
+        "de": "Deutsch",
+        "en": "English"
+      }
+    },
+    "commands": {
+      "focusSearch": "Kulturbibliothek durchsuchen (/)",
+      "edit": "Öffentliche Kultur bearbeiten (Alt+E)",
+      "import": "Kultur ins Projekt übernehmen (Alt+I)",
+      "previous": "Vorherige Kultur (Alt+Shift+←)",
+      "next": "Nächste Kultur (Alt+Shift+→)",
+      "keywords": {
+        "search": "kultur, suchen, filter, bibliothek",
+        "edit": "kultur, bearbeiten, bibliothek",
+        "import": "übernehmen, projekt, kultur",
+        "previous": "vorherige, kultur",
+        "next": "nächste, kultur"
+      }
+    }
+  },
+  "commands": {
+    "focusSearch": "Kultursuche fokussieren (/)",
+    "edit": "Kultur bearbeiten (Alt+E)",
+    "delete": "Kultur löschen (Alt+Shift+D)",
+    "exportCurrent": "Aktuelle Kultur exportieren (JSON) (Alt+J)",
+    "exportAllShort": "Kulturen exportieren (JSON) (Alt+J)",
+    "exportAll": "Alle Kulturen exportieren (JSON) (Alt+Shift+J)",
+    "import": "Kulturen importieren (JSON) (Alt+I)",
+    "createPlan": "Anbauplan erstellen (Alt+P)",
+    "previous": "Vorherige Kultur (Alt+Shift+←)",
+    "next": "Nächste Kultur (Alt+Shift+→)",
+    "keywords": {
+      "search": "kultur, suchen, filter",
+      "edit": "kultur, bearbeiten",
+      "delete": "kultur, löschen",
+      "export": "json, exportieren, kultur",
+      "exportAll": "json, exportieren, alle kulturen",
+      "import": "json, importieren",
+      "createPlan": "anbauplan, planung",
+      "previous": "vorherige, kultur",
+      "next": "nächste, kultur"
     }
   }
 }

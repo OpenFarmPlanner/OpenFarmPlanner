@@ -528,15 +528,16 @@ function Cultures() {
   const createActions = useMemo(() => [
     {
       id: 'create-culture',
-      label: 'Kultur hinzufügen',
+      label: t('cultures:buttons.addNew'),
       shortcut: 'Alt+Shift+N',
       handler: handleAddNew,
     },
-  ], [handleAddNew]);
+  ], [handleAddNew, t]);
 
   useRegisterCreateActions('cultures-page', createActions);
 
   const commandSpecs = useMemo(() => createCulturesCommandSpecs({
+    t,
     cultures,
     focusSearch,
     goToRelativeCulture,
@@ -560,6 +561,7 @@ function Cultures() {
     handleImportFileTrigger,
     selectedCulture,
     selectedCultureId,
+    t,
   ]);
 
   useRegisterCommands('cultures-page', commandSpecs);

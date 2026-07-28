@@ -1,7 +1,61 @@
 {
-  "deleteDialog": {
-    "title": "Delete culture?",
-    "confirmation": "Delete “{{name}}”?"
+  "title": "Crops",
+  "searchPlaceholder": "Search crop",
+  "searchInputPlaceholder": "Enter crop name...",
+  "noOptions": "No crops found",
+  "searchInputPlaceholderEnhanced": "Search by crop name (e.g. carrot)",
+  "searchHelperText_one": "{{count}} crop found. Use the filters to narrow it down further.",
+  "searchHelperText_other": "{{count}} crops found. Use the filters to narrow it down further.",
+  "noOptionsEnhanced": "No matching crop. Check your search or filters.",
+  "selectPrompt": "Select a crop from the list to see its details.",
+  "selectCulture": "Select crop",
+  "filters": {
+    "all": "All",
+    "cropFamily": "Family",
+    "cultivationType": "Cultivation type",
+    "supplier": "Supplier",
+    "unknownSupplier": "Supplier #{{id}}",
+    "directSowing": "Direct sowing",
+    "preCultivation": "Transplanting",
+    "both": "Both",
+    "nutrientDemand": "Nutrient demand",
+    "nutrientLow": "Low",
+    "nutrientMedium": "Medium",
+    "nutrientHigh": "High",
+    "growthDaysMin": "Growth duration min",
+    "growthDaysMax": "Growth duration max",
+    "sowingMonths": "Sowing period",
+    "yieldMin": "Yield/m² min",
+    "yieldMax": "Yield/m² max",
+    "toggle": "Filters",
+    "reset": "Reset filters",
+    "openAdvanced": "Open advanced filters",
+    "title": "Filters"
+  },
+  "emptySearch": {
+    "title": "No crops found",
+    "description": "Try a shorter search term or reset individual filters.",
+    "resetAction": "Reset search and filters"
+  },
+  "emptyOnboarding": {
+    "title": "No crops yet",
+    "description": "Crops are the basis of your planting planning. Create your first crop or import crops from the crop library.",
+    "createAction": "Add crop",
+    "openLibraryAction": "Open crop library"
+  },
+  "perennial": "Perennial",
+  "annual": "Annual",
+  "unknown": "Unknown",
+  "culture": "Crop",
+  "supplier_id": "Supplier",
+  "noData": "Not specified",
+  "columns": {
+    "culture": "Crop",
+    "supplier_id": "Supplier"
+  },
+  "validation": {
+    "required": "This field is required.",
+    "cultureNameUnique": "A crop with this name already exists."
   },
   "errors": {
     "supplierDataDuplicate": "This supplier already has data for this culture.",
@@ -11,26 +65,281 @@
     "selectedSupplierProjectMismatch": "The selected seed supplier does not belong to the active project.",
     "cultureProjectMismatch": "The culture does not belong to the active project."
   },
+  "sections": {
+    "growthHarvest": "Growth & harvest",
+    "additionalInfo": "Additional information"
+  },
+  "fields": {
+    "name": "Name",
+    "culture": "Crop",
+    "supplier_id": "Supplier",
+    "daysToFirstHarvest": "Days to first harvest",
+    "daysToLastHarvest": "Days to last harvest",
+    "harvestWindow": "Harvest window",
+    "harvestWindowValue": "{{first}}–{{last}} days after sowing"
+  },
+  "form": {
+    "createTitle": "Add crop",
+    "editTitle": "Edit crop",
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "discardChangesTitle": "Discard changes?",
+    "discardChangesMessage": "All unsaved changes will be lost.",
+    "discardCancel": "Keep editing",
+    "discardConfirm": "Discard",
+    "supplierCreateSelectionError": "The new supplier was created but could not be selected automatically for this crop. Please select it manually.",
+    "sectionGeneral": "General / details",
+    "sectionTiming": "Timing",
+    "sectionHarvest": "Harvest information",
+    "sectionPlanting": "Plant spacing",
+    "sectionColor": "Display colour (planting calendar)",
+    "name": "Name",
+    "namePlaceholder": "e.g. tomato",
+    "nameRequired": "Name is required",
+    "variety": "Variety",
+    "varietyPlaceholder": "e.g. cherry tomato",
+    "varietyRequired": "Variety is required",
+    "duplicateNameVariety": "A crop with this name and variety already exists in this project.",
+    "publicLibraryMatchHint": "A matching crop already exists in the public crop library. Check whether you want to import it instead of creating a new one.",
+    "viewPublicLibraryMatch": "View in crop library",
+    "publicIdentityLabel": "Public identity",
+    "supplier": "Seed supplier",
+    "supplierPlaceholder": "Select supplier",
+    "supplierRequired": "Seed supplier is required",
+    "supplierHelp": "Select a supplier from the list",
+    "noSuppliers": "There are no suppliers yet.",
+    "createSuppliers": "Create supplier",
+    "supplierHomepage": "Supplier homepage",
+    "generalInfoSectionTitle": "General information",
+    "supplierDataSectionTitle": "Crop-specific supplier data",
+    "supplierDataSectionDescription": "The following details apply only to the selected supplier of this crop.",
+    "noSupplierDataRows": "No crop-specific supplier information yet.",
+    "supplierProductNameLabel": "Product name at the supplier",
+    "supplierDataMissingSupplier": "Please select a supplier or remove the supplier data.",
+    "addSupplierData": "Add supplier information",
+    "removeSupplierData": "Remove supplier data",
+    "removeSeedPackageAriaLabel": "Remove package size",
+    "cropFamily": "Crop family",
+    "cropFamilyPlaceholder": "e.g. Solanaceae",
+    "nutrientDemand": "Nutrient demand",
+    "nutrientDemandLow": "Low",
+    "nutrientDemandMedium": "Medium",
+    "nutrientDemandHigh": "High",
+    "cultivationType": "Cultivation type",
+    "cultivationTypeDirectSowing": "Direct sowing",
+    "cultivationTypePreCultivation": "Transplanting",
+    "germinationRate": "Germination rate (%)",
+    "germinationRatePlaceholder": "0-100",
+    "germinationRateError": "Germination rate must be between 0 and 100",
+    "safetyMargin": "Safety margin (%)",
+    "safetyMarginPlaceholder": "0-100",
+    "safetyMarginError": "Safety margin must be between 0 and 100",
+    "notes": "Notes",
+    "notesPlaceholder": "Additional information...",
+    "growthDurationDays": "Growth duration (days)",
+    "growthDurationDaysPlaceholder": "e.g. 56",
+    "growthDurationDaysHelp": "Time from the planting date to the start of harvest.",
+    "growthDurationDaysRequired": "Growth duration is required",
+    "growthDurationDaysError": "Growth duration must be ≥ 0",
+    "harvestDurationDays": "Harvest duration (days)",
+    "harvestDurationDaysPlaceholder": "e.g. 28",
+    "harvestDurationDaysHelp": "Time from the start of harvest to the end of harvest.",
+    "harvestDurationDaysRequired": "Harvest duration is required",
+    "harvestDurationDaysError": "Harvest duration must be ≥ 0",
+    "propagationDurationDays": "Propagation duration (days)",
+    "propagationDurationDaysPlaceholder": "e.g. 14",
+    "propagationDurationDaysHelp": "Time from the start of propagation to the planting date.",
+    "propagationDurationDaysError": "Propagation duration must be ≥ 0",
+    "yieldUnit": "Yield unit",
+    "yieldUnitPerPlant": "Per plant",
+    "yieldUnitPerSqm": "Per m²",
+    "expectedYield": "Expected yield",
+    "expectedYieldWithUnit": "Expected yield (kg)",
+    "expectedYieldPlaceholder": "e.g. 500",
+    "expectedYieldUnit": "kg",
+    "expectedYieldError": "Expected yield must be ≥ 0",
+    "allowDeviationDeliveryWeeks": "Allow deviating delivery weeks",
+    "distanceWithinRowCm": "Distance within row (cm)",
+    "distanceWithinRowCmPlaceholder": "e.g. 40",
+    "distanceWithinRowCmError": "Distance must be ≥ 0",
+    "rowSpacingCm": "Row spacing (cm)",
+    "rowSpacingCmPlaceholder": "e.g. 60",
+    "rowSpacingCmError": "Row spacing must be ≥ 0",
+    "sowingDepthCm": "Sowing depth (cm)",
+    "sowingDepthCmPlaceholder": "e.g. 1.5",
+    "sowingDepthCmError": "Sowing depth must be ≥ 0",
+    "displayColor": "Display color",
+    "displayColorHelp": "Color used in the planting calendar.",
+    "displayColorError": "Invalid color format (use #RRGGBB).",
+    "seedRateSectionTitle": "Seed demand",
+    "seedRateDirectSectionTitle": "Seed demand for direct sowing",
+    "seedRatePreCultivationSectionTitle": "Seed demand for transplanting",
+    "seedRateHelp": "Seed quantity per selected unit. The total demand is calculated from it.",
+    "seedAmountLabel": "Quantity",
+    "seedUnitLabel": "Unit",
+    "seedUnitPlaceholder": "Select unit",
+    "seedRateValue": "Seed quantity",
+    "seedRateUnit": "Seed quantity unit",
+    "seedRateUnitRequired": "If a quantity is given, a unit must be selected as well.",
+    "seedRateValueRequired": "The quantity must be greater than 0.",
+    "thousandKernelWeightLabel": "Thousand-kernel weight (g)",
+    "seedPackagesLabel": "Package sizes at the supplier",
+    "thousandKernelWeightHelp": "Weight of 1,000 seeds in grams. Needed to convert between seeds and grams.",
+    "thousandKernelWeightError": "Thousand-kernel weight must be > 0",
+    "thousandKernelWeightInvalidNumber": "Please enter a valid number, e.g. 3.9",
+    "packageSizeLabel": "Package size",
+    "addSeedPackage": "Add package",
+    "packageSizeHelp": "Package size in grams.",
+    "packageSizeError": "Package size must be ≥ 0",
+    "sowingCalculationSafetyPercentLabel": "Seed safety surcharge (%)",
+    "sowingCalculationSafetyPercentPlaceholder": "e.g. 10",
+    "sowingCalculationSafetyPercentHelp": "Percentage surcharge on the calculated seed quantity.",
+    "sowingCalculationSafetyPercentError": "Safety surcharge must be between 0 and 100",
+    "propagationDurationDaysRequired": "Propagation duration is required",
+    "propagationDurationDaysTooLong": "Propagation duration must not be longer than the growth duration",
+    "directSowingPropagationDisabledHelp": "Direct sowing does not need a propagation duration.",
+    "yieldUnitRequired": "A yield unit is required when a yield is given",
+    "seedingRequirementTypeRequired": "A seed demand type is required when a seed demand is given.",
+    "seedingRequirementValueRequired": "A seed demand is required when a seed demand type is given.",
+    "seedRateDirectValue": "Direct sowing quantity",
+    "seedRateDirectUnit": "Direct sowing unit",
+    "seedRatePreCultivationValue": "Transplanting quantity",
+    "seedRatePreCultivationUnit": "Transplanting unit",
+    "packageUnitLabel": "Package unit",
+    "packageUnitGram": "g",
+    "packageUnitSeeds": "seeds",
+    "displayColorAria": "Crop colour"
+  },
   "messages": {
-    "loadingCultures": "Loading crops…",
+    "createSuccess": "Crop created successfully",
+    "updateSuccess": "Crop updated successfully",
+    "createError": "Error creating the crop",
+    "updateError": "Error updating the crop",
+    "deleteError": "Error deleting the crop",
     "restoreDeleteError": "Culture could not be restored.",
+    "fetchError": "Error loading the crops",
+    "loadingCultures": "Loading crops…",
+    "saving": "Saving...",
+    "unsavedChanges": "Unsaved changes",
+    "fixErrors": "Please fix the validation errors",
+    "exportSuccess": "JSON exported",
+    "deleted": "Crop deleted",
     "restoreSuccess": "Version restored",
     "restoreError": "Version could not be restored"
   },
-  "form": {
-    "publicIdentityLabel": "Public identity",
-    "displayColor": "Display color",
-    "displayColorHelp": "Color used in the planting calendar.",
-    "displayColorError": "Invalid color format (use #RRGGBB)."
+  "deleteDialog": {
+    "title": "Delete culture?",
+    "confirmation": "Delete “{{name}}”?"
   },
-  "buttons": {
-    "edit": "Edit",
-    "versions": "Versions",
-    "delete": "Delete",
-    "moreActions": "More actions",
-    "deleteProjectCulture": "Delete project culture"
+  "seedDemand": {
+    "title": "Seed demand",
+    "loadError": "The seed demand could not be loaded.",
+    "saveError": "The supplier selection could not be saved.",
+    "requirements": {
+      "plantingPlans": {
+        "label": "Planting plans",
+        "missing": "Planting plans missing",
+        "done": "Planting plans available"
+      },
+      "seedData": {
+        "label": "Seed data",
+        "missing": "Seed data missing",
+        "done": "Seed data available"
+      }
+    },
+    "emptyStates": {
+      "requirementsTitle": "Seed demand cannot be calculated yet",
+      "requirementsDescription": "Seed demand needs planting plans and seed data for your crops.",
+      "noResultsTitle": "No seed demand available",
+      "noResultsDescription": "No seed demand could be calculated for the current planting plans.",
+      "actions": {
+        "createPlan": "Add planting plan",
+        "editCultures": "Edit crops"
+      }
+    },
+    "progressive": {
+      "fields": {
+        "title": "Seed demand cannot be calculated yet",
+        "description": "Open the growing areas and add a plot there.",
+        "action": "Add plot"
+      },
+      "beds": {
+        "title": "Seed demand cannot be calculated yet",
+        "description": "Open the growing areas and add a bed inside a plot so that crops can be assigned to an area.",
+        "action": "Open growing areas"
+      },
+      "cultures": {
+        "title": "Seed demand cannot be calculated yet",
+        "description": "Create your first crops now so that a seed demand can be calculated from them.",
+        "action": "Add crop"
+      },
+      "plans": {
+        "title": "Seed demand cannot be calculated yet",
+        "description": "Next, create a planting plan so that a concrete seed demand can arise.",
+        "action": "Add planting plan"
+      },
+      "seedData": {
+        "title": "Seed demand cannot be calculated yet",
+        "description": "Add seed data to your crops so the demand can be calculated.",
+        "action": "Add seed data",
+        "hint": "To do so, open a crop and click “Edit”"
+      }
+    },
+    "selectSupplier": "Select supplier",
+    "createSupplierAction": "Add supplier",
+    "editCultureAction": "Edit crop",
+    "noSupplierData": "No supplier data available",
+    "noSupplierAvailable": "No supplier data recorded",
+    "noSupplierConfiguredTooltip": "This crop does not have a supplier with ordering information yet. Add a supplier to the crop to get a package suggestion.",
+    "supplierNotSelectedTooltip": "No supplier has been selected for this crop yet. Choose a supplier in the “Supplier” column so the matching package size can be calculated.",
+    "noPackagesAvailable": "Not recorded yet",
+    "noPackagesAvailableTooltip": "No package sizes are recorded for the selected supplier. Add them to the crop to get a package suggestion.",
+    "noPackageCalculationPossible": "Cannot be calculated",
+    "noPackageCalculationPossibleTooltip": "No package suggestion could be calculated. Check the total demand, the selected supplier and the package sizes.",
+    "requiredAmountMissingTkg": "Cannot be calculated (TKW missing)",
+    "requiredAmountUnavailable": "Cannot be calculated ({{reason}})",
+    "requiredAmountUnavailableTooltip": "The total demand cannot be calculated: {{reason}}.",
+    "requiredAmountUnavailableMultipleTooltip": "The total demand cannot be calculated. Missing details: {{reasons}}.",
+    "calculationBlockers": {
+      "missingSeedRate": "seed rate missing",
+      "missingArea": "bed area missing",
+      "missingPlantQuantity": "plant count missing",
+      "missingRowSpacing": "row spacing missing",
+      "missingTkg": "TKW missing",
+      "unsupportedSeedRateUnit": "seed rate unit is not supported",
+      "missingData": "required details are missing"
+    },
+    "packageBlockers": {
+      "requiredAmountUnavailable": "A package suggestion is only possible once the total demand can be calculated. {{details}}",
+      "unitConversionUnavailable": "The total demand and the package sizes cannot be converted to the same unit. Check the thousand-kernel weight (TKW) in particular.",
+      "noMatchingPackageSizes": "No matching package size is available for the calculated total demand. Check the package sizes recorded for the supplier."
+    },
+    "unitSeeds": "seeds",
+    "unitGrams": "g",
+    "columns": {
+      "culture": "Crop",
+      "supplier": "Supplier",
+      "requiredAmount": "Total demand",
+      "packages": "Package sizes"
+    },
+    "contextMenu": {
+      "openCulture": "Open crop",
+      "editCulture": "Edit crop",
+      "copyRow": "Copy row",
+      "copyTable": "Copy entire table",
+      "rowCopied": "The row was copied.",
+      "tableCopied": "The table was copied.",
+      "copyError": "The data could not be copied."
+    }
   },
   "history": {
+    "titles": {
+      "culture": "Versions",
+      "global": "Global history",
+      "project": "Project snapshots"
+    },
+    "restoreButton": "Switch to this version",
     "currentVersion": "Current version",
     "changedFields": "Changed:",
     "emptyValue": "Not set",
@@ -38,6 +347,24 @@
     "complexValue": "Details changed",
     "booleanYes": "Yes",
     "booleanNo": "No",
+    "closeButton": "Close",
+    "unknownUser": "Unknown user",
+    "meta": "Version from {{timestamp}}",
+    "emptyState": {
+      "title": "No version history available.",
+      "description": "There is no version history for this variety yet.",
+      "onlyCurrentVersion": "No older version available yet."
+    },
+    "title": {
+      "withName": "{{objectType}} “{{objectName}}” {{action}}",
+      "withoutName": "{{objectType}} {{action}}"
+    },
+    "actions": {
+      "created": "created",
+      "updated": "edited",
+      "deleted": "deleted",
+      "restored": "restored"
+    },
     "fieldLabels": {
       "created": "Culture",
       "fallback": "Field",
@@ -47,6 +374,109 @@
       "supplier": "Supplier",
       "image": "Image",
       "selectedSeedDemandSupplier": "Seed demand supplier"
+    },
+    "objectTypes": {
+      "culture": "Crop",
+      "plantingPlan": "Planting plan",
+      "location": "Location",
+      "field": "Plot",
+      "bed": "Bed",
+      "supplier": "Supplier",
+      "task": "Task",
+      "noteAttachment": "Note attachment",
+      "mediaFile": "Media file",
+      "seedPackage": "Seed package",
+      "project": "Project",
+      "fallback": "Entry",
+      "openTarget": "Open"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "openShortcuts": "Open keyboard shortcuts",
+    "commandPalette": "Command palette",
+    "closeDialog": "Close dialog",
+    "aiComplete": "AI: complete crop",
+    "aiReresearch": "AI: research crop again",
+    "aiCompleteAll": "AI: complete all crops"
+  },
+  "export": {
+    "menuLabel": "Export…",
+    "current": "Download current crop as JSON",
+    "all": "Download all crops as JSON",
+    "dialogTitle": "Export crops",
+    "scopeLabel": "Scope",
+    "scopeCurrent": "Current crop",
+    "scopeAll": "All crops",
+    "scopeCurrentDisabled": "No crop selected",
+    "formatLabel": "Format",
+    "formatXlsx": "Excel (.xlsx)",
+    "formatOds": "OpenDocument spreadsheet (.ods)",
+    "formatCsv": "CSV (.csv)",
+    "formatJson": "JSON (.json)",
+    "formatJsonHint": "For complete backups and data exchange.",
+    "submit": "Export",
+    "cancel": "Cancel",
+    "success": "Export complete"
+  },
+  "buttons": {
+    "addNew": "Add crop",
+    "edit": "Edit",
+    "versions": "Versions",
+    "delete": "Delete",
+    "moreActions": "More actions",
+    "deleteProjectCulture": "Delete project culture",
+    "deleteConfirm": "Do you really want to delete this crop?",
+    "createPlantingPlan": "Add planting plan",
+    "goToFieldsBeds": "Go to growing areas",
+    "createField": "Add plot",
+    "createPlantingPlanDisabled": {
+      "fields": "You first need at least one plot to create a planting plan.",
+      "beds": "You first need at least one bed. Beds are added inside a plot on the growing areas page.",
+      "cultures": "You first need at least one crop to create a planting plan.",
+      "null": "Add planting plan"
+    },
+    "createPlantingPlanMissingFieldsTitle": "To create a planting plan you need at least one plot.",
+    "createPlantingPlanMissingBedsTitle": "To create a planting plan you need at least one bed.",
+    "createPlantingPlanMissingBedsHint": "For a planting plan you first need at least one bed.",
+    "createPlantingPlanMissingBedsTooltip": "You first need at least one bed. Beds are added inside a plot on the growing areas page."
+  },
+  "import": {
+    "menuLabel": "Import…",
+    "menuItem": "Import from JSON…",
+    "title": "Import crops",
+    "selectFileTitle": "Import crops",
+    "selectFileButton": "Choose file",
+    "supportedFormats": "Supported formats: JSON, CSV, Excel (.xlsx), OpenDocument (.ods)",
+    "formatHintTable": "Excel, ODS, CSV: easy editing in spreadsheets such as LibreOffice or Excel.",
+    "formatHintJson": "JSON: lossless exchange and backup format.",
+    "foundCount": "{{count}} entries found",
+    "invalidCount": "{{invalid}} entries without a valid name",
+    "skippedRows": "{{count}} rows without a valid name were skipped.",
+    "warnings": "Notes",
+    "start": "Start import",
+    "close": "Close",
+    "done": "Done",
+    "success": "Import successful",
+    "created": "{{count}} new crops created",
+    "updated": "{{count}} crops updated",
+    "skipped": "{{count}} crops skipped",
+    "invalidEntry": "Invalid entry",
+    "newCultures": "New crops",
+    "updateCandidates": "Can be overwritten",
+    "invalidEntries": "Invalid entries",
+    "failedEntries": "Import errors",
+    "fieldsChanged": "change {{count}} fields",
+    "noChanges": "No changes",
+    "confirmUpdates": "Confirm overwrite",
+    "errors": {
+      "notArray": "The file must contain a JSON array.",
+      "noValidEntries": "No valid entries found.",
+      "unsupportedFormat": "This file format is not supported. Please use JSON, CSV, XLSX or ODS.",
+      "parse": "The file could not be read.",
+      "server": "Import failed.",
+      "network": "Network error during import.",
+      "someFailures": "{{failed}} entries could not be imported."
     }
   },
   "library": {
@@ -58,46 +488,6 @@
       "emptyInstructionStep": "How it works:",
       "emptyInstructionContext": "On a crop",
       "emptyInstructionAria": "How it works: open the three-dot menu on a crop and choose {{publish}}."
-    },
-    "searchLabel": "Search public crops",
-    "importButton": "Import into project",
-    "importing": "Importing…",
-    "importSuccess": "“{{name}}” was imported into this project.",
-    "importError": "The public crop could not be imported.",
-    "versionLabel": "Version",
-    "createdByLabel": "By",
-    "anonymousAuthor": "Anonymous",
-    "moderation": {
-      "title": "Moderate crop library",
-      "forbidden": "You do not have permission to moderate the public crop library.",
-      "loadError": "Moderation data could not be loaded.",
-      "actionError": "The moderation action could not be completed.",
-      "approve": "Approve",
-      "reject": "Reject",
-      "saving": "Saving…",
-      "unknownDate": "Unknown date",
-      "none": "None",
-      "columns": {
-        "name": "Name",
-        "proposer": "Proposed by",
-        "similar": "Similar crop species",
-        "actions": "Actions",
-        "user": "User",
-        "motivation": "Motivation",
-        "date": "Date"
-      },
-      "species": {
-        "title": "Crop species proposals",
-        "empty": "No open crop species proposals.",
-        "approveSuccess": "The crop species was approved.",
-        "rejectSuccess": "The crop species proposal was rejected."
-      },
-      "requests": {
-        "title": "Moderator requests",
-        "empty": "No open moderator requests.",
-        "approveSuccess": "The moderator request was approved.",
-        "rejectSuccess": "The moderator request was rejected."
-      }
     },
     "page": {
       "title": "Public crop library",
@@ -291,10 +681,36 @@
         }
       }
     },
-    "publishing": "Publishing…",
+    "searchLabel": "Search public crops",
+    "selectPrompt": "Select a public crop to see its details and import it.",
+    "empty": "No public cultures found.",
+    "emptyState": {
+      "noSelectionTitle": "The crop library grows with the community",
+      "noSelectionDescription": "Share your proven crops with others.",
+      "discoverTitle": "Discover",
+      "discoverDescription": "Browse existing entries and compare crop species, varieties, and cultivation data.",
+      "importTitle": "Adopt",
+      "importDescription": "Import matching crops as your own project copy. Later changes to the public crop won't affect project cultures you've already imported.",
+      "improveTitle": "Improve",
+      "improveDescription": "Edit public crops directly. Every change is saved as a version.",
+      "emptyLibraryTitle": "No public cultures yet",
+      "emptyLibraryDescription": "The crop library lives from community contributions. Once suitable project cultures are published, everyone can use and improve them here.",
+      "noResultsTitle": "No matching public culture found"
+    },
+    "importButton": "Import into project",
+    "importing": "Importing…",
+    "importSuccess": "“{{name}}” was imported into this project.",
+    "importError": "The public crop could not be imported.",
     "publishButton": "Publish",
+    "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
     "updateButton": "Update public crop library",
+    "publishing": "Publishing…",
     "updating": "Updating…",
+    "publishSuccess": "“{{name}}” was published to the crop library.",
+    "updateSuccess": "The public version of “{{name}}” was updated.",
+    "publishDuplicateError": "This crop already exists in the crop library.",
+    "publishDuplicateErrorWithCandidates": "This crop already exists publicly: {{duplicates}}",
+    "publishError": "The crop could not be published.",
     "withdrawAction": "Withdraw publication",
     "withdrawSuccess": "The publication of “{{name}}” was withdrawn.",
     "withdrawError": "The publication could not be withdrawn.",
@@ -325,27 +741,58 @@
       "unlawful_content": "Unlawful content",
       "other": "Other"
     },
-    "empty": "No public cultures found.",
-    "emptyState": {
-      "noSelectionTitle": "The crop library grows with the community",
-      "noSelectionDescription": "Share your proven crops with others.",
-      "discoverTitle": "Discover",
-      "discoverDescription": "Browse existing entries and compare crop species, varieties, and cultivation data.",
-      "importTitle": "Adopt",
-      "importDescription": "Import matching crops as your own project copy. Later changes to the public crop won't affect project cultures you've already imported.",
-      "improveTitle": "Improve",
-      "improveDescription": "Edit public crops directly. Every change is saved as a version.",
-      "emptyLibraryTitle": "No public cultures yet",
-      "emptyLibraryDescription": "The crop library lives from community contributions. Once suitable project cultures are published, everyone can use and improve them here.",
-      "noResultsTitle": "No matching public culture found"
+    "loadError": "The crop library could not be loaded.",
+    "versionLabel": "Version",
+    "createdByLabel": "By",
+    "anonymousAuthor": "Anonymous",
+    "moderation": {
+      "title": "Moderate crop library",
+      "forbidden": "You do not have permission to moderate the public crop library.",
+      "loadError": "Moderation data could not be loaded.",
+      "actionError": "The moderation action could not be completed.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "saving": "Saving…",
+      "unknownDate": "Unknown date",
+      "none": "None",
+      "columns": {
+        "name": "Name",
+        "proposer": "Proposed by",
+        "similar": "Similar crop species",
+        "actions": "Actions",
+        "user": "User",
+        "motivation": "Motivation",
+        "date": "Date"
+      },
+      "species": {
+        "title": "Crop species proposals",
+        "empty": "No open crop species proposals.",
+        "approveSuccess": "The crop species was approved.",
+        "rejectSuccess": "The crop species proposal was rejected."
+      },
+      "requests": {
+        "title": "Moderator requests",
+        "empty": "No open moderator requests.",
+        "approveSuccess": "The moderator request was approved.",
+        "rejectSuccess": "The moderator request was rejected."
+      }
     },
     "publishConfirm": {
+      "title": "Publish crop?",
+      "intro": "“{{name}}” will be published as a growing data record.",
+      "items": {
+        "permanent": "The record becomes a permanent part of the public crop library.",
+        "privateData": "Private data such as your email address, private notes and photos are not published. Only your public display name is visible, if you have set one.",
+        "reuse": "Others can permanently import, use and build on the record.",
+        "license": "Licence: CC BY-SA 4.0. In practice this means: use and modification are allowed as long as the source is credited and improvements are shared under the same conditions."
+      },
       "acceptLicense": "I am allowed to publish this dataset and agree that it becomes a durable part of the public crop library under CC BY-SA 4.0.",
       "linkPrefix": "Details are available in the ",
       "privacyLinkLabel": "privacy policy",
       "linkMiddle": " and the ",
       "termsLinkLabel": "terms of service",
-      "linkSuffix": "."
+      "linkSuffix": ".",
+      "confirmButton": "Publish"
     },
     "publishWizard": {
       "title": "Publish culture",
@@ -386,6 +833,70 @@
         "growth_duration_days": "Growth duration",
         "harvest_duration_days": "Harvest duration"
       }
+    },
+    "filters": {
+      "variety": "Variety",
+      "nutrientDemand": "Nutrient demand",
+      "cropFamily": "Crop family"
+    },
+    "badges": {
+      "local": "Local",
+      "imported": "Imported",
+      "modified": "Modified locally"
+    },
+    "translation": {
+      "fallbackNotice": "Only available in {{language}}",
+      "fallbackNoticeTooltip": "There is no translation of this text in your language yet. The {{language}} version is shown instead.",
+      "missingName": "Unnamed",
+      "sectionGeneral": "General data",
+      "sectionGeneralHint": "Language-independent details: variety name, supplier, spacings, time periods and quantities. They apply to every language and are not translated.",
+      "sectionLanguage": "Language version: {{language}}",
+      "descriptionLabel": "Public description ({{language}})",
+      "descriptionPlaceholder": "Description and growing notes in this language…",
+      "atLeastOneRequired": "At least one language version must contain a description.",
+      "saveError": "The language versions could not be saved.",
+      "saveSuccess": "The language versions were saved.",
+      "languageNames": {
+        "de": "Deutsch",
+        "en": "English"
+      }
+    },
+    "commands": {
+      "focusSearch": "Search the crop library (/)",
+      "edit": "Edit public crop (Alt+E)",
+      "import": "Import crop into project (Alt+I)",
+      "previous": "Previous crop (Alt+Shift+←)",
+      "next": "Next crop (Alt+Shift+→)",
+      "keywords": {
+        "search": "crop, search, filter, library",
+        "edit": "crop, edit, library",
+        "import": "import, project, crop",
+        "previous": "previous, crop",
+        "next": "next, crop"
+      }
+    }
+  },
+  "commands": {
+    "focusSearch": "Focus crop search (/)",
+    "edit": "Edit crop (Alt+E)",
+    "delete": "Delete crop (Alt+Shift+D)",
+    "exportCurrent": "Export current crop (JSON) (Alt+J)",
+    "exportAllShort": "Export crops (JSON) (Alt+J)",
+    "exportAll": "Export all crops (JSON) (Alt+Shift+J)",
+    "import": "Import crops (JSON) (Alt+I)",
+    "createPlan": "Create planting plan (Alt+P)",
+    "previous": "Previous crop (Alt+Shift+←)",
+    "next": "Next crop (Alt+Shift+→)",
+    "keywords": {
+      "search": "crop, search, filter",
+      "edit": "crop, edit",
+      "delete": "crop, delete",
+      "export": "json, export, crop",
+      "exportAll": "json, export, all crops",
+      "import": "json, import",
+      "createPlan": "planting plan, plan",
+      "previous": "previous, crop",
+      "next": "next, crop"
     }
   }
 }

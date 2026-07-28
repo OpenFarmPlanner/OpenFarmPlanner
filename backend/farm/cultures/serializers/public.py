@@ -4,6 +4,12 @@ from typing import Any
 
 from rest_framework import serializers
 
+from config.languages import (
+    DEFAULT_LANGUAGE_CODE,
+    SUPPORTED_LANGUAGE_CODES,
+    normalize_language_tag,
+    resolve_request_language,
+)
 from crops.permissions import is_public_library_moderator
 from farm.models import (
     PublicCulture,
@@ -52,8 +58,28 @@ def get_public_user_label(user: Any) -> str:
 
 
 class PublicCultureSerializer(serializers.ModelSerializer):
+    """Public library entry, with both the resolved and the raw translations.
+
+    ``display_name``/``description`` are what the app renders in the caller's
+    language (after the standard fallback chain), while ``translations`` and
+    ``crop_species_translations`` carry every stored language so editorial and
+    moderation screens can edit any of them. ``variety``, supplier, spacings
+    and every numeric field are language-independent and served verbatim.
+    """
+
     created_by_label = serializers.SerializerMethodField()
-    crop_species_name = serializers.CharField(source='crop_species.name', read_only=True, default='')
+    crop_species_name = serializers.SerializerMethodField()
+    crop_species_canonical_name = serializers.CharField(
+        source='crop_species.name',
+        read_only=True,
+        default='',
+    )
+    crop_species_translations = serializers.SerializerMethodField()
+    display_name = serializers.SerializerMethodField()
+    display_language_code = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    description_language_code = serializers.SerializerMethodField()
+    translations = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicCulture
@@ -68,6 +94,13 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'supplier_name',
             'crop_species',
             'crop_species_name',
+            'crop_species_canonical_name',
+            'crop_species_translations',
+            'display_name',
+            'display_language_code',
+            'description',
+            'description_language_code',
+            'translations',
             'original_language_code',
             'crop_family',
             'nutrient_demand',
@@ -104,6 +137,35 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     def get_created_by_label(self, obj: PublicCulture) -> str:
         return obj.created_by_label
 
+    def _language(self) -> str:
+        request = self.context.get('request')
+        return resolve_request_language(request) if request is not None else DEFAULT_LANGUAGE_CODE
+
+    def get_crop_species_name(self, obj: PublicCulture) -> str:
+        """Species name in the caller's language; never empty, never an id."""
+        return obj.display_name(self._language())[0]
+
+    def get_display_name(self, obj: PublicCulture) -> str:
+        return obj.display_name(self._language())[0]
+
+    def get_display_language_code(self, obj: PublicCulture) -> str:
+        """Language the name came from — '' means "no real translation exists"."""
+        return obj.display_name(self._language())[1]
+
+    def get_description(self, obj: PublicCulture) -> str:
+        return obj.localized_description(self._language())[0]
+
+    def get_description_language_code(self, obj: PublicCulture) -> str:
+        return obj.localized_description(self._language())[1]
+
+    def get_translations(self, obj: PublicCulture) -> dict[str, str]:
+        return obj.descriptions_by_language()
+
+    def get_crop_species_translations(self, obj: PublicCulture) -> dict[str, str]:
+        if obj.crop_species is None:
+            return {}
+        return obj.crop_species.translations_by_language()
+
 
 class PublicCultureUpdateSerializer(serializers.ModelSerializer):
     base_version = serializers.IntegerField(required=False, min_value=1, write_only=True)
@@ -133,6 +195,26 @@ class PublicCultureUpdateSerializer(serializers.ModelSerializer):
                 'non_field_errors': [f"Unsupported public culture fields: {', '.join(unknown_fields)}"],
             })
         return attrs
+
+
+class PublicCultureTranslationsUpdateSerializer(serializers.Serializer):
+    """Validates a ``{language_code: description}`` map before it is stored."""
+
+    translations = serializers.DictField(child=serializers.CharField(allow_blank=True, trim_whitespace=False))
+
+    def validate_translations(self, value: dict[str, str]) -> dict[str, str]:
+        cleaned: dict[str, str] = {}
+        for language_code, description in value.items():
+            normalized = normalize_language_tag(language_code)
+            if not normalized:
+                allowed = ', '.join(SUPPORTED_LANGUAGE_CODES)
+                raise serializers.ValidationError(
+                    f'Unsupported language code "{language_code}". Allowed values: {allowed}.',
+                )
+            cleaned[normalized] = description
+        if not cleaned:
+            raise serializers.ValidationError('At least one language version is required.')
+        return cleaned
 
 
 class PublicCultureRevertSerializer(serializers.Serializer):

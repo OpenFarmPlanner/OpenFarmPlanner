@@ -64,5 +64,13 @@
     "location": "Standort",
     "parentField": "Parzelle",
     "area": "Fläche"
+  },
+  "commands": {
+    "showList": "Listenansicht anzeigen",
+    "showGraphical": "Grafikansicht anzeigen",
+    "keywords": {
+      "showList": "liste, tabelle, anbauflächen",
+      "showGraphical": "grafik, grafisch, anbauflächen"
+    }
   }
 }

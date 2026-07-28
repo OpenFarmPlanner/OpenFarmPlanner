@@ -10,6 +10,7 @@ const labels: Record<string, string> = {
   'globalMenu.shortcuts': 'Tastenkürzel',
   'globalMenu.appHelp': 'App-Hilfe',
   'commandPalette.commands.logout': 'Abmelden',
+  'language.label': 'Sprache',
 };
 
 const t = (key: string) => labels[key] ?? key;
@@ -48,6 +49,7 @@ describe('GlobalMenu (desktop)', () => {
       'Versionsverlauf öffnen',
       'Kulturbibliothek moderieren',
       'Kontoeinstellungen',
+      'Sprache',
       'Tastenkürzel',
       'App-Hilfe',
       'Abmelden test@example.com',
@@ -55,7 +57,7 @@ describe('GlobalMenu (desktop)', () => {
 
     const menu = screen.getByRole('menu');
     const separators = menu.querySelectorAll('hr');
-    expect(separators).toHaveLength(2);
+    expect(separators).toHaveLength(4);
   });
 
   it('hides the moderation entry and its separators entirely for non-moderators', () => {
@@ -71,6 +73,7 @@ describe('GlobalMenu (desktop)', () => {
       'Projekteinstellungen',
       'Versionsverlauf öffnen',
       'Kontoeinstellungen',
+      'Sprache',
       'Tastenkürzel',
       'App-Hilfe',
       'Abmelden test@example.com',
@@ -78,6 +81,6 @@ describe('GlobalMenu (desktop)', () => {
 
     const menu = screen.getByRole('menu');
     const separators = menu.querySelectorAll('hr');
-    expect(separators).toHaveLength(1);
+    expect(separators).toHaveLength(3);
   });
 });
