@@ -185,7 +185,7 @@
         "originalLanguage": "Original language",
         "createdAt": "Created at",
         "publishedAt": "Published at",
-        "updatedAt": "Updated at",
+        "updatedAt": "Last changed",
         "status": "Status",
         "displayColor": "Display color",
         "notes": "Notes",

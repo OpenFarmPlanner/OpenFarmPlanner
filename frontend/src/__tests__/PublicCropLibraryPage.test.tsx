@@ -78,6 +78,10 @@ const publicCultures: PublicCulture[] = [
     harvest_duration_days: 28,
     display_color: '#7cb342',
     version: 1,
+    original_language_code: 'de',
+    published_at: '2026-07-23T10:00:00Z',
+    created_at: '2026-07-20T08:00:00Z',
+    updated_at: '2026-07-27T12:00:00Z',
   },
   {
     id: 2,
@@ -88,6 +92,10 @@ const publicCultures: PublicCulture[] = [
     growth_duration_days: 45,
     harvest_duration_days: 10,
     version: 1,
+    original_language_code: 'de',
+    published_at: '2026-07-24T10:00:00Z',
+    created_at: '2026-07-21T08:00:00Z',
+    updated_at: '2026-07-25T12:00:00Z',
   },
 ];
 
@@ -153,6 +161,26 @@ describe('PublicCropLibraryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '+ Neue Diskussion' }));
     expect(screen.getByRole('textbox', { name: 'Titel' })).toHaveFocus();
     expect(screen.getByRole('textbox', { name: 'Kommentar' })).toBeInTheDocument();
+  });
+
+  it('shows only provenance metadata in the public culture detail section', async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+
+    const metadataHeading = await screen.findByRole('heading', { name: 'Bibliotheksdaten' });
+    const metadataSection = metadataHeading.closest('div');
+    expect(metadataSection).not.toBeNull();
+    const metadata = within(metadataSection as HTMLElement);
+
+    expect(metadata.getByText('Originalsprache')).toBeInTheDocument();
+    expect(metadata.getByText('Deutsch')).toBeInTheDocument();
+    expect(metadata.getByText('Veröffentlicht am')).toBeInTheDocument();
+    expect(metadata.getByText('23.07.2026')).toBeInTheDocument();
+    expect(metadata.getByText('Zuletzt geändert')).toBeInTheDocument();
+    expect(metadata.getByText('27.07.2026')).toBeInTheDocument();
+    expect(metadata.queryByText('Version')).not.toBeInTheDocument();
+    expect(metadata.queryByText('Angelegt am')).not.toBeInTheDocument();
+    expect(metadata.queryByText('Status')).not.toBeInTheDocument();
   });
 
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {

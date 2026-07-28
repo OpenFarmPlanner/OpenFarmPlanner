@@ -185,10 +185,6 @@ function getSeedingRequirementTypeLabel(value: PublicCulture['seeding_requiremen
   return '';
 }
 
-function getPublicCultureStatusLabel(status: PublicCulture['status'], t: (key: string, options?: Record<string, unknown>) => string): string {
-  return t(`library.page.statusValues.${status}`);
-}
-
 function getLanguageLabel(code: string | null | undefined, t: (key: string, options?: Record<string, unknown>) => string, fallback: string): string {
   if (!code) {
     return fallback;
@@ -1082,12 +1078,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.metadata')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.versionLabel')} value={String(selectedCulture.version)} />
                           <DetailRow label={t('library.page.fields.originalLanguage')} value={getLanguageLabel(selectedCulture.original_language_code, t, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.createdAt')} value={formatDate(selectedCulture.created_at)} />
                           <DetailRow label={t('library.page.fields.publishedAt')} value={formatDate(selectedCulture.published_at)} />
                           <DetailRow label={t('library.page.fields.updatedAt')} value={formatDate(selectedCulture.updated_at)} />
-                          <DetailRow label={t('library.page.fields.status')} value={getPublicCultureStatusLabel(selectedCulture.status, t)} />
                         </DetailGrid>
                       </DetailSection>
 
