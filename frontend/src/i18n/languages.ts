@@ -148,3 +148,25 @@ export function resolveInitialLanguage(): SupportedLanguage {
 export function getLanguageLabel(code: SupportedLanguage): string {
   return SUPPORTED_LANGUAGES.find((entry) => entry.code === code)?.label ?? code;
 }
+
+/**
+ * Human-readable name for an arbitrary ISO 639-1 language code (not just
+ * `SUPPORTED_LANGUAGES` — e.g. a crop's `original_language_code`), localized
+ * into `displayLanguage` (typically the current UI language). "German" in the
+ * English UI, "Deutsch" in the German UI, regardless of which language is
+ * being named.
+ *
+ * Falls back to the raw code if `Intl.DisplayNames` is unavailable or the
+ * code isn't a language it recognizes, rather than showing nothing.
+ */
+export function getLanguageDisplayName(code: string | null | undefined, displayLanguage: string): string {
+  if (!code) {
+    return '';
+  }
+  try {
+    const displayNames = new Intl.DisplayNames([displayLanguage], { type: 'language' });
+    return displayNames.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}

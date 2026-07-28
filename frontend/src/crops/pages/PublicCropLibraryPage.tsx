@@ -54,6 +54,7 @@ import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
 import { useTranslation } from '../../i18n';
+import { getLanguageDisplayName } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
@@ -348,11 +349,11 @@ function getSeedingRequirementTypeLabel(value: PublicCulture['seeding_requiremen
   return '';
 }
 
-function getLanguageLabel(code: string | null | undefined, t: (key: string, options?: Record<string, unknown>) => string, fallback: string): string {
+function getLanguageLabel(code: string | null | undefined, displayLanguage: string, fallback: string): string {
   if (!code) {
     return fallback;
   }
-  return t(`library.publishWizard.languages.${code}`, { defaultValue: code });
+  return getLanguageDisplayName(code, displayLanguage);
 }
 
 function formatSeedPackages(
@@ -1201,8 +1202,8 @@ export default function PublicCropLibraryPage() {
     [language, selectedCulture, t],
   );
   const nameFallbackNotice = useMemo(
-    () => getFallbackNotice(selectedCultureName, t),
-    [selectedCultureName, t],
+    () => getFallbackNotice(selectedCultureName, t, language),
+    [selectedCultureName, t, language],
   );
   const selectedCultureDescription = useMemo(
     () => (selectedCulture
@@ -1211,8 +1212,8 @@ export default function PublicCropLibraryPage() {
     [language, selectedCulture],
   );
   const descriptionFallbackNotice = useMemo(
-    () => getFallbackNotice(selectedCultureDescription, t),
-    [selectedCultureDescription, t],
+    () => getFallbackNotice(selectedCultureDescription, t, language),
+    [selectedCultureDescription, t, language],
   );
   const selectedTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
@@ -2210,7 +2211,7 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.metadata')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.originalLanguage')} value={getLanguageLabel(selectedCulture.original_language_code, t, t('library.page.notSpecified'))} />
+                          <DetailRow label={t('library.page.fields.originalLanguage')} value={getLanguageLabel(selectedCulture.original_language_code, i18n.resolvedLanguage ?? i18n.language, t('library.page.notSpecified'))} />
                           <DetailRow label={t('library.page.fields.publishedAt')} value={formatDate(selectedCulture.published_at)} />
                           <DetailRow label={t('library.page.fields.updatedAt')} value={formatDate(selectedCulture.updated_at)} />
                         </DetailGrid>

@@ -13,6 +13,7 @@ import {
   FALLBACK_LANGUAGE,
   LANGUAGE_STORAGE_KEY,
   detectBrowserLanguage,
+  getLanguageDisplayName,
   getLanguageLabel,
   normalizeLanguagePreference,
   normalizeLanguageTag,
@@ -129,5 +130,22 @@ describe('getLanguageLabel', () => {
   it('names each language in that language, not in the UI language', () => {
     expect(getLanguageLabel('de')).toBe('Deutsch');
     expect(getLanguageLabel('en')).toBe('English');
+  });
+});
+
+describe('getLanguageDisplayName', () => {
+  it('names a language in the given display language, not in the language being named', () => {
+    expect(getLanguageDisplayName('de', 'en')).toBe('German');
+    expect(getLanguageDisplayName('en', 'de')).toBe('Englisch');
+  });
+
+  it('names a language in itself when display and named language match', () => {
+    expect(getLanguageDisplayName('de', 'de')).toBe('Deutsch');
+    expect(getLanguageDisplayName('en', 'en')).toBe('English');
+  });
+
+  it('falls back to the raw code for an empty or unrecognized value', () => {
+    expect(getLanguageDisplayName(null, 'en')).toBe('');
+    expect(getLanguageDisplayName(undefined, 'en')).toBe('');
   });
 });

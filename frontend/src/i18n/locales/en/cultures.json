@@ -878,10 +878,6 @@
         "duplicates": "Duplicate check",
         "license": "License"
       },
-      "languages": {
-        "de": "Deutsch",
-        "en": "English"
-      },
       "fields": {
         "variety": "Variety",
         "growth_duration_days": "Growth duration",
@@ -909,11 +905,7 @@
       "descriptionPlaceholder": "Description and growing notes in this language…",
       "atLeastOneRequired": "At least one language version must contain a description.",
       "saveError": "The language versions could not be saved.",
-      "saveSuccess": "The language versions were saved.",
-      "languageNames": {
-        "de": "Deutsch",
-        "en": "English"
-      }
+      "saveSuccess": "The language versions were saved."
     },
     "commands": {
       "focusSearch": "Search the crop library (/)",

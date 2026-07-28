@@ -25,6 +25,7 @@ import { cropSpeciesAPI, cultureAPI, type Culture } from '../api/api';
 import type { CropSpecies, PublishPublicCulturePreview } from '../api/types';
 import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
+import { getLanguageDisplayName } from '../i18n/languages';
 
 interface CulturesPublishingWizardDialogProps {
   open: boolean;
@@ -239,7 +240,7 @@ export function CulturesPublishingWizardDialog({
                 }}
               >
                 {LANGUAGE_CODES.map((code) => (
-                  <MenuItem key={code} value={code}>{t(`library.publishWizard.languages.${code}`)}</MenuItem>
+                  <MenuItem key={code} value={code}>{getLanguageDisplayName(code, i18n.resolvedLanguage ?? i18n.language)}</MenuItem>
                 ))}
               </Select>
             </FormControl>

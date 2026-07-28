@@ -15,7 +15,7 @@
 import type { TFunction } from 'i18next';
 
 import type { PublicCulture } from '../api/types';
-import { normalizeLanguageTag, type SupportedLanguage } from '../i18n/languages';
+import { getLanguageDisplayName, normalizeLanguageTag, type SupportedLanguage } from '../i18n/languages';
 
 export interface LocalizedText {
   /** The text to render. Never empty, never `undefined`/`null`/a raw id. */
@@ -100,11 +100,12 @@ export function getPublicCultureTitle(
 export function getFallbackNotice(
   localized: LocalizedText,
   t: TFunction,
+  displayLanguage: string,
 ): { label: string; tooltip: string } | null {
   if (!localized.isFallback || !localized.languageCode) {
     return null;
   }
-  const languageName = t(`library.translation.languageNames.${localized.languageCode}`);
+  const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);
   return {
     label: t('library.translation.fallbackNotice', { language: languageName }),
     tooltip: t('library.translation.fallbackNoticeTooltip', { language: languageName }),
