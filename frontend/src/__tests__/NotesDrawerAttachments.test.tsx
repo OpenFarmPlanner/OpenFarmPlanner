@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesDrawer } from '../components/data-grid/NotesDrawer';
@@ -60,6 +60,26 @@ describe('NotesDrawer attachments', () => {
     expect(stopTrack).toHaveBeenCalled();
     cameraInput.remove();
   });
+
+  it('offers a file-picker fallback if the camera never produces a frame', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
+    const stopTrack = vi.fn();
+    const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] });
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<NotesDrawer open title="Notes" value="" onChange={() => {}} onSave={() => {}} onClose={() => {}} noteId={1} />);
+    fireEvent.click(screen.getByText('Foto aufnehmen'));
+
+    // jsdom's <video> never produces a real frame on its own, so the "still
+    // no signal after a few seconds" fallback fires for real here — this
+    // waits out the actual timeout rather than faking it.
+    expect(await screen.findByText(/kein Kamerabild/, {}, { timeout: 6000 })).toBeInTheDocument();
+    const fallbackButton = screen.getByRole('button', { name: 'Stattdessen Datei wählen' });
+    fireEvent.click(fallbackButton);
+    expect(stopTrack).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  }, 10000);
 
   it('falls back to the file picker on a touch device without opening the webcam', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));

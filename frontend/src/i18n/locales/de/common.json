@@ -92,7 +92,9 @@
     "uploadFailed": "Hochladen fehlgeschlagen. Bitte versuche es erneut.",
     "camera": {
       "title": "Foto aufnehmen",
-      "capture": "Aufnehmen"
+      "capture": "Aufnehmen",
+      "noSignal": "Es kommt kein Kamerabild an. Sie wird möglicherweise von einer anderen App verwendet oder ist in dieser Umgebung nicht verfügbar.",
+      "useFilePicker": "Stattdessen Datei wählen"
     },
     "tabs": {
       "edit": "Bearbeiten",

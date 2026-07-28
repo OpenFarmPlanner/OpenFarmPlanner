@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import {
   Drawer,
@@ -102,6 +102,8 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
   const [sourceSize, setSourceSize] = useState<{ width: number; height: number } | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraReady, setCameraReady] = useState<boolean>(false);
+  const [cameraTimedOut, setCameraTimedOut] = useState<boolean>(false);
 
   const textFieldRef = useRef<HTMLTextAreaElement>(null);
   const cropImageRef = useRef<HTMLImageElement>(null);
@@ -157,23 +159,41 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
     setSourceSize(null);
   };
 
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
   const closeCamera = (): void => {
-    cameraStream?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
     setCameraStream(null);
+    setCameraReady(false);
+    setCameraTimedOut(false);
   };
 
-  useEffect(() => closeCamera, []);
+  // Stop any active stream if the drawer unmounts while the camera is open.
+  useEffect(() => () => cameraStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  useEffect(() => {
-    const video = cameraVideoRef.current;
-    if (!video) return;
-    video.srcObject = cameraStream;
-    if (cameraStream) {
-      // Some browsers don't honor the `autoPlay` attribute when srcObject is
-      // assigned imperatively after mount; without this the preview stays black.
-      void video.play().catch(() => {});
-    }
-  }, [cameraStream]);
+  // A ref callback rather than a `[cameraStream]` effect: the <video> lives
+  // inside a MUI Dialog, which can mount its content one render after `open`
+  // flips to true. An effect keyed on `cameraStream` can fire while the node
+  // is still null and never re-run once it exists, leaving the preview
+  // permanently black. This runs exactly when the node is actually attached.
+  const attachCameraVideo = useCallback((node: HTMLVideoElement | null) => {
+    cameraVideoRef.current = node;
+    if (!node || !cameraStreamRef.current) return undefined;
+    node.srcObject = cameraStreamRef.current;
+    // Some browsers don't honor the `autoPlay` attribute when srcObject is
+    // assigned imperatively; without this the preview stays black. play()
+    // isn't guaranteed to return a promise in every environment (e.g. jsdom).
+    void node.play()?.catch(() => {});
+    // A stream can be granted by the browser without ever producing a real
+    // frame (camera locked by another app, virtual/remote-desktop camera with
+    // no signal, ...). Without this, Capture would silently do nothing and
+    // the user would be stuck looking at a black box with no explanation.
+    const timeoutId = window.setTimeout(() => {
+      if (!node.videoWidth) setCameraTimedOut(true);
+    }, 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const handleTakePhotoClick = async (): Promise<void> => {
     // Touch devices already get the native camera app via the file input's
@@ -188,10 +208,18 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      cameraStreamRef.current = stream;
+      setCameraReady(false);
+      setCameraTimedOut(false);
       setCameraStream(stream);
     } catch {
       cameraFileInputRef.current?.click();
     }
+  };
+
+  const handleCameraFallbackToFilePicker = (): void => {
+    closeCamera();
+    cameraFileInputRef.current?.click();
   };
 
   const handleCameraCapture = (): void => {
@@ -572,12 +600,35 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
 
       <Dialog open={Boolean(cameraStream)} onClose={closeCamera} maxWidth="md" fullWidth>
         <DialogTitle>{t('notesDrawer.camera.title')}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', justifyContent: 'center', backgroundColor: '#111', p: 0 }}>
-          <video ref={cameraVideoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '70vh' }} />
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', p: 0 }}>
+          {cameraTimedOut ? (
+            <Alert severity="warning" sx={{ m: 2 }}>
+              {t('notesDrawer.camera.noSignal')}
+            </Alert>
+          ) : null}
+          <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', backgroundColor: '#111' }}>
+            <video
+              ref={attachCameraVideo}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={() => setCameraReady(true)}
+              style={{ width: '100%', maxHeight: '70vh' }}
+            />
+            {!cameraReady && !cameraTimedOut ? (
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress sx={{ color: 'white' }} />
+              </Box>
+            ) : null}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={closeCamera}>{t('actions.cancel')}</Button>
-          <Button onClick={handleCameraCapture} variant="contained">{t('notesDrawer.camera.capture')}</Button>
+          {cameraTimedOut ? (
+            <Button onClick={handleCameraFallbackToFilePicker} variant="contained">{t('notesDrawer.camera.useFilePicker')}</Button>
+          ) : (
+            <Button onClick={handleCameraCapture} variant="contained" disabled={!cameraReady}>{t('notesDrawer.camera.capture')}</Button>
+          )}
         </DialogActions>
       </Dialog>
 
