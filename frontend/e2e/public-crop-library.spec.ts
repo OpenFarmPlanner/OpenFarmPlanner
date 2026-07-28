@@ -150,9 +150,18 @@ test('public crop library supports quick import, direct edit, versions, discussi
   await page.getByTestId('public-crop-detail-header').getByRole('button', { name: 'Bearbeiten' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
   await expect(editDialog).toBeVisible();
-  await editDialog.getByLabel('Wachstumszeit (Tage)').fill('48');
-  await editDialog.getByLabel('Notizen').fill('E2E direkt bearbeitete öffentliche Notiz.');
+  const growthDurationInput = editDialog.getByLabel('Wachstumszeit (Tage)');
+  const notesInput = editDialog.getByLabel('Notizen');
+  await expect(growthDurationInput).toHaveValue('42');
+  await expect(notesInput).toHaveValue('Bestehende öffentliche Notiz.');
+  await growthDurationInput.fill('48');
+  await notesInput.fill('E2E direkt bearbeitete öffentliche Notiz.');
+  const saveResponse = page.waitForResponse((response) => (
+    response.url().includes(`/api/public-cultures/${publicCulture.id}/`)
+    && response.request().method() === 'PATCH'
+  ));
   await editDialog.getByRole('button', { name: 'Speichern' }).click();
+  expect((await saveResponse).ok()).toBeTruthy();
   await expect(editDialog).not.toBeVisible();
   await expect(page.getByText('48 Tage')).toBeVisible();
   await expect(page.getByText('E2E direkt bearbeitete öffentliche Notiz.')).toBeVisible();
