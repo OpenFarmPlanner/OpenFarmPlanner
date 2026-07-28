@@ -233,10 +233,13 @@ describe('PublicCropLibraryPage', () => {
   it('hides the global moderation action completely for users without moderation rights', async () => {
     renderPage(['/app/crop-library?cultureId=1']);
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
   });
 
   it('opens the global moderation interface from the public crop library header for moderators', async () => {
@@ -244,9 +247,13 @@ describe('PublicCropLibraryPage', () => {
     authMocks.user.is_public_library_moderator = true;
     renderPage(['/app/crop-library?cultureId=1']);
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
+    expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Moderation' }));
 

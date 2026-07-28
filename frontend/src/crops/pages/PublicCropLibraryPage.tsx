@@ -1819,45 +1819,25 @@ export default function PublicCropLibraryPage() {
       ]}
     />
   ) : null;
-  const headerActions = canModeratePublicLibrary || cropActions ? (
-    <Stack
-      direction="row"
-      spacing={1}
-      useFlexGap
-      flexWrap="wrap"
-      alignItems="center"
-      justifyContent={{ xs: 'flex-end', sm: 'flex-end' }}
-      sx={{ width: '100%' }}
+  const headerActions = canModeratePublicLibrary ? (
+    <Button
+      variant="outlined"
+      size="medium"
+      aria-label={t('library.page.moderation.open')}
+      onClick={openModeration}
+      sx={{
+        minHeight: 40,
+        minWidth: useCompactLibraryLayout ? 40 : { xs: 40, sm: 64 },
+        px: useCompactLibraryLayout ? 0.75 : { xs: 0.75, sm: 1.5 },
+      }}
     >
-      {canModeratePublicLibrary ? (
-        <Button
-          variant="outlined"
-          size="medium"
-          aria-label={t('library.page.moderation.open')}
-          onClick={openModeration}
-          sx={{
-            minHeight: 40,
-            minWidth: useCompactLibraryLayout ? 40 : { xs: 40, sm: 64 },
-            px: useCompactLibraryLayout ? 0.75 : { xs: 0.75, sm: 1.5 },
-          }}
-        >
-          <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: useCompactLibraryLayout ? 0 : { xs: 0, sm: 0.75 } }}>
-            <GavelOutlinedIcon fontSize="small" />
-          </Box>
-          <Box component="span" sx={{ display: useCompactLibraryLayout ? 'none' : { xs: 'none', sm: 'inline' } }}>
-            {t('library.page.moderation.open')}
-          </Box>
-        </Button>
-      ) : null}
-      {canModeratePublicLibrary && cropActions ? (
-        <Divider
-          orientation="vertical"
-          flexItem
-          sx={{ display: { xs: 'none', sm: 'block' }, mx: 0.25 }}
-        />
-      ) : null}
-      {cropActions}
-    </Stack>
+      <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: useCompactLibraryLayout ? 0 : { xs: 0, sm: 0.75 } }}>
+        <GavelOutlinedIcon fontSize="small" />
+      </Box>
+      <Box component="span" sx={{ display: useCompactLibraryLayout ? 'none' : { xs: 'none', sm: 'inline' } }}>
+        {t('library.page.moderation.open')}
+      </Box>
+    </Button>
   ) : undefined;
 
   return (
@@ -2046,7 +2026,15 @@ export default function PublicCropLibraryPage() {
                 ) : (
                 <Stack sx={{ minHeight: '100%' }}>
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
-                    <Stack direction="row" spacing={1.5} useFlexGap flexWrap={{ xs: 'nowrap', sm: 'wrap' }} alignItems="flex-start" justifyContent="space-between">
+                    <Stack
+                      data-testid="public-crop-detail-header"
+                      direction="row"
+                      spacing={1.5}
+                      useFlexGap
+                      flexWrap="wrap"
+                      alignItems="flex-start"
+                      justifyContent="space-between"
+                    >
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
                           <Box
@@ -2102,6 +2090,11 @@ export default function PublicCropLibraryPage() {
                           </Stack>
                         </Box>
                       </Box>
+                      {cropActions ? (
+                        <Box sx={{ flexShrink: 0, ml: 'auto' }}>
+                          {cropActions}
+                        </Box>
+                      ) : null}
                     </Stack>
                   </CardContent>
                   <Divider />
