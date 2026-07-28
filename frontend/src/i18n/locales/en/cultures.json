@@ -107,7 +107,7 @@
       "tabs": {
         "details": "Details",
         "versions": "Versions",
-        "discussion": "Discussion"
+        "discussion": "Discussions"
       },
       "byAuthor": "By {{author}}",
       "metaByDate": "{{author}} · {{date}}",
@@ -200,7 +200,7 @@
         }
       },
       "discussion": {
-        "newTopic": "+ New discussion",
+        "newTopic": "New discussion",
         "titleLabel": "Title",
         "commentLabel": "Comment",
         "comment": "Comment",
@@ -208,16 +208,22 @@
         "commentSuccess": "Comment saved.",
         "commentError": "Comment could not be saved.",
         "emptyTitle": "No discussions yet",
-        "empty": "Start a discussion if you have questions about the data or want to coordinate a change.",
+        "empty": "Do you have a question about the data or want to discuss this crop?",
         "create": "Start discussion",
         "cancel": "Cancel",
-        "back": "Back to discussions",
-        "topicMeta": "{{author}} · {{date}} · {{count}} posts",
-        "versionReference": "About version {{version}}",
+        "back": "All discussions",
+        "topicMeta_one": "{{author}} · {{count}} post · last active {{date}}",
+        "topicMeta_other": "{{author}} · {{count}} posts · last active {{date}}",
+        "versionReference": "Reference:",
         "reply": "Reply",
         "replyLabel": "Reply",
+        "replyToAuthor": "Reply to post by {{author}}",
+        "replyContext": "Reply to {{author}}",
+        "repliesForAuthor": "Replies to post by {{author}}",
+        "moreActions": "More actions",
         "edit": "Edit",
         "delete": "Delete",
+        "discardDraftConfirm": "Discard the current draft?",
         "edited": "edited",
         "deleted": "Comment was deleted.",
         "submit": "Submit"

@@ -279,6 +279,7 @@ export interface PublicCultureDiscussionTopic {
   version?: number | null;
   comment_count: number;
   last_activity_at?: string | null;
+  last_comment_preview?: string | null;
 }
 
 export type PublicCultureRemovalReason =

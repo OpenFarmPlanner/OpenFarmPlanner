@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,6 +15,8 @@ import {
   List,
   ListItemButton,
   ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   Tab,
   Tabs,
@@ -23,10 +25,14 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
+import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
@@ -56,6 +62,12 @@ import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommand
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
 const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
+const MAX_VISIBLE_REPLY_DEPTH = 3;
+
+interface ThreadCommentGroup {
+  comment: PublicCultureDiscussionComment;
+  children: ThreadCommentGroup[];
+}
 
 function parsePublicCultureId(value: string | null): number | null {
   if (!value) {
@@ -72,6 +84,53 @@ function getStoredPublicCultureId(): number | null {
 const getCultureTitle = (culture: PublicCulture): string => (
   culture.variety ? `${culture.name} (${culture.variety})` : culture.name
 );
+
+function getCommentTimestamp(comment: PublicCultureDiscussionComment): number {
+  if (!comment.created_at) {
+    return 0;
+  }
+  const timestamp = new Date(comment.created_at).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function compareComments(a: PublicCultureDiscussionComment, b: PublicCultureDiscussionComment): number {
+  const timestampDifference = getCommentTimestamp(a) - getCommentTimestamp(b);
+  return timestampDifference || a.id - b.id;
+}
+
+function buildThreadCommentTree(comments: PublicCultureDiscussionComment[]): ThreadCommentGroup[] {
+  const nodesById = new Map<number, ThreadCommentGroup>();
+  const rootNodes: ThreadCommentGroup[] = [];
+
+  [...comments].sort(compareComments).forEach((comment) => {
+    nodesById.set(comment.id, { comment, children: [] });
+  });
+
+  [...nodesById.values()].forEach((node) => {
+    const parent = node.comment.parent ? nodesById.get(node.comment.parent) : undefined;
+    if (!parent || parent.comment.id === node.comment.id) {
+      rootNodes.push(node);
+      return;
+    }
+    parent.children.push(node);
+  });
+
+  const sortTree = (nodes: ThreadCommentGroup[]): ThreadCommentGroup[] => (
+    nodes.sort((a, b) => compareComments(a.comment, b.comment)).map((node) => ({
+      ...node,
+      children: sortTree(node.children),
+    }))
+  );
+
+  return sortTree(rootNodes);
+}
+
+function formatDiscussionPreview(value?: string | null): string {
+  return stripCitationMarkers(value ?? '')
+    .replace(/[`*_>#~\-[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function formatLocalizedNumber(value: number | string | null | undefined, locale: string, fallback: string, options?: Intl.NumberFormatOptions): string {
   if (value === null || value === undefined || value === '') {
@@ -388,6 +447,346 @@ function VersionCard({
   );
 }
 
+interface CommentFormProps {
+  body: string;
+  disabled?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
+  label: string;
+  submitLabel: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onBodyChange: (body: string) => void;
+  onCancel?: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}
+
+function CommentForm({
+  body,
+  disabled = false,
+  inputRef,
+  label,
+  submitLabel,
+  t,
+  onBodyChange,
+  onCancel,
+  onSubmit,
+}: CommentFormProps) {
+  return (
+    <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 1, maxWidth: 720 }}>
+      <TextField
+        inputRef={inputRef}
+        label={label}
+        value={body}
+        onChange={(event) => onBodyChange(event.target.value)}
+        multiline
+        minRows={2}
+        maxRows={8}
+      />
+      <Stack direction="row" spacing={1}>
+        <Button type="submit" variant="contained" disabled={disabled || !body.trim()}>
+          {submitLabel}
+        </Button>
+        {onCancel ? <Button onClick={onCancel}>{t('library.page.discussion.cancel')}</Button> : null}
+      </Stack>
+    </Box>
+  );
+}
+
+interface DiscussionCommentProps {
+  comment: PublicCultureDiscussionComment;
+  anonymousLabel: string;
+  formatDate: (value?: string | null) => string;
+  isReply: boolean;
+  logicalDepth: number;
+  visualDepth: number;
+  parentAuthorLabel?: string;
+  isEditing: boolean;
+  menuAnchorElement: HTMLElement | null;
+  submittingComment: boolean;
+  commentBody: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onReply: (commentId: number) => void;
+  onEdit: (comment: PublicCultureDiscussionComment) => void;
+  onDelete: (commentId: number) => void;
+  onOpenMenu: (commentId: number, element: HTMLElement) => void;
+  onCloseMenu: () => void;
+  onCancelEdit: () => void;
+  onCommentSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCommentBodyChange: (body: string) => void;
+  registerReplyActionRef: (commentId: number, element: HTMLButtonElement | null) => void;
+  registerCommentRef: (commentId: number, element: HTMLDivElement | null) => void;
+  activeFormInputRef: Ref<HTMLInputElement>;
+}
+
+function DiscussionComment({
+  comment,
+  anonymousLabel,
+  formatDate,
+  isReply,
+  logicalDepth,
+  visualDepth,
+  parentAuthorLabel,
+  isEditing,
+  menuAnchorElement,
+  submittingComment,
+  commentBody,
+  t,
+  onReply,
+  onEdit,
+  onDelete,
+  onOpenMenu,
+  onCloseMenu,
+  onCancelEdit,
+  onCommentSubmit,
+  onCommentBodyChange,
+  registerReplyActionRef,
+  registerCommentRef,
+  activeFormInputRef,
+}: DiscussionCommentProps) {
+  const metaText = `${t('library.page.metaByDate', {
+    author: comment.created_by_label || anonymousLabel,
+    date: formatDate(comment.created_at),
+  })}${comment.is_edited ? ` · ${t('library.page.discussion.edited')}` : ''}`;
+  const authorLabel = comment.created_by_label || anonymousLabel;
+  const replyLabel = t('library.page.discussion.replyToAuthor', { author: authorLabel });
+
+  return (
+    <Box
+      ref={(element: HTMLDivElement | null) => registerCommentRef(comment.id, element)}
+      tabIndex={-1}
+      data-comment-id={comment.id}
+      data-logical-depth={logicalDepth}
+      data-visual-depth={visualDepth}
+      sx={{
+        display: 'grid',
+        gap: 0.5,
+        outline: 0,
+        py: isReply ? 1 : 0,
+        '&:focus-visible': {
+          borderRadius: 1,
+          boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}`,
+        },
+      }}
+    >
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 1, alignItems: 'start' }}>
+        <Box sx={{ minWidth: 0 }}>
+          {isReply && parentAuthorLabel && logicalDepth > MAX_VISIBLE_REPLY_DEPTH ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+              {t('library.page.discussion.replyContext', { author: parentAuthorLabel })}
+            </Typography>
+          ) : null}
+          <Typography variant="caption" color="text.secondary">
+            {metaText}
+          </Typography>
+          {isEditing ? (
+            <Box sx={{ mt: 1 }}>
+              <CommentForm
+                body={commentBody}
+                disabled={submittingComment}
+                inputRef={activeFormInputRef}
+                label={t('library.page.discussion.commentLabel')}
+                submitLabel={t('library.page.discussion.submit')}
+                t={t}
+                onBodyChange={onCommentBodyChange}
+                onCancel={onCancelEdit}
+                onSubmit={onCommentSubmit}
+              />
+            </Box>
+          ) : (
+            <Typography
+              variant="body2"
+              color={comment.deleted_at ? 'text.secondary' : 'text.primary'}
+              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}
+            >
+              {comment.deleted_at ? t('library.page.discussion.deleted') : comment.body}
+            </Typography>
+          )}
+        </Box>
+        {!comment.deleted_at && !isEditing ? (
+          <Stack direction="row" spacing={0.25} sx={{ mt: -0.5 }}>
+            <Tooltip title={replyLabel}>
+              <IconButton
+                ref={(element: HTMLButtonElement | null) => registerReplyActionRef(comment.id, element)}
+                size="small"
+                aria-label={replyLabel}
+                onClick={() => onReply(comment.id)}
+              >
+                <ReplyOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {comment.can_edit ? (
+              <>
+                <Tooltip title={t('library.page.discussion.moreActions')}>
+                  <IconButton
+                    size="small"
+                    aria-label={t('library.page.discussion.moreActions')}
+                    aria-haspopup="menu"
+                    aria-expanded={Boolean(menuAnchorElement)}
+                    onClick={(event) => onOpenMenu(comment.id, event.currentTarget)}
+                  >
+                    <MoreVertOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Menu
+                  anchorEl={menuAnchorElement}
+                  open={Boolean(menuAnchorElement)}
+                  onClose={onCloseMenu}
+                >
+                  <MenuItem onClick={() => { onCloseMenu(); onEdit(comment); }}>{t('library.page.discussion.edit')}</MenuItem>
+                  <MenuItem onClick={() => { onCloseMenu(); onDelete(comment.id); }} sx={{ color: 'error.main' }}>
+                    {t('library.page.discussion.delete')}
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : null}
+          </Stack>
+        ) : null}
+      </Box>
+    </Box>
+  );
+}
+
+interface ThreadCommentBranchProps {
+  node: ThreadCommentGroup;
+  depth: number;
+  parentAuthorLabel?: string;
+  anonymousLabel: string;
+  formatDate: (value?: string | null) => string;
+  replyTo: number | null;
+  editingCommentId: number | null;
+  commentActionMenu: { commentId: number; anchorElement: HTMLElement } | null;
+  submittingComment: boolean;
+  commentBody: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onReply: (commentId: number) => void;
+  onEdit: (comment: PublicCultureDiscussionComment) => void;
+  onDelete: (commentId: number) => void;
+  onOpenMenu: (commentId: number, element: HTMLElement) => void;
+  onCloseMenu: () => void;
+  onCancelEdit: () => void;
+  onCommentSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCommentBodyChange: (body: string) => void;
+  registerReplyActionRef: (commentId: number, element: HTMLButtonElement | null) => void;
+  registerCommentRef: (commentId: number, element: HTMLDivElement | null) => void;
+  activeFormInputRef: Ref<HTMLInputElement>;
+}
+
+function ThreadCommentBranch({
+  node,
+  depth,
+  parentAuthorLabel,
+  anonymousLabel,
+  formatDate,
+  replyTo,
+  editingCommentId,
+  commentActionMenu,
+  submittingComment,
+  commentBody,
+  t,
+  onReply,
+  onEdit,
+  onDelete,
+  onOpenMenu,
+  onCloseMenu,
+  onCancelEdit,
+  onCommentSubmit,
+  onCommentBodyChange,
+  registerReplyActionRef,
+  registerCommentRef,
+  activeFormInputRef,
+}: ThreadCommentBranchProps) {
+  const visualDepth = Math.min(depth, MAX_VISIBLE_REPLY_DEPTH);
+  const childDepth = depth + 1;
+  const childVisualDepth = Math.min(childDepth, MAX_VISIBLE_REPLY_DEPTH);
+  const childIndentIncreases = childVisualDepth > visualDepth;
+  const childAuthorLabel = node.comment.created_by_label || anonymousLabel;
+  const hasChildGroup = node.children.length > 0 || replyTo === node.comment.id;
+
+  return (
+    <Box sx={{ display: 'grid', gap: 1 }}>
+      <DiscussionComment
+        comment={node.comment}
+        anonymousLabel={anonymousLabel}
+        formatDate={formatDate}
+        isReply={depth > 0}
+        logicalDepth={depth}
+        visualDepth={visualDepth}
+        parentAuthorLabel={parentAuthorLabel}
+        isEditing={editingCommentId === node.comment.id}
+        menuAnchorElement={commentActionMenu?.commentId === node.comment.id ? commentActionMenu.anchorElement : null}
+        submittingComment={submittingComment}
+        commentBody={commentBody}
+        t={t}
+        onReply={onReply}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onOpenMenu={onOpenMenu}
+        onCloseMenu={onCloseMenu}
+        onCancelEdit={onCancelEdit}
+        onCommentSubmit={onCommentSubmit}
+        onCommentBodyChange={onCommentBodyChange}
+        registerReplyActionRef={registerReplyActionRef}
+        registerCommentRef={registerCommentRef}
+        activeFormInputRef={activeFormInputRef}
+      />
+      {hasChildGroup ? (
+        <Box
+          role="group"
+          aria-label={t('library.page.discussion.repliesForAuthor', { author: childAuthorLabel })}
+          sx={{
+            borderLeft: childIndentIncreases ? 2 : 0,
+            borderColor: 'divider',
+            display: 'grid',
+            gap: 1,
+            ml: childIndentIncreases ? { xs: 1, sm: 2 } : 0,
+            pl: childIndentIncreases ? { xs: 1.25, sm: 1.75 } : 0,
+          }}
+        >
+          {node.children.map((childNode) => (
+            <ThreadCommentBranch
+              key={childNode.comment.id}
+              node={childNode}
+              depth={childDepth}
+              parentAuthorLabel={childAuthorLabel}
+              anonymousLabel={anonymousLabel}
+              formatDate={formatDate}
+              replyTo={replyTo}
+              editingCommentId={editingCommentId}
+              commentActionMenu={commentActionMenu}
+              submittingComment={submittingComment}
+              commentBody={commentBody}
+              t={t}
+              onReply={onReply}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onOpenMenu={onOpenMenu}
+              onCloseMenu={onCloseMenu}
+              onCancelEdit={onCancelEdit}
+              onCommentSubmit={onCommentSubmit}
+              onCommentBodyChange={onCommentBodyChange}
+              registerReplyActionRef={registerReplyActionRef}
+              registerCommentRef={registerCommentRef}
+              activeFormInputRef={activeFormInputRef}
+            />
+          ))}
+          {replyTo === node.comment.id ? (
+            <CommentForm
+              body={commentBody}
+              disabled={submittingComment}
+              inputRef={activeFormInputRef}
+              label={t('library.page.discussion.replyLabel')}
+              submitLabel={t('library.page.discussion.submit')}
+              t={t}
+              onBodyChange={onCommentBodyChange}
+              onCancel={onCancelEdit}
+              onSubmit={onCommentSubmit}
+            />
+          ) : null}
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
 export default function PublicCropLibraryPage() {
   const { t, i18n } = useTranslation('cultures');
   const [searchParams] = useSearchParams();
@@ -419,6 +818,13 @@ export default function PublicCropLibraryPage() {
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const newTopicButtonRef = useRef<HTMLButtonElement>(null);
+  const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
+  const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
+  const replyActionRefs = useRef(new Map<number, HTMLButtonElement>());
+  const commentRefs = useRef(new Map<number, HTMLDivElement>());
+  const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
+  const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
 
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus();
@@ -472,6 +878,48 @@ export default function PublicCropLibraryPage() {
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
   );
+  const selectedTopic = useMemo(
+    () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
+    [selectedTopicId, topics],
+  );
+  const threadCommentTree = useMemo(() => buildThreadCommentTree(comments), [comments]);
+
+  const registerReplyActionRef = useCallback((commentId: number, element: HTMLButtonElement | null): void => {
+    if (element) {
+      replyActionRefs.current.set(commentId, element);
+      return;
+    }
+    replyActionRefs.current.delete(commentId);
+  }, []);
+
+  const registerCommentRef = useCallback((commentId: number, element: HTMLDivElement | null): void => {
+    if (element) {
+      commentRefs.current.set(commentId, element);
+      return;
+    }
+    commentRefs.current.delete(commentId);
+  }, []);
+
+  const focusReplyAction = useCallback((commentId: number): void => {
+    window.setTimeout(() => {
+      replyActionRefs.current.get(commentId)?.focus();
+    }, 0);
+  }, []);
+
+  const ensureDiscardableCommentDraft = useCallback((nextCommentId: number | null): boolean => {
+    const hasActiveDraft = (replyTo !== null || editingCommentId !== null) && commentBody.trim().length > 0;
+    const keepsCurrentTarget = nextCommentId !== null && (replyTo === nextCommentId || editingCommentId === nextCommentId);
+    if (!hasActiveDraft || keepsCurrentTarget) {
+      return true;
+    }
+    return window.confirm(t('library.page.discussion.discardDraftConfirm'));
+  }, [commentBody, editingCommentId, replyTo, t]);
+
+  const focusActiveCommentForm = useCallback((): void => {
+    window.setTimeout(() => {
+      activeCommentFormInputRef.current?.focus();
+    }, 0);
+  }, []);
 
   const cultureListNavigation = useCultureListKeyboardNavigation({
     items: cultures,
@@ -591,7 +1039,35 @@ export default function PublicCropLibraryPage() {
     setTopicTitle('');
     setNewTopicOpen(false);
     setEditDialogOpen(false);
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentActionMenu(null);
   }, [selectedCultureId]);
+
+  useEffect(() => {
+    if (replyTo !== null || editingCommentId !== null) {
+      focusActiveCommentForm();
+    }
+  }, [editingCommentId, focusActiveCommentForm, replyTo]);
+
+  useEffect(() => {
+    if (newTopicOpen) {
+      window.setTimeout(() => {
+        newTopicTitleInputRef.current?.focus();
+      }, 0);
+    }
+  }, [newTopicOpen]);
+
+  useEffect(() => {
+    if (pendingFocusCommentId === null) {
+      return;
+    }
+    const commentElement = commentRefs.current.get(pendingFocusCommentId);
+    if (commentElement) {
+      commentElement.focus();
+      setPendingFocusCommentId(null);
+    }
+  }, [comments, pendingFocusCommentId]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -695,17 +1171,26 @@ export default function PublicCropLibraryPage() {
     try {
       if (selectedTopicId) {
         if (editingCommentId) {
-          await publicCultureAPI.updateDiscussionComment(selectedCulture.id, editingCommentId, commentBody.trim());
+          const updatedComment = await publicCultureAPI.updateDiscussionComment(selectedCulture.id, editingCommentId, commentBody.trim());
+          setPendingFocusCommentId(updatedComment.data.id);
         } else {
-          await publicCultureAPI.createDiscussionComment(selectedCulture.id, selectedTopicId, commentBody.trim(), replyTo ?? undefined);
+          const createdComment = await publicCultureAPI.createDiscussionComment(selectedCulture.id, selectedTopicId, commentBody.trim(), replyTo ?? undefined);
+          setPendingFocusCommentId(createdComment.data.id);
         }
         const response = await publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId);
         setComments(response.data);
       } else {
-        await publicCultureAPI.createDiscussionTopic(selectedCulture.id, { title: topicTitle.trim(), body: commentBody.trim(), revision: topicRevision });
-        await loadCollaboration(selectedCulture.id);
+        const createdTopic = await publicCultureAPI.createDiscussionTopic(selectedCulture.id, { title: topicTitle.trim(), body: commentBody.trim(), revision: topicRevision });
+        const [topicsResponse, commentsResponse] = await Promise.all([
+          publicCultureAPI.discussionTopics(selectedCulture.id),
+          publicCultureAPI.discussionComments(selectedCulture.id, createdTopic.data.id),
+        ]);
+        setTopics(topicsResponse.data);
+        setSelectedTopicId(createdTopic.data.id);
+        setComments(commentsResponse.data);
         setNewTopicOpen(false);
         setTopicTitle('');
+        setTopicRevision(undefined);
       }
       setCommentBody('');
       setReplyTo(null);
@@ -720,7 +1205,13 @@ export default function PublicCropLibraryPage() {
 
   const openTopic = async (topicId: number): Promise<void> => {
     if (!selectedCulture) return;
+    if (!ensureDiscardableCommentDraft(null)) {
+      return;
+    }
     setSelectedTopicId(topicId);
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentBody('');
     const response = await publicCultureAPI.discussionComments(selectedCulture.id, topicId);
     setComments(response.data);
   };
@@ -732,11 +1223,65 @@ export default function PublicCropLibraryPage() {
     setTopicRevision(revision.id);
   };
 
+  const openNewTopicForm = (): void => {
+    setNewTopicOpen(true);
+    setTopicRevision(undefined);
+  };
+
+  const cancelNewTopicForm = (): void => {
+    setNewTopicOpen(false);
+    setTopicTitle('');
+    setCommentBody('');
+    setTopicRevision(undefined);
+    window.setTimeout(() => {
+      newTopicButtonRef.current?.focus();
+    }, 0);
+  };
+
   const deleteComment = async (commentId: number): Promise<void> => {
     if (!selectedCulture || !selectedTopicId) return;
     await publicCultureAPI.deleteDiscussionComment(selectedCulture.id, commentId);
     const response = await publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId);
     setComments(response.data);
+  };
+
+  const startReply = (commentId: number): void => {
+    if (!ensureDiscardableCommentDraft(commentId)) {
+      return;
+    }
+    setReplyTo(commentId);
+    setEditingCommentId(null);
+    setCommentBody('');
+  };
+
+  const startEdit = (comment: PublicCultureDiscussionComment): void => {
+    if (!ensureDiscardableCommentDraft(comment.id)) {
+      return;
+    }
+    setEditingCommentId(comment.id);
+    setReplyTo(null);
+    setCommentBody(comment.body);
+  };
+
+  const cancelActiveCommentForm = (): void => {
+    const focusCommentId = replyTo ?? editingCommentId;
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentBody('');
+    if (focusCommentId !== null) {
+      focusReplyAction(focusCommentId);
+    }
+  };
+
+  const closeSelectedTopic = (): void => {
+    if (!ensureDiscardableCommentDraft(null)) {
+      return;
+    }
+    setSelectedTopicId(null);
+    setComments([]);
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentBody('');
   };
 
   const libraryCardSx = {
@@ -1146,44 +1691,146 @@ export default function PublicCropLibraryPage() {
                       {collaborationStatus === 'error' ? <Alert severity="error">{t('library.page.collaborationLoadError')}</Alert> : null}
                       {selectedTopicId === null ? (
                         <Stack spacing={1.25}>
-                          <Button variant="outlined" sx={{ alignSelf: 'flex-start' }} onClick={() => { setNewTopicOpen(true); setTopicRevision(versions.find((version) => version.version === selectedCulture.version)?.id); }}>
-                            {t('library.page.discussion.newTopic')}
-                          </Button>
+                          {!newTopicOpen && topics.length > 0 ? (
+                            <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ alignSelf: 'flex-start' }} onClick={openNewTopicForm}>
+                              {t('library.page.discussion.newTopic')}
+                            </Button>
+                          ) : null}
                           {newTopicOpen ? (
-                            <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1.25 }}>
-                              <TextField autoFocus label={t('library.page.discussion.titleLabel')} value={topicTitle} onChange={(event) => setTopicTitle(event.target.value)} />
-                              <TextField label={t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={3} />
-                              {topicRevision ? <Typography variant="caption">{t('library.page.discussion.versionReference', { version: versions.find((version) => version.id === topicRevision)?.version })}</Typography> : null}
+                            <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1, pb: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                              <Typography variant="subtitle2">{t('library.page.discussion.newTopic')}</Typography>
+                              <TextField inputRef={newTopicTitleInputRef} label={t('library.page.discussion.titleLabel')} value={topicTitle} onChange={(event) => setTopicTitle(event.target.value)} />
+                              <TextField label={t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={2} maxRows={8} />
+                              {topicRevision ? (
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Typography variant="caption" color="text.secondary">{t('library.page.discussion.versionReference')}</Typography>
+                                  <Chip size="small" label={t('library.page.versions.versionTitle', { version: versions.find((version) => version.id === topicRevision)?.version })} />
+                                </Stack>
+                              ) : null}
                               <Stack direction="row" spacing={1}>
                                 <Button type="submit" variant="contained" disabled={submittingComment || !topicTitle.trim() || !commentBody.trim()}>{t('library.page.discussion.create')}</Button>
-                                <Button onClick={() => setNewTopicOpen(false)}>{t('library.page.discussion.cancel')}</Button>
+                                <Button onClick={cancelNewTopicForm}>{t('library.page.discussion.cancel')}</Button>
                               </Stack>
                             </Box>
                           ) : null}
                           {topics.length === 0 && !newTopicOpen ? (
-                            <Box><Typography variant="subtitle2">{t('library.page.discussion.emptyTitle')}</Typography><Typography variant="body2" color="text.secondary">{t('library.page.discussion.empty')}</Typography></Box>
+                            <Box sx={{ display: 'grid', gap: 1 }}>
+                              <Box>
+                                <Typography variant="subtitle2">{t('library.page.discussion.emptyTitle')}</Typography>
+                                <Typography variant="body2" color="text.secondary">{t('library.page.discussion.empty')}</Typography>
+                              </Box>
+                              <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ justifySelf: 'flex-start' }} onClick={openNewTopicForm}>
+                                {t('library.page.discussion.newTopic')}
+                              </Button>
+                            </Box>
                           ) : topics.map((topic) => (
-                            <ListItemButton key={topic.id} onClick={() => void openTopic(topic.id)} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                              <ListItemText primary={topic.title} secondary={t('library.page.discussion.topicMeta', { author: topic.created_by_label || anonymousLabel, date: formatDate(topic.created_at), count: topic.comment_count })} />
-                              {topic.version ? <Chip size="small" label={t('library.page.versions.versionTitle', { version: topic.version })} /> : null}
+                            <ListItemButton
+                              key={topic.id}
+                              onClick={() => void openTopic(topic.id)}
+                              sx={{
+                                alignItems: 'flex-start',
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 0,
+                                cursor: 'pointer',
+                                display: 'grid',
+                                gap: 0.5,
+                                gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) auto' },
+                                px: 0,
+                                py: 1.25,
+                                '&:hover': { bgcolor: 'action.hover' },
+                                '&.Mui-focusVisible': {
+                                  boxShadow: (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`,
+                                },
+                              }}
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle2" sx={{ overflowWrap: 'anywhere' }}>{topic.title}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('library.page.discussion.topicMeta', {
+                                    author: topic.created_by_label || anonymousLabel,
+                                    count: topic.comment_count,
+                                    date: formatDate(topic.last_activity_at || topic.created_at),
+                                  })}
+                                </Typography>
+                                {topic.last_comment_preview ? (
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      mt: 0.25,
+                                    }}
+                                  >
+                                    {formatDiscussionPreview(topic.last_comment_preview)}
+                                  </Typography>
+                                ) : null}
+                              </Box>
+                              {topic.version ? (
+                                <Chip
+                                  size="small"
+                                  label={t('library.page.versions.versionTitle', { version: topic.version })}
+                                  sx={{ justifySelf: { xs: 'flex-start', sm: 'flex-end' }, mt: { xs: 0.25, sm: 0 } }}
+                                />
+                              ) : null}
                             </ListItemButton>
                           ))}
                         </Stack>
                       ) : (
-                        <Stack spacing={1.25}>
-                          <Button size="small" sx={{ alignSelf: 'flex-start' }} onClick={() => { setSelectedTopicId(null); setComments([]); }}>{t('library.page.discussion.back')}</Button>
-                          <Typography variant="h6">{topics.find((topic) => topic.id === selectedTopicId)?.title}</Typography>
-                          {comments.map((comment) => (
-                            <Box key={comment.id} sx={{ borderLeft: comment.parent ? 2 : 0, borderColor: 'divider', pl: comment.parent ? 2 : 0, ml: comment.parent ? { xs: 1, sm: 3 } : 0 }}>
-                              <Typography variant="caption" color="text.secondary">{t('library.page.metaByDate', { author: comment.created_by_label || anonymousLabel, date: formatDate(comment.created_at) })}{comment.is_edited ? ` · ${t('library.page.discussion.edited')}` : ''}</Typography>
-                              <Typography variant="body2" color={comment.deleted_at ? 'text.secondary' : 'text.primary'} sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}>{comment.deleted_at ? t('library.page.discussion.deleted') : comment.body}</Typography>
-                              {!comment.deleted_at ? <Stack direction="row" spacing={1}><Button size="small" onClick={() => { setReplyTo(comment.id); setEditingCommentId(null); setCommentBody(''); }}>{t('library.page.discussion.reply')}</Button>{comment.can_edit ? <><Button size="small" onClick={() => { setEditingCommentId(comment.id); setReplyTo(null); setCommentBody(comment.body); }}>{t('library.page.discussion.edit')}</Button><Button size="small" color="error" onClick={() => void deleteComment(comment.id)}>{t('library.page.discussion.delete')}</Button></> : null}</Stack> : null}
-                            </Box>
-                          ))}
-                          <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1 }}>
-                            <TextField autoFocus={replyTo !== null || editingCommentId !== null} label={replyTo ? t('library.page.discussion.replyLabel') : t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={2} />
-                            <Stack direction="row" spacing={1}><Button type="submit" variant="contained" disabled={!commentBody.trim()}>{t('library.page.discussion.submit')}</Button>{replyTo || editingCommentId ? <Button onClick={() => { setReplyTo(null); setEditingCommentId(null); setCommentBody(''); }}>{t('library.page.discussion.cancel')}</Button> : null}</Stack>
-                          </Box>
+                        <Stack spacing={2}>
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<ArrowBackOutlinedIcon />}
+                            sx={{ alignSelf: 'flex-start' }}
+                            onClick={closeSelectedTopic}
+                          >
+                            {t('library.page.discussion.back')}
+                          </Button>
+                          <Typography variant="h6" component="h2">
+                            {selectedTopic?.title}
+                          </Typography>
+                          <Stack spacing={2.25}>
+                            {threadCommentTree.map((node) => (
+                              <ThreadCommentBranch
+                                key={node.comment.id}
+                                node={node}
+                                depth={0}
+                                anonymousLabel={anonymousLabel}
+                                formatDate={formatDate}
+                                replyTo={replyTo}
+                                editingCommentId={editingCommentId}
+                                commentActionMenu={commentActionMenu}
+                                submittingComment={submittingComment}
+                                commentBody={commentBody}
+                                t={t}
+                                onReply={startReply}
+                                onEdit={startEdit}
+                                onDelete={(commentId) => void deleteComment(commentId)}
+                                onOpenMenu={(commentId, anchorElement) => setCommentActionMenu({ commentId, anchorElement })}
+                                onCloseMenu={() => setCommentActionMenu(null)}
+                                onCancelEdit={cancelActiveCommentForm}
+                                onCommentSubmit={(event) => void handleCommentSubmit(event)}
+                                onCommentBodyChange={setCommentBody}
+                                registerReplyActionRef={registerReplyActionRef}
+                                registerCommentRef={registerCommentRef}
+                                activeFormInputRef={activeCommentFormInputRef}
+                              />
+                            ))}
+                          </Stack>
+                          {replyTo === null && editingCommentId === null ? (
+                            <CommentForm
+                              body={commentBody}
+                              disabled={submittingComment}
+                              label={t('library.page.discussion.commentLabel')}
+                              submitLabel={t('library.page.discussion.submit')}
+                              t={t}
+                              onBodyChange={setCommentBody}
+                              onSubmit={(event) => void handleCommentSubmit(event)}
+                            />
+                          ) : null}
                         </Stack>
                       )}
                     </Stack>

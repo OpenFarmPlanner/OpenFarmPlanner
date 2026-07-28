@@ -215,11 +215,32 @@ class PublicCultureDiscussionTopicSerializer(serializers.ModelSerializer):
     version = serializers.IntegerField(source='revision.version', read_only=True)
     comment_count = serializers.IntegerField(read_only=True)
     last_activity_at = serializers.DateTimeField(read_only=True)
+    last_comment_preview = serializers.CharField(read_only=True, allow_blank=True, allow_null=True)
 
     class Meta:
         model = PublicCultureDiscussionTopic
-        fields = ['id', 'public_culture', 'title', 'created_by_label', 'created_at', 'revision', 'version', 'comment_count', 'last_activity_at']
-        read_only_fields = ['id', 'public_culture', 'created_by_label', 'created_at', 'version', 'comment_count', 'last_activity_at']
+        fields = [
+            'id',
+            'public_culture',
+            'title',
+            'created_by_label',
+            'created_at',
+            'revision',
+            'version',
+            'comment_count',
+            'last_activity_at',
+            'last_comment_preview',
+        ]
+        read_only_fields = [
+            'id',
+            'public_culture',
+            'created_by_label',
+            'created_at',
+            'version',
+            'comment_count',
+            'last_activity_at',
+            'last_comment_preview',
+        ]
 
     def get_created_by_label(self, obj: PublicCultureDiscussionTopic) -> str:
         return get_public_user_label(obj.created_by)

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
-import type { PublicCulture } from '../api/types';
+import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 
@@ -155,12 +155,370 @@ describe('PublicCropLibraryPage', () => {
   it('shows discussion topics empty state and opens the new topic form', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
-    await userEvent.click(screen.getByRole('tab', { name: 'Diskussion' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     expect(await screen.findByText('Noch keine Diskussionen')).toBeInTheDocument();
-    expect(screen.getByText(/Fragen zu den Daten/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: '+ Neue Diskussion' }));
+    expect(screen.getByText(/Frage zu den Daten/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Neue Diskussion' }));
     expect(screen.getByRole('textbox', { name: 'Titel' })).toHaveFocus();
     expect(screen.getByRole('textbox', { name: 'Kommentar' })).toBeInTheDocument();
+  });
+
+  it('shows discussion topics as an interactive activity-sorted overview', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [
+      {
+        id: 11,
+        public_culture: 1,
+        title: 'TKG ok?',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-27T10:00:00Z',
+        revision: 99,
+        version: 4,
+        comment_count: 1,
+        last_activity_at: '2026-07-28T10:00:00Z',
+        last_comment_preview: '**Was** ist die Quelle für das TKG?',
+      },
+      {
+        id: 10,
+        public_culture: 1,
+        title: 'Allgemeine Diskussion',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-27T09:00:00Z',
+        comment_count: 3,
+        last_activity_at: '2026-07-27T12:00:00Z',
+        last_comment_preview: 'Da stimmt was nicht',
+      },
+    ];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
+
+    const { container } = renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+
+    const overviewText = container.textContent ?? '';
+    expect(overviewText.indexOf('TKG ok?')).toBeLessThan(overviewText.indexOf('Allgemeine Diskussion'));
+    expect(screen.getByText('Martin Public · 1 Beitrag · zuletzt aktiv 28.07.2026')).toBeInTheDocument();
+    expect(screen.getByText('Martin Public · 3 Beiträge · zuletzt aktiv 27.07.2026')).toBeInTheDocument();
+    expect(screen.getByText('Was ist die Quelle für das TKG?')).toBeInTheDocument();
+    expect(screen.getByText('Da stimmt was nicht')).toBeInTheDocument();
+    expect(screen.getByText('Version 4')).toBeInTheDocument();
+
+    const topicRow = screen.getByRole('button', { name: /TKG ok?/ });
+    topicRow.focus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 11));
+  });
+
+  it('creates a new discussion inline and opens it after saving', async () => {
+    const user = userEvent.setup();
+    const createdTopic: PublicCultureDiscussionTopic = {
+      id: 20,
+      public_culture: 1,
+      title: 'Neue Frage',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-28T10:00:00Z',
+      last_comment_preview: 'Was ist hier gemeint?',
+    };
+    const createdComment: PublicCultureDiscussionComment = {
+      id: 21,
+      topic: 20,
+      parent: null,
+      body: 'Was ist hier gemeint?',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      updated_at: '2026-07-28T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    };
+    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    publicCultureApiMocks.discussionTopics
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [createdTopic] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByRole('button', { name: 'Neue Diskussion' }));
+
+    expect(screen.queryByRole('button', { name: 'Neue Diskussion' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Titel' })).toHaveFocus();
+    await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'Neue Frage');
+    await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Was ist hier gemeint?');
+    await user.click(screen.getByRole('button', { name: 'Diskussion starten' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
+      title: 'Neue Frage',
+      body: 'Was ist hier gemeint?',
+      revision: undefined,
+    }));
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
+    expect(screen.getByText('Was ist hier gemeint?')).toBeInTheDocument();
+  });
+
+  it('returns focus to the new discussion button after cancelling the inline editor', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    const newTopicButton = await screen.findByRole('button', { name: 'Neue Diskussion' });
+
+    await user.click(newTopicButton);
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    expect(screen.getByRole('button', { name: 'Neue Diskussion' })).toHaveFocus();
+  });
+
+  it('keeps the selected version reference when starting a discussion from the version history', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.versions.mockResolvedValue({
+      data: [{
+        id: 99,
+        public_culture: 1,
+        version: 4,
+        action: 'updated',
+        snapshot: {},
+        changed_fields: [],
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T10:00:00Z',
+      }],
+    });
+    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({
+      data: {
+        id: 30,
+        public_culture: 1,
+        title: 'TKG ok?',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T10:00:00Z',
+        revision: 99,
+        version: 4,
+        comment_count: 1,
+        last_activity_at: '2026-07-28T10:00:00Z',
+        last_comment_preview: 'Quelle?',
+      },
+    });
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Versionen' }));
+    await user.click(await screen.findByRole('button', { name: 'Diskutieren' }));
+
+    expect(screen.getByText('Bezug:')).toBeInTheDocument();
+    expect(screen.getByText('Version 4')).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'TKG ok?');
+    await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Quelle?');
+    await user.click(screen.getByRole('button', { name: 'Diskussion starten' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
+      title: 'TKG ok?',
+      body: 'Quelle?',
+      revision: 99,
+    }));
+  });
+
+  it('renders a real parent-child reply tree and keeps reply focus local', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Allgemeine Diskussion',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 4,
+      last_activity_at: '2026-07-28T10:00:00Z',
+    }];
+    const initialComments: PublicCultureDiscussionComment[] = [
+      {
+        id: 1,
+        topic: 10,
+        parent: null,
+        body: 'test2',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-27T10:00:00Z',
+        updated_at: '2026-07-27T10:00:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 2,
+        topic: 10,
+        parent: 1,
+        body: 'nein',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:00:00Z',
+        updated_at: '2026-07-28T09:00:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 3,
+        topic: 10,
+        parent: 2,
+        body: 'ja',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:10:00Z',
+        updated_at: '2026-07-28T09:10:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 4,
+        topic: 10,
+        parent: 3,
+        body: 'reply zu ja',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:20:00Z',
+        updated_at: '2026-07-28T09:20:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 5,
+        topic: 10,
+        parent: 4,
+        body: 'sehr tiefe Antwort',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:30:00Z',
+        updated_at: '2026-07-28T09:30:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 6,
+        topic: 10,
+        parent: 5,
+        body: 'noch tiefere Antwort',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:40:00Z',
+        updated_at: '2026-07-28T09:40:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+      {
+        id: 7,
+        topic: 10,
+        parent: 1,
+        body: 'reply zu test2',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T09:50:00Z',
+        updated_at: '2026-07-28T09:50:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+      },
+    ];
+    const createdReply: PublicCultureDiscussionComment = {
+      id: 8,
+      topic: 10,
+      parent: 2,
+      body: 'Neue Antwort auf nein',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      updated_at: '2026-07-28T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    };
+
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments
+      .mockResolvedValueOnce({ data: initialComments })
+      .mockResolvedValueOnce({ data: [...initialComments, createdReply] });
+    publicCultureApiMocks.createDiscussionComment.mockResolvedValue({ data: createdReply });
+
+    const { container } = renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Allgemeine Diskussion'));
+
+    const threadText = container.textContent ?? '';
+    expect(threadText.indexOf('test2')).toBeLessThan(threadText.indexOf('nein'));
+    expect(threadText.indexOf('nein')).toBeLessThan(threadText.indexOf('ja'));
+    expect(threadText.indexOf('ja')).toBeLessThan(threadText.indexOf('reply zu ja'));
+    expect(threadText.indexOf('reply zu ja')).toBeLessThan(threadText.indexOf('reply zu test2'));
+    expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
+
+    const commentA = container.querySelector('[data-comment-id="1"]');
+    const commentB = container.querySelector('[data-comment-id="2"]');
+    const commentC = container.querySelector('[data-comment-id="3"]');
+    const commentD = container.querySelector('[data-comment-id="7"]');
+    const deepComment = container.querySelector('[data-comment-id="6"]');
+    expect(commentA).toHaveAttribute('data-logical-depth', '0');
+    expect(commentB).toHaveAttribute('data-logical-depth', '1');
+    expect(commentC).toHaveAttribute('data-logical-depth', '2');
+    expect(commentD).toHaveAttribute('data-logical-depth', '1');
+    expect(commentB).toHaveAttribute('data-visual-depth', '1');
+    expect(commentD).toHaveAttribute('data-visual-depth', '1');
+    expect(deepComment).toHaveAttribute('data-logical-depth', '5');
+    expect(deepComment).toHaveAttribute('data-visual-depth', '3');
+    expect(screen.getAllByText('Antwort auf Martin Public').length).toBeGreaterThan(0);
+
+    expect(commentB).not.toBeNull();
+    await user.click(within(commentB as HTMLElement).getByRole('button', { name: 'Auf Beitrag von Martin Public antworten' }));
+    expect(screen.getByRole('textbox', { name: 'Antwort' })).toHaveFocus();
+    await user.type(screen.getByRole('textbox', { name: 'Antwort' }), 'Neue Antwort auf nein');
+    await user.click(screen.getByRole('button', { name: 'Absenden' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neue Antwort auf nein', 2));
+    await screen.findByText('Neue Antwort auf nein');
+    const updatedThreadText = container.textContent ?? '';
+    expect(updatedThreadText.indexOf('ja')).toBeLessThan(updatedThreadText.indexOf('Neue Antwort auf nein'));
+    expect(updatedThreadText.indexOf('Neue Antwort auf nein')).toBeLessThan(updatedThreadText.indexOf('reply zu test2'));
+    expect(document.activeElement).toHaveTextContent('Neue Antwort auf nein');
+  });
+
+  it('creates a root-level contribution from the general comment field', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Allgemeine Diskussion',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 0,
+      last_activity_at: null,
+    }];
+    const createdRootComment: PublicCultureDiscussionComment = {
+      id: 50,
+      topic: 10,
+      parent: null,
+      body: 'Neuer Root-Beitrag',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      updated_at: '2026-07-28T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    };
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [createdRootComment] });
+    publicCultureApiMocks.createDiscussionComment.mockResolvedValue({ data: createdRootComment });
+
+    const { container } = renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Allgemeine Diskussion'));
+    await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Neuer Root-Beitrag');
+    await user.click(screen.getByRole('button', { name: 'Absenden' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neuer Root-Beitrag', undefined));
+    await screen.findByText('Neuer Root-Beitrag');
+    expect(container.querySelector('[data-comment-id="50"]')).toHaveAttribute('data-logical-depth', '0');
   });
 
   it('shows only provenance metadata in the public culture detail section', async () => {

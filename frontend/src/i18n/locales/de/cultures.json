@@ -496,7 +496,7 @@
       "tabs": {
         "details": "Details",
         "versions": "Versionen",
-        "discussion": "Diskussion"
+        "discussion": "Diskussionen"
       },
       "byAuthor": "Von {{author}}",
       "metaByDate": "{{author}} · {{date}}",
@@ -589,7 +589,7 @@
         }
       },
       "discussion": {
-        "newTopic": "+ Neue Diskussion",
+        "newTopic": "Neue Diskussion",
         "titleLabel": "Titel",
         "commentLabel": "Kommentar",
         "comment": "Kommentieren",
@@ -597,16 +597,22 @@
         "commentSuccess": "Kommentar wurde gespeichert.",
         "commentError": "Kommentar konnte nicht gespeichert werden.",
         "emptyTitle": "Noch keine Diskussionen",
-        "empty": "Starte eine Diskussion, wenn du Fragen zu den Daten hast oder eine Änderung abstimmen möchtest.",
+        "empty": "Hast du eine Frage zu den Daten oder möchtest du etwas zur Kultur besprechen?",
         "create": "Diskussion starten",
         "cancel": "Abbrechen",
-        "back": "Zurück zu den Diskussionen",
-        "topicMeta": "{{author}} · {{date}} · {{count}} Beiträge",
-        "versionReference": "Zu Version {{version}}",
+        "back": "Alle Diskussionen",
+        "topicMeta_one": "{{author}} · {{count}} Beitrag · zuletzt aktiv {{date}}",
+        "topicMeta_other": "{{author}} · {{count}} Beiträge · zuletzt aktiv {{date}}",
+        "versionReference": "Bezug:",
         "reply": "Antworten",
         "replyLabel": "Antwort",
+        "replyToAuthor": "Auf Beitrag von {{author}} antworten",
+        "replyContext": "Antwort auf {{author}}",
+        "repliesForAuthor": "Antworten auf Beitrag von {{author}}",
+        "moreActions": "Weitere Aktionen",
         "edit": "Bearbeiten",
         "delete": "Löschen",
+        "discardDraftConfirm": "Die aktuelle Eingabe verwerfen?",
         "edited": "bearbeitet",
         "deleted": "Kommentar wurde gelöscht.",
         "submit": "Absenden"

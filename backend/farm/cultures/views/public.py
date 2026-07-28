@@ -4,7 +4,7 @@
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -189,9 +189,16 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     def discussion_topics(self, request: Request, pk: int | None = None) -> Response:
         public_culture = self.get_object()
         if request.method == 'GET':
+            latest_comment_body = PublicCultureDiscussionComment.objects.filter(
+                topic=OuterRef('pk'),
+            ).order_by('-created_at', '-pk').values('body')[:1]
             topics = public_culture.discussion_topics.select_related(
                 'created_by__public_profile', 'revision'
-            ).annotate(comment_count=Count('comments'), last_activity_at=Max('comments__created_at'))
+            ).annotate(
+                comment_count=Count('comments'),
+                last_activity_at=Max('comments__created_at'),
+                last_comment_preview=Subquery(latest_comment_body),
+            ).order_by('-last_activity_at', '-created_at', '-pk')
             serializer = PublicCultureDiscussionTopicSerializer(topics, many=True, context={'request': request})
             return Response(serializer.data)
 
@@ -205,8 +212,13 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             topic = topic_serializer.save(public_culture=public_culture, created_by=request.user)
             comment_serializer.save(topic=topic, created_by=request.user)
+        latest_comment_body = PublicCultureDiscussionComment.objects.filter(
+            topic=OuterRef('pk'),
+        ).order_by('-created_at', '-pk').values('body')[:1]
         topic = public_culture.discussion_topics.select_related('created_by__public_profile', 'revision').annotate(
-            comment_count=Count('comments'), last_activity_at=Max('comments__created_at')
+            comment_count=Count('comments'),
+            last_activity_at=Max('comments__created_at'),
+            last_comment_preview=Subquery(latest_comment_body),
         ).get(pk=topic.pk)
         return Response(PublicCultureDiscussionTopicSerializer(topic, context={'request': request}).data, status=status.HTTP_201_CREATED)
 

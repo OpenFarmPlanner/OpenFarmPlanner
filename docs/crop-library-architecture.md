@@ -59,7 +59,13 @@ dependencies remain.
 Structured discussions use `PublicCultureDiscussionTopic` as a culture-owned
 container and `PublicCultureDiscussionComment` for both top-level contributions
 and replies. A nullable self-referencing `parent` preserves the exact reply
-target while the frontend deliberately renders at most one indentation level.
+target while the frontend renders a real reply tree with capped visual
+indentation, so deep discussions keep their logical parent chain without
+shrinking the content column indefinitely.
+The topic overview is activity-oriented: the API returns topics ordered by the
+newest comment activity and includes the comment count, latest activity time,
+latest comment preview, and optional revision reference needed for the compact
+discussion list without per-topic comment fetches.
 Topics may reference an immutable `PublicCultureRevision`, so the version being
 discussed remains stable when newer revisions are created. Comments use soft
 deletion (`deleted_at`/`deleted_by`) and retain their row and replies; edits keep

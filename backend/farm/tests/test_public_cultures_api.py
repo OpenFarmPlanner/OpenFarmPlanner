@@ -1,6 +1,9 @@
 """API tests for the public culture library endpoints."""
 
 
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
@@ -406,6 +409,54 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(reply_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(PublicCultureDiscussionComment.objects.count(), 2)
         self.assertEqual(reply_response.data['parent'], first_comment.id)
+
+    def test_nested_discussion_replies_keep_their_exact_parent(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Nested replies', created_by=self.user)
+        comment_a = PublicCultureDiscussionComment.objects.create(topic=topic, body='A', created_by=self.user)
+
+        response_b = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'B', 'parent': comment_a.id},
+            format='json',
+        )
+        response_c = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'C', 'parent': response_b.data['id']},
+            format='json',
+        )
+        response_d = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'D', 'parent': comment_a.id},
+            format='json',
+        )
+
+        self.assertEqual(response_b.status_code, status.HTTP_201_CREATED, response_b.data)
+        self.assertEqual(response_c.status_code, status.HTTP_201_CREATED, response_c.data)
+        self.assertEqual(response_d.status_code, status.HTTP_201_CREATED, response_d.data)
+        self.assertEqual(response_b.data['parent'], comment_a.id)
+        self.assertEqual(response_c.data['parent'], response_b.data['id'])
+        self.assertEqual(response_d.data['parent'], comment_a.id)
+
+    def test_discussion_topics_include_activity_preview_and_are_sorted_by_activity(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        older_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Older topic', created_by=self.user)
+        newer_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Active topic', created_by=self.user)
+        now = timezone.now()
+        older_comment = PublicCultureDiscussionComment.objects.create(topic=older_topic, body='Older preview', created_by=self.user)
+        first_newer_comment = PublicCultureDiscussionComment.objects.create(topic=newer_topic, body='First active comment', created_by=self.user)
+        latest_newer_comment = PublicCultureDiscussionComment.objects.create(topic=newer_topic, body='Latest active preview', created_by=self.user)
+        PublicCultureDiscussionComment.objects.filter(pk=older_comment.pk).update(created_at=now - timedelta(days=2))
+        PublicCultureDiscussionComment.objects.filter(pk=first_newer_comment.pk).update(created_at=now - timedelta(days=1))
+        PublicCultureDiscussionComment.objects.filter(pk=latest_newer_comment.pk).update(created_at=now)
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([topic['title'] for topic in response.data], ['Active topic', 'Older topic'])
+        self.assertEqual(response.data[0]['comment_count'], 2)
+        self.assertEqual(response.data[0]['last_comment_preview'], 'Latest active preview')
+        self.assertIsNotNone(response.data[0]['last_activity_at'])
 
     def test_anonymous_user_can_read_but_cannot_create_discussions(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
