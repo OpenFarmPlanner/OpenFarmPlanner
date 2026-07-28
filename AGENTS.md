@@ -111,6 +111,60 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
   preserve browser back/forward semantics for user-driven navigation and
   direct links.
 
+## Responsive UI and Mobile Regression Protection
+- Treat desktop, tablet, and mobile layouts as separate UI states that must be
+  considered deliberately.
+- Do not interpret a desktop change as an intended mobile change unless the
+  task explicitly says so or the mobile impact is functionally necessary.
+- Preserve existing mobile behavior and layout by default when the task does
+  not ask for mobile changes.
+- Changes to shared components, styles, buttons, action menus, headers,
+  toolbars, breakpoints, or layout containers must be checked for mobile
+  impact before they are considered safe.
+- Avoid broad style or component changes that accidentally alter mobile
+  variants. Use explicit responsive props, breakpoint-specific styles,
+  separated layout branches, or scoped component variants when needed.
+- Avoid technical duplication, but never at the cost of distinct desktop and
+  mobile requirements.
+- Preserve intentional differences between desktop and mobile. Do not align a
+  working mobile view to desktop purely for consistency.
+- When a change also affects mobile for product reasons, design the mobile
+  interaction intentionally instead of deriving it mechanically from the
+  desktop solution.
+- Account for mobile constraints: narrow width, touch target size, absent hover
+  states, long-press instead of right-click, browser Back behavior, fullscreen
+  dialogs or drawers instead of popovers, text truncation, portrait and
+  landscape orientation, and the position and priority of primary and
+  secondary actions.
+
+## Required UI Change Review
+For every UI component or style change, check:
+
+1. Which views and breakpoints use the changed component or style?
+2. Is the task intended for desktop, mobile, or both?
+3. Does behavior on unaffected breakpoints remain unchanged?
+4. Are there existing intentional desktop/mobile variants?
+5. Do action buttons, menus, and title areas still work at narrow widths?
+6. Are there overlaps, clipped text, hidden controls, or displaced actions?
+7. Does the view work in mobile portrait and landscape orientation?
+8. Are hover-based interactions excluded from mobile or replaced appropriately?
+9. Were relevant automated tests, visual checks, or screenshots added or run
+   where the project workflow calls for them?
+
+Decision rule:
+- If the task asks only for a desktop change, treat mobile as regression
+  protection and keep it as unchanged as possible.
+- If a mobile change is not clearly required, do not redesign mobile silently.
+  Keep the existing mobile version, or explicitly call out the uncertainty in
+  the final summary.
+- Redesign mobile only when it is explicitly requested or functionally
+  necessary.
+
+Final summaries for UI changes must briefly state which breakpoints were
+checked, whether mobile stayed unchanged or was intentionally changed, how
+responsive regressions were avoided for shared components, and which relevant
+tests, screenshots, or manual checks were performed.
+
 ## UI Consistency / OpenFarmPlanner Style
 - When creating or modifying UI elements, always follow the existing OpenFarmPlanner design language.
 - This applies especially to info boxes, warning boxes, validation messages, confirmation dialogs, empty states, snackbars and undo messages, context menus, hover actions, buttons, tables, DataGrid behavior, forms, and helper texts.
