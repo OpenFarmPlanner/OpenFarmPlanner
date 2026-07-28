@@ -225,33 +225,49 @@ export default function HomePage() {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
         <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 1.5, md: 2 }, pb: { xs: 2.5, md: 3 } }}>
-          {/* Reachable but not dominant: quiet, right-aligned, above the hero. */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: { xs: 0.5, md: 1 } }}>
-            <PublicLanguageSwitcher dense />
-          </Box>
-          <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
-            <Box
-              component="img"
-              src={publicAssetUrl('/favicon.png')}
-              alt=""
-              aria-hidden
-              sx={{
-                width: { xs: 40, md: 48 },
-                height: 'auto',
-                opacity: 0.95,
-              }}
-            />
-            <Typography
-              variant="h2"
-              component="h1"
-              sx={{
-                fontSize: { xs: '1.9rem', md: '2.5rem' },
-                fontWeight: 600,
-                lineHeight: 1.1,
-              }}
+          <Stack
+            component="header"
+            direction="row"
+            spacing={{ xs: 0.75, sm: 2 }}
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ minHeight: 48 }}
+          >
+            <Stack
+              direction="row"
+              spacing={{ xs: 0.75, sm: 1.4 }}
+              alignItems="center"
+              sx={{ minWidth: 0, flex: '1 1 auto' }}
             >
-              {t('landing.title')}
-            </Typography>
+              <Box
+                component="img"
+                src={publicAssetUrl('/favicon.png')}
+                alt=""
+                aria-hidden
+                sx={{
+                  width: { xs: 32, sm: 40, md: 48 },
+                  height: 'auto',
+                  flexShrink: 0,
+                  opacity: 0.95,
+                }}
+              />
+              <Typography
+                variant="h2"
+                component="h1"
+                sx={{
+                  minWidth: 0,
+                  fontSize: { xs: '1.1rem', sm: '1.9rem', md: '2.5rem' },
+                  fontWeight: 600,
+                  lineHeight: 1.1,
+                  overflowWrap: 'normal',
+                }}
+              >
+                {t('landing.title')}
+              </Typography>
+            </Stack>
+            <Box sx={{ flex: '0 0 auto' }}>
+              <PublicLanguageSwitcher dense />
+            </Box>
           </Stack>
         </Container>
 
