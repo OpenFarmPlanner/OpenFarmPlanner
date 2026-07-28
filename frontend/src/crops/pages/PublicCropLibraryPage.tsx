@@ -46,6 +46,7 @@ import type {
 } from '../../api/types';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
+import { DetailPageActions } from '../../components/layout/DetailPageActions';
 import PageHelp from '../../components/help/PageHelp';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
@@ -1803,7 +1804,7 @@ export default function PublicCropLibraryPage() {
                 ) : (
                 <Stack sx={{ minHeight: '100%' }}>
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
-                    <Stack direction="row" spacing={1.5} alignItems="flex-start" justifyContent="space-between">
+                    <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="flex-start" justifyContent="space-between">
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
                           <Box
@@ -1836,51 +1837,22 @@ export default function PublicCropLibraryPage() {
                           </Stack>
                         </Box>
                       </Box>
-                      {isMobile ? (
-                        <Stack direction="row" spacing={0.5} sx={{ mt: -0.5 }}>
-                          <Tooltip title={t('library.page.edit.open')}>
-                            <IconButton
-                              color="primary"
-                              aria-label={t('library.page.edit.open')}
-                              onClick={openEditDialog}
-                            >
-                              <EditOutlinedIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={t('library.importButton')}>
-                            <span>
-                              <IconButton
-                                color="primary"
-                                aria-label={t('library.importButton')}
-                                disabled={importingId !== null}
-                                onClick={() => void handleImport()}
-                              >
-                                <DownloadOutlinedIcon />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </Stack>
-                      ) : (
-                        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<EditOutlinedIcon />}
-                            onClick={openEditDialog}
-                          >
-                            {t('library.page.edit.open')}
-                          </Button>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<DownloadOutlinedIcon />}
-                            disabled={importingId !== null}
-                            onClick={() => void handleImport()}
-                          >
-                            {importingId ? t('library.importing') : t('library.importButton')}
-                          </Button>
-                        </Stack>
-                      )}
+                      <DetailPageActions
+                        primaryActions={[
+                          {
+                            label: t('library.page.edit.open'),
+                            icon: <EditOutlinedIcon fontSize="small" />,
+                            onClick: openEditDialog,
+                          },
+                          {
+                            label: importingId ? t('library.importing') : t('library.importButton'),
+                            icon: <DownloadOutlinedIcon fontSize="small" />,
+                            onClick: () => void handleImport(),
+                            disabled: importingId !== null,
+                            variant: 'contained',
+                          },
+                        ]}
+                      />
                     </Stack>
                   </CardContent>
                   <Divider />

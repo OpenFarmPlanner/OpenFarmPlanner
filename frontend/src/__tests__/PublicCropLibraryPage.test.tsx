@@ -1177,6 +1177,14 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
   });
 
+  it('shows public culture primary actions as labeled buttons', async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+
+    expect(await screen.findByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+  });
+
   it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
     const user = userEvent.setup();
     renderPage();

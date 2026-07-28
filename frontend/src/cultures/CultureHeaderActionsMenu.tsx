@@ -1,5 +1,4 @@
 import { Divider, Menu, MenuItem } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import HistoryIcon from '@mui/icons-material/History';
 import PublicIcon from '@mui/icons-material/Public';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -10,7 +9,6 @@ import type { TFunction } from 'i18next';
 interface CultureHeaderActionsMenuProps {
   anchorEl: HTMLElement | null;
   onClose: () => void;
-  onEdit: () => void;
   onOpenHistory: () => void;
   onPublish: () => void;
   isPublishing: boolean;
@@ -32,7 +30,6 @@ interface CultureHeaderActionsMenuProps {
 export function CultureHeaderActionsMenu({
   anchorEl,
   onClose,
-  onEdit,
   onOpenHistory,
   onPublish,
   isPublishing,
@@ -50,10 +47,6 @@ export function CultureHeaderActionsMenu({
       open={Boolean(anchorEl)}
       onClose={onClose}
     >
-      <MenuItem onClick={() => { onClose(); onEdit(); }}>
-        <EditIcon sx={{ fontSize: 18, mr: 1, color: 'rgba(37, 111, 42, 0.86)' }} />
-        {t('buttons.edit')}
-      </MenuItem>
       <MenuItem onClick={() => { onClose(); onOpenHistory(); }}>
         <HistoryIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
         {t('buttons.versions')}

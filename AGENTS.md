@@ -99,6 +99,9 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
 - Reuse existing layout and topbar patterns.
 - Maintain responsive behavior.
 - Avoid layout shifts during state changes.
+- Detail-page primary actions must be labeled buttons with consistent size,
+  spacing, and icons; reserve overflow menus for secondary or rarely used
+  actions.
 - Use TypeScript for frontend code; do not introduce plain JavaScript where TypeScript is possible.
 - Use PascalCase for component names and `useSomething` names for hooks.
 - Prefer strongly typed props and avoid `any`.

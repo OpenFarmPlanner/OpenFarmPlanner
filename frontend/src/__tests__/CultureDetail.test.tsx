@@ -606,17 +606,28 @@ describe('CultureDetail Component', () => {
     expect(screen.queryByText('9 %')).not.toBeInTheDocument();
   });
 
-  it('edit and plan action buttons have accessible aria-labels (ACC-01 regression guard)', () => {
+  it('shows edit and plan as labeled primary actions and keeps secondary actions in overflow', async () => {
+    const user = userEvent.setup();
     renderCultureDetail(
       <CultureDetail
         cultures={mockCultures}
         selectedCultureId={1}
         onCultureSelect={vi.fn()}
         onEditCulture={vi.fn()}
+        onCreatePlan={vi.fn()}
+        onOpenHistory={vi.fn()}
+        onPublishCulture={vi.fn()}
       />
     );
 
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
+
+    expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Versionen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Veröffentlichen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Projektkultur löschen' })).toBeInTheDocument();
   });
 });
