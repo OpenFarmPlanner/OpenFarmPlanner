@@ -24,7 +24,7 @@ import {
   GridRowModes,
   useGridApiRef,
 } from "@mui/x-data-grid";
-import { germanDataGridLocaleText } from "../components/data-grid/localeText";
+import { getDataGridLocaleText } from "../components/data-grid/localeText";
 import type {
   GridCellParams,
   GridEventListener,
@@ -78,6 +78,7 @@ import { useHierarchyGridFocus } from "../components/hierarchy/hooks/useHierarch
 import { useHierarchyNavigationState } from "../components/hierarchy/hooks/useHierarchyNavigationState";
 import { useHierarchyRowUpdate } from "../components/hierarchy/hooks/useHierarchyRowUpdate";
 import { useHierarchyContextMenu } from "../components/hierarchy/hooks/useHierarchyContextMenu";
+import { keywordList } from "../commands/keywordList";
 import { useHierarchyKeyboard } from "../components/hierarchy/hooks/useHierarchyKeyboard";
 import { useHierarchyGridKeyboard } from "../components/hierarchy/hooks/useHierarchyGridKeyboard";
 import { usePersistentSortModel } from "../hooks/usePersistentSortModel";
@@ -1094,18 +1095,18 @@ function FieldsBedsHierarchy({
     () => [
       {
         id: "areas.create",
-        label: "Neu erstellen",
+        label: t("hierarchy:commands.create"),
         group: 'navigation',
-      keywords: ["neu", "anbauflächen", "create"],
+      keywords: keywordList(t, "hierarchy:commands.keywords.create"),
                         contextTags: ["areas"],
         isEnabled: () => selectedRowIdRef.current !== null,
         action: handleCreateBySelection,
       },
       {
         id: "areas.edit",
-        label: "Bearbeiten",
+        label: t("common:actions.edit"),
         group: 'navigation',
-      keywords: ["bearbeiten", "edit"],
+      keywords: keywordList(t, "hierarchy:commands.keywords.edit"),
         contextTags: ["areas"],
         isEnabled: () => {
           const row = rowsRef.current.find((r) => r.id === selectedRowIdRef.current);
@@ -1115,16 +1116,16 @@ function FieldsBedsHierarchy({
       },
       {
         id: "areas.delete",
-        label: "Löschen (Alt+Shift+D)",
+        label: t("hierarchy:commands.delete"),
         group: 'navigation',
-      keywords: ["löschen", "delete"],
+      keywords: keywordList(t, "hierarchy:commands.keywords.delete"),
                 keys: { key: "Delete" },
         contextTags: ["areas"],
         isEnabled: () => selectedRowIdRef.current !== null,
         action: handleDeleteSelected,
       },
     ],
-    [handleCreateBySelection, handleDeleteSelected, handleEditSelected, rowsRef, selectedRowIdRef],
+    [handleCreateBySelection, handleDeleteSelected, handleEditSelected, rowsRef, selectedRowIdRef, t],
   );
 
   useRegisterCommands("areas-page", areaCommands);
@@ -1603,7 +1604,7 @@ function FieldsBedsHierarchy({
               disableRowSelectionOnClick
               onCellClick={handleHierarchyCellClick}
               onCellKeyDown={handleHierarchyCellKeyDown}
-              localeText={germanDataGridLocaleText}
+              localeText={getDataGridLocaleText()}
               apiRef={gridApiRef}
             />
             {!isMobileViewport && (

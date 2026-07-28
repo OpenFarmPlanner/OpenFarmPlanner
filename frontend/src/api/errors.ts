@@ -12,21 +12,36 @@ import axios, { AxiosError } from 'axios';
  */
 type TFunction = (key: string, options?: Record<string, unknown>) => string;
 
-const fieldLabelFallbacks: Record<string, string> = {
-  area_input_value: 'Fläche',
-  area_usage_sqm: 'Fläche (m²)',
-  area_sqm: 'Fläche (m²)',
-  planting_date: 'Pflanzdatum',
-  harvest_date: 'Erntebeginn',
-  harvest_end_date: 'Ernteende',
-  quantity: 'Pflanzen',
-  cultivation_type: 'Anbauart',
-  culture: 'Kultur',
-  bed: 'Beet',
-  field: 'Parzelle',
-  location: 'Standort',
-  non_field_errors: 'Fehler',
-};
+/**
+ * Backend field names the page namespaces do not label themselves.
+ *
+ * Resolved through `common:errorFieldLabels.*` so validation errors are shown
+ * in the active UI language instead of hardcoded German.
+ */
+const FALLBACK_LABEL_FIELDS = [
+  'area_input_value',
+  'area_usage_sqm',
+  'area_sqm',
+  'planting_date',
+  'harvest_date',
+  'harvest_end_date',
+  'quantity',
+  'cultivation_type',
+  'culture',
+  'bed',
+  'field',
+  'location',
+  'non_field_errors',
+] as const;
+
+function fieldLabelFallback(t: TFunction, field: string): string | undefined {
+  if (!(FALLBACK_LABEL_FIELDS as readonly string[]).includes(field)) {
+    return undefined;
+  }
+  const key = `common:errorFieldLabels.${field}`;
+  const translated = t(key);
+  return translated === key ? undefined : translated;
+}
 
 function translatedOrFallback(t: TFunction, key: string, fallback: string): string {
   const translated = t(key);
@@ -157,7 +172,7 @@ export function extractApiErrorMessage(
             fieldName = t(field);
           }
           if (!fieldName || fieldName === field) {
-            fieldName = fieldLabelFallbacks[field] ?? field;
+            fieldName = fieldLabelFallback(t, field) ?? field;
           }
           if (Array.isArray(value)) {
             value.forEach((msg: unknown) => {

@@ -1,3 +1,5 @@
+import i18n from 'i18next';
+
 import { normalizeImportCultureEntry } from './importUtils';
 import { buildHeaderToKeyMap, normalizeHeaderForLookup, CULTURE_COLUMNS } from './spreadsheetColumns';
 import { parseSpreadsheetRows } from './spreadsheetFile';
@@ -51,7 +53,7 @@ export const parseSpreadsheetFile = async (file: File): Promise<SpreadsheetParse
   const buffer = await readFileAsArrayBuffer(file);
   const extension = file.name.split('.').pop()?.toLowerCase() as SpreadsheetExportFormat | undefined;
   if (extension !== 'xlsx' && extension !== 'ods' && extension !== 'csv') {
-    return { entries: [], skippedRows: 0, warnings: ['Dieses Tabellenformat wird nicht unterstützt.'] };
+    return { entries: [], skippedRows: 0, warnings: [i18n.t('cultures:import.errors.unsupportedFormat')] };
   }
   const rows = parseSpreadsheetRows(buffer, extension);
   if (rows.length < 1) {

@@ -19,6 +19,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.languages import UI_LANGUAGE_AUTO
+
 from .consent import record_acceptance
 from .guest_demo import create_guest_demo_session, delete_guest_demo_session
 from .data_export import build_personal_data_export
@@ -37,9 +39,17 @@ from .services import (
     _validate_serializer_in_german,
     record_verified_email as _record_verified_email,
 )
-from .models import AccountDeletionRequest, AccountEmailChangeRequest, GuestDemoSession, PendingActivation, PublicProfile
+from .models import (
+    AccountDeletionRequest,
+    AccountEmailChangeRequest,
+    GuestDemoSession,
+    PendingActivation,
+    PublicProfile,
+    UserProjectSettings,
+)
 from .serializers import (
     AccountEmailChangeConfirmSerializer,
+    AccountLanguageSerializer,
     AccountEmailChangeRequestSerializer,
     AccountDeleteRequestSerializer,
     AccountPasswordChangeSerializer,
@@ -274,6 +284,36 @@ class AccountPublicProfileView(APIView):
         except IntegrityError:
             raise serializers.ValidationError({'public_display_name': ['Dieser Name wird bereits verwendet.']})
         return Response({'detail': PROFILE_UPDATED_MESSAGE, 'user': UserSerializer(request.user).data})
+
+
+class AccountLanguageView(APIView):
+    """Reads and stores the signed-in user's personal UI language preference.
+
+    Deliberately a user-level setting and not a project setting: members of the
+    same project must be able to use it in different languages at once.
+    """
+
+    # Stated explicitly rather than relying on the project-wide default: this
+    # endpoint writes to the user's stored settings, so it must never be
+    # reachable anonymously even if that default changes.
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        settings_row = getattr(request.user, 'project_settings', None)
+        return Response({
+            'ui_language': getattr(settings_row, 'ui_language', UI_LANGUAGE_AUTO) or UI_LANGUAGE_AUTO,
+        })
+
+    def put(self, request: Request) -> Response:
+        serializer = AccountLanguageSerializer(data=request.data)
+        _validate_serializer_in_german(serializer)
+        ui_language = serializer.validated_data['ui_language']
+        UserProjectSettings.objects.update_or_create(
+            user=request.user,
+            defaults={'ui_language': ui_language},
+        )
+        request.user.refresh_from_db()
+        return Response({'ui_language': ui_language, 'user': UserSerializer(request.user).data})
 
 
 class AccountEmailChangeRequestView(APIView):

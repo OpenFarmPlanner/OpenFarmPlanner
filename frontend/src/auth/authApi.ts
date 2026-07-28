@@ -342,6 +342,21 @@ export async function updateProfile(displayName: string): Promise<{ detail: stri
   });
 }
 
+/**
+ * Persist the signed-in user's UI language preference ('auto' | 'de' | 'en').
+ *
+ * The setting belongs to the user, not to a project, so two members of the
+ * same project can use different interface languages at the same time.
+ */
+export async function updateUiLanguage(uiLanguage: string): Promise<{ ui_language: string; user: AuthUser }> {
+  await ensureCsrfCookie();
+  return request<{ ui_language: string; user: AuthUser }>('/auth/account/language/', {
+    method: 'PUT',
+    headers: csrfHeader(),
+    body: JSON.stringify({ ui_language: uiLanguage }),
+  });
+}
+
 export async function updatePublicDisplayName(publicDisplayName: string): Promise<{ detail: string; user: AuthUser }> {
   await ensureCsrfCookie();
   return request<{ detail: string; user: AuthUser }>('/auth/account/public-profile/', {

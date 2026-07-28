@@ -47,6 +47,7 @@ nav:
       - Versioning and History: versioning-and-history.md
       - Large-Dataset Rendering: large-dataset-rendering.md
       - SEO & Indexing: seo-and-indexing.md
+      - Internationalization (i18n): i18n.md
   - QA / Process:
       - QA Strategy: qa-strategy.md
       - Excluded Issues: qa-excluded-issues.md

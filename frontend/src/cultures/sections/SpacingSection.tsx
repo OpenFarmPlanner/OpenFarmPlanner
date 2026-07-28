@@ -22,8 +22,8 @@ export function SpacingSection({ formData, errors, onChange, t }: SpacingSection
         <TextField
           sx={smallFieldSx}
           type="number"
-          label={t('form.distanceWithinRowCm', { defaultValue: 'Abstand in der Reihe (cm)' })}
-          placeholder={t('form.distanceWithinRowCmPlaceholder', { defaultValue: 'z.B. 25' })}
+          label={t('form.distanceWithinRowCm')}
+          placeholder={t('form.distanceWithinRowCmPlaceholder')}
           value={formData.distance_within_row_cm ?? ''}
           onChange={e => onChange('distance_within_row_cm', e.target.value ? parseInt(e.target.value) : undefined)}
           error={Boolean(errors.distance_within_row_cm)}
@@ -33,8 +33,8 @@ export function SpacingSection({ formData, errors, onChange, t }: SpacingSection
         <TextField
           sx={smallFieldSx}
           type="number"
-          label={t('form.rowSpacingCm', { defaultValue: 'Reihenabstand (cm)' })}
-          placeholder={t('form.rowSpacingCmPlaceholder', { defaultValue: 'z.B. 40' })}
+          label={t('form.rowSpacingCm')}
+          placeholder={t('form.rowSpacingCmPlaceholder')}
           value={formData.row_spacing_cm ?? ''}
           onChange={e => onChange('row_spacing_cm', e.target.value ? parseInt(e.target.value) : undefined)}
           error={Boolean(errors.row_spacing_cm)}
@@ -44,8 +44,8 @@ export function SpacingSection({ formData, errors, onChange, t }: SpacingSection
         <TextField
           sx={smallFieldSx}
           type="number"
-          label={t('form.sowingDepthCm', { defaultValue: 'Saattiefe (cm)' })}
-          placeholder={t('form.sowingDepthCmPlaceholder', { defaultValue: 'z.B. 2' })}
+          label={t('form.sowingDepthCm')}
+          placeholder={t('form.sowingDepthCmPlaceholder')}
           value={formData.sowing_depth_cm ?? ''}
           onChange={e => onChange('sowing_depth_cm', e.target.value ? parseFloat(e.target.value) : undefined)}
           error={Boolean(errors.sowing_depth_cm)}

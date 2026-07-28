@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from config.languages import UI_LANGUAGE_AUTO, UI_LANGUAGE_VALUES
 from crops.permissions import is_public_library_moderator
 from farm.models import ProjectMembership
 from farm.project_context import resolve_project_for_user
@@ -74,6 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
     is_guest_demo = serializers.SerializerMethodField()
     guest_demo_session_id = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
+    ui_language = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -99,8 +101,14 @@ class UserSerializer(serializers.ModelSerializer):
             'is_guest_demo',
             'guest_demo_session_id',
             'has_password',
+            'ui_language',
         )
         read_only_fields = fields
+
+    def get_ui_language(self, obj: User) -> str:
+        """Stored UI language preference: 'auto', 'de' or 'en'."""
+        settings_row = getattr(obj, 'project_settings', None)
+        return getattr(settings_row, 'ui_language', UI_LANGUAGE_AUTO) or UI_LANGUAGE_AUTO
 
     def get_display_name(self, obj: User) -> str:
         full_name = f'{obj.first_name} {obj.last_name}'.strip()
@@ -269,6 +277,19 @@ class AccountRestoreSerializer(serializers.Serializer):
 
 class AccountProfileSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=255, allow_blank=True, required=True)
+
+
+class AccountLanguageSerializer(serializers.Serializer):
+    """Validates the personal UI language preference before it is stored."""
+
+    ui_language = serializers.CharField(max_length=10)
+
+    def validate_ui_language(self, value: str) -> str:
+        normalized = (value or '').strip().lower()
+        if normalized not in UI_LANGUAGE_VALUES:
+            allowed = ', '.join(sorted(UI_LANGUAGE_VALUES))
+            raise serializers.ValidationError(f'Unsupported language. Allowed values: {allowed}.')
+        return normalized or UI_LANGUAGE_AUTO
 
 
 class AccountPublicProfileSerializer(serializers.Serializer):

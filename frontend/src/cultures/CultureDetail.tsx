@@ -698,7 +698,7 @@ export function CultureDetail({
                           alignSelf: 'stretch',
                           flexShrink: 0,
                         }}
-                        aria-label="Kulturfarbe"
+                        aria-label={t('form.displayColorAria')}
                         title={selectedCulture.display_color}
                       />
                     ) : null}

@@ -7,7 +7,8 @@
     "publicProfile": "Public culture library",
     "security": "Login & security",
     "privacy": "Privacy & data export",
-    "account": "Account"
+    "account": "Account",
+    "language": "Language"
   },
   "dataExport": {
     "description": "Download a structured copy of your account, project, and public library data as a JSON file.",
@@ -92,5 +93,8 @@
     "hintsResetDone": "Hints reset.",
     "resetHintsAction": "Reset hints",
     "showOnboardingAction": "Show onboarding again"
+  },
+  "language": {
+    "description": "The interface language belongs to your account, not to a project. Other members of the same project can use OpenFarmPlanner in a different language at the same time. Content you type yourself — project, location and bed names — is never translated."
   }
 }

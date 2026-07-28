@@ -25,7 +25,7 @@ describe('ResetPasswordPage', () => {
     const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
     const toggleButton = screen.getAllByRole('button', { name: 'Passwort anzeigen' })[0];
 
-    await user.tab();
+    passwordInput.focus();
     await user.tab();
 
     expect(toggleButton).toHaveFocus();

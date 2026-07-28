@@ -1,5 +1,6 @@
 {
   "home": "Home",
+  "dashboard": "Overview",
   "locations": "Locations",
   "fieldsAndBeds": "Fields",
   "cultures": "Cultures",
@@ -110,8 +111,17 @@
     "createNewShortcut": "Create new",
     "contextualShortcutsTitle": "Contextual keyboard shortcuts (Alt+K)",
     "contextualShortcutsDescription": "Shortcuts are browser-safe and do not override common browser shortcuts.",
-    "versionHistoryTitle": "Version history",
+    "universalShortcutsTitle": "Basic navigation",
+    "universalShortcuts": {
+      "nextRegion": "Next focus region",
+      "previousRegion": "Previous focus region",
+      "withinRegion": "Navigate within the region",
+      "closeDialog": "Close dialog or menu"
+    },
+    "currentRegionShortcutsTitle": "Current focus region",
     "currentVersion": "Current version",
+    "versionHistoryTitle": "Version history",
+    "versionHistoryEmpty": "No changes recorded yet.",
     "restoreVersion": "Switch to this version",
     "contextTitles": {
       "global": "Global",
@@ -140,7 +150,7 @@
       "openPageHelp": "Open page help",
       "leaveDemo": "Leave demo",
       "logout": "Logout",
-      "openShortcuts": "Open page help",
+      "openShortcutsHelp": "Show keyboard shortcuts",
       "closeDialog": "Close dialog",
       "calendarToday": "Jump to current period",
       "calendarPreviousPeriod": "Previous calendar period",
@@ -160,6 +170,14 @@
       "versionRestoreError": "Could not restore project version.",
       "leaveDemoError": "Could not leave the demo. Please try again.",
       "logoutError": "Logout failed. Please try again."
-    }
+    },
+    "shortcutHint": "Tip: press Alt+K for the command palette."
+  },
+  "language": {
+    "label": "Language"
+  },
+  "versionHistory": {
+    "currentChip": "Current",
+    "versionChip": "Version"
   }
 }

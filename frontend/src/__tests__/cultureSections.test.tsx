@@ -7,18 +7,13 @@ import { SeedingSection } from '../cultures/sections/SeedingSection';
 import { HarvestSection } from '../cultures/sections/HarvestSection';
 import { BasicInfoSection } from '../cultures/sections/BasicInfoSection';
 
-const translations: Record<string, string> = {
-  'form.sowingCalculationSafetyPercentLabel': 'Sicherheitszuschlag für Saatgut (%)',
-  'form.thousandKernelWeightLabel': '1000-Korn-Gewicht (g)',
-  'form.seedUnitPlaceholder': 'Einheit auswählen',
-};
+import i18n from '../i18n/config';
 
-const t = (key: string, options?: Record<string, unknown>) => {
-  if (typeof options?.defaultValue === 'string') {
-    return options.defaultValue;
-  }
-  return translations[key] ?? key;
-};
+// Resolve against the real German bundle rather than a hand-kept stub map, so
+// a key removed from the bundle fails the test instead of silently rendering
+// the raw key.
+const t = (key: string, options?: Record<string, unknown>) =>
+  i18n.getFixedT('de', 'cultures')(key, options) as string;
 
 describe('culture form UI sections', () => {
   it('renders ColorSection with default color and emits display color changes', () => {
@@ -34,14 +29,14 @@ describe('culture form UI sections', () => {
       />
     );
 
-    const colorInput = screen.getByLabelText('form.displayColor');
+    const colorInput = screen.getByLabelText('Anzeigefarbe');
     expect(colorInput).toHaveValue('#00ff00');
     expect(screen.getByText('#00FF00')).toBeInTheDocument();
 
     fireEvent.change(colorInput, { target: { value: '#123456' } });
 
     expect(onChange).toHaveBeenCalledWith('display_color', '#123456');
-    expect(screen.getByText('form.displayColorHelp')).toBeInTheDocument();
+    expect(screen.getByText('Farbe zur Darstellung im Anbaukalender.')).toBeInTheDocument();
   });
 
   it('renders the saved display color as a visible hex value', () => {
@@ -55,7 +50,7 @@ describe('culture form UI sections', () => {
       />
     );
 
-    expect(screen.getByLabelText('form.displayColor')).toHaveValue('#7cb342');
+    expect(screen.getByLabelText('Anzeigefarbe')).toHaveValue('#7cb342');
     expect(screen.getByText('#7CB342')).toBeInTheDocument();
   });
 
@@ -63,16 +58,16 @@ describe('culture form UI sections', () => {
     render(
       <ColorSection
         formData={{ display_color: '#12ZZ00' }}
-        errors={{ display_color: 'form.displayColorError' }}
+        errors={{ display_color: 'Ungültiges Farbformat (verwenden Sie #RRGGBB)' }}
         onChange={vi.fn()}
         t={t}
         defaultColor="#00ff00"
       />
     );
 
-    expect(screen.getByLabelText('form.displayColor')).toHaveValue('#00ff00');
+    expect(screen.getByLabelText('Anzeigefarbe')).toHaveValue('#00ff00');
     expect(screen.getByText('#12ZZ00')).toBeInTheDocument();
-    expect(screen.getByText('form.displayColorError')).toBeInTheDocument();
+    expect(screen.getByText('Ungültiges Farbformat (verwenden Sie #RRGGBB)')).toBeInTheDocument();
   });
 
   it('renders NotesSection and emits note changes', () => {
@@ -87,7 +82,7 @@ describe('culture form UI sections', () => {
       />
     );
 
-    const notesInput = screen.getByLabelText('form.notes');
+    const notesInput = screen.getByLabelText('Notizen');
     expect(notesInput).toHaveValue('Bestehende Notiz');
 
     fireEvent.change(notesInput, { target: { value: 'Neue Notiz' } });
@@ -177,7 +172,7 @@ describe('culture form UI sections', () => {
     const unitSelect = screen.getByRole('combobox');
     fireEvent.mouseOver(unitSelect);
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('form.seedRateHelp');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Saatgutmenge pro ausgewählter Einheit. Daraus wird der Gesamtbedarf berechnet.');
 
     fireEvent.mouseDown(unitSelect);
 
@@ -280,7 +275,7 @@ describe('culture form UI sections', () => {
       />
     );
 
-    const yieldInput = screen.getByLabelText('form.expectedYield (kg)');
+    const yieldInput = screen.getByLabelText('Erwarteter Ertrag (kg)');
     expect(yieldInput).toHaveValue(3.5);
 
     fireEvent.change(yieldInput, { target: { value: '4.25' } });
@@ -289,7 +284,7 @@ describe('culture form UI sections', () => {
     fireEvent.change(yieldInput, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith('expected_yield', undefined);
     expect(screen.getByText('Ungültig')).toBeInTheDocument();
-    expect(screen.getByLabelText('form.expectedYield (kg)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Erwarteter Ertrag (kg)')).toBeInTheDocument();
   });
 
   it('name and variety fields enforce maxLength=200 (K-01 regression guard)', () => {
@@ -302,8 +297,8 @@ describe('culture form UI sections', () => {
       />
     );
 
-    const nameInput = screen.getByLabelText(/form\.name/i);
-    const varietyInput = screen.getByLabelText(/form\.variety/i);
+    const nameInput = screen.getByLabelText(/^Name/i);
+    const varietyInput = screen.getByLabelText(/^Sorte/i);
 
     expect(nameInput).toHaveAttribute('maxlength', '200');
     expect(varietyInput).toHaveAttribute('maxlength', '200');

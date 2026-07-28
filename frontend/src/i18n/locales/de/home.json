@@ -305,5 +305,15 @@
         }
       }
     }
+  },
+  "seo": {
+    "titles": {
+      "landing": "OpenFarmPlanner – Anbauplanung für den Gemüsebau",
+      "imprint": "Impressum – OpenFarmPlanner",
+      "privacy": "Datenschutzerklärung – OpenFarmPlanner",
+      "terms": "Nutzungsbedingungen – OpenFarmPlanner",
+      "login": "Anmelden – OpenFarmPlanner",
+      "register": "Registrieren – OpenFarmPlanner"
+    }
   }
 }

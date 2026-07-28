@@ -183,7 +183,22 @@ export interface PublicCulture {
   seed_supplier?: string;
   supplier_name?: string;
   crop_species?: number | null;
+  /** Species common name already resolved into the request language. */
   crop_species_name?: string;
+  /** Canonical, language-independent species label (editorial use). */
+  crop_species_canonical_name?: string;
+  /** Every stored species name, keyed by language code. */
+  crop_species_translations?: Record<string, string>;
+  /** Species name in the request language, after the fallback chain. */
+  display_name?: string;
+  /** Language `display_name` actually came from; '' when no translation exists. */
+  display_language_code?: string;
+  /** Public description in the request language, after the fallback chain. */
+  description?: string;
+  /** Language `description` actually came from; '' when none exists. */
+  description_language_code?: string;
+  /** Every stored public description, keyed by language code. */
+  translations?: Record<string, string>;
   original_language_code?: string;
   crop_family?: string;
   nutrient_demand?: 'low' | 'medium' | 'high' | '';

@@ -1176,7 +1176,7 @@ function RootLayout() {
                   {topbarPrimaryAction.label}
                 </Button>
                 <Button
-                  aria-label="Weitere Optionen"
+                  aria-label={t('common:actions.moreOptions')}
                   aria-controls={topbarPrimaryActionMenuAnchor ? 'topbar-primary-action-menu' : undefined}
                   aria-haspopup="true"
                   aria-expanded={Boolean(topbarPrimaryActionMenuAnchor)}
@@ -1689,7 +1689,7 @@ function RootLayout() {
                   ...visibleNodes,
                   <Button
                     key="mobile-actions-overflow-trigger"
-                    aria-label="Weitere Aktionen"
+                    aria-label={t('common:actions.moreActions')}
                     aria-controls={mobileActionsOverflowAnchor ? 'mobile-actions-overflow-menu' : undefined}
                     aria-haspopup="true"
                     aria-expanded={Boolean(mobileActionsOverflowAnchor)}
@@ -1809,8 +1809,8 @@ function RootLayout() {
                       <Stack spacing={1}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                           {isCurrentVersion
-                            ? <Chip label="Aktuell" size="small" color="success" variant="outlined" />
-                            : <Chip label="Version" size="small" variant="outlined" />}
+                            ? <Chip label={t('versionHistory.currentChip')} size="small" color="success" variant="outlined" />
+                            : <Chip label={t('versionHistory.versionChip')} size="small" variant="outlined" />}
                           {historyTarget ? (
                             <Link
                               component={RouterLink}

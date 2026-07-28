@@ -76,6 +76,7 @@
   "actions": {
     "addField": "Add field",
     "addBed": "Add bed",
+    "addShortcutHint": "Ins",
     "createLocation": "Add location",
     "addAdditionalLocation": "Multiple places? Add another location",
     "undo": "Undo",
@@ -114,5 +115,14 @@
   "confirm": {
     "deleteFieldWithBeds": "Do you really want to delete this field? All associated beds will also be deleted.",
     "deleteBed": "Do you really want to delete this bed?"
+  },
+  "commands": {
+    "create": "Create new",
+    "delete": "Delete (Alt+Shift+D)",
+    "keywords": {
+      "create": "new, growing areas, create",
+      "edit": "edit",
+      "delete": "delete"
+    }
   }
 }

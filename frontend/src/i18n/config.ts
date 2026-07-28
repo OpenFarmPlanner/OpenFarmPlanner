@@ -1,13 +1,22 @@
 /**
- * i18n configuration for OpenFarmPlanner
- * 
- * Sets up internationalization using i18next and react-i18next.
- * Default language is German (de) for v1.
- * Structured translation keys in separate namespaces for maintainability.
+ * i18n configuration for OpenFarmPlanner.
+ *
+ * The startup language comes from `resolveInitialLanguage()`: the user's
+ * stored choice, otherwise the browser language, otherwise English. A
+ * signed-in user's server-side preference is applied on top once their
+ * profile loads (`useLanguagePreference`), so a deliberate choice survives
+ * reloads and new sessions and is never silently re-overridden by the browser
+ * language.
+ *
+ * Translation keys are grouped into namespaces by functional area; both
+ * locale bundles must define the same keys (enforced by
+ * `src/__tests__/i18nKeyParity.test.ts`).
  */
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+
+import { FALLBACK_LANGUAGE, resolveInitialLanguage } from './languages';
 
 // Import translation files
 import commonDE from './locales/de/common.json';
@@ -49,9 +58,11 @@ import helpEN from './locales/en/help.json';
 i18n
   .use(initReactI18next)
   .init({
-    // Set German as the default and fallback language
-    lng: 'de',
-    fallbackLng: 'de',
+    // Resolved from the stored choice / browser language; English is the
+    // last-resort fallback for both the language and for missing keys.
+    lng: resolveInitialLanguage(),
+    fallbackLng: FALLBACK_LANGUAGE,
+    supportedLngs: ['de', 'en'],
     
     // Enable debug mode in development
     debug: import.meta.env.DEV && import.meta.env.MODE !== 'test',
@@ -112,5 +123,17 @@ i18n
       useSuspense: false, // Disable suspense for easier integration
     },
   });
+
+// Keep <html lang> in step from the very first paint. index.html ships a
+// static `lang`, so without this the document would claim the wrong language
+// until a component mounted and corrected it.
+function applyDocumentLanguage(language: string): void {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = language;
+  }
+}
+
+applyDocumentLanguage(i18n.resolvedLanguage ?? i18n.language ?? FALLBACK_LANGUAGE);
+i18n.on('languageChanged', applyDocumentLanguage);
 
 export default i18n;

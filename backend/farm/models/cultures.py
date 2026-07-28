@@ -930,8 +930,78 @@ class PublicCulture(TimestampedModel):
         public_profile = getattr(self.created_by, 'public_profile', None)
         return public_profile.public_display_name if public_profile else ''
 
+    def descriptions_by_language(self) -> dict[str, str]:
+        """language code → public description, for every stored translation."""
+        return {
+            translation.language_code: translation.description
+            for translation in self.translations.all()
+            if translation.description
+        }
+
+    def localized_description(self, language_code: str | None) -> tuple[str, str]:
+        """Public description in the best available language, plus that language.
+
+        Falls back to :attr:`notes` (the original-language text, kept in sync
+        with the original translation row) so entries published before
+        translations existed keep rendering.
+        """
+        from config.languages import resolve_translation
+
+        text, used = resolve_translation(self.descriptions_by_language(), language_code)
+        if text:
+            return text, used
+        return self.notes or '', (self.original_language_code or '')
+
+    def display_name(self, language_code: str | None) -> tuple[str, str]:
+        """Species common name in the requested language, plus that language.
+
+        ``variety`` is deliberately not part of this: variety names are proper
+        names and are never translated. Callers combine the two themselves.
+        """
+        if self.crop_species_id and self.crop_species is not None:
+            return self.crop_species.localized_name(language_code)
+        # Pre-species legacy entries only ever had their own single-language
+        # name; surfacing it unchanged beats showing an empty cell.
+        return self.name, (self.original_language_code or '')
+
     def __str__(self) -> str:
         return f"{self.name} ({self.variety})" if self.variety else self.name
+
+
+class PublicCultureTranslation(models.Model):
+    """Translatable editorial text of one public crop entry, per language.
+
+    Only the free-text public description is language-dependent. The variety
+    name, supplier, spacings, durations, temperatures and every other
+    numeric/technical field stay on :class:`PublicCulture` because they are
+    language-independent facts, not translatable prose.
+    """
+
+    public_culture = models.ForeignKey(
+        PublicCulture,
+        on_delete=models.CASCADE,
+        related_name='translations',
+    )
+    language_code = models.CharField(max_length=10, db_index=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['language_code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['public_culture', 'language_code'],
+                name='unique_public_culture_translation_per_language',
+            ),
+        ]
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.language_code = (self.language_code or '').strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f'{self.public_culture_id} [{self.language_code}]'
 
 
 class PublicCultureStatusEvent(models.Model):

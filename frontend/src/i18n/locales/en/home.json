@@ -151,6 +151,19 @@
           "content": "Within your projects, we process the project-related data entered by you and other project members. This includes, in particular, master data of the project (e.g. project name, memberships and locations), operational planning and management data for the features in use (e.g. relating to fields, crops, cultivation planning or tasks), and supplementary information such as notes, uploaded files, and the change history, including the display name of the person who made the change. This data is generally visible only to you and the other members of the respective project.",
           "legalBasis": "Legal basis: Art. 6(1)(b) GDPR"
         },
+        "publicLibrary": {
+          "title": "Public crop library",
+          "content": "You can publish individual crop records (for example growing information about a vegetable variety) from a private project into a public crop library yourself. This library is intended as a collaboratively built, permanently maintained knowledge base. Published entries can be viewed by other users, imported into their own projects, and in future reused through features such as version histories, collaborative editing, comments, ratings, public APIs or data exports. Publishing is voluntary and is not required in order to use OpenFarmPlanner. Which rights of use you grant to the general public and to OpenFarmPlanner by doing so is governed by the terms of service, in particular the section \"Open licence for published crop data\".",
+          "bullets": {
+            "publicContent": "Only the agricultural growing data of the crop is published (for example name, variety, growth and harvest duration, plant spacing, seed quantity, supplier name). Notes from the private project are not published.",
+            "attribution": "The author of a published entry is shown using the public display name that you can choose freely in your account settings. This name belongs to your account, not to the individual entry: if you set it for the first time or change it, it automatically appears as the author on all crops you have already published; if you remove it again, those entries are shown anonymously once more. Previous names are not stored on individual entries. If you have not set a public display name, publication is anonymous, without any name. The display name must be unique; when it is set, a technical check verifies whether it is already used by another account. Your username and your email address are never part of a public entry; the email address is used solely for account management and for our communication with you (see the section \"Email communication\").",
+            "noReview": "Publication happens immediately and directly through you; there is currently no review or approval of the content by us.",
+            "persistence": "A published entry generally remains part of the public library permanently, even if you later change or delete the original crop in your private project.",
+            "removal": "Removal is not provided as a normal user feature. It is only considered in exceptional cases, such as legal violations, personal data in the published record, spam, obvious abuse, or a moderation decision.",
+            "futureOutlook": "In the long term the crop library is intended to be developed collaboratively. Feedback on entries should in future be given through features inside the application — such as comments, ratings, version histories, public APIs or data exports — and not through other users' personal contact details."
+          },
+          "legalBasis": "Legal basis: Art. 6(1)(b) GDPR, insofar as we make your contribution available in the public crop library on the basis of the terms of service and your explicit act of publication. Insofar as published contributions still contain personal references, for example through the public display name, and we retain them permanently for the integrity and traceability of the collaborative knowledge base, we additionally rely on Art. 6(1)(f) GDPR. Our legitimate interest lies in building and maintaining a reliable open crop database. Purely factual or anonymised crop data does not fall under the GDPR."
+        },
         "emailCommunication": {
           "title": "Email communication",
           "content": "We use your email address for:",
@@ -200,7 +213,8 @@
             "deletion": "Deletion of your data",
             "restriction": "Restriction of processing",
             "portability": "Data portability",
-            "objection": "Objection to processing"
+            "objection": "Objection to processing",
+            "consentWithdrawal": "Withdrawal of a consent you have given, with effect for the future, without affecting the lawfulness of processing carried out until then (Art. 7(3) GDPR)"
           },
           "contact": "You can correct your account data, export your data, and request account deletion directly in the account settings. For exceptional cases that are not covered by these self-service functions, the controller remains reachable at info@openfarmplanner.org."
         },
@@ -290,6 +304,16 @@
           "content": "We update these Terms of Service if the offered functions or legal framework change. The version published within the application at the time of your use is authoritative; the date of the last change can be found at the top of this page. In the event of material changes, we will inform active users in an appropriate way, for example by email or through a notice in the application."
         }
       }
+    }
+  },
+  "seo": {
+    "titles": {
+      "landing": "OpenFarmPlanner – planting planning for vegetable growing",
+      "imprint": "Imprint – OpenFarmPlanner",
+      "privacy": "Privacy policy – OpenFarmPlanner",
+      "terms": "Terms of service – OpenFarmPlanner",
+      "login": "Sign in – OpenFarmPlanner",
+      "register": "Sign up – OpenFarmPlanner"
     }
   }
 }

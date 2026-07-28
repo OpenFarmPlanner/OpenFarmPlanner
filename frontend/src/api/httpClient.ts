@@ -1,7 +1,9 @@
 import axios from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
+import i18n from 'i18next';
 import { isAuthenticationExpiredError } from './errors';
 import { createAuthenticationExpiredEvent } from '../auth/authEvents';
+import { FALLBACK_LANGUAGE } from '../i18n/languages';
 
 const PROD_API_PATH = '/api';
 
@@ -124,6 +126,14 @@ httpClient.interceptors.request.use((config) => {
     config.headers['X-Project-Id'] = activeProjectId;
   }
 
+
+  // Tell the API which language to resolve public crop-library content in.
+  // Read fresh per request (like X-Project-Id above) so a language switch
+  // applies to everything fetched afterwards without a reload. Only public
+  // library text is affected — user-entered project content is always served
+  // exactly as it was typed.
+  config.headers = config.headers ?? {};
+  config.headers['Accept-Language'] = i18n.resolvedLanguage ?? i18n.language ?? FALLBACK_LANGUAGE;
 
   const method = (config.method ?? 'get').toLowerCase();
   if (['post', 'put', 'patch', 'delete'].includes(method)) {

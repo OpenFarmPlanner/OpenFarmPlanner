@@ -92,7 +92,8 @@
     "already_member": "This email address is already a project member.",
     "invalid_email": "Please provide a valid email address.",
     "invitation_error": "Invitation could not be created.",
-    "last_admin": "At least one project admin must remain."
+    "last_admin": "At least one project admin must remain.",
+    "email_send_failed": "The email could not be sent. Please contact [info@openfarmplanner.org](mailto:info@openfarmplanner.org)."
   },
   "listLoadFailed": "Invitations could not be loaded.",
   "projectMembers": {
@@ -116,5 +117,6 @@
     "redirectingToLogin": "Redirecting to sign in…",
     "redirectingBack": "Sign in successful. Processing invitation now…",
     "addedToProject": "You have been added to the project."
-  }
+  },
+  "memberManagementNoAccess": "You are viewing this page as a member. Managing members requires admin rights."
 }

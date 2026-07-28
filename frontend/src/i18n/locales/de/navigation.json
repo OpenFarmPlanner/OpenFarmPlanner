@@ -172,5 +172,12 @@
       "logoutError": "Abmeldung fehlgeschlagen. Bitte versuche es erneut."
     },
     "shortcutHint": "Tipp: Drücke Alt+K für die Command Palette."
+  },
+  "language": {
+    "label": "Sprache"
+  },
+  "versionHistory": {
+    "currentChip": "Aktuell",
+    "versionChip": "Version"
   }
 }

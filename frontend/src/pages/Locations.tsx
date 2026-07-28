@@ -300,8 +300,8 @@ function Locations() {
 
         {!loading && !shouldShowProjectRequiredState && locations.length === 0 ? (
           <EmptyStateCard
-            title="Noch keine Standorte vorhanden"
-            description="Standorte helfen dir, deine Anbauflächen zu strukturieren, zum Beispiel verschiedene Gärten oder Felder."
+            title={t('locations:emptyState.title')}
+            description={t('locations:emptyState.description')}
             actions={[{ label: t('locations:addButton'), onClick: openCreateDialog }]}
           />
         ) : (

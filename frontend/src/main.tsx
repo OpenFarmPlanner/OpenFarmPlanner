@@ -9,12 +9,14 @@ import theme from './theme'
 import { CommandProvider } from './commands/CommandProvider'
 import { AuthProvider } from './auth/AuthContext'
 import { FocusManagerProvider } from './focus/FocusManager'
+import LanguageSynchronizer from './i18n/LanguageSynchronizer'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
+        <LanguageSynchronizer />
         <FocusManagerProvider>
           <CommandProvider>
             <App />

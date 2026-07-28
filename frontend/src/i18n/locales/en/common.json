@@ -1,24 +1,158 @@
 {
+  "appName": "OpenFarmPlanner",
+  "actions": {
+    "add": "Add",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "undo": "Undo",
+    "copyRow": "Copy row",
+    "copyTable": "Copy table",
+    "save": "Save",
+    "saveRow": "Save row",
+    "cancelRowEdit": "Cancel editing",
+    "deleteRow": "Delete row",
+    "cancel": "Cancel",
+    "reset": "Reset",
+    "search": "Search",
+    "close": "Close",
+    "actions": "Actions",
+    "moreOptions": "More options",
+    "moreActions": "More actions"
+  },
+  "messages": {
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Error",
+    "success": "Success",
+    "rowCopied": "Row copied.",
+    "tableCopied": "Table copied.",
+    "copyError": "The data could not be copied.",
+    "contextMenuTableHint": "Tip: Right-click a row for more actions.",
+    "contextMenuTableHintTouch": "Tip: Press and hold a row for more actions.",
+    "contextMenuHintKeyboard": "Alternatively: context menu key or Shift+F10.",
+    "confirmation": "Confirmation",
+    "rowChanged": "Changed",
+    "unsavedChanges": "You have unsaved changes in the table. Clicking outside a row will save them. Do you really want to continue?",
+    "validationErrors": "There are validation errors that must be fixed before you can continue. Please correct the errors or cancel editing (Escape key).",
+    "noRows": "No entries",
+    "noResults": "No matching entries found"
+  },
+  "fields": {
+    "name": "Name",
+    "address": "Address",
+    "notes": "Notes",
+    "description": "Description",
+    "project": "Project"
+  },
+  "columns": {
+    "project": "Project"
+  },
+  "hierarchyLevelToggle": {
+    "expandTooltip": "Show one more hierarchy level",
+    "collapseTooltip": "Hide one hierarchy level"
+  },
+  "project": "Project",
+  "setupActions": {
+    "createField": "Add plot",
+    "createBed": "Add bed",
+    "openAreas": "Open growing areas",
+    "openCultureLibrary": "Open crop library",
+    "createCulture": "Add crop",
+    "createPlan": "Add planting plan"
+  },
+  "notes": {
+    "empty": "No notes",
+    "editEmpty": "Add note",
+    "editWithContent": "Edit note",
+    "attachmentsCount_one": "{{count}} photo in notes",
+    "attachmentsCount_other": "{{count}} photos in notes"
+  },
+  "notesPreview": {
+    "heading": "Note",
+    "empty": "No note available",
+    "openNote": "Open note",
+    "loadingImages": "Loading images…",
+    "imagesLoadError": "The images could not be loaded.",
+    "openImageAria": "Open photo",
+    "moreImagesAria": "Open {{count}} more photos"
+  },
   "notesDrawer": {
+    "takePhoto": "Take photo",
+    "selectFromGallery": "Choose from gallery",
+    "uploading": "Uploading…",
+    "attachmentAlt": "Attachment",
+    "markdownPlaceholder": "Notes in Markdown…",
+    "imageDialogTitle": "Photo",
+    "attachmentPreviewAlt": "Attachment preview",
+    "cropDialogTitle": "Crop",
+    "cropInstructions": "Draw, move and resize the crop area. The area outside is dimmed.",
+    "cropSourceAlt": "Crop source",
+    "backendUnavailable": "Image processing is currently unavailable on the server. Please install Pillow and restart the backend.",
+    "uploadFailed": "Upload failed. Please try again.",
+    "tabs": {
+      "edit": "Edit",
+      "preview": "Preview"
+    },
     "unsavedDialog": {
       "title": "Unsaved notes",
       "message": "The notes contain unsaved changes. Continue editing or discard the changes?",
       "continueEditing": "Continue editing",
       "discardAndClose": "Discard"
+    },
+    "markdownToolbar": {
+      "bold": "Bold",
+      "boldTooltip": "Bold (Ctrl+B)",
+      "italic": "Italic",
+      "italicTooltip": "Italic (Ctrl+I)",
+      "code": "Code",
+      "heading": "Heading",
+      "bulletList": "Bulleted list",
+      "numberedList": "Numbered list",
+      "link": "Insert link",
+      "quote": "Quote"
+    },
+    "defaults": {
+      "bold": "bold text",
+      "italic": "italic text",
+      "heading": "Heading",
+      "listItem": "List item",
+      "linkText": "Link text",
+      "quote": "Quote"
     }
   },
-  "messages": {
-    "contextMenuTableHint": "Tip: Right-click a row for more actions.",
-    "contextMenuTableHintTouch": "Tip: Press and hold a row for more actions."
-  },
   "errors": {
+    "generic": "An unexpected error occurred. Please try again.",
     "sessionExpired": "Your session has expired. Please sign in again.",
+    "noPublicCultures": "No public crops were found.",
+    "bedNotFound": "The bed was not found.",
+    "fileTooLarge": "The file is too large (maximum 10 MB).",
+    "invalidImage": "The uploaded file is not a valid image.",
     "supplierDataDuplicate": "This supplier already has data for this culture.",
     "supplierDataMissingSupplier": "Select a supplier or remove the supplier data.",
     "supplierSpecificTkgUnsupported": "Supplier-specific thousand-kernel weight is no longer supported.",
     "supplierProjectMismatch": "The supplier does not belong to the active project.",
     "selectedSupplierProjectMismatch": "The selected seed supplier does not belong to the active project.",
     "cultureProjectMismatch": "The culture does not belong to the active project."
+  },
+  "validation": {
+    "required": "This field is required.",
+    "invalidEmail": "Please enter a valid email address.",
+    "minLength": "At least {{count}} characters required.",
+    "invalidNumberExample": "Please enter a valid number, e.g. 3.9",
+    "areaInputPositive": "The value must be greater than 0.",
+    "bedAreaExceeded": "The area entered exceeds the maximum area available on this bed.",
+    "availableArea": "Remaining area available"
+  },
+  "projectRequired": {
+    "noProjectsTitle": "You do not have a project yet.",
+    "noProjectsDescription": "Create a project first to manage locations, growing areas, planting plans and calendars.",
+    "noProjectsSelectionDescription": "Create your first project to start planning.",
+    "noActiveProjectTitle": "No project is currently selected.",
+    "noActiveProjectDescription": "Select a project to manage locations, growing areas, planting plans and calendars.",
+    "createProjectAction": "Create first project",
+    "createFirstProjectAction": "Create first project",
+    "selectProjectAction": "Select project"
   },
   "projectOnboarding": {
     "pageTitle": "Start your first project",
@@ -36,5 +170,26 @@
   "runtime": {
     "applicationUpdatedFallback": "The application could not be updated automatically. Please try again later.",
     "routeErrorFallback": "The page could not be restored automatically. Please try again later."
-  }
+  },
+  "language": {
+    "label": "Language",
+    "auto": "Automatic (browser language)",
+    "switcherLabel": "Change language, currently: {{language}}"
+  },
+  "errorFieldLabels": {
+    "area_input_value": "Area",
+    "area_usage_sqm": "Area (m²)",
+    "area_sqm": "Area (m²)",
+    "planting_date": "Planting date",
+    "harvest_date": "Harvest start",
+    "harvest_end_date": "Harvest end",
+    "quantity": "Plants",
+    "cultivation_type": "Cultivation type",
+    "culture": "Crop",
+    "bed": "Bed",
+    "field": "Plot",
+    "location": "Location",
+    "non_field_errors": "Error"
+  },
+  "dateFormatPlaceholder": "DD.MM.YYYY"
 }

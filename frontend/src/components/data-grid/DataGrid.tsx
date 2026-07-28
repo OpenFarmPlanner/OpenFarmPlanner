@@ -60,7 +60,7 @@ import { useNotesEditor } from './useNotesEditor';
 import { useNotesPreview } from './useNotesPreview';
 import { NotesPreviewPopover } from './NotesPreviewPopover';
 import { extractApiErrorMessage } from '../../api/errors';
-import { germanDataGridLocaleText } from './localeText';
+import { getDataGridLocaleText } from './localeText';
 import { TableCopyMenuItems } from './TableCopyMenuItems';
 import { formatClipboardValue, type TableClipboardRow } from './tableClipboard';
 import { handleContextMenuKeyboardNavigation } from './contextMenuFocus';
@@ -2573,7 +2573,7 @@ export function EditableDataGrid<T extends EditableRow>({
               void handleSaveRow(params.id);
             }
           }}
-          localeText={germanDataGridLocaleText}
+          localeText={getDataGridLocaleText()}
           apiRef={gridApiRef}
           />
           </Box>

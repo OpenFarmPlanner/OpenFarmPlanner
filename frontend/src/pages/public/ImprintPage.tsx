@@ -1,5 +1,6 @@
 import { Container, Stack, Typography } from '@mui/material';
 import { useTranslation } from '../../i18n';
+import PublicPageLanguageBar from '../../i18n/PublicPageLanguageBar';
 
 const imprintSections = [
   'provider',
@@ -13,6 +14,7 @@ export default function ImprintPage() {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 6, md: 9 } }}>
       <Stack spacing={3}>
+        <PublicPageLanguageBar />
         <Typography variant="h3" component="h1">
           {t('legal.imprint.title')}
         </Typography>

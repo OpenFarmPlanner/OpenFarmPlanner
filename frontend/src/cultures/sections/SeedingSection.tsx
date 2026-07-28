@@ -57,7 +57,7 @@ function SeedRateBlock({
           <TextField
             sx={compactFieldSx}
             type="number"
-            label={t('form.seedAmountLabel', { defaultValue: 'Menge' })}
+            label={t('form.seedAmountLabel')}
             value={formData[valueField] ?? ''}
             onChange={(e) => onChange(valueField, e.target.value ? parseFloat(e.target.value) : null)}
             error={Boolean(errors[valueField])}
@@ -68,11 +68,11 @@ function SeedRateBlock({
 
         <DropdownAwareTooltip title={unitSelectOpen ? '' : t('form.seedRateHelp')} arrow>
           <FormControl sx={smallFieldSx} error={Boolean(errors[unitField])}>
-            <InputLabel shrink>{t('form.seedUnitLabel', { defaultValue: 'Einheit' })}</InputLabel>
+            <InputLabel shrink>{t('form.seedUnitLabel')}</InputLabel>
             <Select
               fullWidth
               value={toSeedRateUnitSelectValue(formData[unitField])}
-              label={t('form.seedUnitLabel', { defaultValue: 'Einheit' })}
+              label={t('form.seedUnitLabel')}
               onChange={(e) => onChange(unitField, (e.target.value || null) as Culture[typeof unitField])}
               onOpen={() => setUnitSelectOpen(true)}
               onClose={() => setUnitSelectOpen(false)}
@@ -80,7 +80,7 @@ function SeedRateBlock({
                 if (!selected) {
                   return (
                     <Typography component="span" color="text.secondary">
-                      {t('form.seedUnitPlaceholder', { defaultValue: 'Einheit auswählen' })}
+                      {t('form.seedUnitPlaceholder')}
                     </Typography>
                   );
                 }
@@ -135,11 +135,11 @@ export function SeedingSection({ formData, errors, onChange, t }: SeedingSection
 
   return (
     <>
-      <Typography variant="h6" sx={{ mt: 2 }}>{t('form.seedRateSectionTitle', { defaultValue: 'Saatgutbedarf' })}</Typography>
+      <Typography variant="h6" sx={{ mt: 2 }}>{t('form.seedRateSectionTitle')}</Typography>
 
       {showsDirect && (
         <SeedRateBlock
-          title={t('form.seedRateDirectSectionTitle', { defaultValue: 'Saatgutbedarf Direktsaat' })}
+          title={t('form.seedRateDirectSectionTitle')}
           valueField="seed_rate_direct_value"
           unitField="seed_rate_direct_unit"
           safetyField="sowing_calculation_safety_percent_direct"
@@ -152,7 +152,7 @@ export function SeedingSection({ formData, errors, onChange, t }: SeedingSection
 
       {showsPreCultivation && (
         <SeedRateBlock
-          title={t('form.seedRatePreCultivationSectionTitle', { defaultValue: 'Saatgutbedarf Pflanzung' })}
+          title={t('form.seedRatePreCultivationSectionTitle')}
           valueField="seed_rate_pre_cultivation_value"
           unitField="seed_rate_pre_cultivation_unit"
           safetyField="sowing_calculation_safety_percent_pre_cultivation"

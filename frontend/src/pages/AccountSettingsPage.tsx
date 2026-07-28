@@ -36,6 +36,7 @@ import {
   SettingsCard,
 } from './accountSettingsCards';
 import AccountSettingsSocialCard from './accountSettingsSocialCard';
+import { AccountLanguageSelect } from '../i18n/LanguageSwitcher';
 
 export default function AccountSettingsPage() {
   const { user, requestAccountDeletion, refreshUser } = useAuth();
@@ -433,6 +434,10 @@ export default function AccountSettingsPage() {
         </SettingsCard>
 
         <AccountSettingsSocialCard />
+
+        <SettingsCard title={t('sections.language')} description={t('language.description')}>
+          <AccountLanguageSelect />
+        </SettingsCard>
 
         <SettingsCard title={t('sections.privacy')} description={t('dataExport.description')}>
           <SectionAlerts message={dataExportSection.message} error={dataExportSection.error} />

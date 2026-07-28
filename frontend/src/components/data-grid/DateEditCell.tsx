@@ -77,7 +77,7 @@ const getSegmentFromSelection = (selectionStart: number | null): DateSegment => 
 };
 
 function DateEditCellComponent(params: GridRenderEditCellParams) {
-  const { t } = useTranslation(['plantingPlans']);
+  const { t } = useTranslation(['plantingPlans', 'common']);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
   const isProgrammaticFocusRef = useRef(false);
@@ -203,7 +203,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
         size="small"
         inputRef={inputRef}
         value={displayedText}
-        placeholder="TT.MM.JJJJ"
+        placeholder={t('common:dateFormatPlaceholder')}
         sx={{
           '& .MuiInputBase-input': {
             paddingInline: '8px 0',

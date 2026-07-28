@@ -1,6 +1,7 @@
 import { Box, Container, Link, Stack, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router';
 import { useTranslation } from '../../i18n';
+import PublicPageLanguageBar from '../../i18n/PublicPageLanguageBar';
 
 const privacySections = [
   'controller',
@@ -36,6 +37,7 @@ export default function PrivacyPolicyPage() {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 6, md: 9 } }}>
       <Stack spacing={3}>
+        <PublicPageLanguageBar />
         <Typography variant="h3" component="h1">
           {t('legal.privacy.title')}
         </Typography>

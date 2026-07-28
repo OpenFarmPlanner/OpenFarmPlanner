@@ -1,269 +1,66 @@
-# i18n (Internationalization) Implementation
+# Frontend i18n — quick reference
 
-## Overview
+The full specification lives in **[`docs/i18n.md`](../docs/i18n.md)**:
+supported languages, the UI-language resolution order, storage for guests and
+signed-in users, the crop-library translation model and its fallback rules,
+cross-language search and duplicate detection, and the migration assumptions.
 
-The OpenFarmPlanner frontend now supports internationalization using **i18next** and **react-i18next**. The current version is configured with German (de) as the default language, with a clear path for adding additional languages in the future.
+This file only covers the day-to-day frontend mechanics.
 
-## Quick Start
+## Using translations
 
-### Using Translations in Components
-
-```typescript
+```tsx
 import { useTranslation } from '../i18n';
 
 function MyComponent() {
-  const { t } = useTranslation('myNamespace');
-  
-  return (
-    <div>
-      <h1>{t('title')}</h1>
-      <p>{t('description')}</p>
-    </div>
-  );
+  const { t } = useTranslation('cultures');
+  return <h1>{t('title')}</h1>;
 }
 ```
 
-### Using Multiple Namespaces
+Cross-namespace keys use the `namespace:key` form:
 
-```typescript
-const { t } = useTranslation(['myNamespace', 'common']);
-
-return (
-  <div>
-    <h1>{t('myNamespace:title')}</h1>
-    <button>{t('common:actions.save')}</button>
-  </div>
-);
+```tsx
+t('common:actions.save')
 ```
 
-## Current Implementation
+## Rules
 
-### Supported Languages
-- **German (de)** - Default and fallback language
+- **Never hardcode visible text.** Every user-visible string goes through `t()`.
+- **Never use a German `defaultValue`.** `t('key', { defaultValue: 'Speichern' })`
+  leaks German into an English UI. Add the key to both bundles instead.
+- **Add every key to both bundles.** `src/i18n/locales/de/` *and*
+  `src/i18n/locales/en/`. `src/__tests__/i18nKeyParity.test.ts` fails the build
+  on missing keys, extra keys, blank values, and mismatched `{{placeholders}}`.
+- **Name keys by function**, grouped by area (`form.nameRequired`,
+  `library.publishConfirm.title`) — never auto-numbered.
+- **Do not translate user content.** Project, location, field, bed and supplier
+  names, variety names and private notes are shown exactly as entered.
 
-### Available Namespaces
-- `common` - Shared UI elements (buttons, messages, common fields)
-- `navigation` - Navigation menu labels
-- `home` - Home page content
-- `locations` - Locations page
-- `cultures` - Cultures page  
-- `plantingPlans` - Planting Plans page
-- `fields` - Fields page
-- `beds` - Beds page
-- `hierarchy` - Hierarchical Fields/Beds view
+## Reading and changing the language
 
-### Translation Files Location
+```ts
+import { useLanguagePreference } from '../i18n/useLanguagePreference';
 
-All translation files are located in:
-```
-frontend/src/i18n/locales/{language}/{namespace}.json
-```
-
-Currently:
-```
-frontend/src/i18n/
-├── config.ts
-├── index.ts
-└── locales/
-    └── de/
-        ├── common.json
-        ├── navigation.json
-        ├── home.json
-        ├── locations.json
-        ├── cultures.json
-        ├── plantingPlans.json
-        ├── fields.json
-        ├── beds.json
-        └── hierarchy.json
+const { language, preference, setPreference } = useLanguagePreference();
+setPreference('en');   // or 'de', or 'auto' to follow the browser
 ```
 
-## Adding a New Language
+`setPreference` applies the change immediately, stores it locally, and — for a
+signed-in user — persists it to their account. The switchers themselves are in
+`src/i18n/LanguageSwitcher.tsx`.
 
-Follow these steps to add support for a new language (e.g., English):
+## Files
 
-### 1. Create Translation Files
+| Path | Purpose |
+| --- | --- |
+| `src/i18n/config.ts` | i18next setup and bundle registration |
+| `src/i18n/languages.ts` | supported languages, tag normalization, storage |
+| `src/i18n/useLanguagePreference.ts` | the single place the language is resolved |
+| `src/i18n/LanguageSwitcher.tsx` | public, account and menu switchers |
+| `src/i18n/LanguageSynchronizer.tsx` | applies the language app-wide, mounted at the root |
+| `src/i18n/locales/<lang>/*.json` | the translation bundles |
 
-```bash
-# Create directory for new language
-mkdir -p frontend/src/i18n/locales/en
+## Adding a language
 
-# Copy German files as templates
-cp frontend/src/i18n/locales/de/*.json frontend/src/i18n/locales/en/
-```
-
-### 2. Translate Content
-
-Open each `.json` file in `frontend/src/i18n/locales/en/` and translate the values (not the keys) to English.
-
-Example - `common.json`:
-```json
-{
-  "appName": "OpenFarmPlanner",
-  "actions": {
-    "add": "Add",
-    "edit": "Edit",
-    "delete": "Delete",
-    "save": "Save",
-    "cancel": "Cancel"
-  }
-}
-```
-
-### 3. Update i18n Configuration
-
-Edit `frontend/src/i18n/config.ts`:
-
-```typescript
-// 1. Import English translations
-import commonEN from './locales/en/common.json';
-import navigationEN from './locales/en/navigation.json';
-import homeEN from './locales/en/home.json';
-import locationsEN from './locales/en/locations.json';
-import culturesEN from './locales/en/cultures.json';
-import plantingPlansEN from './locales/en/plantingPlans.json';
-import fieldsEN from './locales/en/fields.json';
-import bedsEN from './locales/en/beds.json';
-import hierarchyEN from './locales/en/hierarchy.json';
-
-// 2. Add to resources
-resources: {
-  de: {
-    // ... existing German translations
-  },
-  en: {
-    common: commonEN,
-    navigation: navigationEN,
-    home: homeEN,
-    locations: locationsEN,
-    cultures: culturesEN,
-    plantingPlans: plantingPlansEN,
-    fields: fieldsEN,
-    beds: bedsEN,
-    hierarchy: hierarchyEN,
-  },
-}
-```
-
-### 4. (Optional) Add Language Switcher
-
-Create a component to allow users to switch languages:
-
-```typescript
-import { useTranslation } from 'react-i18next';
-
-function LanguageSwitcher() {
-  const { i18n } = useTranslation();
-  
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-  };
-  
-  return (
-    <div>
-      <button onClick={() => changeLanguage('de')}>Deutsch</button>
-      <button onClick={() => changeLanguage('en')}>English</button>
-    </div>
-  );
-}
-```
-
-### 5. Test the New Language
-
-Run tests to ensure nothing breaks:
-```bash
-cd frontend
-npm test
-```
-
-## Translation Best Practices
-
-1. **Never hardcode user-facing text** - Always use translation keys
-2. **Use descriptive keys** - Make keys self-documenting (e.g., `validation.nameRequired`)
-3. **Keep structure consistent** - Similar pages should have similar key structures
-4. **Use camelCase for keys** - Consistent with JavaScript conventions
-5. **Avoid deep nesting** - Maximum 3 levels recommended
-6. **Test missing keys** - Check console in development for missing translations
-
-## Key Structure Convention
-
-Standard structure for page translations:
-
-```json
-{
-  "title": "Page Title",
-  "columns": {
-    "fieldName": "Column Label"
-  },
-  "errors": {
-    "load": "Error message",
-    "save": "Error message",
-    "delete": "Error message"
-  },
-  "validation": {
-    "fieldRequired": "Validation message"
-  },
-  "confirmDelete": "Confirmation message",
-  "addButton": "Button label"
-}
-```
-
-## Features
-
-### ✅ Implemented
-- i18next integration with React
-- German language support (complete)
-- Namespace-based organization
-- Translation of all UI text in main components
-- Comprehensive documentation
-- Unit tests for i18n functionality
-- Support for interpolation (dynamic values)
-
-### 🔮 Future Enhancements
-- Language persistence (localStorage)
-- Lazy loading of translation files
-- Additional languages (English, French, etc.)
-- Pluralization support
-- Date and number localization
-- Translation management service integration
-
-## Documentation
-
-For detailed documentation, see:
-- **[I18N_DOCUMENTATION.md](./I18N_DOCUMENTATION.md)** - Complete technical documentation
-
-## Testing
-
-Run i18n tests:
-```bash
-cd frontend
-npm test i18n.test.ts
-```
-
-Run all tests:
-```bash
-cd frontend
-npm test
-```
-
-## Troubleshooting
-
-### Missing Translation Keys
-
-If you see missing translation warnings in the console:
-
-1. Check the translation file for the key
-2. Verify the namespace is loaded in `config.ts`
-3. Ensure you're using the correct namespace in `useTranslation()`
-
-### Translation Not Updating
-
-1. Clear browser cache
-2. Restart the development server
-3. Check that the JSON files are properly formatted
-
-## Support
-
-For questions or issues with i18n:
-1. Check the [I18N_DOCUMENTATION.md](./I18N_DOCUMENTATION.md)
-2. Review existing translation files for examples
-3. Open an issue in the repository
+See [`docs/i18n.md`](../docs/i18n.md) § "Adding a language".

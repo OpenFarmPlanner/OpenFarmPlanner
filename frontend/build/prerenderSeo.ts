@@ -12,6 +12,7 @@
 import { JSDOM } from 'jsdom';
 import {
   PUBLIC_INDEXABLE_ROUTES,
+  SITE_LANGUAGE,
   resolveIndexable,
   resolveSiteUrl,
   type PublicRoute,
@@ -19,7 +20,7 @@ import {
 } from '../src/seo/seoConfig';
 import { buildHeadTags } from '../src/seo/seoAssets';
 
-export { PUBLIC_INDEXABLE_ROUTES };
+export { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE };
 export type { PublicRoute };
 
 /**
