@@ -228,7 +228,12 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         topic = get_object_or_404(public_culture.discussion_topics, pk=topic_id)
         if request.method == 'GET':
             comments = topic.comments.select_related('created_by__public_profile')
-            return Response(PublicCultureDiscussionCommentSerializer(comments, many=True, context={'request': request}).data)
+            root_comment_id = comments.order_by('created_at', 'id').values_list('id', flat=True).first()
+            return Response(PublicCultureDiscussionCommentSerializer(
+                comments,
+                many=True,
+                context={'request': request, 'root_comment_id': root_comment_id},
+            ).data)
         serializer = PublicCultureDiscussionCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         parent = serializer.validated_data.get('parent')
@@ -245,6 +250,9 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         if comment.created_by_id != request.user.id and not may_moderate:
             return Response({'detail': 'You may only change your own comments.'}, status=status.HTTP_403_FORBIDDEN)
         if request.method == 'DELETE':
+            root_comment_id = comment.topic.comments.order_by('created_at', 'id').values_list('id', flat=True).first()
+            if comment.id == root_comment_id and not may_moderate:
+                return Response({'detail': 'Only moderators may delete the root discussion post.'}, status=status.HTTP_403_FORBIDDEN)
             if not comment.deleted_at:
                 comment.body = ''
                 comment.deleted_at = timezone.now()

@@ -595,7 +595,8 @@ function DiscussionComment({
             <Typography
               variant="body2"
               color={comment.deleted_at ? 'text.secondary' : 'text.primary'}
-              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}
+              aria-label={comment.deleted_at ? t('library.page.discussion.deleted') : undefined}
+              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5, fontStyle: comment.deleted_at ? 'italic' : 'normal' }}
             >
               {comment.deleted_at ? t('library.page.discussion.deleted') : comment.body}
             </Typography>
@@ -613,7 +614,7 @@ function DiscussionComment({
                 <ReplyOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {comment.can_edit ? (
+            {comment.can_edit || comment.can_delete ? (
               <>
                 <Tooltip title={t('library.page.discussion.moreActions')}>
                   <IconButton
@@ -631,10 +632,14 @@ function DiscussionComment({
                   open={Boolean(menuAnchorElement)}
                   onClose={onCloseMenu}
                 >
-                  <MenuItem onClick={() => { onCloseMenu(); onEdit(comment); }}>{t('library.page.discussion.edit')}</MenuItem>
-                  <MenuItem onClick={() => { onCloseMenu(); onDelete(comment.id); }} sx={{ color: 'error.main' }}>
-                    {t('library.page.discussion.delete')}
-                  </MenuItem>
+                  {comment.can_edit ? (
+                    <MenuItem onClick={() => { onCloseMenu(); onEdit(comment); }}>{t('library.page.discussion.edit')}</MenuItem>
+                  ) : null}
+                  {comment.can_delete ? (
+                    <MenuItem onClick={() => { onCloseMenu(); onDelete(comment.id); }} sx={{ color: 'error.main' }}>
+                      {t('library.page.discussion.delete')}
+                    </MenuItem>
+                  ) : null}
                 </Menu>
               </>
             ) : null}

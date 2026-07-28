@@ -473,7 +473,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
     def test_comment_owner_can_edit_and_soft_delete_but_other_user_cannot(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
         topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Spacing', created_by=self.user)
-        comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Original', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Original root', created_by=self.user)
+        comment = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Original reply', created_by=self.user)
+        child_comment = PublicCultureDiscussionComment.objects.create(topic=topic, parent=comment, body='Reply child', created_by=self.user)
         other_user = User.objects.create_user(username='comment-other', password='testpass')
         self.client.force_authenticate(other_user)
         forbidden = self.client.patch(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{comment.id}/', {'body': 'Changed'}, format='json')
@@ -487,6 +489,34 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNotNone(comment.deleted_at)
         self.assertEqual(comment.body, '')
+        child_comment.refresh_from_db()
+        self.assertEqual(child_comment.parent_id, comment.id)
+
+    def test_comment_owner_cannot_delete_root_discussion_post(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root guard', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIsNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, 'Root content')
+
+    def test_comment_permissions_mark_root_delete_unavailable_for_owner(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Permissions', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        reply = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Reply content', created_by=self.user)
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_id = {comment['id']: comment for comment in response.data}
+        self.assertTrue(by_id[root_comment.id]['can_edit'])
+        self.assertFalse(by_id[root_comment.id]['can_delete'])
+        self.assertTrue(by_id[reply.id]['can_delete'])
 
     def test_topic_keeps_exact_revision_when_new_versions_are_created(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user, version=1)
@@ -515,6 +545,24 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         comment.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNotNone(comment.deleted_at)
+
+    def test_public_library_moderator_can_soft_delete_root_discussion_post(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Moderation root', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        reply = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Reply content', created_by=self.user)
+        moderator = User.objects.create_user(username='discussion-root-moderator', password='testpass')
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(moderator)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        reply.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, '')
+        self.assertEqual(reply.parent_id, root_comment.id)
 
     def test_unauthenticated_user_cannot_edit_public_culture(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)

@@ -166,6 +166,7 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
     created_by_label = serializers.SerializerMethodField()
     is_edited = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicCultureDiscussionComment
@@ -180,6 +181,7 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
             'deleted_at',
             'is_edited',
             'can_edit',
+            'can_delete',
         ]
         read_only_fields = [
             'id',
@@ -190,6 +192,7 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
             'deleted_at',
             'is_edited',
             'can_edit',
+            'can_delete',
         ]
 
     def get_created_by_label(self, obj: PublicCultureDiscussionComment) -> str:
@@ -202,6 +205,21 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         return bool(user and user.is_authenticated and (obj.created_by_id == user.id or is_public_library_moderator(user)))
+
+    def get_can_delete(self, obj: PublicCultureDiscussionComment) -> bool:
+        if obj.deleted_at:
+            return False
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        may_moderate = is_public_library_moderator(user)
+        if obj.created_by_id != user.id and not may_moderate:
+            return False
+        root_comment_id = self.context.get('root_comment_id')
+        if root_comment_id is None:
+            root_comment_id = obj.topic.comments.order_by('created_at', 'id').values_list('id', flat=True).first()
+        return bool(may_moderate or obj.id != root_comment_id)
 
     def validate_body(self, value: str) -> str:
         value = value.strip()

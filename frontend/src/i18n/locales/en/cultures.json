@@ -225,7 +225,7 @@
         "delete": "Delete",
         "discardDraftConfirm": "Discard the current draft?",
         "edited": "edited",
-        "deleted": "Comment was deleted.",
+        "deleted": "This post was deleted.",
         "submit": "Submit"
       },
       "edit": {

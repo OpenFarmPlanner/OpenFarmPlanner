@@ -267,6 +267,7 @@ export interface PublicCultureDiscussionComment {
   deleted_at?: string | null;
   is_edited: boolean;
   can_edit: boolean;
+  can_delete?: boolean;
 }
 
 export interface PublicCultureDiscussionTopic {

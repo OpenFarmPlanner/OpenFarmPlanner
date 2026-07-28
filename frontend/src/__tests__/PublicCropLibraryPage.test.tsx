@@ -521,6 +521,96 @@ describe('PublicCropLibraryPage', () => {
     expect(container.querySelector('[data-comment-id="50"]')).toHaveAttribute('data-logical-depth', '0');
   });
 
+  it('keeps deleted posts in the reply tree with a neutral placeholder', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Allgemeine Diskussion',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 2,
+      last_activity_at: '2026-07-28T10:00:00Z',
+    }];
+    const comments: PublicCultureDiscussionComment[] = [
+      {
+        id: 1,
+        topic: 10,
+        parent: null,
+        body: '',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-27T10:00:00Z',
+        updated_at: '2026-07-28T09:00:00Z',
+        deleted_at: '2026-07-28T09:00:00Z',
+        is_edited: false,
+        can_edit: false,
+        can_delete: false,
+      },
+      {
+        id: 2,
+        topic: 10,
+        parent: 1,
+        body: 'Antwort bleibt sichtbar',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T10:00:00Z',
+        updated_at: '2026-07-28T10:00:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+        can_delete: true,
+      },
+    ];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+
+    const { container } = renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Allgemeine Diskussion'));
+
+    expect(screen.getByLabelText('Dieser Beitrag wurde gelöscht.')).toBeInTheDocument();
+    expect(screen.getByText('Antwort bleibt sichtbar')).toBeInTheDocument();
+    expect(container.querySelector('[data-comment-id="2"]')).toHaveAttribute('data-logical-depth', '1');
+    expect(screen.queryByText('Ursprünglicher Inhalt')).not.toBeInTheDocument();
+  });
+
+  it('does not offer delete for an editable root post', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Allgemeine Diskussion',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T10:00:00Z',
+    }];
+    const comments: PublicCultureDiscussionComment[] = [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Root bleibt editierbar',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+      can_delete: false,
+    }];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Allgemeine Diskussion'));
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Löschen' })).not.toBeInTheDocument();
+  });
+
   it('shows only provenance metadata in the public culture detail section', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
