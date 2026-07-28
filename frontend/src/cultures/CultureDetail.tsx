@@ -1,13 +1,5 @@
 /**
  * Culture Detail component with searchable dropdown and detailed crop information view.
- * 
- * UI text is in German as per requirements.
- * 
- * @param props - Component properties
- * @param props.cultures - Array of culture objects to display in dropdown
- * @param props.selectedCultureId - Currently selected culture ID
- * @param props.onCultureSelect - Callback when a culture is selected
- * @returns JSX element rendering the culture selector and detail view
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -54,6 +46,7 @@ import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { DetailPageActions } from '../components/layout/DetailPageActions';
+import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -108,7 +101,8 @@ export function CultureDetail({
   publishActionLabel,
   searchInputRef,
 }: CultureDetailProps) {
-  const { t } = useTranslation('cultures');
+  const { t, i18n } = useTranslation('cultures');
+  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isTabletLayout = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
@@ -259,8 +253,8 @@ export function CultureDetail({
   };
 
   const monthFormatter = useMemo(
-    () => new Intl.DateTimeFormat('de-DE', { month: 'short' }),
-    [],
+    () => new Intl.DateTimeFormat(locale, { month: 'short' }),
+    [locale],
   );
 
   const monthOptions = useMemo(
@@ -775,13 +769,13 @@ export function CultureDetail({
             {/* General Information Section */}
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Allgemeine Informationen
+                {t('detail.sections.general')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {selectedCulture.crop_family && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Pflanzenfamilie
+                      {t('form.cropFamily')}
                     </Typography>
                     <Typography variant="body1">
                       {selectedCulture.crop_family}
@@ -791,14 +785,14 @@ export function CultureDetail({
                 {selectedCulture.nutrient_demand && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Nährstoffbedarf
+                      {t('form.nutrientDemand')}
                     </Typography>
                     <Typography variant="body1">
                       {selectedCulture.nutrient_demand === 'low'
-                        ? 'Niedrig'
+                        ? t('form.nutrientDemandLow')
                         : selectedCulture.nutrient_demand === 'medium'
-                          ? 'Mittel'
-                          : 'Hoch'}
+                          ? t('form.nutrientDemandMedium')
+                          : t('form.nutrientDemandHigh')}
                     </Typography>
                   </Box>
                 )}
@@ -834,7 +828,7 @@ export function CultureDetail({
                     {t('form.growthDurationDays')}
                   </Typography>
                   <Typography variant="body1">
-                    {formatNumber(selectedCulture.growth_duration_days, t)} Tage
+                    {formatNumber(selectedCulture.growth_duration_days, t, locale)} {t('detail.units.days')}
                   </Typography>
                 </Box>
                 <Box>
@@ -842,7 +836,7 @@ export function CultureDetail({
                     {t('form.harvestDurationDays')}
                   </Typography>
                   <Typography variant="body1">
-                    {formatNumber(selectedCulture.harvest_duration_days, t)} Tage
+                    {formatNumber(selectedCulture.harvest_duration_days, t, locale)} {t('detail.units.days')}
                   </Typography>
                 </Box>
                 {selectedCulture.propagation_duration_days && (
@@ -851,7 +845,7 @@ export function CultureDetail({
                       {t('form.propagationDurationDays')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatNumber(selectedCulture.propagation_duration_days, t)} Tage
+                      {formatNumber(selectedCulture.propagation_duration_days, t, locale)} {t('detail.units.days')}
                     </Typography>
                   </Box>
                 )}
@@ -863,36 +857,36 @@ export function CultureDetail({
             {/* Spacing Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Abstände
+                {t('detail.sections.spacing')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {selectedCulture.distance_within_row_cm !== null && selectedCulture.distance_within_row_cm !== undefined && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Abstand in der Reihe
+                      {t('detail.fields.distanceWithinRow')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatDistance(selectedCulture.distance_within_row_cm, t)} cm
+                      {formatDistance(selectedCulture.distance_within_row_cm, t, locale)} {t('detail.units.centimeters')}
                     </Typography>
                   </Box>
                 )}
                 {selectedCulture.row_spacing_cm !== null && selectedCulture.row_spacing_cm !== undefined && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Reihenabstand
+                      {t('detail.fields.rowSpacing')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatDistance(selectedCulture.row_spacing_cm, t)} cm
+                      {formatDistance(selectedCulture.row_spacing_cm, t, locale)} {t('detail.units.centimeters')}
                     </Typography>
                   </Box>
                 )}
                 {selectedCulture.sowing_depth_cm !== null && selectedCulture.sowing_depth_cm !== undefined && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Saattiefe
+                      {t('detail.fields.sowingDepth')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatDistance(selectedCulture.sowing_depth_cm, t, 1)} cm
+                      {formatDistance(selectedCulture.sowing_depth_cm, t, locale, 1)} {t('detail.units.centimeters')}
                     </Typography>
                   </Box>
                 )}
@@ -904,46 +898,46 @@ export function CultureDetail({
             {/* Seeding Section */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Saatgut
+                {t('detail.sections.seed')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {seedRateRows.length > 0 && activeCultivationTypes.length <= 1 && (
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Menge</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('form.seedAmountLabel')}</Typography>
                     <Typography variant="body1">
-                      {formatSeedRateNumber(seedRateRows[0].value, t)} {formatSeedUnitLabel(seedRateRows[0].unit)}
+                      {formatSeedRateNumber(seedRateRows[0].value, t, locale)} {formatSeedUnitLabel(seedRateRows[0].unit, t)}
                     </Typography>
                   </Box>
                 )}
                 {seedRateRows.length > 0 && activeCultivationTypes.length <= 1 && (
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Sicherheitszuschlag Saatgut
+                      {t('detail.fields.seedSafetyMargin')}
                     </Typography>
                     <Typography variant="body1">
-                      {seedRateRows[0].safety !== null ? `${formatNumber(seedRateRows[0].safety, t)} %` : '-'}
+                      {seedRateRows[0].safety !== null ? `${formatNumber(seedRateRows[0].safety, t, locale)} ${t('detail.units.percent')}` : '-'}
                     </Typography>
                   </Box>
                 )}
                 {seedRateRows.length > 0 && activeCultivationTypes.length > 1 && (
                   <Box sx={{ gridColumn: '1 / -1' }}>
-                    <Typography variant="body2" color="text.secondary">Saatgutmenge nach Anbauart</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('detail.fields.seedRateByCultivation')}</Typography>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Methode</TableCell>
-                          <TableCell>Menge</TableCell>
-                          <TableCell>Einheit</TableCell>
-                          <TableCell>Sicherheitszuschlag (%)</TableCell>
+                          <TableCell>{t('detail.fields.method')}</TableCell>
+                          <TableCell>{t('form.seedAmountLabel')}</TableCell>
+                          <TableCell>{t('form.seedUnitLabel')}</TableCell>
+                          <TableCell>{t('detail.fields.seedSafetyMarginPercent')}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {seedRateRows.map((row) => (
                           <TableRow key={`${row.method}-${row.unit}-${row.value}`}>
-                            <TableCell>{row.method === 'pre_cultivation' ? 'Pflanzung' : 'Direktsaat'}</TableCell>
-                            <TableCell>{formatSeedRateNumber(row.value, t)}</TableCell>
-                            <TableCell>{formatSeedUnitLabel(row.unit)}</TableCell>
-                            <TableCell>{row.safety !== null ? `${formatNumber(row.safety, t)} %` : '-'}</TableCell>
+                            <TableCell>{row.method === 'pre_cultivation' ? t('form.cultivationTypePreCultivation') : t('form.cultivationTypeDirectSowing')}</TableCell>
+                            <TableCell>{formatSeedRateNumber(row.value, t, locale)}</TableCell>
+                            <TableCell>{formatSeedUnitLabel(row.unit, t)}</TableCell>
+                            <TableCell>{row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -953,35 +947,35 @@ export function CultureDetail({
                 {seedRateRows.length === 0 && selectedCulture.sowing_calculation_safety_percent !== undefined && selectedCulture.sowing_calculation_safety_percent !== null && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Sicherheitszuschlag Saatgut
+                      {t('detail.fields.seedSafetyMargin')}
                     </Typography>
                     <Typography variant="body1">
-                      {selectedCulture.sowing_calculation_safety_percent} %
+                      {formatNumber(selectedCulture.sowing_calculation_safety_percent, t, locale)} {t('detail.units.percent')}
                     </Typography>
                   </Box>
                 )}
                 {selectedCulture.seeding_requirement !== undefined && selectedCulture.seeding_requirement !== null && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Saatgutbedarf
+                      {t('detail.fields.seedingRequirement')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatSeedRateNumber(selectedCulture.seeding_requirement, t)}
+                      {formatSeedRateNumber(selectedCulture.seeding_requirement, t, locale)}
                       {selectedCulture.seeding_requirement_type === 'per_sqm'
-                        ? ' / m²'
+                        ? ` ${t('detail.seedingRequirementTypes.perSqm')}`
                         : selectedCulture.seeding_requirement_type === 'per_plant'
-                          ? ' / Pflanze'
+                          ? ` ${t('detail.seedingRequirementTypes.perPlant')}`
                           : ''}
                     </Typography>
                   </Box>
                 )}
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    1000-Korn-Gewicht (g)
+                    {t('form.thousandKernelWeightLabel')}
                   </Typography>
                   <Typography variant="body1">
                     {selectedCulture.thousand_kernel_weight_g !== null && selectedCulture.thousand_kernel_weight_g !== undefined
-                      ? `${formatNumber(selectedCulture.thousand_kernel_weight_g, t)} g`
+                      ? `${formatNumber(selectedCulture.thousand_kernel_weight_g, t, locale)} ${t('detail.units.grams')}`
                       : t('noData')}
                   </Typography>
                 </Box>
@@ -1022,7 +1016,7 @@ export function CultureDetail({
                               {t('form.seedPackagesLabel')}
                             </Typography>
                             <Typography variant="body1">
-                              {formatPackageSizes(row.packaging_sizes, t)}
+                              {formatPackageSizes(row.packaging_sizes, t, locale)}
                             </Typography>
                           </Box>
                         </Stack>
@@ -1037,7 +1031,7 @@ export function CultureDetail({
             {/* Harvest Section */}
             <Box sx={{ mb: 4 }}>
               <Typography variant="h6" gutterBottom>
-                Ernte
+                {t('detail.sections.harvest')}
               </Typography>
               <Box
                 sx={{
@@ -1063,20 +1057,20 @@ export function CultureDetail({
                 {selectedCulture.expected_yield && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Erwarteter Ertrag
+                      {t('form.expectedYield')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatNumber(selectedCulture.expected_yield, t)} kg
+                      {formatNumber(selectedCulture.expected_yield, t, locale)} {t('detail.units.kilograms')}
                     </Typography>
                   </Box>
                 )}
                 {selectedCulture.allow_deviation_delivery_weeks && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Abweichung Lieferwochen
+                      {t('detail.fields.allowDeviationDeliveryWeeks')}
                     </Typography>
                     <Chip
-                      label="Ja"
+                      label={t('detail.boolean.yes')}
                       size="small"
                       color="primary"
                       variant="outlined"
@@ -1091,7 +1085,7 @@ export function CultureDetail({
             {/* Notes Section */}
             <Box sx={{ p: { xs: 1.5, sm: 2.5 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Notizen
+                {t('detail.sections.notes')}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
                 {selectedCulture.notes && (

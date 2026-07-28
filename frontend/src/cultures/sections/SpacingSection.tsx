@@ -1,5 +1,5 @@
 /**
- * SpacingSection: Planting distances (Abstände, Saattiefe)
+ * SpacingSection: planting distances and sowing depth.
  * @remarks Presentational, no internal state
  */
 import { Box, Typography, TextField } from '@mui/material';

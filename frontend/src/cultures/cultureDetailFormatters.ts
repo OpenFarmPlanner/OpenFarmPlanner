@@ -24,25 +24,33 @@ export interface PersistedCultureFilters {
  * Formats a number with fallback for null/undefined values
  * Handles floating point precision issues by rounding to 2 decimal places
  */
-export function formatNumber(value: number | null | undefined, t: (key: string) => string): string {
+export function formatNumber(
+  value: number | null | undefined,
+  t: (key: string) => string,
+  locale = 'de-DE',
+): string {
   if (value === null || value === undefined) {
-    return t('cultures:noData');
+    return t('noData');
   }
   
   // Round to 2 decimal places to avoid floating point precision issues
   const rounded = Math.round(value * 100) / 100;
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(rounded);
 }
 
-export function formatSeedRateNumber(value: number | null | undefined, t: (key: string) => string): string {
+export function formatSeedRateNumber(
+  value: number | null | undefined,
+  t: (key: string) => string,
+  locale = 'de-DE',
+): string {
   if (value === null || value === undefined) {
-    return t('cultures:noData');
+    return t('noData');
   }
 
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   }).format(value);
@@ -51,14 +59,22 @@ export function formatSeedRateNumber(value: number | null | undefined, t: (key: 
 /**
  * Formats a distance value (rounds to whole numbers since no one measures more precisely than 1cm)
  */
-export function formatDistance(value: number | null | undefined, t: (key: string) => string, decimals = 0): string {
+export function formatDistance(
+  value: number | null | undefined,
+  t: (key: string) => string,
+  locale = 'de-DE',
+  decimals = 0,
+): string {
   if (value === null || value === undefined) {
-    return t('cultures:noData');
+    return t('noData');
   }
 
   const factor = 10 ** decimals;
   const rounded = Math.round(value * factor) / factor;
-  return rounded.toFixed(decimals);
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(rounded);
 }
 
 /**
@@ -86,18 +102,19 @@ export function getSowingMonths(culture: Culture): number[] {
   return [];
 }
 
-export function formatSeedUnitLabel(unit: string | null | undefined): string {
-  if (unit === 'g_per_m2') return 'g / m²';
-  if (unit === 'g_per_lfm') return 'g / lfm';
-  if (unit === 'seeds_per_m2') return 'Korn / m²';
-  if (unit === 'seeds_per_lfm') return 'Korn / lfm';
-  if (unit === 'seeds_per_plant') return 'Korn / Pflanze';
+export function formatSeedUnitLabel(unit: string | null | undefined, t: (key: string) => string): string {
+  if (unit === 'g_per_m2') return t('detail.seedUnits.gPerSqm');
+  if (unit === 'g_per_lfm') return t('detail.seedUnits.gPerRunningMeter');
+  if (unit === 'seeds_per_m2') return t('detail.seedUnits.seedsPerSqm');
+  if (unit === 'seeds_per_lfm') return t('detail.seedUnits.seedsPerRunningMeter');
+  if (unit === 'seeds_per_plant') return t('detail.seedUnits.seedsPerPlant');
   return unit ?? '';
 }
 
 export function formatPackageSizes(
   packageSizes: Array<{ size_value?: number | null; size_unit?: string | null }> | null | undefined,
   t: (key: string) => string,
+  locale = 'de-DE',
 ): string {
   if (!Array.isArray(packageSizes) || packageSizes.length === 0) {
     return t('noData');
@@ -105,7 +122,7 @@ export function formatPackageSizes(
 
   const normalized = packageSizes
     .filter((entry) => entry && typeof entry.size_value === 'number' && Number.isFinite(entry.size_value) && entry.size_value > 0)
-    .map((entry) => `${formatNumber(entry.size_value ?? null, t)} ${entry.size_unit === 'seeds' ? 'Korn' : 'g'}`);
+    .map((entry) => `${formatNumber(entry.size_value ?? null, t, locale)} ${entry.size_unit === 'seeds' ? t('detail.packageUnits.seeds') : t('detail.packageUnits.grams')}`);
 
   if (normalized.length === 0) {
     return t('noData');

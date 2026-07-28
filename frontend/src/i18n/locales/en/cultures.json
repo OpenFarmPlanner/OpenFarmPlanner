@@ -53,6 +53,52 @@
     "culture": "Crop",
     "supplier_id": "Supplier"
   },
+  "detail": {
+    "sections": {
+      "general": "General information",
+      "spacing": "Spacing",
+      "seed": "Seed",
+      "harvest": "Yield",
+      "notes": "Notes"
+    },
+    "fields": {
+      "distanceWithinRow": "In-row spacing",
+      "rowSpacing": "Row spacing",
+      "sowingDepth": "Sowing depth",
+      "seedSafetyMargin": "Seed safety margin",
+      "seedSafetyMarginPercent": "Seed safety margin (%)",
+      "seedRateByCultivation": "Seed quantity by cultivation type",
+      "method": "Method",
+      "seedingRequirement": "Seed requirement",
+      "allowDeviationDeliveryWeeks": "Deviating delivery weeks"
+    },
+    "units": {
+      "days": "days",
+      "centimeters": "cm",
+      "grams": "g",
+      "kilograms": "kg",
+      "percent": "%"
+    },
+    "boolean": {
+      "yes": "Yes",
+      "no": "No"
+    },
+    "seedUnits": {
+      "gPerSqm": "g / m²",
+      "gPerRunningMeter": "g / running m",
+      "seedsPerSqm": "seeds / m²",
+      "seedsPerRunningMeter": "seeds / running m",
+      "seedsPerPlant": "seeds / plant"
+    },
+    "packageUnits": {
+      "grams": "g",
+      "seeds": "seeds"
+    },
+    "seedingRequirementTypes": {
+      "perSqm": "/ m²",
+      "perPlant": "/ plant"
+    }
+  },
   "validation": {
     "required": "This field is required.",
     "cultureNameUnique": "A crop with this name already exists."
@@ -417,7 +463,10 @@
     "formatJsonHint": "For complete backups and data exchange.",
     "submit": "Export",
     "cancel": "Cancel",
-    "success": "Export complete"
+    "success": "Export complete",
+    "columns": {
+      "expectedYieldKgPerSqm": "Expected yield (kg/m²)"
+    }
   },
   "buttons": {
     "addNew": "Add crop",
@@ -469,10 +518,12 @@
     "fieldsChanged": "change {{count}} fields",
     "noChanges": "No changes",
     "confirmUpdates": "Confirm overwrite",
+    "unrecognizedColumns": "Unrecognized columns are ignored: {{columns}}",
     "errors": {
       "notArray": "The file must contain a JSON array.",
       "noValidEntries": "No valid entries found.",
       "unsupportedFormat": "This file format is not supported. Please use JSON, CSV, XLSX or ODS.",
+      "noSpreadsheetTable": "No table was found in the file.",
       "parse": "The file could not be read.",
       "server": "Import failed.",
       "network": "Network error during import.",

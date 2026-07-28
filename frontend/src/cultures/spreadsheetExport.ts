@@ -1,6 +1,6 @@
 import type { Culture } from '../api/types';
 import { toPortableCulture, slugifyFilenamePart } from './exportUtils';
-import { CULTURE_COLUMNS } from './spreadsheetColumns';
+import { getLocalizedCultureColumns } from './spreadsheetColumns';
 import { formatIsoDate } from '../utils/isoDate';
 import { buildSpreadsheetFile } from './spreadsheetFile';
 
@@ -12,16 +12,17 @@ const MIME_TYPES: Record<SpreadsheetExportFormat, string> = {
   csv: 'text/csv;charset=utf-8',
 };
 
-const buildSheetData = (cultures: Culture[]): (string | number | null)[][] => {
-  const headers = CULTURE_COLUMNS.map((col) => col.header);
+const buildSheetData = (cultures: Culture[], t: (key: string) => string): (string | number | null)[][] => {
+  const cultureColumns = getLocalizedCultureColumns(t);
+  const headers = cultureColumns.map((col) => col.header);
   const rows = cultures.map((culture) => {
     const portable = toPortableCulture(culture) as unknown as Record<string, unknown>;
-    return CULTURE_COLUMNS.map((col) => {
+    return cultureColumns.map((col) => {
       const raw = portable[col.key];
       if (raw === undefined || raw === null) return null;
       if (col.enumExport && typeof raw === 'string') return col.enumExport[raw] ?? raw;
       if (typeof raw === 'number') return raw;
-      if (typeof raw === 'boolean') return raw ? 'ja' : 'nein';
+      if (typeof raw === 'boolean') return raw ? t('detail.boolean.yes') : t('detail.boolean.no');
       return String(raw);
     });
   });
@@ -44,8 +45,9 @@ export const exportCulturesToSpreadsheet = (
   cultures: Culture[],
   format: SpreadsheetExportFormat,
   filename: string,
+  t: (key: string) => string,
 ): void => {
-  const sheetData = buildSheetData(cultures);
+  const sheetData = buildSheetData(cultures, t);
   const output = buildSpreadsheetFile(sheetData, format);
   triggerDownload(output, filename, MIME_TYPES[format]);
 };
