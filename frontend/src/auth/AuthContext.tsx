@@ -179,7 +179,18 @@ export function AuthProvider({
   // header (read fresh from localStorage per request, see httpClient.ts) are not: if
   // another tab switches the active project, this tab would keep showing stale data
   // while its own requests silently target the new project. Reload to resync.
+  //
+  // Guest demo sessions are excluded: the browser's session cookie is shared
+  // across tabs, so two tabs each running their own demo can't stay
+  // independently authenticated — starting a second demo silently replaces
+  // the first tab's session. Without this guard, that project-id change
+  // makes the first tab reload, which then resolves to the second tab's
+  // project, which makes *that* tab reload in turn, forever.
+  const isGuestDemo = Boolean(user?.is_guest_demo);
   useEffect(() => {
+    if (isGuestDemo) {
+      return undefined;
+    }
     function handleStorageChange(event: StorageEvent): void {
       if (event.key !== "activeProjectId" || event.newValue === event.oldValue) {
         return;
@@ -188,7 +199,7 @@ export function AuthProvider({
     }
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [isGuestDemo]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

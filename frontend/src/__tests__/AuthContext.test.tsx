@@ -155,6 +155,28 @@ describe('AuthProvider cross-tab project sync', () => {
     expect(reloadSpy).not.toHaveBeenCalled();
   });
 
+  it('does not reload a guest demo tab when another tab changes activeProjectId', async () => {
+    // Two tabs each running their own demo share one session cookie, so
+    // starting a second demo silently replaces the first tab's session.
+    // Reloading in reaction to that project-id change would make the first
+    // tab pick up the second tab's project, changing the value again and
+    // making the second tab reload too — an infinite ping-pong. Guest demo
+    // tabs must not participate in this cross-tab resync at all.
+    const reloadSpy = stubLocationReload();
+
+    render(<AuthProvider><GuestDemoStartProbe /></AuthProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Start demo' }));
+    await waitFor(() => expect(screen.getByTestId('active-project-id')).toHaveTextContent('2'));
+
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'activeProjectId',
+      oldValue: '2',
+      newValue: '3',
+    }));
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
   it('does not probe the auth session on the public landing page', async () => {
     window.history.pushState({}, '', '/');
 
