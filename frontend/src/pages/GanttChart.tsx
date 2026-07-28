@@ -27,11 +27,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
-import {
-  closestContextMenuElement,
-  shouldOpenCustomContextMenu,
-  suppressNativeContextMenu,
-} from '../utils/contextMenu';
 import { confirmAction } from '../utils/confirmAction';
 import {
   bedAPI,
@@ -119,18 +114,13 @@ import {
   type GanttTaskGroup,
   type OccupancyHierarchyNode,
 } from './ganttChartUtils';
-import {
-  buildGanttContextMenuActions,
-  type GanttContextMenuAction,
-  type GanttContextMenuTarget,
-} from './ganttContextMenuActions';
+import { useGanttContextMenu } from './useGanttContextMenu';
 import { getFirstMissingCultivationPlanRequirement, getTranslatedProjectSetupActions } from './requirementFlow';
 import {
   getSegmentedActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
 import { copyTextToClipboardSilently } from '../components/data-grid';
-import { useContextMenuPositionState } from '../components/contextMenu/useContextMenuPositionState';
 import { getGanttRenderWindow } from './ganttRenderWindow';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { collectVisibleIdsWithAncestors, flattenTreeRows } from '../components/hierarchy/utils/treeRows';
@@ -631,44 +621,6 @@ function GanttChartPage() {
   // into the relevant page plus edit/copy/delete. Double-click on a bar
   // is a shortcut for its "Anbauplan öffnen" action.
   // ---------------------------------------------------------------------
-  const isGanttContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
-    shouldOpenCustomContextMenu(target)
-    && closestContextMenuElement(target, '[data-rmg-component="task"], [data-rmg-component="task-group"]') !== null
-  ), []);
-  const {
-    state: contextMenuState,
-    open: openContextMenuState,
-    close: closeContextMenu,
-  } = useContextMenuPositionState<GanttContextMenuTarget>({ isContextMenuTarget: isGanttContextMenuTarget });
-
-  const openContextMenu = useCallback((
-    event: React.MouseEvent | React.TouchEvent,
-    target: GanttContextMenuTarget,
-  ) => {
-    if (!shouldOpenCustomContextMenu(event.target)) return;
-    suppressNativeContextMenu(event);
-    const point = 'changedTouches' in event
-      ? event.changedTouches[0] ?? event.touches[0]
-      : event;
-    if (!point) return;
-    openContextMenuState(target, point.clientX + 2, point.clientY - 6);
-  }, [openContextMenuState]);
-
-  const handleTaskContextMenu = useCallback((
-    event: React.MouseEvent | React.TouchEvent,
-    task: GanttTask,
-    group: GanttTaskGroup,
-  ) => {
-    openContextMenu(event, { type: 'task', task, group });
-  }, [openContextMenu]);
-
-  const handleGroupContextMenu = useCallback((
-    event: React.MouseEvent | React.TouchEvent,
-    group: GanttTaskGroup,
-  ) => {
-    openContextMenu(event, { type: 'group', group });
-  }, [openContextMenu]);
-
   const openPlantingPlanFromTask = useCallback((task: GanttTask, options?: { edit?: boolean }) => {
     if (task.plantingPlanId) {
       const query = options?.edit ? `planId=${task.plantingPlanId}&edit=true` : `planId=${task.plantingPlanId}`;
@@ -725,18 +677,20 @@ function GanttChartPage() {
     }
   }, [t]);
 
-  const getContextMenuActions = useCallback((target: GanttContextMenuTarget): GanttContextMenuAction[] => (
-    buildGanttContextMenuActions(target, {
-      openPlantingPlanFromTask,
-      openCultureFromTask,
-      openAreasPage,
-      copyTaskSummary,
-      deletePlantingPlanFromTask,
-      addPlantingPlanForBed,
-    }, t)
-  ), [addPlantingPlanForBed, copyTaskSummary, deletePlantingPlanFromTask, openAreasPage, openCultureFromTask, openPlantingPlanFromTask, t]);
-
-  const contextMenuActions = contextMenuState ? getContextMenuActions(contextMenuState.key) : [];
+  const {
+    contextMenuState,
+    closeContextMenu,
+    handleTaskContextMenu,
+    handleGroupContextMenu,
+    contextMenuActions,
+  } = useGanttContextMenu({
+    openPlantingPlanFromTask,
+    openCultureFromTask,
+    openAreasPage,
+    copyTaskSummary,
+    deletePlantingPlanFromTask,
+    addPlantingPlanForBed,
+  }, t);
 
   const occupancyHierarchyNodes = useMemo<OccupancyHierarchyNode[]>(() => buildFieldOccupancyHierarchy({
     locations,
