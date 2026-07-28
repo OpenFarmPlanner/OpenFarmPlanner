@@ -101,11 +101,14 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [sourceSize, setSourceSize] = useState<{ width: number; height: number } | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   const textFieldRef = useRef<HTMLTextAreaElement>(null);
   const cropImageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ mode: DragMode; startX: number; startY: number; initialRect: CropRect } | null>(null);
   const attachmentsSectionRef = useRef<HTMLDivElement>(null);
+  const cameraFileInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
 
   const loadAttachments = async (): Promise<void> => {
     if (!noteId) return;
@@ -152,6 +155,53 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
     setPendingPreviewUrl(nextUrl);
     setCropRect(null);
     setSourceSize(null);
+  };
+
+  const closeCamera = (): void => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+  };
+
+  useEffect(() => closeCamera, []);
+
+  useEffect(() => {
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream]);
+
+  const handleTakePhotoClick = async (): Promise<void> => {
+    // Touch devices already get the native camera app via the file input's
+    // `capture` attribute below — a better experience than a custom in-page
+    // stream. Desktop browsers ignore that attribute and just show a file
+    // picker (see the "Choose from gallery" button), so open the webcam
+    // directly there instead, falling back to the file picker if unavailable.
+    const isLikelyTouchDevice = typeof window.matchMedia !== 'function' || window.matchMedia('(pointer: coarse)').matches;
+    if (isLikelyTouchDevice || !navigator.mediaDevices?.getUserMedia) {
+      cameraFileInputRef.current?.click();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setCameraStream(stream);
+    } catch {
+      cameraFileInputRef.current?.click();
+    }
+  };
+
+  const handleCameraCapture = (): void => {
+    const video = cameraVideoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (blob) openCropDialog(new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' }));
+      closeCamera();
+    }, 'image/jpeg', 0.92);
   };
 
   const handleFormat = (format: MarkdownFormat): void => {
@@ -383,9 +433,10 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
               }}
             >
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: '100%' }}>
-                <Button variant="outlined" component="label" sx={{ flex: 1, minHeight: 40 }}>
+                <Button variant="outlined" sx={{ flex: 1, minHeight: 40 }} onClick={() => { void handleTakePhotoClick(); }}>
                   {t('notesDrawer.takePhoto')}
                   <input
+                    ref={cameraFileInputRef}
                     type="file"
                     accept="image/*"
                     capture="environment"
@@ -393,6 +444,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) openCropDialog(file);
+                      e.target.value = '';
                     }}
                   />
                 </Button>
@@ -510,6 +562,17 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
           <Button onClick={clearPendingSelection}>{t('actions.cancel')}</Button>
           <Button onClick={resetCrop}>{t('actions.reset')}</Button>
           <Button onClick={() => void handleUpload()} disabled={uploading || !pendingFile} variant="contained">{t('actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(cameraStream)} onClose={closeCamera} maxWidth="md" fullWidth>
+        <DialogTitle>{t('notesDrawer.camera.title')}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', backgroundColor: '#111', p: 0 }}>
+          <video ref={cameraVideoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: '70vh' }} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCamera}>{t('actions.cancel')}</Button>
+          <Button onClick={handleCameraCapture} variant="contained">{t('notesDrawer.camera.capture')}</Button>
         </DialogActions>
       </Dialog>
 

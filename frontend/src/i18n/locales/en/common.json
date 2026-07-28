@@ -90,6 +90,10 @@
     "cropSourceAlt": "Crop source",
     "backendUnavailable": "Image processing is currently unavailable on the server. Please install Pillow and restart the backend.",
     "uploadFailed": "Upload failed. Please try again.",
+    "camera": {
+      "title": "Take photo",
+      "capture": "Capture"
+    },
     "tabs": {
       "edit": "Edit",
       "preview": "Preview"

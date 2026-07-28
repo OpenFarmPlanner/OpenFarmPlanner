@@ -90,6 +90,10 @@
     "cropSourceAlt": "Zuschneidequelle",
     "backendUnavailable": "Bildverarbeitung ist auf dem Server derzeit nicht verfügbar. Bitte installiere Pillow und starte das Backend neu.",
     "uploadFailed": "Hochladen fehlgeschlagen. Bitte versuche es erneut.",
+    "camera": {
+      "title": "Foto aufnehmen",
+      "capture": "Aufnehmen"
+    },
     "tabs": {
       "edit": "Bearbeiten",
       "preview": "Vorschau"
