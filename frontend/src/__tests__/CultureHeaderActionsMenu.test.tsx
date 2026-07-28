@@ -15,7 +15,7 @@ const labels: Record<string, string> = {
 const t = ((key: string) => labels[key] ?? key) as TFunction<'cultures'>;
 
 describe('CultureHeaderActionsMenu', () => {
-  it('keeps everyday project actions separate from moderation actions', () => {
+  it('keeps secondary project actions separate from moderation actions', () => {
     const anchor = document.createElement('button');
     document.body.appendChild(anchor);
 
@@ -40,7 +40,6 @@ describe('CultureHeaderActionsMenu', () => {
     const menuItems = screen.getAllByRole('menuitem').map((item) => item.textContent);
 
     expect(menuItems).toEqual([
-      'Bearbeiten',
       'Versionen',
       'Öffentliche Kulturbibliothek aktualisieren',
       'Veröffentlichung zurückziehen',

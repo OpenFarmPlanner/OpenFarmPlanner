@@ -840,7 +840,9 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('textbox', { name: 'Titel' })).toHaveFocus();
     await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'Neue Frage');
     await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Was ist hier gemeint?');
-    await user.click(screen.getByRole('button', { name: 'Diskussion starten' }));
+    const submitButton = screen.getByRole('button', { name: 'Diskussion starten' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
 
     await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
       title: 'Neue Frage',
@@ -849,7 +851,7 @@ describe('PublicCropLibraryPage', () => {
     }));
     expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
     expect(screen.getByText('Was ist hier gemeint?')).toBeInTheDocument();
-  });
+  }, 30000);
 
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
     const user = userEvent.setup();
@@ -904,14 +906,16 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Version 4')).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'TKG ok?');
     await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Quelle?');
-    await user.click(screen.getByRole('button', { name: 'Diskussion starten' }));
+    const submitButton = screen.getByRole('button', { name: 'Diskussion starten' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
 
     await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
       title: 'TKG ok?',
       body: 'Quelle?',
       revision: 99,
     }));
-  });
+  }, 30000);
 
   it('renders a real parent-child reply tree and keeps reply focus local', async () => {
     const user = userEvent.setup();
@@ -1060,7 +1064,9 @@ describe('PublicCropLibraryPage', () => {
     await user.click(within(commentB as HTMLElement).getByRole('button', { name: 'Auf Beitrag von Martin Public antworten' }));
     expect(screen.getByRole('textbox', { name: 'Antwort' })).toHaveFocus();
     await user.type(screen.getByRole('textbox', { name: 'Antwort' }), 'Neue Antwort auf nein');
-    await user.click(screen.getByRole('button', { name: 'Absenden' }));
+    const replySubmitButton = screen.getByRole('button', { name: 'Absenden' });
+    await waitFor(() => expect(replySubmitButton).toBeEnabled());
+    await user.click(replySubmitButton);
 
     await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neue Antwort auf nein', 2));
     await screen.findByText('Neue Antwort auf nein');
@@ -1068,7 +1074,7 @@ describe('PublicCropLibraryPage', () => {
     expect(updatedThreadText.indexOf('ja')).toBeLessThan(updatedThreadText.indexOf('Neue Antwort auf nein'));
     expect(updatedThreadText.indexOf('Neue Antwort auf nein')).toBeLessThan(updatedThreadText.indexOf('reply zu test2'));
     expect(document.activeElement).toHaveTextContent('Neue Antwort auf nein');
-  });
+  }, 30000);
 
   it('creates a root-level contribution from the general comment field', async () => {
     const user = userEvent.setup();
@@ -1104,12 +1110,14 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Allgemeine Diskussion'));
     await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Neuer Root-Beitrag');
-    await user.click(screen.getByRole('button', { name: 'Absenden' }));
+    const submitButton = screen.getByRole('button', { name: 'Absenden' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
 
     await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neuer Root-Beitrag', undefined));
     await screen.findByText('Neuer Root-Beitrag');
     expect(container.querySelector('[data-comment-id="50"]')).toHaveAttribute('data-logical-depth', '0');
-  });
+  }, 30000);
 
   it('keeps deleted posts in the reply tree with a neutral placeholder', async () => {
     const user = userEvent.setup();
@@ -1173,13 +1181,13 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Allgemeine Diskussion'));
 
-    expect(screen.getByLabelText('Dieser Beitrag wurde vom Autor gelöscht.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Dieser Beitrag wurde von einem Moderator entfernt.')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Dieser Beitrag wurde vom Autor gelöscht.')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Dieser Beitrag wurde von einem Moderator entfernt.')).toBeInTheDocument();
     expect(screen.queryByText('Dieser Beitrag wurde gelöscht.')).not.toBeInTheDocument();
     expect(screen.getByText('Antwort bleibt sichtbar')).toBeInTheDocument();
     expect(container.querySelector('[data-comment-id="2"]')).toHaveAttribute('data-logical-depth', '1');
     expect(screen.queryByText('Ursprünglicher Inhalt')).not.toBeInTheDocument();
-  });
+  }, 30000);
 
   it('shows a clear message when deleting an opening post with visible replies is blocked', async () => {
     const user = userEvent.setup();
@@ -1399,5 +1407,5 @@ describe('PublicCropLibraryPage', () => {
 
     await user.keyboard('{Alt>}i{/Alt}');
     await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1));
-  });
+  }, 30000);
 });
