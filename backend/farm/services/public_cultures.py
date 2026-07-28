@@ -337,6 +337,11 @@ def restore_public_culture_version(
 
         locked.version = max(locked.version, 1) + 1
         locked.save(update_fields=[*update_fields, 'version', 'updated_at'])
+        if 'notes' in update_fields:
+            # Restoring an old version rewrites `notes`; the original-language
+            # translation has to follow, or the entry would keep rendering the
+            # description of the version that was just rolled back.
+            sync_original_language_translation(locked)
         create_public_culture_revision(
             public_culture=locked,
             user=user,

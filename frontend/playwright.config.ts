@@ -19,6 +19,12 @@ export default defineConfig({
     // baseURL after logging in on 127.0.0.1 would silently lose the session
     // cookie and fail CSRF checks on every subsequent authenticated request.
     baseURL: `http://127.0.0.1:${frontendPort}`,
+    // The app resolves its UI language from the browser (see docs/i18n.md), and
+    // these specs assert German text. Without pinning the locale the suite would
+    // silently depend on the runner's Chrome locale — CI reports en-US, so every
+    // German assertion would time out. Setting it here keeps the real detection
+    // path under test rather than bypassing it.
+    locale: 'de-DE',
     trace: 'off',
     video: 'off',
   },

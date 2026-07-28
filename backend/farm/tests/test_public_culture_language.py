@@ -193,6 +193,43 @@ class PublicCultureTranslationTest(ProjectApiTestCase):
 
         self.assertEqual(self.public_culture.notes, 'Überarbeitete Beschreibung.')
 
+    def test_restoring_an_old_version_also_restores_its_description(self):
+        """A rollback must not leave the rolled-back text on display.
+
+        `notes` and the original-language translation are two copies of the
+        same text; restoring only one of them would make the entry render the
+        version that was just undone.
+        """
+        from farm.services.public_cultures import (
+            restore_public_culture_version,
+            update_public_culture_directly,
+        )
+
+        sync_original_language_translation(self.public_culture)
+        update_public_culture_directly(
+            public_culture=self.public_culture,
+            user=self.user,
+            data={'notes': 'Bearbeitete Beschreibung.'},
+        )
+        self.assertEqual(
+            self.public_culture.descriptions_by_language(),
+            {'de': 'Bearbeitete Beschreibung.'},
+        )
+
+        restored = restore_public_culture_version(
+            public_culture=self.public_culture, user=self.user, version=1,
+        )
+
+        self.assertEqual(restored.notes, 'Robuste Freilandsorte.')
+        self.assertEqual(
+            restored.descriptions_by_language(),
+            {'de': 'Robuste Freilandsorte.'},
+        )
+        self.assertEqual(
+            restored.localized_description('de'),
+            ('Robuste Freilandsorte.', 'de'),
+        )
+
     def test_unsupported_language_codes_are_ignored_not_stored(self):
         sync_original_language_translation(self.public_culture)
 

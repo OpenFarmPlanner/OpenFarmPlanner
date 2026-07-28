@@ -47,6 +47,7 @@ import type { PublicRoute } from './prerenderSeo.ts';
 
 interface PrerenderSeoModule {
   PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[];
+  SITE_LANGUAGE: string;
   applyHeadTags: (html: string, route: PublicRoute, env: NodeJS.ProcessEnv) => string;
 }
 
@@ -127,7 +128,7 @@ async function main(): Promise<void> {
     throw new Error(`prerender: no build output at ${indexHtmlPath} — run "vite build" first.`);
   }
 
-  const { PUBLIC_INDEXABLE_ROUTES, applyHeadTags } = await loadSeoHelpers();
+  const { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE, applyHeadTags } = await loadSeoHelpers();
 
   const server = await preview({
     root: rootDir,
@@ -149,7 +150,13 @@ async function main(): Promise<void> {
     // which is a separate download CI never installs.
     const browser = await chromium.launch({ channel: 'chrome' });
     try {
-      const page = await browser.newPage();
+      // Prerendered HTML is a static artifact that can only carry one
+      // language, and index.html declares `lang="de"`. Pin the browser locale
+      // to the canonical site language (seoConfig.SITE_LANGUAGE) so the
+      // artifact matches that declaration instead of inheriting whatever
+      // locale the build machine happens to use. Visitors still get their own
+      // language as soon as the SPA boots — see docs/i18n.md.
+      const page = await browser.newPage({ locale: `${SITE_LANGUAGE}-DE` });
       const prerenderedPages: PrerenderedPage[] = [];
       for (const route of PUBLIC_INDEXABLE_ROUTES) {
         const targetUrl = new URL(route.path.replace(/^\//, ''), localUrl).toString();
