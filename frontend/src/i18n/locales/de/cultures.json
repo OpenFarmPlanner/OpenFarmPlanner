@@ -615,6 +615,9 @@
         "discardDraftConfirm": "Die aktuelle Eingabe verwerfen?",
         "edited": "bearbeitet",
         "deleted": "Dieser Beitrag wurde gelöscht.",
+        "authorDeleted": "Dieser Beitrag wurde vom Autor gelöscht.",
+        "moderatorDeleted": "Dieser Beitrag wurde von einem Moderator entfernt.",
+        "rootDeleteBlocked": "Der Eröffnungsbeitrag kann nicht gelöscht werden, solange sichtbare Antworten vorhanden sind.",
         "submit": "Absenden"
       },
       "edit": {

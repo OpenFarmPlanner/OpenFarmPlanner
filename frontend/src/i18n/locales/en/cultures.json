@@ -227,6 +227,9 @@
         "discardDraftConfirm": "Discard the current draft?",
         "edited": "edited",
         "deleted": "This post was deleted.",
+        "authorDeleted": "This post was deleted by the author.",
+        "moderatorDeleted": "This post was removed by a moderator.",
+        "rootDeleteBlocked": "The opening post cannot be deleted while visible replies exist.",
         "submit": "Submit"
       },
       "edit": {

@@ -61,9 +61,16 @@ import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommand
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
+type PublicCultureTab = 'details' | 'versions' | 'discussion';
 
 const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
 const MAX_VISIBLE_REPLY_DEPTH = 3;
+const PUBLIC_CULTURE_TAB_BY_INDEX: PublicCultureTab[] = ['details', 'versions', 'discussion'];
+const PUBLIC_CULTURE_TAB_INDEX_BY_PARAM: Record<PublicCultureTab, number> = {
+  details: 0,
+  versions: 1,
+  discussion: 2,
+};
 
 interface ThreadCommentGroup {
   comment: PublicCultureDiscussionComment;
@@ -76,6 +83,16 @@ function parsePublicCultureId(value: string | null): number | null {
   }
   const parsedId = Number.parseInt(value, 10);
   return Number.isFinite(parsedId) ? parsedId : null;
+}
+
+function getPublicCultureTabIndex(tabParam: string | null, discussionId: number | null): number {
+  if (discussionId !== null) {
+    return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion;
+  }
+  if (tabParam === 'versions' || tabParam === 'discussion') {
+    return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM[tabParam];
+  }
+  return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.details;
 }
 
 function getStoredPublicCultureId(): number | null {
@@ -124,6 +141,19 @@ function buildThreadCommentTree(comments: PublicCultureDiscussionComment[]): Thr
   );
 
   return sortTree(rootNodes);
+}
+
+function getDeletedCommentPlaceholder(
+  comment: PublicCultureDiscussionComment,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (comment.deletion_kind === 'author') {
+    return t('library.page.discussion.authorDeleted');
+  }
+  if (comment.deletion_kind === 'moderator') {
+    return t('library.page.discussion.moderatorDeleted');
+  }
+  return t('library.page.discussion.deleted');
 }
 
 function formatDiscussionPreview(value?: string | null): string {
@@ -508,6 +538,7 @@ interface DiscussionCommentProps {
   onReply: (commentId: number) => void;
   onEdit: (comment: PublicCultureDiscussionComment) => void;
   onDelete: (commentId: number) => void;
+  onDeleteBlocked: () => void;
   onOpenMenu: (commentId: number, element: HTMLElement) => void;
   onCloseMenu: () => void;
   onCancelEdit: () => void;
@@ -534,6 +565,7 @@ function DiscussionComment({
   onReply,
   onEdit,
   onDelete,
+  onDeleteBlocked,
   onOpenMenu,
   onCloseMenu,
   onCancelEdit,
@@ -549,6 +581,8 @@ function DiscussionComment({
   })}${comment.is_edited ? ` · ${t('library.page.discussion.edited')}` : ''}`;
   const authorLabel = comment.created_by_label || anonymousLabel;
   const replyLabel = t('library.page.discussion.replyToAuthor', { author: authorLabel });
+  const deletedPlaceholder = getDeletedCommentPlaceholder(comment, t);
+  const canShowDeleteAction = comment.can_delete || comment.delete_blocked_reason === 'visible_replies';
 
   return (
     <Box
@@ -596,10 +630,10 @@ function DiscussionComment({
             <Typography
               variant="body2"
               color={comment.deleted_at ? 'text.secondary' : 'text.primary'}
-              aria-label={comment.deleted_at ? t('library.page.discussion.deleted') : undefined}
+              aria-label={comment.deleted_at ? deletedPlaceholder : undefined}
               sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5, fontStyle: comment.deleted_at ? 'italic' : 'normal' }}
             >
-              {comment.deleted_at ? t('library.page.discussion.deleted') : comment.body}
+              {comment.deleted_at ? deletedPlaceholder : comment.body}
             </Typography>
           )}
         </Box>
@@ -615,7 +649,7 @@ function DiscussionComment({
                 <ReplyOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {comment.can_edit || comment.can_delete ? (
+            {comment.can_edit || canShowDeleteAction ? (
               <>
                 <Tooltip title={t('library.page.discussion.moreActions')}>
                   <IconButton
@@ -636,8 +670,18 @@ function DiscussionComment({
                   {comment.can_edit ? (
                     <MenuItem onClick={() => { onCloseMenu(); onEdit(comment); }}>{t('library.page.discussion.edit')}</MenuItem>
                   ) : null}
-                  {comment.can_delete ? (
-                    <MenuItem onClick={() => { onCloseMenu(); onDelete(comment.id); }} sx={{ color: 'error.main' }}>
+                  {canShowDeleteAction ? (
+                    <MenuItem
+                      onClick={() => {
+                        onCloseMenu();
+                        if (comment.delete_blocked_reason === 'visible_replies') {
+                          onDeleteBlocked();
+                          return;
+                        }
+                        onDelete(comment.id);
+                      }}
+                      sx={{ color: comment.can_delete ? 'error.main' : 'text.primary' }}
+                    >
                       {t('library.page.discussion.delete')}
                     </MenuItem>
                   ) : null}
@@ -666,6 +710,7 @@ interface ThreadCommentBranchProps {
   onReply: (commentId: number) => void;
   onEdit: (comment: PublicCultureDiscussionComment) => void;
   onDelete: (commentId: number) => void;
+  onDeleteBlocked: () => void;
   onOpenMenu: (commentId: number, element: HTMLElement) => void;
   onCloseMenu: () => void;
   onCancelEdit: () => void;
@@ -691,6 +736,7 @@ function ThreadCommentBranch({
   onReply,
   onEdit,
   onDelete,
+  onDeleteBlocked,
   onOpenMenu,
   onCloseMenu,
   onCancelEdit,
@@ -725,6 +771,7 @@ function ThreadCommentBranch({
         onReply={onReply}
         onEdit={onEdit}
         onDelete={onDelete}
+        onDeleteBlocked={onDeleteBlocked}
         onOpenMenu={onOpenMenu}
         onCloseMenu={onCloseMenu}
         onCancelEdit={onCancelEdit}
@@ -764,6 +811,7 @@ function ThreadCommentBranch({
               onReply={onReply}
               onEdit={onEdit}
               onDelete={onDelete}
+              onDeleteBlocked={onDeleteBlocked}
               onOpenMenu={onOpenMenu}
               onCloseMenu={onCloseMenu}
               onCancelEdit={onCancelEdit}
@@ -800,18 +848,20 @@ export default function PublicCropLibraryPage() {
   const navigate = useNavigate();
   const selectedCultureParam = searchParams.get('cultureId');
   const selectedCultureIdFromUrl = parsePublicCultureId(selectedCultureParam);
+  const selectedTopicIdFromUrl = parsePublicCultureId(searchParams.get('discussionId'));
+  const activeTab = getPublicCultureTabIndex(searchParams.get('tab'), selectedTopicIdFromUrl);
+  const selectedTopicId = activeTab === PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion ? selectedTopicIdFromUrl : null;
   const [query, setQuery] = useState('');
   const [cultures, setCultures] = useState<PublicCulture[]>([]);
   const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => selectedCultureIdFromUrl ?? getStoredPublicCultureId());
   const selectedCultureIdRef = useRef<number | null>(selectedCultureId);
   const [loadStatus, setLoadStatus] = useState<PublicCultureLoadStatus>('loading');
   const [loadError, setLoadError] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
   const [topics, setTopics] = useState<PublicCultureDiscussionTopic[]>([]);
   const [comments, setComments] = useState<PublicCultureDiscussionComment[]>([]);
-  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
   const [versions, setVersions] = useState<PublicCultureRevision[]>([]);
   const [collaborationStatus, setCollaborationStatus] = useState<CollaborationLoadStatus>('idle');
+  const [commentsStatus, setCommentsStatus] = useState<CollaborationLoadStatus>('idle');
   const [newTopicOpen, setNewTopicOpen] = useState(false);
   const [topicTitle, setTopicTitle] = useState('');
   const [commentBody, setCommentBody] = useState('');
@@ -841,13 +891,42 @@ export default function PublicCropLibraryPage() {
   const locale = i18n.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
   const anonymousLabel = t('library.anonymousAuthor');
 
-  const replaceSelectedCultureSearchParam = useCallback((cultureId: number | null): void => {
+  const navigateToLibraryState = useCallback(({
+    cultureId,
+    tab,
+    discussionId,
+    replace = false,
+  }: {
+    cultureId: number | null;
+    tab?: number;
+    discussionId?: number | null;
+    replace?: boolean;
+  }): void => {
     const nextParams = new URLSearchParams(location.search);
     if (cultureId === null) {
       nextParams.delete('cultureId');
+      nextParams.delete('tab');
+      nextParams.delete('discussionId');
     } else {
       nextParams.set('cultureId', String(cultureId));
+
+      const nextTab = tab ?? activeTab;
+      const tabParam = PUBLIC_CULTURE_TAB_BY_INDEX[nextTab] ?? 'details';
+      if (tabParam === 'details') {
+        nextParams.delete('tab');
+      } else {
+        nextParams.set('tab', tabParam);
+      }
+
+      const nextDiscussionId = tabParam === 'discussion' ? (discussionId ?? null) : null;
+      if (nextDiscussionId === null) {
+        nextParams.delete('discussionId');
+      } else {
+        nextParams.set('discussionId', String(nextDiscussionId));
+        nextParams.set('tab', 'discussion');
+      }
     }
+
     const nextSearch = nextParams.toString();
     const currentSearch = location.search.startsWith('?') ? location.search.slice(1) : location.search;
     if (nextSearch === currentSearch) {
@@ -859,11 +938,11 @@ export default function PublicCropLibraryPage() {
         search: nextSearch ? `?${nextSearch}` : '',
         hash: location.hash,
       },
-      { replace: true },
+      { replace },
     );
-  }, [location.hash, location.pathname, location.search, navigate]);
+  }, [activeTab, location.hash, location.pathname, location.search, navigate]);
 
-  const updateSelectedCultureId = useCallback((cultureId: number | null): void => {
+  const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean } = {}): void => {
     setSelectedCultureId(cultureId);
     selectedCultureIdRef.current = cultureId;
     if (cultureId === null) {
@@ -871,8 +950,13 @@ export default function PublicCropLibraryPage() {
     } else {
       window.localStorage.setItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY, String(cultureId));
     }
-    replaceSelectedCultureSearchParam(cultureId);
-  }, [replaceSelectedCultureSearchParam]);
+    navigateToLibraryState({
+      cultureId,
+      tab: activeTab,
+      discussionId: null,
+      replace: options.replace ?? true,
+    });
+  }, [activeTab, navigateToLibraryState]);
 
   const formatDate = useCallback((value?: string | null): string => {
     if (!value) {
@@ -975,9 +1059,14 @@ export default function PublicCropLibraryPage() {
         setSelectedCultureId(storedCultureId);
         selectedCultureIdRef.current = storedCultureId;
       }
-      replaceSelectedCultureSearchParam(storedCultureId);
+      navigateToLibraryState({
+        cultureId: storedCultureId,
+        tab: activeTab,
+        discussionId: null,
+        replace: true,
+      });
     }
-  }, [replaceSelectedCultureSearchParam, selectedCultureId, selectedCultureIdFromUrl]);
+  }, [activeTab, navigateToLibraryState, selectedCultureId, selectedCultureIdFromUrl]);
 
   const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
     setLoadStatus('loading');
@@ -1013,7 +1102,6 @@ export default function PublicCropLibraryPage() {
       ]);
       setTopics(topicsResponse.data);
       setComments([]);
-      setSelectedTopicId(null);
       setVersions(versionsResponse.data);
       setCollaborationStatus('success');
     } catch {
@@ -1036,10 +1124,53 @@ export default function PublicCropLibraryPage() {
       setComments([]);
       setVersions([]);
       setCollaborationStatus('idle');
+      setCommentsStatus('idle');
       return;
     }
     void loadCollaboration(selectedCultureId);
   }, [loadCollaboration, selectedCultureId]);
+
+  useEffect(() => {
+    if (selectedCultureId === null || selectedTopicId === null) {
+      setComments([]);
+      setCommentsStatus('idle');
+      return;
+    }
+    if (collaborationStatus !== 'success') {
+      return;
+    }
+    const topicExists = topics.some((topic) => topic.id === selectedTopicId);
+    if (!topicExists) {
+      navigateToLibraryState({
+        cultureId: selectedCultureId,
+        tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+        discussionId: null,
+        replace: true,
+      });
+      setComments([]);
+      setCommentsStatus('idle');
+      return;
+    }
+
+    let cancelled = false;
+    setCommentsStatus('loading');
+    publicCultureAPI.discussionComments(selectedCultureId, selectedTopicId)
+      .then((response) => {
+        if (!cancelled) {
+          setComments(response.data);
+          setCommentsStatus('success');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setComments([]);
+          setCommentsStatus('error');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collaborationStatus, navigateToLibraryState, selectedCultureId, selectedTopicId, topics]);
 
   useEffect(() => {
     setCommentBody('');
@@ -1048,8 +1179,20 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
     setReplyTo(null);
     setEditingCommentId(null);
+    setCommentBody('');
     setCommentActionMenu(null);
   }, [selectedCultureId]);
+
+  useEffect(() => {
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentActionMenu(null);
+    if (selectedTopicId !== null) {
+      setNewTopicOpen(false);
+      setTopicTitle('');
+      setTopicRevision(undefined);
+    }
+  }, [selectedTopicId]);
 
   useEffect(() => {
     if (replyTo !== null || editingCommentId !== null) {
@@ -1193,8 +1336,14 @@ export default function PublicCropLibraryPage() {
           publicCultureAPI.discussionComments(selectedCulture.id, createdTopic.data.id),
         ]);
         setTopics(topicsResponse.data);
-        setSelectedTopicId(createdTopic.data.id);
         setComments(commentsResponse.data);
+        setCommentsStatus('success');
+        navigateToLibraryState({
+          cultureId: selectedCulture.id,
+          tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+          discussionId: createdTopic.data.id,
+          replace: false,
+        });
         setNewTopicOpen(false);
         setTopicTitle('');
         setTopicRevision(undefined);
@@ -1210,22 +1359,31 @@ export default function PublicCropLibraryPage() {
     }
   };
 
-  const openTopic = async (topicId: number): Promise<void> => {
+  const openTopic = (topicId: number): void => {
     if (!selectedCulture) return;
     if (!ensureDiscardableCommentDraft(null)) {
       return;
     }
-    setSelectedTopicId(topicId);
     setReplyTo(null);
     setEditingCommentId(null);
     setCommentBody('');
-    const response = await publicCultureAPI.discussionComments(selectedCulture.id, topicId);
-    setComments(response.data);
+    navigateToLibraryState({
+      cultureId: selectedCulture.id,
+      tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+      discussionId: topicId,
+      replace: false,
+    });
   };
 
   const startDiscussionForVersion = (revision: PublicCultureRevision): void => {
-    setActiveTab(2);
-    setSelectedTopicId(null);
+    if (selectedCulture) {
+      navigateToLibraryState({
+        cultureId: selectedCulture.id,
+        tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+        discussionId: null,
+        replace: false,
+      });
+    }
     setNewTopicOpen(true);
     setTopicRevision(revision.id);
   };
@@ -1233,6 +1391,27 @@ export default function PublicCropLibraryPage() {
   const openNewTopicForm = (): void => {
     setNewTopicOpen(true);
     setTopicRevision(undefined);
+  };
+
+  const handleTabChange = (_event: unknown, value: number): void => {
+    if (!selectedCulture) {
+      return;
+    }
+    navigateToLibraryState({
+      cultureId: selectedCulture.id,
+      tab: value,
+      discussionId: null,
+      replace: false,
+    });
+    setReplyTo(null);
+    setEditingCommentId(null);
+    setCommentBody('');
+    setCommentActionMenu(null);
+    if (value !== PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion) {
+      setNewTopicOpen(false);
+      setTopicTitle('');
+      setTopicRevision(undefined);
+    }
   };
 
   const cancelNewTopicForm = (): void => {
@@ -1247,9 +1426,29 @@ export default function PublicCropLibraryPage() {
 
   const deleteComment = async (commentId: number): Promise<void> => {
     if (!selectedCulture || !selectedTopicId) return;
-    await publicCultureAPI.deleteDiscussionComment(selectedCulture.id, commentId);
-    const response = await publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId);
-    setComments(response.data);
+    try {
+      await publicCultureAPI.deleteDiscussionComment(selectedCulture.id, commentId);
+      const [topicsResponse, commentsResponse] = await Promise.all([
+        publicCultureAPI.discussionTopics(selectedCulture.id),
+        publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId),
+      ]);
+      setTopics(topicsResponse.data);
+      setComments(commentsResponse.data);
+      if (!topicsResponse.data.some((topic) => topic.id === selectedTopicId)) {
+        navigateToLibraryState({
+          cultureId: selectedCulture.id,
+          tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+          discussionId: null,
+          replace: true,
+        });
+      }
+    } catch {
+      showGlobalSnackbar({ message: t('library.page.discussion.commentError'), severity: 'error' });
+    }
+  };
+
+  const showRootDeleteBlockedMessage = (): void => {
+    showGlobalSnackbar({ message: t('library.page.discussion.rootDeleteBlocked'), severity: 'error' });
   };
 
   const startReply = (commentId: number): void => {
@@ -1284,11 +1483,17 @@ export default function PublicCropLibraryPage() {
     if (!ensureDiscardableCommentDraft(null)) {
       return;
     }
-    setSelectedTopicId(null);
     setComments([]);
+    setCommentsStatus('idle');
     setReplyTo(null);
     setEditingCommentId(null);
     setCommentBody('');
+    navigateToLibraryState({
+      cultureId: selectedCultureId,
+      tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
+      discussionId: null,
+      replace: false,
+    });
   };
 
   const libraryCardSx = {
@@ -1368,7 +1573,9 @@ export default function PublicCropLibraryPage() {
                       key={culture.id}
                       {...cultureListNavigation.getItemProps(culture)}
                       selected={culture.id === selectedCultureId}
-                      onClick={() => cultureListNavigation.selectItem(culture)}
+                      onClick={() => {
+                        updateSelectedCultureId(culture.id, { replace: false });
+                      }}
                       sx={{
                         borderBottom: '1px solid',
                         borderColor: 'divider',
@@ -1551,7 +1758,7 @@ export default function PublicCropLibraryPage() {
                   <Divider />
                   <Tabs
                     value={activeTab}
-                    onChange={(_, value: number) => setActiveTab(value)}
+                    onChange={handleTabChange}
                     variant={isMobile ? 'fullWidth' : 'scrollable'}
                     allowScrollButtonsMobile
                     sx={{ px: { xs: 1, sm: 2 } }}
@@ -1817,35 +2024,40 @@ export default function PublicCropLibraryPage() {
                           <Typography variant="h6" component="h2">
                             {selectedTopic?.title}
                           </Typography>
-                          <Stack spacing={2.25}>
-                            {threadCommentTree.map((node) => (
-                              <ThreadCommentBranch
-                                key={node.comment.id}
-                                node={node}
-                                depth={0}
-                                anonymousLabel={anonymousLabel}
-                                formatDate={formatDate}
-                                replyTo={replyTo}
-                                editingCommentId={editingCommentId}
-                                commentActionMenu={commentActionMenu}
-                                submittingComment={submittingComment}
-                                commentBody={commentBody}
-                                t={t}
-                                onReply={startReply}
-                                onEdit={startEdit}
-                                onDelete={(commentId) => void deleteComment(commentId)}
-                                onOpenMenu={(commentId, anchorElement) => setCommentActionMenu({ commentId, anchorElement })}
-                                onCloseMenu={() => setCommentActionMenu(null)}
-                                onCancelEdit={cancelActiveCommentForm}
-                                onCommentSubmit={(event) => void handleCommentSubmit(event)}
-                                onCommentBodyChange={setCommentBody}
-                                registerReplyActionRef={registerReplyActionRef}
-                                registerCommentRef={registerCommentRef}
-                                activeFormInputRef={activeCommentFormInputRef}
-                              />
-                            ))}
-                          </Stack>
-                          {replyTo === null && editingCommentId === null ? (
+                          {commentsStatus === 'loading' || !selectedTopic ? <CircularProgress size={24} /> : null}
+                          {commentsStatus === 'error' ? <Alert severity="error">{t('library.page.collaborationLoadError')}</Alert> : null}
+                          {commentsStatus !== 'loading' && commentsStatus !== 'error' && selectedTopic ? (
+                            <Stack spacing={2.25}>
+                              {threadCommentTree.map((node) => (
+                                <ThreadCommentBranch
+                                  key={node.comment.id}
+                                  node={node}
+                                  depth={0}
+                                  anonymousLabel={anonymousLabel}
+                                  formatDate={formatDate}
+                                  replyTo={replyTo}
+                                  editingCommentId={editingCommentId}
+                                  commentActionMenu={commentActionMenu}
+                                  submittingComment={submittingComment}
+                                  commentBody={commentBody}
+                                  t={t}
+                                  onReply={startReply}
+                                  onEdit={startEdit}
+                                  onDelete={(commentId) => void deleteComment(commentId)}
+                                  onDeleteBlocked={showRootDeleteBlockedMessage}
+                                  onOpenMenu={(commentId, anchorElement) => setCommentActionMenu({ commentId, anchorElement })}
+                                  onCloseMenu={() => setCommentActionMenu(null)}
+                                  onCancelEdit={cancelActiveCommentForm}
+                                  onCommentSubmit={(event) => void handleCommentSubmit(event)}
+                                  onCommentBodyChange={setCommentBody}
+                                  registerReplyActionRef={registerReplyActionRef}
+                                  registerCommentRef={registerCommentRef}
+                                  activeFormInputRef={activeCommentFormInputRef}
+                                />
+                              ))}
+                            </Stack>
+                          ) : null}
+                          {replyTo === null && editingCommentId === null && commentsStatus !== 'loading' && commentsStatus !== 'error' && selectedTopic ? (
                             <CommentForm
                               body={commentBody}
                               disabled={submittingComment}

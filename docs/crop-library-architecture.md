@@ -70,12 +70,14 @@ Topics may reference an immutable `PublicCultureRevision`, so the version being
 discussed remains stable when newer revisions are created. Comments use soft
 deletion (`deleted_at`/`deleted_by`) and retain their row and replies, with the
 body cleared and a neutral placeholder shown in the UI. Normal authors may
-soft-delete their replies, but only public-library moderators may delete a
-topic's root discussion post because it anchors the thread context. Edits keep
-the original author and creation timestamp and record `edited_at`. Existing
-pre-topic comments are grouped per culture by migration 0081 into an
-`Allgemeine Diskussion` topic without changing their authors, timestamps, text,
-or chronological order.
+soft-delete their replies and may delete the root discussion post only while no
+visible, non-deleted replies remain. Public-library moderators may remove any
+comment, including root posts with visible replies. Discussion topics with no
+visible comments are hidden from the normal topic overview so users do not see
+threads made only of deletion placeholders. Edits keep the original author and
+creation timestamp and record `edited_at`. Existing pre-topic comments are
+grouped per culture by migration 0081 into an `Allgemeine Diskussion` topic
+without changing their authors, timestamps, text, or chronological order.
 
 Discussion records and public revisions (`PublicCultureRevision`) do not
 touch project-owned `Culture` rows. Editing or reverting a public entry changes

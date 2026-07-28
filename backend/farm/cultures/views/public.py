@@ -191,14 +191,15 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         if request.method == 'GET':
             latest_comment_body = PublicCultureDiscussionComment.objects.filter(
                 topic=OuterRef('pk'),
+                deleted_at__isnull=True,
             ).order_by('-created_at', '-pk').values('body')[:1]
             topics = public_culture.discussion_topics.select_related(
                 'created_by__public_profile', 'revision'
             ).annotate(
-                comment_count=Count('comments'),
-                last_activity_at=Max('comments__created_at'),
+                comment_count=Count('comments', filter=Q(comments__deleted_at__isnull=True)),
+                last_activity_at=Max('comments__created_at', filter=Q(comments__deleted_at__isnull=True)),
                 last_comment_preview=Subquery(latest_comment_body),
-            ).order_by('-last_activity_at', '-created_at', '-pk')
+            ).filter(comment_count__gt=0).order_by('-last_activity_at', '-created_at', '-pk')
             serializer = PublicCultureDiscussionTopicSerializer(topics, many=True, context={'request': request})
             return Response(serializer.data)
 
@@ -214,10 +215,11 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             comment_serializer.save(topic=topic, created_by=request.user)
         latest_comment_body = PublicCultureDiscussionComment.objects.filter(
             topic=OuterRef('pk'),
+            deleted_at__isnull=True,
         ).order_by('-created_at', '-pk').values('body')[:1]
         topic = public_culture.discussion_topics.select_related('created_by__public_profile', 'revision').annotate(
-            comment_count=Count('comments'),
-            last_activity_at=Max('comments__created_at'),
+            comment_count=Count('comments', filter=Q(comments__deleted_at__isnull=True)),
+            last_activity_at=Max('comments__created_at', filter=Q(comments__deleted_at__isnull=True)),
             last_comment_preview=Subquery(latest_comment_body),
         ).get(pk=topic.pk)
         return Response(PublicCultureDiscussionTopicSerializer(topic, context={'request': request}).data, status=status.HTTP_201_CREATED)
@@ -229,10 +231,19 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         if request.method == 'GET':
             comments = topic.comments.select_related('created_by__public_profile')
             root_comment_id = comments.order_by('created_at', 'id').values_list('id', flat=True).first()
+            visible_reply_exists = (
+                comments.filter(deleted_at__isnull=True).exclude(pk=root_comment_id).exists()
+                if root_comment_id is not None
+                else False
+            )
             return Response(PublicCultureDiscussionCommentSerializer(
                 comments,
                 many=True,
-                context={'request': request, 'root_comment_id': root_comment_id},
+                context={
+                    'request': request,
+                    'root_comment_id': root_comment_id,
+                    'visible_reply_exists': visible_reply_exists,
+                },
             ).data)
         serializer = PublicCultureDiscussionCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -252,7 +263,15 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         if request.method == 'DELETE':
             root_comment_id = comment.topic.comments.order_by('created_at', 'id').values_list('id', flat=True).first()
             if comment.id == root_comment_id and not may_moderate:
-                return Response({'detail': 'Only moderators may delete the root discussion post.'}, status=status.HTTP_403_FORBIDDEN)
+                visible_reply_exists = comment.topic.comments.filter(deleted_at__isnull=True).exclude(pk=comment.id).exists()
+                if visible_reply_exists:
+                    return Response(
+                        {
+                            'detail': 'The opening post cannot be deleted while visible replies exist.',
+                            'code': 'visible_replies_exist',
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
             if not comment.deleted_at:
                 comment.body = ''
                 comment.deleted_at = timezone.now()

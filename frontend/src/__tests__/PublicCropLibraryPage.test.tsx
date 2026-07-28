@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
+import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 
 const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -99,13 +100,33 @@ const publicCultures: PublicCulture[] = [
   },
 ];
 
-function renderPage(): ReturnType<typeof render> {
+function LocationProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <output aria-label="current route">{`${location.pathname}${location.search}`}</output>
+      <button type="button" onClick={() => navigate(-1)}>Browser zurück</button>
+      <button type="button" onClick={() => navigate(1)}>Browser vorwärts</button>
+    </>
+  );
+}
+
+function renderPage(initialEntries: string[] = ['/app/crop-library']): ReturnType<typeof render> {
   return render(
     <FocusManagerProvider>
       <CommandProvider>
-        <MemoryRouter initialEntries={['/app/crop-library']}>
+        <MemoryRouter initialEntries={initialEntries}>
           <Routes>
-            <Route path="/app/crop-library" element={<PublicCropLibraryPage />} />
+            <Route
+              path="/app/crop-library"
+              element={(
+                <>
+                  <LocationProbe />
+                  <PublicCropLibraryPage />
+                </>
+              )}
+            />
           </Routes>
         </MemoryRouter>
       </CommandProvider>
@@ -254,6 +275,177 @@ describe('PublicCropLibraryPage', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 11));
+  });
+
+  it('stores opened discussion threads in URL history so browser back and forward return between overview and thread', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Allgemeine Diskussion',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+      last_comment_preview: 'Start',
+    }];
+    const comments: PublicCultureDiscussionComment[] = [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Start im Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+
+    await user.click(await screen.findByText('Allgemeine Diskussion'));
+    await screen.findByText('Start im Thread');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+
+    await user.click(screen.getByRole('button', { name: 'Browser zurück' }));
+    expect(await screen.findByText('Allgemeine Diskussion')).toBeInTheDocument();
+    expect(screen.queryByText('Start im Thread')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+
+    await user.click(screen.getByRole('button', { name: 'Browser vorwärts' }));
+    expect(await screen.findByText('Start im Thread')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+  });
+
+  it('opens a discussion thread directly from the URL after reload', async () => {
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Direkt verlinkter Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Direktlink-Kommentar',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+
+    expect(await screen.findByRole('heading', { name: 'Direkt verlinkter Thread' })).toBeInTheDocument();
+    expect(await screen.findByText('Direktlink-Kommentar')).toBeInTheDocument();
+    expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 10);
+  });
+
+  it('uses a deterministic discussion overview target for the internal back action', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Direkt verlinkter Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Direktlink-Kommentar',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    await screen.findByText('Direktlink-Kommentar');
+
+    await user.click(screen.getByRole('button', { name: 'Alle Diskussionen' }));
+
+    expect(await screen.findByText('Direkt verlinkter Thread')).toBeInTheDocument();
+    expect(screen.queryByText('Direktlink-Kommentar')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+  });
+
+  it('removes incompatible discussion IDs when switching culture or tab', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Thread der Tomate',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Tomaten-Kommentar',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    await screen.findByText('Tomaten-Kommentar');
+
+    await user.click(screen.getByRole('tab', { name: 'Details' }));
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+    expect(screen.queryByText('Tomaten-Kommentar')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Thread der Tomate'));
+    await screen.findByText('Tomaten-Kommentar');
+    await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
+
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2&tab=discussion');
+    expect(screen.getByLabelText('current route')).not.toHaveTextContent('discussionId=');
+  });
+
+  it('falls back to the discussion overview for an unknown discussion ID', async () => {
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Bekannter Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=999']);
+
+    expect(await screen.findByText('Bekannter Thread')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    });
+    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
   });
 
   it('creates a new discussion inline and opens it after saving', async () => {
@@ -587,6 +779,7 @@ describe('PublicCropLibraryPage', () => {
         created_at: '2026-07-27T10:00:00Z',
         updated_at: '2026-07-28T09:00:00Z',
         deleted_at: '2026-07-28T09:00:00Z',
+        deletion_kind: 'author',
         is_edited: false,
         can_edit: false,
         can_delete: false,
@@ -604,6 +797,20 @@ describe('PublicCropLibraryPage', () => {
         can_edit: true,
         can_delete: true,
       },
+      {
+        id: 3,
+        topic: 10,
+        parent: null,
+        body: '',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T11:00:00Z',
+        updated_at: '2026-07-28T11:30:00Z',
+        deleted_at: '2026-07-28T11:30:00Z',
+        deletion_kind: 'moderator',
+        is_edited: false,
+        can_edit: false,
+        can_delete: false,
+      },
     ];
     publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
@@ -613,47 +820,120 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Allgemeine Diskussion'));
 
-    expect(screen.getByLabelText('Dieser Beitrag wurde gelöscht.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Dieser Beitrag wurde vom Autor gelöscht.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Dieser Beitrag wurde von einem Moderator entfernt.')).toBeInTheDocument();
+    expect(screen.queryByText('Dieser Beitrag wurde gelöscht.')).not.toBeInTheDocument();
     expect(screen.getByText('Antwort bleibt sichtbar')).toBeInTheDocument();
     expect(container.querySelector('[data-comment-id="2"]')).toHaveAttribute('data-logical-depth', '1');
     expect(screen.queryByText('Ursprünglicher Inhalt')).not.toBeInTheDocument();
   });
 
-  it('does not offer delete for an editable root post', async () => {
+  it('shows a clear message when deleting an opening post with visible replies is blocked', async () => {
     const user = userEvent.setup();
+    const snackbarSpy = vi.fn<(event: Event) => void>();
+    window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
     const topics: PublicCultureDiscussionTopic[] = [{
       id: 10,
       public_culture: 1,
-      title: 'Allgemeine Diskussion',
+      title: 'Root mit Antwort',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 2,
+      last_activity_at: '2026-07-28T10:00:00Z',
+    }];
+    const comments: PublicCultureDiscussionComment[] = [
+      {
+        id: 1,
+        topic: 10,
+        parent: null,
+        body: 'Root bleibt',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-27T10:00:00Z',
+        updated_at: '2026-07-27T10:00:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+        can_delete: false,
+        delete_blocked_reason: 'visible_replies',
+      },
+      {
+        id: 2,
+        topic: 10,
+        parent: 1,
+        body: 'Sichtbare Antwort',
+        created_by_label: 'Martin Public',
+        created_at: '2026-07-28T10:00:00Z',
+        updated_at: '2026-07-28T10:00:00Z',
+        deleted_at: null,
+        is_edited: false,
+        can_edit: true,
+        can_delete: true,
+      },
+    ];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+
+    const { container } = renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Root mit Antwort'));
+
+    const rootElement = container.querySelector('[data-comment-id="1"]');
+    expect(rootElement).not.toBeNull();
+    await user.click(within(rootElement as HTMLElement).getByRole('button', { name: 'Weitere Aktionen' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+
+    expect(publicCultureApiMocks.deleteDiscussionComment).not.toHaveBeenCalled();
+    expect(snackbarSpy).toHaveBeenCalled();
+    const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+    expect(event.detail.message).toBe('Der Eröffnungsbeitrag kann nicht gelöscht werden, solange sichtbare Antworten vorhanden sind.');
+    window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+  });
+
+  it('returns to the discussion overview when deleting the last visible post hides the topic', async () => {
+    const user = userEvent.setup();
+    const topic: PublicCultureDiscussionTopic = {
+      id: 10,
+      public_culture: 1,
+      title: 'Nur Root',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
-      last_activity_at: '2026-07-27T10:00:00Z',
-    }];
-    const comments: PublicCultureDiscussionComment[] = [{
+      last_activity_at: '2026-07-28T10:00:00Z',
+    };
+    const rootComment: PublicCultureDiscussionComment = {
       id: 1,
       topic: 10,
       parent: null,
-      body: 'Root bleibt editierbar',
+      body: 'Letzter sichtbarer Beitrag',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       updated_at: '2026-07-27T10:00:00Z',
       deleted_at: null,
       is_edited: false,
       can_edit: true,
-      can_delete: false,
-    }];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+      can_delete: true,
+    };
+    publicCultureApiMocks.discussionTopics
+      .mockResolvedValueOnce({ data: [topic] })
+      .mockResolvedValueOnce({ data: [] });
+    publicCultureApiMocks.discussionComments
+      .mockResolvedValueOnce({ data: [rootComment] })
+      .mockResolvedValueOnce({ data: [{ ...rootComment, body: '', deleted_at: '2026-07-28T10:00:00Z', deletion_kind: 'author', can_edit: false, can_delete: false }] });
+    publicCultureApiMocks.deleteDiscussionComment.mockResolvedValue({ data: undefined });
 
-    renderPage();
-    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
-    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
-    await user.click(await screen.findByText('Allgemeine Diskussion'));
-    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
+    const { container } = renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    await screen.findByText('Letzter sichtbarer Beitrag');
 
-    expect(screen.getByRole('menuitem', { name: 'Bearbeiten' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Löschen' })).not.toBeInTheDocument();
+    const rootElement = container.querySelector('[data-comment-id="1"]');
+    expect(rootElement).not.toBeNull();
+    await user.click(within(rootElement as HTMLElement).getByRole('button', { name: 'Weitere Aktionen' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.deleteDiscussionComment).toHaveBeenCalledWith(1, 1));
+    await screen.findByText('Noch keine Diskussionen');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).not.toHaveTextContent('discussionId=');
   });
 
   it('shows only provenance metadata in the public culture detail section', async () => {

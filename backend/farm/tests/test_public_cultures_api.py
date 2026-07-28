@@ -458,6 +458,25 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data[0]['last_comment_preview'], 'Latest active preview')
         self.assertIsNotNone(response.data[0]['last_activity_at'])
 
+    def test_discussion_topics_hide_threads_without_visible_comments(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        visible_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Visible topic', created_by=self.user)
+        deleted_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Deleted topic', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(topic=visible_topic, body='Still visible', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(
+            topic=deleted_topic,
+            body='',
+            created_by=self.user,
+            deleted_at=timezone.now(),
+            deleted_by=self.user,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([topic['title'] for topic in response.data], ['Visible topic'])
+        self.assertEqual(response.data[0]['comment_count'], 1)
+
     def test_anonymous_user_can_read_but_cannot_create_discussions(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
         self.client.force_authenticate(user=None)
@@ -489,20 +508,63 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNotNone(comment.deleted_at)
         self.assertEqual(comment.body, '')
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        deleted_comment_payload = next(item for item in list_response.data if item['id'] == comment.id)
+        self.assertEqual(deleted_comment_payload['deletion_kind'], 'author')
         child_comment.refresh_from_db()
         self.assertEqual(child_comment.parent_id, comment.id)
 
-    def test_comment_owner_cannot_delete_root_discussion_post(self):
+    def test_comment_owner_can_delete_root_discussion_post_without_visible_replies(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
-        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root guard', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root delete', created_by=self.user)
         root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
 
         response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
 
         root_comment.refresh_from_db()
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, '')
+
+        topics_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+        self.assertEqual(topics_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(topics_response.data, [])
+
+    def test_comment_owner_cannot_delete_root_discussion_post_with_visible_replies(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root guard', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Visible reply', created_by=self.user)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'visible_replies_exist')
         self.assertIsNone(root_comment.deleted_at)
         self.assertEqual(root_comment.body, 'Root content')
+
+    def test_comment_owner_can_delete_root_discussion_post_when_replies_are_deleted(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Deleted replies', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        deleted_reply = PublicCultureDiscussionComment.objects.create(
+            topic=topic,
+            parent=root_comment,
+            body='',
+            created_by=self.user,
+            deleted_at=timezone.now(),
+            deleted_by=self.user,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        deleted_reply.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(deleted_reply.parent_id, root_comment.id)
 
     def test_comment_permissions_mark_root_delete_unavailable_for_owner(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
@@ -516,6 +578,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         by_id = {comment['id']: comment for comment in response.data}
         self.assertTrue(by_id[root_comment.id]['can_edit'])
         self.assertFalse(by_id[root_comment.id]['can_delete'])
+        self.assertEqual(by_id[root_comment.id]['delete_blocked_reason'], 'visible_replies')
         self.assertTrue(by_id[reply.id]['can_delete'])
 
     def test_topic_keeps_exact_revision_when_new_versions_are_created(self):
@@ -545,6 +608,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         comment.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNotNone(comment.deleted_at)
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['deletion_kind'], 'moderator')
 
     def test_public_library_moderator_can_soft_delete_root_discussion_post(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
@@ -563,6 +629,11 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertIsNotNone(root_comment.deleted_at)
         self.assertEqual(root_comment.body, '')
         self.assertEqual(reply.parent_id, root_comment.id)
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        by_id = {comment['id']: comment for comment in list_response.data}
+        self.assertEqual(by_id[root_comment.id]['deletion_kind'], 'moderator')
+        self.assertEqual(by_id[reply.id]['parent'], root_comment.id)
 
     def test_unauthenticated_user_cannot_edit_public_culture(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)

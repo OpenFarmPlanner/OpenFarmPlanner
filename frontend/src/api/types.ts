@@ -265,6 +265,8 @@ export interface PublicCultureDiscussionComment {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
+  deletion_kind?: 'author' | 'moderator' | 'unknown' | null;
+  delete_blocked_reason?: 'visible_replies' | null;
   is_edited: boolean;
   can_edit: boolean;
   can_delete?: boolean;

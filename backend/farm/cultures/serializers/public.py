@@ -164,6 +164,8 @@ class PublicCultureRevisionSerializer(serializers.ModelSerializer):
 
 class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
     created_by_label = serializers.SerializerMethodField()
+    deletion_kind = serializers.SerializerMethodField()
+    delete_blocked_reason = serializers.SerializerMethodField()
     is_edited = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
@@ -179,6 +181,8 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'deleted_at',
+            'deletion_kind',
+            'delete_blocked_reason',
             'is_edited',
             'can_edit',
             'can_delete',
@@ -190,6 +194,8 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'deleted_at',
+            'deletion_kind',
+            'delete_blocked_reason',
             'is_edited',
             'can_edit',
             'can_delete',
@@ -197,6 +203,30 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
 
     def get_created_by_label(self, obj: PublicCultureDiscussionComment) -> str:
         return get_public_user_label(obj.created_by)
+
+    def get_deletion_kind(self, obj: PublicCultureDiscussionComment) -> str | None:
+        if not obj.deleted_at:
+            return None
+        if obj.deleted_by_id is not None and obj.deleted_by_id == obj.created_by_id:
+            return 'author'
+        if obj.deleted_by_id is not None:
+            return 'moderator'
+        return 'unknown'
+
+    def get_delete_blocked_reason(self, obj: PublicCultureDiscussionComment) -> str | None:
+        if obj.deleted_at:
+            return None
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated or is_public_library_moderator(user):
+            return None
+        if obj.created_by_id != user.id:
+            return None
+        root_comment_id = self.context.get('root_comment_id')
+        visible_reply_exists = bool(self.context.get('visible_reply_exists'))
+        if root_comment_id == obj.id and visible_reply_exists:
+            return 'visible_replies'
+        return None
 
     def get_is_edited(self, obj: PublicCultureDiscussionComment) -> bool:
         return bool(obj.edited_at and not obj.deleted_at)
@@ -219,7 +249,9 @@ class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
         root_comment_id = self.context.get('root_comment_id')
         if root_comment_id is None:
             root_comment_id = obj.topic.comments.order_by('created_at', 'id').values_list('id', flat=True).first()
-        return bool(may_moderate or obj.id != root_comment_id)
+        if may_moderate or obj.id != root_comment_id:
+            return True
+        return not bool(self.context.get('visible_reply_exists'))
 
     def validate_body(self, value: str) -> str:
         value = value.strip()
