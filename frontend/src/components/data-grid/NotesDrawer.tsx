@@ -165,8 +165,13 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
   useEffect(() => closeCamera, []);
 
   useEffect(() => {
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = cameraStream;
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    video.srcObject = cameraStream;
+    if (cameraStream) {
+      // Some browsers don't honor the `autoPlay` attribute when srcObject is
+      // assigned imperatively after mount; without this the preview stays black.
+      void video.play().catch(() => {});
     }
   }, [cameraStream]);
 
