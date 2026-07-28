@@ -74,3 +74,20 @@ test('keeps the guest demo after an older login-page auth refresh finishes', asy
   await expect(page).toHaveURL(/\/app\/fields-beds/);
   await expect(page.getByRole('heading', { name: 'Anbauflächen' })).toBeVisible();
 });
+
+test('stays on the demo project instead of bouncing back to login after a few seconds', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Demo ohne Registrierung ansehen' }).click();
+
+  await expect(page).toHaveURL(/\/app\/fields-beds/);
+  await expect(page.getByRole('heading', { name: 'Anbauflächen' })).toBeVisible();
+
+  // Regression guard: the demo previously bounced back to /login a fraction
+  // of a second after landing, once background requests fired by the newly
+  // mounted app shell (deleted-projects count, language promotion, etc.)
+  // resolved. Give those a few seconds to settle and assert we are still on
+  // the demo project, not redirected to /login.
+  await page.waitForTimeout(3_000);
+  await expect(page).toHaveURL(/\/app\/fields-beds/);
+  await expect(page.getByRole('heading', { name: 'Anbauflächen' })).toBeVisible();
+});
