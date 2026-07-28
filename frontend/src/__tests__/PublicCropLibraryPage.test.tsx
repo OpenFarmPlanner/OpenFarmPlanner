@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -100,6 +100,38 @@ const publicCultures: PublicCulture[] = [
   },
 ];
 
+function mockMobileViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width:600px') || query.includes('max-width:899.95px'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+function mockDesktopViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('min-width:900px'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 function LocationProbe() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -162,7 +194,9 @@ function createDeferred<T>(): {
 describe('PublicCropLibraryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDesktopViewport();
     window.localStorage.clear();
+    window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cultureId=1');
     publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
     publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
@@ -196,6 +230,123 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
     expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
+  });
+
+  it('uses the selected public culture title as the mobile selector trigger', async () => {
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
+
+    expect(within(titleTrigger).getByText('Tomate')).toBeInTheDocument();
+    expect(within(titleTrigger).getByTestId('culture-title-selector-chevron')).toBeInTheDocument();
+    expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(screen.getByText('Version 1')).toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).not.toBeInTheDocument();
+  });
+
+  it('opens the mobile public culture selector from the title', async () => {
+    const user = userEvent.setup();
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+
+    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).toBeInTheDocument();
+  });
+
+  it('opens the mobile public culture selector from the chevron', async () => {
+    const user = userEvent.setup();
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
+    await user.click(within(titleTrigger).getByTestId('culture-title-selector-chevron'));
+
+    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+  });
+
+  it('keeps the selected public culture when the mobile selector is cancelled', async () => {
+    const user = userEvent.setup();
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+    });
+    expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Tomate')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+  });
+
+  it('closes the mobile public culture selector on browser back without leaving the library', async () => {
+    const user = userEvent.setup();
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+
+    act(() => {
+      window.history.back();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+    });
+  });
+
+  it('selects another public culture from the mobile selector and updates the URL', async () => {
+    const user = userEvent.setup();
+    mockMobileViewport();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+    await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2');
+    });
+    expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Salat')).toBeInTheDocument();
+    expect(screen.getAllByText('Maikönig').length).toBeGreaterThan(0);
+  });
+
+  it('keeps long mobile public culture titles truncated with the chevron visible', async () => {
+    const longTitleCulture: PublicCulture = {
+      ...publicCultures[0],
+      id: 3,
+      name: 'Sehr lange Tomatenkultur mit vielen beschreibenden Namensbestandteilen',
+      variety: 'Roma Spezial',
+    };
+    publicCultureApiMocks.list.mockResolvedValue({ data: { results: [longTitleCulture] } });
+    mockMobileViewport();
+
+    renderPage(['/app/crop-library?cultureId=3']);
+
+    const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
+    expect(within(titleTrigger).getByTestId('culture-title-selector-label')).toHaveStyle({
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    });
+    expect(within(titleTrigger).getByTestId('culture-title-selector-chevron')).toBeInTheDocument();
+  });
+
+  it('keeps the public library desktop master-detail selector unchanged', async () => {
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kultur auswählen' })).not.toBeInTheDocument();
   });
 
   it('shows a compact, single-surface empty state before any culture is selected', async () => {

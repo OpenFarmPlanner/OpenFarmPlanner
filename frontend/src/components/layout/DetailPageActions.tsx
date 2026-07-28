@@ -1,4 +1,4 @@
-import { Button, Stack, Tooltip } from '@mui/material';
+import { Box, Button, Stack, Tooltip } from '@mui/material';
 import type { MouseEvent, ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
@@ -27,9 +27,9 @@ export function DetailPageActions({
       direction="row"
       spacing={1}
       useFlexGap
-      flexWrap="wrap"
+      flexWrap={{ xs: 'nowrap', sm: 'wrap' }}
       justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
-      sx={{ flexShrink: 0, minWidth: { xs: '100%', sm: 'auto' } }}
+      sx={{ flexShrink: 0, minWidth: 'auto' }}
     >
       {primaryActions.map((action) => {
         const button = (
@@ -37,15 +37,21 @@ export function DetailPageActions({
             key={action.label}
             variant={action.variant ?? 'outlined'}
             size="medium"
-            startIcon={action.icon}
+            aria-label={action.label}
             disabled={action.disabled}
             onClick={action.onClick}
             sx={{
               minHeight: 40,
-              width: { xs: '100%', sm: 'auto' },
+              minWidth: { xs: 40, sm: 64 },
+              px: { xs: 0.75, sm: 1.5 },
             }}
           >
-            {action.label}
+            <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: { xs: 0, sm: 0.75 } }}>
+              {action.icon}
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              {action.label}
+            </Box>
           </Button>
         );
 
@@ -67,10 +73,10 @@ export function DetailPageActions({
             variant="outlined"
             size="medium"
             sx={{
-              alignSelf: { xs: 'stretch', sm: 'center' },
+              alignSelf: 'center',
               minHeight: 40,
-              minWidth: 48,
-              px: 1.25,
+              minWidth: { xs: 40, sm: 48 },
+              px: { xs: 0.75, sm: 1.25 },
               width: 'auto',
             }}
           >

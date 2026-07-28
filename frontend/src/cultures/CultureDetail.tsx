@@ -20,10 +20,10 @@ import { useTranslation } from '../i18n';
 import { CultureFiltersPopover } from './CultureFiltersPopover';
 import { CultureMobileSelectorDialog } from './CultureMobileSelectorDialog';
 import { CultureHeaderActionsMenu } from './CultureHeaderActionsMenu';
+import { CultureTitleSelectorButton } from './CultureTitleSelectorButton';
 import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Badge,
   Box,
@@ -113,10 +113,7 @@ export function CultureDetail({
   const theme = useTheme();
   const isTabletLayout = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
-  const isMobileLandscapeLayout = useMediaQuery(
-    `${theme.breakpoints.between('sm', 'md')} and (orientation: landscape) and (max-height: 560px)`,
-  );
-  const useUnifiedMobileLayout = isMobileLayout || isMobileLandscapeLayout;
+  const useUnifiedMobileLayout = isMobileLayout;
   const supplierIdFromQuery = searchParams.get('supplierId') ?? '';
   
   // Initialize filters from sessionStorage
@@ -599,7 +596,6 @@ export function CultureDetail({
               ? 'minmax(0, 1fr)'
               : {
                 xs: '1fr',
-                sm: '220px minmax(0, 1fr)',
                 md: '230px minmax(0, 1fr)',
                 lg: '300px minmax(0, 1fr)',
                 xl: '330px minmax(0, 1fr)',
@@ -685,8 +681,8 @@ export function CultureDetail({
                 <CardContent sx={{ p: { xs: 1, sm: 2, lg: 2.5 } }}>
             {/* Header with crop name and badge */}
                   <Box sx={{ mb: { xs: 2, sm: 3 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
-                <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                     {selectedCulture.display_color ? (
                       <Box
@@ -705,33 +701,11 @@ export function CultureDetail({
                     ) : null}
                     <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
                       {useUnifiedMobileLayout ? (
-                        <Box
-                          component="button"
-                          type="button"
+                        <CultureTitleSelectorButton
+                          title={selectedCulture.name}
+                          ariaLabel={t('selectCulture')}
                           onClick={() => setMobileSelectorOpen(true)}
-                          sx={{
-                            appearance: 'none',
-                            border: 'none',
-                            background: 'transparent',
-                            p: 0,
-                            m: 0,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            cursor: 'pointer',
-                            color: 'inherit',
-                            textAlign: 'left',
-                            borderRadius: 0.75,
-                            '&:hover': { bgcolor: 'rgba(15, 23, 42, 0.04)' },
-                            '&:focus-visible': { outline: '2px solid rgba(37, 111, 42, 0.28)', outlineOffset: 2 },
-                          }}
-                          aria-label={t('selectCulture')}
-                        >
-                          <Typography component="span" sx={{ fontSize: '1.25rem', lineHeight: 1.2, fontWeight: 600 }}>
-                            {selectedCulture.name}
-                          </Typography>
-                          <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                        </Box>
+                        />
                       ) : (
                         <Typography component="h2" sx={{ fontSize: { xs: '1.25rem', sm: '2rem' }, lineHeight: 1.2, fontWeight: 600 }}>
                           {selectedCulture.name}

@@ -11,6 +11,10 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   List,
   ListItemButton,
@@ -53,10 +57,12 @@ import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
 import { CultureForm } from '../../cultures/CultureForm';
+import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
 import {
   buildPublicCultureUpdatePayload,
   publicCultureToCultureFormData,
 } from '../../cultures/publicCultureFormAdapter';
+import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 
@@ -894,6 +900,111 @@ function ThreadCommentBranch({
   );
 }
 
+interface PublicCultureMobileSelectorDialogProps {
+  open: boolean;
+  query: string;
+  cultures: PublicCulture[];
+  loading: boolean;
+  error: string;
+  selectedCultureId: number | null;
+  listRef: Ref<HTMLUListElement>;
+  onClose: () => void;
+  onQueryChange: (value: string) => void;
+  onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSelect: (culture: PublicCulture) => void;
+  onListScroll: (event: UIEvent<HTMLUListElement>) => void;
+}
+
+function PublicCultureMobileSelectorDialog({
+  open,
+  query,
+  cultures,
+  loading,
+  error,
+  selectedCultureId,
+  listRef,
+  onClose,
+  onQueryChange,
+  onSearchSubmit,
+  onSelect,
+  onListScroll,
+}: PublicCultureMobileSelectorDialogProps) {
+  const { t } = useTranslation('cultures');
+
+  useOverlayHistory({
+    open,
+    onClose,
+    historyKey: 'openFarmPlannerPublicCultureSelector',
+  });
+
+  return (
+    <Dialog fullScreen open={open} onClose={onClose}>
+      <DialogTitle>{t('selectCulture')}</DialogTitle>
+      <DialogContent sx={{ px: 1.5, pb: 2 }}>
+        <Box component="form" onSubmit={onSearchSubmit} sx={{ mb: 1.5 }}>
+          <TextField
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            label={t('library.searchLabel')}
+            size="medium"
+            fullWidth
+          />
+        </Box>
+        {loading ? (
+          <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Stack spacing={1} alignItems="center">
+              <CircularProgress size={28} />
+              <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
+            </Stack>
+          </Box>
+        ) : error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : cultures.length === 0 ? (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              {t('library.emptyState.noResultsTitle')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+              {t('library.empty')}
+            </Typography>
+          </Box>
+        ) : (
+          <List
+            ref={listRef}
+            dense
+            disablePadding
+            role="listbox"
+            aria-label={t('library.page.title')}
+            onScroll={onListScroll}
+            sx={{ py: 0.5, px: 0.25, overflowY: 'auto' }}
+          >
+            {cultures.map((culture) => (
+              <ListItemButton
+                key={`mobile-public-${culture.id}`}
+                role="option"
+                aria-selected={culture.id === selectedCultureId}
+                selected={culture.id === selectedCultureId}
+                onClick={() => onSelect(culture)}
+                sx={{ borderRadius: 1.25, mb: 0.375 }}
+              >
+                <ListItemText
+                  primary={getCultureTitle(culture)}
+                  secondary={culture.crop_species_name || culture.crop_family || undefined}
+                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 600 }}
+                  secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 1.5, py: 1 }}>
+        <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function PublicCropLibraryPage() {
   const { t, i18n } = useTranslation('cultures');
   const [searchParams] = useSearchParams();
@@ -928,8 +1039,10 @@ export default function PublicCropLibraryPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
+  const useCompactLibraryLayout = useMediaQuery('(max-width:899.95px)');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
@@ -943,9 +1056,13 @@ export default function PublicCropLibraryPage() {
   const isCultureLoading = loadStatus === 'loading';
 
   const focusSearch = useCallback(() => {
+    if (useCompactLibraryLayout) {
+      setMobileSelectorOpen(true);
+      return;
+    }
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
-  }, []);
+  }, [useCompactLibraryLayout]);
 
   const locale = i18n.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
   const anonymousLabel = t('library.anonymousAuthor');
@@ -1016,6 +1133,11 @@ export default function PublicCropLibraryPage() {
       replace: options.replace ?? true,
     });
   }, [activeTab, navigateToLibraryState]);
+
+  const selectMobileCulture = useCallback((culture: PublicCulture): void => {
+    updateSelectedCultureId(culture.id, { replace: false });
+    setMobileSelectorOpen(false);
+  }, [updateSelectedCultureId]);
 
   const persistViewState = useCallback((overrides: Partial<PublicCropLibraryViewState> = {}): void => {
     if (selectedCultureId === null) {
@@ -1647,7 +1769,6 @@ export default function PublicCropLibraryPage() {
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
-                sm: '220px minmax(0, 1fr)',
                 md: '230px minmax(0, 1fr)',
                 lg: '300px minmax(0, 1fr)',
                 xl: '330px minmax(0, 1fr)',
@@ -1657,7 +1778,15 @@ export default function PublicCropLibraryPage() {
               minHeight: { md: 560 },
             }}
           >
-            <Card variant="outlined" sx={{ ...libraryCardSx, minHeight: 280, maxHeight: { md: 'calc(100vh - 210px)' } }}>
+            {!useCompactLibraryLayout ? (
+            <Card
+              variant="outlined"
+              sx={{
+                ...libraryCardSx,
+                minHeight: 280,
+                maxHeight: { md: 'calc(100vh - 210px)' },
+              }}
+            >
               <Box component="form" onSubmit={handleSearchSubmit} sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
                 <TextField
                   inputRef={searchInputRef}
@@ -1695,7 +1824,7 @@ export default function PublicCropLibraryPage() {
                   role="listbox"
                   aria-label={t('library.page.title')}
                   onScroll={handleCultureListScroll}
-                  sx={{ maxHeight: { xs: 280, sm: 'calc(100vh - 290px)' }, overflow: 'auto' }}
+                  sx={{ maxHeight: { xs: 280, md: 'calc(100vh - 290px)' }, overflow: 'auto' }}
                 >
                   {cultures.map((culture) => (
                     <ListItemButton
@@ -1733,6 +1862,7 @@ export default function PublicCropLibraryPage() {
                 </List>
               )}
             </Card>
+            ) : null}
 
             <Box sx={{ minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
               <Card variant="outlined" sx={{ ...libraryCardSx, width: '100%', maxWidth: { sm: 920, lg: 980, xl: 1040 }, minHeight: 420 }}>
@@ -1770,6 +1900,11 @@ export default function PublicCropLibraryPage() {
                     <Typography variant="body2" color="text.secondary">
                       {t('library.emptyState.noSelectionDescription')}
                     </Typography>
+                    {useCompactLibraryLayout && cultures.length > 0 ? (
+                      <Button variant="outlined" onClick={() => setMobileSelectorOpen(true)}>
+                        {t('selectCulture')}
+                      </Button>
+                    ) : null}
                   </Stack>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2.5, sm: 3 } }}>
                     <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
@@ -1804,7 +1939,7 @@ export default function PublicCropLibraryPage() {
                 ) : (
                 <Stack sx={{ minHeight: '100%' }}>
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
-                    <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="flex-start" justifyContent="space-between">
+                    <Stack direction="row" spacing={1.5} useFlexGap flexWrap={{ xs: 'nowrap', sm: 'wrap' }} alignItems="flex-start" justifyContent="space-between">
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
                           <Box
@@ -1822,9 +1957,18 @@ export default function PublicCropLibraryPage() {
                           />
                         ) : null}
                         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', py: 0.25 }}>
-                          <Typography variant="h5" component="h2" sx={{ fontWeight: 600, overflowWrap: 'anywhere', lineHeight: 1.2 }}>
-                            {selectedCulture.name}
-                          </Typography>
+                          {useCompactLibraryLayout ? (
+                            <CultureTitleSelectorButton
+                              title={selectedCulture.name}
+                              ariaLabel={t('selectCulture')}
+                              onClick={() => setMobileSelectorOpen(true)}
+                              titleSx={{ fontSize: '1.5rem' }}
+                            />
+                          ) : (
+                            <Typography variant="h5" component="h2" sx={{ fontWeight: 600, overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                              {selectedCulture.name}
+                            </Typography>
+                          )}
                           {selectedCulture.variety ? (
                             <Typography variant="body2" color="text.secondary">
                               {selectedCulture.variety}
@@ -2188,6 +2332,20 @@ export default function PublicCropLibraryPage() {
           </Box>
         </Stack>
       </Box>
+      <PublicCultureMobileSelectorDialog
+        open={mobileSelectorOpen}
+        query={query}
+        cultures={cultures}
+        loading={isCultureLoading}
+        error={loadStatus === 'error' ? loadError : ''}
+        selectedCultureId={selectedCultureId}
+        listRef={cultureListRef}
+        onClose={() => setMobileSelectorOpen(false)}
+        onQueryChange={setQuery}
+        onSearchSubmit={handleSearchSubmit}
+        onSelect={selectMobileCulture}
+        onListScroll={handleCultureListScroll}
+      />
       {editDialogOpen && selectedCulture ? (
         <CultureForm
           culture={publicCultureToCultureFormData(selectedCulture)}
