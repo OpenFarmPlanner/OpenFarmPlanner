@@ -3,13 +3,13 @@
     "title": "OpenFarmPlanner",
     "betaBadge": "Beta",
     "heroImageAlt": "Vegetable garden beds in front of a wooded mountainside",
-    "subtitle": "Simple crop planning as a vegetable planning tool for CSA, solidarity farming, and market gardening.",
-    "description": "OpenFarmPlanner helps small-scale vegetable production with clear planning for crops, beds, growing areas, cultivation periods, and sowing dates.",
+    "subtitle": "Open-source crop planning for vegetable production.",
+    "description": "Designed specifically for market gardens, community-supported agriculture, and other farms with many crops and small-scale growing areas.",
     "actions": {
-      "openApp": "Open OpenFarmPlanner",
+      "openApp": "Sign in",
       "register": "Register",
       "demo": "View demo",
-      "demoWithoutRegistration": "View demo without registering",
+      "demoWithoutRegistration": "View demo without registration",
       "startingDemo": "Starting demo...",
       "demoStartError": "Demo could not be started. Please try again.",
       "demoRateLimited": "The demo was started recently. Please try again later.",
@@ -36,10 +36,10 @@
       }
     }
   },
-  "statusNote": "Currently in beta - continuously improved.",
+  "statusNote": "OpenFarmPlanner is currently in beta and is being continuously improved.",
   "statusOpenSource": {
-    "text": "OpenFarmPlanner is open source: contribute on GitHub or self-host the software.",
-    "linkLabel": "Open-source project on GitHub",
+    "text": "As an open-source project, we welcome feedback, ideas, and contributions.",
+    "linkLabel": "Project on GitHub",
     "githubUrl": "https://github.com/stipsitzm/OpenFarmPlanner"
   },
   "productTour": {
