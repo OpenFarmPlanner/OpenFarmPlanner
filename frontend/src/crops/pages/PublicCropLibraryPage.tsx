@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import type { TFunction } from 'i18next';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
@@ -36,7 +36,6 @@ import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
-import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
@@ -53,9 +52,7 @@ import type {
 } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
-import PageHeader from '../../components/layout/PageHeader';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
-import PageHelp from '../../components/help/PageHelp';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
@@ -68,6 +65,8 @@ import {
 } from '../../cultures/publicCultureFormAdapter';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
+import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigation/topbarTypes';
+import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
   getFallbackNotice,
@@ -1025,6 +1024,8 @@ export default function PublicCropLibraryPage() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation('cultures');
   const language = i18n.resolvedLanguage ?? i18n.language;
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
+  const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1544,6 +1545,19 @@ export default function PublicCropLibraryPage() {
     navigate('/app/public-library-moderation');
   }, [navigate]);
 
+  const topbarContextActions = useMemo<TopbarContextAction[]>(() => (
+    canModeratePublicLibrary
+      ? [{
+        id: 'public-crop-library-moderation',
+        label: t('library.page.moderation.open'),
+        ariaLabel: t('library.page.moderation.open'),
+        onClick: openModeration,
+      }]
+      : []
+  ), [canModeratePublicLibrary, openModeration, t]);
+
+  useTopbarContextActions(setTopbarContextActions, topbarContextActions);
+
   const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
     t,
     cultures,
@@ -1819,36 +1833,10 @@ export default function PublicCropLibraryPage() {
       ]}
     />
   ) : null;
-  const headerActions = canModeratePublicLibrary ? (
-    <Button
-      variant="outlined"
-      size="medium"
-      aria-label={t('library.page.moderation.open')}
-      onClick={openModeration}
-      sx={{
-        minHeight: 40,
-        minWidth: useCompactLibraryLayout ? 40 : { xs: 40, sm: 64 },
-        px: useCompactLibraryLayout ? 0.75 : { xs: 0.75, sm: 1.5 },
-      }}
-    >
-      <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: useCompactLibraryLayout ? 0 : { xs: 0, sm: 0.75 } }}>
-        <GavelOutlinedIcon fontSize="small" />
-      </Box>
-      <Box component="span" sx={{ display: useCompactLibraryLayout ? 'none' : { xs: 'none', sm: 'inline' } }}>
-        {t('library.page.moderation.open')}
-      </Box>
-    </Button>
-  ) : undefined;
-
   return (
     <PageContainer variant="xwide">
       <Box sx={{ width: '100%' }}>
         <Stack spacing={2}>
-          <PageHeader
-            title={t('library.page.title')}
-            help={<PageHelp pageKey="cropLibrary" ariaLabel={t('library.page.help.openAria')} tooltip={t('library.page.help.tooltip')} />}
-            actions={headerActions}
-          />
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
 
           <Box

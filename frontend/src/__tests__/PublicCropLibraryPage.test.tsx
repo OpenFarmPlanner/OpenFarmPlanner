@@ -1,12 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
+import type { TopbarContextAction } from '../navigation/topbarTypes';
 
 const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -153,39 +155,42 @@ function LocationProbe() {
   );
 }
 
+function TestAppShell() {
+  const [topbarContextActions, setTopbarContextActions] = useState<TopbarContextAction[]>([]);
+  const [, setTopbarTitleActions] = useState<TopbarContextAction[]>([]);
+  return (
+    <>
+      <LocationProbe />
+      <header>
+        <h1>Öffentliche Kulturbibliothek</h1>
+        {topbarContextActions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            aria-label={action.ariaLabel ?? action.label}
+            onClick={action.onClick}
+            disabled={action.disabled}
+          >
+            {action.label}
+          </button>
+        ))}
+      </header>
+      <Outlet context={{ setTopbarContextActions, setTopbarTitleActions }} />
+    </>
+  );
+}
+
 function renderPage(initialEntries: string[] = ['/app/crop-library']): ReturnType<typeof render> {
   return render(
     <FocusManagerProvider>
       <CommandProvider>
         <MemoryRouter initialEntries={initialEntries}>
           <Routes>
-            <Route
-              path="/app/crop-library"
-              element={(
-                <>
-                  <LocationProbe />
-                  <PublicCropLibraryPage />
-                </>
-              )}
-            />
-            <Route
-              path="/app/public-library-moderation"
-              element={(
-                <>
-                  <LocationProbe />
-                  <h1>Moderation</h1>
-                </>
-              )}
-            />
-            <Route
-              path="/app/dashboard"
-              element={(
-                <>
-                  <LocationProbe />
-                  <h1>Hauptseite</h1>
-                </>
-              )}
-            />
+            <Route path="/app" element={<TestAppShell />}>
+              <Route path="crop-library" element={<PublicCropLibraryPage />} />
+              <Route path="public-library-moderation" element={<h1>Moderation</h1>} />
+              <Route path="dashboard" element={<h1>Hauptseite</h1>} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </CommandProvider>
