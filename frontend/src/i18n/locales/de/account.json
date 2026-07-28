@@ -24,6 +24,18 @@
       "editPublicDisplayName": "Namen ändern"
     }
   },
+  "moderatorRequest": {
+    "title": "Als Moderator mithelfen",
+    "description": "Hilf dabei, Vorschläge für neue Kulturarten zu prüfen und die Kulturbibliothek konsistent zu halten.",
+    "loading": "Status wird geladen…",
+    "alreadyModerator": "Du hast bereits Moderator-Rechte für die öffentliche Kulturbibliothek.",
+    "pending": "Deine Anfrage wird geprüft.",
+    "rejectedHint": "Du kannst eine neue Anfrage senden, wenn du weiterhin mithelfen möchtest.",
+    "motivationLabel": "Warum möchtest du moderieren?",
+    "submit": "Anfrage senden",
+    "sending": "Sende…",
+    "success": "Deine Anfrage wurde gesendet."
+  },
   "actions": {
     "saveProfile": "Profil speichern",
     "requestEmailChange": "E-Mail-Änderung anfordern",
@@ -43,12 +55,11 @@
   },
   "loginMethods": {
     "title": "Anmeldemethoden",
-    "description": "Melde dich zusätzlich zu E-Mail und Passwort auch über Google oder Microsoft an. Alle verknüpften Methoden führen zu diesem Konto.",
+    "description": "Verwalte die mit deinem Konto verknüpften Anmeldemethoden.",
+    "emailPasswordActive": "E-Mail & Passwort · Aktiv",
     "connect": "Mit {{provider}} verknüpfen",
     "connected": "Die Anmeldemethode wurde verknüpft.",
-    "connectedSince": "{{provider}} · verknüpft seit {{date}}",
-    "disconnect": "Entfernen",
-    "lastMethodHint": "Deine letzte Anmeldemethode kann nicht entfernt werden. Lege zuerst über „Passwort vergessen“ ein Passwort fest."
+    "connectedSince": "{{provider}} · verknüpft seit {{date}}"
   },
   "dangerZone": "Gefährlicher Bereich",
   "deleteDescription": "Wenn du dein Konto löschst, wird es sofort deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann einschließlich Projektdaten gelöscht; veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen.",

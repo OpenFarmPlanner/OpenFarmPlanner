@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CultureForm } from '../cultures/CultureForm';
@@ -274,7 +274,9 @@ describe('CultureForm', () => {
 
     expect(supplierCreateMock).toHaveBeenCalledTimes(1);
 
-    resolveCreate({ data: { id: 42, name: 'Reinsaat', homepage_url: '', allowed_domains: [] } });
+    await act(async () => {
+      resolveCreate({ data: { id: 42, name: 'Reinsaat', homepage_url: '', allowed_domains: [] } });
+    });
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'form.createSuppliers' })).not.toBeInTheDocument());
   });
 

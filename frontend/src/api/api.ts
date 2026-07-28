@@ -14,8 +14,17 @@ import type {
   CultureDuplicateCheckResponse,
   MediaFileRef,
   PublicCulture,
+  PublicCultureChangeProposal,
+  PublicCultureDiscussionComment,
+  PublicCultureDiscussionTopic,
   PublicCultureMatchResponse,
+  PublicCultureRemovalReason,
+  PublicCultureRevision,
   PublicCultureDuplicateCandidate,
+  CropSpecies,
+  PublicLibraryModeratorRequest,
+  PublicLibraryModeratorRequestMine,
+  PublishPublicCulturePreview,
   PublishPublicCultureResponse,
   RemainingAreaResponse,
   BedLayoutEntry,
@@ -118,17 +127,65 @@ export const cultureAPI = {
     skipped_count: number;
     errors: Array<{ index: number; error: unknown }>;
   }>('/cultures/import/apply/', data),
-  publishPublic: (id: number, data: { accepted_public_library_terms: boolean }) =>
+  publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string }) =>
+    http.get<PublishPublicCulturePreview>(`/cultures/${id}/publish-public/preview/`, { params }),
+  publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string }) =>
     http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
+};
+
+export const cropSpeciesAPI = {
+  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status'] }) =>
+    http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
+  propose: (name: string) => http.post<CropSpecies>('/crop-species/', { name }),
+  approve: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/approve/`, { review_note: reviewNote }),
+  reject: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/reject/`, { review_note: reviewNote }),
+};
+
+export const publicLibraryModeratorRequestAPI = {
+  mine: () => http.get<PublicLibraryModeratorRequestMine>('/public-library/moderator-requests/mine/'),
+  create: (motivation: string) => http.post<PublicLibraryModeratorRequest>('/public-library/moderator-requests/', { motivation }),
+  list: (params?: { status?: PublicLibraryModeratorRequest['status'] }) =>
+    http.get<PaginatedResponse<PublicLibraryModeratorRequest>>('/public-library/moderator-requests/', { params }),
+  approve: (id: number, reviewNote = '') =>
+    http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/approve/`, { review_note: reviewNote }),
+  reject: (id: number, reviewNote = '') =>
+    http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/reject/`, { review_note: reviewNote }),
 };
 
 
 export const publicCultureAPI = {
   list: (params?: { q?: string; name?: string; variety?: string }) => http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params }),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
+  update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
+    http.patch<PublicCulture>(`/public-cultures/${id}/`, data),
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
   importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
+  withdraw: (id: number) => http.post<PublicCulture>(`/public-cultures/${id}/withdraw/`, {}),
+  remove: (id: number, reason: PublicCultureRemovalReason) =>
+    http.post<PublicCulture>(`/public-cultures/${id}/remove/`, { reason }),
+  hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
+  discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
+  createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>
+    http.post<PublicCultureDiscussionTopic>(`/public-cultures/${id}/discussion-topics/`, data),
+  discussionComments: (id: number, topicId: number) =>
+    http.get<PublicCultureDiscussionComment[]>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`),
+  createDiscussionComment: (id: number, topicId: number, body: string, parent?: number) =>
+    http.post<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`, { body, parent }),
+  updateDiscussionComment: (id: number, commentId: number, body: string) =>
+    http.patch<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-comments/${commentId}/`, { body }),
+  deleteDiscussionComment: (id: number, commentId: number) =>
+    http.delete(`/public-cultures/${id}/discussion-comments/${commentId}/`),
+  versions: (id: number) => http.get<PublicCultureRevision[]>(`/public-cultures/${id}/versions/`),
+  revert: (id: number, data: { version: number; base_version?: number }) =>
+    http.post<PublicCulture>(`/public-cultures/${id}/revert/`, data),
+  changeProposals: (id: number) => http.get<PublicCultureChangeProposal[]>(`/public-cultures/${id}/change-proposals/`),
+  createChangeProposal: (id: number, data: { summary: string; proposed_data: Partial<PublicCulture> }) =>
+    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/`, data),
+  approveChangeProposal: (id: number, proposalId: number, reviewNote = '') =>
+    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/${proposalId}/approve/`, { review_note: reviewNote }),
+  rejectChangeProposal: (id: number, proposalId: number, reviewNote = '') =>
+    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/${proposalId}/reject/`, { review_note: reviewNote }),
 };
 
 export const supplierAPI = {
@@ -357,7 +414,13 @@ export type {
   CultureHistoryEntry,
   MediaFileRef,
   PublicCulture,
+  PublicCultureChangeProposal,
+  PublicCultureDiscussionComment,
+  PublicCultureRemovalReason,
+  PublicCultureRevision,
   PublicCultureDuplicateCandidate,
+  CropSpecies,
+  PublishPublicCulturePreview,
   RemainingAreaResponse,
   BedLayoutEntry,
   FieldLayoutEntry,
@@ -367,6 +430,7 @@ export type {
 
 export default {
   cultures: cultureAPI,
+  cropSpecies: cropSpeciesAPI,
   publicCultures: publicCultureAPI,
   suppliers: supplierAPI,
   cultureSupplierData: cultureSupplierDataAPI,

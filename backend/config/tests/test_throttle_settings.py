@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from config.settings import _guest_demo_throttle_rate_for_env
+from config.settings import _guest_demo_throttle_rate_for_env, _loopback_dev_origins
 
 
 def test_guest_demo_throttle_uses_high_development_default() -> None:
@@ -35,6 +35,13 @@ def test_guest_demo_throttle_prefers_new_env_name_over_legacy_name() -> None:
         )
         == '42/minute'
     )
+
+
+def test_loopback_dev_origins_include_localhost_and_127_hosts() -> None:
+    assert _loopback_dev_origins((5173,)) == [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ]
 
 
 @pytest.mark.parametrize('invalid_rate', ['not-a-rate', '10/lightyear', '0/minute'])

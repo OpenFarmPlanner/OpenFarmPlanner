@@ -1,15 +1,25 @@
 """API tests for the public culture library endpoints."""
 
 
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
 from accounts.models import DocumentConsent
+from crops.models import CropSpecies
+from crops.permissions import grant_public_library_moderator_access
 from farm.models import (
     Culture,
     Project,
     ProjectMembership,
     PublicCulture,
+    PublicCultureChangeProposal,
+    PublicCultureDiscussionComment,
+    PublicCultureDiscussionTopic,
+    PublicCultureRevision,
+    PublicCultureStatusEvent,
     SeedPackage,
 )
 from farm.tests.api_base import User
@@ -22,9 +32,11 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         ProjectMembership.objects.create(user=self.user, project=self.project, role='admin')
         self.client.force_authenticate(user=self.user)
         self.client.defaults['HTTP_X_PROJECT_ID'] = str(self.project.id)
+        self.species = CropSpecies.objects.create(name='Lettuce')
         self.culture = Culture.objects.create(
             name='Lettuce',
             variety='Bijella',
+            crop_species=self.species,
             growth_duration_days=50,
             harvest_duration_days=20,
             notes='Project-local notes',
@@ -35,7 +47,11 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
     def publish_current_culture(self):
         return self.client.post(
             f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/',
-            {'accepted_public_library_terms': True},
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+            },
             format='json',
         )
 
@@ -49,6 +65,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(public_culture.name, self.culture.name)
         self.assertEqual(public_culture.variety, self.culture.variety)
         self.assertEqual(public_culture.source_project_culture, self.culture)
+        self.assertEqual(public_culture.crop_species, self.species)
+        self.assertEqual(public_culture.original_language_code, 'en')
         self.assertEqual(public_culture.seed_packages[0]['size_value'], 25.0)
         self.assertEqual(response.data['duplicates'], [])
         self.assertTrue(
@@ -65,16 +83,43 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['code'], 'public_library_terms_required')
         self.assertEqual(PublicCulture.objects.count(), 0)
 
+    def test_publish_preview_reports_quality_gate_status(self):
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['can_publish'])
+        self.assertEqual(response.data['crop_species']['name'], 'Lettuce')
+        self.assertEqual(response.data['original_language_code'], 'en')
+        self.assertEqual(response.data['missing_required_fields'], [])
+
+    def test_publish_preview_blocks_missing_required_public_fields(self):
+        self.culture.variety = ''
+        self.culture.save()
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['can_publish'])
+        self.assertEqual(response.data['missing_required_fields'][0]['field'], 'variety')
+
     def test_publish_rejects_duplicates_with_conflict_response(self):
         other_culture = Culture.objects.create(
             name='Lettuce',
             variety='Bijella',
+            crop_species=self.species,
             project=self.project,
         )
         PublicCulture.objects.create(
             name='Lettuce',
             variety='Bijella',
             status='published',
+            crop_species=self.species,
             created_by=self.user,
             source_project=self.project,
             source_project_culture=other_culture,
@@ -119,6 +164,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             name='Carrot',
             variety='Mokum',
             status='published',
+            crop_species=self.species,
+            original_language_code='en',
             created_by=self.user,
             source_project=self.project,
             version=3,
@@ -146,6 +193,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             name='Lettuce',
             variety='Bijella',
             status='published',
+            crop_species=self.species,
             created_by=other_user,
             source_project=self.project,
             source_project_culture=self.culture,
@@ -169,6 +217,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             name=' Lettuce ',
             variety='BIJELLA',
             status='published',
+            crop_species=self.species,
             created_by=self.user,
             source_project=self.project,
             supplier_name='  Rein   Saat  ',
@@ -188,12 +237,14 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         other_culture = Culture.objects.create(
             name='Lettuce',
             variety='Bijella',
+            crop_species=self.species,
             project=self.project,
         )
         PublicCulture.objects.create(
             name='Lettuce',
             variety='Bijella',
             status='published',
+            crop_species=self.species,
             created_by=self.user,
             source_project=self.project,
             source_project_culture=other_culture,
@@ -338,6 +389,527 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['name'], 'Tomato')
 
+    def test_authenticated_user_can_create_topic_and_reply_on_public_culture(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+
+        create_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/',
+            {'title': 'Growth period', 'body': 'Works well under cover in spring.'},
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED, create_response.data)
+        topic = PublicCultureDiscussionTopic.objects.get()
+        first_comment = topic.comments.get()
+        reply_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'Agreed.', 'parent': first_comment.id},
+            format='json',
+        )
+
+        self.assertEqual(reply_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PublicCultureDiscussionComment.objects.count(), 2)
+        self.assertEqual(reply_response.data['parent'], first_comment.id)
+
+    def test_nested_discussion_replies_keep_their_exact_parent(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Nested replies', created_by=self.user)
+        comment_a = PublicCultureDiscussionComment.objects.create(topic=topic, body='A', created_by=self.user)
+
+        response_b = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'B', 'parent': comment_a.id},
+            format='json',
+        )
+        response_c = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'C', 'parent': response_b.data['id']},
+            format='json',
+        )
+        response_d = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'D', 'parent': comment_a.id},
+            format='json',
+        )
+
+        self.assertEqual(response_b.status_code, status.HTTP_201_CREATED, response_b.data)
+        self.assertEqual(response_c.status_code, status.HTTP_201_CREATED, response_c.data)
+        self.assertEqual(response_d.status_code, status.HTTP_201_CREATED, response_d.data)
+        self.assertEqual(response_b.data['parent'], comment_a.id)
+        self.assertEqual(response_c.data['parent'], response_b.data['id'])
+        self.assertEqual(response_d.data['parent'], comment_a.id)
+
+    def test_discussion_topics_include_activity_preview_and_are_sorted_by_activity(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        older_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Older topic', created_by=self.user)
+        newer_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Active topic', created_by=self.user)
+        now = timezone.now()
+        older_comment = PublicCultureDiscussionComment.objects.create(topic=older_topic, body='Older preview', created_by=self.user)
+        first_newer_comment = PublicCultureDiscussionComment.objects.create(topic=newer_topic, body='First active comment', created_by=self.user)
+        latest_newer_comment = PublicCultureDiscussionComment.objects.create(topic=newer_topic, body='Latest active preview', created_by=self.user)
+        PublicCultureDiscussionComment.objects.filter(pk=older_comment.pk).update(created_at=now - timedelta(days=2))
+        PublicCultureDiscussionComment.objects.filter(pk=first_newer_comment.pk).update(created_at=now - timedelta(days=1))
+        PublicCultureDiscussionComment.objects.filter(pk=latest_newer_comment.pk).update(created_at=now)
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([topic['title'] for topic in response.data], ['Active topic', 'Older topic'])
+        self.assertEqual(response.data[0]['comment_count'], 2)
+        self.assertEqual(response.data[0]['last_comment_preview'], 'Latest active preview')
+        self.assertIsNotNone(response.data[0]['last_activity_at'])
+
+    def test_discussion_topics_hide_threads_without_visible_comments(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        visible_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Visible topic', created_by=self.user)
+        deleted_topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Deleted topic', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(topic=visible_topic, body='Still visible', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(
+            topic=deleted_topic,
+            body='',
+            created_by=self.user,
+            deleted_at=timezone.now(),
+            deleted_by=self.user,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([topic['title'] for topic in response.data], ['Visible topic'])
+        self.assertEqual(response.data[0]['comment_count'], 1)
+
+    def test_anonymous_user_can_read_but_cannot_create_discussions(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        self.client.force_authenticate(user=None)
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+        create_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/',
+            {'title': 'Anonymous', 'body': 'Not allowed'},
+            format='json',
+        )
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertIn(create_response.status_code, {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN})
+
+    def test_comment_owner_can_edit_and_soft_delete_but_other_user_cannot(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Spacing', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Original root', created_by=self.user)
+        comment = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Original reply', created_by=self.user)
+        child_comment = PublicCultureDiscussionComment.objects.create(topic=topic, parent=comment, body='Reply child', created_by=self.user)
+        other_user = User.objects.create_user(username='comment-other', password='testpass')
+        self.client.force_authenticate(other_user)
+        forbidden = self.client.patch(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{comment.id}/', {'body': 'Changed'}, format='json')
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.force_authenticate(self.user)
+        edited = self.client.patch(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{comment.id}/', {'body': 'Changed'}, format='json')
+        deleted = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{comment.id}/')
+        comment.refresh_from_db()
+        self.assertEqual(edited.status_code, status.HTTP_200_OK)
+        self.assertTrue(edited.data['is_edited'])
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(comment.deleted_at)
+        self.assertEqual(comment.body, '')
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        deleted_comment_payload = next(item for item in list_response.data if item['id'] == comment.id)
+        self.assertEqual(deleted_comment_payload['deletion_kind'], 'author')
+        child_comment.refresh_from_db()
+        self.assertEqual(child_comment.parent_id, comment.id)
+
+    def test_comment_owner_can_delete_root_discussion_post_without_visible_replies(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root delete', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, '')
+
+        topics_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+        self.assertEqual(topics_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(topics_response.data, [])
+
+    def test_comment_owner_cannot_delete_root_discussion_post_with_visible_replies(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Root guard', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Visible reply', created_by=self.user)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'visible_replies_exist')
+        self.assertIsNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, 'Root content')
+
+    def test_comment_owner_can_delete_root_discussion_post_when_replies_are_deleted(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Deleted replies', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        deleted_reply = PublicCultureDiscussionComment.objects.create(
+            topic=topic,
+            parent=root_comment,
+            body='',
+            created_by=self.user,
+            deleted_at=timezone.now(),
+            deleted_by=self.user,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        deleted_reply.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(deleted_reply.parent_id, root_comment.id)
+
+    def test_comment_permissions_mark_root_delete_unavailable_for_owner(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Permissions', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        reply = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Reply content', created_by=self.user)
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_id = {comment['id']: comment for comment in response.data}
+        self.assertTrue(by_id[root_comment.id]['can_edit'])
+        self.assertFalse(by_id[root_comment.id]['can_delete'])
+        self.assertEqual(by_id[root_comment.id]['delete_blocked_reason'], 'visible_replies')
+        self.assertTrue(by_id[reply.id]['can_delete'])
+
+    def test_topic_keeps_exact_revision_when_new_versions_are_created(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user, version=1)
+        revision = PublicCultureRevision.objects.create(public_culture=public_culture, version=1, action='created', snapshot={})
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/',
+            {'title': 'Version-specific question', 'body': 'About version one', 'revision': revision.id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        public_culture.version = 2
+        public_culture.save(update_fields=['version'])
+        PublicCultureRevision.objects.create(public_culture=public_culture, version=2, action='updated', snapshot={})
+        topic = PublicCultureDiscussionTopic.objects.get()
+        self.assertEqual(topic.revision_id, revision.id)
+        self.assertEqual(topic.revision.version, 1)
+
+    def test_public_library_moderator_can_soft_delete_foreign_comment(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Moderation', created_by=self.user)
+        comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Problematic', created_by=self.user)
+        moderator = User.objects.create_user(username='discussion-moderator', password='testpass')
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(moderator)
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{comment.id}/')
+        comment.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(comment.deleted_at)
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data[0]['deletion_kind'], 'moderator')
+
+    def test_public_library_moderator_can_soft_delete_root_discussion_post(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Moderation root', created_by=self.user)
+        root_comment = PublicCultureDiscussionComment.objects.create(topic=topic, body='Root content', created_by=self.user)
+        reply = PublicCultureDiscussionComment.objects.create(topic=topic, parent=root_comment, body='Reply content', created_by=self.user)
+        moderator = User.objects.create_user(username='discussion-root-moderator', password='testpass')
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(moderator)
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-comments/{root_comment.id}/')
+
+        root_comment.refresh_from_db()
+        reply.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertIsNotNone(root_comment.deleted_at)
+        self.assertEqual(root_comment.body, '')
+        self.assertEqual(reply.parent_id, root_comment.id)
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/{topic.id}/comments/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        by_id = {comment['id']: comment for comment in list_response.data}
+        self.assertEqual(by_id[root_comment.id]['deletion_kind'], 'moderator')
+        self.assertEqual(by_id[reply.id]['parent'], root_comment.id)
+
+    def test_unauthenticated_user_cannot_edit_public_culture(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+        self.client.force_authenticate(user=None)
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'notes': 'Anonymous edit'},
+            format='json',
+        )
+
+        self.assertIn(response.status_code, {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN})
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, '')
+
+    def test_authenticated_user_can_edit_foreign_public_culture_and_version_is_recorded(self):
+        other_user = User.objects.create_user(username='foreign-author', email='foreign@example.com', password='testpass', is_active=True)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=other_user,
+            notes='Original notes',
+            version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {
+                'base_version': 1,
+                'notes': 'Community-improved notes',
+                'growth_duration_days': 68,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Community-improved notes')
+        self.assertEqual(public_culture.growth_duration_days, 68)
+        self.assertEqual(public_culture.version, 2)
+        revisions = list(PublicCultureRevision.objects.filter(public_culture=public_culture).order_by('version'))
+        self.assertEqual([revision.version for revision in revisions], [1, 2])
+        self.assertEqual(revisions[0].snapshot['notes'], 'Original notes')
+        self.assertEqual(revisions[1].created_by, self.user)
+        self.assertIn(
+            {'field': 'notes', 'old_value': 'Original notes', 'new_value': 'Community-improved notes'},
+            revisions[1].changed_fields,
+        )
+
+    def test_public_culture_direct_edit_rejects_identity_changes(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Original notes',
+            version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {
+                'base_version': 1,
+                'name': 'Cherry tomato',
+                'variety': 'Black Cherry',
+                'notes': 'Edited notes',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.name, 'Tomato')
+        self.assertEqual(public_culture.variety, 'Roma')
+        self.assertEqual(public_culture.notes, 'Original notes')
+
+    def test_public_culture_versions_endpoint_returns_author_time_and_diff(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Original notes',
+            version=1,
+        )
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Updated notes'},
+            format='json',
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/versions/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['version'], 2)
+        self.assertIsNotNone(response.data[0]['created_at'])
+        self.assertEqual(response.data[0]['changed_fields'][0]['field'], 'notes')
+        self.assertEqual(response.data[0]['changed_fields'][0]['old_value'], 'Original notes')
+        self.assertEqual(response.data[0]['changed_fields'][0]['new_value'], 'Updated notes')
+
+    def test_revert_creates_new_version_without_deleting_history(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Version 1 notes',
+            version=1,
+        )
+        edit_response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Version 2 notes'},
+            format='json',
+        )
+        self.assertEqual(edit_response.status_code, status.HTTP_200_OK)
+
+        revert_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/revert/',
+            {'version': 1, 'base_version': 2},
+            format='json',
+        )
+
+        self.assertEqual(revert_response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Version 1 notes')
+        self.assertEqual(public_culture.version, 3)
+        revisions = PublicCultureRevision.objects.filter(public_culture=public_culture).order_by('version')
+        self.assertEqual(revisions.count(), 3)
+        self.assertEqual(revisions.last().action, PublicCultureRevision.ACTION_RESTORED)
+        self.assertEqual(revisions.last().restored_from_version, 1)
+
+    def test_public_culture_edit_and_revert_do_not_mutate_imported_project_culture(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Neckargold',
+            status='published',
+            created_by=self.user,
+            notes='Public v1',
+            growth_duration_days=55,
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported = Culture.objects.get(id=import_response.data['id'])
+
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'notes': 'Public v2', 'growth_duration_days': 60},
+            format='json',
+        )
+        self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/revert/',
+            {'version': 1, 'base_version': 2},
+            format='json',
+        )
+
+        imported.refresh_from_db()
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Public v1')
+        self.assertEqual(imported.notes, 'Public v1')
+        self.assertEqual(imported.growth_duration_days, 55)
+        self.assertEqual(imported.source_public_culture, public_culture)
+
+    def test_authenticated_user_can_create_change_proposal_for_allowed_fields(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/',
+            {
+                'summary': 'Add clearer cultivation notes',
+                'proposed_data': {'notes': 'Prefers warm protected conditions.'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        proposal = PublicCultureChangeProposal.objects.get()
+        self.assertEqual(proposal.status, PublicCultureChangeProposal.STATUS_PENDING)
+        self.assertEqual(proposal.proposed_by, self.user)
+        self.assertEqual(proposal.proposed_data['notes'], 'Prefers warm protected conditions.')
+
+    def test_change_proposal_rejects_unsupported_fields(self):
+        public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/',
+            {
+                'summary': 'Rename entry',
+                'proposed_data': {'name': 'Cherry tomato'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(PublicCultureChangeProposal.objects.count(), 0)
+
+    def test_only_moderator_can_approve_change_proposal_and_public_culture_version_increments(self):
+        moderator = User.objects.create_user(
+            username='proposal-moderator',
+            email='proposal-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Old notes',
+            version=1,
+        )
+        proposal = PublicCultureChangeProposal.objects.create(
+            public_culture=public_culture,
+            proposed_by=self.user,
+            summary='Improve notes',
+            proposed_data={'notes': 'Improved notes', 'growth_duration_days': 65},
+        )
+
+        forbidden_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/{proposal.id}/approve/',
+            {},
+            format='json',
+        )
+        self.client.force_authenticate(user=moderator)
+        approved_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/{proposal.id}/approve/',
+            {'review_note': 'Looks plausible.'},
+            format='json',
+        )
+
+        self.assertEqual(forbidden_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(approved_response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        proposal.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Improved notes')
+        self.assertEqual(public_culture.growth_duration_days, 65)
+        self.assertEqual(public_culture.version, 2)
+        self.assertEqual(proposal.status, PublicCultureChangeProposal.STATUS_APPROVED)
+        self.assertEqual(proposal.reviewed_by, moderator)
+
+    def test_moderator_can_reject_change_proposal_without_changing_public_culture(self):
+        moderator = User.objects.create_user(
+            username='proposal-reject-moderator',
+            email='proposal-reject-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            notes='Original notes',
+        )
+        proposal = PublicCultureChangeProposal.objects.create(
+            public_culture=public_culture,
+            proposed_by=self.user,
+            summary='Change notes',
+            proposed_data={'notes': 'Rejected notes'},
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/{proposal.id}/reject/',
+            {'review_note': 'Needs sources.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        proposal.refresh_from_db()
+        self.assertEqual(public_culture.notes, 'Original notes')
+        self.assertEqual(proposal.status, PublicCultureChangeProposal.STATUS_REJECTED)
+        self.assertEqual(proposal.review_note, 'Needs sources.')
+
     def test_import_requires_project_membership_header(self):
         public_culture = PublicCulture.objects.create(name='Kale', variety='Nero', status='published', created_by=self.user)
         del self.client.defaults['HTTP_X_PROJECT_ID']
@@ -345,3 +917,280 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_owner_can_withdraw_public_culture_without_changing_imported_project_copy(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+            growth_duration_days=70,
+            harvest_duration_days=30,
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported = Culture.objects.get(id=import_response.data['id'])
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/withdraw/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        imported.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_WITHDRAWN)
+        self.assertEqual(imported.name, 'Bean')
+        self.assertEqual(imported.source_public_culture, public_culture)
+        self.assertTrue(PublicCultureStatusEvent.objects.filter(
+            public_culture=public_culture,
+            from_status=PublicCulture.STATUS_PUBLISHED,
+            to_status=PublicCulture.STATUS_WITHDRAWN,
+            created_by=self.user,
+        ).exists())
+
+        list_response = self.client.get('/openfarmplanner/api/public-cultures/')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data['results'], [])
+
+    def test_non_owner_cannot_withdraw_public_culture(self):
+        other_user = User.objects.create_user(username='other-withdrawer', email='withdrawer@example.com', password='testpass', is_active=True)
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=other_user,
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/withdraw/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_PUBLISHED)
+
+    def test_owner_can_republish_withdrawn_public_culture(self):
+        public_culture = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.species,
+            original_language_code='en',
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        withdraw_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/withdraw/', {}, format='json')
+        self.assertEqual(withdraw_response.status_code, status.HTTP_200_OK)
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(response.data['public_culture']['id'], public_culture.id)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_PUBLISHED)
+        self.assertEqual(public_culture.version, 2)
+
+    def test_admin_can_remove_public_culture_with_reason(self):
+        moderator = User.objects.create_user(
+            username='moderator',
+            email='moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/remove/',
+            {'reason': PublicCulture.REMOVAL_REASON_DUPLICATE},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_REMOVED)
+        self.assertEqual(public_culture.removal_reason, PublicCulture.REMOVAL_REASON_DUPLICATE)
+        self.assertTrue(PublicCultureStatusEvent.objects.filter(
+            public_culture=public_culture,
+            to_status=PublicCulture.STATUS_REMOVED,
+            reason=PublicCulture.REMOVAL_REASON_DUPLICATE,
+            created_by=moderator,
+        ).exists())
+
+    def test_staff_culture_list_exposes_linked_public_culture_id_for_moderation(self):
+        moderator = User.objects.create_user(
+            username='list-moderator',
+            email='list-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        ProjectMembership.objects.create(user=moderator, project=self.project, role='admin')
+        public_culture = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        self.culture.source_public_culture = public_culture
+        self.culture.source_public_version = public_culture.version
+        self.culture.save(update_fields=['source_public_culture', 'source_public_version'])
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.get('/openfarmplanner/api/cultures/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'][0]['owned_public_culture_id'], public_culture.id)
+
+    def test_remove_requires_admin_and_reason(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+        )
+
+        forbidden_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/remove/',
+            {'reason': PublicCulture.REMOVAL_REASON_DUPLICATE},
+            format='json',
+        )
+        self.assertEqual(forbidden_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        moderator = User.objects.create_user(
+            username='moderator-missing-reason',
+            email='moderator-missing@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        missing_reason_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/remove/',
+            {},
+            format='json',
+        )
+        self.assertEqual(missing_reason_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(missing_reason_response.data['code'], 'removal_reason_required')
+
+    def test_hard_delete_is_blocked_when_public_culture_has_imports_or_project_provenance(self):
+        moderator = User.objects.create_user(
+            username='delete-moderator',
+            email='delete-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        Culture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            project=self.project,
+            source_public_culture=public_culture,
+            source_public_version=1,
+            origin_type=Culture.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/hard-delete/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_admin_can_hard_delete_orphan_public_culture(self):
+        moderator = User.objects.create_user(
+            username='orphan-delete-moderator',
+            email='orphan-delete-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Orphan',
+            variety='Test',
+            status=PublicCulture.STATUS_REMOVED,
+            created_by=None,
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/hard-delete/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_is_blocked_for_non_moderators(self):
+        public_culture = PublicCulture.objects.create(
+            name='Radish',
+            variety='Cherry Belle',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=None,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_enforces_provenance_safety_for_moderators(self):
+        moderator = User.objects.create_user(
+            username='destroy-route-moderator',
+            email='destroy-route-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        Culture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            project=self.project,
+            source_public_culture=public_culture,
+            source_public_version=1,
+            origin_type=Culture.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+    def test_default_destroy_route_permanently_deletes_orphan_culture_for_moderators(self):
+        moderator = User.objects.create_user(
+            username='destroy-route-orphan-moderator',
+            email='destroy-route-orphan-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        self.client.force_authenticate(user=moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Orphan',
+            variety='DestroyRoute',
+            status=PublicCulture.STATUS_PUBLISHED,
+            created_by=None,
+        )
+
+        response = self.client.delete(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PublicCulture.objects.filter(id=public_culture.id).exists())

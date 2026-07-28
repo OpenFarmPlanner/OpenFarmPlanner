@@ -29,6 +29,8 @@ from farm.models import (
 from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
+    PublicCulturePublishingValidationError,
+    build_publishing_check_result,
     publish_culture_to_public_library,
 )
 
@@ -75,8 +77,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         owned_public_cultures_prefetch = Prefetch(
             'published_public_cultures',
             queryset=PublicCulture.objects.filter(
-                created_by=self.request.user,
                 status=PublicCulture.STATUS_PUBLISHED,
+                created_by=self.request.user,
             ).order_by('-updated_at', '-id'),
             to_attr='_prefetched_owned_public_cultures',
         )
@@ -157,7 +159,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         :param supplier_name: Supplier name from import data for legacy matching
         :return: Matching Culture instance or None
         """
-        from farm.utils import normalize_text, normalize_supplier_name
+        from farm.utils import normalize_supplier_name, normalize_text
         
         name_norm = normalize_text(name) or ''
         variety_norm = normalize_text(variety)
@@ -505,7 +507,26 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            public_culture, duplicates, operation = publish_culture_to_public_library(culture=culture, user=request.user)
+            crop_species_id = request.data.get('crop_species_id')
+            try:
+                crop_species_id = int(crop_species_id) if crop_species_id else None
+            except (TypeError, ValueError):
+                crop_species_id = None
+            public_culture, duplicates, operation = publish_culture_to_public_library(
+                culture=culture,
+                user=request.user,
+                crop_species_id=crop_species_id,
+                original_language_code=request.data.get('original_language_code'),
+            )
+        except PublicCulturePublishingValidationError as error:
+            return Response(
+                {
+                    'code': 'public_culture_publishing_checks_failed',
+                    'detail': 'Public culture publishing checks failed.',
+                    'checks': self._serialize_publishing_check_result(error.check_result),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except DuplicatePublicCultureError as error:
             return Response({
                 'code': 'duplicate_public_culture',
@@ -541,6 +562,48 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 for item in duplicates
             ],
         }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'], url_path='publish-public/preview')
+    def publish_public_preview(self, request, pk=None):
+        culture = self.get_object()
+        crop_species_id = request.query_params.get('crop_species_id')
+        try:
+            crop_species_id = int(crop_species_id) if crop_species_id else None
+        except (TypeError, ValueError):
+            crop_species_id = None
+        result = build_publishing_check_result(
+            culture=culture,
+            crop_species_id=crop_species_id,
+            original_language_code=request.query_params.get('original_language_code'),
+        )
+        return Response(self._serialize_publishing_check_result(result))
+
+    def _serialize_publishing_check_result(self, result):
+        return {
+            'crop_species': (
+                {'id': result.crop_species.id, 'name': result.crop_species.name}
+                if result.crop_species
+                else None
+            ),
+            'original_language_code': result.original_language_code,
+            'available_language_codes': result.available_language_codes,
+            'missing_required_fields': [
+                {'field': item.field, 'label_key': item.label_key}
+                for item in result.missing_required_fields
+            ],
+            'duplicates': [
+                {
+                    'id': item.id,
+                    'name': item.name,
+                    'variety': item.variety,
+                    'version': item.version,
+                    'published_at': item.published_at,
+                    'created_by_label': item.created_by_label,
+                }
+                for item in result.duplicates
+            ],
+            'can_publish': result.can_publish,
+        }
 
 
 class CultureUndeleteView(APIView):

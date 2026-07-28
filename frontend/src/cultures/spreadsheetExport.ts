@@ -1,8 +1,8 @@
-import * as XLSX from 'xlsx';
 import type { Culture } from '../api/types';
 import { toPortableCulture, slugifyFilenamePart } from './exportUtils';
 import { CULTURE_COLUMNS } from './spreadsheetColumns';
 import { formatIsoDate } from '../utils/isoDate';
+import { buildSpreadsheetFile } from './spreadsheetFile';
 
 export type SpreadsheetExportFormat = 'xlsx' | 'ods' | 'csv';
 
@@ -46,17 +46,7 @@ export const exportCulturesToSpreadsheet = (
   filename: string,
 ): void => {
   const sheetData = buildSheetData(cultures);
-  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-
-  // Set column widths for readability
-  worksheet['!cols'] = CULTURE_COLUMNS.map((col) => ({
-    wch: Math.min(Math.max(col.header.length + 4, 12), 40),
-  }));
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Kulturen');
-
-  const output = XLSX.write(workbook, { bookType: format, type: 'array' }) as Uint8Array;
+  const output = buildSpreadsheetFile(sheetData, format);
   triggerDownload(output, filename, MIME_TYPES[format]);
 };
 

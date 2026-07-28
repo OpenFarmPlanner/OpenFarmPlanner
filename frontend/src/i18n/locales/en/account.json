@@ -24,6 +24,18 @@
       "editPublicDisplayName": "Change name"
     }
   },
+  "moderatorRequest": {
+    "title": "Help as a moderator",
+    "description": "Help review proposals for new crop species and keep the crop library consistent.",
+    "loading": "Loading status…",
+    "alreadyModerator": "You already have moderator rights for the public crop library.",
+    "pending": "Your request is being reviewed.",
+    "rejectedHint": "You can send a new request if you still want to help.",
+    "motivationLabel": "Why would you like to moderate?",
+    "submit": "Send request",
+    "sending": "Sending…",
+    "success": "Your request has been sent."
+  },
   "actions": {
     "saveProfile": "Save profile",
     "requestEmailChange": "Request email change",
@@ -43,12 +55,11 @@
   },
   "loginMethods": {
     "title": "Login methods",
-    "description": "Sign in with Google or Microsoft in addition to email and password. Every connected method signs you in to this account.",
+    "description": "Manage the login methods connected to your account.",
+    "emailPasswordActive": "Email & password · Active",
     "connect": "Connect {{provider}}",
     "connected": "The login method was connected.",
-    "connectedSince": "{{provider}} · connected since {{date}}",
-    "disconnect": "Disconnect",
-    "lastMethodHint": "Your last login method cannot be removed. Set a password via \"Forgot password\" first."
+    "connectedSince": "{{provider}} · connected since {{date}}"
   },
   "dangerZone": "Danger zone",
   "deleteDescription": "If you delete your account, it is deactivated immediately and anonymized after 14 days. Projects without remaining members are then deleted including project data; published public library entries remain.",

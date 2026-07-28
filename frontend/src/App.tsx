@@ -45,6 +45,8 @@ const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Locations = React.lazy(() => import('./pages/Locations'));
 const FieldsBedsPage = React.lazy(() => import('./pages/FieldsBedsPage'));
 const Cultures = React.lazy(() => import('./pages/Cultures'));
+const PublicCropLibraryPage = React.lazy(() => import('./crops/pages/PublicCropLibraryPage'));
+const PublicLibraryModerationPage = React.lazy(() => import('./crops/pages/PublicLibraryModerationPage'));
 const PlantingPlans = React.lazy(() => import('./pages/PlantingPlans'));
 const GanttChart = React.lazy(() => import('./pages/GanttChart'));
 const SeedDemandPage = React.lazy(() => import('./pages/SeedDemand'));
@@ -228,11 +230,6 @@ function createAppRouter(basename: string) {
           path: 'invite/:token',
           element: <TokenInvitationRedirect />,
         },
-        // Reserved: a future public `/crops` branch (sibling to `/app`, not
-        // nested under <ProtectedRoute />) for the Crop Library — see
-        // docs/crop-library-architecture.md. Deliberately not added yet;
-        // `frontend/src/crops/pages/` is where its route components would
-        // live once it is.
         {
           path: 'app',
           element: <ProtectedRoute />,
@@ -249,6 +246,9 @@ function createAppRouter(basename: string) {
                 { path: 'locations', element: withLazyFallback(<Locations />) },
                 { path: 'fields-beds', element: withLazyFallback(<FieldsBedsPage />) },
                 { path: 'cultures', element: withLazyFallback(<Cultures />) },
+                { path: 'crop-library', element: withLazyFallback(<PublicCropLibraryPage />) },
+                { path: 'public-library-moderation', element: withLazyFallback(<PublicLibraryModerationPage />) },
+                { path: 'crops', element: withLazyFallback(<PublicCropLibraryPage />) },
                 { path: 'anbauplaene', element: withLazyFallback(<PlantingPlans />) },
                 { path: 'suppliers', element: withLazyFallback(<Suppliers />) },
                 { path: 'planting-plans', element: withLazyFallback(<PlantingPlans />) },

@@ -5,3 +5,4 @@
  * `src/cultures/index.ts`.
  */
 export { PublicCultureLibraryDialog } from './components/PublicCultureLibraryDialog';
+export { default as PublicCropLibraryPage } from './pages/PublicCropLibraryPage';

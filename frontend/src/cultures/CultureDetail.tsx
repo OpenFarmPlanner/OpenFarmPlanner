@@ -10,7 +10,7 @@
  * @returns JSX element rendering the culture selector and detail view
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
@@ -20,11 +20,10 @@ import { useTranslation } from '../i18n';
 import { CultureFiltersPopover } from './CultureFiltersPopover';
 import { CultureMobileSelectorDialog } from './CultureMobileSelectorDialog';
 import { CultureHeaderActionsMenu } from './CultureHeaderActionsMenu';
+import { CultureTitleSelectorButton } from './CultureTitleSelectorButton';
 import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Badge,
   Box,
@@ -46,7 +45,6 @@ import {
   Stack,
   Button,
   IconButton,
-  Tooltip,
 } from '@mui/material';
 import type { Culture } from '../api/api';
 import { SearchableSelect } from '../components/inputs/SearchableSelect';
@@ -54,6 +52,8 @@ import type { SearchableSelectOption } from '../components/inputs/SearchableSele
 import { UI_LABEL_SEPARATOR } from '../utils/uiLabelSeparator';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
+import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
+import { DetailPageActions } from '../components/layout/DetailPageActions';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -66,7 +66,10 @@ interface CultureDetailProps {
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
   onPublishCulture?: () => void;
+  onWithdrawPublicCulture?: (culture: Culture) => void;
+  onRemovePublicCulture?: (culture: Culture) => void;
   onDeleteCulture?: (culture: Culture) => void;
+  canModeratePublicCulture?: boolean;
   canCreatePlan?: boolean;
   isPublishingCulture?: boolean;
   publishActionLabel?: string;
@@ -96,7 +99,10 @@ export function CultureDetail({
   onCreatePlan,
   onOpenHistory,
   onPublishCulture,
+  onWithdrawPublicCulture,
+  onRemovePublicCulture,
   onDeleteCulture,
+  canModeratePublicCulture = false,
   canCreatePlan = true,
   isPublishingCulture = false,
   publishActionLabel,
@@ -166,23 +172,6 @@ export function CultureDetail({
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const isFilterPopoverOpen = Boolean(filterAnchorEl);
-  const headerActionButtonSx = {
-    width: useUnifiedMobileLayout ? 30 : 34,
-    height: useUnifiedMobileLayout ? 30 : 34,
-    borderRadius: useUnifiedMobileLayout ? 0.75 : 0,
-    border: 'none',
-    backgroundColor: 'transparent',
-    transition: 'background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
-    '&:hover': {
-      backgroundColor: 'rgba(15, 23, 42, 0.08)',
-      boxShadow: useUnifiedMobileLayout ? 'none' : '0 2px 6px rgba(15, 23, 42, 0.10)',
-      transform: useUnifiedMobileLayout ? 'none' : 'translateY(-1px)',
-    },
-    '&:focus-visible': {
-      outline: '2px solid rgba(37, 111, 42, 0.28)',
-      outlineOffset: 1,
-    },
-  } as const;
   const detailSectionGridSx = {
     display: 'grid',
     gridTemplateColumns: {
@@ -383,36 +372,6 @@ export function CultureDetail({
     onCultureSelect(firstFilteredCulture ?? null);
   }, [cultures, filteredCultures, isLoading, onCultureSelect, selectedCultureId]);
 
-  // Scrolls to and focuses the selected culture's list item — covers both a
-  // manual click and a "Kultur öffnen" deep link (?cultureId=) landing here
-  // with a selection already made, so keyboard focus ends up on the actual
-  // row instead of nowhere in particular.
-  const cultureListItemRefs = useRef<Map<number, HTMLElement>>(new Map());
-  // Stable across renders (no deps) so React only invokes it on actual
-  // mount/unmount of a row, not on every re-render of this list (which an
-  // inline `ref={(el) => ...}` closing over `culture.id` would do, churning
-  // the whole Map on every keystroke in the filter box). The culture id
-  // comes from a `data-culture-id` attribute rather than a closed-over
-  // variable, and the returned cleanup (React 19 ref cleanup functions)
-  // removes the right entry on unmount.
-  const registerCultureListItemRef = useCallback((el: HTMLElement | null) => {
-    if (!el) return;
-    const cultureId = Number(el.dataset.cultureId);
-    if (!Number.isFinite(cultureId)) return;
-    cultureListItemRefs.current.set(cultureId, el);
-    return () => {
-      cultureListItemRefs.current.delete(cultureId);
-    };
-  }, []);
-  useEffect(() => {
-    if (selectedCultureId === undefined) {
-      return;
-    }
-    const listItem = cultureListItemRefs.current.get(selectedCultureId);
-    listItem?.scrollIntoView?.({ block: 'nearest' });
-    listItem?.focus();
-  }, [selectedCultureId]);
-
   const cultureOptions: SearchableSelectOption<Culture>[] = useMemo(
     () => {
       const optionCultures = [...filteredCultures];
@@ -432,6 +391,13 @@ export function CultureDetail({
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
   );
+
+  const cultureListNavigation = useCultureListKeyboardNavigation({
+    items: filteredCultures,
+    selectedId: selectedCultureId,
+    getId: (culture) => culture.id,
+    onSelect: onCultureSelect,
+  });
 
   const selectedOption = useMemo(
     () => (
@@ -633,7 +599,6 @@ export function CultureDetail({
               ? 'minmax(0, 1fr)'
               : {
                 xs: '1fr',
-                sm: '220px minmax(0, 1fr)',
                 md: '230px minmax(0, 1fr)',
                 lg: '300px minmax(0, 1fr)',
                 xl: '330px minmax(0, 1fr)',
@@ -656,6 +621,8 @@ export function CultureDetail({
             {selectorControl}
             <List
               dense
+              role="listbox"
+              aria-label={t('title')}
               sx={{
                 py: { xs: 0.5, lg: 0.75 },
                 px: { xs: 0.5, lg: 0.75 },
@@ -682,10 +649,9 @@ export function CultureDetail({
                 return (
                   <ListItemButton
                     key={culture.id}
-                    ref={registerCultureListItemRef}
-                    data-culture-id={culture.id}
+                    {...cultureListNavigation.getItemProps(culture)}
                     selected={selectedCulture?.id === culture.id}
-                    onClick={() => onCultureSelect(culture)}
+                    onClick={() => cultureListNavigation.selectItem(culture)}
                     sx={{
                       borderRadius: 1.5,
                       px: { xs: 0.875, lg: 1 },
@@ -718,8 +684,8 @@ export function CultureDetail({
                 <CardContent sx={{ p: { xs: 1, sm: 2, lg: 2.5 } }}>
             {/* Header with crop name and badge */}
                   <Box sx={{ mb: { xs: 2, sm: 3 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
-                <Box sx={{ flexGrow: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                     {selectedCulture.display_color ? (
                       <Box
@@ -738,33 +704,11 @@ export function CultureDetail({
                     ) : null}
                     <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
                       {useUnifiedMobileLayout ? (
-                        <Box
-                          component="button"
-                          type="button"
+                        <CultureTitleSelectorButton
+                          title={selectedCulture.name}
+                          ariaLabel={t('selectCulture')}
                           onClick={() => setMobileSelectorOpen(true)}
-                          sx={{
-                            appearance: 'none',
-                            border: 'none',
-                            background: 'transparent',
-                            p: 0,
-                            m: 0,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            cursor: 'pointer',
-                            color: 'inherit',
-                            textAlign: 'left',
-                            borderRadius: 0.75,
-                            '&:hover': { bgcolor: 'rgba(15, 23, 42, 0.04)' },
-                            '&:focus-visible': { outline: '2px solid rgba(37, 111, 42, 0.28)', outlineOffset: 2 },
-                          }}
-                          aria-label={t('selectCulture')}
-                        >
-                          <Typography component="span" sx={{ fontSize: '1.25rem', lineHeight: 1.2, fontWeight: 600 }}>
-                            {selectedCulture.name}
-                          </Typography>
-                          <ExpandMoreIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                        </Box>
+                        />
                       ) : (
                         <Typography component="h2" sx={{ fontSize: { xs: '1.25rem', sm: '2rem' }, lineHeight: 1.2, fontWeight: 600 }}>
                           {selectedCulture.name}
@@ -788,65 +732,27 @@ export function CultureDetail({
                     </Box>
                   </Box>
                 </Box>
-                <Box
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    border: '1px solid rgba(15, 23, 42, 0.10)',
-                    borderRadius: useUnifiedMobileLayout ? 1 : 1.5,
-                    backgroundColor: useUnifiedMobileLayout ? 'rgba(15, 23, 42, 0.02)' : 'rgba(15, 23, 42, 0.03)',
-                    boxShadow: useUnifiedMobileLayout ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.08)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Tooltip title={t('buttons.edit')}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={t('buttons.edit')}
-                        onClick={() => onEditCulture?.(selectedCulture)}
-                        disabled={!onEditCulture}
-                        sx={{
-                          ...headerActionButtonSx,
-                          color: 'rgba(37, 111, 42, 0.86)',
-                          borderRight: '1px solid rgba(15, 23, 42, 0.08)',
-                          '&:hover': { backgroundColor: 'rgba(37, 111, 42, 0.12)' },
-                        }}
-                      >
-                        <EditIcon sx={{ fontSize: useUnifiedMobileLayout ? 16 : 18 }} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title={canCreatePlan ? t('buttons.createPlantingPlan') : t('buttons.createPlantingPlanMissingBedsTooltip')}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={t('buttons.createPlantingPlan')}
-                        onClick={() => onCreatePlan?.()}
-                        disabled={!canCreatePlan || !onCreatePlan}
-                        sx={{
-                          ...headerActionButtonSx,
-                          color: 'success.main',
-                          borderRight: '1px solid rgba(15, 23, 42, 0.08)',
-                          '&:hover': { backgroundColor: 'rgba(37, 111, 42, 0.10)' },
-                        }}
-                      >
-                        <AgricultureIcon sx={{ fontSize: useUnifiedMobileLayout ? 16 : 18 }} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <IconButton
-                    size="small"
-                    onClick={(event) => setHeaderMenuAnchorEl(event.currentTarget)}
-                    aria-label="Weitere Aktionen"
-                    sx={{
-                      ...headerActionButtonSx,
-                      color: 'text.secondary',
-                    }}
-                  >
-                    <MoreVertIcon sx={{ fontSize: useUnifiedMobileLayout ? 16 : 18 }} />
-                  </IconButton>
-                </Box>
+                <DetailPageActions
+                  compact={useUnifiedMobileLayout}
+                  primaryActions={[
+                    {
+                      label: t('buttons.edit'),
+                      icon: <EditIcon fontSize="small" />,
+                      onClick: () => onEditCulture?.(selectedCulture),
+                      disabled: !onEditCulture,
+                    },
+                    {
+                      label: t('buttons.createPlantingPlan'),
+                      icon: <AgricultureIcon fontSize="small" />,
+                      onClick: () => onCreatePlan?.(),
+                      disabled: !canCreatePlan || !onCreatePlan,
+                      tooltip: canCreatePlan ? undefined : t('buttons.createPlantingPlanMissingBedsTooltip'),
+                      variant: 'contained',
+                    },
+                  ]}
+                  overflowLabel={t('buttons.moreActions')}
+                  onOpenOverflow={(event) => setHeaderMenuAnchorEl(event.currentTarget)}
+                />
               </Box>
               <CultureHeaderActionsMenu
                 anchorEl={headerMenuAnchorEl}
@@ -855,6 +761,10 @@ export function CultureDetail({
                 onPublish={() => onPublishCulture?.()}
                 isPublishing={isPublishingCulture}
                 publishLabel={publishActionLabel ?? t('library.publishButton')}
+                onWithdrawPublicCulture={() => onWithdrawPublicCulture?.(selectedCulture)}
+                onRemovePublicCulture={() => onRemovePublicCulture?.(selectedCulture)}
+                canWithdrawPublicCulture={Boolean(selectedCulture.owned_public_culture_id && onWithdrawPublicCulture)}
+                canModeratePublicCulture={Boolean(selectedCulture.owned_public_culture_id && canModeratePublicCulture)}
                 onDelete={() => onDeleteCulture?.(selectedCulture)}
                 t={t}
               />

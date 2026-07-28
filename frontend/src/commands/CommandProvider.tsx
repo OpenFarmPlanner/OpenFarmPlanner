@@ -22,6 +22,7 @@ import { useFocusManager } from '../focus/useFocusManager';
 const CONTEXT_TITLE_KEYS: Record<CommandContextTag, string> = {
   global: 'commandPalette.contextTitles.global',
   cultures: 'commandPalette.contextTitles.cultures',
+  publicCropLibrary: 'commandPalette.contextTitles.publicCropLibrary',
   locations: 'commandPalette.contextTitles.locations',
   areas: 'commandPalette.contextTitles.areas',
   plans: 'commandPalette.contextTitles.plans',

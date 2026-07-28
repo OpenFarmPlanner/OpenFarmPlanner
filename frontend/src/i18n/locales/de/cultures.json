@@ -102,6 +102,7 @@
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
     "publicLibraryMatchHint": "In der öffentlichen Kulturbibliothek gibt es bereits eine passende Kultur. Prüfe, ob du sie übernehmen möchtest, statt sie neu anzulegen.",
     "viewPublicLibraryMatch": "In Kulturbibliothek ansehen",
+    "publicIdentityLabel": "Öffentliche Identität",
     "supplier": "Saatgutlieferant",
     "supplierPlaceholder": "Lieferant auswählen",
     "supplierRequired": "Saatgutlieferant ist erforderlich",
@@ -110,7 +111,6 @@
     "createSuppliers": "Lieferant anlegen",
     "supplierHomepage": "Lieferanten-Homepage",
     "generalInfoSectionTitle": "Allgemeine Informationen",
-    "generalInfoSectionDescription": "Diese Angaben gelten allgemein für die Sorte und sind nicht vom Saatgutlieferanten abhängig.",
     "supplierDataSectionTitle": "Kulturspezifische Lieferantendaten",
     "supplierDataSectionDescription": "Die folgenden Angaben gelten nur für den ausgewählten Lieferanten dieser Kultur.",
     "noSupplierDataRows": "Noch keine kulturspezifischen Lieferanteninformationen vorhanden.",
@@ -169,7 +169,7 @@
     "sowingDepthCmPlaceholder": "z.B. 1.5",
     "sowingDepthCmError": "Saattiefe muss ≥ 0 sein",
     "displayColor": "Anzeigefarbe",
-    "displayColorHelp": "Farbe zur Darstellung im Anbaukalender (wird automatisch generiert)",
+    "displayColorHelp": "Farbe zur Darstellung im Anbaukalender.",
     "displayColorError": "Ungültiges Farbformat (verwenden Sie #RRGGBB)",
     "seedRateSectionTitle": "Saatgutbedarf",
     "seedRateDirectSectionTitle": "Saatgutbedarf Direktsaat",
@@ -420,7 +420,10 @@
   "buttons": {
     "addNew": "Kultur hinzufügen",
     "edit": "Bearbeiten",
+    "versions": "Versionen",
     "delete": "Löschen",
+    "moreActions": "Weitere Aktionen",
+    "deleteProjectCulture": "Projektkultur löschen",
     "deleteConfirm": "Möchten Sie diese Kultur wirklich löschen?",
     "createPlantingPlan": "Anbauplan hinzufügen",
     "goToFieldsBeds": "Zu Anbauflächen",
@@ -475,11 +478,223 @@
     }
   },
   "library": {
-    "openButton": "Kulturbibliothek",
-    "dialogTitle": "Kulturbibliothek",
+    "openButton": "Aus Bibliothek importieren",
+    "dialogTitle": "Aus Kulturbibliothek importieren",
+    "openFullPage": "Kulturbibliothek öffnen",
+    "importDialog": {
+      "emptyMotivation": "Teile deine bewährten Kulturen mit anderen.",
+      "emptyInstructionStep": "So geht’s:",
+      "emptyInstructionContext": "Bei einer Kultur",
+      "emptyInstructionAria": "So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und {{publish}} wählen."
+    },
+    "page": {
+      "title": "Öffentliche Kulturbibliothek",
+      "description": "Durchsuche öffentliche Kulturen, importiere passende Einträge schnell in dein Projekt und hilf dabei, die gemeinsamen Stammdaten Schritt für Schritt zu verbessern.",
+      "help": {
+        "tooltip": "Hilfe zur öffentlichen Kulturbibliothek",
+        "openAria": "Hilfe zur öffentlichen Kulturbibliothek öffnen"
+      },
+      "tabs": {
+        "details": "Details",
+        "versions": "Versionen",
+        "discussion": "Diskussionen"
+      },
+      "byAuthor": "Von {{author}}",
+      "metaByDate": "{{author}} · {{date}}",
+      "unknownDate": "Datum unbekannt",
+      "notSpecified": "Keine Angabe",
+      "noNotes": "Keine Notizen vorhanden.",
+      "collaborationLoadError": "Diskussion und Versionsverlauf konnten nicht geladen werden.",
+      "sections": {
+        "general": "Allgemeine Informationen",
+        "timing": "Zeitplanung",
+        "spacing": "Abstände",
+        "seed": "Saatgut",
+        "harvest": "Ernte",
+        "metadata": "Bibliotheksdaten",
+        "notes": "Notizen"
+      },
+      "units": {
+        "days": "Tage"
+      },
+      "boolean": {
+        "yes": "Ja",
+        "no": "Nein"
+      },
+      "seedUnits": {
+        "g_per_m2": "g / m²",
+        "g_per_lfm": "g / lfm",
+        "seeds_per_m2": "Korn / m²",
+        "seeds_per_lfm": "Korn / lfm",
+        "seeds_per_plant": "Korn / Pflanze"
+      },
+      "packageUnits": {
+        "g": "g",
+        "seeds": "Korn"
+      },
+      "harvestMethods": {
+        "perPlant": "Pro Pflanze",
+        "perSqm": "Pro m²"
+      },
+      "seedingRequirementTypes": {
+        "perSqm": "/ m²",
+        "perPlant": "/ Pflanze"
+      },
+      "statusValues": {
+        "draft": "Entwurf",
+        "published": "Veröffentlicht",
+        "withdrawn": "Zurückgezogen",
+        "removed": "Entfernt"
+      },
+      "fields": {
+        "cropSpecies": "Kulturart",
+        "name": "Kulturart",
+        "variety": "Sorte",
+        "growthDurationDays": "Wachstumszeit (Tage)",
+        "harvestDurationDays": "Erntezeit (Tage)",
+        "propagationDurationDays": "Anzuchtdauer (Tage)",
+        "cropFamily": "Pflanzenfamilie",
+        "nutrientDemand": "Nährstoffbedarf",
+        "cultivationType": "Anbauart",
+        "distanceWithinRow": "Abstand in der Reihe",
+        "rowSpacing": "Reihenabstand",
+        "sowingDepth": "Saattiefe",
+        "seedRate": "Saatgutmenge",
+        "seedRateByCultivation": "Saatgutmenge nach Anbauart",
+        "seedRateDirect": "Saatgutmenge Direktsaat",
+        "seedRatePreCultivation": "Saatgutmenge Pflanzung",
+        "sowingSafetyPercent": "Sicherheitszuschlag Saatgut",
+        "sowingSafetyPercentDirect": "Sicherheitszuschlag Direktsaat",
+        "sowingSafetyPercentPreCultivation": "Sicherheitszuschlag Pflanzung",
+        "thousandKernelWeight": "1000-Korn-Gewicht",
+        "seedingRequirement": "Saatgutbedarf",
+        "seedPackages": "Packungsgrößen",
+        "harvestMethod": "Ertragseinheit",
+        "expectedYield": "Erwarteter Ertrag",
+        "allowDeviationDeliveryWeeks": "Abweichende Lieferwochen",
+        "originalLanguage": "Originalsprache",
+        "createdAt": "Angelegt am",
+        "publishedAt": "Veröffentlicht am",
+        "updatedAt": "Zuletzt geändert",
+        "status": "Status",
+        "displayColor": "Anzeigefarbe",
+        "notes": "Notizen",
+        "nutrientDemandValues": {
+          "low": "Niedrig",
+          "medium": "Mittel",
+          "high": "Hoch"
+        },
+        "cultivationTypes": {
+          "directSowing": "Direktsaat",
+          "preCultivation": "Pflanzung"
+        }
+      },
+      "discussion": {
+        "newTopic": "Neue Diskussion",
+        "titleLabel": "Titel",
+        "commentLabel": "Kommentar",
+        "comment": "Kommentieren",
+        "commenting": "Kommentiere…",
+        "commentSuccess": "Kommentar wurde gespeichert.",
+        "commentError": "Kommentar konnte nicht gespeichert werden.",
+        "emptyTitle": "Noch keine Diskussionen",
+        "empty": "Hast du eine Frage zu den Daten oder möchtest du etwas zur Kultur besprechen?",
+        "create": "Diskussion starten",
+        "cancel": "Abbrechen",
+        "back": "Alle Diskussionen",
+        "topicMeta_one": "{{author}} · {{count}} Beitrag · zuletzt aktiv {{date}}",
+        "topicMeta_other": "{{author}} · {{count}} Beiträge · zuletzt aktiv {{date}}",
+        "versionReference": "Bezug:",
+        "reply": "Antworten",
+        "replyLabel": "Antwort",
+        "replyToAuthor": "Auf Beitrag von {{author}} antworten",
+        "replyContext": "Antwort auf {{author}}",
+        "repliesForAuthor": "Antworten auf Beitrag von {{author}}",
+        "moreActions": "Weitere Aktionen",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "discardDraftConfirm": "Die aktuelle Eingabe verwerfen?",
+        "edited": "bearbeitet",
+        "deleted": "Dieser Beitrag wurde gelöscht.",
+        "authorDeleted": "Dieser Beitrag wurde vom Autor gelöscht.",
+        "moderatorDeleted": "Dieser Beitrag wurde von einem Moderator entfernt.",
+        "rootDeleteBlocked": "Der Eröffnungsbeitrag kann nicht gelöscht werden, solange sichtbare Antworten vorhanden sind.",
+        "submit": "Absenden"
+      },
+      "edit": {
+        "open": "Bearbeiten",
+        "title": "Öffentliche Kultur bearbeiten",
+        "save": "Speichern",
+        "saving": "Speichere…",
+        "success": "Die öffentliche Kultur wurde aktualisiert.",
+        "error": "Die öffentliche Kultur konnte nicht aktualisiert werden.",
+        "invalidNumber": "Bitte gib gültige Zahlen ein.",
+        "nameRequired": "Bitte gib eine Kulturart ein."
+      },
+      "versions": {
+        "empty": "Noch keine Versionen vorhanden.",
+        "versionTitle": "Version {{version}}",
+        "current": "Aktuelle Version",
+        "revert": "Wiederherstellen",
+        "reverting": "Stelle wieder her…",
+        "revertSuccess": "Die Version wurde wiederhergestellt.",
+        "revertError": "Die Version konnte nicht wiederhergestellt werden.",
+        "discuss": "Diskutieren",
+        "restoredFrom": "Aus Version {{version}} wiederhergestellt",
+        "noFieldChanges": "Startversion ohne Feldänderungen.",
+        "actions": {
+          "created": "Erstellt",
+          "updated": "Bearbeitet",
+          "restored": "Wiederhergestellt"
+        }
+      },
+      "proposals": {
+        "intro": "Öffentliche Kulturen werden nicht direkt überschrieben. Schlage Änderungen vor, damit sie geprüft und nachvollziehbar übernommen werden können.",
+        "summaryLabel": "Kurze Zusammenfassung",
+        "fieldLabel": "Feld",
+        "valueLabel": "Vorgeschlagener Wert",
+        "notesLabel": "Vorgeschlagene Notizen",
+        "invalidNumber": "Bitte gib eine gültige Zahl ein.",
+        "create": "Änderung vorschlagen",
+        "creating": "Sende Vorschlag…",
+        "createSuccess": "Änderungsvorschlag wurde gespeichert.",
+        "createError": "Änderungsvorschlag konnte nicht gespeichert werden.",
+        "empty": "Noch keine Änderungsvorschläge vorhanden.",
+        "approve": "Übernehmen",
+        "approving": "Übernehme…",
+        "reject": "Ablehnen",
+        "rejecting": "Lehne ab…",
+        "approveSuccess": "Änderungsvorschlag wurde übernommen.",
+        "rejectSuccess": "Änderungsvorschlag wurde abgelehnt.",
+        "reviewError": "Änderungsvorschlag konnte nicht geprüft werden.",
+        "fields": {
+          "notes": "Notizen",
+          "growth_duration_days": "Wachstumszeit (Tage)",
+          "harvest_duration_days": "Erntezeit (Tage)"
+        },
+        "status": {
+          "pending": "Offen",
+          "approved": "Übernommen",
+          "rejected": "Abgelehnt"
+        }
+      }
+    },
     "searchLabel": "Öffentliche Kulturen durchsuchen",
     "selectPrompt": "Wählen Sie eine öffentliche Kultur aus, um Details und Import anzuzeigen.",
     "empty": "Keine öffentlichen Kulturen gefunden.",
+    "emptyState": {
+      "noSelectionTitle": "Die Kulturbibliothek wächst mit der Community",
+      "noSelectionDescription": "Teile deine bewährten Kulturen mit anderen.",
+      "discoverTitle": "Entdecken",
+      "discoverDescription": "Durchsuche vorhandene Einträge und vergleiche Kulturarten, Sorten und Anbaudaten.",
+      "importTitle": "Übernehmen",
+      "importDescription": "Importiere passende Kulturen als eigene Projektkopie. Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus.",
+      "improveTitle": "Verbessern",
+      "improveDescription": "Bearbeite öffentliche Kulturen direkt. Jede Änderung wird als Version gespeichert.",
+      "emptyLibraryTitle": "Noch keine öffentlichen Kulturen vorhanden",
+      "emptyLibraryDescription": "Die Kulturbibliothek lebt von den Beiträgen der Community. Sobald passende Projektkulturen veröffentlicht werden, können sie hier von allen genutzt und weiterentwickelt werden.",
+      "noResultsTitle": "Keine passende öffentliche Kultur gefunden"
+    },
     "importButton": "In Projekt importieren",
     "importing": "Importiere…",
     "importSuccess": "„{{name}}“ wurde in dieses Projekt importiert.",
@@ -494,10 +709,72 @@
     "publishDuplicateError": "Diese Kultur ist bereits in der Kulturbibliothek vorhanden.",
     "publishDuplicateErrorWithCandidates": "Diese Kultur ist bereits öffentlich vorhanden: {{duplicates}}",
     "publishError": "Die Kultur konnte nicht veröffentlicht werden.",
+    "withdrawAction": "Veröffentlichung zurückziehen",
+    "withdrawSuccess": "Die Veröffentlichung von „{{name}}“ wurde zurückgezogen.",
+    "withdrawError": "Die Veröffentlichung konnte nicht zurückgezogen werden.",
+    "removeAction": "Aus Bibliothek entfernen",
+    "removeSuccess": "„{{name}}“ wurde aus der öffentlichen Kulturbibliothek entfernt.",
+    "removeError": "Die Kultur konnte nicht aus der Bibliothek entfernt werden.",
+    "hardDeleteAction": "Endgültig löschen",
+    "hardDeleteSuccess": "„{{name}}“ wurde endgültig gelöscht.",
+    "hardDeleteError": "Die Kultur konnte nicht endgültig gelöscht werden. Wahrscheinlich existieren noch Referenzen oder Herkunftsdaten.",
+    "withdrawDialog": {
+      "title": "Veröffentlichung zurückziehen?",
+      "message": "„{{name}}“ verschwindet aus der öffentlichen Kulturbibliothek. Bereits importierte Kulturen in Projekten bleiben vollständig erhalten. Du kannst die Kultur später erneut veröffentlichen."
+    },
+    "removeDialog": {
+      "title": "Aus Bibliothek entfernen?",
+      "message": "„{{name}}“ wird für alle Nutzer aus der öffentlichen Kulturbibliothek entfernt. Bereits importierte Projektkulturen bleiben unverändert. Bitte wähle den Moderationsgrund.",
+      "reasonLabel": "Grund"
+    },
+    "hardDeleteDialog": {
+      "title": "Endgültig löschen?",
+      "message": "„{{name}}“ wird nur gelöscht, wenn keine Importe, Herkunftsdaten oder Abhängigkeiten mehr existieren. Für normale Moderationsfälle ist Entfernen aus der Bibliothek vorgesehen."
+    },
+    "removeReasons": {
+      "accidental_publication": "Versehentliche Veröffentlichung",
+      "test_data": "Testdatensatz",
+      "duplicate": "Duplikat",
+      "wrong_mapping": "Falsche Zuordnung",
+      "unlawful_content": "Unzulässiger Inhalt",
+      "other": "Sonstiges"
+    },
     "loadError": "Die Kulturbibliothek konnte nicht geladen werden.",
     "versionLabel": "Version",
     "createdByLabel": "Von",
     "anonymousAuthor": "Anonym",
+    "moderation": {
+      "title": "Kulturbibliothek moderieren",
+      "forbidden": "Du hast keine Berechtigung für die Moderation der öffentlichen Kulturbibliothek.",
+      "loadError": "Die Moderationsdaten konnten nicht geladen werden.",
+      "actionError": "Die Moderationsaktion konnte nicht ausgeführt werden.",
+      "approve": "Annehmen",
+      "reject": "Ablehnen",
+      "saving": "Speichere…",
+      "unknownDate": "Datum unbekannt",
+      "none": "Keine",
+      "columns": {
+        "name": "Name",
+        "proposer": "Vorgeschlagen von",
+        "similar": "Ähnliche Kulturarten",
+        "actions": "Aktionen",
+        "user": "Nutzer",
+        "motivation": "Motivation",
+        "date": "Datum"
+      },
+      "species": {
+        "title": "Kulturart-Vorschläge",
+        "empty": "Keine offenen Kulturart-Vorschläge.",
+        "approveSuccess": "Die Kulturart wurde angenommen.",
+        "rejectSuccess": "Der Kulturart-Vorschlag wurde abgelehnt."
+      },
+      "requests": {
+        "title": "Moderator-Anfragen",
+        "empty": "Keine offenen Moderator-Anfragen.",
+        "approveSuccess": "Die Moderator-Anfrage wurde angenommen.",
+        "rejectSuccess": "Die Moderator-Anfrage wurde abgelehnt."
+      }
+    },
     "publishConfirm": {
       "title": "Kultur veröffentlichen?",
       "intro": "„{{name}}“ wird als Anbaudatensatz veröffentlicht.",
@@ -515,9 +792,48 @@
       "linkSuffix": ".",
       "confirmButton": "Veröffentlichen"
     },
+    "publishWizard": {
+      "title": "Kultur veröffentlichen",
+      "intro": "Wähle die offizielle Kulturart und bestätige die Originalsprache. Alles Weitere prüfen wir beim Veröffentlichen.",
+      "publishNow": "Jetzt veröffentlichen",
+      "summaryTitle": "Zusammenfassung",
+      "speciesLabel": "Offizielle Kulturart",
+      "speciesMissing": "Keine offizielle Kulturart ausgewählt",
+      "proposeSpeciesToggle": "Kulturart fehlt?",
+      "proposeSpeciesLabel": "Neue Kulturart vorschlagen",
+      "proposeSpeciesButton": "Vorschlagen",
+      "proposalSent": "Der Vorschlag wurde gespeichert und kann später geprüft werden.",
+      "originalLanguageLabel": "Originalsprache",
+      "translationsOptional": "Fehlende Übersetzungen können später ergänzt werden.",
+      "translationAvailable": "Vorhanden",
+      "translationMissingOptional": "Fehlt, optional",
+      "requiredComplete": "Alle Pflichtfelder sind ausgefüllt.",
+      "requiredFieldsBlocking": "Vor der Veröffentlichung fehlen noch Pflichtfelder: {{fields}}. Bitte ergänze sie in den Kulturdetails und versuche es erneut.",
+      "noDuplicates": "Keine mögliche Dublette gefunden.",
+      "duplicateBlocking": "Diese Kultur scheint bereits öffentlich vorhanden zu sein: {{duplicates}}. Bitte prüfe zuerst den bestehenden Eintrag.",
+      "licenseComplete": "Lizenz bestätigt",
+      "licenseMissing": "Lizenzbestätigung fehlt",
+      "licenseAlreadyAccepted": "Die Lizenzbedingungen für Beiträge zur öffentlichen Kulturbibliothek wurden bereits akzeptiert.",
+      "steps": {
+        "species": "Kulturart",
+        "language": "Originalsprache",
+        "translations": "Übersetzungen",
+        "requiredFields": "Pflichtfelder",
+        "duplicates": "Dublettenprüfung",
+        "license": "Lizenz"
+      },
+      "languages": {
+        "de": "Deutsch",
+        "en": "English"
+      },
+      "fields": {
+        "variety": "Sorte",
+        "growth_duration_days": "Kulturdauer",
+        "harvest_duration_days": "Erntedauer"
+      }
+    },
     "filters": {
       "variety": "Sorte",
-      "supplier": "Saatgutlieferant",
       "nutrientDemand": "Nährstoffbedarf",
       "cropFamily": "Pflanzenfamilie"
     },

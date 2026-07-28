@@ -40,7 +40,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react';
 import { useTranslation } from '../../i18n';
 import HelpIconRow from './HelpIconRow';
 import { HierarchyAddIcon } from '../hierarchy/HierarchyAddIcon';
@@ -54,6 +54,7 @@ export type HelpPageKey =
   | 'beds'
   | 'areas'
   | 'cultures'
+  | 'cropLibrary'
   | 'plantingPlans'
   | 'seedDemand'
   | 'suppliers'
@@ -168,7 +169,10 @@ export default function PageHelp({ pageKey, ariaLabel, tooltip }: PageHelpProps)
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const triggerButtonRef = useRef<HTMLButtonElement | null>(null);
-  const hasI18nKey = (key: string): boolean => (typeof i18n?.exists === 'function' ? i18n.exists(key) : false);
+  const hasI18nKey = useCallback(
+    (key: string): boolean => (typeof i18n?.exists === 'function' ? i18n.exists(key) : false),
+    [i18n],
+  );
 
   const points = useMemo(() => {
     if (!hasI18nKey(`help:pages.${pageKey}.points`)) {

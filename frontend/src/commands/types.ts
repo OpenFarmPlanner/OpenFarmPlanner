@@ -3,6 +3,7 @@ import type { ShortcutKeyBinding } from '../hooks/useKeyboardShortcuts';
 export type CommandContextTag =
   | 'global'
   | 'cultures'
+  | 'publicCropLibrary'
   | 'locations'
   | 'areas'
   | 'plans'

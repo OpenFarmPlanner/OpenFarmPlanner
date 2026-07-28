@@ -112,6 +112,10 @@ def _local_dev_origins(hosts: list[str], ports: tuple[int, ...] = (5173, 4173, 3
     return origins
 
 
+def _loopback_dev_origins(ports: tuple[int, ...] = (5173, 4173, 3000)) -> list[str]:
+    return _local_dev_origins(['localhost', '127.0.0.1'], ports)
+
+
 def _env_proxy_ssl_header(name: str = 'SECURE_PROXY_SSL_HEADER') -> tuple[str, str] | None:
     raw_value = _env_str(name, '')
     if not raw_value:
@@ -386,8 +390,14 @@ DEVELOPMENT_LAN_ORIGINS = (
     if DEBUG and DJANGO_ENV == 'development'
     else []
 )
+DEVELOPMENT_LOOPBACK_ORIGINS = (
+    _loopback_dev_origins()
+    if DEBUG and DJANGO_ENV == 'development'
+    else []
+)
 CORS_ALLOWED_ORIGINS = _dedupe(
     [origin.strip() for origin in _cors_origins_str.split(',') if origin.strip()]
+    + DEVELOPMENT_LOOPBACK_ORIGINS
     + DEVELOPMENT_LAN_ORIGINS
 )
 CORS_ALLOW_CREDENTIALS = True
@@ -398,6 +408,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 _csrf_origins_str = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = _dedupe(
     [origin.strip() for origin in _csrf_origins_str.split(',') if origin.strip()]
+    + DEVELOPMENT_LOOPBACK_ORIGINS
     + DEVELOPMENT_LAN_ORIGINS
 )
 

@@ -157,6 +157,27 @@
         "delete": "Remove crop"
       }
     },
+    "cropLibrary": {
+      "title": "Help: Public crop library",
+      "intro": "The public crop library contains community-published crops that can be used across projects.",
+      "sections": [
+        {
+          "title": "Collaboration",
+          "points": [
+            "Signed-in users can edit public crops together.",
+            "Every change is saved as a version with time and author.",
+            "Older versions can be restored without deleting the version history."
+          ]
+        },
+        {
+          "title": "Using crops",
+          "points": [
+            "Import useful crops as your own project copy into the current project.",
+            "Already imported project crops stay independent from later changes in the public crop library."
+          ]
+        }
+      ]
+    },
     "plantingPlans": {
       "title": "Help: Planting plans",
       "intro": "Plan which crop is grown in which bed and when.",

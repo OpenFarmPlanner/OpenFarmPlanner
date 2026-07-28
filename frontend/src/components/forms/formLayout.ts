@@ -25,6 +25,17 @@ export const mediumFieldSx = responsiveFieldWidth(300);
 /** Names, email addresses, URLs, and other potentially long single-line values. */
 export const wideFieldSx = responsiveFieldWidth(400);
 
+/**
+ * Multiline fields stacked vertically (not inside `formRowSx`'s row flex).
+ * Plain width/maxWidth only - the `flex` shorthand from `responsiveFieldWidth`
+ * sets the *main-axis* size, which is height inside a column Stack, and would
+ * stretch a multiline field's box to that height instead of constraining its width.
+ */
+export const wideStackedFieldSx = {
+  width: { xs: '100%', sm: 460 },
+  maxWidth: '100%',
+} as const;
+
 /** Descriptions, notes, comments, and fields that deliberately span their row. */
 export const fullWidthFieldSx = {
   width: '100%',

@@ -160,6 +160,27 @@
         "edit": "Kulturdaten bearbeiten"
       }
     },
+    "cropLibrary": {
+      "title": "Hilfe: Öffentliche Kulturbibliothek",
+      "intro": "Die öffentliche Kulturbibliothek enthält gemeinschaftlich veröffentlichte Kulturen, die projektübergreifend genutzt werden können.",
+      "sections": [
+        {
+          "title": "Zusammenarbeit",
+          "points": [
+            "Angemeldete Nutzer können öffentliche Kulturen gemeinsam bearbeiten.",
+            "Jede Änderung wird als Version gespeichert und bleibt mit Zeitpunkt und Autor nachvollziehbar.",
+            "Ältere Versionen können wiederhergestellt werden, ohne den Versionsverlauf zu löschen."
+          ]
+        },
+        {
+          "title": "Verwendung",
+          "points": [
+            "Importiere passende Kulturen als eigene Projektkopie in dein aktuelles Projekt.",
+            "Bereits importierte Projektkulturen bleiben unabhängig von späteren Änderungen in der öffentlichen Kulturbibliothek."
+          ]
+        }
+      ]
+    },
     "plantingPlans": {
       "title": "Hilfe: Anbaupläne",
       "intro": "Hier planst du, welche Kultur wann auf welchem Beet angebaut wird.\n\nEinträge können direkt in der Tabelle erstellt und bearbeitet werden.",

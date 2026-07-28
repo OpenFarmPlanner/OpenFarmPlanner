@@ -679,6 +679,7 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
 
   it('opens hierarchy actions from the right-click context menu', async () => {
     useMultipleLocations();
+    bedListMock.mockResolvedValue({ data: { results: [{ id: 21, name: 'Beet A', field: 10 }] } });
     renderHierarchy();
 
     const locationRow = await screen.findByTestId('row-location-1');
@@ -723,6 +724,16 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getByRole('menuitem', { name: /^Beet hinzufügen/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Beet' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('separator')).toHaveLength(2);
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    const bedRow = await screen.findByTestId('row-21');
+    fireEvent.contextMenu(bedRow);
+
+    const createPlanMenuItem = screen.getByRole('menuitem', { name: 'Pflanzplan erstellen' });
+    expect(createPlanMenuItem).toBeInTheDocument();
+    expect(createPlanMenuItem.querySelector('svg')).not.toBeNull();
   });
 
   it('adds a bed via the Insert key when a field row is focused, mirroring "Beet hinzufügen"', async () => {

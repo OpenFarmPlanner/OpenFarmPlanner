@@ -35,6 +35,7 @@ import type {
 } from "@mui/x-data-grid";
 import { Box, Alert, useMediaQuery } from "@mui/material";
 import Divider from "@mui/material/Divider";
+import AgricultureIcon from "@mui/icons-material/Agriculture";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { ContextMenuActionItem } from "../components/contextMenu/ContextMenuActionItem";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
@@ -1064,6 +1065,7 @@ function FieldsBedsHierarchy({
         id: "create-planting-plan",
         label: t("createPlantingPlan"),
         group: "create",
+        icon: <AgricultureIcon fontSize="small" />,
         onClick: () => handleCreatePlantingPlan(row.bedId!),
       });
     }

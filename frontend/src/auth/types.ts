@@ -12,6 +12,8 @@ export interface AuthUser {
   display_label: string;
   public_display_name: string;
   is_active: boolean;
+  is_staff?: boolean;
+  is_superuser?: boolean;
   default_project_id: number | null;
   last_project_id: number | null;
   resolved_project_id: number | null;
@@ -23,6 +25,8 @@ export interface AuthUser {
   pending_consents: string[];
   /** Whether the user accepted the current public-library contribution terms. */
   public_library_terms_accepted: boolean;
+  /** Whether the user may review public crop library moderation queues. */
+  is_public_library_moderator?: boolean;
   is_guest_demo: boolean;
   guest_demo_session_id: number | null;
   /** False for accounts that sign in only through Google/Microsoft. */

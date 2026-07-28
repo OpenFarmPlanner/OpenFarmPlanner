@@ -81,6 +81,7 @@ export interface Culture {
   origin_type?: 'manual' | 'imported';
   owned_public_culture_id?: number | null;
   is_modified_from_source?: boolean;
+  crop_species?: number | null;
   thousand_kernel_weight_g?: number;
   package_size_g?: number; // deprecated, replaced by seed_packages
   seeding_requirement?: number;
@@ -174,12 +175,16 @@ export interface CultureSupplierDataInput {
 
 export interface PublicCulture {
   id: number;
-  status: 'published';
+  status: 'draft' | 'published' | 'withdrawn' | 'removed';
+  removal_reason?: PublicCultureRemovalReason | '';
   name: string;
   variety?: string;
   notes?: string;
   seed_supplier?: string;
   supplier_name?: string;
+  crop_species?: number | null;
+  crop_species_name?: string;
+  original_language_code?: string;
   crop_family?: string;
   nutrient_demand?: 'low' | 'medium' | 'high' | '';
   cultivation_type?: CultivationType | '';
@@ -217,6 +222,77 @@ export interface PublicCulture {
   source_project?: number | null;
 }
 
+export type PublicCultureChangeProposalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PublicCultureChangeProposal {
+  id: number;
+  public_culture: number;
+  summary: string;
+  proposed_data: Partial<PublicCulture>;
+  status: PublicCultureChangeProposalStatus;
+  proposed_by_label?: string;
+  reviewed_by_label?: string;
+  review_note?: string;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PublicCultureRevisionChange {
+  field: string;
+  old_value: unknown;
+  new_value: unknown;
+}
+
+export interface PublicCultureRevision {
+  id: number;
+  public_culture: number;
+  version: number;
+  action: 'created' | 'updated' | 'restored';
+  snapshot: Partial<PublicCulture>;
+  changed_fields: PublicCultureRevisionChange[];
+  restored_from_version?: number | null;
+  created_by_label?: string;
+  created_at?: string;
+}
+
+export interface PublicCultureDiscussionComment {
+  id: number;
+  topic: number;
+  parent?: number | null;
+  body: string;
+  created_by_label?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+  deletion_kind?: 'author' | 'moderator' | 'unknown' | null;
+  delete_blocked_reason?: 'visible_replies' | null;
+  is_edited: boolean;
+  can_edit: boolean;
+  can_delete?: boolean;
+}
+
+export interface PublicCultureDiscussionTopic {
+  id: number;
+  public_culture: number;
+  title: string;
+  created_by_label?: string;
+  created_at?: string;
+  revision?: number | null;
+  version?: number | null;
+  comment_count: number;
+  last_activity_at?: string | null;
+  last_comment_preview?: string | null;
+}
+
+export type PublicCultureRemovalReason =
+  | 'accidental_publication'
+  | 'test_data'
+  | 'duplicate'
+  | 'wrong_mapping'
+  | 'unlawful_content'
+  | 'other';
+
 export interface PublicCultureDuplicateCandidate {
   id: number;
   name: string;
@@ -244,6 +320,50 @@ export interface PublishPublicCultureDuplicateError {
     variety: string;
     seed_supplier: string;
   };
+}
+
+export interface CropSpecies {
+  id: number;
+  name: string;
+  status: 'published' | 'proposed' | 'rejected';
+  proposed_by_label?: string;
+  reviewed_by_label?: string;
+  review_note?: string;
+  reviewed_at?: string | null;
+  similar_species?: Array<{
+    id: number;
+    name: string;
+    match_type: 'exact' | 'similar';
+  }>;
+}
+
+export type PublicLibraryModeratorRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PublicLibraryModeratorRequest {
+  id: number;
+  user: number;
+  user_label: string;
+  motivation: string;
+  status: PublicLibraryModeratorRequestStatus;
+  reviewed_by_label?: string;
+  review_note?: string;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PublicLibraryModeratorRequestMine {
+  is_moderator: boolean;
+  request: PublicLibraryModeratorRequest | null;
+}
+
+export interface PublishPublicCulturePreview {
+  crop_species: Pick<CropSpecies, 'id' | 'name'> | null;
+  original_language_code: string;
+  available_language_codes: string[];
+  missing_required_fields: Array<{ field: string; label_key: string }>;
+  duplicates: PublicCultureDuplicateCandidate[];
+  can_publish: boolean;
 }
 
 export interface PublishPublicCultureResponse {

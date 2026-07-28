@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
+from crops.permissions import is_public_library_moderator
 from farm.common.serializer_fields import (
     CentimetersField,
     LocalizedDecimalField,
@@ -187,20 +188,41 @@ class CultureSerializer(serializers.ModelSerializer):
             return None
 
         if obj.source_public_culture_id:
-            if obj.source_public_culture and obj.source_public_culture.created_by_id == user.id:
+            if (
+                obj.source_public_culture
+                and obj.source_public_culture.status == PublicCulture.STATUS_PUBLISHED
+                and (
+                    obj.source_public_culture.created_by_id == user.id
+                    or self._can_moderate_public_cultures(user)
+                )
+            ):
                 return obj.source_public_culture_id
             return None
 
         prefetched = getattr(obj, '_prefetched_owned_public_cultures', None)
         if prefetched is not None:
-            return prefetched[0].id if prefetched else None
+            if prefetched:
+                return prefetched[0].id
+            return None
 
         linked_public = PublicCulture.objects.filter(
             source_project_culture=obj,
-            created_by=user,
             status=PublicCulture.STATUS_PUBLISHED,
-        ).order_by('-updated_at', '-id').values_list('id', flat=True).first()
-        return linked_public
+        )
+        if prefetched is None and not self._can_moderate_public_cultures(user):
+            linked_public = linked_public.filter(created_by=user)
+        return linked_public.order_by('-updated_at', '-id').values_list('id', flat=True).first()
+
+    def _can_moderate_public_cultures(self, user) -> bool:
+        request = self.context.get('request')
+        if request is None:
+            return is_public_library_moderator(user)
+        cache_attribute = '_can_moderate_public_cultures'
+        cached = getattr(request, cache_attribute, None)
+        if cached is None:
+            cached = is_public_library_moderator(user)
+            setattr(request, cache_attribute, cached)
+        return cached
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

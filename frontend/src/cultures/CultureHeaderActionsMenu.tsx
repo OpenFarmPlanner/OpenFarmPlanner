@@ -1,7 +1,9 @@
-import { Menu, MenuItem } from '@mui/material';
+import { Divider, Menu, MenuItem } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import PublicIcon from '@mui/icons-material/Public';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PublicOffIcon from '@mui/icons-material/PublicOff';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import type { TFunction } from 'i18next';
 
 interface CultureHeaderActionsMenuProps {
@@ -12,6 +14,10 @@ interface CultureHeaderActionsMenuProps {
   isPublishing: boolean;
   publishLabel: string;
   onDelete: () => void;
+  onWithdrawPublicCulture?: () => void;
+  onRemovePublicCulture?: () => void;
+  canWithdrawPublicCulture?: boolean;
+  canModeratePublicCulture?: boolean;
   t: TFunction<'cultures'>;
 }
 
@@ -29,6 +35,10 @@ export function CultureHeaderActionsMenu({
   isPublishing,
   publishLabel,
   onDelete,
+  onWithdrawPublicCulture,
+  onRemovePublicCulture,
+  canWithdrawPublicCulture = false,
+  canModeratePublicCulture = false,
   t,
 }: CultureHeaderActionsMenuProps) {
   return (
@@ -39,7 +49,7 @@ export function CultureHeaderActionsMenu({
     >
       <MenuItem onClick={() => { onClose(); onOpenHistory(); }}>
         <HistoryIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
-        Versionen
+        {t('buttons.versions')}
       </MenuItem>
       <MenuItem
         onClick={() => { onClose(); onPublish(); }}
@@ -49,9 +59,32 @@ export function CultureHeaderActionsMenu({
         <PublicIcon sx={{ fontSize: 18, mr: 1, color: 'rgba(37, 111, 42, 0.78)' }} />
         {publishLabel}
       </MenuItem>
+      {canWithdrawPublicCulture ? (
+        <MenuItem
+          onClick={() => { onClose(); onWithdrawPublicCulture?.(); }}
+          sx={{ color: 'warning.dark' }}
+        >
+          <PublicOffIcon sx={{ fontSize: 18, mr: 1, color: 'warning.dark' }} />
+          {t('library.withdrawAction')}
+        </MenuItem>
+      ) : null}
+      {canModeratePublicCulture ? (
+        [
+          <Divider key="moderation-divider" sx={{ my: 0.5 }} />,
+          <MenuItem
+            key="remove-public-culture"
+            onClick={() => { onClose(); onRemovePublicCulture?.(); }}
+            sx={{ color: 'error.main' }}
+          >
+            <RemoveCircleOutlineIcon sx={{ fontSize: 18, mr: 1, color: 'error.main' }} />
+            {t('library.removeAction')}
+          </MenuItem>,
+        ]
+      ) : null}
+      <Divider sx={{ my: 0.5 }} />
       <MenuItem onClick={() => { onClose(); onDelete(); }} sx={{ color: 'error.main' }}>
         <DeleteIcon sx={{ fontSize: 18, mr: 1, color: 'error.main' }} />
-        {t('buttons.delete')}
+        {t('buttons.deleteProjectCulture')}
       </MenuItem>
     </Menu>
   );

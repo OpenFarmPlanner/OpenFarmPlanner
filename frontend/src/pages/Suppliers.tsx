@@ -13,6 +13,7 @@ import {
   TableRow,
   TableContainer,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -75,6 +76,9 @@ export default function Suppliers() {
   const [pendingSupplierDeletions, setPendingSupplierDeletions] = useState<PendingSupplierDeletion[]>([]);
   const [deleteUsageDialog, setDeleteUsageDialog] = useState<SupplierDeleteUsageDialogState | null>(null);
   const [unlinkDeletingSupplierId, setUnlinkDeletingSupplierId] = useState<number | null>(null);
+  const isMobileViewport = useMediaQuery('(max-width:900px)');
+  const isTouchLikePointer = useMediaQuery('(pointer: coarse)');
+  const shouldShowInlineSupplierActions = !(isMobileViewport || isTouchLikePointer);
   const pendingSupplierDeleteTimersRef = useRef<Map<string, number>>(new Map());
   const {
     showContextMenuHint,
@@ -585,31 +589,33 @@ export default function Suppliers() {
                         >
                           {supplier.name}
                         </Box>
-                        <Box
-                          className="supplier-row-actions"
-                          sx={contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &')}
-                        >
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            aria-label={t('editAction')}
-                            onClick={() => openEdit(supplier)}
+                        {shouldShowInlineSupplierActions ? (
+                          <Box
+                            className="supplier-row-actions"
+                            sx={contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &')}
                           >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={t('deleteAction')}
-                            onClick={() => void deleteSupplier(supplier)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                          <ContextMenuIndicator
-                            label={t('common:actions.actions')}
-                            onClick={(event) => openSupplierInlineActionMenu(event, supplier)}
-                          />
-                        </Box>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              aria-label={t('editAction')}
+                              onClick={() => openEdit(supplier)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              aria-label={t('deleteAction')}
+                              onClick={() => void deleteSupplier(supplier)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                            <ContextMenuIndicator
+                              label={t('common:actions.actions')}
+                              onClick={(event) => openSupplierInlineActionMenu(event, supplier)}
+                            />
+                          </Box>
+                        ) : null}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ py: 1.25 }}>

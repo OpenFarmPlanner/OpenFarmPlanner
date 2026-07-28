@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { CultureDetail } from '../cultures/CultureDetail';
 import type { Culture } from '../api/api';
@@ -8,6 +10,24 @@ import translations from '@/test-utils/translations';
 describe('CultureDetail Component', () => {
   const renderCultureDetail = (ui: Parameters<typeof render>[0]) =>
     render(ui, { wrapper: MemoryRouter });
+
+  function mockPhoneLandscapeViewport(): void {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('orientation: landscape')
+          || (query.includes('min-width:600px') && query.includes('max-width:899.95px'))
+          || (query.includes('min-width:600px') && query.includes('max-width:1199.95px')),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  }
 
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -39,6 +59,22 @@ describe('CultureDetail Component', () => {
       harvest_duration_days: 56,
     },
   ];
+
+  function KeyboardNavigationHarness({
+    initialSelectedId = 1,
+  }: {
+    initialSelectedId?: number;
+  }) {
+    const [selectedCultureId, setSelectedCultureId] = useState<number | undefined>(initialSelectedId);
+
+    return (
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={selectedCultureId}
+        onCultureSelect={(culture) => setSelectedCultureId(culture?.id)}
+      />
+    );
+  }
 
   it('renders search field', () => {
     const mockOnSelect = vi.fn();
@@ -108,6 +144,89 @@ describe('CultureDetail Component', () => {
 
     expect(screen.getByText('Keine Kulturen gefunden')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Suche und Filter zurücksetzen' })).toBeInTheDocument();
+  });
+
+  it('selects the next and previous visible culture with arrow keys and keeps focus in the list', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness />);
+
+    const tomatoOption = screen.getByRole('option', { name: /Tomato/ });
+    tomatoOption.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Lettuce/ })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowUp}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Tomato/ })).toHaveFocus();
+    });
+  });
+
+  it('selects the first and last visible culture with Home and End', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness initialSelectedId={2} />);
+
+    screen.getByRole('option', { name: /Lettuce/ }).focus();
+
+    await user.keyboard('{End}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Asparagus' })).toBeInTheDocument();
+
+    await user.keyboard('{Home}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
+  });
+
+  it('does not wrap around at the beginning or end of the culture list', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness />);
+
+    screen.getByRole('option', { name: /Tomato/ }).focus();
+    await user.keyboard('{ArrowUp}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
+
+    await user.keyboard('{End}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Asparagus' })).toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Asparagus' })).toBeInTheDocument();
+  });
+
+  it('navigates only through cultures visible after search filtering', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness />);
+
+    const searchInput = screen.getByLabelText(translations.cultures.searchPlaceholder);
+    fireEvent.change(searchInput, { target: { value: 't' } });
+
+    const cultureList = screen.getByRole('listbox', { name: translations.cultures.title });
+    const tomatoOption = within(cultureList).getByRole('option', { name: /Tomato/ });
+    tomatoOption.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    expect(within(cultureList).queryByRole('option', { name: /Asparagus/ })).not.toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+  });
+
+  it('does not intercept arrow keys while the search field is focused', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness />);
+
+    const searchInput = screen.getByLabelText(translations.cultures.searchPlaceholder);
+    searchInput.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
+    expect(searchInput).toHaveFocus();
   });
 
   it('displays culture details when culture is selected', () => {
@@ -505,17 +624,53 @@ describe('CultureDetail Component', () => {
     expect(screen.queryByText('9 %')).not.toBeInTheDocument();
   });
 
-  it('edit and plan action buttons have accessible aria-labels (ACC-01 regression guard)', () => {
+  it('shows edit and plan as labeled primary actions and keeps secondary actions in overflow', async () => {
+    const user = userEvent.setup();
     renderCultureDetail(
       <CultureDetail
         cultures={mockCultures}
         selectedCultureId={1}
         onCultureSelect={vi.fn()}
         onEditCulture={vi.fn()}
+        onCreatePlan={vi.fn()}
+        onOpenHistory={vi.fn()}
+        onPublishCulture={vi.fn()}
       />
     );
 
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
+
+    expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Versionen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Veröffentlichen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Projektkultur löschen' })).toBeInTheDocument();
+  });
+
+  it('keeps the portrait mobile culture UI in short-height phone landscape', () => {
+    mockPhoneLandscapeViewport();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={1}
+        onCultureSelect={vi.fn()}
+        onEditCulture={vi.fn()}
+        onCreatePlan={vi.fn()}
+        onOpenHistory={vi.fn()}
+        onPublishCulture={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Kultur auswählen' })).toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: 'Kulturen' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: 'Bearbeiten' })).getByText('Bearbeiten')).toHaveStyle({
+      display: 'none',
+    });
+    expect(within(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).getByText('Anbauplan hinzufügen')).toHaveStyle({
+      display: 'none',
+    });
   });
 });

@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from crops.permissions import is_public_library_moderator
 from farm.models import ProjectMembership
 from farm.project_context import resolve_project_for_user
 from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION
@@ -69,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
     scheduled_deletion_at = serializers.SerializerMethodField()
     pending_consents = serializers.SerializerMethodField()
     public_library_terms_accepted = serializers.SerializerMethodField()
+    is_public_library_moderator = serializers.SerializerMethodField()
     is_guest_demo = serializers.SerializerMethodField()
     guest_demo_session_id = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
@@ -82,6 +84,8 @@ class UserSerializer(serializers.ModelSerializer):
             'display_label',
             'public_display_name',
             'is_active',
+            'is_staff',
+            'is_superuser',
             'default_project_id',
             'last_project_id',
             'memberships',
@@ -91,6 +95,7 @@ class UserSerializer(serializers.ModelSerializer):
             'scheduled_deletion_at',
             'pending_consents',
             'public_library_terms_accepted',
+            'is_public_library_moderator',
             'is_guest_demo',
             'guest_demo_session_id',
             'has_password',
@@ -180,6 +185,9 @@ class UserSerializer(serializers.ModelSerializer):
     def get_public_library_terms_accepted(self, obj: User) -> bool:
         return has_accepted_current(obj, DocumentConsent.DOCUMENT_PUBLIC_LIBRARY)
 
+    def get_is_public_library_moderator(self, obj: User) -> bool:
+        return is_public_library_moderator(obj)
+
 
 class ConsentAcceptSerializer(serializers.Serializer):
     document = serializers.ChoiceField(choices=DocumentConsent.DOCUMENT_CHOICES)
@@ -190,7 +198,6 @@ class RegisterSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     password = serializers.CharField(**_password_field_kwargs)
     password_confirm = serializers.CharField(**_password_field_kwargs)
-    accept_terms = serializers.BooleanField(required=True)
 
     def validate_email(self, value: str) -> str:
         normalized = normalize_email_lower(value)
@@ -201,8 +208,6 @@ class RegisterSerializer(serializers.Serializer):
     def validate(self, attrs: dict[str, object]) -> dict[str, object]:
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': _de(_('Passwords do not match.'))})
-        if attrs.get('accept_terms') is not True:
-            raise serializers.ValidationError({'accept_terms': _de(_('You must accept the Terms of Service.'))})
         validate_password(str(attrs['password']))
         return attrs
 
