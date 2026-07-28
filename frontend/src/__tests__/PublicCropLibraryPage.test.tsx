@@ -1440,6 +1440,36 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
 
+  it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
+    const user = userEvent.setup();
+    const staleList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    publicCultureApiMocks.list
+      .mockResolvedValueOnce({ data: { results: publicCultures } })
+      .mockReturnValueOnce(staleList.promise);
+
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const searchInput = screen.getByLabelText('Öffentliche Kulturen durchsuchen');
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+    const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
+
+    fireEvent.change(searchInput, { target: { value: 'Tom' } });
+    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
+    fireEvent.change(within(editDialog).getByLabelText('Wachstumszeit (Tage)'), { target: { value: '48' } });
+    await user.click(within(editDialog).getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+
+    await act(async () => {
+      staleList.resolve({ data: { results: publicCultures } });
+    });
+
+    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+    expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
+  }, 30000);
+
   it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
     publicCultureApiMocks.importToProject.mockResolvedValue({ data: {} });
     const user = userEvent.setup();

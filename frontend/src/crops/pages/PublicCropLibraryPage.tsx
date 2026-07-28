@@ -1065,6 +1065,7 @@ export default function PublicCropLibraryPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
+  const cultureListRequestIdRef = useRef(0);
   const newTopicButtonRef = useRef<HTMLButtonElement>(null);
   const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
   const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
@@ -1360,6 +1361,8 @@ export default function PublicCropLibraryPage() {
   }, [cultures.length, loadStatus, selectedCultureId]);
 
   const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
+    const requestId = cultureListRequestIdRef.current + 1;
+    cultureListRequestIdRef.current = requestId;
     setLoadStatus('loading');
     setLoadError('');
     try {
@@ -1371,12 +1374,21 @@ export default function PublicCropLibraryPage() {
           const selectedCultureResponse = await publicCultureAPI.get(currentSelectedCultureId);
           results = [selectedCultureResponse.data, ...results];
         } catch {
+          if (requestId !== cultureListRequestIdRef.current) {
+            return;
+          }
           updateSelectedCultureId(null);
         }
+      }
+      if (requestId !== cultureListRequestIdRef.current) {
+        return;
       }
       setCultures(results);
       setLoadStatus('success');
     } catch {
+      if (requestId !== cultureListRequestIdRef.current) {
+        return;
+      }
       setLoadError(t('library.loadError'));
       setCultures([]);
       updateSelectedCultureId(null);
@@ -1573,6 +1585,9 @@ export default function PublicCropLibraryPage() {
   useRegisterCommands('public-crop-library-page', commandSpecs);
 
   const upsertCultureInList = (updatedCulture: PublicCulture): void => {
+    cultureListRequestIdRef.current += 1;
+    setLoadError('');
+    setLoadStatus('success');
     setCultures((current) => {
       const existingIndex = current.findIndex((culture) => culture.id === updatedCulture.id);
       if (existingIndex === -1) {
