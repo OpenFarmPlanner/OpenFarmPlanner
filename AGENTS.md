@@ -103,6 +103,10 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
 - Use PascalCase for component names and `useSomething` names for hooks.
 - Prefer strongly typed props and avoid `any`.
 - Avoid deprecated MUI APIs; use current patterns such as `slotProps.htmlInput` instead of `inputProps`.
+- For routed UI state, use explicit target URLs/state transitions instead of
+  `history.back()` when an in-app control has a deterministic destination;
+  preserve browser back/forward semantics for user-driven navigation and
+  direct links.
 
 ## UI Consistency / OpenFarmPlanner Style
 - When creating or modifying UI elements, always follow the existing OpenFarmPlanner design language.
