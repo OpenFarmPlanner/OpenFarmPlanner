@@ -92,7 +92,7 @@ implementations).
 ### Migrated/removed shortcuts
 
 - **Alt+S is gone.** It was used inconsistently as a page-local "focus
-  search" shortcut (Cultures, the calendar). It's replaced by **`/`**
+  search" shortcut (the project Crop Library, the calendar). It's replaced by **`/`**
   (focus the page's filter/search field) — chosen over `F` because `F`
   already means "show Feldbelegung" in the calendar; picking a shortcut that
   collides with an existing one just to match a suggestion literally would
@@ -100,7 +100,7 @@ implementations).
   also the more universally recognized "jump to search" key (GitHub, etc.).
 - **`?`, Ctrl+B (sidebar toggle)** used to be raw `window.addEventListener('keydown', ...)`
   listeners in the root layout (now `navigation/RootLayout.tsx`), duplicated a second time for `?` in
-  `pages/Cultures.tsx` (which meant pressing `?` on the Cultures page could
+  `pages/Cultures.tsx` (which meant pressing `?` on the project Crop Library page could
   open two different dialogs at once). Both are now regular commands
   registered through the same system as everything else — one listener,
   one source of truth.
@@ -156,7 +156,7 @@ Culture master-detail lists use the same local-widget approach through
 `listbox`/`option` set with roving tabindex, ArrowUp/ArrowDown/Home/End move
 selection within the currently rendered rows, the selected row scrolls into
 view, and focus stays in the list. The hook is shared by the project
-`Kulturen` page, the public Crop Library page, and the quick import dialog, so
+project Crop Library page, the public Crop Library page, and the quick import dialog, so
 filter/search state continues to define what "visible rows" means in each
 surface without adding global arrow-key handlers.
 

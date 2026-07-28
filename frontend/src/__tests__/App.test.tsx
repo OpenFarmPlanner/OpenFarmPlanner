@@ -183,7 +183,7 @@ describe('App', () => {
     expect(await screen.findByRole('tab', { name: 'Flächen' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Flächen',
-      'Kulturen',
+      'Kulturbibliothek',
       'Anbaupläne',
       'Kalender',
       'Erträge',
@@ -930,7 +930,7 @@ describe('App', () => {
     authState.activeProjectId = 1;
 
     for (const { initialPath, previousHeading } of [
-      { initialPath: '/app/cultures', previousHeading: 'Kulturen' },
+      { initialPath: '/app/cultures', previousHeading: 'Kulturbibliothek' },
       { initialPath: '/app/planting-plans', previousHeading: 'Anbaupläne' },
     ]) {
       if (initialPath === '/app/cultures') {

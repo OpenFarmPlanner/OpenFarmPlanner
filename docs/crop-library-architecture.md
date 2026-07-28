@@ -206,9 +206,9 @@ separate, deliberate future step (see §5), not bundled into this
 architecture pass.
 
 `App.tsx` now exposes `/app/crop-library` (with `/app/crops` as an alias) as
-an authenticated full-page library workspace. The existing
+an authenticated full-page public library workspace. The existing
 `PublicCultureLibraryDialog` remains the quick import picker from the project
-Cultures page and links to the full page for details, version history, and
+Crop Library page and links to the full page for details, version history, and
 discussion.
 
 ## 3. The domain rule, and where it bites
@@ -241,7 +241,7 @@ Applied concretely:
   someday become a real network call (once crops is an actual separate
   service) is future work, documented in §5, not solved now.
 - `frontend/src/pages/usePublicCultureLibrary.ts` — the hook driving
-  publish/import from the Cultures page — stays in `pages/` for the same
+  publish/import from the project Crop Library page — stays in `pages/` for the same
   reason: it's the Farm-Planning-side integration point, not
   crop-library-only logic (it reads/writes a project's `Culture` and
   needs a `selectedCulture`/`onImportSuccess` callback tied to that
@@ -281,7 +281,7 @@ for no functional benefit right now. German UI text (`"Kultur"`,
 - Every existing API path (`/api/cultures/...`, `/api/public-cultures/...`)
   still works. New collaboration actions are additive child endpoints on
   `/api/public-cultures/<id>/`.
-- The project Cultures page still uses `PublicCultureLibraryDialog` for quick
+- The project Crop Library page still uses `PublicCultureLibraryDialog` for quick
   import into the active project.
 - `/app/crop-library` is the full authenticated library workspace for
   browsing, importing, discussing entries, editing public crop data directly,
@@ -290,7 +290,7 @@ for no functional benefit right now. German UI text (`"Kultur"`,
 ## 7. Publishing Wizard quality gate
 
 Publishing a project-owned `Culture` is no longer a direct copy action from
-the Cultures page. The frontend opens `CulturesPublishingWizardDialog`,
+the project Crop Library page. The frontend opens `CulturesPublishingWizardDialog`,
 which keeps the normal path intentionally small: the user selects the
 official `CropSpecies`, confirms the original language, and clicks publish.
 The dialog calls `/api/cultures/<id>/publish-public/preview/` only as a

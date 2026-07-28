@@ -11,7 +11,7 @@ describe('HelpDialog', () => {
     for (const title of [
       'Übersicht',
       'Anbauflächen',
-      'Kulturen',
+      'Kulturbibliothek',
       'Anbaupläne',
       'Anbaukalender',
       'Ertragsübersicht',
@@ -21,6 +21,6 @@ describe('HelpDialog', () => {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
 
-    expect(screen.getByText('Anbauflächen → Kulturen → Anbaupläne → Anbaukalender → Saatgutbedarf')).toBeInTheDocument();
+    expect(screen.getByText('Anbauflächen → Kulturbibliothek → Anbaupläne → Anbaukalender → Saatgutbedarf')).toBeInTheDocument();
   });
 });

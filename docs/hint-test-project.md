@@ -67,8 +67,8 @@ below marks the remaining step as a manual input action.
 | Fields/beds hierarchy | Missing area/dimension data | `Parzelle – Fläche fehlt`, `Beet – keine nutzbare Fläche` | Warning/info | Yes | Anbauflächen |
 | Fields/beds hierarchy | Context-menu discovery hint | Per-page local preference key | Info | Data-independent | Open Anbauflächen before using row context menu |
 | Graphical field view | Existing layout and missing layout contrast | Two fields/beds have layouts; one location intentionally has none | Info | Yes | Anbauflächen → graphical/layout mode |
-| Cultures | Imported vs. local and modified imported state | `Bibliothek – importiert und geändert` | Info | Yes | Kulturen → select culture detail |
-| Cultures | Missing spacing prevents plant-density calculation | `Kultur – Pflanzabstände fehlen` | Warning/info | Yes | Kulturen → details or edit dialog |
+| Crop Library | Imported vs. local and modified imported state | `Bibliothek – importiert und geändert` | Info | Yes | Kulturbibliothek → select culture detail |
+| Crop Library | Missing spacing prevents plant-density calculation | `Kultur – Pflanzabstände fehlen` | Warning/info | Yes | Kulturbibliothek → details or edit dialog |
 | Cultures | Duplicate supplier/culture validation | Existing suppliers and cultures provide collision targets | Error | Manual | Create duplicate supplier/culture names in the same project |
 | Public library | Empty/no-result and import errors | Public library is global, not project-owned | Info/error | Manual | Open library, search for an impossible term or test import failures |
 | Planting plans | Harvest start/end not computable without culture durations | `Kultur – keine Zeitangaben` | Warning/info | Yes | Anbaupläne |

@@ -108,7 +108,7 @@ docs/                  # This documentation
   | `Dashboard.tsx` | `/app/dashboard` | Landing page / setup checklist |
   | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte) |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
-  | `Cultures.tsx` | `/app/cultures` | Manage project cultures; Public Culture Library import/export and version history |
+  | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
   | `PlantingPlans.tsx` | `/app/anbauplaene` (alias `/app/planting-plans`) | Spreadsheet-like editable grid of planting schedules |
   | `GanttChart.tsx` | `/app/gantt-chart` | Bed-occupancy timeline / seedling calendar |
   | `YieldOverview.tsx` | `/app/yield-overview` | Aggregated harvest/yield overview |

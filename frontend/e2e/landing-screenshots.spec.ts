@@ -20,7 +20,7 @@ const screenshots = [
   {
     key: 'cultures',
     path: '/app/cultures',
-    ready: /Kulturen|Karotte/i,
+    ready: /Kulturbibliothek|Karotte/i,
     filename: 'demo-cultures.webp',
   },
   {

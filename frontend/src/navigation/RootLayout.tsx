@@ -1814,7 +1814,7 @@ function RootLayout() {
                               onClick={() => setProjectHistoryOpen(false)}
                               sx={{ fontSize: '0.78rem', color: 'text.secondary', flexShrink: 0 }}
                             >
-                              {item.object_type === 'culture' ? t('navigation:cultures') : t('navigation:plantingPlans')}
+                              {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
                             </Link>
                           ) : null}
                         </Box>
@@ -1879,7 +1879,7 @@ function RootLayout() {
                                   underline="hover"
                                   onClick={() => setProjectHistoryOpen(false)}
                                 >
-                                  {item.object_type === 'culture' ? t('navigation:cultures') : t('navigation:plantingPlans')}
+                                  {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
                                 </Link>
                               </>
                             ) : null}
