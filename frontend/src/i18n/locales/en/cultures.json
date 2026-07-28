@@ -200,12 +200,27 @@
         }
       },
       "discussion": {
+        "newTopic": "+ New discussion",
+        "titleLabel": "Title",
         "commentLabel": "Comment",
         "comment": "Comment",
         "commenting": "Commenting…",
         "commentSuccess": "Comment saved.",
         "commentError": "Comment could not be saved.",
-        "empty": "No discussion for this crop yet."
+        "emptyTitle": "No discussions yet",
+        "empty": "Start a discussion if you have questions about the data or want to coordinate a change.",
+        "create": "Start discussion",
+        "cancel": "Cancel",
+        "back": "Back to discussions",
+        "topicMeta": "{{author}} · {{date}} · {{count}} posts",
+        "versionReference": "About version {{version}}",
+        "reply": "Reply",
+        "replyLabel": "Reply",
+        "edit": "Edit",
+        "delete": "Delete",
+        "edited": "edited",
+        "deleted": "Comment was deleted.",
+        "submit": "Submit"
       },
       "edit": {
         "open": "Edit",
@@ -225,6 +240,7 @@
         "reverting": "Restoring…",
         "revertSuccess": "The version was restored.",
         "revertError": "The version could not be restored.",
+        "discuss": "Discuss",
         "restoredFrom": "Restored from version {{version}}",
         "noFieldChanges": "Initial version without field changes.",
         "actions": {

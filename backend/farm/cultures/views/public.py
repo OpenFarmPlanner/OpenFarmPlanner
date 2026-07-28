@@ -3,9 +3,9 @@
 
 from typing import Any
 
-from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Max, Q
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -16,6 +16,7 @@ from crops.permissions import is_public_library_moderator
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
+    PublicCultureDiscussionComment,
 )
 from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
@@ -38,6 +39,7 @@ from ..serializers import (
 from ..serializers.public import (
     PublicCultureChangeProposalSerializer,
     PublicCultureDiscussionCommentSerializer,
+    PublicCultureDiscussionTopicSerializer,
     PublicCultureRevertSerializer,
     PublicCultureRevisionSerializer,
     PublicCultureUpdateSerializer,
@@ -55,6 +57,11 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED).order_by('name', 'variety')
     serializer_class = PublicCultureSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in {'discussion_topics', 'topic_comments'} and self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return super().get_permissions()
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related('created_by__public_profile')
@@ -178,18 +185,66 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         serializer = CultureSerializer(imported)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['get', 'post'], url_path='comments')
-    def comments(self, request: Request, pk: int | None = None) -> Response:
+    @action(detail=True, methods=['get', 'post'], url_path='discussion-topics')
+    def discussion_topics(self, request: Request, pk: int | None = None) -> Response:
         public_culture = self.get_object()
         if request.method == 'GET':
-            comments = public_culture.discussion_comments.select_related('created_by__public_profile')
-            serializer = PublicCultureDiscussionCommentSerializer(comments, many=True)
+            topics = public_culture.discussion_topics.select_related(
+                'created_by__public_profile', 'revision'
+            ).annotate(comment_count=Count('comments'), last_activity_at=Max('comments__created_at'))
+            serializer = PublicCultureDiscussionTopicSerializer(topics, many=True, context={'request': request})
             return Response(serializer.data)
 
-        serializer = PublicCultureDiscussionCommentSerializer(data=request.data)
+        topic_serializer = PublicCultureDiscussionTopicSerializer(data=request.data)
+        topic_serializer.is_valid(raise_exception=True)
+        comment_serializer = PublicCultureDiscussionCommentSerializer(data={'body': request.data.get('body', '')})
+        comment_serializer.is_valid(raise_exception=True)
+        revision = topic_serializer.validated_data.get('revision')
+        if revision and revision.public_culture_id != public_culture.id:
+            return Response({'revision': ['The version does not belong to this public culture.']}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            topic = topic_serializer.save(public_culture=public_culture, created_by=request.user)
+            comment_serializer.save(topic=topic, created_by=request.user)
+        topic = public_culture.discussion_topics.select_related('created_by__public_profile', 'revision').annotate(
+            comment_count=Count('comments'), last_activity_at=Max('comments__created_at')
+        ).get(pk=topic.pk)
+        return Response(PublicCultureDiscussionTopicSerializer(topic, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get', 'post'], url_path=r'discussion-topics/(?P<topic_id>[^/.]+)/comments')
+    def topic_comments(self, request: Request, pk: int | None = None, topic_id: str | None = None) -> Response:
+        public_culture = self.get_object()
+        topic = get_object_or_404(public_culture.discussion_topics, pk=topic_id)
+        if request.method == 'GET':
+            comments = topic.comments.select_related('created_by__public_profile')
+            return Response(PublicCultureDiscussionCommentSerializer(comments, many=True, context={'request': request}).data)
+        serializer = PublicCultureDiscussionCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(public_culture=public_culture, created_by=request.user)
-        return Response(PublicCultureDiscussionCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+        parent = serializer.validated_data.get('parent')
+        if parent and parent.topic_id != topic.id:
+            return Response({'parent': ['The parent comment does not belong to this topic.']}, status=status.HTTP_400_BAD_REQUEST)
+        comment = serializer.save(topic=topic, created_by=request.user)
+        return Response(PublicCultureDiscussionCommentSerializer(comment, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'discussion-comments/(?P<comment_id>[^/.]+)')
+    def discussion_comment(self, request: Request, pk: int | None = None, comment_id: str | None = None) -> Response:
+        public_culture = self.get_object()
+        comment = get_object_or_404(PublicCultureDiscussionComment.objects.select_related('topic'), pk=comment_id, topic__public_culture=public_culture)
+        may_moderate = self._is_moderator(request.user)
+        if comment.created_by_id != request.user.id and not may_moderate:
+            return Response({'detail': 'You may only change your own comments.'}, status=status.HTTP_403_FORBIDDEN)
+        if request.method == 'DELETE':
+            if not comment.deleted_at:
+                comment.body = ''
+                comment.deleted_at = timezone.now()
+                comment.deleted_by = request.user
+                comment.save(update_fields=['body', 'deleted_at', 'deleted_by', 'updated_at'])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        if comment.deleted_at:
+            return Response({'detail': 'Deleted comments cannot be edited.'}, status=status.HTTP_409_CONFLICT)
+        serializer = PublicCultureDiscussionCommentSerializer(comment, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(edited_at=timezone.now())
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='versions')
     def versions(self, request: Request, pk: int | None = None) -> Response:

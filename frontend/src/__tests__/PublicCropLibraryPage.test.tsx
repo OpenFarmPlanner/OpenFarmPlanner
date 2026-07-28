@@ -10,7 +10,12 @@ import { FocusManagerProvider } from '../focus/FocusManager';
 const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
   get: vi.fn(),
-  comments: vi.fn(),
+  discussionTopics: vi.fn(),
+  discussionComments: vi.fn(),
+  createDiscussionTopic: vi.fn(),
+  createDiscussionComment: vi.fn(),
+  updateDiscussionComment: vi.fn(),
+  deleteDiscussionComment: vi.fn(),
   versions: vi.fn(),
   importToProject: vi.fn(),
   update: vi.fn(),
@@ -49,7 +54,12 @@ vi.mock('../api/api', async () => {
       ...actual.publicCultureAPI,
       list: publicCultureApiMocks.list,
       get: publicCultureApiMocks.get,
-      comments: publicCultureApiMocks.comments,
+      discussionTopics: publicCultureApiMocks.discussionTopics,
+      discussionComments: publicCultureApiMocks.discussionComments,
+      createDiscussionTopic: publicCultureApiMocks.createDiscussionTopic,
+      createDiscussionComment: publicCultureApiMocks.createDiscussionComment,
+      updateDiscussionComment: publicCultureApiMocks.updateDiscussionComment,
+      deleteDiscussionComment: publicCultureApiMocks.deleteDiscussionComment,
       versions: publicCultureApiMocks.versions,
       importToProject: publicCultureApiMocks.importToProject,
       update: publicCultureApiMocks.update,
@@ -100,7 +110,8 @@ describe('PublicCropLibraryPage', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
-    publicCultureApiMocks.comments.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
     publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
     publicCultureApiMocks.update.mockResolvedValue({
       data: {
@@ -131,6 +142,17 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Übernehmen')).toBeInTheDocument();
     expect(screen.getByText('Verbessern')).toBeInTheDocument();
     expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus/)).toBeInTheDocument();
+  });
+
+  it('shows discussion topics empty state and opens the new topic form', async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Diskussion' }));
+    expect(await screen.findByText('Noch keine Diskussionen')).toBeInTheDocument();
+    expect(screen.getByText(/Fragen zu den Daten/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '+ Neue Diskussion' }));
+    expect(screen.getByRole('textbox', { name: 'Titel' })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: 'Kommentar' })).toBeInTheDocument();
   });
 
   it('uses the shared culture list keyboard navigation on the full public library page', async () => {

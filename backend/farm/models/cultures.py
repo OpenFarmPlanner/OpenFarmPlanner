@@ -955,10 +955,36 @@ class PublicCultureStatusEvent(models.Model):
         ordering = ['-created_at', '-id']
 
 
-class PublicCultureDiscussionComment(models.Model):
-    """Public discussion attached to a shared crop-library entry."""
+class PublicCultureDiscussionTopic(models.Model):
+    """A focused discussion about one shared crop-library entry."""
 
-    public_culture = models.ForeignKey(PublicCulture, on_delete=models.CASCADE, related_name='discussion_comments')
+    public_culture = models.ForeignKey(PublicCulture, on_delete=models.CASCADE, related_name='discussion_topics')
+    title = models.CharField(max_length=240)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='public_culture_discussion_topics',
+    )
+    revision = models.ForeignKey(
+        'PublicCultureRevision',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='discussion_topics',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+
+class PublicCultureDiscussionComment(models.Model):
+    """A comment or reply in a public-culture discussion topic."""
+
+    topic = models.ForeignKey(PublicCultureDiscussionTopic, on_delete=models.CASCADE, related_name='comments')
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
     body = models.TextField()
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -969,6 +995,15 @@ class PublicCultureDiscussionComment(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='deleted_public_culture_discussion_comments',
+    )
 
     class Meta:
         ordering = ['created_at', 'id']

@@ -589,12 +589,27 @@
         }
       },
       "discussion": {
+        "newTopic": "+ Neue Diskussion",
+        "titleLabel": "Titel",
         "commentLabel": "Kommentar",
         "comment": "Kommentieren",
         "commenting": "Kommentiere…",
         "commentSuccess": "Kommentar wurde gespeichert.",
         "commentError": "Kommentar konnte nicht gespeichert werden.",
-        "empty": "Noch keine Diskussion zu dieser Kultur."
+        "emptyTitle": "Noch keine Diskussionen",
+        "empty": "Starte eine Diskussion, wenn du Fragen zu den Daten hast oder eine Änderung abstimmen möchtest.",
+        "create": "Diskussion starten",
+        "cancel": "Abbrechen",
+        "back": "Zurück zu den Diskussionen",
+        "topicMeta": "{{author}} · {{date}} · {{count}} Beiträge",
+        "versionReference": "Zu Version {{version}}",
+        "reply": "Antworten",
+        "replyLabel": "Antwort",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "edited": "bearbeitet",
+        "deleted": "Kommentar wurde gelöscht.",
+        "submit": "Absenden"
       },
       "edit": {
         "open": "Bearbeiten",
@@ -614,6 +629,7 @@
         "reverting": "Stelle wieder her…",
         "revertSuccess": "Die Version wurde wiederhergestellt.",
         "revertError": "Die Version konnte nicht wiederhergestellt werden.",
+        "discuss": "Diskutieren",
         "restoredFrom": "Aus Version {{version}} wiederhergestellt",
         "noFieldChanges": "Startversion ohne Feldänderungen.",
         "actions": {

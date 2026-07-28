@@ -258,11 +258,27 @@ export interface PublicCultureRevision {
 
 export interface PublicCultureDiscussionComment {
   id: number;
-  public_culture: number;
+  topic: number;
+  parent?: number | null;
   body: string;
   created_by_label?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
+  is_edited: boolean;
+  can_edit: boolean;
+}
+
+export interface PublicCultureDiscussionTopic {
+  id: number;
+  public_culture: number;
+  title: string;
+  created_by_label?: string;
+  created_at?: string;
+  revision?: number | null;
+  version?: number | null;
+  comment_count: number;
+  last_activity_at?: string | null;
 }
 
 export type PublicCultureRemovalReason =

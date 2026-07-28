@@ -4,10 +4,12 @@ from typing import Any
 
 from rest_framework import serializers
 
+from crops.permissions import is_public_library_moderator
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
+    PublicCultureDiscussionTopic,
     PublicCultureRevision,
 )
 from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
@@ -162,26 +164,64 @@ class PublicCultureRevisionSerializer(serializers.ModelSerializer):
 
 class PublicCultureDiscussionCommentSerializer(serializers.ModelSerializer):
     created_by_label = serializers.SerializerMethodField()
+    is_edited = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicCultureDiscussionComment
         fields = [
             'id',
-            'public_culture',
+            'topic',
+            'parent',
             'body',
             'created_by_label',
             'created_at',
             'updated_at',
+            'deleted_at',
+            'is_edited',
+            'can_edit',
         ]
         read_only_fields = [
             'id',
-            'public_culture',
+            'topic',
             'created_by_label',
             'created_at',
             'updated_at',
+            'deleted_at',
+            'is_edited',
+            'can_edit',
         ]
 
     def get_created_by_label(self, obj: PublicCultureDiscussionComment) -> str:
+        return get_public_user_label(obj.created_by)
+
+    def get_is_edited(self, obj: PublicCultureDiscussionComment) -> bool:
+        return bool(obj.edited_at and not obj.deleted_at)
+
+    def get_can_edit(self, obj: PublicCultureDiscussionComment) -> bool:
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and (obj.created_by_id == user.id or is_public_library_moderator(user)))
+
+    def validate_body(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Comment must not be empty.')
+        return value
+
+
+class PublicCultureDiscussionTopicSerializer(serializers.ModelSerializer):
+    created_by_label = serializers.SerializerMethodField()
+    version = serializers.IntegerField(source='revision.version', read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
+    last_activity_at = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = PublicCultureDiscussionTopic
+        fields = ['id', 'public_culture', 'title', 'created_by_label', 'created_at', 'revision', 'version', 'comment_count', 'last_activity_at']
+        read_only_fields = ['id', 'public_culture', 'created_by_label', 'created_at', 'version', 'comment_count', 'last_activity_at']
+
+    def get_created_by_label(self, obj: PublicCultureDiscussionTopic) -> str:
         return get_public_user_label(obj.created_by)
 
 

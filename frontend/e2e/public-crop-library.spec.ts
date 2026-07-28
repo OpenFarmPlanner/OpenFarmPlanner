@@ -133,9 +133,17 @@ test('public crop library supports quick import, direct edit, versions, discussi
   await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
 
   await page.getByRole('tab', { name: /Diskussion/ }).click();
+  await expect(page.getByText('Noch keine Diskussionen')).toBeVisible();
+  await page.getByRole('button', { name: '+ Neue Diskussion' }).click();
+  await page.getByLabel('Titel').fill('Wachstumszeit prüfen');
   await page.getByLabel('Kommentar').fill('E2E-Kommentar zur öffentlichen Kultur.');
-  await page.getByRole('button', { name: 'Kommentieren' }).click();
+  await page.getByRole('button', { name: 'Diskussion starten' }).click();
+  await page.getByText('Wachstumszeit prüfen').click();
   await expect(page.getByText('E2E-Kommentar zur öffentlichen Kultur.')).toBeVisible();
+  await page.getByRole('button', { name: 'Antworten' }).click();
+  await page.getByLabel('Antwort').fill('E2E-Antwort.');
+  await page.getByRole('button', { name: 'Absenden' }).click();
+  await expect(page.getByText('E2E-Antwort.')).toBeVisible();
 
   await page.getByRole('tab', { name: /Details/ }).click();
   await page.getByRole('button', { name: 'Bearbeiten' }).click();

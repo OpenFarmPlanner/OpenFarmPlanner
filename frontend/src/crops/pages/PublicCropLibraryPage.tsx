@@ -35,6 +35,7 @@ import type {
   Culture,
   PublicCulture,
   PublicCultureDiscussionComment,
+  PublicCultureDiscussionTopic,
   PublicCultureRevision,
 } from '../../api/types';
 import PageContainer from '../../components/layout/PageContainer';
@@ -310,6 +311,7 @@ interface VersionCardProps {
   onRevert: (version: number) => Promise<void>;
   revertingVersion: number | null;
   t: (key: string, options?: Record<string, unknown>) => string;
+  onDiscuss: (revision: PublicCultureRevision) => void;
 }
 
 function VersionCard({
@@ -320,6 +322,7 @@ function VersionCard({
   onRevert,
   revertingVersion,
   t,
+  onDiscuss,
 }: VersionCardProps) {
   const isCurrentVersion = revision.version === currentVersion;
   const changedFields = revision.changed_fields ?? [];
@@ -370,7 +373,7 @@ function VersionCard({
         </Typography>
       )}
       {!isCurrentVersion ? (
-        <Box sx={{ mt: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
           <Button
             size="small"
             variant="outlined"
@@ -380,7 +383,10 @@ function VersionCard({
           >
             {revertingVersion === revision.version ? t('library.page.versions.reverting') : t('library.page.versions.revert')}
           </Button>
-        </Box>
+          <Button size="small" variant="text" startIcon={<ForumOutlinedIcon />} onClick={() => onDiscuss(revision)}>
+            {t('library.page.versions.discuss')}
+          </Button>
+        </Stack>
       ) : null}
     </Box>
   );
@@ -400,10 +406,17 @@ export default function PublicCropLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+  const [topics, setTopics] = useState<PublicCultureDiscussionTopic[]>([]);
   const [comments, setComments] = useState<PublicCultureDiscussionComment[]>([]);
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
   const [versions, setVersions] = useState<PublicCultureRevision[]>([]);
   const [collaborationStatus, setCollaborationStatus] = useState<CollaborationLoadStatus>('idle');
+  const [newTopicOpen, setNewTopicOpen] = useState(false);
+  const [topicTitle, setTopicTitle] = useState('');
   const [commentBody, setCommentBody] = useState('');
+  const [topicRevision, setTopicRevision] = useState<number | undefined>();
+  const [replyTo, setReplyTo] = useState<number | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -543,15 +556,18 @@ export default function PublicCropLibraryPage() {
   const loadCollaboration = useCallback(async (cultureId: number): Promise<void> => {
     setCollaborationStatus('loading');
     try {
-      const [commentsResponse, versionsResponse] = await Promise.all([
-        publicCultureAPI.comments(cultureId),
+      const [topicsResponse, versionsResponse] = await Promise.all([
+        publicCultureAPI.discussionTopics(cultureId),
         publicCultureAPI.versions(cultureId),
       ]);
-      setComments(commentsResponse.data);
+      setTopics(topicsResponse.data);
+      setComments([]);
+      setSelectedTopicId(null);
       setVersions(versionsResponse.data);
       setCollaborationStatus('success');
     } catch {
       setComments([]);
+      setTopics([]);
       setVersions([]);
       setCollaborationStatus('error');
     }
@@ -576,6 +592,8 @@ export default function PublicCropLibraryPage() {
 
   useEffect(() => {
     setCommentBody('');
+    setTopicTitle('');
+    setNewTopicOpen(false);
     setEditDialogOpen(false);
   }, [selectedCultureId]);
 
@@ -674,20 +692,55 @@ export default function PublicCropLibraryPage() {
 
   const handleCommentSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    if (!selectedCulture || !commentBody.trim()) {
+    if (!selectedCulture || !commentBody.trim() || (!selectedTopicId && !topicTitle.trim())) {
       return;
     }
     setSubmittingComment(true);
     try {
-      await publicCultureAPI.createComment(selectedCulture.id, commentBody.trim());
+      if (selectedTopicId) {
+        if (editingCommentId) {
+          await publicCultureAPI.updateDiscussionComment(selectedCulture.id, editingCommentId, commentBody.trim());
+        } else {
+          await publicCultureAPI.createDiscussionComment(selectedCulture.id, selectedTopicId, commentBody.trim(), replyTo ?? undefined);
+        }
+        const response = await publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId);
+        setComments(response.data);
+      } else {
+        await publicCultureAPI.createDiscussionTopic(selectedCulture.id, { title: topicTitle.trim(), body: commentBody.trim(), revision: topicRevision });
+        await loadCollaboration(selectedCulture.id);
+        setNewTopicOpen(false);
+        setTopicTitle('');
+      }
       setCommentBody('');
-      await loadCollaboration(selectedCulture.id);
+      setReplyTo(null);
+      setEditingCommentId(null);
       showGlobalSnackbar({ message: t('library.page.discussion.commentSuccess'), severity: 'success' });
     } catch {
       showGlobalSnackbar({ message: t('library.page.discussion.commentError'), severity: 'error' });
     } finally {
       setSubmittingComment(false);
     }
+  };
+
+  const openTopic = async (topicId: number): Promise<void> => {
+    if (!selectedCulture) return;
+    setSelectedTopicId(topicId);
+    const response = await publicCultureAPI.discussionComments(selectedCulture.id, topicId);
+    setComments(response.data);
+  };
+
+  const startDiscussionForVersion = (revision: PublicCultureRevision): void => {
+    setActiveTab(2);
+    setSelectedTopicId(null);
+    setNewTopicOpen(true);
+    setTopicRevision(revision.id);
+  };
+
+  const deleteComment = async (commentId: number): Promise<void> => {
+    if (!selectedCulture || !selectedTopicId) return;
+    await publicCultureAPI.deleteDiscussionComment(selectedCulture.id, commentId);
+    const response = await publicCultureAPI.discussionComments(selectedCulture.id, selectedTopicId);
+    setComments(response.data);
   };
 
   const libraryCardSx = {
@@ -1086,6 +1139,7 @@ export default function PublicCropLibraryPage() {
                               onRevert={handleRevertVersion}
                               revertingVersion={revertingVersion}
                               t={t}
+                              onDiscuss={startDiscussionForVersion}
                             />
                           ))}
                         </Stack>
@@ -1095,46 +1149,48 @@ export default function PublicCropLibraryPage() {
 
                   {activeTab === 2 ? (
                     <Stack spacing={2} sx={{ p: { xs: 2, sm: 2.5 } }}>
-                      <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1.25 }}>
-                        <TextField
-                          value={commentBody}
-                          onChange={(event) => setCommentBody(event.target.value)}
-                          label={t('library.page.discussion.commentLabel')}
-                          multiline
-                          minRows={3}
-                          fullWidth
-                        />
-                        <Button
-                          type="submit"
-                          variant="contained"
-                          disabled={submittingComment || !commentBody.trim()}
-                          sx={{ justifySelf: { xs: 'stretch', sm: 'start' } }}
-                        >
-                          {submittingComment ? t('library.page.discussion.commenting') : t('library.page.discussion.comment')}
-                        </Button>
-                      </Box>
-                      <Divider />
                       {collaborationStatus === 'loading' ? <CircularProgress size={24} /> : null}
                       {collaborationStatus === 'error' ? <Alert severity="error">{t('library.page.collaborationLoadError')}</Alert> : null}
-                      {comments.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">
-                          {t('library.page.discussion.empty')}
-                        </Typography>
+                      {selectedTopicId === null ? (
+                        <Stack spacing={1.25}>
+                          <Button variant="outlined" sx={{ alignSelf: 'flex-start' }} onClick={() => { setNewTopicOpen(true); setTopicRevision(versions.find((version) => version.version === selectedCulture.version)?.id); }}>
+                            {t('library.page.discussion.newTopic')}
+                          </Button>
+                          {newTopicOpen ? (
+                            <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1.25 }}>
+                              <TextField autoFocus label={t('library.page.discussion.titleLabel')} value={topicTitle} onChange={(event) => setTopicTitle(event.target.value)} />
+                              <TextField label={t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={3} />
+                              {topicRevision ? <Typography variant="caption">{t('library.page.discussion.versionReference', { version: versions.find((version) => version.id === topicRevision)?.version })}</Typography> : null}
+                              <Stack direction="row" spacing={1}>
+                                <Button type="submit" variant="contained" disabled={submittingComment || !topicTitle.trim() || !commentBody.trim()}>{t('library.page.discussion.create')}</Button>
+                                <Button onClick={() => setNewTopicOpen(false)}>{t('library.page.discussion.cancel')}</Button>
+                              </Stack>
+                            </Box>
+                          ) : null}
+                          {topics.length === 0 && !newTopicOpen ? (
+                            <Box><Typography variant="subtitle2">{t('library.page.discussion.emptyTitle')}</Typography><Typography variant="body2" color="text.secondary">{t('library.page.discussion.empty')}</Typography></Box>
+                          ) : topics.map((topic) => (
+                            <ListItemButton key={topic.id} onClick={() => void openTopic(topic.id)} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                              <ListItemText primary={topic.title} secondary={t('library.page.discussion.topicMeta', { author: topic.created_by_label || anonymousLabel, date: formatDate(topic.created_at), count: topic.comment_count })} />
+                              {topic.version ? <Chip size="small" label={t('library.page.versions.versionTitle', { version: topic.version })} /> : null}
+                            </ListItemButton>
+                          ))}
+                        </Stack>
                       ) : (
                         <Stack spacing={1.25}>
+                          <Button size="small" sx={{ alignSelf: 'flex-start' }} onClick={() => { setSelectedTopicId(null); setComments([]); }}>{t('library.page.discussion.back')}</Button>
+                          <Typography variant="h6">{topics.find((topic) => topic.id === selectedTopicId)?.title}</Typography>
                           {comments.map((comment) => (
-                            <Box key={comment.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {t('library.page.metaByDate', {
-                                  author: comment.created_by_label || anonymousLabel,
-                                  date: formatDate(comment.created_at),
-                                })}
-                              </Typography>
-                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.75, lineHeight: 1.6 }}>
-                                {comment.body}
-                              </Typography>
+                            <Box key={comment.id} sx={{ borderLeft: comment.parent ? 2 : 0, borderColor: 'divider', pl: comment.parent ? 2 : 0, ml: comment.parent ? { xs: 1, sm: 3 } : 0 }}>
+                              <Typography variant="caption" color="text.secondary">{t('library.page.metaByDate', { author: comment.created_by_label || anonymousLabel, date: formatDate(comment.created_at) })}{comment.is_edited ? ` · ${t('library.page.discussion.edited')}` : ''}</Typography>
+                              <Typography variant="body2" color={comment.deleted_at ? 'text.secondary' : 'text.primary'} sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}>{comment.deleted_at ? t('library.page.discussion.deleted') : comment.body}</Typography>
+                              {!comment.deleted_at ? <Stack direction="row" spacing={1}><Button size="small" onClick={() => { setReplyTo(comment.id); setEditingCommentId(null); setCommentBody(''); }}>{t('library.page.discussion.reply')}</Button>{comment.can_edit ? <><Button size="small" onClick={() => { setEditingCommentId(comment.id); setReplyTo(null); setCommentBody(comment.body); }}>{t('library.page.discussion.edit')}</Button><Button size="small" color="error" onClick={() => void deleteComment(comment.id)}>{t('library.page.discussion.delete')}</Button></> : null}</Stack> : null}
                             </Box>
                           ))}
+                          <Box component="form" onSubmit={(event) => void handleCommentSubmit(event)} sx={{ display: 'grid', gap: 1 }}>
+                            <TextField autoFocus={replyTo !== null || editingCommentId !== null} label={replyTo ? t('library.page.discussion.replyLabel') : t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={2} />
+                            <Stack direction="row" spacing={1}><Button type="submit" variant="contained" disabled={!commentBody.trim()}>{t('library.page.discussion.submit')}</Button>{replyTo || editingCommentId ? <Button onClick={() => { setReplyTo(null); setEditingCommentId(null); setCommentBody(''); }}>{t('library.page.discussion.cancel')}</Button> : null}</Stack>
+                          </Box>
                         </Stack>
                       )}
                     </Stack>
