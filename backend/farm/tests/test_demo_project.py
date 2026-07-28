@@ -11,6 +11,7 @@ from farm.models import Bed, BedLayout, Culture, FieldLayout, Location, Planting
 from farm.services.demo_project import (
     DEMO_PROJECT_DESCRIPTION,
     DEMO_PROJECT_NAME,
+    DEMO_PROJECT_NAME_EN,
     DEMO_PROJECT_SLUG,
     create_or_reset_demo_project,
     create_personal_demo_project,
@@ -116,6 +117,19 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(Culture.objects.filter(project=result.project).count(), 8)
         self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 12)
 
+    def test_create_personal_demo_project_can_create_english_template(self) -> None:
+        user = User.objects.create_user(username='english', email='english@example.com', password='pass12345', is_active=True)
+
+        result = create_personal_demo_project(user=user, language_code='en')
+
+        self.assertTrue(result.created_project)
+        self.assertEqual(result.project.name, DEMO_PROJECT_NAME_EN)
+        self.assertTrue(Location.objects.filter(project=result.project, name='Farm Garden').exists())
+        self.assertTrue(Bed.objects.filter(project=result.project, name='Tomato Row 1').exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Carrot', crop_family='Carrot family').exists())
+        self.assertTrue(PlantingPlan.objects.filter(project=result.project, notes='Early succession for the first CSA box.').exists())
+        self.assertFalse(Culture.objects.filter(project=result.project, name='Karotte').exists())
+
     def test_create_personal_demo_project_is_idempotent_for_same_user(self) -> None:
         user = User.objects.create_user(username='repeat', email='repeat@example.com', password='pass12345', is_active=True)
 
@@ -140,6 +154,17 @@ class DemoProjectServiceTests(TestCase):
         self.assertFalse(ProjectMembership.objects.filter(user=first_user, project=second.project).exists())
         self.assertEqual(Location.objects.filter(project=first.project).count(), 2)
         self.assertEqual(Location.objects.filter(project=second.project).count(), 2)
+
+    def test_one_user_can_create_demo_projects_in_both_languages(self) -> None:
+        user = User.objects.create_user(username='both', email='both@example.com', password='pass12345', is_active=True)
+
+        german = create_personal_demo_project(user=user, language_code='de')
+        english = create_personal_demo_project(user=user, language_code='en')
+        repeated_english = create_personal_demo_project(user=user, language_code='en')
+
+        self.assertNotEqual(german.project.id, english.project.id)
+        self.assertEqual(english.project.id, repeated_english.project.id)
+        self.assertEqual(Project.objects.filter(memberships__user=user).count(), 2)
 
     def test_personal_demo_project_creation_rolls_back_on_populate_error(self) -> None:
         user = User.objects.create_user(username='broken', email='broken@example.com', password='pass12345', is_active=True)

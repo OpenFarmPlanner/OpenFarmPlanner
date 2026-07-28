@@ -11,11 +11,19 @@ The service has two persistent-data entry points:
 - `create_or_reset_demo_project(...)` recreates the local screenshot/demo
   fixture used by the management command and landing-page screenshot workflow.
 
-The template currently creates the `Solawi Sonnenacker` project with two
-locations, four fields, twelve beds, three suppliers, eight vegetable cultures,
-seed package data, and twelve planting plans for the 2026 season. All created
-records are project-scoped and owned by the receiving user through a regular
-admin `ProjectMembership`.
+The template currently creates the `Solawi Sonnenacker` / `Sunny Acre CSA`
+project with two locations, four fields, twelve beds, three suppliers, eight
+vegetable cultures, seed package data, and twelve planting plans for the 2026
+season. All created records are project-scoped and owned by the receiving user
+through a regular admin `ProjectMembership`.
+
+The demo data exists in German and English. The authenticated API and guest
+demo resolve the language from the request/UI language and create new demo
+projects with matching project, location, field, bed, crop, crop-family, and
+plan-note text. Existing demo projects are user-entered project content after
+creation and are not translated in place. The management command defaults to
+German for existing screenshot workflows and accepts `--language en` for the
+English fixture.
 
 The public landing page also starts an isolated anonymous guest project from this template. Guest workspaces are editable but session-bound, reset on the next browser session, and removed after their short server-side retention period by `cleanup_guest_demo_sessions`. This is separate from the persistent personal demo project.
 
@@ -52,4 +60,5 @@ For the standalone local demo user/project used outside onboarding:
 ```bash
 cd backend
 pdm run python manage.py seed_demo_project
+pdm run python manage.py seed_demo_project --project-slug sunny-acre-csa --language en
 ```

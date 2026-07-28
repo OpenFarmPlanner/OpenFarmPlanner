@@ -11,6 +11,7 @@ from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
 from accounts.models import UserProjectSettings
+from config.languages import UI_LANGUAGE_AUTO, normalize_language_tag, parse_accept_language
 from farm.models import (
     Bed,
     BedLayout,
@@ -31,9 +32,118 @@ User = get_user_model()
 DEMO_PROJECT_NAME = 'Solawi Sonnenacker'
 DEMO_PROJECT_SLUG = 'solawi-sonnenacker'
 DEMO_PROJECT_DESCRIPTION = 'Pers\u00f6nliches Demo-Projekt mit realistischen Beispieldaten.'
+DEMO_PROJECT_NAME_EN = 'Sunny Acre CSA'
+DEMO_PROJECT_DESCRIPTION_EN = 'Personal demo project with realistic sample data.'
+DEMO_SCREENSHOT_PROJECT_DESCRIPTION = 'Reproduzierbares Demo-Projekt f\u00fcr Produkt-Screenshots.'
+DEMO_SCREENSHOT_PROJECT_DESCRIPTION_EN = 'Reproducible demo project for product screenshots.'
+DEMO_PROJECT_DESCRIPTIONS = frozenset({
+    DEMO_PROJECT_DESCRIPTION,
+    DEMO_PROJECT_DESCRIPTION_EN,
+    DEMO_SCREENSHOT_PROJECT_DESCRIPTION,
+    DEMO_SCREENSHOT_PROJECT_DESCRIPTION_EN,
+})
+DEMO_LANGUAGE_DEFAULT = 'de'
 DEMO_USER_EMAIL = 'demo-openfarmplanner@example.local'
 DEMO_USERNAME = 'openfarmplanner-demo'
 DEMO_PASSWORD = 'OpenFarmPlannerDemo2026!'
+
+DEMO_PROJECT_NAMES = {
+    'de': DEMO_PROJECT_NAME,
+    'en': DEMO_PROJECT_NAME_EN,
+}
+DEMO_PERSONAL_PROJECT_DESCRIPTIONS = {
+    'de': DEMO_PROJECT_DESCRIPTION,
+    'en': DEMO_PROJECT_DESCRIPTION_EN,
+}
+DEMO_SCREENSHOT_PROJECT_DESCRIPTIONS = {
+    'de': DEMO_SCREENSHOT_PROJECT_DESCRIPTION,
+    'en': DEMO_SCREENSHOT_PROJECT_DESCRIPTION_EN,
+}
+
+DEMO_TEXT = {
+    'de': {
+        'locations': {
+            'hofgarten': ('Hofgarten', 'Gesch\u00fctzte Fl\u00e4chen nahe Waschplatz und Jungpflanzenhaus.'),
+            'bachacker': ('Acker am Bach', 'Freilandfl\u00e4che f\u00fcr Wurzelgem\u00fcse und Kohlkulturen.'),
+        },
+        'fields': {
+            'fruehbeete': 'Fr\u00fchbeete Nord',
+            'tunnel': 'Folientunnel S\u00fcd',
+            'wurzel': 'Wurzelgem\u00fcse',
+            'kohl': 'Kohlquartier',
+        },
+        'beds': {
+            'salat-1': 'Salat 1',
+            'salat-2': 'Salat 2',
+            'kraeuter': 'Kr\u00e4uter & Mangold',
+            'tomate-1': 'Tomatenreihe 1',
+            'tomate-2': 'Tomatenreihe 2',
+            'gurke': 'Gurkenreihe',
+            'karotte-1': 'Karotten 1',
+            'karotte-2': 'Karotten 2',
+            'rote-bete': 'Rote Bete',
+            'kohlrabi': 'Kohlrabi',
+            'zucchini': 'Zucchini',
+            'reserve': 'Gr\u00fcnd\u00fcngung Reserve',
+        },
+        'cultures': {
+            'karotte': ('Karotte', 'Nantaise 2', 'Doldenbl\u00fctler'),
+            'salat': ('Salat', 'Lollo Bionda', 'Korbbl\u00fctler'),
+            'tomate': ('Tomate', 'Ruthje', 'Nachtschattengew\u00e4chse'),
+            'gurke': ('Gurke', 'Tanja', 'K\u00fcrbisgew\u00e4chse'),
+            'mangold': ('Mangold', 'Bright Lights', 'Fuchsschwanzgew\u00e4chse'),
+            'rote-bete': ('Rote Bete', 'Robuschka', 'Fuchsschwanzgew\u00e4chse'),
+            'kohlrabi': ('Kohlrabi', 'Azur Star', 'Kreuzbl\u00fctler'),
+            'zucchini': ('Zucchini', 'Costata Romanesco', 'K\u00fcrbisgew\u00e4chse'),
+        },
+        'plan_notes': {
+            'salat_frueh': 'Fr\u00fcher Satz f\u00fcr die erste Abo-Kiste.',
+            'tomate': 'Stabtomaten nach Jungpflanzenanzucht.',
+            'salat_herbst': 'Herbstsatz nach der Sommerpause.',
+        },
+    },
+    'en': {
+        'locations': {
+            'hofgarten': ('Farm Garden', 'Sheltered beds near the wash station and propagation house.'),
+            'bachacker': ('Creekside Field', 'Open field for root vegetables and brassicas.'),
+        },
+        'fields': {
+            'fruehbeete': 'North Early Beds',
+            'tunnel': 'South Polytunnel',
+            'wurzel': 'Root Vegetables',
+            'kohl': 'Brassica Block',
+        },
+        'beds': {
+            'salat-1': 'Lettuce 1',
+            'salat-2': 'Lettuce 2',
+            'kraeuter': 'Herbs & Chard',
+            'tomate-1': 'Tomato Row 1',
+            'tomate-2': 'Tomato Row 2',
+            'gurke': 'Cucumber Row',
+            'karotte-1': 'Carrots 1',
+            'karotte-2': 'Carrots 2',
+            'rote-bete': 'Beetroot',
+            'kohlrabi': 'Kohlrabi',
+            'zucchini': 'Zucchini',
+            'reserve': 'Green Manure Reserve',
+        },
+        'cultures': {
+            'karotte': ('Carrot', 'Nantaise 2', 'Carrot family'),
+            'salat': ('Lettuce', 'Lollo Bionda', 'Daisy family'),
+            'tomate': ('Tomato', 'Ruthje', 'Nightshade family'),
+            'gurke': ('Cucumber', 'Tanja', 'Cucumber family'),
+            'mangold': ('Chard', 'Bright Lights', 'Amaranth family'),
+            'rote-bete': ('Beetroot', 'Robuschka', 'Amaranth family'),
+            'kohlrabi': ('Kohlrabi', 'Azur Star', 'Cabbage family'),
+            'zucchini': ('Zucchini', 'Costata Romanesco', 'Cucumber family'),
+        },
+        'plan_notes': {
+            'salat_frueh': 'Early succession for the first CSA box.',
+            'tomate': 'Stake tomatoes after propagation.',
+            'salat_herbst': 'Autumn succession after the summer break.',
+        },
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -97,16 +207,63 @@ def reset_project_demo_data(project: Project) -> None:
     Supplier.objects.filter(project=project).delete()
 
 
-def populate_demo_project(project: Project, *, owner: Any | None = None) -> None:
+def is_demo_project_description(description: str | None) -> bool:
+    """Return whether a project description marks one of the demo templates."""
+    return (description or '') in DEMO_PROJECT_DESCRIPTIONS
+
+
+def resolve_demo_language(language_code: str | None) -> str:
+    """Resolve a requested demo language, preserving German as template default."""
+    return normalize_language_tag(language_code) or DEMO_LANGUAGE_DEFAULT
+
+
+def resolve_demo_request_language(request: Any) -> str:
+    """Resolve the demo template language from a request, defaulting to German."""
+    query_params = getattr(request, 'query_params', None)
+    if query_params is None:
+        query_params = getattr(request, 'GET', {})
+    explicit = normalize_language_tag(query_params.get('language'))
+    if explicit:
+        return explicit
+
+    user = getattr(request, 'user', None)
+    if user is not None and getattr(user, 'is_authenticated', False):
+        settings_row = getattr(user, 'project_settings', None)
+        stored = getattr(settings_row, 'ui_language', '') or ''
+        if stored != UI_LANGUAGE_AUTO:
+            preference = normalize_language_tag(stored)
+            if preference:
+                return preference
+
+    headers = getattr(request, 'headers', None)
+    header = headers.get('Accept-Language', '') if headers is not None else ''
+    return parse_accept_language(header) or DEMO_LANGUAGE_DEFAULT
+
+
+def get_demo_project_name(language_code: str | None) -> str:
+    """Return the localized demo project name."""
+    language = resolve_demo_language(language_code)
+    return DEMO_PROJECT_NAMES[language]
+
+
+def get_demo_project_description(language_code: str | None, *, screenshot: bool = False) -> str:
+    """Return the localized demo project description."""
+    language = resolve_demo_language(language_code)
+    descriptions = DEMO_SCREENSHOT_PROJECT_DESCRIPTIONS if screenshot else DEMO_PERSONAL_PROJECT_DESCRIPTIONS
+    return descriptions[language]
+
+
+def populate_demo_project(project: Project, *, owner: Any | None = None, language_code: str | None = None) -> None:
     """Create a compact, realistic demo farm for screenshots and local demos."""
+    language = resolve_demo_language(language_code)
     with transaction.atomic():
         reset_project_demo_data(project)
 
         suppliers = _create_suppliers(project)
-        locations, fields, beds = _create_area_hierarchy(project)
+        locations, fields, beds = _create_area_hierarchy(project, language_code=language)
         _create_layouts(project, fields, beds)
-        cultures = _create_cultures(project, suppliers)
-        _create_planting_plans(project, cultures, beds, owner)
+        cultures = _create_cultures(project, suppliers, language_code=language)
+        _create_planting_plans(project, cultures, beds, owner, language_code=language)
 
 
 def create_or_reset_demo_project(
@@ -114,10 +271,14 @@ def create_or_reset_demo_project(
     user_email: str = DEMO_USER_EMAIL,
     username: str = DEMO_USERNAME,
     password: str = DEMO_PASSWORD,
-    project_name: str = DEMO_PROJECT_NAME,
+    project_name: str | None = None,
     project_slug: str = DEMO_PROJECT_SLUG,
+    language_code: str | None = None,
 ) -> DemoProjectResult:
     """Create a local demo user/project and replace the project's demo data."""
+    language = resolve_demo_language(language_code)
+    resolved_project_name = project_name or get_demo_project_name(language)
+    project_description = get_demo_project_description(language, screenshot=True)
     with transaction.atomic():
         user, created_user = User.objects.get_or_create(
             email=user_email,
@@ -140,13 +301,13 @@ def create_or_reset_demo_project(
         project, created_project = Project.objects.get_or_create(
             slug=project_slug,
             defaults={
-                'name': project_name,
-                'description': 'Reproduzierbares Demo-Projekt f\u00fcr Produkt-Screenshots.',
+                'name': resolved_project_name,
+                'description': project_description,
             },
         )
         if not created_project:
-            project.name = project_name
-            project.description = 'Reproduzierbares Demo-Projekt f\u00fcr Produkt-Screenshots.'
+            project.name = resolved_project_name
+            project.description = project_description
             project.deleted_at = None
             project.is_active = True
             project.save(update_fields=['name', 'description', 'deleted_at', 'is_active', 'updated_at'])
@@ -161,7 +322,7 @@ def create_or_reset_demo_project(
         settings_obj.last_project = project
         settings_obj.save(update_fields=['default_project', 'last_project', 'updated_at'])
 
-        populate_demo_project(project, owner=user)
+        populate_demo_project(project, owner=user, language_code=language)
 
     return DemoProjectResult(
         project=project,
@@ -171,16 +332,24 @@ def create_or_reset_demo_project(
     )
 
 
-def create_personal_demo_project(*, user: Any, project_name: str = DEMO_PROJECT_NAME) -> DemoProjectResult:
+def create_personal_demo_project(
+    *,
+    user: Any,
+    project_name: str | None = None,
+    language_code: str | None = None,
+) -> DemoProjectResult:
     """Create or return one editable demo project owned by the given user."""
+    language = resolve_demo_language(language_code)
+    resolved_project_name = project_name or get_demo_project_name(language)
+    project_description = get_demo_project_description(language)
     with transaction.atomic():
         locked_user = User.objects.select_for_update().get(pk=user.pk)
         existing_project = (
             Project.objects.select_for_update()
             .filter(
                 memberships__user=locked_user,
-                name=project_name,
-                description=DEMO_PROJECT_DESCRIPTION,
+                name=resolved_project_name,
+                description=project_description,
                 is_active=True,
                 deleted_at__isnull=True,
             )
@@ -197,9 +366,9 @@ def create_personal_demo_project(*, user: Any, project_name: str = DEMO_PROJECT_
             )
 
         project = Project.objects.create(
-            name=project_name,
-            slug=_build_unique_demo_project_slug(project_name),
-            description=DEMO_PROJECT_DESCRIPTION,
+            name=resolved_project_name,
+            slug=_build_unique_demo_project_slug(resolved_project_name),
+            description=project_description,
         )
         ProjectMembership.objects.create(
             user=locked_user,
@@ -207,7 +376,7 @@ def create_personal_demo_project(*, user: Any, project_name: str = DEMO_PROJECT_
             role=ProjectMembership.ROLE_ADMIN,
         )
         _apply_project_settings(user=locked_user, project=project)
-        populate_demo_project(project, owner=locked_user)
+        populate_demo_project(project, owner=locked_user, language_code=language)
 
     return DemoProjectResult(
         project=project,
@@ -249,18 +418,23 @@ def _create_suppliers(project: Project) -> dict[str, Supplier]:
     }
 
 
-def _create_area_hierarchy(project: Project) -> tuple[dict[str, Location], dict[str, Field], dict[str, Bed]]:
+def _create_area_hierarchy(
+    project: Project,
+    *,
+    language_code: str,
+) -> tuple[dict[str, Location], dict[str, Field], dict[str, Bed]]:
+    text = DEMO_TEXT[language_code]
     locations = {
         'hofgarten': Location.objects.create(
-            name='Hofgarten',
-            description='Gesch\u00fctzte Fl\u00e4chen nahe Waschplatz und Jungpflanzenhaus.',
+            name=text['locations']['hofgarten'][0],
+            description=text['locations']['hofgarten'][1],
             soil_type='loam',
             exposure='south',
             project=project,
         ),
         'bachacker': Location.objects.create(
-            name='Acker am Bach',
-            description='Freilandfl\u00e4che f\u00fcr Wurzelgem\u00fcse und Kohlkulturen.',
+            name=text['locations']['bachacker'][0],
+            description=text['locations']['bachacker'][1],
             soil_type='loam',
             exposure='flat',
             project=project,
@@ -268,10 +442,10 @@ def _create_area_hierarchy(project: Project) -> tuple[dict[str, Location], dict[
     }
 
     field_specs = [
-        ('fruehbeete', 'Fr\u00fchbeete Nord', 'hofgarten', 36.0, 7.5),
-        ('tunnel', 'Folientunnel S\u00fcd', 'hofgarten', 30.0, 8.0),
-        ('wurzel', 'Wurzelgem\u00fcse', 'bachacker', 45.0, 6.0),
-        ('kohl', 'Kohlquartier', 'bachacker', 42.0, 6.0),
+        ('fruehbeete', text['fields']['fruehbeete'], 'hofgarten', 36.0, 7.5),
+        ('tunnel', text['fields']['tunnel'], 'hofgarten', 30.0, 8.0),
+        ('wurzel', text['fields']['wurzel'], 'bachacker', 45.0, 6.0),
+        ('kohl', text['fields']['kohl'], 'bachacker', 42.0, 6.0),
     ]
     fields = {
         key: Field.objects.create(
@@ -285,18 +459,18 @@ def _create_area_hierarchy(project: Project) -> tuple[dict[str, Location], dict[
     }
 
     bed_specs = [
-        ('salat-1', 'Salat 1', 'fruehbeete', 12.0, 0.75),
-        ('salat-2', 'Salat 2', 'fruehbeete', 12.0, 0.75),
-        ('kraeuter', 'Kr\u00e4uter & Mangold', 'fruehbeete', 12.0, 0.75),
-        ('tomate-1', 'Tomatenreihe 1', 'tunnel', 24.0, 0.80),
-        ('tomate-2', 'Tomatenreihe 2', 'tunnel', 24.0, 0.80),
-        ('gurke', 'Gurkenreihe', 'tunnel', 24.0, 0.80),
-        ('karotte-1', 'Karotten 1', 'wurzel', 25.0, 0.75),
-        ('karotte-2', 'Karotten 2', 'wurzel', 25.0, 0.75),
-        ('rote-bete', 'Rote Bete', 'wurzel', 25.0, 0.75),
-        ('kohlrabi', 'Kohlrabi', 'kohl', 22.0, 0.75),
-        ('zucchini', 'Zucchini', 'kohl', 18.0, 1.20),
-        ('reserve', 'Gr\u00fcnd\u00fcngung Reserve', 'kohl', 18.0, 1.20),
+        ('salat-1', text['beds']['salat-1'], 'fruehbeete', 12.0, 0.75),
+        ('salat-2', text['beds']['salat-2'], 'fruehbeete', 12.0, 0.75),
+        ('kraeuter', text['beds']['kraeuter'], 'fruehbeete', 12.0, 0.75),
+        ('tomate-1', text['beds']['tomate-1'], 'tunnel', 24.0, 0.80),
+        ('tomate-2', text['beds']['tomate-2'], 'tunnel', 24.0, 0.80),
+        ('gurke', text['beds']['gurke'], 'tunnel', 24.0, 0.80),
+        ('karotte-1', text['beds']['karotte-1'], 'wurzel', 25.0, 0.75),
+        ('karotte-2', text['beds']['karotte-2'], 'wurzel', 25.0, 0.75),
+        ('rote-bete', text['beds']['rote-bete'], 'wurzel', 25.0, 0.75),
+        ('kohlrabi', text['beds']['kohlrabi'], 'kohl', 22.0, 0.75),
+        ('zucchini', text['beds']['zucchini'], 'kohl', 18.0, 1.20),
+        ('reserve', text['beds']['reserve'], 'kohl', 18.0, 1.20),
     ]
     beds = {
         key: Bed.objects.create(
@@ -352,18 +526,19 @@ def _create_layouts(
         )
 
 
-def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[str, Culture]:
+def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, language_code: str) -> dict[str, Culture]:
+    culture_text = DEMO_TEXT[language_code]['cultures']
     culture_specs = [
         CultureSpec(
             key='karotte',
-            name='Karotte',
-            variety='Nantaise 2',
+            name=culture_text['karotte'][0],
+            variety=culture_text['karotte'][1],
             color='#f97316',
             cultivation_types=['direct_sowing'],
             growth_days=92,
             harvest_days=28,
             propagation_days=None,
-            crop_family='Doldenbl\u00fctler',
+            crop_family=culture_text['karotte'][2],
             nutrient_demand='medium',
             row_spacing_m=0.25,
             distance_within_row_m=0.04,
@@ -379,14 +554,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='salat',
-            name='Salat',
-            variety='Lollo Bionda',
+            name=culture_text['salat'][0],
+            variety=culture_text['salat'][1],
             color='#65a30d',
             cultivation_types=['pre_cultivation'],
             growth_days=42,
             harvest_days=10,
             propagation_days=24,
-            crop_family='Korbbl\u00fctler',
+            crop_family=culture_text['salat'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.30,
@@ -402,14 +577,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='tomate',
-            name='Tomate',
-            variety='Ruthje',
+            name=culture_text['tomate'][0],
+            variety=culture_text['tomate'][1],
             color='#dc2626',
             cultivation_types=['pre_cultivation'],
             growth_days=70,
             harvest_days=60,
             propagation_days=45,
-            crop_family='Nachtschattengew\u00e4chse',
+            crop_family=culture_text['tomate'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.50,
@@ -425,14 +600,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='gurke',
-            name='Gurke',
-            variety='Tanja',
+            name=culture_text['gurke'][0],
+            variety=culture_text['gurke'][1],
             color='#16a34a',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
             growth_days=55,
             harvest_days=45,
             propagation_days=28,
-            crop_family='K\u00fcrbisgew\u00e4chse',
+            crop_family=culture_text['gurke'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.40,
@@ -451,14 +626,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='mangold',
-            name='Mangold',
-            variety='Bright Lights',
+            name=culture_text['mangold'][0],
+            variety=culture_text['mangold'][1],
             color='#7c3aed',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
             growth_days=58,
             harvest_days=70,
             propagation_days=30,
-            crop_family='Fuchsschwanzgew\u00e4chse',
+            crop_family=culture_text['mangold'][2],
             nutrient_demand='medium',
             row_spacing_m=0.35,
             distance_within_row_m=0.30,
@@ -477,14 +652,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='rote-bete',
-            name='Rote Bete',
-            variety='Robuschka',
+            name=culture_text['rote-bete'][0],
+            variety=culture_text['rote-bete'][1],
             color='#be123c',
             cultivation_types=['direct_sowing'],
             growth_days=85,
             harvest_days=35,
             propagation_days=None,
-            crop_family='Fuchsschwanzgew\u00e4chse',
+            crop_family=culture_text['rote-bete'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.08,
@@ -500,14 +675,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='kohlrabi',
-            name='Kohlrabi',
-            variety='Azur Star',
+            name=culture_text['kohlrabi'][0],
+            variety=culture_text['kohlrabi'][1],
             color='#2563eb',
             cultivation_types=['pre_cultivation'],
             growth_days=48,
             harvest_days=14,
             propagation_days=28,
-            crop_family='Kreuzbl\u00fctler',
+            crop_family=culture_text['kohlrabi'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.25,
@@ -523,14 +698,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         ),
         CultureSpec(
             key='zucchini',
-            name='Zucchini',
-            variety='Costata Romanesco',
+            name=culture_text['zucchini'][0],
+            variety=culture_text['zucchini'][1],
             color='#0f766e',
             cultivation_types=['pre_cultivation'],
             growth_days=45,
             harvest_days=70,
             propagation_days=24,
-            crop_family='K\u00fcrbisgew\u00e4chse',
+            crop_family=culture_text['zucchini'][2],
             nutrient_demand='high',
             row_spacing_m=1.20,
             distance_within_row_m=0.80,
@@ -601,12 +776,15 @@ def _create_planting_plans(
     cultures: dict[str, Culture],
     beds: dict[str, Bed],
     owner: Any | None,
+    *,
+    language_code: str,
 ) -> None:
+    plan_notes = DEMO_TEXT[language_code]['plan_notes']
     plan_specs = [
-        PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2026, 2, 18), Decimal('8.5'), 95, 'Fr\u00fcher Satz f\u00fcr die erste Abo-Kiste.'),
+        PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2026, 2, 18), Decimal('8.5'), 95, plan_notes['salat_frueh']),
         PlanSpec('salat', 'salat-2', 'pre_cultivation', date(2026, 3, 22), Decimal('8.5'), 95),
         PlanSpec('mangold', 'kraeuter', 'pre_cultivation', date(2026, 4, 6), Decimal('7.5'), 72),
-        PlanSpec('tomate', 'tomate-1', 'pre_cultivation', date(2026, 4, 25), Decimal('14.0'), 35, 'Stabtomaten nach Jungpflanzenanzucht.'),
+        PlanSpec('tomate', 'tomate-1', 'pre_cultivation', date(2026, 4, 25), Decimal('14.0'), 35, plan_notes['tomate']),
         PlanSpec('tomate', 'tomate-2', 'pre_cultivation', date(2026, 5, 2), Decimal('14.0'), 35),
         PlanSpec('gurke', 'gurke', 'pre_cultivation', date(2026, 5, 10), Decimal('12.0'), 38),
         PlanSpec('karotte', 'karotte-1', 'direct_sowing', date(2026, 3, 12), Decimal('16.0')),
@@ -614,7 +792,7 @@ def _create_planting_plans(
         PlanSpec('rote-bete', 'rote-bete', 'direct_sowing', date(2026, 4, 10), Decimal('15.0')),
         PlanSpec('kohlrabi', 'kohlrabi', 'pre_cultivation', date(2026, 3, 28), Decimal('14.0'), 180),
         PlanSpec('zucchini', 'zucchini', 'pre_cultivation', date(2026, 5, 18), Decimal('18.0'), 18),
-        PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2026, 8, 25), Decimal('8.5'), 95, 'Herbstsatz nach der Sommerpause.'),
+        PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2026, 8, 25), Decimal('8.5'), 95, plan_notes['salat_herbst']),
     ]
 
     for spec in plan_specs:

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AuthApiError, login, register } from './authApi';
+import i18n from '../i18n/config';
+import { AuthApiError, login, register, startGuestDemo } from './authApi';
 
 type MockResponse = {
   ok: boolean;
@@ -54,6 +55,24 @@ describe('authApi error mapping', () => {
     }
     const body = JSON.parse(String(registerInit.body)) as Record<string, unknown>;
     expect(body).not.toHaveProperty('accept_terms');
+  });
+
+  it('sends the current UI language when starting the guest demo', async () => {
+    await i18n.changeLanguage('en');
+    const fetchMock = vi.fn<typeof fetch>(async () => ({
+      ok: true,
+      status: 201,
+      text: async () => JSON.stringify({ id: 1 }),
+      json: async () => ({ id: 1 }),
+      headers: new Headers(),
+    } as Response));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await startGuestDemo();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const demoInit = fetchMock.mock.calls[1]?.[1];
+    expect(demoInit?.headers).toMatchObject({ 'Accept-Language': 'en' });
   });
 
   it('does not expose non_field_errors and translates typical login messages', async () => {

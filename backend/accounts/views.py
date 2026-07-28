@@ -20,9 +20,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.languages import UI_LANGUAGE_AUTO
+from farm.services.demo_project import resolve_demo_request_language
 
 from .consent import record_acceptance
-from .guest_demo import create_guest_demo_session, delete_guest_demo_session
 from .data_export import build_personal_data_export
 from .emails import (
     _send_activation_email,
@@ -30,6 +30,7 @@ from .emails import (
     _send_password_reset_email,
     _uses_local_non_delivery_email_backend,
 )
+from .guest_demo import create_guest_demo_session, delete_guest_demo_session
 from .services import (
     _clear_activation_expiry,
     _decode_uid,
@@ -188,7 +189,7 @@ class GuestDemoStartView(APIView):
     def post(self, request: Request) -> Response:
         if request.user.is_authenticated:
             logout(request)
-        demo_session = create_guest_demo_session()
+        demo_session = create_guest_demo_session(language_code=resolve_demo_request_language(request))
         login(request, demo_session.user)
         request.session['guest_demo_session_id'] = demo_session.id
         return Response(UserSerializer(demo_session.user).data, status=status.HTTP_201_CREATED)
