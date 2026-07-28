@@ -165,7 +165,7 @@ test('public crop library supports quick import, direct edit, versions, discussi
       response.url().includes(`/api/public-cultures/${publicCulture.id}/`)
       && response.request().method() === 'PATCH'
     )),
-    saveButton.click(),
+    page.keyboard.press('Control+S'),
   ]);
   expect(saveResponse.ok()).toBeTruthy();
   await expect(editDialog).not.toBeVisible();
