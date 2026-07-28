@@ -567,10 +567,22 @@ class AuthApiTest(APITestCase):
 
     def test_account_delete_request_and_login_block(self) -> None:
         self.client.post('/openfarmplanner/api/auth/login/', {'email': self.user.email, 'password': self.password}, format='json')
-        response = self.client.post('/openfarmplanner/api/auth/account/delete-request/', {'password': self.password}, format='json')
+        with self.assertLogs('accounts.views', level='INFO') as captured:
+            response = self.client.post(
+                '/openfarmplanner/api/auth/account/delete-request/',
+                {'password': self.password},
+                format='json',
+            )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         deletion = AccountDeletionRequest.objects.get(user=self.user)
         self.assertIsNotNone(deletion.scheduled_deletion_at)
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.account_deletion_event, 'requested')
+        self.assertEqual(record.account_deletion_request_id, deletion.pk)
+        self.assertEqual(record.user_id, self.user.pk)
+        self.assertEqual(record.username, self.user.username)
+        self.assertNotIn(self.user.email, record.getMessage())
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_active)
 
@@ -580,16 +592,29 @@ class AuthApiTest(APITestCase):
 
     def test_account_restore_within_grace_period(self) -> None:
         self.client.post('/openfarmplanner/api/auth/login/', {'email': self.user.email, 'password': self.password}, format='json')
-        self.client.post('/openfarmplanner/api/auth/account/delete-request/', {'password': self.password}, format='json')
-        response = self.client.post(
-            '/openfarmplanner/api/auth/account/restore/',
-            {'email': self.user.email, 'password': self.password},
-            format='json',
-        )
+        with self.assertLogs('accounts.views', level='INFO'):
+            self.client.post(
+                '/openfarmplanner/api/auth/account/delete-request/',
+                {'password': self.password},
+                format='json',
+            )
+        with self.assertLogs('accounts.views', level='INFO') as captured:
+            response = self.client.post(
+                '/openfarmplanner/api/auth/account/restore/',
+                {'email': self.user.email, 'password': self.password},
+                format='json',
+            )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         deletion = AccountDeletionRequest.objects.get(user=self.user)
         self.assertIsNone(deletion.deletion_requested_at)
         self.assertIsNone(deletion.scheduled_deletion_at)
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.account_deletion_event, 'restored')
+        self.assertEqual(record.account_deletion_request_id, deletion.pk)
+        self.assertEqual(record.user_id, self.user.pk)
+        self.assertEqual(record.username, self.user.username)
+        self.assertNotIn(self.user.email, record.getMessage())
 
     def test_account_restore_after_grace_period_fails(self) -> None:
         deletion = AccountDeletionRequest.objects.create(
@@ -794,16 +819,27 @@ class AuthApiTest(APITestCase):
             scheduled_deletion_at=timezone.now() - timedelta(days=2),
         )
         output = StringIO()
-        call_command('purge_deleted_accounts', stdout=output)
+        with self.assertLogs('accounts.services', level='INFO') as captured:
+            call_command('purge_deleted_accounts', stdout=output)
         self.user.refresh_from_db()
         deletion = AccountDeletionRequest.objects.get(user=self.user)
         self.assertIsNotNone(deletion.deleted_at)
         self.assertFalse(self.user.is_active)
         self.assertTrue(self.user.email.startswith('deleted-user-'))
+        self.assertIn('Finalized 1 accounts.', output.getvalue())
+        self.assertIn(f'user_ids=[{self.user.pk}]', output.getvalue())
+        self.assertEqual(len(captured.records), 1)
+        record = captured.records[0]
+        self.assertEqual(record.account_deletion_event, 'finalized')
+        self.assertEqual(record.account_deletion_request_id, deletion.pk)
+        self.assertEqual(record.user_id, self.user.pk)
+        self.assertEqual(record.username, 'demo')
+        self.assertNotIn('demo@example.com', record.getMessage())
 
         second = StringIO()
         call_command('purge_deleted_accounts', stdout=second)
         self.assertIn('Finalized 0 accounts.', second.getvalue())
+        self.assertIn('user_ids=[]', second.getvalue())
 
     def test_purge_deleted_accounts_deletes_projects_without_remaining_members(self) -> None:
         solo_project = Project.objects.create(name='Solo Project', slug='solo-project')

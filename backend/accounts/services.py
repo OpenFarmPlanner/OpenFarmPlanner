@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 class FinalizedAccountDeletion:
     """Result of finalizing one scheduled account deletion."""
 
+    user_id: int
+    account_deletion_request_id: int
     deleted_project_count: int
 
 
@@ -146,10 +148,18 @@ def finalize_account_deletion(
             .get(pk=deletion.pk)
         )
         if locked_deletion.deleted_at is not None:
-            return FinalizedAccountDeletion(deleted_project_count=0)
+            return FinalizedAccountDeletion(
+                user_id=locked_deletion.user_id,
+                account_deletion_request_id=locked_deletion.pk,
+                deleted_project_count=0,
+            )
 
         user: User = locked_deletion.user
-        project_ids = list(ProjectMembership.objects.filter(user=user).values_list('project_id', flat=True))
+        user_id = user.pk
+        username = user.username
+        project_ids = list(
+            ProjectMembership.objects.filter(user=user).values_list('project_id', flat=True)
+        )
 
         anonymized_email = f'deleted-user-{user.pk}@deleted.local'
         user.email = anonymized_email
@@ -178,7 +188,29 @@ def finalize_account_deletion(
         locked_deletion.deleted_at = finalized_at
         locked_deletion.save(update_fields=['deleted_at', 'updated_at'])
 
-    return FinalizedAccountDeletion(deleted_project_count=deleted_project_count)
+    logger.info(
+        'Account deletion finalized',
+        extra={
+            'account_deletion_event': 'finalized',
+            'account_deletion_request_id': deletion.pk,
+            'user_id': user_id,
+            'username': username,
+            'deletion_requested_at': locked_deletion.deletion_requested_at.isoformat()
+            if locked_deletion.deletion_requested_at
+            else None,
+            'scheduled_deletion_at': locked_deletion.scheduled_deletion_at.isoformat()
+            if locked_deletion.scheduled_deletion_at
+            else None,
+            'deleted_at': finalized_at.isoformat(),
+            'deleted_project_count': deleted_project_count,
+        },
+    )
+
+    return FinalizedAccountDeletion(
+        user_id=user_id,
+        account_deletion_request_id=deletion.pk,
+        deleted_project_count=deleted_project_count,
+    )
 
 
 def _ensure_remaining_projects_have_admin(*, project_ids: list[int]) -> None:

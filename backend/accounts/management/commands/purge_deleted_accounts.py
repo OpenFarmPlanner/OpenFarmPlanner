@@ -30,8 +30,14 @@ class Command(BaseCommand):
         )
 
         processed = 0
+        finalized_user_ids: list[int] = []
         for deletion in queryset.iterator():
-            finalize_account_deletion(deletion=deletion, finalized_at=now)
+            result = finalize_account_deletion(deletion=deletion, finalized_at=now)
+            finalized_user_ids.append(result.user_id)
             processed += 1
 
-        self.stdout.write(self.style.SUCCESS(f'Finalized {processed} accounts.'))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'{now.isoformat()} Finalized {processed} accounts. user_ids={finalized_user_ids}'
+            )
+        )

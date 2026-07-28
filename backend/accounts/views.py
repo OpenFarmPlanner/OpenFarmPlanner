@@ -430,6 +430,19 @@ class AccountDeleteRequestView(APIView):
         user.is_active = False
         user.save(update_fields=['is_active'])
 
+        logger.info(
+            'Account deletion requested',
+            extra={
+                'account_deletion_event': 'requested',
+                'account_deletion_request_id': deletion.pk,
+                'user_id': user.pk,
+                'username': user.username,
+                'deletion_requested_at': now.isoformat(),
+                'scheduled_deletion_at': scheduled.isoformat(),
+                'created_request': created_flag,
+            },
+        )
+
         logout(request)
         _logout_all_user_sessions(user.id)
 
@@ -467,6 +480,16 @@ class AccountRestoreView(APIView):
         deletion.clear_schedule()
         user.is_active = True
         user.save(update_fields=['is_active'])
+
+        logger.info(
+            'Account deletion restored',
+            extra={
+                'account_deletion_event': 'restored',
+                'account_deletion_request_id': deletion.pk,
+                'user_id': user.pk,
+                'username': user.username,
+            },
+        )
 
         login(request, user)
         return Response(UserSerializer(user).data)
