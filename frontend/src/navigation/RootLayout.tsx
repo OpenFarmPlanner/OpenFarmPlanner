@@ -371,7 +371,6 @@ function RootLayout() {
   const isGuestDemoSession = Boolean(user?.is_guest_demo);
   const isPersonalDemoProject = !isGuestDemoSession && activeMembership?.is_demo_project === true;
   const canLeaveDemoProject = isGuestDemoSession || isPersonalDemoProject;
-  const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
   const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
 
   const handleLeaveDemoProject = useCallback(async (): Promise<void> => {
@@ -1291,12 +1290,10 @@ function RootLayout() {
             onOpenProjectSettings={handleOpenProjectSettings}
             onOpenProjectHistory={handleOpenProjectHistory}
             onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
-            onOpenPublicLibraryModeration={() => navigateFromGlobalMenu('/app/public-library-moderation')}
             onOpenShortcuts={handleOpenShortcuts}
             onOpenHelp={openGlobalHelp}
             canLeaveDemoProject={canLeaveDemoProject}
             isGuestDemoSession={isGuestDemoSession}
-            canModeratePublicLibrary={canModeratePublicLibrary}
             onLeaveDemoProject={handleLeaveDemoProject}
             onLogout={handleLogout}
             t={t}
@@ -1560,12 +1557,10 @@ function RootLayout() {
                 onOpenProjectSettings={handleOpenProjectSettings}
                 onOpenProjectHistory={handleOpenProjectHistory}
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
-                onOpenPublicLibraryModeration={() => navigateFromGlobalMenu('/app/public-library-moderation')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
                 canLeaveDemoProject={canLeaveDemoProject}
                 isGuestDemoSession={isGuestDemoSession}
-                canModeratePublicLibrary={canModeratePublicLibrary}
                 onLeaveDemoProject={handleLeaveDemoProject}
                 onLogout={handleLogout}
                 t={t}

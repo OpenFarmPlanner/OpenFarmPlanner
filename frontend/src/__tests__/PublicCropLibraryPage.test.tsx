@@ -22,28 +22,35 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 
+const authMocks = vi.hoisted(() => ({
+  user: {
+    id: 1,
+    email: 'test@example.com',
+    display_name: 'Test User',
+    display_label: 'Test User',
+    public_display_name: 'Test User',
+    is_active: true,
+    default_project_id: 1,
+    last_project_id: 1,
+    resolved_project_id: 1,
+    needs_project_selection: false,
+    memberships: [],
+    account_pending_deletion: false,
+    scheduled_deletion_at: null,
+    pending_consents: [],
+    public_library_terms_accepted: true,
+    is_public_library_moderator: false,
+    is_staff: false,
+    is_superuser: false,
+    is_guest_demo: false,
+    guest_demo_session_id: null,
+    has_password: true,
+  },
+}));
+
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({
-    user: {
-      id: 1,
-      email: 'test@example.com',
-      display_name: 'Test User',
-      display_label: 'Test User',
-      public_display_name: 'Test User',
-      is_active: true,
-      default_project_id: 1,
-      last_project_id: 1,
-      resolved_project_id: 1,
-      needs_project_selection: false,
-      memberships: [],
-      account_pending_deletion: false,
-      scheduled_deletion_at: null,
-      pending_consents: [],
-      public_library_terms_accepted: true,
-      is_guest_demo: false,
-      guest_demo_session_id: null,
-      has_password: true,
-    },
+    user: authMocks.user,
   }),
 }));
 
@@ -162,6 +169,15 @@ function renderPage(initialEntries: string[] = ['/app/crop-library']): ReturnTyp
               )}
             />
             <Route
+              path="/app/public-library-moderation"
+              element={(
+                <>
+                  <LocationProbe />
+                  <h1>Moderation</h1>
+                </>
+              )}
+            />
+            <Route
               path="/app/dashboard"
               element={(
                 <>
@@ -194,6 +210,9 @@ function createDeferred<T>(): {
 describe('PublicCropLibraryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authMocks.user.is_public_library_moderator = false;
+    authMocks.user.is_staff = false;
+    authMocks.user.is_superuser = false;
     mockDesktopViewport();
     window.localStorage.clear();
     window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cultureId=1');
@@ -209,6 +228,30 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+  });
+
+  it('hides the global moderation action completely for users without moderation rights', async () => {
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+  });
+
+  it('opens the global moderation interface from the public crop library header for moderators', async () => {
+    const user = userEvent.setup();
+    authMocks.user.is_public_library_moderator = true;
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Moderation' }));
+
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/public-library-moderation');
+    expect(screen.getByRole('heading', { name: 'Moderation' })).toBeInTheDocument();
   });
 
   it('does not show the empty state while public cultures are still loading', () => {

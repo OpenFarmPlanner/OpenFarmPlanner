@@ -496,6 +496,9 @@
         "tooltip": "Hilfe zur öffentlichen Kulturbibliothek",
         "openAria": "Hilfe zur öffentlichen Kulturbibliothek öffnen"
       },
+      "moderation": {
+        "open": "Moderation"
+      },
       "tabs": {
         "details": "Details",
         "versions": "Versionen",

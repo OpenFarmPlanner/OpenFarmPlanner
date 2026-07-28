@@ -496,6 +496,9 @@
         "tooltip": "Help for the public crop library",
         "openAria": "Open help for the public crop library"
       },
+      "moderation": {
+        "open": "Moderation"
+      },
       "tabs": {
         "details": "Details",
         "versions": "Versions",

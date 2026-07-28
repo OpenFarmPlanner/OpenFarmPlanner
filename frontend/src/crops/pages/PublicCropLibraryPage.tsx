@@ -36,6 +36,7 @@ import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
@@ -50,6 +51,7 @@ import type {
   PublicCultureDiscussionTopic,
   PublicCultureRevision,
 } from '../../api/types';
+import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
@@ -1020,6 +1022,7 @@ function PublicCultureMobileSelectorDialog({
 }
 
 export default function PublicCropLibraryPage() {
+  const { user } = useAuth();
   const { t, i18n } = useTranslation('cultures');
   const language = i18n.resolvedLanguage ?? i18n.language;
   const [searchParams] = useSearchParams();
@@ -1069,6 +1072,7 @@ export default function PublicCropLibraryPage() {
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
   const isCultureLoading = loadStatus === 'loading';
+  const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
 
   const focusSearch = useCallback(() => {
     if (useCompactLibraryLayout) {
@@ -1536,6 +1540,10 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
+  const openModeration = useCallback((): void => {
+    navigate('/app/public-library-moderation');
+  }, [navigate]);
+
   const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
     t,
     cultures,
@@ -1792,6 +1800,66 @@ export default function PublicCropLibraryPage() {
     bgcolor: 'background.paper',
   } as const;
 
+  const cropActions = selectedCulture ? (
+    <DetailPageActions
+      compact={useCompactLibraryLayout}
+      primaryActions={[
+        {
+          label: t('library.page.edit.open'),
+          icon: <EditOutlinedIcon fontSize="small" />,
+          onClick: openEditDialog,
+        },
+        {
+          label: importingId ? t('library.importing') : t('library.importButton'),
+          icon: <DownloadOutlinedIcon fontSize="small" />,
+          onClick: () => void handleImport(),
+          disabled: importingId !== null,
+          variant: 'contained',
+        },
+      ]}
+    />
+  ) : null;
+  const headerActions = canModeratePublicLibrary || cropActions ? (
+    <Stack
+      direction="row"
+      spacing={1}
+      useFlexGap
+      flexWrap="wrap"
+      alignItems="center"
+      justifyContent={{ xs: 'flex-end', sm: 'flex-end' }}
+      sx={{ width: '100%' }}
+    >
+      {canModeratePublicLibrary ? (
+        <Button
+          variant="outlined"
+          size="medium"
+          aria-label={t('library.page.moderation.open')}
+          onClick={openModeration}
+          sx={{
+            minHeight: 40,
+            minWidth: useCompactLibraryLayout ? 40 : { xs: 40, sm: 64 },
+            px: useCompactLibraryLayout ? 0.75 : { xs: 0.75, sm: 1.5 },
+          }}
+        >
+          <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: useCompactLibraryLayout ? 0 : { xs: 0, sm: 0.75 } }}>
+            <GavelOutlinedIcon fontSize="small" />
+          </Box>
+          <Box component="span" sx={{ display: useCompactLibraryLayout ? 'none' : { xs: 'none', sm: 'inline' } }}>
+            {t('library.page.moderation.open')}
+          </Box>
+        </Button>
+      ) : null}
+      {canModeratePublicLibrary && cropActions ? (
+        <Divider
+          orientation="vertical"
+          flexItem
+          sx={{ display: { xs: 'none', sm: 'block' }, mx: 0.25 }}
+        />
+      ) : null}
+      {cropActions}
+    </Stack>
+  ) : undefined;
+
   return (
     <PageContainer variant="xwide">
       <Box sx={{ width: '100%' }}>
@@ -1799,6 +1867,7 @@ export default function PublicCropLibraryPage() {
           <PageHeader
             title={t('library.page.title')}
             help={<PageHelp pageKey="cropLibrary" ariaLabel={t('library.page.help.openAria')} tooltip={t('library.page.help.tooltip')} />}
+            actions={headerActions}
           />
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
 
@@ -2033,23 +2102,6 @@ export default function PublicCropLibraryPage() {
                           </Stack>
                         </Box>
                       </Box>
-                      <DetailPageActions
-                        compact={useCompactLibraryLayout}
-                        primaryActions={[
-                          {
-                            label: t('library.page.edit.open'),
-                            icon: <EditOutlinedIcon fontSize="small" />,
-                            onClick: openEditDialog,
-                          },
-                          {
-                            label: importingId ? t('library.importing') : t('library.importButton'),
-                            icon: <DownloadOutlinedIcon fontSize="small" />,
-                            onClick: () => void handleImport(),
-                            disabled: importingId !== null,
-                            variant: 'contained',
-                          },
-                        ]}
-                      />
                     </Stack>
                   </CardContent>
                   <Divider />
