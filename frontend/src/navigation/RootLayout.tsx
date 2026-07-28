@@ -75,6 +75,7 @@ import { HelpDialog } from '../components/help/HelpDialog';
 import PageHelp from '../components/help/PageHelp';
 import {
   getSegmentedActionButtonSx,
+  getStandardActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
 import { getHistoryEntryTarget, getHistoryEntryTitle, isCurrentHistoryEntry } from '../pages/culturesHistoryUtils';
@@ -1143,7 +1144,25 @@ function RootLayout() {
               const isSegmentedGroup = group.length > 1 && group[0]?.groupId;
               const content = group.map((action) => {
                 const isHierarchyCreateLocationAction = action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID;
-                const button = (
+                const isStandardAction = action.appearance === 'standard';
+                const button = isStandardAction ? (
+                <Button
+                  key={action.id}
+                  size="medium"
+                  variant="outlined"
+                  onClick={action.onClick}
+                  aria-label={action.ariaLabel ?? action.label}
+                  disabled={action.disabled}
+                  sx={{
+                    ...getStandardActionButtonSx(false),
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    ...(action.hidden ? { display: 'none' } : {}),
+                  }}
+                >
+                  {action.label}
+                </Button>
+                ) : (
                 <Button
                   key={action.id}
                   size="small"
@@ -1668,6 +1687,26 @@ function RootLayout() {
                   const isSegmentedGroup = group.length > 1 && group[0]?.groupId;
                   const content = group.map((action) => {
                     const isHierarchyCreateLocationAction = action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID;
+                    if (action.appearance === 'standard') {
+                      return (
+                        <Button
+                          key={action.id}
+                          size="medium"
+                          variant="outlined"
+                          onClick={action.onClick}
+                          aria-label={action.ariaLabel ?? action.label}
+                          disabled={action.disabled}
+                          sx={{
+                            ...getStandardActionButtonSx(false),
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                            ...(action.hidden ? { display: 'none' } : {}),
+                          }}
+                        >
+                          {action.label}
+                        </Button>
+                      );
+                    }
                     return (
                       <Button
                         key={action.id}

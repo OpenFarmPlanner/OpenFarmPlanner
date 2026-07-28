@@ -57,6 +57,17 @@ export const segmentedToggleButtonGroupSx: SxProps<Theme> = {
   },
 };
 
+// Shared sizing for the app's standard secondary (outlined) action button, used by
+// DetailPageActions and by any other surface (e.g. topbar context actions) that needs
+// to render a secondary action with identical border/color/typography/height/padding.
+export function getStandardActionButtonSx(compact: boolean) {
+  return {
+    minHeight: 40,
+    minWidth: compact ? 40 : { xs: 40, sm: 64 },
+    px: compact ? 0.75 : { xs: 0.75, sm: 1.5 },
+  } as const;
+}
+
 export const segmentedToggleButtonSx: SxProps<Theme> = {
   textTransform: 'none',
   minWidth: 0,

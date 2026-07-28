@@ -18,6 +18,13 @@ export interface TopbarContextAction {
   reserveSpace?: boolean;
   groupId?: string;
   tooltip?: string;
+  /**
+   * 'segmented' (default) renders the compact pill style used for toggle groups and
+   * quick topbar actions. 'standard' renders the app's standard outlined secondary
+   * button (same border/color/typography/height/padding as DetailPageActions) for
+   * standalone actions that should read as a normal secondary action, not a pill.
+   */
+  appearance?: 'segmented' | 'standard';
   menuActions?: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean }>;
 }
 

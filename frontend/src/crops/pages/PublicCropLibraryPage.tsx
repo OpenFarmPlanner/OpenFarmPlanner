@@ -1552,6 +1552,7 @@ export default function PublicCropLibraryPage() {
         label: t('library.page.moderation.open'),
         ariaLabel: t('library.page.moderation.open'),
         onClick: openModeration,
+        appearance: 'standard' as const,
       }]
       : []
   ), [canModeratePublicLibrary, openModeration, t]);

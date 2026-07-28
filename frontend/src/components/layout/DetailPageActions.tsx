@@ -1,6 +1,7 @@
 import { Box, Button, Stack, Tooltip } from '@mui/material';
 import type { MouseEvent, ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { getStandardActionButtonSx } from '../buttons/segmentedControlStyles';
 
 export interface DetailPagePrimaryAction {
   label: string;
@@ -42,11 +43,7 @@ export function DetailPageActions({
             aria-label={action.label}
             disabled={action.disabled}
             onClick={action.onClick}
-            sx={{
-              minHeight: 40,
-              minWidth: compact ? 40 : { xs: 40, sm: 64 },
-              px: compact ? 0.75 : { xs: 0.75, sm: 1.5 },
-            }}
+            sx={getStandardActionButtonSx(compact)}
           >
             <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: compact ? 0 : { xs: 0, sm: 0.75 } }}>
               {action.icon}
