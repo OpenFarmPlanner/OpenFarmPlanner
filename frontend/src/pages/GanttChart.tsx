@@ -27,7 +27,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
-import { confirmAction } from '../utils/confirmAction';
 import {
   bedAPI,
   cultureAPI,
@@ -105,8 +104,6 @@ import {
   buildOccupancyTooltipDetails,
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
-  formatCultureDisplayLabel,
-  formatGanttDate,
   formatSeedlingTooltipTitle,
   formatPlantCount,
   parseDateString,
@@ -115,12 +112,12 @@ import {
   type OccupancyHierarchyNode,
 } from './ganttChartUtils';
 import { useGanttContextMenu } from './useGanttContextMenu';
+import { useGanttTaskActions } from './useGanttTaskActions';
 import { getFirstMissingCultivationPlanRequirement, getTranslatedProjectSetupActions } from './requirementFlow';
 import {
   getSegmentedActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
-import { copyTextToClipboardSilently } from '../components/data-grid';
 import { getGanttRenderWindow } from './ganttRenderWindow';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { collectVisibleIdsWithAncestors, flattenTreeRows } from '../components/hierarchy/utils/treeRows';
@@ -621,61 +618,15 @@ function GanttChartPage() {
   // into the relevant page plus edit/copy/delete. Double-click on a bar
   // is a shortcut for its "Anbauplan öffnen" action.
   // ---------------------------------------------------------------------
-  const openPlantingPlanFromTask = useCallback((task: GanttTask, options?: { edit?: boolean }) => {
-    if (task.plantingPlanId) {
-      const query = options?.edit ? `planId=${task.plantingPlanId}&edit=true` : `planId=${task.plantingPlanId}`;
-      navigate(`/app/planting-plans?${query}`);
-      return;
-    }
-    navigate('/app/planting-plans');
-  }, [navigate]);
-
-  // Stable (task, group) => void wrapper so it can be passed directly as a
-  // GanttChartProps callback without a fresh inline arrow on every render.
-  const handleTaskDoubleClickToPlan = useCallback((task: GanttTask) => {
-    openPlantingPlanFromTask(task);
-  }, [openPlantingPlanFromTask]);
-
-  const openCultureFromTask = useCallback((task: GanttTask) => {
-    const plan = plantingPlans.find((entry) => entry.id === task.plantingPlanId);
-    if (plan?.culture) {
-      navigate(`/app/cultures?cultureId=${plan.culture}`);
-    }
-  }, [navigate, plantingPlans]);
-
-  const addPlantingPlanForBed = useCallback((group: GanttTaskGroup) => {
-    if (group.bedId) {
-      navigate(`/app/planting-plans?bedId=${group.bedId}&create=true`);
-    }
-  }, [navigate]);
-
-  // Navigates to the areas (Anbauflächen) page and, if a target is given,
-  // deep-links to the matching Standort/Parzelle/Beet row: FieldsBedsHierarchy
-  // expands its ancestors, scrolls it into view, and briefly flashes it.
-  const openAreasPage = useCallback((highlight?: { type: 'location' | 'field' | 'bed'; id: number }) => {
-    navigate(highlight ? `/app/fields-beds?highlight=${highlight.type}:${highlight.id}` : '/app/fields-beds');
-  }, [navigate]);
-
-  const copyTaskSummary = useCallback((task: GanttTask, group: GanttTaskGroup) => {
-    const parts = [
-      task.cultureName ? formatCultureDisplayLabel(task.cultureName, task.cultureVariety) : task.name,
-      group.name,
-      `${formatGanttDate(task.startDate)} – ${formatGanttDate(task.endDate)}`,
-    ].filter(Boolean);
-    copyTextToClipboardSilently(parts.join(' · '));
-  }, []);
-
-  const deletePlantingPlanFromTask = useCallback(async (task: GanttTask) => {
-    if (!task.plantingPlanId) return;
-    const confirmed = confirmAction(t('ganttChart:contextMenu.confirmDeletePlan'));
-    if (!confirmed) return;
-    try {
-      await plantingPlanAPI.delete(task.plantingPlanId);
-      setPlantingPlans((previous) => previous.filter((entry) => entry.id !== task.plantingPlanId));
-    } catch (err) {
-      setError(extractApiErrorMessage(err, t, t('ganttChart:errors.updatePlan')));
-    }
-  }, [t]);
+  const {
+    openPlantingPlanFromTask,
+    handleTaskDoubleClickToPlan,
+    openCultureFromTask,
+    addPlantingPlanForBed,
+    openAreasPage,
+    copyTaskSummary,
+    deletePlantingPlanFromTask,
+  } = useGanttTaskActions({ navigate, plantingPlans, setPlantingPlans, setError, t });
 
   const {
     contextMenuState,
