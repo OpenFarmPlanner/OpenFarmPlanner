@@ -15,20 +15,22 @@ interface DetailPageActionsProps {
   primaryActions: DetailPagePrimaryAction[];
   overflowLabel?: string;
   onOpenOverflow?: (event: MouseEvent<HTMLElement>) => void;
+  compact?: boolean;
 }
 
 export function DetailPageActions({
   primaryActions,
   overflowLabel,
   onOpenOverflow,
+  compact = false,
 }: DetailPageActionsProps) {
   return (
     <Stack
       direction="row"
       spacing={1}
       useFlexGap
-      flexWrap={{ xs: 'nowrap', sm: 'wrap' }}
-      justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+      flexWrap={compact ? 'nowrap' : { xs: 'nowrap', sm: 'wrap' }}
+      justifyContent={compact ? 'flex-start' : { xs: 'flex-start', sm: 'flex-end' }}
       sx={{ flexShrink: 0, minWidth: 'auto' }}
     >
       {primaryActions.map((action) => {
@@ -42,14 +44,14 @@ export function DetailPageActions({
             onClick={action.onClick}
             sx={{
               minHeight: 40,
-              minWidth: { xs: 40, sm: 64 },
-              px: { xs: 0.75, sm: 1.5 },
+              minWidth: compact ? 40 : { xs: 40, sm: 64 },
+              px: compact ? 0.75 : { xs: 0.75, sm: 1.5 },
             }}
           >
-            <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: { xs: 0, sm: 0.75 } }}>
+            <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', mr: compact ? 0 : { xs: 0, sm: 0.75 } }}>
               {action.icon}
             </Box>
-            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+            <Box component="span" sx={{ display: compact ? 'none' : { xs: 'none', sm: 'inline' } }}>
               {action.label}
             </Box>
           </Button>
@@ -75,8 +77,8 @@ export function DetailPageActions({
             sx={{
               alignSelf: 'center',
               minHeight: 40,
-              minWidth: { xs: 40, sm: 48 },
-              px: { xs: 0.75, sm: 1.25 },
+              minWidth: compact ? 40 : { xs: 40, sm: 48 },
+              px: compact ? 0.75 : { xs: 0.75, sm: 1.25 },
               width: 'auto',
             }}
           >

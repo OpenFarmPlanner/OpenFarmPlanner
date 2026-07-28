@@ -113,7 +113,10 @@ export function CultureDetail({
   const theme = useTheme();
   const isTabletLayout = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
-  const useUnifiedMobileLayout = isMobileLayout;
+  const isMobileLandscapeLayout = useMediaQuery(
+    `${theme.breakpoints.between('sm', 'md')} and (orientation: landscape) and (max-height: 560px)`,
+  );
+  const useUnifiedMobileLayout = isMobileLayout || isMobileLandscapeLayout;
   const supplierIdFromQuery = searchParams.get('supplierId') ?? '';
   
   // Initialize filters from sessionStorage
@@ -730,6 +733,7 @@ export function CultureDetail({
                   </Box>
                 </Box>
                 <DetailPageActions
+                  compact={useUnifiedMobileLayout}
                   primaryActions={[
                     {
                       label: t('buttons.edit'),

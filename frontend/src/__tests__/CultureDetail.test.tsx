@@ -11,6 +11,24 @@ describe('CultureDetail Component', () => {
   const renderCultureDetail = (ui: Parameters<typeof render>[0]) =>
     render(ui, { wrapper: MemoryRouter });
 
+  function mockPhoneLandscapeViewport(): void {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('orientation: landscape')
+          || (query.includes('min-width:600px') && query.includes('max-width:899.95px'))
+          || (query.includes('min-width:600px') && query.includes('max-width:1199.95px')),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  }
+
   beforeEach(() => {
     window.sessionStorage.clear();
   });
@@ -629,5 +647,30 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('menuitem', { name: 'Versionen' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Veröffentlichen' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Projektkultur löschen' })).toBeInTheDocument();
+  });
+
+  it('keeps the portrait mobile culture UI in short-height phone landscape', () => {
+    mockPhoneLandscapeViewport();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={1}
+        onCultureSelect={vi.fn()}
+        onEditCulture={vi.fn()}
+        onCreatePlan={vi.fn()}
+        onOpenHistory={vi.fn()}
+        onPublishCulture={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Kultur auswählen' })).toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: 'Kulturen' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: 'Bearbeiten' })).getByText('Bearbeiten')).toHaveStyle({
+      display: 'none',
+    });
+    expect(within(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).getByText('Anbauplan hinzufügen')).toHaveStyle({
+      display: 'none',
+    });
   });
 });

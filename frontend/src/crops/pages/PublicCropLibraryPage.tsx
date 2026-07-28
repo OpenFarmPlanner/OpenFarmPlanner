@@ -1982,6 +1982,7 @@ export default function PublicCropLibraryPage() {
                         </Box>
                       </Box>
                       <DetailPageActions
+                        compact={useCompactLibraryLayout}
                         primaryActions={[
                           {
                             label: t('library.page.edit.open'),

@@ -161,6 +161,9 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
   dialogs or drawers instead of popovers, text truncation, portrait and
   landscape orientation, and the position and priority of primary and secondary
   actions.
+- Use width as the primary responsive signal, but verify short-height phone
+  landscape separately. A compact portrait mobile UI must not silently switch
+  to tablet or desktop controls only because the device is rotated.
 
 ### Required UI Change Review
 For every UI component or style change, check:
