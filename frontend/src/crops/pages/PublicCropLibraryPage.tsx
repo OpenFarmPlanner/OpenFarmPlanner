@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -64,6 +64,7 @@ type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
 type PublicCultureTab = 'details' | 'versions' | 'discussion';
 
 const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
+const PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY = 'publicCropLibraryViewState';
 const MAX_VISIBLE_REPLY_DEPTH = 3;
 const PUBLIC_CULTURE_TAB_BY_INDEX: PublicCultureTab[] = ['details', 'versions', 'discussion'];
 const PUBLIC_CULTURE_TAB_INDEX_BY_PARAM: Record<PublicCultureTab, number> = {
@@ -75,6 +76,14 @@ const PUBLIC_CULTURE_TAB_INDEX_BY_PARAM: Record<PublicCultureTab, number> = {
 interface ThreadCommentGroup {
   comment: PublicCultureDiscussionComment;
   children: ThreadCommentGroup[];
+}
+
+interface PublicCropLibraryViewState {
+  cultureId: number;
+  tab: PublicCultureTab;
+  discussionId: number | null;
+  query: string;
+  listScrollTop: number;
 }
 
 function parsePublicCultureId(value: string | null): number | null {
@@ -97,6 +106,49 @@ function getPublicCultureTabIndex(tabParam: string | null, discussionId: number 
 
 function getStoredPublicCultureId(): number | null {
   return parsePublicCultureId(window.localStorage.getItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY));
+}
+
+function isPublicCultureTab(value: unknown): value is PublicCultureTab {
+  return value === 'details' || value === 'versions' || value === 'discussion';
+}
+
+function getStoredPublicCropLibraryViewState(): PublicCropLibraryViewState | null {
+  const rawValue = window.localStorage.getItem(PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY);
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as Partial<PublicCropLibraryViewState>;
+    const cultureId = typeof parsedValue.cultureId === 'number' && Number.isFinite(parsedValue.cultureId)
+      ? parsedValue.cultureId
+      : null;
+    if (cultureId === null || !isPublicCultureTab(parsedValue.tab)) {
+      return null;
+    }
+
+    const discussionId = typeof parsedValue.discussionId === 'number' && Number.isFinite(parsedValue.discussionId)
+      ? parsedValue.discussionId
+      : null;
+    const query = typeof parsedValue.query === 'string' ? parsedValue.query : '';
+    const listScrollTop = typeof parsedValue.listScrollTop === 'number' && Number.isFinite(parsedValue.listScrollTop)
+      ? Math.max(0, parsedValue.listScrollTop)
+      : 0;
+
+    return {
+      cultureId,
+      tab: parsedValue.tab,
+      discussionId,
+      query,
+      listScrollTop,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storePublicCropLibraryViewState(viewState: PublicCropLibraryViewState): void {
+  window.localStorage.setItem(PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY, JSON.stringify(viewState));
 }
 
 const getCultureTitle = (culture: PublicCulture): string => (
@@ -849,11 +901,15 @@ export default function PublicCropLibraryPage() {
   const selectedCultureParam = searchParams.get('cultureId');
   const selectedCultureIdFromUrl = parsePublicCultureId(selectedCultureParam);
   const selectedTopicIdFromUrl = parsePublicCultureId(searchParams.get('discussionId'));
+  const hasExplicitLibraryState = searchParams.has('cultureId') || searchParams.has('tab') || searchParams.has('discussionId');
+  const storedViewState = hasExplicitLibraryState ? null : getStoredPublicCropLibraryViewState();
   const activeTab = getPublicCultureTabIndex(searchParams.get('tab'), selectedTopicIdFromUrl);
   const selectedTopicId = activeTab === PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion ? selectedTopicIdFromUrl : null;
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => storedViewState?.query ?? '');
   const [cultures, setCultures] = useState<PublicCulture[]>([]);
-  const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => selectedCultureIdFromUrl ?? getStoredPublicCultureId());
+  const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => (
+    selectedCultureIdFromUrl ?? storedViewState?.cultureId ?? getStoredPublicCultureId()
+  ));
   const selectedCultureIdRef = useRef<number | null>(selectedCultureId);
   const [loadStatus, setLoadStatus] = useState<PublicCultureLoadStatus>('loading');
   const [loadError, setLoadError] = useState('');
@@ -874,6 +930,8 @@ export default function PublicCropLibraryPage() {
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const cultureListRef = useRef<HTMLUListElement>(null);
+  const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const newTopicButtonRef = useRef<HTMLButtonElement>(null);
   const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
   const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
@@ -957,6 +1015,27 @@ export default function PublicCropLibraryPage() {
       replace: options.replace ?? true,
     });
   }, [activeTab, navigateToLibraryState]);
+
+  const persistViewState = useCallback((overrides: Partial<PublicCropLibraryViewState> = {}): void => {
+    if (selectedCultureId === null) {
+      return;
+    }
+
+    const tab = PUBLIC_CULTURE_TAB_BY_INDEX[activeTab] ?? 'details';
+    storePublicCropLibraryViewState({
+      cultureId: selectedCultureId,
+      tab,
+      discussionId: tab === 'discussion' ? selectedTopicId : null,
+      query,
+      listScrollTop: cultureListScrollTopRef.current,
+      ...overrides,
+    });
+  }, [activeTab, query, selectedCultureId, selectedTopicId]);
+
+  const handleCultureListScroll = useCallback((event: UIEvent<HTMLUListElement>): void => {
+    cultureListScrollTopRef.current = event.currentTarget.scrollTop;
+    persistViewState({ listScrollTop: event.currentTarget.scrollTop });
+  }, [persistViewState]);
 
   const formatDate = useCallback((value?: string | null): string => {
     if (!value) {
@@ -1053,6 +1132,28 @@ export default function PublicCropLibraryPage() {
       return;
     }
 
+    if (!hasExplicitLibraryState) {
+      const savedViewState = getStoredPublicCropLibraryViewState();
+      if (savedViewState) {
+        if (selectedCultureId !== savedViewState.cultureId) {
+          setSelectedCultureId(savedViewState.cultureId);
+          selectedCultureIdRef.current = savedViewState.cultureId;
+          window.localStorage.setItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY, String(savedViewState.cultureId));
+        }
+        if (query !== savedViewState.query) {
+          setQuery(savedViewState.query);
+        }
+        cultureListScrollTopRef.current = savedViewState.listScrollTop;
+        navigateToLibraryState({
+          cultureId: savedViewState.cultureId,
+          tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM[savedViewState.tab],
+          discussionId: savedViewState.tab === 'discussion' ? savedViewState.discussionId : null,
+          replace: true,
+        });
+        return;
+      }
+    }
+
     const storedCultureId = getStoredPublicCultureId();
     if (storedCultureId !== null) {
       if (selectedCultureId !== storedCultureId) {
@@ -1066,7 +1167,32 @@ export default function PublicCropLibraryPage() {
         replace: true,
       });
     }
-  }, [activeTab, navigateToLibraryState, selectedCultureId, selectedCultureIdFromUrl]);
+  }, [activeTab, hasExplicitLibraryState, navigateToLibraryState, query, selectedCultureId, selectedCultureIdFromUrl]);
+
+  useEffect(() => {
+    if (!hasExplicitLibraryState || selectedCultureId === null) {
+      return;
+    }
+    persistViewState();
+  }, [hasExplicitLibraryState, persistViewState, selectedCultureId]);
+
+  useEffect(() => {
+    if (loadStatus !== 'success' || selectedCultureId === null || cultures.length === 0) {
+      return;
+    }
+
+    const savedViewState = getStoredPublicCropLibraryViewState();
+    if (!savedViewState || savedViewState.cultureId !== selectedCultureId) {
+      return;
+    }
+
+    cultureListScrollTopRef.current = savedViewState.listScrollTop;
+    window.setTimeout(() => {
+      if (cultureListRef.current) {
+        cultureListRef.current.scrollTop = savedViewState.listScrollTop;
+      }
+    }, 0);
+  }, [cultures.length, loadStatus, selectedCultureId]);
 
   const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
     setLoadStatus('loading');
@@ -1563,9 +1689,11 @@ export default function PublicCropLibraryPage() {
                 </Box>
               ) : (
                 <List
+                  ref={cultureListRef}
                   disablePadding
                   role="listbox"
                   aria-label={t('library.page.title')}
+                  onScroll={handleCultureListScroll}
                   sx={{ maxHeight: { xs: 280, sm: 'calc(100vh - 290px)' }, overflow: 'auto' }}
                 >
                   {cultures.map((culture) => (

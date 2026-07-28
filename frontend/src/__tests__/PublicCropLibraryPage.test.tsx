@@ -108,6 +108,8 @@ function LocationProbe() {
       <output aria-label="current route">{`${location.pathname}${location.search}`}</output>
       <button type="button" onClick={() => navigate(-1)}>Browser zurück</button>
       <button type="button" onClick={() => navigate(1)}>Browser vorwärts</button>
+      <button type="button" onClick={() => navigate('/app/dashboard')}>Zur Hauptseite</button>
+      <button type="button" onClick={() => navigate('/app/crop-library')}>Zur Kulturbibliothek</button>
     </>
   );
 }
@@ -124,6 +126,15 @@ function renderPage(initialEntries: string[] = ['/app/crop-library']): ReturnTyp
                 <>
                   <LocationProbe />
                   <PublicCropLibraryPage />
+                </>
+              )}
+            />
+            <Route
+              path="/app/dashboard"
+              element={(
+                <>
+                  <LocationProbe />
+                  <h1>Hauptseite</h1>
                 </>
               )}
             />
@@ -321,6 +332,136 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Browser vorwärts' }));
     expect(await screen.findByText('Start im Thread')).toBeInTheDocument();
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+  });
+
+  it('restores the selected discussion thread when returning through main navigation', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Gespeicherter Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+      last_comment_preview: 'Wird wieder geöffnet',
+    }];
+    const comments: PublicCultureDiscussionComment[] = [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Wiederhergestellter Kommentar',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Gespeicherter Thread'));
+    expect(await screen.findByText('Wiederhergestellter Kommentar')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Zur Hauptseite' }));
+    expect(await screen.findByRole('heading', { name: 'Hauptseite' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Zur Kulturbibliothek' }));
+
+    expect(await screen.findByRole('heading', { name: 'Gespeicherter Thread' })).toBeInTheDocument();
+    expect(await screen.findByText('Wiederhergestellter Kommentar')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+  });
+
+  it('keeps explicit crop library URLs authoritative over saved view state', async () => {
+    window.localStorage.setItem('publicCropLibraryViewState', JSON.stringify({
+      cultureId: 1,
+      tab: 'discussion',
+      discussionId: 10,
+      query: '',
+      listScrollTop: 0,
+    }));
+
+    renderPage(['/app/crop-library?cultureId=2']);
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2');
+    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the discussion overview when a saved discussion thread no longer exists', async () => {
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+      id: 10,
+      public_culture: 1,
+      title: 'Weiterhin sichtbarer Thread',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }] });
+    window.localStorage.setItem('publicCropLibraryViewState', JSON.stringify({
+      cultureId: 1,
+      tab: 'discussion',
+      discussionId: 999,
+      query: '',
+      listScrollTop: 0,
+    }));
+
+    renderPage();
+
+    expect(await screen.findByText('Weiterhin sichtbarer Thread')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    });
+    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
+  });
+
+  it('restores the public crop list scroll position after returning through main navigation', async () => {
+    const user = userEvent.setup();
+    const topics: PublicCultureDiscussionTopic[] = [{
+      id: 10,
+      public_culture: 1,
+      title: 'Thread mit Scrollposition',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-27T12:00:00Z',
+    }];
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+      id: 1,
+      topic: 10,
+      parent: null,
+      body: 'Kommentar mit Scrollposition',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-27T10:00:00Z',
+      updated_at: '2026-07-27T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    }] });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    const cultureList = screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' });
+    fireEvent.scroll(cultureList, { target: { scrollTop: 48 } });
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByText('Thread mit Scrollposition'));
+    await screen.findByText('Kommentar mit Scrollposition');
+
+    await user.click(screen.getByRole('button', { name: 'Zur Hauptseite' }));
+    await screen.findByRole('heading', { name: 'Hauptseite' });
+    await user.click(screen.getByRole('button', { name: 'Zur Kulturbibliothek' }));
+
+    await screen.findByText('Kommentar mit Scrollposition');
+    await waitFor(() => {
+      expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' }).scrollTop).toBe(48);
+    });
   });
 
   it('opens a discussion thread directly from the URL after reload', async () => {

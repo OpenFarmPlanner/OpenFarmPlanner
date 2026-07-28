@@ -85,6 +85,13 @@ only the shared public-library row; projects that already imported an entry
 continue using their private copied snapshot until a future explicit
 update/merge flow is built.
 
+The public crop-library page treats URL state as the source of truth for
+navigable selections (`cultureId`, `tab`, `discussionId`). When users return
+through the main navigation to the bare library route, the last valid
+crop-library view state is restored from local storage and written back into
+the URL; explicit URLs always override that saved state. Temporary UI state
+such as drafts, edit forms, and reply targets is intentionally not restored.
+
 Official `CropSpecies` rows are global master data and remain moderated. Users
 may propose missing species from the publishing wizard, but proposed species
 stay out of the official list until a public-library moderator approves them.
