@@ -134,18 +134,18 @@ describe('getPublicCultureDescription', () => {
 });
 
 describe('getFallbackNotice', () => {
-  it('names the language the content actually came from', () => {
+  it('names the language the content actually came from, localized into the current UI language', () => {
     const localized = getPublicCultureName(
       buildCulture({ display_name: 'Tomato', display_language_code: 'en' }),
       'de',
       MISSING_NAME,
     );
 
-    const notice = getFallbackNotice(localized, t);
+    const notice = getFallbackNotice(localized, t, 'de');
 
     expect(notice).not.toBeNull();
-    expect(notice?.label).toContain('English');
-    expect(notice?.tooltip).toContain('English');
+    expect(notice?.label).toContain('Englisch');
+    expect(notice?.tooltip).toContain('Englisch');
   });
 
   it('shows no notice when the content is in the current language', () => {
@@ -155,6 +155,6 @@ describe('getFallbackNotice', () => {
       MISSING_NAME,
     );
 
-    expect(getFallbackNotice(localized, t)).toBeNull();
+    expect(getFallbackNotice(localized, t, 'de')).toBeNull();
   });
 });

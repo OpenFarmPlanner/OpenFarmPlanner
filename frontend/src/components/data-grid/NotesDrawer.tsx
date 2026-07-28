@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import {
   Drawer,
@@ -101,11 +101,16 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [sourceSize, setSourceSize] = useState<{ width: number; height: number } | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraReady, setCameraReady] = useState<boolean>(false);
+  const [cameraTimedOut, setCameraTimedOut] = useState<boolean>(false);
 
   const textFieldRef = useRef<HTMLTextAreaElement>(null);
   const cropImageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ mode: DragMode; startX: number; startY: number; initialRect: CropRect } | null>(null);
   const attachmentsSectionRef = useRef<HTMLDivElement>(null);
+  const cameraFileInputRef = useRef<HTMLInputElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
 
   const loadAttachments = async (): Promise<void> => {
     if (!noteId) return;
@@ -152,6 +157,84 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
     setPendingPreviewUrl(nextUrl);
     setCropRect(null);
     setSourceSize(null);
+  };
+
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  const closeCamera = (): void => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setCameraReady(false);
+    setCameraTimedOut(false);
+  };
+
+  // Stop any active stream if the drawer unmounts while the camera is open.
+  useEffect(() => () => cameraStreamRef.current?.getTracks().forEach((track) => track.stop()), []);
+
+  // A ref callback rather than a `[cameraStream]` effect: the <video> lives
+  // inside a MUI Dialog, which can mount its content one render after `open`
+  // flips to true. An effect keyed on `cameraStream` can fire while the node
+  // is still null and never re-run once it exists, leaving the preview
+  // permanently black. This runs exactly when the node is actually attached.
+  const attachCameraVideo = useCallback((node: HTMLVideoElement | null) => {
+    cameraVideoRef.current = node;
+    if (!node || !cameraStreamRef.current) return undefined;
+    node.srcObject = cameraStreamRef.current;
+    // Some browsers don't honor the `autoPlay` attribute when srcObject is
+    // assigned imperatively; without this the preview stays black. play()
+    // isn't guaranteed to return a promise in every environment (e.g. jsdom).
+    void node.play()?.catch(() => {});
+    // A stream can be granted by the browser without ever producing a real
+    // frame (camera locked by another app, virtual/remote-desktop camera with
+    // no signal, ...). Without this, Capture would silently do nothing and
+    // the user would be stuck looking at a black box with no explanation.
+    const timeoutId = window.setTimeout(() => {
+      if (!node.videoWidth) setCameraTimedOut(true);
+    }, 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  const handleTakePhotoClick = async (): Promise<void> => {
+    // Touch devices already get the native camera app via the file input's
+    // `capture` attribute below — a better experience than a custom in-page
+    // stream. Desktop browsers ignore that attribute and just show a file
+    // picker (see the "Choose from gallery" button), so open the webcam
+    // directly there instead, falling back to the file picker if unavailable.
+    const isLikelyTouchDevice = typeof window.matchMedia !== 'function' || window.matchMedia('(pointer: coarse)').matches;
+    if (isLikelyTouchDevice || !navigator.mediaDevices?.getUserMedia) {
+      cameraFileInputRef.current?.click();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      cameraStreamRef.current = stream;
+      setCameraReady(false);
+      setCameraTimedOut(false);
+      setCameraStream(stream);
+    } catch {
+      cameraFileInputRef.current?.click();
+    }
+  };
+
+  const handleCameraFallbackToFilePicker = (): void => {
+    closeCamera();
+    cameraFileInputRef.current?.click();
+  };
+
+  const handleCameraCapture = (): void => {
+    const video = cameraVideoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (blob) openCropDialog(new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' }));
+      closeCamera();
+    }, 'image/jpeg', 0.92);
   };
 
   const handleFormat = (format: MarkdownFormat): void => {
@@ -383,9 +466,10 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
               }}
             >
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: '100%' }}>
-                <Button variant="outlined" component="label" sx={{ flex: 1, minHeight: 40 }}>
+                <Button variant="outlined" sx={{ flex: 1, minHeight: 40 }} onClick={() => { void handleTakePhotoClick(); }}>
                   {t('notesDrawer.takePhoto')}
                   <input
+                    ref={cameraFileInputRef}
                     type="file"
                     accept="image/*"
                     capture="environment"
@@ -393,6 +477,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) openCropDialog(file);
+                      e.target.value = '';
                     }}
                   />
                 </Button>
@@ -510,6 +595,40 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
           <Button onClick={clearPendingSelection}>{t('actions.cancel')}</Button>
           <Button onClick={resetCrop}>{t('actions.reset')}</Button>
           <Button onClick={() => void handleUpload()} disabled={uploading || !pendingFile} variant="contained">{t('actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(cameraStream)} onClose={closeCamera} maxWidth="md" fullWidth>
+        <DialogTitle>{t('notesDrawer.camera.title')}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', p: 0 }}>
+          {cameraTimedOut ? (
+            <Alert severity="warning" sx={{ m: 2 }}>
+              {t('notesDrawer.camera.noSignal')}
+            </Alert>
+          ) : null}
+          <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', backgroundColor: '#111' }}>
+            <video
+              ref={attachCameraVideo}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={() => setCameraReady(true)}
+              style={{ width: '100%', maxHeight: '70vh' }}
+            />
+            {!cameraReady && !cameraTimedOut ? (
+              <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress sx={{ color: 'white' }} />
+              </Box>
+            ) : null}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCamera}>{t('actions.cancel')}</Button>
+          {cameraTimedOut ? (
+            <Button onClick={handleCameraFallbackToFilePicker} variant="contained">{t('notesDrawer.camera.useFilePicker')}</Button>
+          ) : (
+            <Button onClick={handleCameraCapture} variant="contained" disabled={!cameraReady}>{t('notesDrawer.camera.capture')}</Button>
+          )}
         </DialogActions>
       </Dialog>
 

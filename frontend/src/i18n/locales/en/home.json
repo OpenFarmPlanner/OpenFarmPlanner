@@ -113,15 +113,15 @@
     },
     "privacy": {
       "title": "Privacy policy",
-      "version": "Status: July 15, 2026",
+      "version": "Status: July 17, 2026",
       "sections": {
         "controller": {
           "title": "Controller",
           "content": "Responsible for data processing on this website:\n\nMartin Stipsitz\nBurgenlandstraße 44A / 9\n9500 Villach\nAustria\n\nEmail: info@openfarmplanner.org"
         },
         "generalNotice": {
-          "title": "General information on data processing",
-          "content": "We take the protection of your personal data seriously. We process your data confidentially and in accordance with applicable data protection laws and this privacy policy.\n\nUsing OpenFarmPlanner is generally possible without providing personal data. If personal data is collected (for example during registration), this is done on a voluntary basis."
+          "title": "General information",
+          "content": "We process your personal data confidentially and in accordance with the applicable data protection laws and this privacy policy. This privacy policy supplements the terms of service of OpenFarmPlanner. For questions about the processing of personal data, this privacy policy is exclusively authoritative.\n\nYou can use the OpenFarmPlanner landing page without providing any personal data. As soon as you create a user account and use the application, we process the data described in the following sections. For each processing activity, the legal basis stated there under Art. 6(1) GDPR is authoritative."
         },
         "hosting": {
           "title": "Hosting",
@@ -140,9 +140,9 @@
           "title": "Registration and user account",
           "content": "To use OpenFarmPlanner, you can create a user account. The following data may be processed:",
           "bullets": {
-            "emailAddress": "Email address",
-            "nameOptional": "Name (optional)",
-            "encryptedPassword": "Password (stored in encrypted form)"
+            "emailAddress": "Email address (visible to other members of the same project in the member list; never published publicly)",
+            "nameOptional": "Display name (optional)",
+            "encryptedPassword": "Password (stored securely hashed – not viewable by us in plain text)"
           },
           "legalBasis": "Legal basis: Art. 6(1)(b) GDPR (performance of a contract)"
         },
@@ -172,7 +172,7 @@
             "accountActivation": "Account activation",
             "passwordReset": "Password reset",
             "projectInvitations": "Project invitations",
-            "systemNotifications": "System notifications"
+            "systemNotifications": "other communication related to your user account, such as system notifications"
           },
           "legalBasis": "Legal basis: Art. 6(1)(b) GDPR"
         },
@@ -206,14 +206,14 @@
         },
         "rights": {
           "title": "Your rights",
-          "content": "You have the following rights:",
+          "content": "As a data subject, you have the following rights under the GDPR:",
           "bullets": {
-            "access": "Access to stored data",
-            "rectification": "Correction of incorrect data",
-            "deletion": "Deletion of your data",
-            "restriction": "Restriction of processing",
-            "portability": "Data portability",
-            "objection": "Objection to processing",
+            "access": "Access to the data stored about you (Art. 15 GDPR)",
+            "rectification": "Rectification of inaccurate data (Art. 16 GDPR)",
+            "deletion": "Erasure of your data (Art. 17 GDPR)",
+            "restriction": "Restriction of processing (Art. 18 GDPR)",
+            "portability": "Data portability (Art. 20 GDPR)",
+            "objection": "Objection to processing based on legitimate interest (Art. 21 GDPR)",
             "consentWithdrawal": "Withdrawal of a consent you have given, with effect for the future, without affecting the lawfulness of processing carried out until then (Art. 7(3) GDPR)"
           },
           "contact": "You can correct your account data, export your data, and request account deletion directly in the account settings. For exceptional cases that are not covered by these self-service functions, the controller remains reachable at info@openfarmplanner.org."
@@ -231,7 +231,7 @@
     "terms": {
       "title": "Terms of Service",
       "print": "Print / save as PDF",
-      "version": "Status: July 15, 2026",
+      "version": "Status: July 17, 2026",
       "sections": {
         "provider": {
           "title": "Provider and contact",
@@ -259,11 +259,11 @@
         },
         "publicLibrary": {
           "title": "Public crop library",
-          "content": "You can voluntarily publish individual crop records from a private project to the public crop library. This library is visible to all logged-in users and entries can be imported into their own projects. Which data is published, that only your freely chosen public display name or, if not set, no name (anonymous) appears as author, and how you can undo a publication is explained in the Privacy Policy, section \"Public crop library\".\n\nBy publishing, you confirm that the published information is accurate to the best of your knowledge and that you are entitled to publish it."
+          "content": "You can voluntarily publish individual crop records from a private project into the public crop library. This library is intended as a collaboratively built, permanently maintained knowledge base for agricultural and horticultural crop data. Published entries are visible to other users, can be imported into their own projects, and may in the long term be reused through features such as version histories, collaborative editing, comments, ratings, public APIs, or data exports.\n\nBy publishing, you confirm that the published information is accurate to the best of your knowledge, contains no personal data of third parties, and that you are entitled to publish it permanently under the open license named in these terms of service."
         },
         "contributionLicense": {
-          "title": "Rights to published crop data",
-          "content": "When you publish a crop record to the public crop library, you grant OpenFarmPlanner a simple, unlimited right in time and territory to display this information to all logged-in users, enable its import into their own projects, and technically store and process the information for that purpose.\n\nYou remain the owner of your rights to the data. You can revoke this use at any time with effect for the future (see the \"Content removal\" section); copies that other users imported into their own project before revocation or removal of the entry are not affected, because they continue to exist independently in the respective project and can be edited there independently."
+          "title": "Open license for published crop data",
+          "content": "When you publish a crop record to the public crop library, you license the published crop data under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). This license in particular allows third parties to reproduce, distribute, edit, and combine the published crop data with other data, and to use it commercially, provided the license terms are followed. These terms include, in particular, appropriate attribution, an indication of the license, and sharing modified versions under the same or compatible terms.\n\nOnce validly granted, the license is irrevocable under its terms. OpenFarmPlanner may permanently store and display the published crop data, include it in search and import features, make it available in public data exports or APIs, technically process it, and further develop it as part of the collaborative crop library. You remain the owner of any rights you hold in your contribution; however, the open license enables its permanent use by OpenFarmPlanner and third parties."
         },
         "prohibitedContent": {
           "title": "Prohibited content and behavior",
@@ -281,7 +281,7 @@
         },
         "contentRemoval": {
           "title": "Content removal",
-          "content": "We reserve the right to remove or block published content in the public crop library in whole or in part if there are concrete indications of a violation of these Terms of Service or applicable law, for example following a notice within the meaning of Art. 16 of the EU Digital Services Act. Notices of allegedly unlawful content can be sent at any time to info@openfarmplanner.org. We are not obliged to carry out general, proactive monitoring of published content.\n\nYou can request removal of an entry you published at any time by contacting info@openfarmplanner.org."
+          "content": "Published entries in the crop library are generally intended to remain permanently and are not removed as a normal user feature on request. However, we reserve the right to remove, block, or anonymize published content in whole or in part, or to correct it in the future through moderation or versioning features, where there are concrete indications of a violation of these terms of service or applicable law. This applies in particular to legal violations, personal data in the published record, spam, obvious abuse, misleading information, or a moderation decision.\n\nYou can report suspected unlawful or problematic content at any time to info@openfarmplanner.org. We are not obliged to carry out general, proactive monitoring of published content."
         },
         "accountSuspension": {
           "title": "Suspension of user accounts",

@@ -878,10 +878,6 @@
         "duplicates": "Dublettenprüfung",
         "license": "Lizenz"
       },
-      "languages": {
-        "de": "Deutsch",
-        "en": "English"
-      },
       "fields": {
         "variety": "Sorte",
         "growth_duration_days": "Kulturdauer",
@@ -909,11 +905,7 @@
       "descriptionPlaceholder": "Beschreibung und Anbauhinweise in dieser Sprache…",
       "atLeastOneRequired": "Mindestens eine Sprachversion muss eine Beschreibung enthalten.",
       "saveError": "Die Sprachversionen konnten nicht gespeichert werden.",
-      "saveSuccess": "Die Sprachversionen wurden gespeichert.",
-      "languageNames": {
-        "de": "Deutsch",
-        "en": "English"
-      }
+      "saveSuccess": "Die Sprachversionen wurden gespeichert."
     },
     "commands": {
       "focusSearch": "Kulturbibliothek durchsuchen (/)",

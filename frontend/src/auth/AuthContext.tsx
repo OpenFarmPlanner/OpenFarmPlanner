@@ -124,7 +124,11 @@ export function AuthProvider({
         return null;
       }
       if (me.is_guest_demo && String(me.guest_demo_session_id) !== window.sessionStorage.getItem(GUEST_DEMO_SESSION_KEY)) {
-        await logoutRequest();
+        // The session cookie now belongs to a guest demo this tab didn't start
+        // (sessionStorage, unlike the cookie, isn't shared across tabs — e.g. a
+        // stale tab reloaded after another tab started a fresh demo). Only drop
+        // this tab's own view of it; a real server-side logout would end the
+        // *shared* session and sign the other, perfectly valid tab out too.
         clearAuthenticatedUser();
         return null;
       }
@@ -175,7 +179,18 @@ export function AuthProvider({
   // header (read fresh from localStorage per request, see httpClient.ts) are not: if
   // another tab switches the active project, this tab would keep showing stale data
   // while its own requests silently target the new project. Reload to resync.
+  //
+  // Guest demo sessions are excluded: the browser's session cookie is shared
+  // across tabs, so two tabs each running their own demo can't stay
+  // independently authenticated — starting a second demo silently replaces
+  // the first tab's session. Without this guard, that project-id change
+  // makes the first tab reload, which then resolves to the second tab's
+  // project, which makes *that* tab reload in turn, forever.
+  const isGuestDemo = Boolean(user?.is_guest_demo);
   useEffect(() => {
+    if (isGuestDemo) {
+      return undefined;
+    }
     function handleStorageChange(event: StorageEvent): void {
       if (event.key !== "activeProjectId" || event.newValue === event.oldValue) {
         return;
@@ -184,7 +199,7 @@ export function AuthProvider({
     }
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [isGuestDemo]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
