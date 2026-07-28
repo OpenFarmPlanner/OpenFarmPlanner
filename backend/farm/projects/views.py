@@ -19,7 +19,7 @@ from accounts.models import UserProjectSettings
 from config.frontend_urls import build_public_frontend_url
 from farm.models import AgentLoginToken, Location, Project, ProjectInvitation, ProjectMembership
 from farm.project_context import require_project_admin, resolve_project_for_user
-from farm.services.demo_project import create_personal_demo_project
+from farm.services.demo_project import create_personal_demo_project, resolve_demo_request_language
 from farm.services.project_invitations import (
     InvitationFlowError,
     accept_invitation,
@@ -238,7 +238,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='create-demo')
     def create_demo(self, request: Request) -> Response:
         try:
-            result = create_personal_demo_project(user=request.user)
+            result = create_personal_demo_project(user=request.user, language_code=resolve_demo_request_language(request))
         except Exception:  # noqa: BLE001
             logger.exception('Personal demo project creation failed', extra={'user_id': request.user.id})
             return Response(

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import type { TFunction } from 'i18next';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
@@ -50,10 +50,9 @@ import type {
   PublicCultureDiscussionTopic,
   PublicCultureRevision,
 } from '../../api/types';
+import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
-import PageHeader from '../../components/layout/PageHeader';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
-import PageHelp from '../../components/help/PageHelp';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
@@ -66,6 +65,8 @@ import {
 } from '../../cultures/publicCultureFormAdapter';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
+import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigation/topbarTypes';
+import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
   getFallbackNotice,
@@ -1020,8 +1021,11 @@ function PublicCultureMobileSelectorDialog({
 }
 
 export default function PublicCropLibraryPage() {
+  const { user } = useAuth();
   const { t, i18n } = useTranslation('cultures');
   const language = i18n.resolvedLanguage ?? i18n.language;
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
+  const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1061,6 +1065,7 @@ export default function PublicCropLibraryPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
+  const cultureListRequestIdRef = useRef(0);
   const newTopicButtonRef = useRef<HTMLButtonElement>(null);
   const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
   const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
@@ -1069,6 +1074,7 @@ export default function PublicCropLibraryPage() {
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
   const isCultureLoading = loadStatus === 'loading';
+  const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
 
   const focusSearch = useCallback(() => {
     if (useCompactLibraryLayout) {
@@ -1355,6 +1361,8 @@ export default function PublicCropLibraryPage() {
   }, [cultures.length, loadStatus, selectedCultureId]);
 
   const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
+    const requestId = cultureListRequestIdRef.current + 1;
+    cultureListRequestIdRef.current = requestId;
     setLoadStatus('loading');
     setLoadError('');
     try {
@@ -1366,12 +1374,21 @@ export default function PublicCropLibraryPage() {
           const selectedCultureResponse = await publicCultureAPI.get(currentSelectedCultureId);
           results = [selectedCultureResponse.data, ...results];
         } catch {
+          if (requestId !== cultureListRequestIdRef.current) {
+            return;
+          }
           updateSelectedCultureId(null);
         }
+      }
+      if (requestId !== cultureListRequestIdRef.current) {
+        return;
       }
       setCultures(results);
       setLoadStatus('success');
     } catch {
+      if (requestId !== cultureListRequestIdRef.current) {
+        return;
+      }
       setLoadError(t('library.loadError'));
       setCultures([]);
       updateSelectedCultureId(null);
@@ -1536,6 +1553,24 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
+  const openModeration = useCallback((): void => {
+    navigate('/app/public-library-moderation');
+  }, [navigate]);
+
+  const topbarContextActions = useMemo<TopbarContextAction[]>(() => (
+    canModeratePublicLibrary
+      ? [{
+        id: 'public-crop-library-moderation',
+        label: t('library.page.moderation.open'),
+        ariaLabel: t('library.page.moderation.open'),
+        onClick: openModeration,
+        appearance: 'standard' as const,
+      }]
+      : []
+  ), [canModeratePublicLibrary, openModeration, t]);
+
+  useTopbarContextActions(setTopbarContextActions, topbarContextActions);
+
   const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
     t,
     cultures,
@@ -1550,6 +1585,9 @@ export default function PublicCropLibraryPage() {
   useRegisterCommands('public-crop-library-page', commandSpecs);
 
   const upsertCultureInList = (updatedCulture: PublicCulture): void => {
+    cultureListRequestIdRef.current += 1;
+    setLoadError('');
+    setLoadStatus('success');
     setCultures((current) => {
       const existingIndex = current.findIndex((culture) => culture.id === updatedCulture.id);
       if (existingIndex === -1) {
@@ -1792,14 +1830,29 @@ export default function PublicCropLibraryPage() {
     bgcolor: 'background.paper',
   } as const;
 
+  const cropActions = selectedCulture ? (
+    <DetailPageActions
+      compact={useCompactLibraryLayout}
+      primaryActions={[
+        {
+          label: t('library.page.edit.open'),
+          icon: <EditOutlinedIcon fontSize="small" />,
+          onClick: openEditDialog,
+        },
+        {
+          label: importingId ? t('library.importing') : t('library.importButton'),
+          icon: <DownloadOutlinedIcon fontSize="small" />,
+          onClick: () => void handleImport(),
+          disabled: importingId !== null,
+          variant: 'contained',
+        },
+      ]}
+    />
+  ) : null;
   return (
     <PageContainer variant="xwide">
       <Box sx={{ width: '100%' }}>
         <Stack spacing={2}>
-          <PageHeader
-            title={t('library.page.title')}
-            help={<PageHelp pageKey="cropLibrary" ariaLabel={t('library.page.help.openAria')} tooltip={t('library.page.help.tooltip')} />}
-          />
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
 
           <Box
@@ -1977,7 +2030,15 @@ export default function PublicCropLibraryPage() {
                 ) : (
                 <Stack sx={{ minHeight: '100%' }}>
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
-                    <Stack direction="row" spacing={1.5} useFlexGap flexWrap={{ xs: 'nowrap', sm: 'wrap' }} alignItems="flex-start" justifyContent="space-between">
+                    <Stack
+                      data-testid="public-crop-detail-header"
+                      direction="row"
+                      spacing={1.5}
+                      useFlexGap
+                      flexWrap="wrap"
+                      alignItems="flex-start"
+                      justifyContent="space-between"
+                    >
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
                           <Box
@@ -2033,23 +2094,11 @@ export default function PublicCropLibraryPage() {
                           </Stack>
                         </Box>
                       </Box>
-                      <DetailPageActions
-                        compact={useCompactLibraryLayout}
-                        primaryActions={[
-                          {
-                            label: t('library.page.edit.open'),
-                            icon: <EditOutlinedIcon fontSize="small" />,
-                            onClick: openEditDialog,
-                          },
-                          {
-                            label: importingId ? t('library.importing') : t('library.importButton'),
-                            icon: <DownloadOutlinedIcon fontSize="small" />,
-                            onClick: () => void handleImport(),
-                            disabled: importingId !== null,
-                            variant: 'contained',
-                          },
-                        ]}
-                      />
+                      {cropActions ? (
+                        <Box sx={{ flexShrink: 0, ml: 'auto' }}>
+                          {cropActions}
+                        </Box>
+                      ) : null}
                     </Stack>
                   </CardContent>
                   <Divider />

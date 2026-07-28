@@ -30,7 +30,7 @@ test.describe('first-project onboarding', () => {
     await expect(page.getByText('Karotte')).toBeVisible();
 
     await page.goto('/app/cultures');
-    await waitForPageStable(page, /Kulturen/);
+    await waitForPageStable(page, /Kulturbibliothek/);
     await expect(page.getByRole('heading', { name: 'Gurke' })).toBeVisible();
   });
 

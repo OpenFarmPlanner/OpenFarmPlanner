@@ -51,13 +51,13 @@
         "tab": "Areas",
         "title": "Edit areas and beds directly",
         "description": "Locations, fields, and beds stay visible in a clear hierarchy. Changes happen right in the table – no separate forms or page switches.",
-        "alt": "Table view of growing areas with editable cells for locations, fields, and beds"
+        "alt": "Table view of growing areas with locations, fields, and beds"
       },
       "plantingPlans": {
         "tab": "Planting plans",
         "title": "Edit planting plans directly",
         "description": "Sowing, planting, and harvest dates, as well as quantities and crops, can be edited right in the table. Changes show up immediately, making season planning fast.",
-        "alt": "Planting-plan table with a planting-date cell open in edit mode"
+        "alt": "Planting-plan table with crops, areas, dates, and planned quantities"
       },
       "calendar": {
         "tab": "Calendar",
@@ -78,7 +78,7 @@
         "alt": "Yield overview with expected harvest quantities by calendar week and crop"
       },
       "cultures": {
-        "tab": "Crops",
+        "tab": "Crop library",
         "title": "Maintain crops centrally",
         "description": "Varieties, cultivation methods, spacing, expected yield, and seed data live in one place and feed the plan.",
         "alt": "Crops view with several vegetables and varieties in the demo project"

@@ -545,6 +545,21 @@ if DEBUG:
     CSRF_COOKIE_SECURE = _env_bool('CSRF_COOKIE_SECURE', 'False')
     SESSION_COOKIE_SECURE = _env_bool('SESSION_COOKIE_SECURE', 'False')
 
-
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 E2E_TEST_TOKEN = os.getenv('E2E_TEST_TOKEN', '').strip()

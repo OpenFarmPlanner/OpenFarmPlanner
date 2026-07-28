@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 import { CultureDetail } from '../cultures/CultureDetail';
 import type { Culture } from '../api/api';
 import translations from '@/test-utils/translations';
+import i18n from '../i18n/config';
 
 describe('CultureDetail Component', () => {
   const renderCultureDetail = (ui: Parameters<typeof render>[0]) =>
@@ -265,6 +266,56 @@ describe('CultureDetail Component', () => {
     ]);
   });
 
+  it('renders crop detail labels and static values in English', async () => {
+    await i18n.changeLanguage('en');
+    const cultures: Culture[] = [
+      {
+        id: 31,
+        name: 'Carrot',
+        crop_family: 'Apiaceae',
+        nutrient_demand: 'medium',
+        cultivation_types: ['pre_cultivation', 'direct_sowing'],
+        growth_duration_days: 70,
+        harvest_duration_days: 21,
+        distance_within_row_cm: 5,
+        row_spacing_cm: 30,
+        sowing_depth_cm: 1.5,
+        seed_rate_direct_value: 0.014,
+        seed_rate_direct_unit: 'seeds_per_lfm',
+        sowing_calculation_safety_percent_direct: 5,
+        seed_rate_pre_cultivation_value: 1.357,
+        seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+        sowing_calculation_safety_percent_pre_cultivation: 10,
+        thousand_kernel_weight_g: 1.3,
+        harvest_method: 'per_sqm',
+        expected_yield: 4.5,
+        allow_deviation_delivery_weeks: true,
+      },
+    ];
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={cultures}
+        selectedCultureId={31}
+        onCultureSelect={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('heading', { level: 6, name: 'General information' })).toBeInTheDocument();
+    expect(screen.getByText('Crop family')).toBeInTheDocument();
+    expect(screen.getByText('Nutrient demand')).toBeInTheDocument();
+    expect(screen.getByText('Medium')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Spacing' })).toBeInTheDocument();
+    expect(screen.getByText('In-row spacing')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Seed' })).toBeInTheDocument();
+    expect(screen.getByText('Seed quantity by cultivation type')).toBeInTheDocument();
+    expect(screen.getByText('seeds / plant')).toBeInTheDocument();
+    expect(screen.getByText('seeds / running m')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Yield' })).toBeInTheDocument();
+    expect(screen.getByText('Expected yield')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument();
+  });
+
   it('renders supplier seed data once inside the seed section', () => {
     const mockOnSelect = vi.fn();
     renderCultureDetail(
@@ -320,7 +371,7 @@ describe('CultureDetail Component', () => {
       />
     );
 
-    expect(screen.getByText('2.0 cm')).toBeInTheDocument();
+    expect(screen.getByText('2,0 cm')).toBeInTheDocument();
   });
 
   it('displays notes when available', () => {

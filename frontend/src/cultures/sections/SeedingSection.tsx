@@ -13,12 +13,12 @@ interface SeedingSectionProps {
   t: TFunction;
 }
 
-const seedRateUnitOptions: Array<{ value: SeedRateUnit; label: string }> = [
-  { value: 'g_per_m2', label: 'g / m²' },
-  { value: 'g_per_lfm', label: 'g / lfm' },
-  { value: 'seeds_per_m2', label: 'Korn / m²' },
-  { value: 'seeds_per_lfm', label: 'Korn / lfm' },
-  { value: 'seeds_per_plant', label: 'Korn / Pflanze' },
+const seedRateUnitOptions: Array<{ value: SeedRateUnit; labelKey: string }> = [
+  { value: 'g_per_m2', labelKey: 'detail.seedUnits.gPerSqm' },
+  { value: 'g_per_lfm', labelKey: 'detail.seedUnits.gPerRunningMeter' },
+  { value: 'seeds_per_m2', labelKey: 'detail.seedUnits.seedsPerSqm' },
+  { value: 'seeds_per_lfm', labelKey: 'detail.seedUnits.seedsPerRunningMeter' },
+  { value: 'seeds_per_plant', labelKey: 'detail.seedUnits.seedsPerPlant' },
 ];
 
 const toSeedRateUnitSelectValue = (value: unknown): SeedRateUnit | '' => {
@@ -84,12 +84,13 @@ function SeedRateBlock({
                     </Typography>
                   );
                 }
-                return seedRateUnitOptions.find((option) => option.value === selected)?.label ?? '';
+                const selectedOption = seedRateUnitOptions.find((option) => option.value === selected);
+                return selectedOption ? t(selectedOption.labelKey) : '';
               }}
               displayEmpty
             >
               {seedRateUnitOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                <MenuItem key={option.value} value={option.value}>{t(option.labelKey)}</MenuItem>
               ))}
             </Select>
             {errors[unitField] && (

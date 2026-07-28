@@ -22,6 +22,7 @@ import {
   Select,
   type SelectChangeEvent,
 } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
 
@@ -58,6 +59,7 @@ export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
         id={buttonId}
         onClick={(event) => setAnchorEl(event.currentTarget)}
         startIcon={<LanguageIcon fontSize="small" />}
+        endIcon={<KeyboardArrowDownIcon fontSize="small" />}
         size={dense ? 'small' : 'medium'}
         color="inherit"
         aria-haspopup="menu"
@@ -66,7 +68,21 @@ export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
         // The visible text is the current language; the accessible name adds
         // what the control does, so it is never just "Deutsch".
         aria-label={t('language.switcherLabel', { language: getLanguageLabel(language) })}
-        sx={{ minHeight: 44, textTransform: 'none', fontWeight: 500 }}
+        sx={{
+          minWidth: 0,
+          minHeight: 44,
+          px: dense ? { xs: 0.75, sm: 1 } : undefined,
+          textTransform: 'none',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          '& .MuiButton-startIcon': {
+            display: { xs: 'none', sm: 'inherit' },
+            mr: 0.75,
+          },
+          '& .MuiButton-endIcon': {
+            ml: 0.35,
+          },
+        }}
       >
         {getLanguageLabel(language)}
       </Button>

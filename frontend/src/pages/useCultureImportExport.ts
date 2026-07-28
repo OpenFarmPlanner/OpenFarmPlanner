@@ -166,7 +166,7 @@ export function useCultureImportExport({
           ? [selectedCulture]
           : (await cultureAPI.listAll()).results;
         const filename = buildSpreadsheetFilename(format, scope === 'current' ? 'single' : 'all', selectedCulture ?? undefined);
-        exportCulturesToSpreadsheet(culturesToExport, format, filename);
+        exportCulturesToSpreadsheet(culturesToExport, format, filename, t);
       }
       showSnackbar(t('export.success'), 'success');
     } catch (error) {

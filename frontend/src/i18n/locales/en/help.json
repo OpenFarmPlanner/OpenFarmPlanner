@@ -18,7 +18,7 @@
       ]
     },
     {
-      "title": "Crops",
+      "title": "Crop library",
       "points": [
         "Enter your crop data here, or draw on the public crop library."
       ]
@@ -55,7 +55,7 @@
     }
   ],
   "workflowTitle": "Workflow",
-  "workflow": "Growing areas → Cultures → Planting plans → Planting calendar → Seed demand",
+  "workflow": "Growing areas → Crop library → Planting plans → Planting calendar → Seed demand",
   "pages": {
     "dashboard": {
       "title": "Help: Overview",
@@ -132,7 +132,7 @@
       }
     },
     "cultures": {
-      "title": "Help: Cultures",
+      "title": "Help: Crop library",
       "intro": "Manage crops and their key properties here. These data are used in planting plans, calendar, and seed demand.",
       "sections": [
         {

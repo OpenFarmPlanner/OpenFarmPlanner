@@ -25,27 +25,45 @@ import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 const PRODUCT_TOUR_ITEMS = [
   {
     key: 'areas',
-    image: publicAssetUrl('/landing/screenshots/demo-areas.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-areas.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-areas-en.webp'),
+    },
   },
   {
     key: 'cultures',
-    image: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-cultures-en.webp'),
+    },
   },
   {
     key: 'plantingPlans',
-    image: publicAssetUrl('/landing/screenshots/demo-planting-plans.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-planting-plans.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-planting-plans-en.webp'),
+    },
   },
   {
     key: 'calendar',
-    image: publicAssetUrl('/landing/screenshots/demo-calendar.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-calendar.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-calendar-en.webp'),
+    },
   },
   {
     key: 'yieldOverview',
-    image: publicAssetUrl('/landing/screenshots/demo-yield-overview.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-yield-overview.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-yield-overview-en.webp'),
+    },
   },
   {
     key: 'seedDemand',
-    image: publicAssetUrl('/landing/screenshots/demo-seed-demand.webp'),
+    images: {
+      de: publicAssetUrl('/landing/screenshots/demo-seed-demand.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-seed-demand-en.webp'),
+    },
   },
 ] as const;
 
@@ -143,7 +161,7 @@ function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
  * @returns Landing page UI.
  */
 export default function HomePage() {
-  const { t } = useTranslation('home');
+  const { t, i18n } = useTranslation('home');
   const navigate = useNavigate();
   const { startGuestDemo } = useAuth();
   const [isStartingDemo, setIsStartingDemo] = useState(false);
@@ -152,6 +170,8 @@ export default function HomePage() {
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [activeTourKey, setActiveTourKey] = useState<ProductTourKey>('areas');
   const activeTourItem = PRODUCT_TOUR_ITEMS.find((item) => item.key === activeTourKey) ?? PRODUCT_TOUR_ITEMS[0];
+  const screenshotLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'de').split('-')[0] === 'en' ? 'en' : 'de';
+  const activeTourImage = activeTourItem.images[screenshotLanguage];
   const retryRemainingSeconds = retryAvailableAt === null
     ? 0
     : Math.max(0, Math.ceil((retryAvailableAt - currentTime) / 1000));
@@ -225,33 +245,49 @@ export default function HomePage() {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
         <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 1.5, md: 2 }, pb: { xs: 2.5, md: 3 } }}>
-          {/* Reachable but not dominant: quiet, right-aligned, above the hero. */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: { xs: 0.5, md: 1 } }}>
-            <PublicLanguageSwitcher dense />
-          </Box>
-          <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
-            <Box
-              component="img"
-              src={publicAssetUrl('/favicon.png')}
-              alt=""
-              aria-hidden
-              sx={{
-                width: { xs: 40, md: 48 },
-                height: 'auto',
-                opacity: 0.95,
-              }}
-            />
-            <Typography
-              variant="h2"
-              component="h1"
-              sx={{
-                fontSize: { xs: '1.9rem', md: '2.5rem' },
-                fontWeight: 600,
-                lineHeight: 1.1,
-              }}
+          <Stack
+            component="header"
+            direction="row"
+            spacing={{ xs: 0.75, sm: 2 }}
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ minHeight: 48 }}
+          >
+            <Stack
+              direction="row"
+              spacing={{ xs: 0.75, sm: 1.4 }}
+              alignItems="center"
+              sx={{ minWidth: 0, flex: '1 1 auto' }}
             >
-              {t('landing.title')}
-            </Typography>
+              <Box
+                component="img"
+                src={publicAssetUrl('/favicon.png')}
+                alt=""
+                aria-hidden
+                sx={{
+                  width: { xs: 32, sm: 40, md: 48 },
+                  height: 'auto',
+                  flexShrink: 0,
+                  opacity: 0.95,
+                }}
+              />
+              <Typography
+                variant="h2"
+                component="h1"
+                sx={{
+                  minWidth: 0,
+                  fontSize: { xs: '1.1rem', sm: '1.9rem', md: '2.5rem' },
+                  fontWeight: 600,
+                  lineHeight: 1.1,
+                  overflowWrap: 'normal',
+                }}
+              >
+                {t('landing.title')}
+              </Typography>
+            </Stack>
+            <Box sx={{ flex: '0 0 auto' }}>
+              <PublicLanguageSwitcher dense />
+            </Box>
           </Stack>
         </Container>
 
@@ -552,7 +588,7 @@ export default function HomePage() {
                       >
                         <Box
                           component="img"
-                          src={activeTourItem.image}
+                          src={activeTourImage}
                           alt={t(`productTour.items.${activeTourItem.key}.alt`)}
                           loading="eager"
                           decoding="async"

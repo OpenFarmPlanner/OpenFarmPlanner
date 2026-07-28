@@ -16,7 +16,7 @@ from config.languages import UI_LANGUAGE_AUTO, UI_LANGUAGE_VALUES
 from crops.permissions import is_public_library_moderator
 from farm.models import ProjectMembership
 from farm.project_context import resolve_project_for_user
-from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION
+from farm.services.demo_project import is_demo_project_description
 
 from .consent import get_pending_consent_documents, has_accepted_current, record_acceptance
 from .models import AccountDeletionRequest, DocumentConsent, GuestDemoSession, PublicProfile
@@ -147,7 +147,7 @@ class UserSerializer(serializers.ModelSerializer):
                 'project_id': row.project_id,
                 'project_name': row.project.name,
                 'role': row.role,
-                'is_demo_project': row.project.description == DEMO_PROJECT_DESCRIPTION,
+                'is_demo_project': is_demo_project_description(row.project.description),
             }
             for row in rows
         ]

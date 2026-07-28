@@ -1,5 +1,5 @@
 {
-  "title": "Kulturen",
+  "title": "Kulturbibliothek",
   "searchPlaceholder": "Kultur suchen",
   "searchInputPlaceholder": "Name der Kultur eingeben...",
   "noOptions": "Keine Kulturen gefunden",
@@ -52,6 +52,52 @@
   "columns": {
     "culture": "Kultur",
     "supplier_id": "Lieferant"
+  },
+  "detail": {
+    "sections": {
+      "general": "Allgemeine Informationen",
+      "spacing": "Abstände",
+      "seed": "Saatgut",
+      "harvest": "Ernte",
+      "notes": "Notizen"
+    },
+    "fields": {
+      "distanceWithinRow": "Abstand in der Reihe",
+      "rowSpacing": "Reihenabstand",
+      "sowingDepth": "Saattiefe",
+      "seedSafetyMargin": "Sicherheitszuschlag Saatgut",
+      "seedSafetyMarginPercent": "Sicherheitszuschlag (%)",
+      "seedRateByCultivation": "Saatgutmenge nach Anbauart",
+      "method": "Methode",
+      "seedingRequirement": "Saatgutbedarf",
+      "allowDeviationDeliveryWeeks": "Abweichende Lieferwochen"
+    },
+    "units": {
+      "days": "Tage",
+      "centimeters": "cm",
+      "grams": "g",
+      "kilograms": "kg",
+      "percent": "%"
+    },
+    "boolean": {
+      "yes": "Ja",
+      "no": "Nein"
+    },
+    "seedUnits": {
+      "gPerSqm": "g / m²",
+      "gPerRunningMeter": "g / lfm",
+      "seedsPerSqm": "Korn / m²",
+      "seedsPerRunningMeter": "Korn / lfm",
+      "seedsPerPlant": "Korn / Pflanze"
+    },
+    "packageUnits": {
+      "grams": "g",
+      "seeds": "Korn"
+    },
+    "seedingRequirementTypes": {
+      "perSqm": "/ m²",
+      "perPlant": "/ Pflanze"
+    }
   },
   "validation": {
     "required": "Dieses Feld ist erforderlich.",
@@ -417,7 +463,10 @@
     "formatJsonHint": "Für vollständige Datensicherung und Datenaustausch.",
     "submit": "Exportieren",
     "cancel": "Abbrechen",
-    "success": "Export abgeschlossen"
+    "success": "Export abgeschlossen",
+    "columns": {
+      "expectedYieldKgPerSqm": "Erwarteter Ertrag (kg/m²)"
+    }
   },
   "buttons": {
     "addNew": "Kultur hinzufügen",
@@ -469,10 +518,12 @@
     "fieldsChanged": "{{count}} Felder ändern",
     "noChanges": "Keine Änderungen",
     "confirmUpdates": "Überschreiben bestätigen",
+    "unrecognizedColumns": "Nicht erkannte Spalten werden ignoriert: {{columns}}",
     "errors": {
       "notArray": "Die Datei muss ein JSON-Array enthalten.",
       "noValidEntries": "Keine gültigen Einträge gefunden.",
       "unsupportedFormat": "Dieses Dateiformat wird nicht unterstützt. Bitte JSON, CSV, XLSX oder ODS verwenden.",
+      "noSpreadsheetTable": "Keine Tabelle in der Datei gefunden.",
       "parse": "Die Datei konnte nicht gelesen werden.",
       "server": "Import fehlgeschlagen.",
       "network": "Netzwerkfehler beim Import.",
@@ -495,6 +546,9 @@
       "help": {
         "tooltip": "Hilfe zur öffentlichen Kulturbibliothek",
         "openAria": "Hilfe zur öffentlichen Kulturbibliothek öffnen"
+      },
+      "moderation": {
+        "open": "Moderation"
       },
       "tabs": {
         "details": "Details",

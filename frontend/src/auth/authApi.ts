@@ -219,6 +219,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Language': i18n.resolvedLanguage ?? i18n.language ?? 'en',
         ...(options.headers ?? {}),
       },
     });

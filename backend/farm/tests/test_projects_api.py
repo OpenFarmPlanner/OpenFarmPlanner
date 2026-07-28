@@ -18,7 +18,7 @@ from farm.models import (
     ProjectInvitation,
     ProjectMembership,
 )
-from farm.services.demo_project import DEMO_PROJECT_NAME
+from farm.services.demo_project import DEMO_PROJECT_NAME, DEMO_PROJECT_NAME_EN
 
 User = get_user_model()
 
@@ -164,6 +164,27 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(Bed.objects.filter(project=project).count(), 12)
         self.assertEqual(Culture.objects.filter(project=project).count(), 8)
         self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 12)
+
+        me_response = self.client.get('/openfarmplanner/api/auth/me/')
+        demo_membership = next(
+            row for row in me_response.data['memberships']
+            if row['project_id'] == project.id
+        )
+        self.assertTrue(demo_membership['is_demo_project'])
+
+    def test_authenticated_user_can_create_english_demo_project(self) -> None:
+        response = self.client.post(
+            '/openfarmplanner/api/projects/create-demo/',
+            {},
+            format='json',
+            HTTP_ACCEPT_LANGUAGE='en-US,en;q=0.9',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], DEMO_PROJECT_NAME_EN)
+        project = Project.objects.get(id=response.data['id'])
+        self.assertTrue(Location.objects.filter(project=project, name='Farm Garden').exists())
+        self.assertTrue(Culture.objects.filter(project=project, name='Carrot').exists())
 
         me_response = self.client.get('/openfarmplanner/api/auth/me/')
         demo_membership = next(

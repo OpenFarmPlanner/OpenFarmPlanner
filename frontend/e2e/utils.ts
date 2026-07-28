@@ -18,7 +18,7 @@ export const VIEWPORTS = [
 export const MAIN_ROUTES = [
   { key: 'dashboard', path: '/app/dashboard', ready: /Übersicht|Dashboard/i },
   { key: 'anbauflaechen', path: '/app/fields-beds', ready: /Anbauflächen|Parzellen|Beete/i },
-  { key: 'kulturen', path: '/app/cultures', ready: /Kulturen/i },
+  { key: 'kulturen', path: '/app/cultures', ready: /Kulturbibliothek/i },
   { key: 'anbauplaene', path: '/app/anbauplaene', ready: /Anbaupläne|Anbauplan/i },
   { key: 'anbaukalender', path: '/app/gantt-chart', ready: /Anbaukalender|Kalender/i },
   { key: 'ertragsuebersicht', path: '/app/yield-overview', ready: /Ertragsübersicht|Ertragsverteilung|Ertragsprognose/i },
@@ -69,12 +69,13 @@ export async function loginWithDeterministicProject(
   page: Page,
   request: APIRequestContext,
   scenarioId: string,
-  options: { demoProject?: boolean; loginAsAdmin?: boolean } = {},
+  options: { demoProject?: boolean; loginAsAdmin?: boolean; languageCode?: 'de' | 'en' } = {},
 ): Promise<void> {
   await invokeE2EAction(request, 'reset', { scenario_id: scenarioId });
   const fixture = await invokeE2EAction(request, options.demoProject ? 'setup_demo' : 'setup', {
     scenario_id: scenarioId,
     invitation_state: 'pending',
+    ...(options.languageCode ? { language_code: options.languageCode } : {}),
   }) as {
     inviteUrl: string;
     admin: { email: string; password: string };

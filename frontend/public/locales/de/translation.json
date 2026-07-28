@@ -5,7 +5,7 @@
   "navigation": {
     "start": "Start",
     "locations": "Standorte",
-    "cultures": "Kulturen",
+    "cultures": "Kulturbibliothek",
     "plantingPlans": "Anbaupläne",
     "graphicalFields": "Grafische Ansicht"
   },
@@ -50,11 +50,11 @@
     "manageLocations": "Standorte verwalten",
     "manageFields": "Parzellen verwalten",
     "manageBeds": "Beete verwalten",
-    "manageCultures": "Kulturen verwalten",
+    "manageCultures": "Kulturbibliothek verwalten",
     "managePlantingPlans": "Anbaupläne verwalten"
   },
   "cultures": {
-    "title": "Kulturen",
+    "title": "Kulturbibliothek",
     "searchPlaceholder": "Kultur suchen",
     "searchInputPlaceholderEnhanced": "Nach Kulturname suchen (z. B. Karotte)",
     "searchHelperText_one": "{{count}} Kultur gefunden. Mit den Filtern können Sie weiter eingrenzen.",

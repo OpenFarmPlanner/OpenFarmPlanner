@@ -5,7 +5,6 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';
@@ -23,12 +22,10 @@ interface GlobalMenuProps {
   onOpenProjectSettings: () => void;
   onOpenProjectHistory: () => Promise<void>;
   onOpenAccountSettings: () => void;
-  onOpenPublicLibraryModeration: () => void;
   onOpenShortcuts: () => void;
   onOpenHelp: () => void;
   canLeaveDemoProject: boolean;
   isGuestDemoSession: boolean;
-  canModeratePublicLibrary: boolean;
   onLeaveDemoProject: () => Promise<void>;
   onLogout: () => Promise<void>;
   t: (key: string) => string;
@@ -47,12 +44,10 @@ export function GlobalMenu(props: GlobalMenuProps) {
     onOpenProjectSettings,
     onOpenProjectHistory,
     onOpenAccountSettings,
-    onOpenPublicLibraryModeration,
     onOpenShortcuts,
     onOpenHelp,
     canLeaveDemoProject,
     isGuestDemoSession,
-    canModeratePublicLibrary,
     onLeaveDemoProject,
     onLogout,
     t,
@@ -71,7 +66,6 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <MenuItem key="mobile-section-app" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.app')}</MenuItem>,
     <MenuItem key="mobile-app-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
     <MenuItem key="mobile-app-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
-    canModeratePublicLibrary ? <MenuItem key="mobile-app-moderation" onClick={wrap(onOpenPublicLibraryModeration)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><GavelOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.publicLibraryModeration')}</MenuItem> : null,
     <MenuItem key="mobile-app-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="mobile-divider-app-language" />,
     <MenuItem key="mobile-section-language" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('language.label')}</MenuItem>,
@@ -85,12 +79,6 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <MenuItem key="desktop-project-settings" onClick={wrap(onOpenProjectSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.settings')}</MenuItem>,
     <MenuItem key="desktop-history" onClick={wrapAsync(onOpenProjectHistory)} disabled={historyLoading}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HistoryOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.openVersionHistory')}</MenuItem>,
     <Divider key="desktop-divider-project" />,
-    ...(canModeratePublicLibrary
-      ? [
-          <MenuItem key="desktop-public-library-moderation" onClick={wrap(onOpenPublicLibraryModeration)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><GavelOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.publicLibraryModeration')}</MenuItem>,
-          <Divider key="desktop-divider-moderation" />,
-        ]
-      : []),
     <MenuItem key="desktop-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="desktop-divider-language" />,
     <MenuItem key="desktop-section-language" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('language.label')}</MenuItem>,

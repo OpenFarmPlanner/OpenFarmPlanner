@@ -15,7 +15,7 @@ const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
-    reader.onerror = () => reject(reader.error ?? new Error('Datei konnte nicht gelesen werden'));
+    reader.onerror = () => reject(reader.error ?? new Error('File could not be read'));
     reader.readAsArrayBuffer(file);
   });
 
@@ -57,11 +57,12 @@ export const parseSpreadsheetFile = async (file: File): Promise<SpreadsheetParse
   }
   const rows = parseSpreadsheetRows(buffer, extension);
   if (rows.length < 1) {
-    return { entries: [], skippedRows: 0, warnings: ['Keine Tabelle in der Datei gefunden.'] };
+    return { entries: [], skippedRows: 0, warnings: [i18n.t('cultures:import.errors.noSpreadsheetTable')] };
   }
 
   const headerRow = rows[0] as (string | null)[];
-  const headerToKey = buildHeaderToKeyMap();
+  const t = i18n.getFixedT(i18n.resolvedLanguage ?? i18n.language, 'cultures');
+  const headerToKey = buildHeaderToKeyMap(t);
   const columnMap: (string | null)[] = headerRow.map((h) => {
     if (!h) return null;
     return headerToKey.get(normalizeHeaderForLookup(String(h))) ?? null;
@@ -72,7 +73,7 @@ export const parseSpreadsheetFile = async (file: File): Promise<SpreadsheetParse
   const warnings: string[] = [];
   const unrecognized = headerRow.filter((h, i) => h && !columnMap[i]);
   if (unrecognized.length > 0) {
-    warnings.push(`Nicht erkannte Spalten werden ignoriert: ${unrecognized.filter(Boolean).join(', ')}`);
+    warnings.push(i18n.t('cultures:import.unrecognizedColumns', { columns: unrecognized.filter(Boolean).join(', ') }));
   }
 
   const dataRows = rows.slice(1);

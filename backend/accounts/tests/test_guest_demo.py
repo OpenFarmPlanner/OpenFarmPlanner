@@ -18,6 +18,7 @@ from accounts.guest_demo import create_guest_demo_session
 from accounts.models import GuestDemoSession
 from accounts.views import GuestDemoStartView, LoginView
 from farm.models import Culture, Project
+from farm.services.demo_project import DEMO_PROJECT_NAME_EN
 
 User = get_user_model()
 
@@ -77,6 +78,23 @@ class GuestDemoApiTests(TestCase):
         self.assertEqual(project.name, 'Solawi Sonnenacker')
         self.assertGreater(Culture.objects.filter(project=project).count(), 0)
         self.assertEqual(response.data['pending_consents'], [])
+
+    def test_start_uses_request_language_for_demo_content(self) -> None:
+        response = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+            HTTP_ACCEPT_LANGUAGE='en-US,en;q=0.9',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        project = Project.objects.get(id=response.data['resolved_project_id'])
+        self.assertEqual(project.name, DEMO_PROJECT_NAME_EN)
+        self.assertTrue(Culture.objects.filter(project=project, name='Carrot').exists())
+        self.assertFalse(Culture.objects.filter(project=project, name='Karotte').exists())
+        self.assertEqual(response.data['memberships'][0]['project_name'], DEMO_PROJECT_NAME_EN)
+        self.assertTrue(response.data['memberships'][0]['is_demo_project'])
+        self.assertEqual(response.data['ui_language'], 'en')
 
     def test_each_start_receives_its_own_workspace(self) -> None:
         first = self.client.post(

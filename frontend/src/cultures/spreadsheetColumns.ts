@@ -1,5 +1,5 @@
 export type SpreadsheetColumnDef = {
-  header: string;
+  headerKey: string;
   key: string;
   aliases: string[];
   type: 'string' | 'number' | 'boolean';
@@ -7,10 +7,13 @@ export type SpreadsheetColumnDef = {
   enumImport?: Record<string, string>;
 };
 
+type LocalizedSpreadsheetColumnDef = SpreadsheetColumnDef & { header: string };
+type SpreadsheetT = (key: string) => string;
+
 export const NUTRIENT_DEMAND_EXPORT: Record<string, string> = {
-  low: 'Niedrig',
-  medium: 'Mittel',
-  high: 'Hoch',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
 };
 
 export const NUTRIENT_DEMAND_IMPORT: Record<string, string> = {
@@ -23,21 +26,23 @@ export const NUTRIENT_DEMAND_IMPORT: Record<string, string> = {
 };
 
 export const CULTIVATION_TYPE_EXPORT: Record<string, string> = {
-  direct_sowing: 'Direktsaat',
-  pre_cultivation: 'Pflanzung',
+  direct_sowing: 'Direct sowing',
+  pre_cultivation: 'Transplanting',
 };
 
 export const CULTIVATION_TYPE_IMPORT: Record<string, string> = {
   direktsaat: 'direct_sowing',
   direktsaht: 'direct_sowing',
   pflanzung: 'pre_cultivation',
+  'direct sowing': 'direct_sowing',
+  transplanting: 'pre_cultivation',
   direct_sowing: 'direct_sowing',
   pre_cultivation: 'pre_cultivation',
 };
 
 export const YIELD_UNIT_EXPORT: Record<string, string> = {
-  per_plant: 'Pro Pflanze',
-  per_sqm: 'Pro m²',
+  per_plant: 'Per plant',
+  per_sqm: 'Per m²',
 };
 
 export const YIELD_UNIT_IMPORT: Record<string, string> = {
@@ -45,16 +50,19 @@ export const YIELD_UNIT_IMPORT: Record<string, string> = {
   'je pflanze': 'per_plant',
   'pro m²': 'per_sqm',
   'pro qm': 'per_sqm',
+  'per plant': 'per_plant',
+  'per m²': 'per_sqm',
+  'per sqm': 'per_sqm',
   per_plant: 'per_plant',
   per_sqm: 'per_sqm',
 };
 
 export const SEED_RATE_UNIT_EXPORT: Record<string, string> = {
   g_per_m2: 'g/m²',
-  g_per_lfm: 'g/lfm',
-  seeds_per_m2: 'Körner/m²',
-  seeds_per_lfm: 'Körner/lfm',
-  seeds_per_plant: 'Körner/Pflanze',
+  g_per_lfm: 'g/running m',
+  seeds_per_m2: 'seeds/m²',
+  seeds_per_lfm: 'seeds/running m',
+  seeds_per_plant: 'seeds/plant',
 };
 
 export const SEED_RATE_UNIT_IMPORT: Record<string, string> = {
@@ -65,6 +73,11 @@ export const SEED_RATE_UNIT_IMPORT: Record<string, string> = {
   'körner/qm': 'seeds_per_m2',
   'körner/lfm': 'seeds_per_lfm',
   'körner/pflanze': 'seeds_per_plant',
+  'g/running m': 'g_per_lfm',
+  'seeds/m²': 'seeds_per_m2',
+  'seeds/qm': 'seeds_per_m2',
+  'seeds/running m': 'seeds_per_lfm',
+  'seeds/plant': 'seeds_per_plant',
   g_per_m2: 'g_per_m2',
   g_per_lfm: 'g_per_lfm',
   seeds_per_m2: 'seeds_per_m2',
@@ -75,31 +88,31 @@ export const SEED_RATE_UNIT_IMPORT: Record<string, string> = {
 export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   {
     key: 'name',
-    header: 'Name',
+    headerKey: 'form.name',
     aliases: ['kulturname', 'kultur', 'bezeichnung'],
     type: 'string',
   },
   {
     key: 'variety',
-    header: 'Sorte',
+    headerKey: 'form.variety',
     aliases: ['sortenname', 'varietät', 'cultivar'],
     type: 'string',
   },
   {
     key: 'supplier_name',
-    header: 'Saatgutlieferant',
+    headerKey: 'form.supplier',
     aliases: ['lieferant', 'seed_supplier', 'hersteller', 'lieferanten'],
     type: 'string',
   },
   {
     key: 'crop_family',
-    header: 'Pflanzenfamilie',
+    headerKey: 'form.cropFamily',
     aliases: ['familie', 'pflanzenart', 'pfanzenfamilie'],
     type: 'string',
   },
   {
     key: 'nutrient_demand',
-    header: 'Nährstoffbedarf',
+    headerKey: 'form.nutrientDemand',
     aliases: ['nährstoff', 'düngebedarf', 'nutrient_demand'],
     type: 'string',
     enumExport: NUTRIENT_DEMAND_EXPORT,
@@ -107,7 +120,7 @@ export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   },
   {
     key: 'cultivation_type',
-    header: 'Anbauart',
+    headerKey: 'form.cultivationType',
     aliases: ['anbaumethode', 'saatmethode', 'cultivation_type'],
     type: 'string',
     enumExport: CULTIVATION_TYPE_EXPORT,
@@ -115,25 +128,25 @@ export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   },
   {
     key: 'growth_duration_days',
-    header: 'Wachstumszeit (Tage)',
+    headerKey: 'form.growthDurationDays',
     aliases: ['wachstumszeit', 'wachstumsdauer', 'wachstumstage', 'tage bis ernte', 'growth_duration_days'],
     type: 'number',
   },
   {
     key: 'harvest_duration_days',
-    header: 'Erntezeit (Tage)',
+    headerKey: 'form.harvestDurationDays',
     aliases: ['erntezeit', 'erntezeitraum', 'erntedauer', 'erntedauer tage', 'harvest_duration_days'],
     type: 'number',
   },
   {
     key: 'propagation_duration_days',
-    header: 'Anzuchtdauer (Tage)',
+    headerKey: 'form.propagationDurationDays',
     aliases: ['anzuchtdauer', 'anzuchttage', 'propagation_duration_days'],
     type: 'number',
   },
   {
     key: 'harvest_method',
-    header: 'Ertragseinheit',
+    headerKey: 'form.yieldUnit',
     aliases: ['ertragseinheit', 'ernte methode', 'ernteart', 'harvest_method'],
     type: 'string',
     enumExport: YIELD_UNIT_EXPORT,
@@ -141,49 +154,49 @@ export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   },
   {
     key: 'expected_yield',
-    header: 'Erwarteter Ertrag (kg/m²)',
+    headerKey: 'export.columns.expectedYieldKgPerSqm',
     aliases: ['ertrag', 'erwarteter ertrag', 'expected_yield'],
     type: 'number',
   },
   {
     key: 'distance_within_row_cm',
-    header: 'Abstand in Reihe (cm)',
+    headerKey: 'form.distanceWithinRowCm',
     aliases: ['pflanzenabstand', 'abstand in der reihe', 'abstand reihe', 'distance_within_row_cm'],
     type: 'number',
   },
   {
     key: 'row_spacing_cm',
-    header: 'Reihenabstand (cm)',
+    headerKey: 'form.rowSpacingCm',
     aliases: ['zeilenabstand', 'reihenzwischenabstand', 'row_spacing_cm'],
     type: 'number',
   },
   {
     key: 'sowing_depth_cm',
-    header: 'Saattiefe (cm)',
+    headerKey: 'form.sowingDepthCm',
     aliases: ['tiefe', 'aussaattiefe', 'sowing_depth_cm'],
     type: 'number',
   },
   {
     key: 'thousand_kernel_weight_g',
-    header: '1000-Korn-Gewicht (g)',
+    headerKey: 'form.thousandKernelWeightLabel',
     aliases: ['tkg', 'tausendkorngewicht', '1000-korn', 'thousand_kernel_weight_g'],
     type: 'number',
   },
   {
     key: 'sowing_calculation_safety_percent',
-    header: 'Sicherheitszuschlag (%)',
+    headerKey: 'detail.fields.seedSafetyMarginPercent',
     aliases: ['sicherheitsaufschlag', 'sicherheitsmarge', 'sowing_calculation_safety_percent'],
     type: 'number',
   },
   {
     key: 'seed_rate_direct_value',
-    header: 'Direktsaat Menge',
+    headerKey: 'form.seedRateDirectValue',
     aliases: ['direktsaat menge', 'direktsaat saatgut', 'seed_rate_direct_value'],
     type: 'number',
   },
   {
     key: 'seed_rate_direct_unit',
-    header: 'Direktsaat Einheit',
+    headerKey: 'form.seedRateDirectUnit',
     aliases: ['direktsaat einheit', 'seed_rate_direct_unit'],
     type: 'string',
     enumExport: SEED_RATE_UNIT_EXPORT,
@@ -191,13 +204,13 @@ export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   },
   {
     key: 'seed_rate_pre_cultivation_value',
-    header: 'Pflanzung Menge',
+    headerKey: 'form.seedRatePreCultivationValue',
     aliases: ['pflanzung menge', 'pflanzung saatgut', 'seed_rate_pre_cultivation_value'],
     type: 'number',
   },
   {
     key: 'seed_rate_pre_cultivation_unit',
-    header: 'Pflanzung Einheit',
+    headerKey: 'form.seedRatePreCultivationUnit',
     aliases: ['pflanzung einheit', 'seed_rate_pre_cultivation_unit'],
     type: 'string',
     enumExport: SEED_RATE_UNIT_EXPORT,
@@ -205,19 +218,67 @@ export const CULTURE_COLUMNS: SpreadsheetColumnDef[] = [
   },
   {
     key: 'notes',
-    header: 'Notizen',
+    headerKey: 'form.notes',
     aliases: ['anmerkungen', 'kommentar', 'notiz', 'hinweise'],
     type: 'string',
   },
 ];
 
+const buildNutrientDemandExport = (t: SpreadsheetT): Record<string, string> => ({
+  low: t('form.nutrientDemandLow'),
+  medium: t('form.nutrientDemandMedium'),
+  high: t('form.nutrientDemandHigh'),
+});
+
+const buildCultivationTypeExport = (t: SpreadsheetT): Record<string, string> => ({
+  direct_sowing: t('form.cultivationTypeDirectSowing'),
+  pre_cultivation: t('form.cultivationTypePreCultivation'),
+});
+
+const buildYieldUnitExport = (t: SpreadsheetT): Record<string, string> => ({
+  per_plant: t('form.yieldUnitPerPlant'),
+  per_sqm: t('form.yieldUnitPerSqm'),
+});
+
+const buildSeedRateUnitExport = (t: SpreadsheetT): Record<string, string> => ({
+  g_per_m2: t('detail.seedUnits.gPerSqm'),
+  g_per_lfm: t('detail.seedUnits.gPerRunningMeter'),
+  seeds_per_m2: t('detail.seedUnits.seedsPerSqm'),
+  seeds_per_lfm: t('detail.seedUnits.seedsPerRunningMeter'),
+  seeds_per_plant: t('detail.seedUnits.seedsPerPlant'),
+});
+
+const getLocalizedEnumExport = (columnKey: string, t: SpreadsheetT): Record<string, string> | undefined => {
+  if (columnKey === 'nutrient_demand') return buildNutrientDemandExport(t);
+  if (columnKey === 'cultivation_type') return buildCultivationTypeExport(t);
+  if (columnKey === 'harvest_method') return buildYieldUnitExport(t);
+  if (columnKey === 'seed_rate_direct_unit' || columnKey === 'seed_rate_pre_cultivation_unit') {
+    return buildSeedRateUnitExport(t);
+  }
+  return undefined;
+};
+
+export const getLocalizedCultureColumns = (t: SpreadsheetT): LocalizedSpreadsheetColumnDef[] =>
+  CULTURE_COLUMNS.map((column) => ({
+    ...column,
+    header: t(column.headerKey),
+    enumExport: getLocalizedEnumExport(column.key, t) ?? column.enumExport,
+  }));
+
 export const normalizeHeaderForLookup = (header: string): string =>
   header.trim().toLowerCase().replace(/\s+/g, ' ');
 
-export const buildHeaderToKeyMap = (): Map<string, string> => {
+export const buildHeaderToKeyMap = (t?: SpreadsheetT): Map<string, string> => {
   const map = new Map<string, string>();
-  for (const col of CULTURE_COLUMNS) {
+  const columns = t ? getLocalizedCultureColumns(t) : [];
+  for (const col of columns) {
     map.set(normalizeHeaderForLookup(col.header), col.key);
+    for (const alias of col.aliases) {
+      map.set(normalizeHeaderForLookup(alias), col.key);
+    }
+  }
+  for (const col of CULTURE_COLUMNS) {
+    map.set(normalizeHeaderForLookup(col.headerKey), col.key);
     for (const alias of col.aliases) {
       map.set(normalizeHeaderForLookup(alias), col.key);
     }

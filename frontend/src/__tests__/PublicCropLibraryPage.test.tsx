@@ -1,12 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
+import type { TopbarContextAction } from '../navigation/topbarTypes';
 
 const publicCultureApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
@@ -22,28 +24,35 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 
+const authMocks = vi.hoisted(() => ({
+  user: {
+    id: 1,
+    email: 'test@example.com',
+    display_name: 'Test User',
+    display_label: 'Test User',
+    public_display_name: 'Test User',
+    is_active: true,
+    default_project_id: 1,
+    last_project_id: 1,
+    resolved_project_id: 1,
+    needs_project_selection: false,
+    memberships: [],
+    account_pending_deletion: false,
+    scheduled_deletion_at: null,
+    pending_consents: [],
+    public_library_terms_accepted: true,
+    is_public_library_moderator: false,
+    is_staff: false,
+    is_superuser: false,
+    is_guest_demo: false,
+    guest_demo_session_id: null,
+    has_password: true,
+  },
+}));
+
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({
-    user: {
-      id: 1,
-      email: 'test@example.com',
-      display_name: 'Test User',
-      display_label: 'Test User',
-      public_display_name: 'Test User',
-      is_active: true,
-      default_project_id: 1,
-      last_project_id: 1,
-      resolved_project_id: 1,
-      needs_project_selection: false,
-      memberships: [],
-      account_pending_deletion: false,
-      scheduled_deletion_at: null,
-      pending_consents: [],
-      public_library_terms_accepted: true,
-      is_guest_demo: false,
-      guest_demo_session_id: null,
-      has_password: true,
-    },
+    user: authMocks.user,
   }),
 }));
 
@@ -146,30 +155,42 @@ function LocationProbe() {
   );
 }
 
+function TestAppShell() {
+  const [topbarContextActions, setTopbarContextActions] = useState<TopbarContextAction[]>([]);
+  const [, setTopbarTitleActions] = useState<TopbarContextAction[]>([]);
+  return (
+    <>
+      <LocationProbe />
+      <header>
+        <h1>Öffentliche Kulturbibliothek</h1>
+        {topbarContextActions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            aria-label={action.ariaLabel ?? action.label}
+            onClick={action.onClick}
+            disabled={action.disabled}
+          >
+            {action.label}
+          </button>
+        ))}
+      </header>
+      <Outlet context={{ setTopbarContextActions, setTopbarTitleActions }} />
+    </>
+  );
+}
+
 function renderPage(initialEntries: string[] = ['/app/crop-library']): ReturnType<typeof render> {
   return render(
     <FocusManagerProvider>
       <CommandProvider>
         <MemoryRouter initialEntries={initialEntries}>
           <Routes>
-            <Route
-              path="/app/crop-library"
-              element={(
-                <>
-                  <LocationProbe />
-                  <PublicCropLibraryPage />
-                </>
-              )}
-            />
-            <Route
-              path="/app/dashboard"
-              element={(
-                <>
-                  <LocationProbe />
-                  <h1>Hauptseite</h1>
-                </>
-              )}
-            />
+            <Route path="/app" element={<TestAppShell />}>
+              <Route path="crop-library" element={<PublicCropLibraryPage />} />
+              <Route path="public-library-moderation" element={<h1>Moderation</h1>} />
+              <Route path="dashboard" element={<h1>Hauptseite</h1>} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </CommandProvider>
@@ -194,6 +215,9 @@ function createDeferred<T>(): {
 describe('PublicCropLibraryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authMocks.user.is_public_library_moderator = false;
+    authMocks.user.is_staff = false;
+    authMocks.user.is_superuser = false;
     mockDesktopViewport();
     window.localStorage.clear();
     window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cultureId=1');
@@ -209,6 +233,37 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+  });
+
+  it('hides the global moderation action completely for users without moderation rights', async () => {
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+  });
+
+  it('opens the global moderation interface from the public crop library header for moderators', async () => {
+    const user = userEvent.setup();
+    authMocks.user.is_public_library_moderator = true;
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
+    expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Moderation' }));
+
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/public-library-moderation');
+    expect(screen.getByRole('heading', { name: 'Moderation' })).toBeInTheDocument();
   });
 
   it('does not show the empty state while public cultures are still loading', () => {
@@ -1383,6 +1438,36 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+  }, 30000);
+
+  it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
+    const user = userEvent.setup();
+    const staleList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    publicCultureApiMocks.list
+      .mockResolvedValueOnce({ data: { results: publicCultures } })
+      .mockReturnValueOnce(staleList.promise);
+
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const searchInput = screen.getByLabelText('Öffentliche Kulturen durchsuchen');
+    await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+    const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
+
+    fireEvent.change(searchInput, { target: { value: 'Tom' } });
+    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
+    fireEvent.change(within(editDialog).getByLabelText('Wachstumszeit (Tage)'), { target: { value: '48' } });
+    await user.click(within(editDialog).getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+
+    await act(async () => {
+      staleList.resolve({ data: { results: publicCultures } });
+    });
+
+    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+    expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
 
   it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {

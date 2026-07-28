@@ -18,7 +18,7 @@
       ]
     },
     {
-      "title": "Kulturen",
+      "title": "Kulturbibliothek",
       "points": [
         "Hier trägst du deine Kulturdaten ein oder greifst auf die öffentliche Kulturbibliothek zurück."
       ]
@@ -55,7 +55,7 @@
     }
   ],
   "workflowTitle": "Workflow",
-  "workflow": "Anbauflächen → Kulturen → Anbaupläne → Anbaukalender → Saatgutbedarf",
+  "workflow": "Anbauflächen → Kulturbibliothek → Anbaupläne → Anbaukalender → Saatgutbedarf",
   "pages": {
     "dashboard": {
       "title": "Hilfe: Übersicht",
@@ -132,7 +132,7 @@
       }
     },
     "cultures": {
-      "title": "Hilfe: Kulturen",
+      "title": "Hilfe: Kulturbibliothek",
       "intro": "Hier verwaltest du Kulturen und ihre wichtigsten Eigenschaften. Diese Daten werden in Anbauplänen, Kalender und Saatgutbedarf verwendet.",
       "sections": [
         {

@@ -75,6 +75,7 @@ import { HelpDialog } from '../components/help/HelpDialog';
 import PageHelp from '../components/help/PageHelp';
 import {
   getSegmentedActionButtonSx,
+  getStandardActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
 import { getHistoryEntryTarget, getHistoryEntryTitle, isCurrentHistoryEntry } from '../pages/culturesHistoryUtils';
@@ -182,6 +183,7 @@ function RootLayout() {
   const isVeryNarrowMobile = useMediaQuery('(max-width:360px)');
   const isPhonePortrait = useMediaQuery(`${theme.breakpoints.down('sm')} and (orientation: portrait)`);
   const isTabletOrNarrowDesktop = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
+  const isBelowWideDesktop = useMediaQuery(theme.breakpoints.down('xl'));
   const { user, endGuestDemo, logout, activeProjectId, switchActiveProject } = useAuth();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
   const { activeCreateActions, openPalette, runPrimaryCreateAction, openShortcutsHelp } = useCommandContext();
@@ -371,7 +373,6 @@ function RootLayout() {
   const isGuestDemoSession = Boolean(user?.is_guest_demo);
   const isPersonalDemoProject = !isGuestDemoSession && activeMembership?.is_demo_project === true;
   const canLeaveDemoProject = isGuestDemoSession || isPersonalDemoProject;
-  const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
   const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
 
   const handleLeaveDemoProject = useCallback(async (): Promise<void> => {
@@ -544,7 +545,7 @@ function RootLayout() {
     () => genericTopbarContextActions.filter((action) => !topbarModeControls.some((modeAction) => modeAction.id === action.id)),
     [genericTopbarContextActions, topbarModeControls],
   );
-  const showCompactCultureLibrary = isCulturesPage && (isTabletOrNarrowDesktop || isPhone);
+  const showCompactCultureLibrary = isCulturesPage && (isBelowWideDesktop || isPhone);
   const showIconOnlyCultureLibrary = isCulturesPage && (isPhone || isTabletOrNarrowDesktop);
   const showCultureImportExportButton = isCulturesPage;
   const showDesktopCultureActionsOverflow = isCulturesPage && !isPhone && !isLargeDesktop;
@@ -911,7 +912,17 @@ function RootLayout() {
       >
         <Toolbar variant="dense" sx={{ minHeight: 56, gap: 1, py: 0.5, px: { xs: 0, sm: 2, md: 3 }, flexWrap: 'nowrap', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
           {!isDesktopUp ? <IconButton aria-label={t('globalMenu.openMobileMenu')} onClick={() => setMobileNavOpen(true)} sx={{ width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}><MenuIcon /></IconButton> : null}
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0, flexShrink: 1, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <Box sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            minWidth: 0,
+            width: 'max-content',
+            maxWidth: { xs: 240, sm: 280, md: 400, lg: 480 },
+            flex: { xs: '0 1 max-content', md: '0 0 max-content' },
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+          }}>
             {!isDesktopUp ? (
               <Typography
                 component="h1"
@@ -932,11 +943,29 @@ function RootLayout() {
                 {currentPageTitle}
               </Typography>
             ) : (
-              <Typography component="h1" variant="h5" sx={{ minWidth: 0, maxWidth: { sm: 260, md: 360, lg: 440 }, overflowWrap: 'anywhere', whiteSpace: 'normal', fontSize: { xs: '1rem', md: '1.25rem' }, fontWeight: 600, lineHeight: 1.15 }}>
+              <Typography
+                component="h1"
+                variant="h5"
+                noWrap
+                sx={{
+                  minWidth: 0,
+                  maxWidth: { sm: 260, md: 360, lg: 440 },
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: { xs: '1rem', md: '1.25rem' },
+                  fontWeight: 600,
+                  lineHeight: 1.15,
+                }}
+              >
                 {currentPageTitle}
               </Typography>
             )}
-            {topbarHelpConfig ? <PageHelp pageKey={topbarHelpConfig.pageKey} ariaLabel={t('pageHelp.openAria', { label: topbarHelpConfig.label })} tooltip={topbarHelpConfig.label} /> : null}
+            {topbarHelpConfig ? (
+              <Box sx={{ display: 'inline-flex' }}>
+                <PageHelp pageKey={topbarHelpConfig.pageKey} ariaLabel={t('pageHelp.openAria', { label: topbarHelpConfig.label })} tooltip={topbarHelpConfig.label} />
+              </Box>
+            ) : null}
             {topbarTitleActions.length > 0 ? (
               isCompactTopbar ? (
                 <ToggleButtonGroup
@@ -1016,7 +1045,7 @@ function RootLayout() {
             ) : null}
           </Box>
           {!isCompactTopbar ? (
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflow: 'hidden' }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', overflow: 'hidden', pr: 0.5 }}>
           {isCulturesPage ? (
             <>
@@ -1115,7 +1144,25 @@ function RootLayout() {
               const isSegmentedGroup = group.length > 1 && group[0]?.groupId;
               const content = group.map((action) => {
                 const isHierarchyCreateLocationAction = action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID;
-                const button = (
+                const isStandardAction = action.appearance === 'standard';
+                const button = isStandardAction ? (
+                <Button
+                  key={action.id}
+                  size="medium"
+                  variant="outlined"
+                  onClick={action.onClick}
+                  aria-label={action.ariaLabel ?? action.label}
+                  disabled={action.disabled}
+                  sx={{
+                    ...getStandardActionButtonSx(false),
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    ...(action.hidden ? { display: 'none' } : {}),
+                  }}
+                >
+                  {action.label}
+                </Button>
+                ) : (
                 <Button
                   key={action.id}
                   size="small"
@@ -1291,12 +1338,10 @@ function RootLayout() {
             onOpenProjectSettings={handleOpenProjectSettings}
             onOpenProjectHistory={handleOpenProjectHistory}
             onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
-            onOpenPublicLibraryModeration={() => navigateFromGlobalMenu('/app/public-library-moderation')}
             onOpenShortcuts={handleOpenShortcuts}
             onOpenHelp={openGlobalHelp}
             canLeaveDemoProject={canLeaveDemoProject}
             isGuestDemoSession={isGuestDemoSession}
-            canModeratePublicLibrary={canModeratePublicLibrary}
             onLeaveDemoProject={handleLeaveDemoProject}
             onLogout={handleLogout}
             t={t}
@@ -1560,12 +1605,10 @@ function RootLayout() {
                 onOpenProjectSettings={handleOpenProjectSettings}
                 onOpenProjectHistory={handleOpenProjectHistory}
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
-                onOpenPublicLibraryModeration={() => navigateFromGlobalMenu('/app/public-library-moderation')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
                 canLeaveDemoProject={canLeaveDemoProject}
                 isGuestDemoSession={isGuestDemoSession}
-                canModeratePublicLibrary={canModeratePublicLibrary}
                 onLeaveDemoProject={handleLeaveDemoProject}
                 onLogout={handleLogout}
                 t={t}
@@ -1644,6 +1687,26 @@ function RootLayout() {
                   const isSegmentedGroup = group.length > 1 && group[0]?.groupId;
                   const content = group.map((action) => {
                     const isHierarchyCreateLocationAction = action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID;
+                    if (action.appearance === 'standard') {
+                      return (
+                        <Button
+                          key={action.id}
+                          size="medium"
+                          variant="outlined"
+                          onClick={action.onClick}
+                          aria-label={action.ariaLabel ?? action.label}
+                          disabled={action.disabled}
+                          sx={{
+                            ...getStandardActionButtonSx(false),
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                            ...(action.hidden ? { display: 'none' } : {}),
+                          }}
+                        >
+                          {action.label}
+                        </Button>
+                      );
+                    }
                     return (
                       <Button
                         key={action.id}
@@ -1819,7 +1882,7 @@ function RootLayout() {
                               onClick={() => setProjectHistoryOpen(false)}
                               sx={{ fontSize: '0.78rem', color: 'text.secondary', flexShrink: 0 }}
                             >
-                              {item.object_type === 'culture' ? t('navigation:cultures') : t('navigation:plantingPlans')}
+                              {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
                             </Link>
                           ) : null}
                         </Box>
@@ -1884,7 +1947,7 @@ function RootLayout() {
                                   underline="hover"
                                   onClick={() => setProjectHistoryOpen(false)}
                                 >
-                                  {item.object_type === 'culture' ? t('navigation:cultures') : t('navigation:plantingPlans')}
+                                  {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
                                 </Link>
                               </>
                             ) : null}
