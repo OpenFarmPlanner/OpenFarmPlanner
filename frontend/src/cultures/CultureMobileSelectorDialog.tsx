@@ -11,6 +11,7 @@ import type { TFunction } from 'i18next';
 
 import type { Culture } from '../api/api';
 import { useOverlayHistory } from '../hooks/useOverlayHistory';
+import { getCultureDisplayName } from './cultureDisplay';
 
 interface CultureMobileSelectorDialogProps {
   open: boolean;
@@ -59,7 +60,7 @@ export function CultureMobileSelectorDialog({
                 sx={{ borderRadius: 1.25, mb: 0.375 }}
               >
                 <ListItemText
-                  primary={culture.name}
+                  primary={getCultureDisplayName(culture)}
                   secondary={secondary || culture.crop_family || undefined}
                   primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 600 }}
                   secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}

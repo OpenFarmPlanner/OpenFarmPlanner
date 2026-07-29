@@ -245,6 +245,33 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Lieferant' })).toBeInTheDocument();
   });
 
+  it('displays the localized name for imported cultures linked to translated species', () => {
+    renderCultureDetail(
+      <CultureDetail
+        cultures={[{
+          id: 10,
+          name: 'Ackerbohne',
+          culture_display_name: 'Broad bean',
+          culture_display_language_code: 'en',
+          crop_species_translations: {
+            de: 'Ackerbohne',
+            en: 'Broad bean',
+          },
+          variety: 'Hangdown',
+          origin_type: 'imported',
+        }]}
+        selectedCultureId={10}
+        onCultureSelect={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Broad bean' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Broad bean/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Ackerbohne' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('Hangdown').length).toBeGreaterThan(0);
+    expect(screen.getByText('Importiert')).toBeInTheDocument();
+  });
+
   it('renders detail sections in the expected order', () => {
     const mockOnSelect = vi.fn();
     renderCultureDetail(

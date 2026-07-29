@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 
 from accounts.guest_demo import create_guest_demo_session
 from accounts.models import DocumentConsent
-from crops.models import CropSpecies
+from crops.models import CropSpecies, CropSpeciesTranslation
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import (
     Culture,
@@ -21,6 +21,7 @@ from farm.models import (
     PublicCultureDiscussionTopic,
     PublicCultureRevision,
     PublicCultureStatusEvent,
+    PublicCultureTranslation,
     SeedPackage,
 )
 from farm.tests.api_base import User
@@ -299,6 +300,114 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertFalse(imported.is_modified_from_source)
         self.assertEqual(imported.seed_packages.count(), 1)
         self.assertEqual(float(imported.seed_packages.first().size_value), 15.0)
+
+    def test_import_public_culture_keeps_species_translation_link_and_serves_english_name(self):
+        species = CropSpecies.objects.create(name='Localized Import Species 1')
+        CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
+        CropSpeciesTranslation.objects.create(species=species, language_code='en', common_name='Broad bean')
+        public_culture = PublicCulture.objects.create(
+            name='Ackerbohne',
+            variety='Hangdown',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            notes='Deutsche Beschreibung',
+            original_language_code='de',
+        )
+        PublicCultureTranslation.objects.create(
+            public_culture=public_culture,
+            language_code='de',
+            description='Deutsche Beschreibung',
+        )
+        PublicCultureTranslation.objects.create(
+            public_culture=public_culture,
+            language_code='en',
+            description='English description',
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {},
+            format='json',
+            HTTP_ACCEPT_LANGUAGE='en',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        imported = Culture.objects.select_related('crop_species', 'source_public_culture').get(id=response.data['id'])
+        self.assertEqual(imported.name, 'Ackerbohne')
+        self.assertEqual(imported.crop_species, species)
+        self.assertEqual(imported.source_public_culture, public_culture)
+        self.assertEqual(imported.crop_species.translations_by_language(), {
+            'de': 'Ackerbohne',
+            'en': 'Broad bean',
+        })
+        self.assertEqual(imported.source_public_culture.descriptions_by_language(), {
+            'de': 'Deutsche Beschreibung',
+            'en': 'English description',
+        })
+        self.assertEqual(response.data['culture_display_name'], 'Broad bean')
+        self.assertEqual(response.data['culture_display_language_code'], 'en')
+        self.assertEqual(response.data['crop_species_translations'], {
+            'de': 'Ackerbohne',
+            'en': 'Broad bean',
+        })
+
+        detail_response = self.client.get(
+            f'/openfarmplanner/api/cultures/{imported.id}/',
+            HTTP_ACCEPT_LANGUAGE='en',
+        )
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['name'], 'Ackerbohne')
+        self.assertEqual(detail_response.data['culture_display_name'], 'Broad bean')
+        self.assertEqual(detail_response.data['culture_display_language_code'], 'en')
+
+    def test_imported_culture_detail_serves_german_name_when_requested(self):
+        species = CropSpecies.objects.create(name='Localized Import Species 2')
+        CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
+        CropSpeciesTranslation.objects.create(species=species, language_code='en', common_name='Broad bean')
+        public_culture = PublicCulture.objects.create(
+            name='Ackerbohne',
+            variety='Hangdown',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            original_language_code='de',
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = import_response.data['id']
+
+        detail_response = self.client.get(
+            f'/openfarmplanner/api/cultures/{imported_id}/',
+            HTTP_ACCEPT_LANGUAGE='de',
+        )
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['culture_display_name'], 'Ackerbohne')
+        self.assertEqual(detail_response.data['culture_display_language_code'], 'de')
+
+    def test_imported_culture_detail_falls_back_when_requested_translation_is_missing(self):
+        species = CropSpecies.objects.create(name='Localized Import Species 3')
+        CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
+        public_culture = PublicCulture.objects.create(
+            name='Ackerbohne',
+            variety='Hangdown',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            original_language_code='de',
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = import_response.data['id']
+
+        detail_response = self.client.get(
+            f'/openfarmplanner/api/cultures/{imported_id}/',
+            HTTP_ACCEPT_LANGUAGE='en',
+        )
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['culture_display_name'], 'Ackerbohne')
+        self.assertEqual(detail_response.data['culture_display_language_code'], 'de')
 
     def test_editing_imported_culture_does_not_change_public_culture(self):
         public_culture = PublicCulture.objects.create(
