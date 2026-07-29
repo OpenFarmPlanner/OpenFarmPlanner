@@ -15,8 +15,8 @@ import HeroImage from '../../components/HeroImage';
 import LegalLinks from '../../components/legal/LegalLinks';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 import { useTranslation } from '../../i18n';
-import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { useGuestDemoStart } from './useGuestDemoStart';
+import AppIcon from '../../components/layout/AppIcon';
 
 const HERO_TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5)';
 
@@ -103,17 +103,7 @@ export default function DemoPage() {
             }}
           >
             <Stack spacing={{ xs: 2.1, md: 2.4 }} alignItems="center">
-              <Box
-                component="img"
-                src={publicAssetUrl('/favicon.png')}
-                alt=""
-                aria-hidden
-                sx={{
-                  width: { xs: 44, md: 52 },
-                  height: 'auto',
-                  opacity: 0.95,
-                }}
-              />
+              <AppIcon decorative size={{ xs: 44, md: 52 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"
                 component="h1"

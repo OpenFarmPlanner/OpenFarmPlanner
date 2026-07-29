@@ -2,9 +2,9 @@ import { Box, Container, Paper, Stack, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import LegalLinks from '../../components/legal/LegalLinks';
 import HeroImage from '../../components/HeroImage';
-import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { authLegalLinkSx } from './authPageStyles';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
+import AppIcon from '../../components/layout/AppIcon';
 
 type AuthPageShellProps = {
   title: string;
@@ -60,13 +60,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
             }}
           >
             <Stack direction="row" spacing={1.4} alignItems="center">
-              <Box
-                component="img"
-                src={publicAssetUrl('/favicon.png')}
-                alt=""
-                aria-hidden
-                sx={{ width: { xs: 40, md: 48 }, height: 'auto', opacity: 0.95 }}
-              />
+              <AppIcon decorative size={{ xs: 40, md: 48 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"
                 component="div"

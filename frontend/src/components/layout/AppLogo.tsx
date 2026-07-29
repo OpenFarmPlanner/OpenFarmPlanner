@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { NavLink, useLocation } from 'react-router';
 import { normalizeMainRoutePath } from '../../navigation/mainNavigation';
 import { useTranslation } from '../../i18n';
-import { publicAssetUrl } from '../../utils/publicAssetUrl';
+import AppIcon from './AppIcon';
 
 interface AppLogoProps {
   to?: string;
@@ -46,12 +46,7 @@ export default function AppLogo({ to = '/app/dashboard', size = 28, showText = t
       aria-label={t('globalMenu.dashboardLink')}
       title={t('globalMenu.dashboardLink')}
     >
-      <Box
-        component="img"
-        src={publicAssetUrl('/favicon.png')}
-        alt="OpenFarmPlanner"
-        sx={{ height: size, width: size, borderRadius: 0.5, flexShrink: 0 }}
-      />
+      <AppIcon size={size} sx={{ borderRadius: 0.5 }} />
       {showText ? (
         <Box component="span" sx={{ fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap', color: isActive ? 'navigation.activeText' : 'navigation.inactiveText' }}>
           OpenFarmPlanner

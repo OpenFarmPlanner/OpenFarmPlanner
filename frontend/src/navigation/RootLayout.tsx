@@ -86,7 +86,6 @@ import { useGlobalOverlayKeyboardScroll } from '../hooks/useDialogKeyboardScroll
 import { useFocusRegion } from '../focus/useFocusManager';
 import { useTopbarActionsRouteReset } from '../hooks/useTopbarActionsRouteReset';
 import { appRouteUrl } from '../utils/appRouteUrl';
-import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, isProjectIndependentRoute, normalizeMainRoutePath, shouldDisableNavItem } from '../navigation/mainNavigation';
 import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import NavListItem from '../navigation/NavListItem';
@@ -105,6 +104,7 @@ import {
   navigationTooltipSx,
 } from '../navigation/navigationStyles';
 import { PanelLeft } from 'lucide-react';
+import AppIcon from '../components/layout/AppIcon';
 
 const CONTENT_ALIGNMENT_MODE = 'centered';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
@@ -814,12 +814,7 @@ function RootLayout() {
                   title={t('globalMenu.dashboardLink')}
                   sx={navigationLogoLinkSx}
                 >
-                  <Box
-                    component="img"
-                    src={publicAssetUrl('/favicon.png')}
-                    alt="OpenFarmPlanner"
-                    sx={{ width: 24, height: 24, borderRadius: 0.5, flexShrink: 0 }}
-                  />
+                  <AppIcon size={24} sx={{ borderRadius: 0.5 }} />
                   <Typography
                     variant="subtitle2"
                     noWrap
