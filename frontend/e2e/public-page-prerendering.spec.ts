@@ -22,6 +22,20 @@ function distPathFor(routePath: string): string {
     : path.join(distDir, routePath.replace(/^\//, ''), 'index.html');
 }
 
+async function holdJavaScriptRequests(page: import('@playwright/test').Page): Promise<() => void> {
+  let release: () => void = () => {};
+  const barrier = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await page.route(/\/assets\/.*\.js$/, async (route) => {
+    await barrier;
+    await route.continue();
+  });
+
+  return release;
+}
+
 test.describe('public page prerendering', () => {
   test('build produces a real index.html for every public route', () => {
     for (const route of PUBLIC_INDEXABLE_ROUTES) {
@@ -89,6 +103,48 @@ test.describe('public page prerendering', () => {
     const html = readFileSync(appShellPath, 'utf-8');
     expect(html).toMatch(/<div id="root">\s*<\/div>/);
     expect(html).not.toMatch(/<h1[^>]*>[^<]+<\/h1>/);
+  });
+
+  test('English browser language hides German prerendered landing text until the SPA is ready', async ({ browser }) => {
+    const context = await browser.newContext({ locale: 'en-US' });
+    const page = await context.newPage();
+    const releaseJavaScript = await holdJavaScriptRequests(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    await page.waitForFunction(() => document.documentElement.dataset.initialUiLanguage === 'en');
+
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveClass(/ofp-hide-prerender/);
+    await expect(page.getByText('Open-Source-Anbauplaner für den Gemüsebau.')).not.toBeVisible();
+    await expect(page.getByText('Open-source crop planning for vegetable production.')).not.toBeVisible();
+
+    releaseJavaScript();
+
+    await expect(page.getByText('Open-source crop planning for vegetable production.')).toBeVisible();
+    await expect(page.getByText('Open-Source-Anbauplaner für den Gemüsebau.')).not.toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).not.toHaveClass(/ofp-hide-prerender/);
+    await context.close();
+  });
+
+  test('a persisted English language hides German prerendered landing text before app code loads', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('ui.language', 'en');
+    });
+    const releaseJavaScript = await holdJavaScriptRequests(page);
+
+    await page.goto('/', { waitUntil: 'commit' });
+    await page.waitForFunction(() => document.documentElement.dataset.initialUiLanguage === 'en');
+
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveClass(/ofp-hide-prerender/);
+    await expect(page.getByText('Open-Source-Anbauplaner für den Gemüsebau.')).not.toBeVisible();
+
+    releaseJavaScript();
+
+    await expect(page.getByText('Open-source crop planning for vegetable production.')).toBeVisible();
+    await expect(page.getByText('Open-Source-Anbauplaner für den Gemüsebau.')).not.toBeVisible();
+    await expect(page.locator('html')).not.toHaveClass(/ofp-hide-prerender/);
   });
 
   test('a JS-disabled browser sees the real privacy policy content, not a blank shell', async ({ browser }) => {
