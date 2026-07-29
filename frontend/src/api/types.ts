@@ -512,6 +512,8 @@ export interface PlantingPlan {
   culture: number | null;
   cultivation_type?: CultivationType | '';
   culture_name?: string | null;
+  culture_display_name?: string | null;
+  culture_display_language_code?: string | null;
   culture_variety?: string | null;
   culture_display_color?: string | null;
   culture_propagation_duration_days?: number | null;

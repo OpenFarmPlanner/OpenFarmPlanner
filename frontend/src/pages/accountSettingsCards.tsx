@@ -2,7 +2,7 @@
 // alerts, the inline editor wrapper, and the settings card shell.
 
 import { Alert, Button, Card, CardContent, Collapse, Stack, Typography, type SxProps, type Theme } from '@mui/material';
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useTranslation } from '../i18n';
 import { actionButtonSx, type SectionSubmit } from './accountSettingsForm';
 
@@ -28,15 +28,24 @@ interface InlineEditorProps {
 
 export function InlineEditor({ open, saveLabel, onSave, onCancel, submitting, saveDisabled = false, sx, children }: InlineEditorProps) {
   const { t } = useTranslation('account');
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (submitting || saveDisabled) {
+      return;
+    }
+    onSave();
+  };
+
   return (
     <Collapse in={open} unmountOnExit>
-      <Stack spacing={2} sx={sx}>
+      <Stack component="form" spacing={2} sx={sx} onSubmit={handleSubmit}>
         {children}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <Button variant="contained" onClick={onSave} disabled={submitting || saveDisabled} sx={actionButtonSx}>
+          <Button type="submit" variant="contained" disabled={submitting || saveDisabled} sx={actionButtonSx}>
             {saveLabel}
           </Button>
-          <Button variant="text" onClick={onCancel} disabled={submitting} sx={actionButtonSx}>
+          <Button type="button" variant="text" onClick={onCancel} disabled={submitting} sx={actionButtonSx}>
             {t('cancel')}
           </Button>
         </Stack>

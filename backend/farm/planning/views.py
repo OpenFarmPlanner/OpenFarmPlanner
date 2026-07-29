@@ -89,7 +89,8 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
     """
     queryset = (
         PlantingPlan.objects
-        .select_related('culture', 'bed', 'created_by', 'updated_by')
+        .select_related('culture', 'culture__crop_species', 'culture__project', 'bed', 'created_by', 'updated_by')
+        .prefetch_related('culture__crop_species__translations')
         .annotate(note_attachment_count=Count('attachments'))
         .order_by('-planting_date')
     )

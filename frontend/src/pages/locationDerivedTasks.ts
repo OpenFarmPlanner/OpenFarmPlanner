@@ -20,6 +20,10 @@ export interface DerivedLocationTask {
 const DIRECT_SOWING = 'direct_sowing';
 const PRE_CULTIVATION = 'pre_cultivation';
 
+const getPlanCultureDisplayName = (plan: PlantingPlan): string | undefined => (
+  plan.culture_display_name || plan.culture_name || undefined
+);
+
 const isDirectSowingPlan = (plan: PlantingPlan, culture?: Culture): boolean => {
   const planType = plan.cultivation_type || plan.culture_cultivation_type;
   if (planType === DIRECT_SOWING) return true;
@@ -73,6 +77,7 @@ export function deriveLocationTasks({
     const plantingDate = parseIsoDate(plan.planting_date);
     if (!plantingDate) return;
     const culture = cultureById.get(plan.culture);
+    const cultureName = getPlanCultureDisplayName(plan) || culture?.name;
     const direct = isDirectSowingPlan(plan, culture);
     const baseTaskType: DerivedTaskType = direct ? 'sowing' : 'planting';
 
@@ -81,7 +86,7 @@ export function deriveLocationTasks({
       date: formatIsoDate(plantingDate),
       locationId: field.location,
       planId: plan.id,
-      cultureName: plan.culture_name || culture?.name,
+      cultureName,
       bedName: plan.bed_name || bed.name,
       fieldName: field.name,
     });
@@ -93,7 +98,7 @@ export function deriveLocationTasks({
         date: formatIsoDate(addUtcDays(plantingDate, -propagationDuration)),
         locationId: field.location,
         planId: plan.id,
-        cultureName: plan.culture_name || culture?.name,
+        cultureName,
         bedName: plan.bed_name || bed.name,
         fieldName: field.name,
       });
@@ -106,7 +111,7 @@ export function deriveLocationTasks({
         date: formatIsoDate(addUtcDays(plantingDate, growthDuration)),
         locationId: field.location,
         planId: plan.id,
-        cultureName: plan.culture_name || culture?.name,
+        cultureName,
         bedName: plan.bed_name || bed.name,
         fieldName: field.name,
       });

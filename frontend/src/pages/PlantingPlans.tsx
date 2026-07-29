@@ -778,11 +778,12 @@ function PlantingPlans() {
 
   const getCultureLabel = (row: PlantingPlanRow): string => {
     const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    if (row.culture_name) {
-      if (linkedCulture?.variety && !row.culture_name.includes(`(${linkedCulture.variety})`)) {
-        return `${row.culture_name} (${linkedCulture.variety})`;
+    const cultureDisplayName = row.culture_display_name || row.culture_name;
+    if (cultureDisplayName) {
+      if (linkedCulture?.variety && !cultureDisplayName.includes(`(${linkedCulture.variety})`)) {
+        return `${cultureDisplayName} (${linkedCulture.variety})`;
       }
-      return row.culture_name;
+      return cultureDisplayName;
     }
     const fallback = cultureOptions.find((option) => option.value === row.culture);
     return fallback?.label ?? "—";
@@ -1546,7 +1547,7 @@ function PlantingPlans() {
         ) : null}
 
         {!shouldShowPrerequisiteState && <PageSurface
-          variant="fullWorkspace"
+          variant={isMobile ? "fullWorkspace" : "contentFit"}
           sx={isMobile ? { position: 'fixed', top: '-9999px', left: 0, width: '100vw', height: 1, overflow: 'hidden', pointerEvents: 'none', visibility: 'hidden' } : undefined}
         >
           <EditableDataGrid<PlantingPlanRow>
