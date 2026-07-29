@@ -151,13 +151,9 @@ test('public crop library supports quick import, direct edit, versions, discussi
   const editDialog = page.getByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
   await expect(editDialog).toBeVisible();
   const growthDurationInput = editDialog.getByLabel('Wachstumszeit (Tage)');
-  const notesInput = editDialog.getByLabel('Notizen');
   await expect(growthDurationInput).toHaveValue('42');
-  await expect(notesInput).toHaveValue('Bestehende öffentliche Notiz.');
   await growthDurationInput.fill('48');
-  await notesInput.fill('E2E direkt bearbeitete öffentliche Notiz.');
   await expect(growthDurationInput).toHaveValue('48');
-  await expect(notesInput).toHaveValue('E2E direkt bearbeitete öffentliche Notiz.');
   const saveButton = editDialog.getByRole('button', { name: 'Speichern' });
   await expect(saveButton).toBeEnabled();
   const [saveResponse] = await Promise.all([
@@ -170,6 +166,23 @@ test('public crop library supports quick import, direct edit, versions, discussi
   expect(saveResponse.ok()).toBeTruthy();
   await expect(editDialog).not.toBeVisible();
   await expect(page.getByText('48 Tage')).toBeVisible();
+
+  await page.getByTestId('public-crop-detail-header').getByRole('button', { name: 'Übersetzen' }).click();
+  const translationDialog = page.getByRole('dialog', { name: 'Übersetzung bearbeiten' });
+  await expect(translationDialog).toBeVisible();
+  const notesInput = translationDialog.getByPlaceholder('Beschreibung und Anbauhinweise in dieser Sprache…');
+  await expect(notesInput).toHaveValue('Bestehende öffentliche Notiz.');
+  await notesInput.fill('E2E direkt bearbeitete öffentliche Notiz.');
+  await expect(notesInput).toHaveValue('E2E direkt bearbeitete öffentliche Notiz.');
+  const [translationSaveResponse] = await Promise.all([
+    page.waitForResponse((response) => (
+      response.url().includes(`/api/public-cultures/${publicCulture.id}/translations/`)
+      && response.request().method() === 'PUT'
+    )),
+    translationDialog.getByRole('button', { name: 'Speichern' }).click(),
+  ]);
+  expect(translationSaveResponse.ok()).toBeTruthy();
+  await expect(translationDialog).not.toBeVisible();
   await expect(page.getByText('E2E direkt bearbeitete öffentliche Notiz.')).toBeVisible();
 
   await page.getByRole('tab', { name: /Versionen/ }).click();
