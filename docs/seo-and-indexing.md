@@ -23,6 +23,8 @@ Explicitly **not** indexable (disallowed in `robots.txt` and served with a
 - `/app/*` — the authenticated application
 - `/login`, `/register`, `/activate`, `/forgot-password`, `/reset-password`,
   `/confirm-email-change`
+- `/demo` — shareable guest-demo entry page; direct links are supported, but
+  the route is not intended for search indexing
 - `/invite/*`, `/invitation`
 
 The single source of truth for both lists is

@@ -269,6 +269,37 @@ describe('App', () => {
     });
   });
 
+  it('renders the shareable demo link without starting a session automatically', async () => {
+    window.history.pushState({}, '', '/demo');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'Demo ausprobieren' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Demo jetzt starten' })).toBeInTheDocument();
+    expect(authState.startGuestDemo).not.toHaveBeenCalled();
+  });
+
+  it('starts the public guest demo from the shareable demo link', async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, '', '/demo');
+
+    authState.startGuestDemo.mockImplementationOnce(async () => {
+      const demoUser = createGuestDemoUser();
+      authState.user = demoUser;
+      authState.activeProjectId = demoUser.resolved_project_id;
+      return demoUser;
+    });
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await user.click(await screen.findByRole('button', { name: 'Demo jetzt starten' }));
+
+    await waitFor(() => {
+      expect(authState.startGuestDemo).toHaveBeenCalledTimes(1);
+      expect(window.location.pathname).toBe('/app/fields-beds');
+    });
+  });
+
   it('prevents duplicate public guest demo requests while one is running', async () => {
     let resolveRequest: (value: AuthUser) => void = () => {};
     authState.startGuestDemo.mockImplementationOnce(() => new Promise((resolve) => {

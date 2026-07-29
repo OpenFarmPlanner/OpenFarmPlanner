@@ -36,6 +36,14 @@
       }
     }
   },
+  "demoPage": {
+    "title": "Demo ausprobieren",
+    "subtitle": "Teste OpenFarmPlanner sofort mit einem temporären Beispielprojekt.",
+    "description": "Der Link kann direkt geteilt werden. Ein Demo-Arbeitsbereich wird erst erstellt, wenn du die Demo aktiv startest.",
+    "startAction": "Demo jetzt starten",
+    "backToLanding": "Zur Startseite",
+    "safetyNote": "Die Demo benötigt keine Registrierung. Änderungen werden automatisch wieder gelöscht und sind nicht für echte Produktivdaten gedacht."
+  },
   "statusNote": "OpenFarmPlanner befindet sich aktuell in der Beta-Phase und wird laufend weiterentwickelt.",
   "statusOpenSource": {
     "text": "Als Open-Source-Projekt freuen wir uns über Feedback, Ideen und Mitentwicklung.",
@@ -309,6 +317,7 @@
   "seo": {
     "titles": {
       "landing": "OpenFarmPlanner – Anbauplanung für den Gemüsebau",
+      "demo": "Demo ausprobieren – OpenFarmPlanner",
       "imprint": "Impressum – OpenFarmPlanner",
       "privacy": "Datenschutzerklärung – OpenFarmPlanner",
       "terms": "Nutzungsbedingungen – OpenFarmPlanner",

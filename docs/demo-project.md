@@ -86,6 +86,15 @@ it reuses existing project scoping, authentication sessions, and demo seeding.
 The main ongoing maintenance cost is keeping the demo template realistic and
 ensuring the cleanup cron remains deployed.
 
+`/demo` is the shareable public entry point for emails and software
+directories. It deliberately does **not** auto-start a guest session on page
+load: email clients, link scanners and preview bots may request the URL, and a
+GET request must not create temporary projects or consume the guest-demo rate
+limit. Visitors explicitly start the demo from the page, which then uses the
+same guest-demo API flow as the landing-page button. The route is reachable but
+non-indexable (`noindex` at runtime and disallowed in `robots.txt`) because its
+purpose is direct sharing rather than search traffic.
+
 The frontend opens the first-project onboarding automatically only while the
 authenticated user's project membership list is empty. Loading the demo project
 from the project switcher remains a separate action.

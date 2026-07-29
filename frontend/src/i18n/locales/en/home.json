@@ -36,6 +36,14 @@
       }
     }
   },
+  "demoPage": {
+    "title": "Try the demo",
+    "subtitle": "Test OpenFarmPlanner instantly with a temporary example project.",
+    "description": "This link can be shared directly. A demo workspace is created only when you actively start the demo.",
+    "startAction": "Start demo now",
+    "backToLanding": "Back to home",
+    "safetyNote": "The demo does not require registration. Changes are deleted automatically and are not intended for real production data."
+  },
   "statusNote": "OpenFarmPlanner is currently in beta and is being continuously improved.",
   "statusOpenSource": {
     "text": "As an open-source project, we welcome feedback, ideas, and contributions.",
@@ -309,6 +317,7 @@
   "seo": {
     "titles": {
       "landing": "OpenFarmPlanner – planting planning for vegetable growing",
+      "demo": "Try the demo – OpenFarmPlanner",
       "imprint": "Imprint – OpenFarmPlanner",
       "privacy": "Privacy policy – OpenFarmPlanner",
       "terms": "Terms of service – OpenFarmPlanner",
