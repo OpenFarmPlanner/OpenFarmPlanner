@@ -163,6 +163,14 @@
   "sidebar": {
     "resizeHandle": "Seitenleiste verbreitern oder verkleinern"
   },
+  "structureSummary": {
+    "fields_one": "{{count}} Parzelle",
+    "fields_other": "{{count}} Parzellen",
+    "beds_one": "{{count}} Beet",
+    "beds_other": "{{count}} Beete",
+    "occupiedBeds_one": "{{count}} belegt",
+    "occupiedBeds_other": "{{count}} belegt"
+  },
   "treeFilters": {
     "searchPlaceholder": "Suche nach Kultur, Beet, Parzelle oder Standort…",
     "searchPlaceholderSeedlings": "Suche nach Kultur…",
