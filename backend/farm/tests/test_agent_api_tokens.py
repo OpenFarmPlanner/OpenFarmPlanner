@@ -4,8 +4,13 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.test import APIClient, APITestCase
+from rest_framework.request import Request
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from farm.agent_api.authentication import (
+    ProjectApiTokenAuthentication,
+    header_carries_api_token,
+)
 from farm.models import (
     API_TOKEN_PREFIX,
     Culture,
@@ -209,6 +214,75 @@ class ApiTokenScopeTests(ApiTokenTestBase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Supplier.objects.filter(name='X').exists())
+
+
+class ApiTokenHeaderCasingTests(ApiTokenTestBase):
+    """The surface gate must see a token however the bearer scheme is spelled.
+
+    Regression test. HTTP auth schemes are case-insensitive and DRF splits the
+    header on arbitrary whitespace, so `bearer`, `BEARER`, and a double space
+    all authenticate. The middleware originally matched a literal
+    `'Bearer ofp_pat_'` prefix and therefore did not see those spellings —
+    which let a read-scoped token reach every view that sets its own
+    `permission_classes`, including the account data export.
+    """
+
+    # Endpoints that are not on the agent allowlist and additionally define
+    # their own permission_classes, so the middleware is their only guard.
+    UNREACHABLE_PATHS = (
+        '/api/auth/me/',
+        '/api/auth/account/data-export/',
+        '/api/public-cultures/',
+    )
+
+    SPELLINGS = ('Bearer {}', 'bearer {}', 'BEARER {}', 'BeArEr {}', 'Bearer  {}')
+
+    def test_every_bearer_spelling_is_refused_on_forbidden_endpoints(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+
+        for spelling in self.SPELLINGS:
+            for path in self.UNREACHABLE_PATHS:
+                with self.subTest(spelling=spelling, path=path):
+                    client = APIClient()
+                    client.credentials(HTTP_AUTHORIZATION=spelling.format(raw_token))
+                    self.assertEqual(client.get(path).status_code, 403)
+
+    def test_every_bearer_spelling_still_authenticates_allowlisted_endpoints(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+
+        for spelling in ('Bearer {}', 'bearer {}', 'BEARER {}'):
+            with self.subTest(spelling=spelling):
+                client = APIClient()
+                client.credentials(HTTP_AUTHORIZATION=spelling.format(raw_token))
+                self.assertEqual(client.get('/api/cultures/').status_code, 200)
+
+    def test_lowercase_spelling_cannot_write_with_a_read_token(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'bearer {raw_token}')
+
+        response = client.post('/api/cultures/', {'name': 'Sneaky', 'variety': 'X'}, format='json')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Culture.objects.filter(name='Sneaky').exists())
+
+    def test_lowercase_spelling_cannot_reach_a_foreign_project(self):
+        _, raw_token = self.issue_token()
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'bearer {raw_token}')
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        self.assertEqual(response.status_code, 403)
+
+    def test_a_foreign_bearer_scheme_still_falls_through_to_session_auth(self):
+        # A bearer credential that is not one of ours must not be treated as an
+        # API token, or unrelated integrations would start getting 403s.
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        client.credentials(HTTP_AUTHORIZATION='bearer some-other-systems-token')
+
+        response = client.get('/api/auth/me/')
+        self.assertEqual(response.status_code, 200)
 
 
 class ApiTokenForbiddenSurfaceTests(ApiTokenTestBase):
@@ -479,3 +553,52 @@ class ApiTokenManagementEndpointTests(ApiTokenTestBase):
         self.assertEqual(revoked.data['status'], 'revoked')
 
         self.assertEqual(self.bearer_client(raw_token).get('/api/cultures/').status_code, 401)
+
+
+class ApiTokenHeaderDetectionInvariantTests(APITestCase):
+    """The surface gate's detection must never be narrower than the authenticator's.
+
+    The two parse the same header in different places: the authenticator sees
+    it through DRF, the middleware sees it raw, before any view runs. If the
+    middleware's view is the narrower one, a credential can authenticate while
+    slipping past the deny-by-default gate — which is exactly how the bearer
+    casing bypass happened. This test compares the two directly, so a future
+    change to either side fails here rather than silently opening the gate.
+    """
+
+    SPELLINGS = (
+        'Bearer {}',
+        'bearer {}',
+        'BEARER {}',
+        'BeArEr {}',
+        'Bearer  {}',
+        'Bearer\t{}',
+        '  bearer   {}  ',
+    )
+
+    def test_detection_accepts_everything_the_authenticator_accepts(self):
+        raw_token = ProjectApiToken.generate_raw_token()
+        authenticator = ProjectApiTokenAuthentication()
+
+        for spelling in self.SPELLINGS:
+            header = spelling.format(raw_token)
+            with self.subTest(header=repr(header)):
+                request = APIRequestFactory().get('/', HTTP_AUTHORIZATION=header)
+                authenticator_accepts = (
+                    authenticator._extract_bearer_token(Request(request)) == raw_token
+                )
+                if authenticator_accepts:
+                    self.assertTrue(
+                        header_carries_api_token(header),
+                        'Authenticator accepts this header but the surface gate does not see it.',
+                    )
+
+    def test_detection_ignores_credentials_that_are_not_ours(self):
+        for header in (
+            '',
+            'Basic dXNlcjpwYXNz',
+            'Bearer some-other-systems-token',
+            'Token ofp_pat_looks-like-ours-but-wrong-scheme',
+        ):
+            with self.subTest(header=header):
+                self.assertFalse(header_carries_api_token(header))

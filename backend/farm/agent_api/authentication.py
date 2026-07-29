@@ -22,6 +22,31 @@ from farm.models import API_TOKEN_PREFIX, ProjectApiToken, ProjectMembership
 AUTH_HEADER_KEYWORD = 'bearer'
 
 
+def header_carries_api_token(raw_header: str) -> bool:
+    """Return True when an Authorization header value presents one of our API tokens.
+
+    This is the *detection* counterpart to :meth:`ProjectApiTokenAuthentication.
+    _extract_bearer_token`, used by the surface middleware and the exception
+    handler, which see the header before DRF has parsed it.
+
+    It must never be narrower than what the authenticator accepts: a request
+    this returns False for skips the middleware's deny-by-default gate, so a
+    mismatch between the two is an authorization bypass, not a cosmetic bug.
+    HTTP auth schemes are case-insensitive (RFC 7235) and DRF splits on
+    arbitrary whitespace, so ``bearer``, ``BEARER``, and ``Bearer  <token>``
+    all authenticate and all have to be detected here. Matching is therefore
+    deliberately broader than the authenticator: any bearer-scheme header
+    carrying a value with our prefix counts.
+
+    :param raw_header: Raw ``Authorization`` header value.
+    :return: True when the header presents an OpenFarmPlanner API token.
+    """
+    parts = (raw_header or '').split()
+    if not parts or parts[0].lower() != AUTH_HEADER_KEYWORD:
+        return False
+    return any(part.startswith(API_TOKEN_PREFIX) for part in parts[1:])
+
+
 class ProjectApiTokenAuthentication(authentication.BaseAuthentication):
     """Authenticate ``Authorization: Bearer <token>`` against ``ProjectApiToken``."""
 

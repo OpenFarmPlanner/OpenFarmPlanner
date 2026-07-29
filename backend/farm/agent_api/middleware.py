@@ -18,9 +18,7 @@ import json
 
 from django.http import HttpResponse
 
-from farm.models import API_TOKEN_PREFIX
-
-BEARER_PREFIX = f'Bearer {API_TOKEN_PREFIX}'
+from .authentication import header_carries_api_token
 
 _DENIED_BODY = json.dumps(
     {'detail': 'This endpoint is not available for API tokens.'}
@@ -28,9 +26,14 @@ _DENIED_BODY = json.dumps(
 
 
 def _carries_api_token(request) -> bool:
-    """Return True when the request presents an OpenFarmPlanner API token."""
-    header = request.META.get('HTTP_AUTHORIZATION', '')
-    return header.startswith(BEARER_PREFIX)
+    """Return True when the request presents an OpenFarmPlanner API token.
+
+    Detection is shared with the authenticator rather than reimplemented here:
+    if this check were narrower than the one that actually accepts the
+    credential, a token could authenticate while staying invisible to the gate
+    below.
+    """
+    return header_carries_api_token(request.META.get('HTTP_AUTHORIZATION', ''))
 
 
 def _view_opted_in(view_func) -> bool:

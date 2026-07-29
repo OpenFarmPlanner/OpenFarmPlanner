@@ -6,9 +6,7 @@ from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
-from farm.models import API_TOKEN_PREFIX
-
-_BEARER_TOKEN_PREFIX = f'Bearer {API_TOKEN_PREFIX}'
+from farm.agent_api.authentication import header_carries_api_token
 
 
 def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
@@ -40,7 +38,7 @@ def _upgrade_bearer_auth_failure_to_401(
         return
     request = context.get('request')
     header = getattr(request, 'META', {}).get('HTTP_AUTHORIZATION', '') if request else ''
-    if not header.startswith(_BEARER_TOKEN_PREFIX):
+    if not header_carries_api_token(header):
         return
     response.status_code = status.HTTP_401_UNAUTHORIZED
     response['WWW-Authenticate'] = 'Bearer realm="api"'

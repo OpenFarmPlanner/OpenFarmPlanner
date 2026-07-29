@@ -64,6 +64,16 @@ the view and refuses any token request whose resolved view does not declare
 `permission_classes` — several account endpoints do — cannot accidentally opt
 itself in, and neither can Django admin or any non-DRF view.
 
+> The middleware sees the raw header, the authenticator sees it through DRF.
+> Both therefore share one detection helper, `header_carries_api_token()`. This
+> matters: HTTP auth schemes are case-insensitive and DRF splits on arbitrary
+> whitespace, so `bearer …`, `BEARER …`, and `Bearer  …` all authenticate. A
+> narrower check in the middleware would let those spellings authenticate while
+> staying invisible to the gate — for views with their own `permission_classes`
+> the gate is the only control, so that is a full bypass, not a cosmetic gap. A
+> test asserts the invariant that detection is never narrower than
+> authentication.
+
 **4. Scope and action check (DRF permission).**
 `ApiTokenAccessPermission` additionally verifies the specific action, refuses
 `DELETE` unconditionally, and refuses unsafe methods for `read` tokens.
