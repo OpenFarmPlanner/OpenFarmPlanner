@@ -9,6 +9,7 @@ from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.guest_demo import create_guest_demo_session
 from farm.image_processing import MAX_IMAGE_SIDE
 from farm.models import Location, Field, Bed, Culture, PlantingPlan, NoteAttachment, Project, ProjectMembership
 
@@ -91,3 +92,21 @@ class NoteAttachmentProcessingApiTest(APITestCase):
                 delete_response = self.client.delete(f'/openfarmplanner/api/attachments/{attachment_id}/')
                 self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
                 self.assertFalse(NoteAttachment.objects.filter(pk=attachment_id).exists())
+
+    def test_guest_demo_user_cannot_upload_note_attachment(self):
+        demo_session = create_guest_demo_session()
+        plan = PlantingPlan.objects.filter(project=demo_session.project).first()
+        self.client.force_authenticate(user=demo_session.user)
+        self.client.defaults['HTTP_X_PROJECT_ID'] = str(demo_session.project_id)
+
+        with TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root, MEDIA_URL='/media/'):
+                response = self.client.post(
+                    f'/openfarmplanner/api/notes/{plan.id}/attachments/',
+                    {'image': self._image_file(1200, 900)},
+                    format='multipart',
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(NoteAttachment.objects.filter(project=demo_session.project).exists())

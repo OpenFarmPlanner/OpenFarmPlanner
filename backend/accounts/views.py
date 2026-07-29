@@ -24,6 +24,7 @@ from farm.services.demo_project import resolve_demo_request_language
 
 from .consent import record_acceptance
 from .data_export import build_personal_data_export
+from .demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from .emails import (
     _send_activation_email,
     _send_email_change_confirmation_email,
@@ -187,8 +188,15 @@ class GuestDemoStartView(APIView):
     throttle_scope = 'guest_demo_start'
 
     def post(self, request: Request) -> Response:
+        existing_guest_demo = (
+            GuestDemoSession.objects.filter(user=request.user).first()
+            if request.user.is_authenticated
+            else None
+        )
         if request.user.is_authenticated:
             logout(request)
+        if existing_guest_demo is not None:
+            delete_guest_demo_session(existing_guest_demo)
         demo_session = create_guest_demo_session(language_code=resolve_demo_request_language(request))
         login(request, demo_session.user)
         request.session['guest_demo_session_id'] = demo_session.id
@@ -201,6 +209,8 @@ class GuestDemoEndView(APIView):
     def post(self, request: Request) -> Response:
         demo_id = request.session.get('guest_demo_session_id')
         demo_session = GuestDemoSession.objects.filter(id=demo_id, user=request.user).first()
+        if demo_session is None:
+            demo_session = GuestDemoSession.objects.filter(user=request.user).first()
         logout(request)
         if demo_session is not None:
             delete_guest_demo_session(demo_session)
@@ -259,6 +269,8 @@ class ConsentAcceptView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = ConsentAcceptSerializer(data=request.data)
         _validate_serializer_in_german(serializer)
         record_acceptance(request.user, serializer.validated_data['document'])
@@ -277,6 +289,8 @@ class AccountProfileView(APIView):
 
 class AccountPublicProfileView(APIView):
     def patch(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = AccountPublicProfileSerializer(data=request.data, context={'request': request})
         _validate_serializer_in_german(serializer)
         public_display_name = serializer.validated_data['public_display_name'].strip()
@@ -321,6 +335,8 @@ class AccountEmailChangeRequestView(APIView):
     throttle_scope = 'auth_password_reset_request'
 
     def post(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = AccountEmailChangeRequestSerializer(data=request.data, context={'request': request})
         _validate_serializer_in_german(serializer)
 
@@ -397,6 +413,8 @@ class AccountEmailChangeConfirmView(APIView):
 
 class AccountPasswordChangeView(APIView):
     def post(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = AccountPasswordChangeSerializer(data=request.data, context={'request': request})
         _validate_serializer_in_german(serializer)
 
@@ -413,6 +431,8 @@ class AccountDeleteRequestView(APIView):
     """Mark the authenticated account for delayed deletion after password confirmation."""
 
     def post(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = AccountDeleteRequestSerializer(data=request.data)
         _validate_serializer_in_german(serializer)
 
@@ -515,6 +535,9 @@ class AccountDataExportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request: Request) -> JsonResponse:
+        if is_active_guest_demo_user(request.user):
+            forbidden = guest_demo_forbidden_response()
+            return JsonResponse(forbidden.data, status=forbidden.status_code)
         payload = build_personal_data_export(request.user)
         response = JsonResponse(payload, json_dumps_params={'indent': 2})
         response['Content-Disposition'] = 'attachment; filename="openfarmplanner-data-export.json"'

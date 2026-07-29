@@ -15,6 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.models import UserProjectSettings
 from config.frontend_urls import build_public_frontend_url
 from farm.models import AgentLoginToken, Location, Project, ProjectInvitation, ProjectMembership
@@ -217,6 +218,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         return queryset.filter(deleted_at__isnull=True)
 
+    def create(self, request: Request, *args: object, **kwargs: object) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         project = serializer.save(slug=_build_unique_project_slug(serializer.validated_data['name']))
         if not Location.objects.filter(project=project).exists():
@@ -237,6 +243,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='create-demo')
     def create_demo(self, request: Request) -> Response:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         try:
             result = create_personal_demo_project(user=request.user, language_code=resolve_demo_request_language(request))
         except Exception:  # noqa: BLE001
@@ -338,6 +346,8 @@ class ProjectInvitationView(APIView):
         return Response(ProjectInvitationSerializer(invitations, many=True).data)
 
     def post(self, request, project_id: int):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         require_project_admin(request.user, project_id, request=request)
         serializer = ProjectInvitationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -428,6 +438,8 @@ class AcceptProjectInvitationByTokenView(APIView):
     throttle_scope = 'invitation_accept'
 
     def post(self, request, token: str):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         logger.info('Invitation accept endpoint reached', extra={'user_id': request.user.id, 'path': request.path})
         try:
             invitation = get_invitation_by_token(token)
@@ -470,6 +482,8 @@ class AcceptPendingProjectInvitationView(APIView):
     throttle_scope = 'invitation_accept'
 
     def post(self, request):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         logger.info('Pending invitation accept endpoint reached', extra={'user_id': request.user.id, 'path': request.path})
         try:
             result = accept_pending_invitation_from_session(session=request.session, user=request.user)

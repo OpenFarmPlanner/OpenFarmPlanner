@@ -7,11 +7,12 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
-from django.utils import timezone, translation
+from django.utils import translation
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from accounts.demo_access import is_active_guest_demo_user
 from config.languages import UI_LANGUAGE_AUTO, UI_LANGUAGE_VALUES
 from crops.permissions import is_public_library_moderator
 from farm.models import ProjectMembership
@@ -19,7 +20,7 @@ from farm.project_context import resolve_project_for_user
 from farm.services.demo_project import is_demo_project_description
 
 from .consent import get_pending_consent_documents, has_accepted_current, record_acceptance
-from .models import AccountDeletionRequest, DocumentConsent, GuestDemoSession, PublicProfile
+from .models import AccountDeletionRequest, DocumentConsent, PublicProfile
 
 User = get_user_model()
 _username_validator = UnicodeUsernameValidator()
@@ -174,10 +175,7 @@ class UserSerializer(serializers.ModelSerializer):
         return [] if self.get_is_guest_demo(obj) else get_pending_consent_documents(obj)
 
     def get_is_guest_demo(self, obj: User) -> bool:
-        try:
-            return obj.guest_demo_session.expires_at > timezone.now()
-        except GuestDemoSession.DoesNotExist:
-            return False
+        return is_active_guest_demo_user(obj)
 
     def get_guest_demo_session_id(self, obj: User) -> int | None:
         return obj.guest_demo_session.id if self.get_is_guest_demo(obj) else None

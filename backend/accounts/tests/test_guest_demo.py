@@ -17,7 +17,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from accounts.guest_demo import create_guest_demo_session
 from accounts.models import GuestDemoSession
 from accounts.views import GuestDemoStartView, LoginView
-from farm.models import Culture, Project
+from farm.models import Culture, Project, ProjectInvitation
 from farm.services.demo_project import DEMO_PROJECT_NAME_EN
 
 User = get_user_model()
@@ -111,6 +111,24 @@ class GuestDemoApiTests(TestCase):
 
         self.assertNotEqual(first.data['resolved_project_id'], second.data['resolved_project_id'])
 
+    def test_restarting_guest_demo_deletes_previous_workspace(self) -> None:
+        first = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+        first_project_id = first.data['resolved_project_id']
+
+        second = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertNotEqual(first_project_id, second.data['resolved_project_id'])
+        self.assertFalse(Project.objects.filter(id=first_project_id).exists())
+
     def test_end_deletes_current_guest_workspace(self) -> None:
         started = self.client.post(
             '/openfarmplanner/api/auth/guest-demo/start/',
@@ -123,6 +141,92 @@ class GuestDemoApiTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Project.objects.filter(id=project_id).exists())
+
+    def test_end_deletes_guest_workspace_when_session_marker_is_missing(self) -> None:
+        started = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+        project_id = started.data['resolved_project_id']
+        session = self.client.session
+        del session['guest_demo_session_id']
+        session.save()
+
+        response = self.client.post('/openfarmplanner/api/auth/guest-demo/end/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Project.objects.filter(id=project_id).exists())
+
+    def test_expired_guest_demo_still_cannot_create_additional_projects_before_cleanup(self) -> None:
+        started = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+        demo_session = GuestDemoSession.objects.get(id=started.data['guest_demo_session_id'])
+        demo_session.expires_at = timezone.now() - timedelta(minutes=1)
+        demo_session.save(update_fields=['expires_at'])
+
+        response = self.client.post(
+            '/openfarmplanner/api/projects/',
+            {'name': 'Expired guest project'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(Project.objects.filter(name='Expired guest project').exists())
+
+    def test_guest_demo_cannot_create_additional_projects(self) -> None:
+        self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+
+        response = self.client.post(
+            '/openfarmplanner/api/projects/',
+            {'name': 'Extra demo project'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(Project.objects.filter(name='Extra demo project').exists())
+
+    def test_guest_demo_cannot_send_project_invitations(self) -> None:
+        started = self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+
+        response = self.client.post(
+            f"/openfarmplanner/api/projects/{started.data['resolved_project_id']}/invitations/",
+            {'email': 'invitee@example.com', 'role': 'member'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(ProjectInvitation.objects.filter(email_normalized='invitee@example.com').exists())
+
+    def test_guest_demo_cannot_request_account_email_change(self) -> None:
+        self.client.post(
+            '/openfarmplanner/api/auth/guest-demo/start/',
+            {},
+            format='json',
+        )
+
+        response = self.client.post(
+            '/openfarmplanner/api/auth/account/change-email/',
+            {'new_email': 'guest@example.com', 'current_password': ''},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
 
     def test_expired_session_is_removed_by_cleanup_command(self) -> None:
         demo_session = create_guest_demo_session()

@@ -25,7 +25,66 @@ creation and are not translated in place. The management command defaults to
 German for existing screenshot workflows and accepts `--language en` for the
 English fixture.
 
-The public landing page also starts an isolated anonymous guest project from this template. Guest workspaces are editable but session-bound, reset on the next browser session, and removed after their short server-side retention period by `cleanup_guest_demo_sessions`. This is separate from the persistent personal demo project.
+The public landing page also starts an isolated anonymous guest project from
+this template. Guest workspaces are editable but session-bound, reset on the
+next browser session, and removed after their short server-side retention
+period by `cleanup_guest_demo_sessions`. This is separate from the persistent
+personal demo project.
+
+## Public demo architecture
+
+OpenFarmPlanner can provide a public demo with the current codebase. The
+recommended and implemented architecture is an isolated anonymous guest
+workspace per visitor:
+
+- The landing page starts the demo through
+  `/api/auth/guest-demo/start/` and routes the visitor directly into the app.
+- The backend creates a random temporary user, a random temporary project, a
+  normal project membership, and demo data from the same reusable template as
+  onboarding and screenshots.
+- The temporary project is editable so visitors can test real workflows, but
+  all records remain separated from production user projects by the normal
+  project tenant boundary.
+- Guest sessions expire after 8 hours and are deleted, together with their
+  user and project data, by the `cleanup_guest_demo_sessions` management
+  command. Production cron should run this command regularly; the ops repo
+  schedules it every 30 minutes.
+- The frontend stores the guest session id in `sessionStorage`. A new browser
+  session starts a fresh workspace instead of reusing old demo data.
+
+Alternatives considered:
+
+- **Public shared demo account:** Low implementation effort, but every visitor
+  would see and edit the same data. This creates data-loss, vandalism, privacy,
+  and credential-sharing problems.
+- **Read-only demo mode:** Safe and cheap to maintain, but it does not let
+  visitors try the spreadsheet editing, planning, and project-management flows
+  that define the product.
+- **Separate periodically reset demo database:** Strong isolation, but it adds
+  deployment complexity, data synchronization, and another operational surface
+  for a small project.
+- **Anonymous per-session guest workspace:** Slightly more backend work, but it
+  reuses the existing tenancy model and demo template, gives realistic editable
+  behavior, and keeps operations simple through automatic cleanup.
+
+Risk controls:
+
+- Demo start is rate-limited through `GUEST_DEMO_THROTTLE_RATE`
+  (`10/hour` by default outside development, `1000/minute` in development).
+- Guest users cannot create additional projects, send project invitations,
+  accept invitations into real projects, change account email/password,
+  request account deletion/export, create public profiles, upload media,
+  publish to the public crop library, write public-library discussions or
+  change proposals, create crop-species proposals, or request moderator access.
+- Demo-created users use `example.invalid` email addresses and unusable
+  passwords.
+- Data growth is bounded by the start throttle, the 8-hour retention window,
+  and the scheduled cleanup command.
+
+Expected implementation effort for this architecture is low to medium because
+it reuses existing project scoping, authentication sessions, and demo seeding.
+The main ongoing maintenance cost is keeping the demo template realistic and
+ensuring the cleanup cron remains deployed.
 
 The frontend opens the first-project onboarding automatically only while the
 authenticated user's project membership list is empty. Loading the demo project

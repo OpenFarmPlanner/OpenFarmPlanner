@@ -6,6 +6,7 @@ from rest_framework import parsers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from farm.history import _current_actor_label, _serialize_instance, record_entity_revision
 from farm.image_processing import (
     ImageProcessingBackendUnavailableError,
@@ -37,6 +38,8 @@ class MediaFileUploadView(APIView):
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     def post(self, request):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         active_project = get_active_project_or_400(request)
         upload = request.FILES.get('file')
         if upload is None:
@@ -86,6 +89,8 @@ class NoteAttachmentListCreateView(APIView):
         return Response(serializer.data)
 
     def post(self, request, note_id: int):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         active_project = get_active_project_or_400(request)
         plan = get_object_or_404(PlantingPlan, pk=note_id, project=active_project)
 
