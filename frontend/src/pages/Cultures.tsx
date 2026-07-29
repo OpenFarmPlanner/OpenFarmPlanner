@@ -65,6 +65,7 @@ import { useTopbarContextActions } from '../hooks/useTopbarContextActions';
 import {
   DeleteUndoSnackbar,
 } from '../components/data-grid';
+import { getCultureDisplayName } from '../cultures/cultureDisplay';
 
 const PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX: SxProps<Theme> = {
   backgroundColor: 'rgba(76, 175, 80, 0.06)',
@@ -646,7 +647,7 @@ function Cultures() {
         open={Boolean(deleteDialogCulture)}
         fullWidth
         title={t('deleteDialog.title')}
-        message={t('deleteDialog.confirmation', { name: deleteDialogCulture?.name ?? '' })}
+        message={t('deleteDialog.confirmation', { name: deleteDialogCulture ? getCultureDisplayName(deleteDialogCulture) : '' })}
         cancelLabel={t('common:actions.cancel')}
         confirmLabel={t('buttons.delete')}
         onCancel={() => setDeleteDialogCulture(null)}
@@ -663,7 +664,7 @@ function Cultures() {
         open={Boolean(withdrawDialogCulture)}
         fullWidth
         title={t('library.withdrawDialog.title')}
-        message={t('library.withdrawDialog.message', { name: withdrawDialogCulture?.name ?? '' })}
+        message={t('library.withdrawDialog.message', { name: withdrawDialogCulture ? getCultureDisplayName(withdrawDialogCulture) : '' })}
         cancelLabel={t('common:actions.cancel')}
         confirmLabel={t('library.withdrawAction')}
         onCancel={() => setWithdrawDialogCulture(null)}
@@ -688,7 +689,7 @@ function Cultures() {
         <DialogTitle>{t('library.removeDialog.title')}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {t('library.removeDialog.message', { name: removeDialogCulture?.name ?? '' })}
+            {t('library.removeDialog.message', { name: removeDialogCulture ? getCultureDisplayName(removeDialogCulture) : '' })}
           </Typography>
           <FormControl fullWidth size="small">
             <InputLabel id="public-culture-removal-reason-label">

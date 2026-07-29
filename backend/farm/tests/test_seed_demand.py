@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
+from crops.models import CropSpecies, CropSpeciesTranslation
 from farm.models import Location, Field, Bed, Culture, CultureSupplierData, PlantingPlan, Project, ProjectMembership, Supplier
 
 User = get_user_model()
@@ -92,6 +93,36 @@ def test_seed_demand_applies_safety_margin(api_client: APIClient, bed: Bed):
     assert row['package_blocker'] is None
     assert row['required_amount_unit'] == 'g'
     assert row['package_suggestion']['pack_count'] == 5
+
+
+@pytest.mark.django_db
+def test_seed_demand_localizes_linked_culture_species_name(api_client: APIClient, bed: Bed):
+    species = CropSpecies.objects.create(name='Seed Demand Localized Species')
+    CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
+    CropSpeciesTranslation.objects.create(species=species, language_code='en', common_name='Broad bean')
+    culture = Culture.objects.create(
+        name='Ackerbohne',
+        variety='Hangdown',
+        crop_species=species,
+        growth_duration_days=90,
+        harvest_duration_days=14,
+        cultivation_types=['direct_sowing'],
+        seed_rate_direct_value=10,
+        seed_rate_direct_unit='g_per_m2',
+        project=bed.project,
+    )
+    _create_plan(culture, bed, 5)
+    _create_supplier_data(culture, 25, 'g')
+
+    response = api_client.get('/openfarmplanner/api/seed-demand/', HTTP_ACCEPT_LANGUAGE='en')
+
+    row = response.json()['results'][0]
+    assert response.status_code == 200
+    assert row['culture_id'] == culture.id
+    assert row['culture_name'] == 'Ackerbohne'
+    assert row['culture_display_name'] == 'Broad bean'
+    assert row['culture_display_language_code'] == 'en'
+    assert row['variety'] == 'Hangdown'
 
 
 @pytest.mark.django_db

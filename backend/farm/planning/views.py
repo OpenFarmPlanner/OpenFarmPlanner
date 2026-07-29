@@ -9,6 +9,7 @@ from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from config.languages import resolve_request_language
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import _entity_display_name, _serialize_instance
 from farm.models import Bed, EntityRevision, PlantingPlan, Task
@@ -73,7 +74,7 @@ class YieldCalendarListView(generics.GenericAPIView):
         if iso_year < 1 or iso_year > 9999:
             return Response({'detail': 'Year out of supported range.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(build_yield_calendar(active_project, iso_year))
+        return Response(build_yield_calendar(active_project, iso_year, resolve_request_language(request)))
 
 
 class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):

@@ -163,6 +163,14 @@
   "sidebar": {
     "resizeHandle": "Widen or narrow the sidebar"
   },
+  "structureSummary": {
+    "fields_one": "{{count}} field",
+    "fields_other": "{{count}} fields",
+    "beds_one": "{{count}} bed",
+    "beds_other": "{{count}} beds",
+    "occupiedBeds_one": "{{count}} occupied",
+    "occupiedBeds_other": "{{count}} occupied"
+  },
   "treeFilters": {
     "searchPlaceholder": "Search by culture, bed, field, or location…",
     "searchPlaceholderSeedlings": "Search by culture…",

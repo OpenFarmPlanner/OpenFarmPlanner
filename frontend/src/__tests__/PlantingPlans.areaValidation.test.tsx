@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { isValidElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import PlantingPlans from "../pages/PlantingPlans";
 import type { EditableDataGridCommandApi } from "../components/data-grid";
 
@@ -22,6 +22,7 @@ const commandApiSpies = vi.hoisted(() => ({
   addRow: vi.fn(),
   setDraftValues: vi.fn(),
   commitDraftValues: vi.fn(),
+  applyDialogEditValues: vi.fn(),
   saveAttemptResult: vi.fn(),
   apiPayload: vi.fn(),
   gridProps: vi.fn(),
@@ -100,7 +101,6 @@ vi.mock("../components/data-grid", async () => {
       ) => void;
     }>;
     inlineRowActionField?: string;
-    singleClickEditFields?: string[];
     deleteUndoOptions?: { message: string; snackbarTestId?: string };
   };
   return {
@@ -125,6 +125,7 @@ vi.mock("../components/data-grid", async () => {
             });
             commandApiSpies.saveAttemptResult(true);
           },
+          applyDialogEditValues: commandApiSpies.applyDialogEditValues,
         };
       }
       const latestPropsRef = React.useRef({ api, mapToRow, onRowsStateChange, onLoadStateChange });
@@ -330,25 +331,63 @@ describe("PlantingPlans save-time area validation", () => {
     expect(inlineDeleteHelper).toHaveBeenCalledWith(-1);
   });
 
-  it("opens the growing-area picker from a single bed-cell click", async () => {
+  it("edits the growing area through its dialog instead of an inline edit cell", async () => {
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
 
     const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
-    expect(latestProps.singleClickEditFields).toEqual(["bed"]);
+    const bedColumn = (latestProps?.columns ?? []).find(
+      (column: { field: string }) => column.field === "bed",
+    );
 
-    const bedColumn = latestProps.columns.find((column: { field: string }) => column.field === "bed");
-    const renderedEditor = bedColumn.renderEditCell({
-      id: 1,
-      field: "bed",
-      value: 101,
-      row: { id: 1, bed: 101 },
-      hasFocus: true,
-      api: { setEditCellValue: vi.fn() },
+    expect(latestProps?.dialogEditFields).toContain("bed");
+    expect(bedColumn?.editable).toBe(false);
+    expect(bedColumn?.renderEditCell).toBeUndefined();
+    expect(bedColumn?.valueSetter).toBeUndefined();
+  });
+
+  it("opens the growing area dialog with a single click and saves the picked bed", async () => {
+    apiMocks.bedList.mockResolvedValue({
+      data: {
+        results: [
+          { id: 101, name: "Beet A", field: 11, area_sqm: 1 },
+          { id: 102, name: "Beet B", field: 11, area_sqm: 3 },
+        ],
+      },
     });
+    const user = userEvent.setup();
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
 
-    expect(isValidElement(renderedEditor)).toBe(true);
-    expect(renderedEditor.props.autoOpenOnFocus).toBe(true);
+    const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
+    const bedColumn = (latestProps?.columns ?? []).find(
+      (column: { field: string }) => column.field === "bed",
+    );
+    const cell = render(
+      <>
+        {bedColumn.renderCell({
+          id: 7,
+          field: "bed",
+          value: 101,
+          row: { id: 7, bed: 101, area_m2: 1 },
+          hasFocus: false,
+        })}
+      </>,
+    );
+
+    await user.click(cell.getByRole("button", { name: "Anbaufläche bearbeiten" }));
+    await user.click(await screen.findByRole("combobox", { name: "Beet" }));
+    await user.click(await screen.findByRole("option", { name: /^Beet B/ }));
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }));
+
+    await waitFor(() => {
+      expect(commandApiSpies.applyDialogEditValues).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ bed: 102 }),
+      );
+    });
+    expect(commandApiSpies.setDraftValues).not.toHaveBeenCalled();
+    cell.unmount();
   });
 
   it("uses one compact width for all date columns", async () => {

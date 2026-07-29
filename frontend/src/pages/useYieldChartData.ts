@@ -10,6 +10,7 @@ import {
   type YieldCalendarCulture,
   type YieldCultureMeta,
 } from "./yieldOverviewUtils";
+import { getCultureDisplayName } from "../cultures/cultureDisplay";
 
 export interface YieldChartCulture extends YieldCultureMeta {
   totalYield: number;
@@ -42,7 +43,7 @@ export function useYieldChartData(
       week.cultures.forEach((culture) => {
         cultureMeta.set(culture.culture_id, {
           id: culture.culture_id,
-          name: culture.culture_name,
+          name: getCultureDisplayName(culture),
           color: culture.color,
         });
       });

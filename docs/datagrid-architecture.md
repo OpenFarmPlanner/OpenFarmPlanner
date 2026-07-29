@@ -63,6 +63,7 @@ it on mount (`hooks/useDataGridCommandApi.ts`):
 interface EditableDataGridCommandApi {
   addRow, editSelectedRow, deleteSelectedRow, deleteRow(rowId),
   getSelectedRowId, setDraftValues(rowId, values), commitDraftValues(rowId, values),
+  applyDialogEditValues(rowId, values),
   reload, focusTable, openRowById(rowId, { startEdit? }),
 }
 ```
@@ -105,6 +106,8 @@ scroll out of view as the user scrolls the table horizontally.
 `setDraftValues`/`commitDraftValues` let external code push field values
 into a row that's already mid-edit (e.g. a calculated side-effect from
 another field), either staying in edit mode or committing immediately.
+`applyDialogEditValues` is the entry point for cells that have no edit
+session at all — see "Cells edited in a popover/dialog" below.
 
 ## Custom edit cells
 
@@ -154,6 +157,12 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   focus helper focuses the target cell's actual editor input instead of only
   the DataGrid cell wrapper; otherwise the cell can look focused while
   printable keystrokes are ignored.
+- While a row is in edit mode, `EditableDataGrid` owns Tab/Shift+Tab
+  navigation even when focus is inside a custom editor input. MUI's own
+  native capture handlers can otherwise move to the next row before React
+  editor handlers run, so the wrapper uses one grid-scoped capture listener
+  that only handles Tab events originating inside the edited grid surface and
+  then routes them through the same pure navigation helpers.
 - **`keyboardEditing.ts`**'s `useSpreadsheetEditStarter` implements
   Excel-like "just start typing" (a printable keydown on a non-editing
   cell immediately opens edit mode and *replaces* the cell's value with the
@@ -170,16 +179,10 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   hierarchy's name and dimension editors disable MUI's default input debounce
   because row-level validation across rapidly edited fields can otherwise
   complete out of order and restore an older value after a focus change.
-- Notes cells (see below) are deliberately excluded from both spreadsheet
-  auto-edit-start and the F2 flow — Enter/Space on a notes cell opens the
-  notes drawer instead.
-- Picker-backed cells can opt into `singleClickEditFields` when their real
-  editor is a popover/dialog rather than an inline input. The planting-plan
-  `bed` column uses this for the Standort → Parzelle → Beet assignment
-  dialog: a plain left-click focuses that edit cell and lets the edit-cell
-  renderer open the dialog immediately, while modifier-clicks/context-menu
-  flows and normal text/number/date/select cells keep the standard grid
-  interaction model.
+- Notes cells and `dialogEditFields` cells (both below) are deliberately
+  excluded from spreadsheet auto-edit-start, the F2 flow, and click-to-edit —
+  Enter/Space opens their own editor instead. They remain Tab/arrow stops via
+  the `isActionCell` hook, since `editable: false` alone would skip them.
 
 ## Hover actions / row actions / context menu
 
@@ -245,6 +248,45 @@ downscale/re-encode to WebP (falling back to JPEG) client-side before
 upload. `noteAttachmentsCache.ts` caches attachment fetches per note id so
 re-hovering a row doesn't refetch; the drawer explicitly invalidates that
 cache after upload/delete.
+
+## Cells edited in a popover/dialog (`dialogEditFields`)
+
+Some values are never typed into a cell — they are picked in a dialog
+(today: the Anbaupläne "Anbaufläche" column, a Standort → Parzelle → Beet
+picker in `AreaAssignmentDialog.tsx`). Those columns are **`editable:
+false`** and listed in `EditableDataGrid`'s `dialogEditFields` prop. The
+grid then treats them exactly like notes cells:
+
+- **one left click opens the real editor.** The column's `renderCell` —
+  not `renderEditCell` — renders both the value and the dialog, so the
+  click lands directly on the dialog trigger. There is deliberately no
+  intermediate inline edit state and no pencil icon: an edit mode the user
+  can only click *through* is a wasted click, not an affordance.
+- **no inline edit mode is ever started for them**, from the click, from
+  F2, or from "just start typing" (`onCellClick` returns early and
+  `useSpreadsheetEditStarter` gets an `isCellEditable` that rejects them).
+- **they stay keyboard stops.** `editable: false` would normally drop a
+  cell out of Tab/arrow navigation, so `isCellKeyboardNavigable`'s
+  `isActionCell` hook covers notes *and* dialog fields
+  (`dedicatedEditorFieldNames` in `DataGrid.tsx`). Enter/Space is handled by
+  the trigger element itself, which stops propagation so the grid does not
+  also react; after the dialog closes, focus returns to that trigger and
+  ordinary navigation continues.
+
+The dialog writes its result back through the command API's
+`applyDialogEditValues(rowId, values)`, **not** `setEditCellValue` (there is
+no edit session to write into) and **not** a column `valueSetter` (which
+only runs in edit mode — any side effects it had must move into the caller;
+see `applyBedSelection` in `PlantingPlans.tsx`). It branches on the row's
+current mode: a row already in inline edit mode — typically a new draft row
+— only gets the values merged into its draft, so its own save cycle
+persists everything at once; a row in view mode is saved immediately
+through the normal `processRowUpdate` path, including the
+`onBeforeSaveRow` gate.
+
+`FieldsBedsHierarchy.tsx` needs no equivalent: its only
+non-inline-edited column is `notes`, whose cell already opens the drawer on
+a single click.
 
 ## Text overflow tooltips
 
@@ -360,3 +402,7 @@ grid," that's new work, not exposing something that already half-exists.
   `useColumnVisibility`/the native panel instead.
 - Notes columns must stay `editable: false` and excluded from the
   spreadsheet auto-edit-start/F2 flow — they have their own editor.
+- A new column whose value is only ever picked in a popover/dialog belongs
+  in `dialogEditFields`, not in a `renderEditCell`. Don't reintroduce a
+  cell-level edit mode whose only purpose is to reveal a button that opens
+  the real editor — that costs the user a click for nothing.

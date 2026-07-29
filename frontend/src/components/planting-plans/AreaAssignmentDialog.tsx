@@ -15,13 +15,14 @@ import {
 import { useTranslation } from '../../i18n';
 import type { Bed, Field, Location } from '../../api/types';
 import EmptyStateCard from '../project/EmptyStateCard';
+import { CompactAreaCell } from './CompactAreaCell';
 import {
   collectHierarchyAvailability,
   filterFieldOptionsByLocation,
 } from './areaHierarchySelection';
 import { formatAreaM2, toNumericValue } from '../../pages/plantingPlansUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
-import { mediumStackedFieldSx } from '../forms/formLayout';
+import { fullWidthFieldSx } from '../forms/formLayout';
 
 interface AreaAssignmentDialogProps {
   bedId: number | null;
@@ -33,7 +34,6 @@ interface AreaAssignmentDialogProps {
   compactLabel: string;
   placeholder?: string;
   hasFocus?: boolean;
-  autoOpenOnFocus?: boolean;
   memoKey?: string;
 }
 
@@ -49,6 +49,29 @@ interface DialogKeyboardControl {
   focusTarget: HTMLElement | null;
   disabled: boolean;
 }
+
+const selectFieldSx = {
+  ...fullWidthFieldSx,
+  '& .MuiSelect-select': {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+} as const;
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      maxWidth: { xs: 'calc(100vw - 32px)', sm: 420 },
+      '& .MuiMenuItem-root': {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+    },
+  },
+} as const;
 
 const normalizeState = (
   bedId: number | null,
@@ -115,8 +138,6 @@ function AreaAssignmentDialogComponent({
   compactLabel,
   placeholder,
   hasFocus = false,
-  autoOpenOnFocus = false,
-  memoKey,
 }: AreaAssignmentDialogProps) {
   const { t } = useTranslation('plantingPlans');
   const [isOpen, setIsOpen] = useState(false);
@@ -125,10 +146,8 @@ function AreaAssignmentDialogComponent({
   const locationSelectRef = useRef<HTMLDivElement | null>(null);
   const fieldSelectRef = useRef<HTMLDivElement | null>(null);
   const bedSelectRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const applyButtonRef = useRef<HTMLButtonElement | null>(null);
-  const autoOpenedKeyRef = useRef<string | null>(null);
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
 
@@ -285,9 +304,6 @@ function AreaAssignmentDialogComponent({
     }
     await onApply(activeDraft.bedId);
     setIsOpen(false);
-    requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -371,30 +387,12 @@ function AreaAssignmentDialogComponent({
   const handleCancel = (): void => {
     setOpenSelect(null);
     setIsOpen(false);
-    requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
   };
 
-  const handleOpen = useCallback((): void => {
+  const handleOpen = (): void => {
     setDraft(getOpeningDraft());
     setIsOpen(true);
-  }, [getOpeningDraft]);
-
-  useEffect(() => {
-    if (!hasFocus || isOpen) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-      const autoOpenKey = memoKey ?? 'default';
-      if (autoOpenOnFocus && autoOpenedKeyRef.current !== autoOpenKey) {
-        autoOpenedKeyRef.current = autoOpenKey;
-        handleOpen();
-      }
-    });
-  }, [autoOpenOnFocus, handleOpen, hasFocus, isOpen, memoKey]);
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -409,64 +407,36 @@ function AreaAssignmentDialogComponent({
 
   return (
     <>
-      <Box
-        ref={triggerRef}
-        role="button"
-        tabIndex={hasFocus ? 0 : -1}
-        aria-label={t('areaAssignment.editButton')}
-        onClick={handleOpen}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            event.stopPropagation();
-            handleOpen();
-          }
-        }}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.5,
-          width: '100%',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          borderRadius: 0.5,
-          '&:focus-visible': {
-            outline: '2px solid',
-            outlineColor: 'primary.main',
-            outlineOffset: '1px',
-          },
-        }}
-      >
-        <Typography
-          variant="body2"
-          noWrap
-          sx={{ flexGrow: 1, color: compactLabel ? 'text.primary' : 'text.disabled' }}
-        >
-          {compactLabel || placeholder}
-        </Typography>
-      </Box>
+      <CompactAreaCell
+        label={compactLabel}
+        placeholder={placeholder}
+        hasFocus={hasFocus}
+        suppressFocus={isOpen}
+        onOpen={handleOpen}
+        triggerLabel={t('areaAssignment.editButton')}
+      />
       <Dialog
         open={isOpen}
         onClose={handleCancel}
         fullWidth
-        maxWidth="sm"
+        maxWidth="xs"
       >
-        <Box component="form" onSubmit={handleFormSubmit}>
+        <Box component="form" onSubmit={handleFormSubmit} sx={{ minWidth: 0 }}>
           <DialogTitle>{t('areaAssignment.title')}</DialogTitle>
           <DialogContent>
-            <Box sx={{ pt: 1 }}>
-            {bedsWithLocation.length === 0 ? (
-              <EmptyStateCard
-                title={t('areaAssignment.emptyStateTitle')}
-                description={t('areaAssignment.emptyStateDescription')}
-                actions={[{ label: t('areaAssignment.emptyStateAction'), to: '/app/fields-beds' }]}
-              />
-            ) : null}
-            <Stack spacing={2} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5 }}>
+            <Box sx={{ pt: 1, minWidth: 0 }}>
+              {bedsWithLocation.length === 0 ? (
+                <EmptyStateCard
+                  title={t('areaAssignment.emptyStateTitle')}
+                  description={t('areaAssignment.emptyStateDescription')}
+                  actions={[{ label: t('areaAssignment.emptyStateAction'), to: '/app/fields-beds' }]}
+                />
+              ) : null}
+              <Stack spacing={1.5} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5, minWidth: 0 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: -0.25 }}>
                   {t('areaAssignment.hierarchyHint')}
                 </Typography>
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-location-label">{t('columns.location')}</InputLabel>
                   <Select
                     fullWidth
@@ -476,6 +446,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.locationId ?? ''}
                     label={t('columns.location')}
                     disabled={selectableLocations.length === 0}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('location')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -484,12 +455,12 @@ function AreaAssignmentDialogComponent({
                     }}
                   >
                     {selectableLocations.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                      <MenuItem key={item.id} value={item.id} title={item.name}>{item.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-field-label">{t('columns.field')}</InputLabel>
                   <Select
                     fullWidth
@@ -499,6 +470,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.fieldId ?? ''}
                     label={t('columns.field')}
                     disabled={isFieldSelectDisabled}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('field')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -507,12 +479,12 @@ function AreaAssignmentDialogComponent({
                     }}
                   >
                     {selectableFields.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                      <MenuItem key={item.id} value={item.id} title={item.name}>{item.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-bed-label">{t('columns.bed')}</InputLabel>
                   <Select
                     fullWidth
@@ -522,6 +494,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.bedId ?? ''}
                     label={t('columns.bed')}
                     disabled={isBedSelectDisabled}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('bed')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -531,12 +504,15 @@ function AreaAssignmentDialogComponent({
                       });
                     }}
                   >
-                    {selectableBeds.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{renderBedLabel(item)}</MenuItem>
-                    ))}
+                    {selectableBeds.map((item) => {
+                      const label = renderBedLabel(item);
+                      return (
+                        <MenuItem key={item.id} value={item.id} title={label}>{label}</MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
-            </Stack>
+              </Stack>
             </Box>
           </DialogContent>
           <DialogActions>

@@ -20,10 +20,13 @@ interface DataGridNavigationApi<Row extends GridValidRowModel> {
   getColumnIndexRelativeToVisibleColumns?: (field: string) => number;
   getRowIndexRelativeToVisibleRows?: (id: GridRowId) => number;
   getVisibleColumns?: () => GridColDef<Row>[];
-  isCellEditable?: (params: GridCellParams<Row>) => boolean;
   scrollToIndexes?: (indexes: { rowIndex?: number; colIndex?: number }) => void;
   setCellFocus?: (id: GridRowId, field: string) => void;
 }
+
+type KeyboardNavigationColumn<Row extends GridValidRowModel> = GridColDef<Row> & {
+  isCellEditable?: (params: GridCellParams<Row>) => boolean;
+};
 
 interface IsCellKeyboardNavigableOptions<Row extends GridValidRowModel> {
   api: DataGridNavigationApi<Row> | null | undefined;
@@ -73,7 +76,28 @@ const INTERACTIVE_CELL_TARGET_SELECTOR = [
 const getColumns = <Row extends GridValidRowModel>(
   api: DataGridNavigationApi<Row> | null | undefined,
   fallbackColumns: readonly GridColDef<Row>[] = [],
-): readonly GridColDef<Row>[] => api?.getVisibleColumns?.() ?? fallbackColumns;
+): readonly GridColDef<Row>[] => {
+  const visibleColumns = api?.getVisibleColumns?.();
+  if (!visibleColumns || fallbackColumns.length === 0) {
+    return visibleColumns ?? fallbackColumns;
+  }
+
+  const fallbackByField = new Map(fallbackColumns.map((column) => [column.field, column]));
+  return visibleColumns.map((column) => {
+    const fallback = fallbackByField.get(column.field);
+    if (!fallback) {
+      return column;
+    }
+
+    const fallbackNavigationColumn = fallback as KeyboardNavigationColumn<Row>;
+    const visibleNavigationColumn = column as KeyboardNavigationColumn<Row>;
+    return {
+      ...fallback,
+      ...column,
+      isCellEditable: visibleNavigationColumn.isCellEditable ?? fallbackNavigationColumn.isCellEditable,
+    };
+  });
+};
 
 const getRowIds = <Row extends GridValidRowModel>(
   api: DataGridNavigationApi<Row> | null | undefined,
@@ -100,8 +124,18 @@ export function isCellKeyboardNavigable<Row extends GridValidRowModel>({
       field,
       row,
     }) as GridCellParams<Row>;
+    if (!params.row && row) {
+      params = { ...params, row };
+    }
   } catch {
-    return false;
+    if (!row) {
+      return false;
+    }
+    params = {
+      id: rowId,
+      field,
+      row,
+    } as GridCellParams<Row>;
   }
 
   if (!params || !params.row) {
@@ -117,7 +151,7 @@ export function isCellKeyboardNavigable<Row extends GridValidRowModel>({
   }
 
   try {
-    return api?.isCellEditable?.(params) ?? true;
+    return (column as KeyboardNavigationColumn<Row>).isCellEditable?.(params) ?? true;
   } catch {
     return false;
   }

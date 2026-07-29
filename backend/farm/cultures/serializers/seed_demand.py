@@ -21,6 +21,8 @@ class SeedDemandSerializer(serializers.Serializer):
     """Read-only serializer for aggregated seed demand per culture."""
     culture_id = serializers.IntegerField()
     culture_name = serializers.CharField()
+    culture_display_name = serializers.CharField(allow_blank=True, allow_null=True)
+    culture_display_language_code = serializers.CharField(allow_blank=True)
     variety = serializers.CharField(allow_blank=True, allow_null=True)
     supplier = serializers.CharField(allow_blank=True, allow_null=True)
     selected_supplier_id = serializers.IntegerField(allow_null=True, required=False)

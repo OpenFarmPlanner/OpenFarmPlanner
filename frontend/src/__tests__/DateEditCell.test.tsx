@@ -1,21 +1,28 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DateEditCell } from '../components/data-grid/DateEditCell';
+import { EditCellNavigationContext } from '../components/data-grid/EditCellNavigationContext';
 
-const renderDateEditCell = (value: Date | string | null = new Date('2026-04-10T00:00:00')) => {
+const renderDateEditCell = (
+  value: Date | string | null = new Date('2026-04-10T00:00:00'),
+  editCellNavigation: ComponentProps<typeof EditCellNavigationContext.Provider>['value'] = null,
+) => {
   const setEditCellValue = vi.fn().mockResolvedValue(true);
 
   render(
-    <DateEditCell
-      {...({
-        id: 1,
-        field: 'planting_date',
-        value,
-        hasFocus: true,
-        api: { setEditCellValue },
-      } as unknown as GridRenderEditCellParams)}
-    />,
+    <EditCellNavigationContext.Provider value={editCellNavigation}>
+      <DateEditCell
+        {...({
+          id: 1,
+          field: 'planting_date',
+          value,
+          hasFocus: true,
+          api: { setEditCellValue },
+        } as unknown as GridRenderEditCellParams)}
+      />
+    </EditCellNavigationContext.Provider>,
   );
 
   return {
@@ -106,6 +113,46 @@ describe('DateEditCell', () => {
         value: new Date('2026-05-12T00:00:00'),
       });
     });
+  });
+
+  it('does not commit invalid directly typed dates', () => {
+    const { input, setEditCellValue } = renderDateEditCell();
+
+    fireEvent.change(input, { target: { value: '32.13.2026' } });
+
+    expect(input).toHaveDisplayValue('32.13.2026');
+    expect(setEditCellValue).not.toHaveBeenCalled();
+  });
+
+  it('delegates Tab navigation to the owning grid', () => {
+    const editCellNavigation = vi.fn().mockReturnValue(true);
+    const { input, setEditCellValue } = renderDateEditCell(
+      new Date('2026-04-10T00:00:00'),
+      editCellNavigation,
+    );
+
+    fireEvent.keyDown(input, { key: 'Tab' });
+
+    expect(editCellNavigation).toHaveBeenCalledWith(expect.objectContaining({
+      id: 1,
+      field: 'planting_date',
+      event: expect.objectContaining({ key: 'Tab' }),
+    }));
+    expect(setEditCellValue).not.toHaveBeenCalled();
+  });
+
+  it('keeps Ctrl+A inside the date input instead of bubbling to grid shortcuts', () => {
+    const documentKeyDown = vi.fn();
+    document.addEventListener('keydown', documentKeyDown);
+    const { input } = renderDateEditCell();
+
+    try {
+      fireEvent.keyDown(input, { key: 'a', ctrlKey: true });
+
+      expect(documentKeyDown).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener('keydown', documentKeyDown);
+    }
   });
 
   it('opens the native picker from the calendar button', () => {

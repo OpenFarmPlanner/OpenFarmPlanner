@@ -14,6 +14,7 @@ import type {
   GridCellParams,
   GridColDef,
   GridRenderCellParams,
+  GridRowId,
   GridValueOptionsParams,
 } from "@mui/x-data-grid";
 import {
@@ -92,8 +93,8 @@ import {
   getTranslatedProjectSetupActions,
 } from "./requirementFlow";
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
-import { CompactAreaCell } from "../components/planting-plans/CompactAreaCell";
 import EmptyStateCard from "../components/project/EmptyStateCard";
+import { formatCultureDisplayName } from "../cultures/cultureDisplay";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
@@ -123,6 +124,8 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
 const CULTURE_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
+/** Columns whose editor is a dialog the cell opens on a single click. */
+const PLANTING_PLAN_DIALOG_EDIT_FIELDS = ["bed"];
 
 function PlantingPlans() {
   const { t } = useTranslation(["plantingPlans", "common"]);
@@ -301,6 +304,28 @@ function PlantingPlans() {
     ],
   );
 
+  /**
+   * Writes a growing-area selection made in the AreaAssignmentDialog back into
+   * the grid. The bed cell has no inline edit mode, so the column's former
+   * `valueSetter` side effects (hierarchy sync, area autofill for new rows)
+   * live here instead.
+   */
+  const applyBedSelection = useCallback(
+    async (rowId: GridRowId, row: PlantingPlanRow, nextBedId: number): Promise<void> => {
+      const selectedBed = bedById.get(nextBedId);
+      const shouldAutofillArea = Boolean(row.isNew)
+        && (row.area_m2 === undefined || row.area_m2 === null);
+
+      await gridCommandApiRef.current?.applyDialogEditValues(rowId, {
+        bed: nextBedId,
+        ...normalizeSelectionAfterBedChange(row, nextBedId, fields, beds),
+        ...(shouldAutofillArea && selectedBed?.area_sqm !== undefined
+          ? { area_m2: selectedBed.area_sqm }
+          : {}),
+      });
+    },
+    [bedById, beds, fields],
+  );
 
   /**
    * Check for cultureId or bedId parameter in URL and set as initial values
@@ -520,11 +545,14 @@ function PlantingPlans() {
       },
       {
         field: "bed",
-          headerName: areaColumnLabel,
+        headerName: areaColumnLabel,
         flex: 0,
         minWidth: dynamicWidths.bed,
         maxWidth: BED_COLUMN_MAX_WIDTH,
-        editable: true,
+        // The growing area is only ever picked in AreaAssignmentDialog, so the
+        // cell skips inline edit mode entirely — see the grid's
+        // `dialogEditFields` prop below.
+        editable: false,
         type: "singleSelect",
         valueOptions: bedOptions,
         valueFormatter: (_value, row) => getBedLabelForRow(row as PlantingPlanRow),
@@ -538,13 +566,8 @@ function PlantingPlans() {
         },
         renderCell: (params) => {
           const row = params.row as PlantingPlanRow;
-          const label = getBedLabelForRow(row);
-          return <CompactAreaCell label={label} hasFocus={params.hasFocus} />;
-        },
-        renderEditCell: (params) => {
-          const row = params.row as PlantingPlanRow;
           const bedId = resolveBedCellValue(params.value, row);
-          const label = getBedLabelForRow({ ...row, bed: bedId });
+          const label = getBedLabelForRow(row);
           return (
             <AreaAssignmentDialog
               bedId={bedId || null}
@@ -555,34 +578,10 @@ function PlantingPlans() {
               compactLabel={label}
               placeholder={t("plantingPlans:placeholders.selectArea")}
               hasFocus={params.hasFocus}
-              autoOpenOnFocus
               memoKey={`${String(params.id)}:${params.field}`}
-              onApply={async (nextBedId) => {
-                await params.api.setEditCellValue({
-                  id: params.id,
-                  field: "bed",
-                  value: nextBedId,
-                });
-              }}
+              onApply={(nextBedId) => applyBedSelection(params.id, row, nextBedId)}
             />
           );
-        },
-        valueSetter: (value, row) => {
-          const nextRow = row as PlantingPlanRow;
-          const numericValue = resolveBedCellValue(value, nextRow);
-          const selectedBed = bedById.get(numericValue);
-          const isNewRow = Boolean(nextRow.isNew);
-          const currentArea = nextRow.area_m2;
-          const shouldAutofill = isNewRow && (currentArea === undefined || currentArea === null);
-
-          return {
-            ...nextRow,
-            ...normalizeSelectionAfterBedChange(nextRow, numericValue, fields, beds),
-            area_m2:
-              shouldAutofill && selectedBed?.area_sqm !== undefined
-                ? selectedBed.area_sqm
-                : currentArea,
-          } as PlantingPlanRow;
         },
       },
       {
@@ -757,7 +756,7 @@ function PlantingPlans() {
       },
     ],
     [
-      bedById,
+      applyBedSelection,
       bedLabelById,
       bedOptions,
       beds,
@@ -779,12 +778,15 @@ function PlantingPlans() {
 
   const getCultureLabel = (row: PlantingPlanRow): string => {
     const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    const cultureDisplayName = row.culture_display_name || row.culture_name;
-    if (cultureDisplayName) {
-      if (linkedCulture?.variety && !cultureDisplayName.includes(`(${linkedCulture.variety})`)) {
-        return `${cultureDisplayName} (${linkedCulture.variety})`;
-      }
-      return cultureDisplayName;
+    const cultureLabel = formatCultureDisplayName({
+      name: linkedCulture?.name,
+      culture_name: row.culture_name,
+      culture_display_name: row.culture_display_name ?? linkedCulture?.culture_display_name,
+      variety: linkedCulture?.variety,
+      culture_variety: row.culture_variety,
+    });
+    if (cultureLabel) {
+      return cultureLabel;
     }
     const fallback = cultureOptions.find((option) => option.value === row.culture);
     return fallback?.label ?? "—";
@@ -1555,8 +1557,8 @@ function PlantingPlans() {
             surfaceSizing="contentFit"
             scrollMode="continuous"
             columns={columns}
-            singleClickEditFields={["bed"]}
             api={plantingPlanGridAPI}
+            dialogEditFields={PLANTING_PLAN_DIALOG_EDIT_FIELDS}
             commandApiRef={gridCommandApiRef}
             onSelectedRowChange={setSelectedPlan}
             onRowsStateChange={(rows) => {

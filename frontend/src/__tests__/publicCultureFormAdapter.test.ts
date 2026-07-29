@@ -57,23 +57,23 @@ describe('publicCultureToCultureFormData', () => {
     expect(form.seed_rate_pre_cultivation_unit).toBe('seeds_per_plant');
   });
 
-  it('loads notes from the exact edited language', () => {
-    const form = publicCultureToCultureFormData(buildPublicCulture({
-      translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
-    }), 'en');
+  it('carries the original-language notes into the public edit form', () => {
+    const form = publicCultureToCultureFormData(buildPublicCulture({ notes: 'Some notes' }));
 
-    expect(form.notes).toBe('A robust variety.');
+    expect(form.notes).toBe('Some notes');
   });
 
-  it('does not copy fallback notes into a missing edited language', () => {
+  it('prefers the original-language translation over the legacy notes copy', () => {
     const form = publicCultureToCultureFormData(buildPublicCulture({
-      notes: 'Robuste Sorte.',
-      description: 'Robuste Sorte.',
-      description_language_code: 'de',
-      translations: { de: 'Robuste Sorte.' },
-    }), 'en');
+      notes: 'Legacy notes',
+      original_language_code: 'de',
+      translations: {
+        de: 'Original German notes',
+        en: 'English notes',
+      },
+    }));
 
-    expect(form.notes).toBe('');
+    expect(form.notes).toBe('Original German notes');
   });
 });
 
@@ -86,6 +86,7 @@ describe('buildPublicCultureUpdatePayload', () => {
     }), 4);
 
     expect(payload.base_version).toBe(4);
+    expect(payload.notes).toBe('');
     expect(payload.distance_within_row_m).toBe(0.3);
     expect(payload.row_spacing_m).toBe(0.4);
     expect(payload.sowing_depth_m).toBe(0.02);
@@ -125,5 +126,13 @@ describe('buildPublicCultureUpdatePayload', () => {
     expect(payload.seed_rate_value).toBe(15);
     expect(payload.seed_rate_unit).toBe('g_per_m2');
     expect(payload.seed_rate_by_cultivation).toBeNull();
+  });
+
+  it('includes notes so public edits update the original-language description', () => {
+    const payload = buildPublicCultureUpdatePayload(buildCultureDraft({
+      notes: 'Updated original notes',
+    }), 1);
+
+    expect(payload.notes).toBe('Updated original notes');
   });
 });

@@ -8,6 +8,8 @@ import { useTranslation } from '../i18n';
 import { useAuth } from '../auth/useAuth';
 import { extractApiErrorMessage } from '../api/errors';
 import { dedupePublicCultures } from './publicCultureUtils';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
 
 interface UsePublicCultureLibraryConfig {
   shouldShowProjectRequiredState: boolean;
@@ -26,7 +28,8 @@ export function usePublicCultureLibrary({
   onClearForm,
   showSnackbar,
 }: UsePublicCultureLibraryConfig) {
-  const { t } = useTranslation(['cultures', 'common']);
+  const { t, i18n } = useTranslation(['cultures', 'common']);
+  const language = i18n.resolvedLanguage ?? i18n.language;
   const { refreshUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,7 +84,9 @@ export function usePublicCultureLibrary({
       const response = await publicCultureAPI.importToProject(publicCulture.id);
       await onImportSuccess(response.data.id!);
       setPublicLibraryOpen(false);
-      showSnackbar(t('library.importSuccess', { name: publicCulture.name }), 'success');
+      showSnackbar(t('library.importSuccess', {
+        name: getPublicCultureTitle(publicCulture, language, t('library.translation.missingName')),
+      }), 'success');
     } catch (error) {
       console.error('Error importing public culture:', error);
       setPublicLibraryError(extractApiErrorMessage(error, t, t('library.importError')));
@@ -115,9 +120,9 @@ export function usePublicCultureLibrary({
         } : {}),
       });
       if (response.data.operation === 'updated') {
-        showSnackbar(t('library.updateSuccess', { name: selectedCulture.name }), 'success');
+        showSnackbar(t('library.updateSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
       } else {
-        showSnackbar(t('library.publishSuccess', { name: selectedCulture.name }), 'success');
+        showSnackbar(t('library.publishSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
       }
       if (acceptedPublicLibraryTerms) {
         await refreshUser();
@@ -152,7 +157,7 @@ export function usePublicCultureLibrary({
     try {
       await publicCultureAPI.withdraw(culture.owned_public_culture_id);
       await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.withdrawSuccess', { name: culture.name }), 'success');
+      showSnackbar(t('library.withdrawSuccess', { name: formatCultureDisplayName(culture) }), 'success');
       return true;
     } catch (error) {
       console.error('Error withdrawing public culture:', error);
@@ -171,7 +176,7 @@ export function usePublicCultureLibrary({
     try {
       await publicCultureAPI.remove(culture.owned_public_culture_id, reason);
       await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.removeSuccess', { name: culture.name }), 'success');
+      showSnackbar(t('library.removeSuccess', { name: formatCultureDisplayName(culture) }), 'success');
       return true;
     } catch (error) {
       console.error('Error removing public culture:', error);

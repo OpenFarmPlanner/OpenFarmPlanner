@@ -43,31 +43,46 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
 };
 
 describe('AreaAssignmentDialog', () => {
-  it('opens automatically when a focused grid edit cell requests the picker', async () => {
+  it('opens on a single click on the cell without a separate edit affordance', async () => {
     const user = userEvent.setup();
     render(
-      <AreaAssignmentDialog
-        bedId={101}
-        beds={beds}
-        fields={fields}
-        locations={locations}
-        locale="de-DE"
-        compactLabel="Regenbogenland · 8 Karotte + Zwiebel · 5 (10,00 m²)"
-        hasFocus
-        autoOpenOnFocus
-        onApply={vi.fn()}
-      />,
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="Regenbogenland · 8 Karotte + Zwiebel · 5" onApply={vi.fn()} />,
     );
 
-    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Anbaufläche bearbeiten' });
+    expect(screen.getAllByRole('button')).toEqual([trigger]);
+    expect(trigger).toHaveTextContent('Regenbogenland · 8 Karotte + Zwiebel · 5');
 
+    await user.click(trigger);
+
+    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+  });
+
+  it('opens with Enter while the grid cell owns the focus', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" hasFocus onApply={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' })).toHaveFocus();
+    });
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+  });
+
+  it('returns focus to the cell trigger after the dialog closes', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" hasFocus onApply={vi.fn()} />,
+    );
+
+    await openDialog();
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Anbaufläche ändern' })).not.toBeInTheDocument();
-    });
-    await waitFor(() => {
-      expect(screen.getByLabelText('Anbaufläche bearbeiten')).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' })).toHaveFocus();
     });
   });
 
@@ -89,6 +104,23 @@ describe('AreaAssignmentDialog', () => {
     expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveTextContent('Regenbogenland');
     expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveTextContent('8 Karotte + Zwiebel');
     expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent(/5 \(10,00\s+m²\)/);
+  });
+
+  it('keeps the stacked field controls compact inside the dialog', async () => {
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" onApply={vi.fn()} />,
+    );
+
+    await openDialog();
+
+    const fieldControls = ['Standort', 'Parzelle', 'Beet'].map((label) =>
+      screen.getByRole('combobox', { name: label }).closest('.MuiFormControl-root'),
+    );
+
+    for (const control of fieldControls) {
+      expect(control).not.toBeNull();
+      expect(control).not.toHaveStyle({ flex: '0 1 300px' });
+    }
   });
 
   it('filters fields and beds when location changes', async () => {

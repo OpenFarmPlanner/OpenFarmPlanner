@@ -260,7 +260,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         public_culture = self.get_object()
         request.active_project = get_active_project_or_400(request)
         imported = import_public_culture_into_project(public_culture=public_culture, project=request.active_project)
-        serializer = CultureSerializer(imported)
+        serializer = CultureSerializer(imported, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get', 'post'], url_path='discussion-topics')

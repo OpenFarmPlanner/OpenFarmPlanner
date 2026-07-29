@@ -232,6 +232,34 @@ describe('PublicCultureLibraryDialog', () => {
     expect(onImport).toHaveBeenCalledWith(culture);
   });
 
+  it('uses localized public crop titles in the picker list and detail pane', async () => {
+    mockDesktopViewport();
+    const localizedCulture: PublicCulture = {
+      ...culture,
+      name: 'Ackerbohne',
+      variety: 'Hangdown',
+      display_name: 'Broad bean',
+      display_language_code: 'en',
+    };
+
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [localizedCulture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
+    );
+
+    fireEvent.click(await screen.findByRole('option', { name: /Broad bean/ }));
+    expect(screen.getByRole('heading', { level: 6, name: 'Broad bean (Hangdown)' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Ackerbohne/ })).not.toBeInTheDocument();
+  });
+
   it('supports keyboard navigation in the desktop import list', async () => {
     mockDesktopViewport();
     const user = userEvent.setup();
@@ -254,16 +282,16 @@ describe('PublicCultureLibraryDialog', () => {
 
     screen.getByRole('option', { name: /Tomate/ }).focus();
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Salat' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Salat (Maikönig)' })).toBeInTheDocument();
 
     await user.keyboard('{End}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{Home}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /Tomate/ })).toHaveFocus();

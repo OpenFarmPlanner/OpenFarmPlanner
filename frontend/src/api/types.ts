@@ -98,6 +98,12 @@ export interface Culture {
   sowing_calculation_safety_percent_pre_cultivation?: number | null;
   id?: number;
   name: string;
+  /** Species name in the request language, after the fallback chain. */
+  culture_display_name?: string | null;
+  /** Language `culture_display_name` actually came from; '' when no translation exists. */
+  culture_display_language_code?: string | null;
+  /** Every stored linked species name, keyed by language code. */
+  crop_species_translations?: Record<string, string>;
   variety?: string;
   seed_supplier?: string;
   supplier?: Supplier | null;
@@ -396,6 +402,8 @@ export interface PublishPublicCultureResponse {
 export interface SeedDemand {
   culture_id: number;
   culture_name: string;
+  culture_display_name?: string | null;
+  culture_display_language_code?: string | null;
   variety?: string | null;
   supplier?: string | null;
   selected_supplier_id?: number | null;
@@ -553,6 +561,8 @@ export interface RemainingAreaResponse {
 export interface YieldCalendarCulture {
   culture_id: number;
   culture_name: string;
+  culture_display_name?: string | null;
+  culture_display_language_code?: string | null;
   color: string;
   yield: number;
 }
