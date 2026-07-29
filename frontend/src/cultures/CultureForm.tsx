@@ -820,132 +820,103 @@ export function CultureForm({
                       flexGrow: 0,
                     }}
                   >
-                    {(() => {
-                      const selectedSupplierId = row.supplier_id ?? row.supplier?.id ?? null;
-                      const availableSupplierIds = new Set(supplierOptions.map((supplier) => supplier.id));
-                      const hasSelectedSupplier = typeof selectedSupplierId === 'number';
-                      const isSelectedSupplierAvailable = hasSelectedSupplier && availableSupplierIds.has(selectedSupplierId);
-                      const selectValue = isSelectedSupplierAvailable ? String(selectedSupplierId) : '';
-                      if (supplierOptions.length === 0) {
-                        return (
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: { xs: 'stretch', sm: 'center' },
-                              justifyContent: 'space-between',
-                              gap: 1,
-                              flexDirection: { xs: 'column', sm: 'row' },
-                              border: '1px solid',
-                              borderColor: 'surface.surfaceSoftBorder',
-                              borderRadius: 1,
-                              bgcolor: 'surface.surfaceSubtleBackground',
-                              px: 1.5,
-                              py: 1.25,
-                            }}
-                          >
-                            <Typography variant="body2" color="text.secondary">
-                              {t('form.noSuppliers')}
-                            </Typography>
-                            <Button
-                              ref={(element) => {
-                                createSupplierButtonRefs.current[supplierIndex] = element;
+                    {supplierOptions.length === 0 ? (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: { xs: 'stretch', sm: 'center' },
+                          justifyContent: 'space-between',
+                          gap: 1,
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          border: '1px solid',
+                          borderColor: 'surface.surfaceSoftBorder',
+                          borderRadius: 1,
+                          bgcolor: 'surface.surfaceSubtleBackground',
+                          px: 1.5,
+                          py: 1.25,
+                        }}
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          {t('form.noSuppliers')}
+                        </Typography>
+                        <Button
+                          ref={(element) => { createSupplierButtonRefs.current[supplierIndex] = element; }}
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleCreateSupplierClick(supplierIndex)}
+                        >
+                          {t('form.createSuppliers')}
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box sx={{ width: '100%' }}>
+                        <Box sx={{ ...formRowSx, gap: 1 }}>
+                          <FormControl size="small" sx={mediumStackedFieldSx}>
+                            <InputLabel shrink>{t('form.supplier')}</InputLabel>
+                            <Select
+                              fullWidth
+                              value={(typeof row.supplier_id === 'number' ? String(row.supplier_id) : '')}
+                              label={t('form.supplier')}
+                              onChange={(event) => {
+                                const parsedSupplierId = Number(String(event.target.value ?? ''));
+                                const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
+                                updateSupplierRow(supplierIndex, {
+                                  supplier_id: parsedSupplierId,
+                                  supplier: selectedSupplier,
+                                  supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
+                                  supplier_name: selectedSupplier?.name ?? row.supplier_name,
+                                });
                               }}
-                              variant="outlined"
-                              size="small"
-                              onClick={() => handleCreateSupplierClick(supplierIndex)}
+                              displayEmpty
                             >
-                              {t('form.createSuppliers')}
-                            </Button>
-                          </Box>
-                        );
-                      }
-
-                      return (
-                        <Box sx={{ width: '100%' }}>
-                          <Box sx={{ ...formRowSx, gap: 1 }}>
-                            <FormControl size="small" sx={mediumStackedFieldSx}>
-                              <InputLabel shrink>{t('form.supplier')}</InputLabel>
-                              <Select
-                                fullWidth
-                                value={selectValue}
-                                label={t('form.supplier')}
-                                renderValue={(selected) => {
-                                  if (!selected) {
-                                    return (
-                                      <Typography component="span" color="text.secondary">
-                                        {t('form.supplierPlaceholder')}
-                                      </Typography>
-                                    );
-                                  }
-                                  const selectedSupplier = supplierOptions.find((supplier) => String(supplier.id) === String(selected));
-                                  return selectedSupplier?.name ?? '';
-                                }}
-                                onChange={(event) => {
-                                  const selectedValue = String(event.target.value ?? '');
-
-                                  const parsedSupplierId = Number(selectedValue);
-                                  const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
-                                  updateSupplierRow(supplierIndex, {
-                                    supplier_id: parsedSupplierId,
-                                    supplier: selectedSupplier,
-                                    supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
-                                    supplier_name: selectedSupplier?.name ?? row.supplier_name,
-                                  });
-                                }}
-                                displayEmpty
-                              >
-                                {supplierOptions.map((supplier) => (
-                                  <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                            <TextField
-                              label={t('form.supplierProductNameLabel') }
-                              value={row.supplier_product_name ?? ''}
-                              onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
-                              sx={wideStackedFieldSx}
-                            />
-                          </Box>
+                              {supplierOptions.map((supplier) => (
+                                <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label={t('form.supplierProductNameLabel')}
+                            value={row.supplier_product_name ?? ''}
+                            onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
+                            sx={wideStackedFieldSx}
+                          />
                         </Box>
-                      );
-                    })()}
-                {((row.packaging_sizes ?? []).length ?? 0) > 0 ? (
-                  <>
-                    <Typography variant="subtitle2">{t('form.seedPackagesLabel')}</Typography>
-                    {(row.packaging_sizes ?? []).map((pkg, packageIndex) => (
-                  <Box
-                    key={`pkg-${supplierIndex}-${packageIndex}`}
-                    sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}
-                  >
-                    <TextField
-                      label={t('form.seedAmountLabel')}
-                      type="number"
-                      value={pkg.size_value}
-                      onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
-                      sx={compactFieldSx}
-                    />
-                    <Select
-                      value={pkg.size_unit}
-                      onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_unit: event.target.value })}
-                      size="small"
-                      sx={smallFieldSx}
-                    >
-                      <MenuItem value="g">{t('form.packageUnitGram')}</MenuItem>
-                      <MenuItem value="seeds">{t('form.packageUnitSeeds')}</MenuItem>
-                    </Select>
-                    <IconButton
-                      color="error"
-                      onClick={() => removePackageRow(supplierIndex, packageIndex)}
-                      aria-label={t('form.removeSeedPackageAriaLabel')}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                  <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
-                  <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
-                </Box>
+                      </Box>
+                    )}
+
+                    {Array.isArray(row.packaging_sizes) && row.packaging_sizes.length > 0 && (
+                      <>
+                        <Typography variant="subtitle2" sx={{ mt: 1 }}>{t('form.seedPackagesLabel')}</Typography>
+                        {row.packaging_sizes.map((pkg, packageIndex) => (
+                          <Box key={`pkg-${supplierIndex}-${packageIndex}`} sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}>
+                            <TextField
+                              label={t('form.seedAmountLabel')}
+                              type="number"
+                              value={pkg.size_value}
+                              onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
+                              sx={compactFieldSx}
+                            />
+                            <Select
+                              value={pkg.size_unit}
+                              onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_unit: event.target.value })}
+                              size="small"
+                              sx={smallFieldSx}
+                            >
+                              <MenuItem value="g">{t('form.packageUnitGram')}</MenuItem>
+                              <MenuItem value="seeds">{t('form.packageUnitSeeds')}</MenuItem>
+                            </Select>
+                            <IconButton color="error" onClick={() => removePackageRow(supplierIndex, packageIndex)} aria-label={t('form.removeSeedPackageAriaLabel')}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </>
+                    )}
+
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                      <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
+                      <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
+                    </Box>
                   </Box>
                 ))}
                 <Button variant="outlined" onClick={addSupplierRow}>{t('form.addSupplierData')}</Button>
