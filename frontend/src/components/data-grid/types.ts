@@ -26,6 +26,13 @@ export interface EditableDataGridCommandApi {
   reload: () => Promise<void>;
   focusTable: () => void;
   openRowById: (rowId: GridRowId, options?: { startEdit?: boolean }) => void;
+  /**
+   * Writes values produced by a `dialogEditFields` cell's own popover/dialog.
+   * A row that already has an inline edit session open just receives the
+   * values into its draft; a row in view mode is saved right away, because a
+   * dialog cell never opens an edit session of its own.
+   */
+  applyDialogEditValues: (rowId: GridRowId, values: Partial<EditableRow>) => Promise<void>;
 }
 
 export interface EditableDataGridRowActionHelpers<T extends EditableRow> {
@@ -84,6 +91,16 @@ export interface EditableDataGridProps<T extends EditableRow> {
   notes?: {
     fields: NotesFieldConfig[];
   };
+  /**
+   * Fields whose value is only ever picked in a popover/dialog that the
+   * column's own `renderCell` owns (e.g. the Standort → Parzelle → Beet
+   * picker). Like notes cells these never open the inline row-edit mode: a
+   * single left click — or Enter/Space on the focused cell — opens the real
+   * editor, while Tab/arrow navigation still treats the cell as a stop.
+   * Columns listed here must stay `editable: false` and write their result
+   * back through `EditableDataGridCommandApi.applyDialogEditValues`.
+   */
+  dialogEditFields?: string[];
   commandApiRef?: MutableRefObject<EditableDataGridCommandApi | null>;
   onSelectedRowChange?: (row: T | null) => void;
   getRowValidationErrors?: (row: T) => Record<string, string>;

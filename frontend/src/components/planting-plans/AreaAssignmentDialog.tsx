@@ -7,16 +7,15 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Stack,
   Typography,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import { useTranslation } from '../../i18n';
 import type { Bed, Field, Location } from '../../api/types';
 import EmptyStateCard from '../project/EmptyStateCard';
+import { CompactAreaCell } from './CompactAreaCell';
 import {
   collectHierarchyAvailability,
   filterFieldOptionsByLocation,
@@ -147,19 +146,8 @@ function AreaAssignmentDialogComponent({
   const locationSelectRef = useRef<HTMLDivElement | null>(null);
   const fieldSelectRef = useRef<HTMLDivElement | null>(null);
   const bedSelectRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const applyButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (!hasFocus || isOpen) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
-  }, [hasFocus, isOpen]);
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
 
@@ -419,50 +407,14 @@ function AreaAssignmentDialogComponent({
 
   return (
     <>
-      <Box
-        ref={triggerRef}
-        role="button"
-        tabIndex={hasFocus ? 0 : -1}
-        aria-label={t('areaAssignment.editButton')}
-        onClick={handleOpen}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            event.stopPropagation();
-            handleOpen();
-          }
-        }}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.5,
-          width: '100%',
-          overflow: 'hidden',
-          cursor: 'pointer',
-          borderRadius: 0.5,
-          '&:focus-visible': {
-            outline: '2px solid',
-            outlineColor: 'primary.main',
-            outlineOffset: '1px',
-          },
-        }}
-      >
-        <Typography
-          variant="body2"
-          noWrap
-          sx={{ flexGrow: 1, color: compactLabel ? 'text.primary' : 'text.disabled' }}
-        >
-          {compactLabel || placeholder}
-        </Typography>
-        <IconButton
-          size="small"
-          tabIndex={-1}
-          aria-hidden
-          onClick={handleOpen}
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Box>
+      <CompactAreaCell
+        label={compactLabel}
+        placeholder={placeholder}
+        hasFocus={hasFocus}
+        suppressFocus={isOpen}
+        onOpen={handleOpen}
+        triggerLabel={t('areaAssignment.editButton')}
+      />
       <Dialog
         open={isOpen}
         onClose={handleCancel}

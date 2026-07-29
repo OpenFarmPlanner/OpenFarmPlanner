@@ -14,6 +14,7 @@ interface UseDataGridCommandApiParams<T extends EditableRow> {
   setRowModesModel: Dispatch<SetStateAction<GridRowModesModel>>;
   applyDraftValues: (rowId: GridRowId, values: Partial<T>) => Promise<void>;
   commitDraftValues: (rowId: GridRowId, values: Partial<T>) => Promise<void>;
+  applyDialogEditValues: (rowId: GridRowId, values: Partial<T>) => Promise<void>;
   reload: () => Promise<void>;
   focusTable: () => void;
   openRowById: (rowId: GridRowId, options?: { startEdit?: boolean }) => void;
@@ -29,6 +30,7 @@ export function useDataGridCommandApi<T extends EditableRow>({
   setRowModesModel,
   applyDraftValues,
   commitDraftValues,
+  applyDialogEditValues,
   reload,
   focusTable,
   openRowById,
@@ -57,6 +59,9 @@ export function useDataGridCommandApi<T extends EditableRow>({
       commitDraftValues: async (rowId, values) => {
         await commitDraftValues(rowId, values as Partial<T>);
       },
+      applyDialogEditValues: async (rowId, values) => {
+        await applyDialogEditValues(rowId, values as Partial<T>);
+      },
       reload,
       focusTable,
       openRowById,
@@ -66,6 +71,7 @@ export function useDataGridCommandApi<T extends EditableRow>({
       commandApiRef.current = null;
     };
   }, [
+    applyDialogEditValues,
     applyDraftValues,
     commandApiRef,
     commitDraftValues,
