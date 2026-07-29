@@ -257,6 +257,30 @@ export function CultureForm({
       supplierOptionsRef.current = nextSuppliers;
       setSupplierOptions(nextSuppliers);
 
+      // Ensure any existing supplier_data rows with a supplier_id get the
+      // corresponding `supplier` object populated when options are available.
+      setFormData((prev) => {
+        const rows = prev.supplier_data ?? [];
+        let changed = false;
+        const nextRows = rows.map((row) => {
+          const idFromRow = typeof row.supplier_id === 'number' ? row.supplier_id : row.supplier?.id;
+          if (typeof idFromRow === 'number' && (!row.supplier || row.supplier?.id !== idFromRow)) {
+            const matched = nextSuppliers.find((s) => s.id === idFromRow) ?? null;
+            if (matched) {
+              changed = true;
+              return {
+                ...row,
+                supplier: matched,
+                supplier_name: matched.name,
+              };
+            }
+          }
+          return row;
+        });
+        if (!changed) return prev;
+        return { ...prev, supplier_data: nextRows };
+      });
+
       if (newestSupplier?.id) {
         setFormData((prev) => {
           const rows = prev.supplier_data ?? [];
@@ -811,11 +835,11 @@ export function CultureForm({
                       border: '1px solid',
                       borderColor: 'divider',
                       borderRadius: 1,
-                      p: 1,
+                      p: 0.5,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'flex-start',
-                      gap: 1,
+                      gap: 0.5,
                       minHeight: 0,
                       flexGrow: 0,
                     }}
@@ -824,19 +848,18 @@ export function CultureForm({
                       <Box
                         sx={{
                           display: 'flex',
-                          alignItems: { xs: 'stretch', sm: 'center' },
+                          alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: 1,
-                          flexDirection: { xs: 'column', sm: 'row' },
                           border: '1px solid',
                           borderColor: 'surface.surfaceSoftBorder',
                           borderRadius: 1,
                           bgcolor: 'surface.surfaceSubtleBackground',
-                          px: 1.5,
-                          py: 1.25,
+                          px: 1,
+                          py: 0.5,
                         }}
                       >
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
                           {t('form.noSuppliers')}
                         </Typography>
                         <Button
@@ -844,19 +867,37 @@ export function CultureForm({
                           variant="outlined"
                           size="small"
                           onClick={() => handleCreateSupplierClick(supplierIndex)}
+                          sx={{ px: 1 }}
                         >
                           {t('form.createSuppliers')}
                         </Button>
                       </Box>
                     ) : (
                       <Box sx={{ width: '100%' }}>
-                        <Box sx={{ ...formRowSx, gap: 1 }}>
-                          <FormControl size="small" sx={mediumStackedFieldSx}>
+                        <Box sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}>
+                          <FormControl size="small" sx={{ width: { xs: '100%', sm: 240 }, minWidth: 0 }}>
                             <InputLabel shrink>{t('form.supplier')}</InputLabel>
                             <Select
                               fullWidth
-                              value={(typeof row.supplier_id === 'number' ? String(row.supplier_id) : '')}
+                              value={(() => {
+                                // If a supplier_id is present but not part of the loaded
+                                // options, treat it as empty so the Select shows the
+                                // placeholder instead of an out-of-range value.
+                                if (typeof row.supplier_id === 'number') {
+                                  const found = supplierOptions.find((s) => s.id === row.supplier_id);
+                                  return found ? String(row.supplier_id) : '';
+                                }
+                                const id = row.supplier?.id ?? '';
+                                return id === '' || id === undefined || id === null ? '' : String(id);
+                              })()}
                               label={t('form.supplier')}
+                              renderValue={(selected) => {
+                                if (selected === '' || selected === undefined || selected === null) {
+                                  return t('form.supplierPlaceholder');
+                                }
+                                const found = supplierOptions.find((s) => String(s.id) === String(selected));
+                                return found ? found.name : '';
+                              }}
                               onChange={(event) => {
                                 const parsedSupplierId = Number(String(event.target.value ?? ''));
                                 const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
@@ -878,7 +919,8 @@ export function CultureForm({
                             label={t('form.supplierProductNameLabel')}
                             value={row.supplier_product_name ?? ''}
                             onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
-                            sx={wideStackedFieldSx}
+                            size="small"
+                            sx={{ flex: 1, minWidth: 0, maxWidth: 480 }}
                           />
                         </Box>
                       </Box>
@@ -886,26 +928,27 @@ export function CultureForm({
 
                     {Array.isArray(row.packaging_sizes) && row.packaging_sizes.length > 0 && (
                       <>
-                        <Typography variant="subtitle2" sx={{ mt: 1 }}>{t('form.seedPackagesLabel')}</Typography>
+                        <Typography variant="caption" sx={{ mt: 0.5, mb: 0.25, color: 'text.secondary' }}>{t('form.seedPackagesLabel')}</Typography>
                         {row.packaging_sizes.map((pkg, packageIndex) => (
-                          <Box key={`pkg-${supplierIndex}-${packageIndex}`} sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}>
+                          <Box key={`pkg-${supplierIndex}-${packageIndex}`} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                             <TextField
                               label={t('form.seedAmountLabel')}
                               type="number"
+                              size="small"
                               value={pkg.size_value}
                               onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
-                              sx={compactFieldSx}
+                              sx={{ width: 96, minWidth: 80 }}
                             />
                             <Select
                               value={pkg.size_unit}
                               onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_unit: event.target.value })}
                               size="small"
-                              sx={smallFieldSx}
+                              sx={{ width: 96, minWidth: 80 }}
                             >
                               <MenuItem value="g">{t('form.packageUnitGram')}</MenuItem>
                               <MenuItem value="seeds">{t('form.packageUnitSeeds')}</MenuItem>
                             </Select>
-                            <IconButton color="error" onClick={() => removePackageRow(supplierIndex, packageIndex)} aria-label={t('form.removeSeedPackageAriaLabel')}>
+                            <IconButton size="small" color="error" onClick={() => removePackageRow(supplierIndex, packageIndex)} aria-label={t('form.removeSeedPackageAriaLabel')}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </Box>
@@ -913,9 +956,9 @@ export function CultureForm({
                       </>
                     )}
 
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                      <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
-                      <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
+                      <Button size="small" variant="outlined" onClick={() => addPackageRow(supplierIndex)} sx={{ px: 1 }}>{t('form.addSeedPackage')}</Button>
+                      <Button size="small" variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)} sx={{ px: 1 }}>{t('form.removeSupplierData')}</Button>
                     </Box>
                   </Box>
                 ))}

@@ -1,7 +1,7 @@
 export const formRowSx = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: 2,
+  gap: 1,
   alignItems: 'flex-start',
 } as const;
 
