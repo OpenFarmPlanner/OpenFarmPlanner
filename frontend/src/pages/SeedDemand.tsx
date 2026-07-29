@@ -51,6 +51,7 @@ import {
   formatRequiredSeedAmount,
   formatUnit,
 } from './seedDemandFormat';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
 
 export default function SeedDemandPage() {
   useCommandContextTag('seedDemand');
@@ -179,7 +180,7 @@ export default function SeedDemandPage() {
   };
 
   const getCultureLabel = useCallback((row: SeedDemand): string => (
-    row.variety ? `${row.culture_name} (${row.variety})` : row.culture_name
+    formatCultureDisplayName(row)
   ), []);
 
   const getSupplierLabel = useCallback((row: SeedDemand): string => {

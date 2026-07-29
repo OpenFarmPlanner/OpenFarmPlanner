@@ -111,6 +111,7 @@ class HintTestProjectServiceTests(TestCase):
             for row in build_seed_demand_rows(
                 project=result.project,
                 selected_supplier_by_culture={},
+                language_code='de',
             )
         }
 

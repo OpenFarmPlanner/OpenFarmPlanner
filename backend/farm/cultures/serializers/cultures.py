@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
+from config.languages import DEFAULT_LANGUAGE_CODE, resolve_request_language
+from crops.models import CropSpecies
 from crops.permissions import is_public_library_moderator
 from farm.common.serializer_fields import (
     CentimetersField,
@@ -28,6 +30,7 @@ from farm.seed_units import (
     SEED_PACKAGE_UNIT_SEEDS,
     SEED_RATE_UNITS,
 )
+from farm.services.culture_display import resolve_culture_display_name
 
 from .seed_packages import SeedPackageSerializer
 from .seed_rates import (
@@ -47,6 +50,9 @@ from .suppliers import (
 
 class CultureSerializer(serializers.ModelSerializer):
     """Serializer for culture data with unit conversion and supplier helpers."""
+    culture_display_name = serializers.SerializerMethodField(read_only=True)
+    culture_display_language_code = serializers.SerializerMethodField(read_only=True)
+    crop_species_translations = serializers.SerializerMethodField(read_only=True)
     variety = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -180,6 +186,32 @@ class CultureSerializer(serializers.ModelSerializer):
         # client, otherwise a member could reassign a record to another project
         # via update and inject data across tenant boundaries.
         read_only_fields = ['project']
+
+    def _request_language(self) -> str:
+        request = self.context.get('request')
+        if request is None:
+            return DEFAULT_LANGUAGE_CODE
+        return resolve_request_language(request)
+
+    def _get_culture_species(self, obj: Culture) -> CropSpecies | None:
+        if obj.crop_species_id:
+            return obj.crop_species
+        return None
+
+    def _get_localized_culture_name(self, obj: Culture) -> tuple[str | None, str]:
+        return resolve_culture_display_name(obj, self._request_language())
+
+    def get_culture_display_name(self, obj: Culture) -> str | None:
+        return self._get_localized_culture_name(obj)[0]
+
+    def get_culture_display_language_code(self, obj: Culture) -> str:
+        return self._get_localized_culture_name(obj)[1]
+
+    def get_crop_species_translations(self, obj: Culture) -> dict[str, str]:
+        species = self._get_culture_species(obj)
+        if species is None:
+            return {}
+        return species.translations_by_language()
     
     def get_owned_public_culture_id(self, obj: Culture) -> int | None:
         request = self.context.get('request')

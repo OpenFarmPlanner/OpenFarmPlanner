@@ -47,6 +47,7 @@ import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { DetailPageActions } from '../components/layout/DetailPageActions';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
+import { getCultureDisplayName } from './cultureDisplay';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -303,8 +304,12 @@ export function CultureDetail({
     const normalizedQuery = filters.searchQuery.trim().toLowerCase();
     const selectedSupplierId = filters.selectedSupplierFilter ? Number(filters.selectedSupplierFilter) : null;
     return cultures.filter((culture) => {
-      const cultureName = culture.name?.toLowerCase() ?? '';
-      const nameMatches = normalizedQuery.length === 0 || cultureName.includes(normalizedQuery);
+      const displayName = getCultureDisplayName(culture);
+      const cultureName = displayName.toLowerCase();
+      const storedCultureName = culture.name?.toLowerCase() ?? '';
+      const nameMatches = normalizedQuery.length === 0
+        || cultureName.includes(normalizedQuery)
+        || storedCultureName.includes(normalizedQuery);
       const familyMatches = filters.selectedFamilyFilter.length === 0 || culture.crop_family === filters.selectedFamilyFilter;
       const cultivationValues = culture.cultivation_types && culture.cultivation_types.length > 0
         ? culture.cultivation_types
@@ -374,7 +379,7 @@ export function CultureDetail({
         .filter((culture) => culture.id !== undefined)
         .map((culture) => ({
         value: culture.id!,
-        label: `${culture.name}${culture.variety ? `${UI_LABEL_SEPARATOR}${culture.variety}` : ''}${culture.seed_supplier ? ` | ${culture.seed_supplier}` : ''}`,
+        label: `${getCultureDisplayName(culture)}${culture.variety ? `${UI_LABEL_SEPARATOR}${culture.variety}` : ''}${culture.seed_supplier ? ` | ${culture.seed_supplier}` : ''}`,
         data: culture,
       }));
     },
@@ -399,7 +404,7 @@ export function CultureDetail({
         ? null
         : {
           value: selectedCulture.id,
-          label: `${selectedCulture.name}${selectedCulture.variety ? `${UI_LABEL_SEPARATOR}${selectedCulture.variety}` : ''}${selectedCulture.seed_supplier ? ` | ${selectedCulture.seed_supplier}` : ''}`,
+          label: `${getCultureDisplayName(selectedCulture)}${selectedCulture.variety ? `${UI_LABEL_SEPARATOR}${selectedCulture.variety}` : ''}${selectedCulture.seed_supplier ? ` | ${selectedCulture.seed_supplier}` : ''}`,
           data: selectedCulture,
         }
     ),
@@ -662,7 +667,7 @@ export function CultureDetail({
                     }}
                   >
                     <ListItemText
-                      primary={culture.name}
+                      primary={getCultureDisplayName(culture)}
                       primaryTypographyProps={{ fontSize: { xs: '0.9rem', lg: '0.95rem' }, fontWeight: 600, lineHeight: 1.25 }}
                       secondary={secondary || culture.crop_family || undefined}
                       secondaryTypographyProps={{ fontSize: { xs: '0.76rem', lg: '0.8rem' }, color: 'text.secondary', lineHeight: 1.25 }}
@@ -699,13 +704,13 @@ export function CultureDetail({
                     <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
                       {useUnifiedMobileLayout ? (
                         <CultureTitleSelectorButton
-                          title={selectedCulture.name}
+                          title={getCultureDisplayName(selectedCulture)}
                           ariaLabel={t('selectCulture')}
                           onClick={() => setMobileSelectorOpen(true)}
                         />
                       ) : (
                         <Typography component="h2" sx={{ fontSize: { xs: '1.25rem', sm: '2rem' }, lineHeight: 1.2, fontWeight: 600 }}>
-                          {selectedCulture.name}
+                          {getCultureDisplayName(selectedCulture)}
                         </Typography>
                       )}
                       {selectedCulture.variety && (

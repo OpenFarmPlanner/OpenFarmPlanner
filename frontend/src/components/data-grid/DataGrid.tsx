@@ -74,6 +74,11 @@ import { useScrollDrivenRowWindow } from './hooks/useScrollDrivenRowWindow';
 import { useStableDataGridScrollbar } from './hooks/useStableDataGridScrollbar';
 import { StableScrollbarTrack } from './StableScrollbarTrack';
 import {
+  EditCellNavigationContext,
+  type EditCellKeyboardEvent,
+  type EditCellTabNavigationHandler,
+} from './EditCellNavigationContext';
+import {
   CONTINUOUS_SCROLL_PAGE_SIZE,
   CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
   CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX,
@@ -139,9 +144,20 @@ export type {
   NotesFieldConfig,
 } from './types';
 
-type DataGridKeyboardEvent = KeyboardEvent & {
+type DataGridKeyboardEvent = (KeyboardEvent | EditCellKeyboardEvent) & {
   defaultMuiPrevented?: boolean;
 };
+
+const wrapNativeKeyboardEvent = (event: globalThis.KeyboardEvent): DataGridKeyboardEvent => ({
+  altKey: event.altKey,
+  ctrlKey: event.ctrlKey,
+  key: event.key,
+  metaKey: event.metaKey,
+  nativeEvent: event,
+  preventDefault: () => event.preventDefault(),
+  shiftKey: event.shiftKey,
+  stopPropagation: () => event.stopPropagation(),
+} as DataGridKeyboardEvent);
 
 export function EditableDataGrid<T extends EditableRow>({
   columns,
@@ -214,6 +230,8 @@ export function EditableDataGrid<T extends EditableRow>({
   const rowSnapshotRef = useRef<Map<string, T>>(new Map());
   const rowSavePromisesRef = useRef<Map<string, Promise<T>>>(new Map());
   const canceledRowIdsRef = useRef<Set<string>>(new Set());
+  const internalEditNavigationRowIdRef = useRef<string | null>(null);
+  const activeEditCellRef = useRef<{ id: GridRowId; field: string } | null>(null);
   const gridSurfaceRef = useRef<HTMLDivElement | null>(null);
   const pageContentRef = useRef<HTMLDivElement | null>(null);
   const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
@@ -676,9 +694,14 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [isContinuousScroll, refreshStableRowOrder, rows, scrollDrivenRowWindow, setFilterModel]);
 
-  const clearSavedRowInteractionState = useCallback((rowId: GridRowId, savedRowId: GridRowId = rowId): void => {
+  const clearSavedRowInteractionState = useCallback((
+    rowId: GridRowId,
+    savedRowId: GridRowId = rowId,
+    options: { preserveFocus?: boolean } = {},
+  ): void => {
     const rowKey = String(rowId);
     const savedRowKey = String(savedRowId);
+    const preserveFocus = options.preserveFocus ?? true;
 
     setDirtyRowIds((prev) => {
       const next = new Set(prev);
@@ -702,10 +725,17 @@ export function EditableDataGrid<T extends EditableRow>({
       focusedCell &&
       (String(focusedCell.id) === rowKey || String(focusedCell.id) === savedRowKey)
     ) {
-      api.state.focus.cell = null;
+      if (preserveFocus) {
+        api.state.focus.cell = {
+          ...focusedCell,
+          id: String(focusedCell.id) === rowKey ? savedRowId : focusedCell.id,
+        };
+      } else {
+        api.state.focus.cell = null;
+      }
     }
 
-    if (document.activeElement instanceof HTMLElement) {
+    if (!preserveFocus && document.activeElement instanceof HTMLElement) {
       const gridSurface = gridSurfaceRef.current;
       if (!gridSurface || gridSurface.contains(document.activeElement)) {
         document.activeElement.blur();
@@ -728,15 +758,18 @@ export function EditableDataGrid<T extends EditableRow>({
     }
     return api.getVisibleColumns()
       .filter((column) => {
+        const row = rowsById.get(String(rowId)) as T | undefined;
         return isCellKeyboardNavigable<T>({
           api,
+          columns,
           field: column.field,
           isActionCell: isActionCellKeyboardNavigable,
+          row,
           rowId,
         });
       })
       .map((column) => column.field);
-  }, [gridApiRef, isActionCellKeyboardNavigable]);
+  }, [columns, gridApiRef, isActionCellKeyboardNavigable, rowsById]);
 
   const focusKeyboardNavigableCell = useCallback((
     rowId: GridRowId,
@@ -962,7 +995,7 @@ export function EditableDataGrid<T extends EditableRow>({
       ...oldModel,
       [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
     }));
-    clearSavedRowInteractionState(rowId);
+    clearSavedRowInteractionState(rowId, rowId, { preserveFocus: false });
     window.setTimeout(() => {
       canceledRowIdsRef.current.delete(rowKey);
     }, 0);
@@ -1097,27 +1130,6 @@ export function EditableDataGrid<T extends EditableRow>({
     ).some((input) => input.value.trim().length > 0);
   }, [gridApiRef]);
 
-  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
-    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
-      const currentRow = getCurrentEditableRow(params.id);
-      if (
-        currentRow &&
-        isUnsavedDraftRow(currentRow) &&
-        isNewRowEmpty(currentRow) &&
-        !hasVisibleEditInputValue(params.id)
-      ) {
-        event.defaultMuiPrevented = true;
-        handleDiscardRowChanges(params.id);
-        return;
-      }
-    }
-
-    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
-      handleDiscardRowChanges(params.id);
-    }
-    handleRowEditStop(params, event, details);
-  }, [getCurrentEditableRow, handleDiscardRowChanges, hasVisibleEditInputValue, isNewRowEmpty]);
-
   const commitEditedRowDraftForKeyboardNavigation = useCallback((
     rowId: GridRowId,
     options: { syncRows: boolean },
@@ -1159,8 +1171,14 @@ export function EditableDataGrid<T extends EditableRow>({
     }
 
     if (isSameRow) {
+      internalEditNavigationRowIdRef.current = String(current.id);
       focusKeyboardNavigableCell(target.id, target.field, {
         startEdit: options.startTargetEdit,
+      });
+      window.requestAnimationFrame(() => {
+        if (internalEditNavigationRowIdRef.current === String(current.id)) {
+          internalEditNavigationRowIdRef.current = null;
+        }
       });
       return;
     }
@@ -1177,6 +1195,76 @@ export function EditableDataGrid<T extends EditableRow>({
     commitEditedRowDraftForKeyboardNavigation,
     focusKeyboardNavigableCell,
     rowModesModel,
+  ]);
+
+  const recoverSameRowNavigationFromTabEvent = useCallback((
+    rowId: GridRowId,
+    event: { key?: string; shiftKey?: boolean },
+  ): boolean => {
+    if (event.key !== 'Tab') {
+      return false;
+    }
+
+    const current = activeEditCellRef.current;
+    if (!current || String(current.id) !== String(rowId)) {
+      return false;
+    }
+
+    const direction = event.shiftKey ? -1 : 1;
+    const sameRowTarget = getHorizontalNavigationTarget(current.id, current.field, direction);
+    if (!sameRowTarget) {
+      return false;
+    }
+
+    navigateFromEditedCell(current, sameRowTarget, {
+      startTargetEdit: !notesFieldNames.includes(sameRowTarget.field),
+    });
+    return true;
+  }, [
+    getHorizontalNavigationTarget,
+    navigateFromEditedCell,
+    notesFieldNames,
+  ]);
+
+  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
+    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      const rowKey = String(params.id);
+      if (internalEditNavigationRowIdRef.current === rowKey) {
+        internalEditNavigationRowIdRef.current = null;
+        event.defaultMuiPrevented = true;
+        return;
+      }
+      internalEditNavigationRowIdRef.current = null;
+
+      if (recoverSameRowNavigationFromTabEvent(params.id, event as unknown as { key?: string; shiftKey?: boolean })) {
+        event.defaultMuiPrevented = true;
+        return;
+      }
+
+      const currentRow = getCurrentEditableRow(params.id);
+      if (
+        currentRow &&
+        isUnsavedDraftRow(currentRow) &&
+        isNewRowEmpty(currentRow) &&
+        !hasVisibleEditInputValue(params.id)
+      ) {
+        event.defaultMuiPrevented = true;
+        handleDiscardRowChanges(params.id);
+        return;
+      }
+    }
+
+    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
+      handleDiscardRowChanges(params.id);
+    }
+    activeEditCellRef.current = null;
+    handleRowEditStop(params, event, details);
+  }, [
+    getCurrentEditableRow,
+    handleDiscardRowChanges,
+    hasVisibleEditInputValue,
+    isNewRowEmpty,
+    recoverSameRowNavigationFromTabEvent,
   ]);
 
   const saveResolvedRow = useCallback(async (rowAfterSaveGate: T): Promise<T> => {
@@ -1445,7 +1533,10 @@ export function EditableDataGrid<T extends EditableRow>({
     saveEditedRowAndFocusTarget,
   ]);
 
-  const handleGridEditNavigation = useCallback((event: KeyboardEvent): void => {
+  const handleEditedCellTabNavigation = useCallback((
+    current: { id: GridRowId; field: string },
+    event: DataGridKeyboardEvent,
+  ): boolean => {
     if (
       event.key !== 'Tab'
       || event.altKey
@@ -1453,19 +1544,16 @@ export function EditableDataGrid<T extends EditableRow>({
       || event.metaKey
       || event.nativeEvent.isComposing
     ) {
-      return;
+      return false;
     }
 
-    const focusedCell = getFocusedCellFromEvent(event);
-    if (!focusedCell || rowModesModel[focusedCell.id]?.mode !== GridRowModes.Edit) {
-      return;
-    }
-
+    activeEditCellRef.current = current;
     const direction = event.shiftKey ? -1 : 1;
-    const sameRowTarget = getHorizontalNavigationTarget(focusedCell.id, focusedCell.field, direction);
+    const sameRowTarget = getHorizontalNavigationTarget(current.id, current.field, direction);
     const target = sameRowTarget ?? getKeyboardNavigationTarget<T>({
       api: gridApiRef.current,
-      current: focusedCell,
+      columns,
+      current,
       direction,
       isActionCell: isActionCellKeyboardNavigable,
       rows: rowsForGrid,
@@ -1474,32 +1562,102 @@ export function EditableDataGrid<T extends EditableRow>({
 
     event.preventDefault();
     event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation?.();
+    event.defaultMuiPrevented = true;
 
     if (!target) {
-      void handleSaveRow(focusedCell.id);
-      return;
+      void handleSaveRow(current.id);
+      return true;
     }
 
-    if (String(target.id) === String(focusedCell.id)) {
-      navigateFromEditedCell(focusedCell, target, {
+    if (String(target.id) === String(current.id)) {
+      navigateFromEditedCell(current, target, {
         startTargetEdit: !notesFieldNames.includes(target.field),
       });
-      return;
+      return true;
     }
 
-    void saveEditedRowAndFocusTarget(focusedCell, target);
+    void saveEditedRowAndFocusTarget(current, target);
+    return true;
   }, [
-    getFocusedCellFromEvent,
+    columns,
     getHorizontalNavigationTarget,
     gridApiRef,
     handleSaveRow,
     isActionCellKeyboardNavigable,
     navigateFromEditedCell,
     notesFieldNames,
-    rowModesModel,
     rowsForGrid,
     saveEditedRowAndFocusTarget,
   ]);
+
+  const handleGridEditNavigation = useCallback((event: KeyboardEvent): void => {
+    const focusedCell = getFocusedCellFromEvent(event);
+    if (!focusedCell || rowModesModel[focusedCell.id]?.mode !== GridRowModes.Edit) {
+      return;
+    }
+
+    handleEditedCellTabNavigation(focusedCell, event as DataGridKeyboardEvent);
+  }, [
+    getFocusedCellFromEvent,
+    handleEditedCellTabNavigation,
+    rowModesModel,
+  ]);
+
+  const handleEditTabNavigationFromEventTarget = useCallback((
+    target: EventTarget | null,
+    event: DataGridKeyboardEvent,
+  ): boolean => {
+    const gridSurface = gridSurfaceRef.current;
+    if (!(target instanceof HTMLElement) || !gridSurface?.contains(target)) {
+      return false;
+    }
+
+    const current = getCellLocationFromDomTarget(target);
+    const isEditingDomTarget = Boolean(
+      target.closest('.MuiDataGrid-cell--editing, .MuiDataGrid-row--editing, .ofp-row-editing'),
+    );
+    if (!current || (!isEditingDomTarget && rowModesModel[current.id]?.mode !== GridRowModes.Edit)) {
+      return false;
+    }
+
+    return handleEditedCellTabNavigation(current, event);
+  }, [handleEditedCellTabNavigation, rowModesModel]);
+
+  useEffect(() => {
+    const handleNativeEditTabNavigation = (event: globalThis.KeyboardEvent): void => {
+      if (
+        event.key !== 'Tab'
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      handleEditTabNavigationFromEventTarget(event.target, wrapNativeKeyboardEvent(event));
+    };
+
+    window.addEventListener('keydown', handleNativeEditTabNavigation, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleNativeEditTabNavigation, { capture: true });
+    };
+  }, [handleEditTabNavigationFromEventTarget]);
+
+  const handleGridSurfaceKeyDownCapture = useCallback((event: KeyboardEvent<HTMLElement>): void => {
+    handleEditTabNavigationFromEventTarget(
+      event.target,
+      event as unknown as DataGridKeyboardEvent,
+    );
+  }, [handleEditTabNavigationFromEventTarget]);
+
+  const handleEditCellTabNavigation = useCallback<EditCellTabNavigationHandler>((request) => {
+    return handleEditedCellTabNavigation(
+      { id: request.id, field: request.field },
+      request.event as DataGridKeyboardEvent,
+    );
+  }, [handleEditedCellTabNavigation]);
 
   const handleSaveAllDirtyRows = useCallback(async (): Promise<void> => {
     // Awaits the real save (including the API call) for every dirty row in
@@ -2323,6 +2481,7 @@ export function EditableDataGrid<T extends EditableRow>({
             onTouchMove={hasContextualRowActions ? handleGridTouchMove : undefined}
             onTouchEnd={hasContextualRowActions ? handleGridTouchEnd : undefined}
             onTouchCancel={hasContextualRowActions ? handleGridTouchEnd : undefined}
+            onKeyDownCapture={handleGridSurfaceKeyDownCapture}
             onMouseDownCapture={handleReadOnlyCellMouseDown}
             sx={{
               position: 'relative',
@@ -2335,7 +2494,8 @@ export function EditableDataGrid<T extends EditableRow>({
               },
             }}
           >
-            <DataGrid
+            <EditCellNavigationContext.Provider value={handleEditCellTabNavigation}>
+              <DataGrid
           rows={rowsForGrid}
           columns={columnsWithActions}
           columnVisibilityModel={columnVisibilityModel}
@@ -2460,6 +2620,7 @@ export function EditableDataGrid<T extends EditableRow>({
             }
 
             const rowKey = String(params.id);
+            activeEditCellRef.current = { id: params.id, field: params.field };
             if (!rowSnapshotRef.current.has(rowKey)) {
               const row = rowsById.get(rowKey);
               if (row) {
@@ -2470,6 +2631,7 @@ export function EditableDataGrid<T extends EditableRow>({
             handleEditableCellClick(params, rowModesModel, setRowModesModel);
           }}
           onCellKeyDown={(params: GridCellParams<T>, event) => {
+            activeEditCellRef.current = { id: params.id, field: params.field };
             if (
               hasContextualRowActions &&
               (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) &&
@@ -2479,6 +2641,16 @@ export function EditableDataGrid<T extends EditableRow>({
               event.stopPropagation();
               event.defaultMuiPrevented = true;
               openRowActionKeyboardContextMenu(params.id, event.currentTarget as HTMLElement);
+              return;
+            }
+
+            if (
+              rowModesModel[params.id]?.mode === GridRowModes.Edit &&
+              handleEditedCellTabNavigation(
+                { id: params.id, field: params.field },
+                event as unknown as DataGridKeyboardEvent,
+              )
+            ) {
               return;
             }
 
@@ -2575,7 +2747,8 @@ export function EditableDataGrid<T extends EditableRow>({
           }}
           localeText={getDataGridLocaleText()}
           apiRef={gridApiRef}
-          />
+              />
+            </EditCellNavigationContext.Provider>
           </Box>
           </Box>
         </Box>

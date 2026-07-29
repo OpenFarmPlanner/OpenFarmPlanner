@@ -54,7 +54,7 @@ import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
 import { useTranslation } from '../../i18n';
-import { getLanguageDisplayName } from '../../i18n/languages';
+import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
@@ -76,7 +76,7 @@ import {
   getPublicCultureName,
   getPublicCultureTitle,
 } from '../publicCultureDisplay';
-import { PublicCultureTranslationDialog } from '../components/PublicCultureTranslationDialog';
+import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -356,6 +356,26 @@ function getLanguageLabel(code: string | null | undefined, displayLanguage: stri
     return fallback;
   }
   return getLanguageDisplayName(code, displayLanguage);
+}
+
+function getPublicCultureOriginalLanguageCode(culture: PublicCulture, currentLanguage: string): string {
+  return normalizeLanguageTag(culture.original_language_code)
+    ?? normalizeLanguageTag(culture.description_language_code)
+    ?? normalizeLanguageTag(currentLanguage)
+    ?? 'de';
+}
+
+function buildPublicCultureDescriptionDrafts(culture: PublicCulture): Record<string, string> {
+  const translations = { ...(culture.translations ?? {}) };
+  const servedLanguageCode = normalizeLanguageTag(culture.description_language_code);
+  if (servedLanguageCode && !translations[servedLanguageCode] && culture.description) {
+    translations[servedLanguageCode] = culture.description;
+  }
+  const originalLanguageCode = getPublicCultureOriginalLanguageCode(culture, culture.original_language_code ?? '');
+  if (!translations[originalLanguageCode] && culture.notes) {
+    translations[originalLanguageCode] = culture.notes;
+  }
+  return translations;
 }
 
 function formatSeedPackages(
@@ -1061,7 +1081,7 @@ export default function PublicCropLibraryPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
+  const [descriptionDrafts, setDescriptionDrafts] = useState<Record<string, string>>({});
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -1078,6 +1098,7 @@ export default function PublicCropLibraryPage() {
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
   const isCultureLoading = loadStatus === 'loading';
+  const canEditPublicCulture = Boolean(user);
   const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
 
   const focusSearch = useCallback(() => {
@@ -1218,6 +1239,27 @@ export default function PublicCropLibraryPage() {
     () => getDescriptionFallbackNotice(selectedCultureDescription, t, language),
     [selectedCultureDescription, t, language],
   );
+  const currentLanguageCode = normalizeLanguageTag(language) ?? 'de';
+  const selectedCultureOriginalLanguageCode = selectedCulture
+    ? getPublicCultureOriginalLanguageCode(selectedCulture, currentLanguageCode)
+    : currentLanguageCode;
+  const originalDescriptionDraft = selectedCulture
+    ? descriptionDrafts[selectedCultureOriginalLanguageCode] ?? ''
+    : '';
+  const currentDescriptionDraft = selectedCulture
+    ? descriptionDrafts[currentLanguageCode] ?? ''
+    : '';
+  const hasDescriptionDraftChanges = useMemo(() => {
+    if (!selectedCulture) {
+      return false;
+    }
+    const initialDrafts = buildPublicCultureDescriptionDrafts(selectedCulture);
+    const originalChanged = (descriptionDrafts[selectedCultureOriginalLanguageCode] ?? '')
+      !== (initialDrafts[selectedCultureOriginalLanguageCode] ?? '');
+    const currentChanged = currentLanguageCode !== selectedCultureOriginalLanguageCode
+      && (descriptionDrafts[currentLanguageCode] ?? '') !== (initialDrafts[currentLanguageCode] ?? '');
+    return originalChanged || currentChanged;
+  }, [currentLanguageCode, descriptionDrafts, selectedCulture, selectedCultureOriginalLanguageCode]);
   const selectedTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
     [selectedTopicId, topics],
@@ -1491,6 +1533,14 @@ export default function PublicCropLibraryPage() {
   }, [selectedCultureId]);
 
   useEffect(() => {
+    if (!selectedCulture) {
+      setDescriptionDrafts({});
+      return;
+    }
+    setDescriptionDrafts(buildPublicCultureDescriptionDrafts(selectedCulture));
+  }, [selectedCulture]);
+
+  useEffect(() => {
     setReplyTo(null);
     setEditingCommentId(null);
     setCommentActionMenu(null);
@@ -1557,17 +1607,6 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
-  const openTranslationDialog = useCallback((): void => {
-    if (!selectedCulture) {
-      return;
-    }
-    setTranslationDialogOpen(true);
-  }, [selectedCulture]);
-
-  const closeTranslationDialog = (): void => {
-    setTranslationDialogOpen(false);
-  };
-
   const openModeration = useCallback((): void => {
     navigate('/app/public-library-moderation');
   }, [navigate]);
@@ -1619,29 +1658,33 @@ export default function PublicCropLibraryPage() {
       return;
     }
     try {
+      const draftWithOriginalNotes = {
+        ...draft,
+        notes: descriptionDrafts[selectedCultureOriginalLanguageCode] ?? '',
+      };
       const response = await publicCultureAPI.update(
         selectedCulture.id,
-        buildPublicCultureUpdatePayload(draft, selectedCulture.version),
+        buildPublicCultureUpdatePayload(draftWithOriginalNotes, selectedCulture.version),
       );
-      upsertCultureInList(response.data);
+
+      let updatedCulture = response.data;
+      const initialDrafts = buildPublicCultureDescriptionDrafts(selectedCulture);
+      const currentTranslationChanged = currentLanguageCode !== selectedCultureOriginalLanguageCode
+        && (descriptionDrafts[currentLanguageCode] ?? '') !== (initialDrafts[currentLanguageCode] ?? '');
+      if (currentTranslationChanged) {
+        await publicCultureAPI.updateTranslations(selectedCulture.id, {
+          [currentLanguageCode]: descriptionDrafts[currentLanguageCode] ?? '',
+        });
+        const refreshedResponse = await publicCultureAPI.get(selectedCulture.id);
+        updatedCulture = refreshedResponse.data;
+      }
+
+      upsertCultureInList(updatedCulture);
       setEditDialogOpen(false);
-      await loadCollaboration(response.data.id);
+      await loadCollaboration(updatedCulture.id);
       showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
     } catch {
       showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
-    }
-  };
-
-  const handleTranslationSaved = async (): Promise<void> => {
-    if (!selectedCulture) {
-      return;
-    }
-    try {
-      const response = await publicCultureAPI.get(selectedCulture.id);
-      upsertCultureInList(response.data);
-      showGlobalSnackbar({ message: t('library.translation.saveSuccess'), severity: 'success' });
-    } catch {
-      showGlobalSnackbar({ message: t('library.translation.saveError'), severity: 'error' });
     }
   };
 
@@ -1868,11 +1911,6 @@ export default function PublicCropLibraryPage() {
           onClick: openEditDialog,
         },
         {
-          label: t('library.translation.editDialogOpen'),
-          icon: <TranslateOutlinedIcon fontSize="small" />,
-          onClick: openTranslationDialog,
-        },
-        {
           label: importingId ? t('library.importing') : t('library.importButton'),
           icon: <DownloadOutlinedIcon fontSize="small" />,
           onClick: () => void handleImport(),
@@ -1977,7 +2015,7 @@ export default function PublicCropLibraryPage() {
                     >
                       <ListItemText
                         primary={getCultureTitle(culture, t, language)}
-                        secondary={culture.crop_species_name || culture.name}
+                        secondary={culture.crop_family || culture.supplier_name || culture.seed_supplier || undefined}
                         primaryTypographyProps={{ fontWeight: 700, noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
                       />
@@ -2161,7 +2199,7 @@ export default function PublicCropLibraryPage() {
                     <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
                       <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCulture.crop_species_name || selectedCulture.name || t('library.page.notSpecified')} />
+                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
                           <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
                           <DetailRow label={t('library.page.fields.cropFamily')} value={selectedCulture.crop_family || t('library.page.notSpecified')} />
                           <DetailRow
@@ -2256,16 +2294,34 @@ export default function PublicCropLibraryPage() {
                             another language exists, say so instead of showing
                             it as if it were this language. */}
                         {descriptionFallbackNotice ? (
-                          <Tooltip title={descriptionFallbackNotice.tooltip}>
-                            <Chip
-                              size="small"
-                              icon={<TranslateOutlinedIcon fontSize="small" />}
-                              label={descriptionFallbackNotice.label}
-                              variant="outlined"
-                              color="warning"
-                              sx={{ mb: 1 }}
-                            />
-                          </Tooltip>
+                          <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems={{ xs: 'flex-start', sm: 'center' }}
+                            sx={{ mb: 1 }}
+                          >
+                            <Tooltip title={descriptionFallbackNotice.tooltip}>
+                              <Chip
+                                size="small"
+                                icon={<TranslateOutlinedIcon fontSize="small" />}
+                                label={descriptionFallbackNotice.label}
+                                variant="outlined"
+                                color="warning"
+                              />
+                            </Tooltip>
+                            {canEditPublicCulture ? (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<TranslateOutlinedIcon fontSize="small" />}
+                                onClick={openEditDialog}
+                              >
+                                {t('library.translation.addTranslationAction', {
+                                  language: getLanguageDisplayName(currentLanguageCode, language),
+                                })}
+                              </Button>
+                            ) : null}
+                          </Stack>
                         ) : null}
                         {selectedCultureDescription.text ? (
                           <Box
@@ -2503,15 +2559,26 @@ export default function PublicCropLibraryPage() {
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}
           variant="publicLibrary"
-        />
-      ) : null}
-      {selectedCulture ? (
-        <PublicCultureTranslationDialog
-          open={translationDialogOpen}
-          culture={selectedCulture}
-          language={language}
-          onClose={closeTranslationDialog}
-          onSaved={() => void handleTranslationSaved()}
+          hasExternalChanges={hasDescriptionDraftChanges}
+          extraSections={(
+            <MultilingualTextFieldSection
+              title={t('form.notes')}
+              fieldLabel={t('form.notes')}
+              originalLanguageCode={selectedCultureOriginalLanguageCode}
+              currentLanguageCode={currentLanguageCode}
+              originalValue={originalDescriptionDraft}
+              translationValue={currentDescriptionDraft}
+              translationPlaceholder={t('library.translation.descriptionPlaceholder')}
+              onOriginalValueChange={(value) => setDescriptionDrafts((current) => ({
+                ...current,
+                [selectedCultureOriginalLanguageCode]: value,
+              }))}
+              onTranslationValueChange={(value) => setDescriptionDrafts((current) => ({
+                ...current,
+                [currentLanguageCode]: value,
+              }))}
+            />
+          )}
         />
       ) : null}
     </PageContainer>

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from crops.models import CropSpecies, CropSpeciesTranslation
 from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, ProjectMembership
 
 User = get_user_model()
@@ -44,6 +45,28 @@ class YieldCalendarAPITest(TestCase):
         self.assertEqual(payload[0]['iso_week'], '2026-W10')
         self.assertEqual(payload[0]['cultures'][0]['culture_name'], 'Karotte')
         self.assertAlmostEqual(payload[0]['cultures'][0]['yield'], 70.0, places=2)
+
+    def test_yield_calendar_localizes_linked_culture_species_name(self):
+        species = CropSpecies.objects.create(name='Yield Calendar Localized Species')
+        CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
+        CropSpeciesTranslation.objects.create(species=species, language_code='en', common_name='Broad bean')
+        bean = Culture.objects.create(
+            name='Ackerbohne',
+            crop_species=species,
+            expected_yield=70,
+            display_color='#6D597A',
+            project=self.project,
+        )
+        self._create_plan(culture=bean, harvest_start=date(2026, 3, 3), harvest_end=date(2026, 3, 6))
+
+        response = self.client.get('/openfarmplanner/api/yield-calendar/?year=2026', HTTP_ACCEPT_LANGUAGE='en')
+
+        self.assertEqual(response.status_code, 200)
+        culture = response.json()[0]['cultures'][0]
+        self.assertEqual(culture['culture_id'], bean.id)
+        self.assertEqual(culture['culture_name'], 'Ackerbohne')
+        self.assertEqual(culture['culture_display_name'], 'Broad bean')
+        self.assertEqual(culture['culture_display_language_code'], 'en')
 
     def test_harvest_spanning_multiple_weeks_splits_proportionally(self):
         leek = Culture.objects.create(name='Lauch', expected_yield=100, display_color='#2A9D8F', project=self.project)

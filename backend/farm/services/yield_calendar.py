@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from farm.models import PlantingPlan, Project
+from farm.services.culture_display import resolve_culture_display_name
 
 
 def week_start_for_iso_year(iso_year: int) -> date:
@@ -22,14 +23,15 @@ def iso_week_key(day: date) -> str:
     return f"{iso_year}-W{iso_week:02d}"
 
 
-def build_yield_calendar(project: Project, iso_year: int) -> list[dict[str, object]]:
+def build_yield_calendar(project: Project, iso_year: int, language_code: str) -> list[dict[str, object]]:
     """Return the per-week, per-culture expected yield rows for one ISO year."""
     year_start = week_start_for_iso_year(iso_year)
     year_end = week_start_for_iso_year(iso_year + 1) if iso_year < 9999 else date.max
 
     plans = (
         PlantingPlan.objects
-        .select_related('culture')
+        .select_related('culture', 'culture__crop_species')
+        .prefetch_related('culture__crop_species__translations')
         .filter(
             project=project,
             harvest_date__isnull=False,
@@ -42,12 +44,17 @@ def build_yield_calendar(project: Project, iso_year: int) -> list[dict[str, obje
 
     weekly_data: dict[str, dict[str, object]] = {}
     for plan in plans:
-        _accumulate_plan_yield(weekly_data, plan, iso_year)
+        _accumulate_plan_yield(weekly_data, plan, iso_year, language_code)
 
     return _build_response_rows(weekly_data)
 
 
-def _accumulate_plan_yield(weekly_data: dict[str, dict[str, object]], plan: PlantingPlan, iso_year: int) -> None:
+def _accumulate_plan_yield(
+    weekly_data: dict[str, dict[str, object]],
+    plan: PlantingPlan,
+    iso_year: int,
+    language_code: str,
+) -> None:
     """Distribute one plan's expected yield over the ISO weeks it overlaps."""
     harvest_start = plan.harvest_date
     harvest_end = plan.harvest_end_date
@@ -81,9 +88,12 @@ def _accumulate_plan_yield(weekly_data: dict[str, dict[str, object]], plan: Plan
                         'cultures': defaultdict(Decimal),
                     },
                 )
+                culture_display_name, culture_display_language_code = resolve_culture_display_name(plan.culture, language_code)
                 culture_key = (
                     plan.culture_id,
                     plan.culture.name,
+                    culture_display_name,
+                    culture_display_language_code,
                     plan.culture.display_color or '#3b82f6',
                 )
                 contribution = expected_yield * Decimal(overlap_days) / Decimal(total_days)
@@ -98,7 +108,13 @@ def _build_response_rows(weekly_data: dict[str, dict[str, object]]) -> list[dict
     for iso_week in sorted(weekly_data.keys()):
         week_entry = weekly_data[iso_week]
         cultures_payload = []
-        for (culture_id, culture_name, color), value in sorted(week_entry['cultures'].items(), key=lambda c: c[0][1]):
+        for (
+            culture_id,
+            culture_name,
+            culture_display_name,
+            culture_display_language_code,
+            color,
+        ), value in sorted(week_entry['cultures'].items(), key=lambda c: c[0][2] or c[0][1]):
             rounded_yield = value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             if rounded_yield <= 0:
                 continue
@@ -106,6 +122,8 @@ def _build_response_rows(weekly_data: dict[str, dict[str, object]]) -> list[dict
                 {
                     'culture_id': culture_id,
                     'culture_name': culture_name,
+                    'culture_display_name': culture_display_name,
+                    'culture_display_language_code': culture_display_language_code,
                     'color': color,
                     'yield': float(rounded_yield),
                 }

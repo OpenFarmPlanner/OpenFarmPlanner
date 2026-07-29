@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n';
 import type { Culture, PublicCultureMatchResponse, Supplier } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
@@ -66,6 +67,8 @@ interface CultureFormProps {
   onViewPublicLibraryMatch?: (culture: NonNullable<PublicCultureMatchResponse['culture']>) => void;
   title?: string;
   variant?: 'project' | 'publicLibrary';
+  extraSections?: ReactNode;
+  hasExternalChanges?: boolean;
 }
 
 // Default color for display color picker
@@ -192,6 +195,8 @@ export function CultureForm({
   onViewPublicLibraryMatch,
   title,
   variant = 'project',
+  extraSections,
+  hasExternalChanges = false,
 }: CultureFormProps) {
   const { t } = useTranslation('cultures');
   const isEdit = Boolean(culture);
@@ -235,6 +240,7 @@ export function CultureForm({
   const publicLibraryMatchSequenceRef = useRef(0);
   const currentIdentityKeyRef = useRef<string | null>(null);
   const publicLibraryMatchCacheRef = useRef<Map<string, PublicCultureMatchResponse['culture']>>(new Map());
+  const hasUnsavedChanges = (isDirty && userInteractedRef.current) || hasExternalChanges;
 
   // Move focus to the first input after MUI's FocusTrap has settled
   useEffect(() => {
@@ -533,7 +539,7 @@ export function CultureForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSavingRef.current) return;
-    if (isEdit && !hasEffectiveCultureFormChanges(buildInitialFormData(culture), formData)) {
+    if (isEdit && !hasExternalChanges && !hasEffectiveCultureFormChanges(buildInitialFormData(culture), formData)) {
       onCancel();
       return;
     }
@@ -694,7 +700,7 @@ export function CultureForm({
       onClose={(_event, reason) => {
         if (reason === 'backdropClick') return;
         if (isSupplierCreateDialogOpen && reason === 'escapeKeyDown') return;
-        if (isDirty && userInteractedRef.current) {
+        if (hasUnsavedChanges) {
           setShowDiscardConfirm(true);
         } else {
           onCancel();
@@ -792,6 +798,7 @@ export function CultureForm({
             {isProjectForm ? (
               <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />
             ) : null}
+            {extraSections}
             {showSupplierDataSection ? (
               <>
                 <Typography variant="h6" sx={{ mt: 1 }}>{t('form.supplierDataSectionTitle')}</Typography>
@@ -938,7 +945,7 @@ export function CultureForm({
               {saveError}
             </Alert>
           ) : null}
-          {isDirty && userInteractedRef.current && (
+          {hasUnsavedChanges && (
             <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
               {isValid && !duplicateErrorKey
                 ? t('messages.unsavedChanges')
@@ -946,7 +953,7 @@ export function CultureForm({
             </Typography>
           )}
           <Button variant="outlined" onClick={() => {
-            if (isDirty && userInteractedRef.current) {
+            if (hasUnsavedChanges) {
               setShowDiscardConfirm(true);
             } else {
               onCancel();

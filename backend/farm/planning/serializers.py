@@ -12,6 +12,7 @@ from farm.common.serializer_fields import (
     _resolve_active_project_from_serializer,
 )
 from farm.models import Culture, PlantingPlan, Task
+from farm.services.culture_display import resolve_culture_display_name
 from farm.services.demo_project import find_demo_culture_species, is_demo_project_description
 
 
@@ -82,6 +83,8 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         culture = obj.culture
         if culture is None:
             return None, ''
+        if culture.crop_species_id:
+            return resolve_culture_display_name(culture, self._request_language())
         species = self._get_culture_species(culture)
         if species is None:
             return culture.name, ''

@@ -51,7 +51,11 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         queryset: All Culture objects ordered by name and variety
         serializer_class: CultureSerializer for serialization
     """
-    queryset = Culture.objects.select_related('supplier', 'image_file', 'source_public_culture')
+    queryset = (
+        Culture.objects
+        .select_related('supplier', 'image_file', 'source_public_culture', 'crop_species')
+        .prefetch_related('crop_species__translations')
+    )
     serializer_class = CultureSerializer
 
     def _set_latest_revision_actor(self, culture: Culture) -> None:
@@ -86,8 +90,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         return (
             manager
             .filter(project=self.request.active_project)
-            .select_related('supplier', 'image_file', 'source_public_culture')
-            .prefetch_related('supplier_data__supplier', 'seed_packages', owned_public_cultures_prefetch)
+            .select_related('supplier', 'image_file', 'source_public_culture', 'crop_species')
+            .prefetch_related('supplier_data__supplier', 'seed_packages', 'crop_species__translations', owned_public_cultures_prefetch)
         )
 
     @action(detail=False, methods=['get'], url_path='duplicate-check')

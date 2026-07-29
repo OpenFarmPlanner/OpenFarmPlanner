@@ -3,6 +3,8 @@ import {
   focusKeyboardNavigableCell,
   getCellLocationFromDomTarget,
   getHorizontalKeyboardNavigationTarget,
+  getKeyboardNavigationTarget,
+  isCellKeyboardNavigable,
   resolveFocusedCellFromEvent,
 } from '../components/data-grid/keyboardNavigation';
 
@@ -43,6 +45,40 @@ describe('keyboardNavigation', () => {
     expect(document.activeElement).toBe(input);
 
     cellElement.remove();
+  });
+
+  it('uses local row and column fallbacks when live grid metadata is incomplete during edit mode', () => {
+    const row = { id: 5, planting_date: '2026-04-10', area_m2: 2 };
+    const api = {
+      getAllRowIds: vi.fn(() => [5]),
+      getCellParams: vi.fn((id: number, field: string) => ({ id, field, row: undefined })),
+      getVisibleColumns: vi.fn(() => [
+        { field: 'planting_date', editable: true },
+        { field: 'area_m2' },
+      ]),
+    };
+
+    expect(isCellKeyboardNavigable({
+      api,
+      columns: [
+        { field: 'planting_date', editable: true },
+        { field: 'area_m2', editable: true },
+      ],
+      field: 'area_m2',
+      row,
+      rowId: 5,
+    })).toBe(true);
+
+    expect(getKeyboardNavigationTarget({
+      api,
+      columns: [
+        { field: 'planting_date', editable: true },
+        { field: 'area_m2', editable: true },
+      ],
+      current: { id: 5, field: 'planting_date' },
+      direction: 1,
+      rows: [row],
+    })).toEqual({ id: 5, field: 'area_m2' });
   });
 });
 

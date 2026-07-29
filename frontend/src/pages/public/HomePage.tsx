@@ -20,6 +20,7 @@ import HeroImage from '../../components/HeroImage';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 import { useGuestDemoStart } from './useGuestDemoStart';
+import AppIcon from '../../components/layout/AppIcon';
 
 const PRODUCT_TOUR_ITEMS = [
   {
@@ -132,18 +133,7 @@ export default function HomePage() {
               alignItems="center"
               sx={{ minWidth: 0, flex: '1 1 auto' }}
             >
-              <Box
-                component="img"
-                src={publicAssetUrl('/favicon.png')}
-                alt=""
-                aria-hidden
-                sx={{
-                  width: { xs: 32, sm: 40, md: 48 },
-                  height: 'auto',
-                  flexShrink: 0,
-                  opacity: 0.95,
-                }}
-              />
+              <AppIcon decorative size={{ xs: 32, sm: 40, md: 48 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"
                 component="h1"

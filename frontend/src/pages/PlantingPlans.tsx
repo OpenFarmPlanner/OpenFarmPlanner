@@ -94,6 +94,7 @@ import {
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
 import { CompactAreaCell } from "../components/planting-plans/CompactAreaCell";
 import EmptyStateCard from "../components/project/EmptyStateCard";
+import { formatCultureDisplayName } from "../cultures/cultureDisplay";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
@@ -778,12 +779,15 @@ function PlantingPlans() {
 
   const getCultureLabel = (row: PlantingPlanRow): string => {
     const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    const cultureDisplayName = row.culture_display_name || row.culture_name;
-    if (cultureDisplayName) {
-      if (linkedCulture?.variety && !cultureDisplayName.includes(`(${linkedCulture.variety})`)) {
-        return `${cultureDisplayName} (${linkedCulture.variety})`;
-      }
-      return cultureDisplayName;
+    const cultureLabel = formatCultureDisplayName({
+      name: linkedCulture?.name,
+      culture_name: row.culture_name,
+      culture_display_name: row.culture_display_name ?? linkedCulture?.culture_display_name,
+      variety: linkedCulture?.variety,
+      culture_variety: row.culture_variety,
+    });
+    if (cultureLabel) {
+      return cultureLabel;
     }
     const fallback = cultureOptions.find((option) => option.value === row.culture);
     return fallback?.label ?? "—";

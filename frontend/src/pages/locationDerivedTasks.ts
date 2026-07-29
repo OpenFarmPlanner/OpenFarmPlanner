@@ -1,4 +1,5 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
+import { getCultureDisplayName } from '../cultures/cultureDisplay';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 
 export type DerivedTaskType =
@@ -77,7 +78,7 @@ export function deriveLocationTasks({
     const plantingDate = parseIsoDate(plan.planting_date);
     if (!plantingDate) return;
     const culture = cultureById.get(plan.culture);
-    const cultureName = getPlanCultureDisplayName(plan) || culture?.name;
+    const cultureName = getPlanCultureDisplayName(plan) || (culture ? getCultureDisplayName(culture) : undefined);
     const direct = isDirectSowingPlan(plan, culture);
     const baseTaskType: DerivedTaskType = direct ? 'sowing' : 'planting';
 
