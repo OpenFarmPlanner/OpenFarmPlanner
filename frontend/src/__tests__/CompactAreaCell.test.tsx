@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CompactAreaCell } from '../components/planting-plans/CompactAreaCell';
@@ -68,6 +68,62 @@ describe('CompactAreaCell', () => {
     await user.hover(screen.getByText(label));
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('opens its editor on a single click when it acts as the trigger', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+
+    render(<CompactAreaCell label="Beet 5" onOpen={onOpen} triggerLabel="Anbaufläche bearbeiten" />);
+
+    await user.click(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' }));
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens its editor from the keyboard without bubbling the key to the grid cell', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onCellKeyDown = vi.fn();
+
+    render(
+      <div onKeyDown={onCellKeyDown}>
+        <CompactAreaCell label="Beet 5" hasFocus onOpen={onOpen} triggerLabel="Anbaufläche bearbeiten" />
+      </div>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Anbaufläche bearbeiten' });
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    await user.keyboard('{Enter}');
+    await user.keyboard(' ');
+
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    expect(onCellKeyDown).not.toHaveBeenCalled();
+  });
+
+  it('renders no separate edit affordance next to the value', () => {
+    render(<CompactAreaCell label="Beet 5" onOpen={vi.fn()} triggerLabel="Anbaufläche bearbeiten" />);
+
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(document.querySelector('svg[data-testid="EditIcon"]')).toBeNull();
+  });
+
+  it('falls back to the placeholder while no area is assigned', () => {
+    render(<CompactAreaCell label="" placeholder="Anbaufläche wählen" onOpen={vi.fn()} />);
+
+    expect(screen.getByText('Anbaufläche wählen')).toBeInTheDocument();
+  });
+
+  it('keeps focus inside the editor while it is open', async () => {
+    const { rerender } = render(<CompactAreaCell label="Beet 5" hasFocus suppressFocus onOpen={vi.fn()} />);
+
+    const trigger = screen.getByRole('button');
+    expect(trigger).not.toHaveFocus();
+
+    rerender(<CompactAreaCell label="Beet 5" hasFocus onOpen={vi.fn()} />);
+
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it('uses compact ellipsis styles', () => {

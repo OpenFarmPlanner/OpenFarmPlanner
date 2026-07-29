@@ -66,6 +66,11 @@ vi.mock('@mui/x-data-grid', async () => {
     if (apiRef?.current) {
       apiRef.current.state = apiRef.current.state ?? { focus: { cell: null } };
       apiRef.current.setEditCellValue = (params: { id: string | number; field: string; value: unknown }) => {
+        // Mirrors MUI's own `throwIfNotEditable`: a field without an editor in
+        // the open edit session is a hard error, not a silent no-op.
+        if (columns.find((column: GridColDef) => column.field === params.field)?.editable === false) {
+          throw new Error(`MUI X: The cell with id=${String(params.id)} and field=${params.field} is not editable.`);
+        }
         setEditValues((currentValues) => ({
           ...currentValues,
           [`${String(params.id)}-${params.field}`]: params.value,
@@ -967,6 +972,100 @@ describe('EditableDataGrid', () => {
 
     await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-notes'));
     expect(screen.getByTestId('focused-cell')).not.toHaveTextContent('1-area_sqm');
+  });
+
+  describe('dialog-edited cells', () => {
+    const dialogColumns: GridColDef[] = [
+      { field: 'name', headerName: 'Name', editable: true },
+      { field: 'area_sqm', headerName: 'Anbaufläche', editable: false },
+      { field: 'notes', headerName: 'Notizen', editable: true },
+    ];
+
+    const renderWithDialogColumn = (
+      overrides: Partial<Parameters<typeof EditableDataGrid>[0]> = {},
+    ) => {
+      const props = baseProps(() => null);
+      render(
+        <EditableDataGrid
+          {...props}
+          columns={dialogColumns}
+          dialogEditFields={['area_sqm']}
+          showDeleteAction={false}
+          {...overrides}
+        />,
+      );
+      return props;
+    };
+
+    it('never opens the inline edit mode when the cell is clicked', async () => {
+      renderWithDialogColumn();
+
+      const cell = await screen.findByRole('button', { name: 'Zelle 1-area_sqm' });
+      fireEvent.click(cell);
+
+      expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
+      expect(mockSetEditCellValue).not.toHaveBeenCalled();
+    });
+
+    it('ignores F2 and printable keys that would start the inline editor', async () => {
+      renderWithDialogColumn();
+
+      const cell = await screen.findByRole('button', { name: 'Zelle 1-area_sqm' });
+      fireEvent.keyDown(cell, { key: 'F2' });
+      fireEvent.keyDown(cell, { key: '5' });
+
+      expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
+      expect(mockSetEditCellValue).not.toHaveBeenCalled();
+    });
+
+    it('stays a keyboard navigation stop even though the column is not editable', async () => {
+      renderWithDialogColumn();
+
+      const nameCell = await screen.findByRole('button', { name: 'Zelle 1-name' });
+      fireEvent.keyDown(nameCell, {
+        key: 'ArrowRight',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      });
+
+      await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-area_sqm'));
+    });
+
+    it('saves the row right away when the dialog applies values in view mode', async () => {
+      const commandApiRef: { current: EditableDataGridCommandApi | null } = { current: null };
+      const props = renderWithDialogColumn({ commandApiRef });
+      const updateSpy = vi.spyOn(props.api, 'update');
+
+      await waitFor(() => expect(commandApiRef.current).not.toBeNull());
+      await act(async () => {
+        await commandApiRef.current?.applyDialogEditValues(1, { area_sqm: 42 });
+      });
+
+      await waitFor(() => expect(updateSpy).toHaveBeenCalledWith(1, expect.objectContaining({ area_sqm: 42 })));
+      expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
+    });
+
+    it('only feeds the open draft when the row is already being edited', async () => {
+      const commandApiRef: { current: EditableDataGridCommandApi | null } = { current: null };
+      const props = renderWithDialogColumn({ commandApiRef });
+      const updateSpy = vi.spyOn(props.api, 'update');
+
+      await waitFor(() => expect(commandApiRef.current).not.toBeNull());
+      fireEvent.click(await screen.findByRole('button', { name: 'Zelle 1-name' }));
+      await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+      await act(async () => {
+        await commandApiRef.current?.applyDialogEditValues(1, { area_sqm: 42 });
+      });
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(screen.getByTestId('mode-1')).toHaveTextContent('edit');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Enter speichern 1' }));
+      await waitFor(() => expect(updateSpy).toHaveBeenCalledWith(1, expect.objectContaining({ area_sqm: 42 })));
+    });
   });
 
   it('focuses the next editable row cell once after Tab saves the edited row', async () => {

@@ -43,6 +43,49 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
 };
 
 describe('AreaAssignmentDialog', () => {
+  it('opens on a single click on the cell without a separate edit affordance', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="Regenbogenland · 8 Karotte + Zwiebel · 5" onApply={vi.fn()} />,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Anbaufläche bearbeiten' });
+    expect(screen.getAllByRole('button')).toEqual([trigger]);
+    expect(trigger).toHaveTextContent('Regenbogenland · 8 Karotte + Zwiebel · 5');
+
+    await user.click(trigger);
+
+    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+  });
+
+  it('opens with Enter while the grid cell owns the focus', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" hasFocus onApply={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' })).toHaveFocus();
+    });
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+  });
+
+  it('returns focus to the cell trigger after the dialog closes', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" hasFocus onApply={vi.fn()} />,
+    );
+
+    await openDialog();
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' })).toHaveFocus();
+    });
+  });
+
   it('opens with current location/field/bed selection', async () => {
     render(
       <AreaAssignmentDialog

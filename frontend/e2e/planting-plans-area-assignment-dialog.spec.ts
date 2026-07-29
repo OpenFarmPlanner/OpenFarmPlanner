@@ -88,10 +88,12 @@ async function createAreaDialogFixture(
 async function openAreaAssignmentDialog(page: Page, title: string, editLabel: string) {
   await page.goto('/app/planting-plans');
   await expect(page.getByRole('heading', { name: /Anbaupläne|Planting plans/ })).toBeVisible();
-  await expect(page.locator('[role="gridcell"][data-field="bed"]').first()).toBeVisible();
+  const bedCell = page.locator('[role="gridcell"][data-field="bed"]').first();
+  await expect(bedCell).toBeVisible();
 
-  await page.locator('[role="gridcell"][data-field="bed"]').first().click();
-  await page.getByLabel(editLabel).click();
+  // A single click must open the real editor — the bed cell has no inline edit
+  // mode to step through first.
+  await bedCell.getByLabel(editLabel).click();
 
   const dialog = page.getByRole('dialog', { name: title });
   await expect(dialog).toBeVisible();
@@ -128,6 +130,33 @@ async function readDialogMetrics(page: Page, title: string) {
 }
 
 test.describe('planting plans area assignment dialog', () => {
+  test('opens on a single click and keeps the grid keyboard-navigable afterwards', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-single-click');
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const bedCell = page.locator('[role="gridcell"][data-field="bed"]').first();
+    await expect(bedCell).toBeVisible();
+
+    // No pencil button next to the value, and no inline edit cell in between.
+    await expect(bedCell.locator('[data-testid="EditIcon"]')).toHaveCount(0);
+
+    await bedCell.getByLabel('Anbaufläche bearbeiten').click();
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeVisible();
+    await expect(page.locator('.MuiDataGrid-row.ofp-row-editing')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Abbrechen' }).click();
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeHidden();
+
+    // Focus returns to the cell, so plain arrow navigation keeps working.
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(
+      page.locator('[role="gridcell"][data-field="cultivation_type"]').first(),
+    ).toHaveAttribute('tabindex', '0');
+  });
+
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-compact');

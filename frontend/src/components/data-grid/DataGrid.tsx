@@ -178,6 +178,7 @@ export function EditableDataGrid<T extends EditableRow>({
   defaultSortModel = [],
   persistSortInUrl = true,
   notes,
+  dialogEditFields,
   commandApiRef,
   onSelectedRowChange,
   getRowValidationErrors,
@@ -655,6 +656,16 @@ export function EditableDataGrid<T extends EditableRow>({
     () => notes?.fields.map((fieldConfig) => fieldConfig.field) ?? [],
     [notes],
   );
+  // Notes and dialog-edited cells share one rule: they own their editor, so the
+  // grid never starts inline edit mode for them, but they stay keyboard stops.
+  const dedicatedEditorFieldNames = useMemo(
+    () => [...notesFieldNames, ...(dialogEditFields ?? [])],
+    [dialogEditFields, notesFieldNames],
+  );
+  const hasDedicatedEditor = useCallback(
+    (field: string): boolean => dedicatedEditorFieldNames.includes(field),
+    [dedicatedEditorFieldNames],
+  );
 
   // Check if there's a validation error (indicating incomplete/invalid data)
   const hasValidationError = Boolean(error);
@@ -748,8 +759,8 @@ export function EditableDataGrid<T extends EditableRow>({
   ), [gridApiRef]);
 
   const isActionCellKeyboardNavigable = useCallback((params: GridCellParams<T>): boolean => (
-    notesFieldNames.includes(params.field)
-  ), [notesFieldNames]);
+    hasDedicatedEditor(params.field)
+  ), [hasDedicatedEditor]);
 
   const getKeyboardNavigableFieldsForRow = useCallback((rowId: GridRowId): string[] => {
     const api = gridApiRef.current;
@@ -794,11 +805,11 @@ export function EditableDataGrid<T extends EditableRow>({
       focusDataGridKeyboardNavigableCell<T>({
         api,
         cell: { id: rowId, field },
-        focusEditInput: rowModesModel[rowId]?.mode === GridRowModes.Edit
-          || (options.startEdit && !notesFieldNames.includes(field)),
+        focusEditInput: !hasDedicatedEditor(field)
+          && (rowModesModel[rowId]?.mode === GridRowModes.Edit || options.startEdit),
       });
 
-      if (!options.startEdit || notesFieldNames.includes(field)) {
+      if (!options.startEdit || hasDedicatedEditor(field)) {
         return;
       }
 
@@ -815,7 +826,7 @@ export function EditableDataGrid<T extends EditableRow>({
         [rowId]: { mode: GridRowModes.Edit, fieldToFocus: field },
       }));
     });
-  }, [gridApiRef, notesFieldNames, rowModesModel, rowsById, runAfterRowVisible]);
+  }, [gridApiRef, hasDedicatedEditor, rowModesModel, rowsById, runAfterRowVisible]);
 
   const getHorizontalNavigationTarget = useCallback((
     rowId: GridRowId,
@@ -1038,6 +1049,19 @@ export function EditableDataGrid<T extends EditableRow>({
     )
   ), [columns, gridApiRef]);
 
+  /** Whether the grid currently offers an inline editor for this cell. */
+  const isEditableCell = useCallback((rowId: GridRowId, field: string): boolean => {
+    if (!columns.find((column) => column.field === field)?.editable) {
+      return false;
+    }
+    const api = gridApiRef.current;
+    try {
+      return api?.isCellEditable(api.getCellParams(rowId, field)) ?? true;
+    } catch {
+      return true;
+    }
+  }, [columns, gridApiRef]);
+
   const applyDraftValues = useCallback(async (rowId: GridRowId, values: Partial<T>): Promise<void> => {
     const rowKey = String(rowId);
     const isEditing = rowModesModel[rowId]?.mode === GridRowModes.Edit;
@@ -1046,7 +1070,10 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (isEditing && api) {
       const editUpdates = Object.entries(values).flatMap(([fieldKey, fieldValue]) => {
-        if (fieldKey === 'id' || fieldKey === 'isNew') {
+        // MUI throws for a field that has no editor in the open edit session,
+        // so values for read-only or dialog-edited columns are carried by the
+        // `setRows` merge below instead.
+        if (fieldKey === 'id' || fieldKey === 'isNew' || !isEditableCell(rowId, fieldKey)) {
           return [];
         }
         return [
@@ -1074,7 +1101,7 @@ export function EditableDataGrid<T extends EditableRow>({
       }));
     }
     markRowDirty(rowKey);
-  }, [getRowValidationErrors, gridApiRef, markRowDirty, rowModesModel, rowsById]);
+  }, [getRowValidationErrors, gridApiRef, isEditableCell, markRowDirty, rowModesModel, rowsById]);
 
   const runBeforeSaveGate = useCallback(async (row: T): Promise<T | null> => {
     if (!onBeforeSaveRow) {
@@ -1217,13 +1244,13 @@ export function EditableDataGrid<T extends EditableRow>({
     }
 
     navigateFromEditedCell(current, sameRowTarget, {
-      startTargetEdit: !notesFieldNames.includes(sameRowTarget.field),
+      startTargetEdit: !hasDedicatedEditor(sameRowTarget.field),
     });
     return true;
   }, [
     getHorizontalNavigationTarget,
+    hasDedicatedEditor,
     navigateFromEditedCell,
-    notesFieldNames,
   ]);
 
   const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
@@ -1449,6 +1476,44 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [applyDraftValues, getDraftRow, gridApiRef, handleProcessRowUpdateError, rowsById, saveResolvedRow]);
 
+  const applyDialogEditValues = useCallback(async (
+    rowId: GridRowId,
+    values: Partial<T>,
+  ): Promise<void> => {
+    const rowKey = String(rowId);
+    await applyDraftValues(rowId, values);
+
+    if (rowModesModel[rowId]?.mode === GridRowModes.Edit) {
+      // The row already has an open edit session (typically a new draft row).
+      // Its own save cycle persists the dialog values together with the rest,
+      // so committing here would save a half-filled row.
+      return;
+    }
+
+    const baseRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
+    if (!baseRow) {
+      return;
+    }
+
+    try {
+      const savedRow = await processRowUpdate({ ...baseRow, ...values } as T);
+      setRows((previousRows) =>
+        previousRows.map((currentRow) =>
+          String(currentRow.id) === rowKey ? savedRow : currentRow,
+        ),
+      );
+    } catch (error) {
+      handleProcessRowUpdateError(error);
+    }
+  }, [
+    applyDraftValues,
+    getDraftRow,
+    handleProcessRowUpdateError,
+    processRowUpdate,
+    rowModesModel,
+    rowsById,
+  ]);
+
   const handleSaveRow = useCallback(async (rowId: GridRowId): Promise<void> => {
     const preparedRow = await prepareRowForSave(rowId);
     if (!preparedRow) {
@@ -1497,7 +1562,7 @@ export function EditableDataGrid<T extends EditableRow>({
           : prevRows,
       );
       focusKeyboardNavigableCell(target.id, target.field, {
-        startEdit: options.startTargetEdit ?? !notesFieldNames.includes(target.field),
+        startEdit: options.startTargetEdit ?? !hasDedicatedEditor(target.field),
       });
     } catch (error) {
       handleProcessRowUpdateError(error);
@@ -1505,7 +1570,7 @@ export function EditableDataGrid<T extends EditableRow>({
   }, [
     focusKeyboardNavigableCell,
     handleProcessRowUpdateError,
-    notesFieldNames,
+    hasDedicatedEditor,
     prepareRowForSave,
     processRowUpdate,
   ]);
@@ -1572,7 +1637,7 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (String(target.id) === String(current.id)) {
       navigateFromEditedCell(current, target, {
-        startTargetEdit: !notesFieldNames.includes(target.field),
+        startTargetEdit: !hasDedicatedEditor(target.field),
       });
       return true;
     }
@@ -1584,9 +1649,9 @@ export function EditableDataGrid<T extends EditableRow>({
     getHorizontalNavigationTarget,
     gridApiRef,
     handleSaveRow,
+    hasDedicatedEditor,
     isActionCellKeyboardNavigable,
     navigateFromEditedCell,
-    notesFieldNames,
     rowsForGrid,
     saveEditedRowAndFocusTarget,
   ]);
@@ -1756,6 +1821,9 @@ export function EditableDataGrid<T extends EditableRow>({
     apiRef: gridApiRef,
     rowModesModel,
     setRowModesModel,
+    // Notes and dialog cells own their editor, so neither F2 nor "just start
+    // typing" may pull them into the inline edit mode they never leave through.
+    isCellEditable: (params) => !hasDedicatedEditor(params.field),
     onBeforeEdit: rememberRowSnapshotForCellEdit,
     onReplaceValue: (params) => markRowDirty(String(params.id)),
   });
@@ -1877,6 +1945,7 @@ export function EditableDataGrid<T extends EditableRow>({
     setRowModesModel,
     applyDraftValues,
     commitDraftValues,
+    applyDialogEditValues,
     reload: fetchData,
     focusTable,
     openRowById,
@@ -2628,6 +2697,11 @@ export function EditableDataGrid<T extends EditableRow>({
               }
             }
             markRowDirty(rowKey);
+            if (hasDedicatedEditor(params.field)) {
+              // The cell's own popover/dialog is the editor and the click has
+              // already opened it — never layer inline edit mode on top.
+              return;
+            }
             handleEditableCellClick(params, rowModesModel, setRowModesModel);
           }}
           onCellKeyDown={(params: GridCellParams<T>, event) => {
