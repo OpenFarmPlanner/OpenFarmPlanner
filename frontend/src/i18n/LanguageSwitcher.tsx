@@ -75,11 +75,15 @@ export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
           textTransform: 'none',
           fontWeight: 500,
           whiteSpace: 'nowrap',
+          // On phones the switcher shares its row with the page's centred logo,
+          // so the dense variant drops both decorative icons and keeps only the
+          // language name - the part that carries the meaning.
           '& .MuiButton-startIcon': {
             display: { xs: 'none', sm: 'inherit' },
             mr: 0.75,
           },
           '& .MuiButton-endIcon': {
+            display: dense ? { xs: 'none', sm: 'inherit' } : undefined,
             ml: 0.35,
           },
         }}
