@@ -21,7 +21,7 @@
  * DataGrid with its own parallel implementation of several of these patterns).
  */
 
-import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import {
   DataGrid,
   GridPagination,
@@ -162,6 +162,7 @@ export function EditableDataGrid<T extends EditableRow>({
   defaultSortModel = [],
   persistSortInUrl = true,
   notes,
+  singleClickEditFields = [],
   commandApiRef,
   onSelectedRowChange,
   getRowValidationErrors,
@@ -636,6 +637,10 @@ export function EditableDataGrid<T extends EditableRow>({
   const notesFieldNames = useMemo(
     () => notes?.fields.map((fieldConfig) => fieldConfig.field) ?? [],
     [notes],
+  );
+  const singleClickEditFieldNames = useMemo(
+    () => new Set(singleClickEditFields),
+    [singleClickEditFields],
   );
 
   // Check if there's a validation error (indicating incomplete/invalid data)
@@ -1594,6 +1599,34 @@ export function EditableDataGrid<T extends EditableRow>({
     }));
   }, [gridApiRef, rememberRowSnapshotForCellEdit, rowModesModel]);
 
+  const handleSingleClickEditCell = useCallback((
+    params: GridCellParams<T>,
+    event: DataGridKeyboardEvent,
+  ): boolean => {
+    const mouseEvent = event as unknown as MouseEvent<HTMLElement>;
+    if (
+      !singleClickEditFieldNames.has(params.field)
+      || !params.isEditable
+      || rowModesModel[params.id]?.mode === GridRowModes.Edit
+      || mouseEvent.button !== 0
+      || mouseEvent.ctrlKey
+      || mouseEvent.metaKey
+      || mouseEvent.shiftKey
+      || mouseEvent.altKey
+    ) {
+      return false;
+    }
+
+    rememberRowSnapshotForCellEdit(params);
+    gridApiRef.current?.setCellFocus(params.id, params.field);
+    setRowModesModel((oldModel) => ({
+      ...oldModel,
+      [params.id]: { mode: GridRowModes.Edit, fieldToFocus: params.field },
+    }));
+    event.defaultMuiPrevented = true;
+    return true;
+  }, [gridApiRef, rememberRowSnapshotForCellEdit, rowModesModel, singleClickEditFieldNames]);
+
   const spreadsheetEditStarter = useSpreadsheetEditStarter<T>({
     apiRef: gridApiRef,
     rowModesModel,
@@ -2456,6 +2489,10 @@ export function EditableDataGrid<T extends EditableRow>({
               event.preventDefault();
               event.stopPropagation();
               event.defaultMuiPrevented = true;
+              return;
+            }
+
+            if (handleSingleClickEditCell(params, event as unknown as DataGridKeyboardEvent)) {
               return;
             }
 

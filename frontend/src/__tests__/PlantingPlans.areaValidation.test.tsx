@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import PlantingPlans from "../pages/PlantingPlans";
 import type { EditableDataGridCommandApi } from "../components/data-grid";
 
@@ -100,6 +100,7 @@ vi.mock("../components/data-grid", async () => {
       ) => void;
     }>;
     inlineRowActionField?: string;
+    singleClickEditFields?: string[];
     deleteUndoOptions?: { message: string; snackbarTestId?: string };
   };
   return {
@@ -327,6 +328,27 @@ describe("PlantingPlans save-time area validation", () => {
     expect(inlineRowActions.map((action: { id: string }) => action.id)).toEqual(["delete"]);
     inlineRowActions[0].onClick({ id: -1, bed: 101 }, { delete: inlineDeleteHelper });
     expect(inlineDeleteHelper).toHaveBeenCalledWith(-1);
+  });
+
+  it("opens the growing-area picker from a single bed-cell click", async () => {
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+
+    const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
+    expect(latestProps.singleClickEditFields).toEqual(["bed"]);
+
+    const bedColumn = latestProps.columns.find((column: { field: string }) => column.field === "bed");
+    const renderedEditor = bedColumn.renderEditCell({
+      id: 1,
+      field: "bed",
+      value: 101,
+      row: { id: 1, bed: 101 },
+      hasFocus: true,
+      api: { setEditCellValue: vi.fn() },
+    });
+
+    expect(isValidElement(renderedEditor)).toBe(true);
+    expect(renderedEditor.props.autoOpenOnFocus).toBe(true);
   });
 
   it("uses one compact width for all date columns", async () => {

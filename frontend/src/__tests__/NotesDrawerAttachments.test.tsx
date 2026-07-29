@@ -11,6 +11,25 @@ vi.mock('../api/api', () => ({
   },
 }));
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    autoFocus = true,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    autoFocus?: boolean;
+  }) => (
+    <textarea
+      aria-label="notes"
+      autoFocus={autoFocus}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 describe('NotesDrawer attachments', () => {
   beforeEach(() => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');

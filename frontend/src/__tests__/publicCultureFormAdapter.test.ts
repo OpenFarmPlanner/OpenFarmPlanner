@@ -57,8 +57,21 @@ describe('publicCultureToCultureFormData', () => {
     expect(form.seed_rate_pre_cultivation_unit).toBe('seeds_per_plant');
   });
 
-  it('never carries notes over, since they are edited separately', () => {
-    const form = publicCultureToCultureFormData(buildPublicCulture({ notes: 'Some notes' }));
+  it('loads notes from the exact edited language', () => {
+    const form = publicCultureToCultureFormData(buildPublicCulture({
+      translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+    }), 'en');
+
+    expect(form.notes).toBe('A robust variety.');
+  });
+
+  it('does not copy fallback notes into a missing edited language', () => {
+    const form = publicCultureToCultureFormData(buildPublicCulture({
+      notes: 'Robuste Sorte.',
+      description: 'Robuste Sorte.',
+      description_language_code: 'de',
+      translations: { de: 'Robuste Sorte.' },
+    }), 'en');
 
     expect(form.notes).toBe('');
   });

@@ -1062,6 +1062,7 @@ export default function PublicCropLibraryPage() {
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
+  const [editLanguage, setEditLanguage] = useState(language);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -1550,8 +1551,9 @@ export default function PublicCropLibraryPage() {
     if (!selectedCulture) {
       return;
     }
+    setEditLanguage(language);
     setEditDialogOpen(true);
-  }, [selectedCulture]);
+  }, [language, selectedCulture]);
 
   const closeEditDialog = (): void => {
     setEditDialogOpen(false);
@@ -1618,13 +1620,22 @@ export default function PublicCropLibraryPage() {
     if (!selectedCulture) {
       return;
     }
+    const initialNotes = selectedCulture.translations?.[editLanguage] ?? '';
     try {
       const response = await publicCultureAPI.update(
         selectedCulture.id,
         buildPublicCultureUpdatePayload(draft, selectedCulture.version),
       );
+      const updatedNotes = draft.notes ?? '';
+      if (updatedNotes !== initialNotes) {
+        await publicCultureAPI.updateTranslations(selectedCulture.id, { [editLanguage]: updatedNotes });
+      }
       upsertCultureInList(response.data);
       setEditDialogOpen(false);
+      if (updatedNotes !== initialNotes) {
+        const refreshed = await publicCultureAPI.get(selectedCulture.id);
+        upsertCultureInList(refreshed.data);
+      }
       await loadCollaboration(response.data.id);
       showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
     } catch {
@@ -2498,11 +2509,14 @@ export default function PublicCropLibraryPage() {
       />
       {editDialogOpen && selectedCulture ? (
         <CultureForm
-          culture={publicCultureToCultureFormData(selectedCulture)}
+          culture={publicCultureToCultureFormData(selectedCulture, editLanguage)}
           onSave={handleEditSave}
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}
           variant="publicLibrary"
+          notesLabel={t('library.translation.descriptionLabel', {
+            language: getLanguageDisplayName(editLanguage, language),
+          })}
         />
       ) : null}
       {selectedCulture ? (

@@ -43,6 +43,34 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
 };
 
 describe('AreaAssignmentDialog', () => {
+  it('opens automatically when a focused grid edit cell requests the picker', async () => {
+    const user = userEvent.setup();
+    render(
+      <AreaAssignmentDialog
+        bedId={101}
+        beds={beds}
+        fields={fields}
+        locations={locations}
+        locale="de-DE"
+        compactLabel="Regenbogenland · 8 Karotte + Zwiebel · 5 (10,00 m²)"
+        hasFocus
+        autoOpenOnFocus
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Anbaufläche ändern' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Anbaufläche ändern' })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Anbaufläche bearbeiten')).toHaveFocus();
+    });
+  });
+
   it('opens with current location/field/bed selection', async () => {
     render(
       <AreaAssignmentDialog

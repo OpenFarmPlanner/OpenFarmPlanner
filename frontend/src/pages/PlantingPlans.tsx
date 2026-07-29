@@ -555,6 +555,7 @@ function PlantingPlans() {
               compactLabel={label}
               placeholder={t("plantingPlans:placeholders.selectArea")}
               hasFocus={params.hasFocus}
+              autoOpenOnFocus
               memoKey={`${String(params.id)}:${params.field}`}
               onApply={async (nextBedId) => {
                 await params.api.setEditCellValue({
@@ -1554,6 +1555,7 @@ function PlantingPlans() {
             surfaceSizing="contentFit"
             scrollMode="continuous"
             columns={columns}
+            singleClickEditFields={["bed"]}
             api={plantingPlanGridAPI}
             commandApiRef={gridCommandApiRef}
             onSelectedRowChange={setSelectedPlan}

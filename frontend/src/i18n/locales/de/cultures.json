@@ -910,8 +910,8 @@
       "loadError": "Die Sprachversionen konnten nicht geladen werden.",
       "editDialogOpen": "Übersetzen",
       "editDialogTitle": "Übersetzung bearbeiten",
-      "originalSectionTitle": "Original ({{language}})",
-      "editorSectionTitle": "{{language}}-Übersetzung"
+      "originalSectionTitle": "{{language}} – Original",
+      "editorSectionTitle": "{{language}} – Übersetzung"
     },
     "commands": {
       "focusSearch": "Kulturbibliothek durchsuchen (/)",

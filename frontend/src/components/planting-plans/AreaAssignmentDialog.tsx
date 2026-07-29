@@ -7,13 +7,11 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Stack,
   Typography,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import { useTranslation } from '../../i18n';
 import type { Bed, Field, Location } from '../../api/types';
 import EmptyStateCard from '../project/EmptyStateCard';
@@ -35,6 +33,7 @@ interface AreaAssignmentDialogProps {
   compactLabel: string;
   placeholder?: string;
   hasFocus?: boolean;
+  autoOpenOnFocus?: boolean;
   memoKey?: string;
 }
 
@@ -116,6 +115,8 @@ function AreaAssignmentDialogComponent({
   compactLabel,
   placeholder,
   hasFocus = false,
+  autoOpenOnFocus = false,
+  memoKey,
 }: AreaAssignmentDialogProps) {
   const { t } = useTranslation('plantingPlans');
   const [isOpen, setIsOpen] = useState(false);
@@ -127,16 +128,7 @@ function AreaAssignmentDialogComponent({
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const applyButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (!hasFocus || isOpen) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
-  }, [hasFocus, isOpen]);
+  const autoOpenedKeyRef = useRef<string | null>(null);
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
 
@@ -293,6 +285,9 @@ function AreaAssignmentDialogComponent({
     }
     await onApply(activeDraft.bedId);
     setIsOpen(false);
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+    });
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -376,12 +371,30 @@ function AreaAssignmentDialogComponent({
   const handleCancel = (): void => {
     setOpenSelect(null);
     setIsOpen(false);
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+    });
   };
 
-  const handleOpen = (): void => {
+  const handleOpen = useCallback((): void => {
     setDraft(getOpeningDraft());
     setIsOpen(true);
-  };
+  }, [getOpeningDraft]);
+
+  useEffect(() => {
+    if (!hasFocus || isOpen) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+      const autoOpenKey = memoKey ?? 'default';
+      if (autoOpenOnFocus && autoOpenedKeyRef.current !== autoOpenKey) {
+        autoOpenedKeyRef.current = autoOpenKey;
+        handleOpen();
+      }
+    });
+  }, [autoOpenOnFocus, handleOpen, hasFocus, isOpen, memoKey]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -431,14 +444,6 @@ function AreaAssignmentDialogComponent({
         >
           {compactLabel || placeholder}
         </Typography>
-        <IconButton
-          size="small"
-          tabIndex={-1}
-          aria-hidden
-          onClick={handleOpen}
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
       </Box>
       <Dialog
         open={isOpen}

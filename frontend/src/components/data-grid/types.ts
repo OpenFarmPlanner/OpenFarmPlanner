@@ -84,6 +84,12 @@ export interface EditableDataGridProps<T extends EditableRow> {
   notes?: {
     fields: NotesFieldConfig[];
   };
+  /**
+   * Editable fields whose real editor is opened by the edit-cell renderer
+   * itself. Plain left-clicks on these cells immediately focus their editor
+   * instead of requiring a separate activation inside the edit cell.
+   */
+  singleClickEditFields?: string[];
   commandApiRef?: MutableRefObject<EditableDataGridCommandApi | null>;
   onSelectedRowChange?: (row: T | null) => void;
   getRowValidationErrors?: (row: T) => Record<string, string>;

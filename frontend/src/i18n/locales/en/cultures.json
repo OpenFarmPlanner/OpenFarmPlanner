@@ -910,8 +910,8 @@
       "loadError": "The language versions could not be loaded.",
       "editDialogOpen": "Translate",
       "editDialogTitle": "Edit translation",
-      "originalSectionTitle": "Original ({{language}})",
-      "editorSectionTitle": "{{language}} translation"
+      "originalSectionTitle": "{{language}} – Original",
+      "editorSectionTitle": "{{language}} – Translation"
     },
     "commands": {
       "focusSearch": "Search the crop library (/)",

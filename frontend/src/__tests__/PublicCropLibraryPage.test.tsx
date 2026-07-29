@@ -56,6 +56,25 @@ vi.mock('../auth/useAuth', () => ({
   }),
 }));
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel?: string;
+  }) => (
+    <textarea
+      data-testid="rich-text-editor"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock('../api/api', async () => {
   const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
   return {
@@ -1443,9 +1462,11 @@ describe('PublicCropLibraryPage', () => {
   it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
     const user = userEvent.setup();
     const staleList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    const pendingUpdate = createDeferred<{ data: PublicCulture }>();
     publicCultureApiMocks.list
       .mockResolvedValueOnce({ data: { results: publicCultures } })
-      .mockReturnValueOnce(staleList.promise);
+      .mockImplementation(() => staleList.promise);
+    publicCultureApiMocks.update.mockReturnValueOnce(pendingUpdate.promise);
 
     renderPage(['/app/crop-library?cultureId=1']);
 
@@ -1454,19 +1475,33 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
     const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
 
-    fireEvent.change(searchInput, { target: { value: 'Tom' } });
-    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
     fireEvent.change(within(editDialog).getByLabelText('Wachstumszeit (Tage)'), { target: { value: '48' } });
     await user.click(within(editDialog).getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
 
+    fireEvent.change(searchInput, { target: { value: 'Roma' } });
+    const searchForm = searchInput.closest('form');
+    expect(searchForm).not.toBeNull();
+    fireEvent.submit(searchForm as HTMLFormElement);
+    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      pendingUpdate.resolve({
+        data: {
+          ...publicCultures[0],
+          growth_duration_days: 48,
+          display_color: '#123456',
+          version: 2,
+        },
+      });
+    });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
-    expect(screen.getByText('48 Tage')).toBeInTheDocument();
 
     await act(async () => {
       staleList.resolve({ data: { results: publicCultures } });
     });
 
-    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument());
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
 

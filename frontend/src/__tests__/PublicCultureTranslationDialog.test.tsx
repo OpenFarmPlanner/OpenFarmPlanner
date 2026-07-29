@@ -24,6 +24,25 @@ vi.mock('../api/api', async () => {
   };
 });
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel?: string;
+  }) => (
+    <textarea
+      data-testid="rich-text-editor"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 const culture: PublicCulture = {
   id: 1,
   status: 'published',
@@ -59,9 +78,11 @@ describe('PublicCultureTranslationDialog', () => {
 
     await waitFor(() => expect(mocks.getTranslations).toHaveBeenCalledWith(1));
 
-    const textarea = await screen.findByRole('textbox');
-    expect(textarea).toHaveValue('');
+    const editor = await screen.findByRole('textbox', { name: 'English – Übersetzung' });
+    expect(screen.getByTestId('rich-text-editor')).toBeInTheDocument();
+    expect(editor).toHaveValue('');
     expect(screen.getByText('Robuste Sorte.')).toBeInTheDocument();
+    expect(screen.getByTestId('rich-text-viewer')).toBeInTheDocument();
   });
 
   it('loads an existing English translation into the editor', async () => {
@@ -82,11 +103,11 @@ describe('PublicCultureTranslationDialog', () => {
       />,
     );
 
-    const textarea = await screen.findByRole('textbox');
-    await waitFor(() => expect(textarea).toHaveValue('A robust variety.'));
+    const editor = await screen.findByRole('textbox', { name: 'English – Übersetzung' });
+    await waitFor(() => expect(editor).toHaveValue('A robust variety.'));
   });
 
-  it('hides the read-only original section once an English translation exists', async () => {
+  it('keeps the rendered read-only original visible once an English translation exists', async () => {
     mocks.getTranslations.mockResolvedValue({
       data: {
         original_language_code: 'de',
@@ -104,8 +125,9 @@ describe('PublicCultureTranslationDialog', () => {
       />,
     );
 
-    await screen.findByRole('textbox');
-    expect(screen.queryByText('Robuste Sorte.')).not.toBeInTheDocument();
+    await screen.findByRole('textbox', { name: 'English – Übersetzung' });
+    expect(screen.getByText('Robuste Sorte.')).toBeInTheDocument();
+    expect(screen.getByText('German – Original')).toBeInTheDocument();
   });
 
   it('saves only the English translation, leaving German untouched', async () => {
@@ -131,8 +153,8 @@ describe('PublicCultureTranslationDialog', () => {
       />,
     );
 
-    const textarea = await screen.findByRole('textbox');
-    await user.type(textarea, 'A robust variety.');
+    const editor = await screen.findByRole('textbox', { name: 'English – Übersetzung' });
+    await user.type(editor, 'A robust variety.');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(mocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
@@ -161,10 +183,10 @@ describe('PublicCultureTranslationDialog', () => {
       />,
     );
 
-    const textarea = await screen.findByRole('textbox');
-    await waitFor(() => expect(textarea).toHaveValue('Robuste Sorte.'));
-    await user.clear(textarea);
-    await user.type(textarea, 'Sehr robuste Sorte.');
+    const editor = await screen.findByRole('textbox', { name: 'Deutsch – Übersetzung' });
+    await waitFor(() => expect(editor).toHaveValue('Robuste Sorte.'));
+    await user.clear(editor);
+    await user.type(editor, 'Sehr robuste Sorte.');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(mocks.updateTranslations).toHaveBeenCalledWith(1, { de: 'Sehr robuste Sorte.' }));

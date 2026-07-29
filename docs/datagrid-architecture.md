@@ -173,6 +173,13 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
 - Notes cells (see below) are deliberately excluded from both spreadsheet
   auto-edit-start and the F2 flow — Enter/Space on a notes cell opens the
   notes drawer instead.
+- Picker-backed cells can opt into `singleClickEditFields` when their real
+  editor is a popover/dialog rather than an inline input. The planting-plan
+  `bed` column uses this for the Standort → Parzelle → Beet assignment
+  dialog: a plain left-click focuses that edit cell and lets the edit-cell
+  renderer open the dialog immediately, while modifier-clicks/context-menu
+  flows and normal text/number/date/select cells keep the standard grid
+  interaction model.
 
 ## Hover actions / row actions / context menu
 

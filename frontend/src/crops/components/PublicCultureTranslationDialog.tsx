@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 
@@ -18,6 +17,8 @@ import { publicCultureAPI } from '../../api/api';
 import type { PublicCulture } from '../../api/types';
 import { useTranslation } from '../../i18n';
 import { getLanguageDisplayName } from '../../i18n/languages';
+import { RichTextEditor } from '../../components/data-grid/RichTextEditor';
+import { RichTextViewer } from '../../components/data-grid/RichTextViewer';
 
 interface PublicCultureTranslationDialogProps {
   open: boolean;
@@ -75,10 +76,7 @@ export function PublicCultureTranslationDialog({
   }, [open, culture.id, language, t]);
 
   const originalText = translations[originalLanguageCode] ?? culture.notes ?? '';
-  const hasOwnTranslation = Boolean(translations[language]?.trim());
-  // Once a translation exists for the edited language, the original text is
-  // no longer shown: translators need it only until they have their own text.
-  const showOriginal = !loading && language !== originalLanguageCode && !hasOwnTranslation && Boolean(originalText.trim());
+  const showOriginal = !loading && language !== originalLanguageCode;
 
   const handleSave = async (): Promise<void> => {
     setSaving(true);
@@ -121,10 +119,9 @@ export function PublicCultureTranslationDialog({
                     border: '1px solid',
                     borderColor: 'divider',
                     bgcolor: 'action.hover',
-                    whiteSpace: 'pre-wrap',
                   }}
                 >
-                  <Typography variant="body2">{originalText}</Typography>
+                  <RichTextViewer value={originalText} />
                 </Box>
               </Box>
             ) : null}
@@ -132,16 +129,15 @@ export function PublicCultureTranslationDialog({
               <Typography variant="subtitle2" color="text.secondary">
                 {t('library.translation.editorSectionTitle', { language: languageName })}
               </Typography>
-              <TextField
-                fullWidth
-                multiline
-                minRows={6}
-                maxRows={20}
-                sx={{ mt: 0.5 }}
-                value={editedText}
-                onChange={(event) => setEditedText(event.target.value)}
-                placeholder={t('library.translation.descriptionPlaceholder')}
-              />
+              <Box sx={{ mt: 0.5 }}>
+                <RichTextEditor
+                  value={editedText}
+                  onChange={setEditedText}
+                  autoFocus={false}
+                  minHeight={220}
+                  ariaLabel={t('library.translation.editorSectionTitle', { language: languageName })}
+                />
+              </Box>
             </Box>
           </Stack>
         )}

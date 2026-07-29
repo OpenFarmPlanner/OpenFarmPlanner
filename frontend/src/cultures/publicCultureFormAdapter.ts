@@ -54,18 +54,17 @@ const resolveDraftCultivationTypes = (draft: Culture): CultivationType[] => {
   return isCultivationType(normalized) ? [normalized] : ['pre_cultivation'];
 };
 
-export function publicCultureToCultureFormData(culture: PublicCulture): Culture {
+export function publicCultureToCultureFormData(culture: PublicCulture, languageCode?: string): Culture {
   const cultivationTypes = resolveCultivationTypes(culture);
   const directRate = directSeedRate(culture, 'direct_sowing');
   const preCultivationRate = directSeedRate(culture, 'pre_cultivation');
+  const notes = languageCode ? culture.translations?.[languageCode] ?? '' : '';
 
   return {
     id: culture.id,
     name: culture.name,
     variety: culture.variety ?? '',
-    // Notes are per-language and edited separately via the translations
-    // dialog/endpoint; this generic form never touches them.
-    notes: '',
+    notes,
     crop_family: culture.crop_family ?? '',
     nutrient_demand: culture.nutrient_demand ?? '',
     cultivation_type: culture.cultivation_type || cultivationTypes[0] || 'pre_cultivation',

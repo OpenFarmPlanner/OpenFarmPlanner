@@ -4,7 +4,6 @@ import {
   Drawer,
   Box,
   Typography,
-  TextField,
   Button,
   Tabs,
   Tab,
@@ -23,7 +22,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MarkdownToolbar, type MarkdownFormat } from './MarkdownToolbar';
+import { RichTextEditor } from './RichTextEditor';
 import { noteAttachmentAPI } from '../../api/api';
 import type { NoteAttachment } from '../../api/types';
 import { useTranslation } from '../../i18n';
@@ -105,7 +104,6 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
   const [cameraReady, setCameraReady] = useState<boolean>(false);
   const [cameraTimedOut, setCameraTimedOut] = useState<boolean>(false);
 
-  const textFieldRef = useRef<HTMLTextAreaElement>(null);
   const cropImageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ mode: DragMode; startX: number; startY: number; initialRect: CropRect } | null>(null);
   const attachmentsSectionRef = useRef<HTMLDivElement>(null);
@@ -235,29 +233,6 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
       if (blob) openCropDialog(new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' }));
       closeCamera();
     }, 'image/jpeg', 0.92);
-  };
-
-  const handleFormat = (format: MarkdownFormat): void => {
-    if (!textFieldRef.current) return;
-    const textarea = textFieldRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = value.substring(start, end);
-    const beforeText = value.substring(0, start);
-    const afterText = value.substring(end);
-    let newText: string;
-    switch (format) {
-      case 'bold': newText = `${beforeText}**${selectedText || t('notesDrawer.defaults.bold')}**${afterText}`; break;
-      case 'italic': newText = `${beforeText}_${selectedText || t('notesDrawer.defaults.italic')}_${afterText}`; break;
-      case 'code': newText = `${beforeText}\`${selectedText || 'Code'}\`${afterText}`; break;
-      case 'heading': newText = `${beforeText}## ${selectedText || t('notesDrawer.defaults.heading')}${afterText}`; break;
-      case 'bullet-list': newText = `${beforeText}- ${selectedText || t('notesDrawer.defaults.listItem')}${afterText}`; break;
-      case 'numbered-list': newText = `${beforeText}1. ${selectedText || t('notesDrawer.defaults.listItem')}${afterText}`; break;
-      case 'link': newText = `${beforeText}[${selectedText || t('notesDrawer.defaults.linkText')}](url)${afterText}`; break;
-      case 'quote': newText = `${beforeText}> ${selectedText || t('notesDrawer.defaults.quote')}${afterText}`; break;
-      default: return;
-    }
-    onChange(newText);
   };
 
   const imagePointFromEvent = (event: ReactPointerEvent<HTMLDivElement>): { x: number; y: number } | null => {
@@ -446,7 +421,6 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
       open={open}
       onClose={requestClose}
       PaperProps={{ sx: { width: { xs: '100%', sm: '680px' }, maxWidth: '95vw' } }}
-      SlideProps={{ onEntered: () => { textFieldRef.current?.focus(); } }}
     >
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }} onKeyDown={handleKeyDown}>
         <Typography variant="h6" gutterBottom>{title}</Typography>
@@ -516,10 +490,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
 
         <Box sx={{ flexGrow: 1, mb: 2, overflow: 'auto' }}>
           {activeTab === 'edit' ? (
-            <>
-              <MarkdownToolbar onFormat={handleFormat} />
-              <TextField fullWidth multiline minRows={10} maxRows={25} value={value} onChange={(e) => onChange(e.target.value)} placeholder={t('notesDrawer.markdownPlaceholder')} variant="outlined" autoFocus inputRef={textFieldRef} />
-            </>
+            <RichTextEditor value={value} onChange={onChange} minHeight={260} />
           ) : (
             <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, minHeight: '300px' }}>
               {value ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown> : <Typography color="text.secondary" fontStyle="italic">{t('notes.empty')}</Typography>}
