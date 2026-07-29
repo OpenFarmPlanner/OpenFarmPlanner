@@ -57,10 +57,23 @@ describe('publicCultureToCultureFormData', () => {
     expect(form.seed_rate_pre_cultivation_unit).toBe('seeds_per_plant');
   });
 
-  it('never carries notes over, since they are edited separately', () => {
+  it('carries the original-language notes into the public edit form', () => {
     const form = publicCultureToCultureFormData(buildPublicCulture({ notes: 'Some notes' }));
 
-    expect(form.notes).toBe('');
+    expect(form.notes).toBe('Some notes');
+  });
+
+  it('prefers the original-language translation over the legacy notes copy', () => {
+    const form = publicCultureToCultureFormData(buildPublicCulture({
+      notes: 'Legacy notes',
+      original_language_code: 'de',
+      translations: {
+        de: 'Original German notes',
+        en: 'English notes',
+      },
+    }));
+
+    expect(form.notes).toBe('Original German notes');
   });
 });
 
@@ -73,6 +86,7 @@ describe('buildPublicCultureUpdatePayload', () => {
     }), 4);
 
     expect(payload.base_version).toBe(4);
+    expect(payload.notes).toBe('');
     expect(payload.distance_within_row_m).toBe(0.3);
     expect(payload.row_spacing_m).toBe(0.4);
     expect(payload.sowing_depth_m).toBe(0.02);
@@ -112,5 +126,13 @@ describe('buildPublicCultureUpdatePayload', () => {
     expect(payload.seed_rate_value).toBe(15);
     expect(payload.seed_rate_unit).toBe('g_per_m2');
     expect(payload.seed_rate_by_cultivation).toBeNull();
+  });
+
+  it('includes notes so public edits update the original-language description', () => {
+    const payload = buildPublicCultureUpdatePayload(buildCultureDraft({
+      notes: 'Updated original notes',
+    }), 1);
+
+    expect(payload.notes).toBe('Updated original notes');
   });
 });

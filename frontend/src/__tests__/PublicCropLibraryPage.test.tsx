@@ -7,6 +7,7 @@ import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
+import i18n from '../i18n/config';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 import type { TopbarContextAction } from '../navigation/topbarTypes';
 
@@ -22,6 +23,7 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   versions: vi.fn(),
   importToProject: vi.fn(),
   update: vi.fn(),
+  updateTranslations: vi.fn(),
 }));
 
 const authMocks = vi.hoisted(() => ({
@@ -73,6 +75,7 @@ vi.mock('../api/api', async () => {
       versions: publicCultureApiMocks.versions,
       importToProject: publicCultureApiMocks.importToProject,
       update: publicCultureApiMocks.update,
+      updateTranslations: publicCultureApiMocks.updateTranslations,
     },
   };
 });
@@ -84,6 +87,12 @@ const publicCultures: PublicCulture[] = [
     name: 'Tomate',
     variety: 'Roma',
     crop_species_name: 'Tomate',
+    description: 'Robuste Sorte.',
+    description_language_code: 'de',
+    notes: 'Robuste Sorte.',
+    translations: {
+      de: 'Robuste Sorte.',
+    },
     growth_duration_days: 70,
     harvest_duration_days: 28,
     display_color: '#7cb342',
@@ -233,6 +242,21 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+    publicCultureApiMocks.updateTranslations.mockResolvedValue({
+      data: {
+        original_language_code: 'de',
+        translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+      },
+    });
+    publicCultureApiMocks.get.mockResolvedValue({
+      data: {
+        ...publicCultures[0],
+        description: 'A robust variety.',
+        description_language_code: 'en',
+        translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+        version: 2,
+      },
+    });
   });
 
   it('hides the global moderation action completely for users without moderation rights', async () => {
@@ -245,6 +269,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
   });
 
   it('opens the global moderation interface from the public crop library header for moderators', async () => {
@@ -1397,6 +1422,7 @@ describe('PublicCropLibraryPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
   });
 
   it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
@@ -1412,15 +1438,16 @@ describe('PublicCropLibraryPage', () => {
     expect(editDialog).toHaveTextContent('Öffentliche Identität');
     expect(editDialog).toHaveTextContent('Tomate · Roma');
     expect(editDialog).toHaveTextContent('#7CB342');
+    expect(within(editDialog).getByText('Originalsprache: Deutsch')).toBeInTheDocument();
     expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Sorte')).not.toBeInTheDocument();
 
-    const growthInput = screen.getByLabelText('Wachstumszeit (Tage)');
+    const notesInput = within(editDialog).getByLabelText('Notizen');
     const colorInput = within(editDialog).getByLabelText('Anzeigefarbe');
-    fireEvent.change(growthInput, { target: { value: '48' } });
+    fireEvent.change(notesInput, { target: { value: 'Aktualisierte Notizen.' } });
     fireEvent.change(colorInput, { target: { value: '#123456' } });
-    growthInput.focus();
+    colorInput.focus();
     fireEvent.keyDown(window, {
       bubbles: true,
       cancelable: true,
@@ -1431,13 +1458,41 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
     expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
-      growth_duration_days: 48,
+      notes: 'Aktualisierte Notizen.',
       display_color: '#123456',
       row_spacing_m: null,
     }));
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+  }, 30000);
+
+  it('adds a missing English notes translation inline from the Notes section', async () => {
+    await i18n.changeLanguage('en');
+    const user = userEvent.setup();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    expect(screen.getAllByText('Only available in German').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Translate' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Add English translation' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit public crop' });
+    expect(within(editDialog).getByText('Original language: German')).toBeInTheDocument();
+    expect(within(editDialog).getByText('Showing original German text')).toBeInTheDocument();
+    const englishNotesInput = within(editDialog).getByLabelText('English translation');
+    expect(englishNotesInput).toHaveValue('');
+
+    fireEvent.change(englishNotesInput, { target: { value: 'A robust variety.' } });
+    await user.click(within(editDialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
+      base_version: 1,
+      notes: 'Robuste Sorte.',
+    })));
+    await waitFor(() => expect(publicCultureApiMocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
+    await waitFor(() => expect(publicCultureApiMocks.get).toHaveBeenCalledWith(1));
   }, 30000);
 
   it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
