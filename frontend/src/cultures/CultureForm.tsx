@@ -54,9 +54,9 @@ import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
 import {
   compactFieldSx,
   formRowSx,
-  mediumFieldSx,
+  mediumStackedFieldSx,
   smallFieldSx,
-  wideFieldSx,
+  wideStackedFieldSx,
 } from '../components/forms/formLayout';
 
 interface CultureFormProps {
@@ -722,8 +722,8 @@ export function CultureForm({
           }}
           tabIndex={-1}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
-            <Typography variant="h6">{t('form.generalInfoSectionTitle')}</Typography>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <Typography variant="h6" sx={{ mt: 0.5 }}>{t('form.generalInfoSectionTitle')}</Typography>
             {!isProjectForm ? (
               <Box
                 sx={{
@@ -794,12 +794,12 @@ export function CultureForm({
             <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} label={notesLabel} />
             {showSupplierDataSection ? (
               <>
-                <Typography variant="h6" sx={{ mt: 1 }}>{t('form.supplierDataSectionTitle')}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="h6" sx={{ mt: 0.5 }}>{t('form.supplierDataSectionTitle')}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                   {t('form.supplierDataSectionDescription')}
                 </Typography>
                 {supplierRows.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('form.noSupplierDataRows')}
                   </Typography>
                 ) : null}
@@ -811,7 +811,7 @@ export function CultureForm({
                       border: '1px solid',
                       borderColor: 'divider',
                       borderRadius: 1,
-                      p: 1.5,
+                      p: 1,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'flex-start',
@@ -861,52 +861,58 @@ export function CultureForm({
                       }
 
                       return (
-                        <FormControl size="small" sx={mediumFieldSx}>
-                          <InputLabel shrink>{t('form.supplier')}</InputLabel>
-                          <Select
-                            fullWidth
-                            value={selectValue}
-                            label={t('form.supplier')}
-                            renderValue={(selected) => {
-                              if (!selected) {
-                                return (
-                                  <Typography component="span" color="text.secondary">
-                                    {t('form.supplierPlaceholder')}
-                                  </Typography>
-                                );
-                              }
-                              const selectedSupplier = supplierOptions.find((supplier) => String(supplier.id) === String(selected));
-                              return selectedSupplier?.name ?? '';
-                            }}
-                            onChange={(event) => {
-                              const selectedValue = String(event.target.value ?? '');
+                        <Box sx={{ width: '100%' }}>
+                          <Box sx={{ ...formRowSx, gap: 1 }}>
+                            <FormControl size="small" sx={mediumStackedFieldSx}>
+                              <InputLabel shrink>{t('form.supplier')}</InputLabel>
+                              <Select
+                                fullWidth
+                                value={selectValue}
+                                label={t('form.supplier')}
+                                renderValue={(selected) => {
+                                  if (!selected) {
+                                    return (
+                                      <Typography component="span" color="text.secondary">
+                                        {t('form.supplierPlaceholder')}
+                                      </Typography>
+                                    );
+                                  }
+                                  const selectedSupplier = supplierOptions.find((supplier) => String(supplier.id) === String(selected));
+                                  return selectedSupplier?.name ?? '';
+                                }}
+                                onChange={(event) => {
+                                  const selectedValue = String(event.target.value ?? '');
 
-                              const parsedSupplierId = Number(selectedValue);
-                              const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
-                              updateSupplierRow(supplierIndex, {
-                                supplier_id: parsedSupplierId,
-                                supplier: selectedSupplier,
-                                supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
-                                supplier_name: selectedSupplier?.name ?? row.supplier_name,
-                              });
-                            }}
-                            displayEmpty
-                          >
-                            {supplierOptions.map((supplier) => (
-                              <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                                  const parsedSupplierId = Number(selectedValue);
+                                  const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
+                                  updateSupplierRow(supplierIndex, {
+                                    supplier_id: parsedSupplierId,
+                                    supplier: selectedSupplier,
+                                    supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
+                                    supplier_name: selectedSupplier?.name ?? row.supplier_name,
+                                  });
+                                }}
+                                displayEmpty
+                              >
+                                {supplierOptions.map((supplier) => (
+                                  <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                            <TextField
+                              label={t('form.supplierProductNameLabel') }
+                              value={row.supplier_product_name ?? ''}
+                              onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
+                              sx={wideStackedFieldSx}
+                            />
+                          </Box>
+                        </Box>
                       );
                     })()}
-                <TextField
-                  label={t('form.supplierProductNameLabel') }
-                  value={row.supplier_product_name ?? ''}
-                  onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
-                  sx={wideFieldSx}
-                />
-                <Typography variant="subtitle2">{t('form.seedPackagesLabel')}</Typography>
-                {(row.packaging_sizes ?? []).map((pkg, packageIndex) => (
+                {((row.packaging_sizes ?? []).length ?? 0) > 0 ? (
+                  <>
+                    <Typography variant="subtitle2">{t('form.seedPackagesLabel')}</Typography>
+                    {(row.packaging_sizes ?? []).map((pkg, packageIndex) => (
                   <Box
                     key={`pkg-${supplierIndex}-${packageIndex}`}
                     sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}
@@ -936,7 +942,7 @@ export function CultureForm({
                     </IconButton>
                   </Box>
                 ))}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
                   <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
                   <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
                 </Box>
