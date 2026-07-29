@@ -16,6 +16,8 @@ const metersFromCentimeters = (value: number | null | undefined): number | null 
   value === null || value === undefined ? null : value / 100
 );
 
+const seedRateUnitOrNull = (value: unknown): SeedRateUnit | null => normalizeSeedRateUnit(value) ?? null;
+
 const directSeedRate = (
   culture: PublicCulture,
   type: CultivationType,
@@ -27,16 +29,33 @@ const directSeedRate = (
   if (culture.cultivation_type === type || culture.cultivation_types?.includes(type)) {
     return {
       value: culture.seed_rate_value ?? null,
-      unit: normalizeSeedRateUnit(culture.seed_rate_unit) ?? null,
+      unit: seedRateUnitOrNull(culture.seed_rate_unit),
     };
   }
   return {};
 };
 
+const resolveCultivationTypes = (culture: PublicCulture): CultivationType[] => {
+  if (culture.cultivation_types?.length) {
+    return culture.cultivation_types;
+  }
+  return culture.cultivation_type ? [culture.cultivation_type] : ['pre_cultivation'];
+};
+
+const isCultivationType = (value: unknown): value is CultivationType => (
+  value === 'pre_cultivation' || value === 'direct_sowing'
+);
+
+const resolveDraftCultivationTypes = (draft: Culture): CultivationType[] => {
+  if (draft.cultivation_types && draft.cultivation_types.length > 0) {
+    return draft.cultivation_types.filter(isCultivationType);
+  }
+  const normalized = normalizeCultivationType(draft.cultivation_type);
+  return isCultivationType(normalized) ? [normalized] : ['pre_cultivation'];
+};
+
 export function publicCultureToCultureFormData(culture: PublicCulture): Culture {
-  const cultivationTypes: CultivationType[] = culture.cultivation_types?.length
-    ? culture.cultivation_types
-    : (culture.cultivation_type ? [culture.cultivation_type] : ['pre_cultivation']);
+  const cultivationTypes = resolveCultivationTypes(culture);
   const directRate = directSeedRate(culture, 'direct_sowing');
   const preCultivationRate = directSeedRate(culture, 'pre_cultivation');
 
@@ -82,15 +101,13 @@ export function buildPublicCultureUpdatePayload(
   draft: Culture,
   baseVersion: number,
 ): Partial<PublicCulture> & { base_version: number } {
-  const cultivationTypes: CultivationType[] = (draft.cultivation_types && draft.cultivation_types.length > 0)
-    ? draft.cultivation_types.filter((value): value is CultivationType => value === 'pre_cultivation' || value === 'direct_sowing')
-    : (draft.cultivation_type ? [normalizeCultivationType(draft.cultivation_type)].filter((value): value is CultivationType => Boolean(value)) : ['pre_cultivation']);
+  const cultivationTypes = resolveDraftCultivationTypes(draft);
   const seedRateFallbackFields = buildSeedRateByCultivation(
     draft,
     cultivationTypes,
-    normalizeSeedRateUnit(draft.seed_rate_unit) ?? null,
-    normalizeSeedRateUnit(draft.seed_rate_direct_unit) ?? null,
-    normalizeSeedRateUnit(draft.seed_rate_pre_cultivation_unit) ?? null,
+    seedRateUnitOrNull(draft.seed_rate_unit),
+    seedRateUnitOrNull(draft.seed_rate_direct_unit),
+    seedRateUnitOrNull(draft.seed_rate_pre_cultivation_unit),
   );
   const sowingSafetyPercent = draft.sowing_calculation_safety_percent_direct
     ?? draft.sowing_calculation_safety_percent_pre_cultivation
