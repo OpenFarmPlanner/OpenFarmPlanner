@@ -676,9 +676,14 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [isContinuousScroll, refreshStableRowOrder, rows, scrollDrivenRowWindow, setFilterModel]);
 
-  const clearSavedRowInteractionState = useCallback((rowId: GridRowId, savedRowId: GridRowId = rowId): void => {
+  const clearSavedRowInteractionState = useCallback((
+    rowId: GridRowId,
+    savedRowId: GridRowId = rowId,
+    options: { preserveFocus?: boolean } = {},
+  ): void => {
     const rowKey = String(rowId);
     const savedRowKey = String(savedRowId);
+    const preserveFocus = options.preserveFocus ?? true;
 
     setDirtyRowIds((prev) => {
       const next = new Set(prev);
@@ -702,10 +707,17 @@ export function EditableDataGrid<T extends EditableRow>({
       focusedCell &&
       (String(focusedCell.id) === rowKey || String(focusedCell.id) === savedRowKey)
     ) {
-      api.state.focus.cell = null;
+      if (preserveFocus) {
+        api.state.focus.cell = {
+          ...focusedCell,
+          id: String(focusedCell.id) === rowKey ? savedRowId : focusedCell.id,
+        };
+      } else {
+        api.state.focus.cell = null;
+      }
     }
 
-    if (document.activeElement instanceof HTMLElement) {
+    if (!preserveFocus && document.activeElement instanceof HTMLElement) {
       const gridSurface = gridSurfaceRef.current;
       if (!gridSurface || gridSurface.contains(document.activeElement)) {
         document.activeElement.blur();
@@ -962,7 +974,7 @@ export function EditableDataGrid<T extends EditableRow>({
       ...oldModel,
       [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
     }));
-    clearSavedRowInteractionState(rowId);
+    clearSavedRowInteractionState(rowId, rowId, { preserveFocus: false });
     window.setTimeout(() => {
       canceledRowIdsRef.current.delete(rowKey);
     }, 0);

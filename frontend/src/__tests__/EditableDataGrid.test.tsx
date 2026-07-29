@@ -467,6 +467,26 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('view'));
   });
 
+  it('preserves the focused cell after saving an existing row', async () => {
+    const props = baseProps(() => null);
+    const updateSpy = vi.spyOn(props.api, 'update');
+
+    render(<EditableDataGrid {...props} showDeleteAction={false} />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Zelle 1-name' }));
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-name'));
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enter speichern 1' }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalled();
+      expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
+      expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-name');
+    });
+  });
+
   it('focuses an initial draft row created from navigation context', async () => {
     render(
       <EditableDataGrid
@@ -1169,7 +1189,7 @@ describe('EditableDataGrid', () => {
       expect(updateSpy).toHaveBeenCalled();
       expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
       expect(screen.getByTestId('row-1')).toHaveAttribute('data-selected', 'false');
-      expect(screen.getByTestId('focused-cell')).toHaveTextContent('none');
+      expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-name');
     });
   });
 

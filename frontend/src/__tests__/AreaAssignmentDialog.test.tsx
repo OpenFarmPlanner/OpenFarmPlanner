@@ -63,6 +63,23 @@ describe('AreaAssignmentDialog', () => {
     expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveTextContent(/5 \(10,00\s+m²\)/);
   });
 
+  it('keeps the stacked field controls compact inside the dialog', async () => {
+    render(
+      <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" onApply={vi.fn()} />,
+    );
+
+    await openDialog();
+
+    const fieldControls = ['Standort', 'Parzelle', 'Beet'].map((label) =>
+      screen.getByRole('combobox', { name: label }).closest('.MuiFormControl-root'),
+    );
+
+    for (const control of fieldControls) {
+      expect(control).not.toBeNull();
+      expect(control).not.toHaveStyle({ flex: '0 1 300px' });
+    }
+  });
+
   it('filters fields and beds when location changes', async () => {
     render(
       <AreaAssignmentDialog bedId={101} beds={beds} fields={fields} locations={locations} locale="de-DE" compactLabel="x" onApply={vi.fn()} />,
