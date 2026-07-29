@@ -21,7 +21,7 @@ import {
 } from './areaHierarchySelection';
 import { formatAreaM2, toNumericValue } from '../../pages/plantingPlansUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
-import { mediumFieldSx } from '../forms/formLayout';
+import { mediumStackedFieldSx } from '../forms/formLayout';
 
 interface AreaAssignmentDialogProps {
   bedId: number | null;
@@ -462,11 +462,11 @@ function AreaAssignmentDialogComponent({
                 actions={[{ label: t('areaAssignment.emptyStateAction'), to: '/app/fields-beds' }]}
               />
             ) : null}
-            <Stack spacing={1.5} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5 }}>
+            <Stack spacing={2} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: -0.25 }}>
                   {t('areaAssignment.hierarchyHint')}
                 </Typography>
-                <FormControl size="small" sx={mediumFieldSx}>
+                <FormControl size="small" sx={mediumStackedFieldSx}>
                   <InputLabel id="assignment-location-label">{t('columns.location')}</InputLabel>
                   <Select
                     fullWidth
@@ -489,7 +489,7 @@ function AreaAssignmentDialogComponent({
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumFieldSx}>
+                <FormControl size="small" sx={mediumStackedFieldSx}>
                   <InputLabel id="assignment-field-label">{t('columns.field')}</InputLabel>
                   <Select
                     fullWidth
@@ -512,7 +512,7 @@ function AreaAssignmentDialogComponent({
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumFieldSx}>
+                <FormControl size="small" sx={mediumStackedFieldSx}>
                   <InputLabel id="assignment-bed-label">{t('columns.bed')}</InputLabel>
                   <Select
                     fullWidth
