@@ -91,6 +91,37 @@ const HERO_CARD_SX = {
   boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
 };
 
+// Three-column grid so the logo stays centred in the header: the empty first
+// column and the language-selector column are both `1fr`, so they always claim
+// the same width and the middle column stays centred no matter how long the
+// current language label is ("Deutsch", "English", future languages). The side
+// columns use `minmax(0, ...)` so a wide selector never pushes the row past the
+// container width on small screens.
+const HEADER_SX = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+  alignItems: 'center',
+  columnGap: { xs: 0.5, sm: 1 },
+  minHeight: 48,
+};
+
+// Centring costs the wordmark the width of the language selector twice (once
+// for the selector itself, once for the mirroring spacer column), so the title
+// only has room for its full size once the viewport is wide enough. The clamps
+// keep the regular size from ~360px (phones) and ~690px (tablets) upwards and
+// scale the heading down below that, so it can never run into the selector.
+const TITLE_SX = {
+  minWidth: 0,
+  fontSize: {
+    xs: 'clamp(0.75rem, calc(11.5vw - 25px), 1rem)',
+    sm: 'clamp(1.6rem, 4.4vw, 1.9rem)',
+    md: '2.5rem',
+  },
+  fontWeight: 600,
+  lineHeight: 1.1,
+  overflowWrap: 'normal',
+};
+
 /**
  * Public landing page with refined spacing and modern visual hierarchy.
  *
@@ -119,39 +150,22 @@ export default function HomePage() {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
         <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 1.5, md: 2 }, pb: { xs: 2.5, md: 3 } }}>
-          <Stack
-            component="header"
-            direction="row"
-            spacing={{ xs: 0.75, sm: 2 }}
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ minHeight: 48 }}
-          >
+          <Box component="header" sx={HEADER_SX}>
             <Stack
               direction="row"
               spacing={{ xs: 0.75, sm: 1.4 }}
               alignItems="center"
-              sx={{ minWidth: 0, flex: '1 1 auto' }}
+              sx={{ gridColumn: 2, minWidth: 0 }}
             >
               <AppIcon decorative size={{ xs: 32, sm: 40, md: 48 }} sx={{ opacity: 0.95 }} />
-              <Typography
-                variant="h2"
-                component="h1"
-                sx={{
-                  minWidth: 0,
-                  fontSize: { xs: '1.1rem', sm: '1.9rem', md: '2.5rem' },
-                  fontWeight: 600,
-                  lineHeight: 1.1,
-                  overflowWrap: 'normal',
-                }}
-              >
+              <Typography variant="h2" component="h1" sx={TITLE_SX}>
                 {t('landing.title')}
               </Typography>
             </Stack>
-            <Box sx={{ flex: '0 0 auto' }}>
+            <Box sx={{ gridColumn: 3, justifySelf: 'end' }}>
               <PublicLanguageSwitcher dense />
             </Box>
-          </Stack>
+          </Box>
         </Container>
 
         <Box
