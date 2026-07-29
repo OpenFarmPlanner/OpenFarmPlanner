@@ -19,6 +19,7 @@ import {
 import { useTranslation } from '../../i18n';
 import { formatDateAsGerman, parseGermanDateText } from './GermanDateEditCell';
 import { toIsoDateString } from './dateEditCellUtils';
+import { useEditCellNavigation } from './EditCellNavigationContext';
 
 type DateSegment = 'day' | 'month' | 'year';
 
@@ -78,6 +79,7 @@ const getSegmentFromSelection = (selectionStart: number | null): DateSegment => 
 
 function DateEditCellComponent(params: GridRenderEditCellParams) {
   const { t } = useTranslation(['plantingPlans', 'common']);
+  const editCellNavigation = useEditCellNavigation();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
   const isProgrammaticFocusRef = useRef(false);
@@ -86,6 +88,44 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
   const displayedText = params.hasFocus
     ? text
     : formatDateAsGerman(params.value as Date | string | null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input || !editCellNavigation) {
+      return undefined;
+    }
+
+    const handleNativeTabKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        event.stopPropagation();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      editCellNavigation({
+        id: params.id,
+        field: params.field,
+        event: {
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          key: event.key,
+          metaKey: event.metaKey,
+          nativeEvent: event,
+          preventDefault: () => event.preventDefault(),
+          shiftKey: event.shiftKey,
+          stopPropagation: () => event.stopPropagation(),
+        },
+      });
+    };
+
+    input.addEventListener('keydown', handleNativeTabKeyDown, { capture: true });
+    return () => {
+      input.removeEventListener('keydown', handleNativeTabKeyDown, { capture: true });
+    };
+  }, [editCellNavigation, params.field, params.id]);
 
   const focusSegment = useCallback((segment: DateSegment): void => {
     const input = inputRef.current;
@@ -148,6 +188,19 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
   };
 
   const handleKeyDown = async (event: ReactKeyboardEvent<HTMLInputElement>): Promise<void> => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.stopPropagation();
+      return;
+    }
+
+    if (event.key === 'Tab' && editCellNavigation?.({
+      id: params.id,
+      field: params.field,
+      event: event as ReactKeyboardEvent<HTMLElement>,
+    })) {
+      return;
+    }
+
     if (
       !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
       || event.altKey

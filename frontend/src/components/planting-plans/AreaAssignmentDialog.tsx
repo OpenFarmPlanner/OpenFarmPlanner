@@ -23,7 +23,7 @@ import {
 } from './areaHierarchySelection';
 import { formatAreaM2, toNumericValue } from '../../pages/plantingPlansUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
-import { mediumStackedFieldSx } from '../forms/formLayout';
+import { fullWidthFieldSx } from '../forms/formLayout';
 
 interface AreaAssignmentDialogProps {
   bedId: number | null;
@@ -50,6 +50,29 @@ interface DialogKeyboardControl {
   focusTarget: HTMLElement | null;
   disabled: boolean;
 }
+
+const selectFieldSx = {
+  ...fullWidthFieldSx,
+  '& .MuiSelect-select': {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+} as const;
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      maxWidth: { xs: 'calc(100vw - 32px)', sm: 420 },
+      '& .MuiMenuItem-root': {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+    },
+  },
+} as const;
 
 const normalizeState = (
   bedId: number | null,
@@ -444,24 +467,24 @@ function AreaAssignmentDialogComponent({
         open={isOpen}
         onClose={handleCancel}
         fullWidth
-        maxWidth="sm"
+        maxWidth="xs"
       >
-        <Box component="form" onSubmit={handleFormSubmit}>
+        <Box component="form" onSubmit={handleFormSubmit} sx={{ minWidth: 0 }}>
           <DialogTitle>{t('areaAssignment.title')}</DialogTitle>
           <DialogContent>
-            <Box sx={{ pt: 1 }}>
-            {bedsWithLocation.length === 0 ? (
-              <EmptyStateCard
-                title={t('areaAssignment.emptyStateTitle')}
-                description={t('areaAssignment.emptyStateDescription')}
-                actions={[{ label: t('areaAssignment.emptyStateAction'), to: '/app/fields-beds' }]}
-              />
-            ) : null}
-            <Stack spacing={1.5} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5 }}>
+            <Box sx={{ pt: 1, minWidth: 0 }}>
+              {bedsWithLocation.length === 0 ? (
+                <EmptyStateCard
+                  title={t('areaAssignment.emptyStateTitle')}
+                  description={t('areaAssignment.emptyStateDescription')}
+                  actions={[{ label: t('areaAssignment.emptyStateAction'), to: '/app/fields-beds' }]}
+                />
+              ) : null}
+              <Stack spacing={1.5} sx={{ mt: bedsWithLocation.length === 0 ? 0 : 0.5, minWidth: 0 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: -0.25 }}>
                   {t('areaAssignment.hierarchyHint')}
                 </Typography>
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-location-label">{t('columns.location')}</InputLabel>
                   <Select
                     fullWidth
@@ -471,6 +494,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.locationId ?? ''}
                     label={t('columns.location')}
                     disabled={selectableLocations.length === 0}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('location')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -479,12 +503,12 @@ function AreaAssignmentDialogComponent({
                     }}
                   >
                     {selectableLocations.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                      <MenuItem key={item.id} value={item.id} title={item.name}>{item.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-field-label">{t('columns.field')}</InputLabel>
                   <Select
                     fullWidth
@@ -494,6 +518,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.fieldId ?? ''}
                     label={t('columns.field')}
                     disabled={isFieldSelectDisabled}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('field')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -502,12 +527,12 @@ function AreaAssignmentDialogComponent({
                     }}
                   >
                     {selectableFields.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                      <MenuItem key={item.id} value={item.id} title={item.name}>{item.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={mediumStackedFieldSx}>
+                <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-bed-label">{t('columns.bed')}</InputLabel>
                   <Select
                     fullWidth
@@ -517,6 +542,7 @@ function AreaAssignmentDialogComponent({
                     value={activeDraft.bedId ?? ''}
                     label={t('columns.bed')}
                     disabled={isBedSelectDisabled}
+                    MenuProps={selectMenuProps}
                     onOpen={() => setOpenSelect('bed')}
                     onClose={() => setOpenSelect(null)}
                     onChange={(event) => {
@@ -526,12 +552,15 @@ function AreaAssignmentDialogComponent({
                       });
                     }}
                   >
-                    {selectableBeds.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>{renderBedLabel(item)}</MenuItem>
-                    ))}
+                    {selectableBeds.map((item) => {
+                      const label = renderBedLabel(item);
+                      return (
+                        <MenuItem key={item.id} value={item.id} title={label}>{label}</MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
-            </Stack>
+              </Stack>
             </Box>
           </DialogContent>
           <DialogActions>

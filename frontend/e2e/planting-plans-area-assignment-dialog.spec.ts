@@ -1,37 +1,139 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { loginWithDeterministicProject } from './utils';
+
+const backendPort = process.env.BACKEND_PORT ?? '8000';
+const apiBase = `http://127.0.0.1:${backendPort}/api`;
+
+type AreaDialogFixtureOptions = {
+  languageCode?: 'de' | 'en';
+  longNames?: boolean;
+};
+
+async function createAreaDialogFixture(
+  page: Page,
+  request: APIRequestContext,
+  scenario: string,
+  options: AreaDialogFixtureOptions = {},
+): Promise<void> {
+  await page.context().clearCookies();
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  await loginWithDeterministicProject(page, request, scenario, {
+    loginAsAdmin: true,
+  });
+  if (options.languageCode) {
+    await page.evaluate((languageCode) => {
+      window.localStorage.setItem('ui.language', languageCode);
+    }, options.languageCode);
+    await page.reload();
+    await expect(page).toHaveURL(/\/app\//);
+  }
+
+  const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
+  const projectId = Number(activeProjectId);
+  const csrfToken = await page.evaluate(() =>
+    document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] ?? '');
+
+  const api = async <T,>(path: string, data: Record<string, unknown>): Promise<T> => {
+    const response = await page.request.post(`${apiBase}${path}`, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json',
+        'X-Project-Id': String(projectId),
+      },
+      data: { ...data, project: projectId },
+    });
+    expect(response.ok(), `${path} -> ${response.status()}: ${await response.text()}`).toBeTruthy();
+    return response.json() as Promise<T>;
+  };
+
+  const locationName = options.longNames
+    ? 'Sonnenacker mit sehr langer Standortbezeichnung am Nordhang'
+    : 'Hofgarten';
+  const fieldName = options.longNames
+    ? 'Folientunnel Sued mit langer Parzellenbezeichnung und Zusatz'
+    : 'Fruehbeete Nord';
+  const bedName = options.longNames
+    ? 'Tomatenreihe mit besonders langer Beetbezeichnung 2026'
+    : 'Salat 1';
+
+  const location = await api<{ id: number }>('/locations/', { name: locationName });
+  const field = await api<{ id: number }>('/fields/', { name: fieldName, location: location.id });
+  const bed = await api<{ id: number }>('/beds/', {
+    name: bedName,
+    field: field.id,
+    area_sqm: 18.8,
+  });
+  const culture = await api<{ id: number }>('/cultures/', {
+    name: 'Salat',
+    variety: 'Dialog',
+    propagation_duration_days: 21,
+    cultivation_type: 'pre_cultivation',
+    cultivation_types: ['pre_cultivation'],
+    plants_per_m2: 4,
+  });
+  await api<{ id: number }>('/planting-plans/', {
+    bed: bed.id,
+    culture: culture.id,
+    cultivation_type: 'pre_cultivation',
+    planting_date: '2026-04-10',
+    area_usage_sqm: 2,
+  });
+}
+
+async function openAreaAssignmentDialog(page: Page, title: string, editLabel: string) {
+  await page.goto('/app/planting-plans');
+  await expect(page.getByRole('heading', { name: /Anbaupläne|Planting plans/ })).toBeVisible();
+  await expect(page.locator('[role="gridcell"][data-field="bed"]').first()).toBeVisible();
+
+  await page.locator('[role="gridcell"][data-field="bed"]').first().click();
+  await page.getByLabel(editLabel).click();
+
+  const dialog = page.getByRole('dialog', { name: title });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function readDialogMetrics(page: Page, title: string) {
+  return page.getByRole('dialog', { name: title }).evaluate((dialogElement) => {
+    const paper = dialogElement.closest<HTMLElement>('.MuiPaper-root') ?? dialogElement;
+    const content = dialogElement.querySelector<HTMLElement>('.MuiDialogContent-root');
+    const actions = dialogElement.querySelector<HTMLElement>('.MuiDialogActions-root');
+    const controls = Array.from(dialogElement.querySelectorAll<HTMLElement>('.MuiFormControl-root'))
+      .map((element) => element.getBoundingClientRect());
+    const paperRect = paper.getBoundingClientRect();
+    const contentRect = content?.getBoundingClientRect();
+    const actionsRect = actions?.getBoundingClientRect();
+
+    return {
+      actionsWidth: actionsRect?.width ?? 0,
+      contentClientHeight: content?.clientHeight ?? 0,
+      contentClientWidth: content?.clientWidth ?? 0,
+      contentScrollHeight: content?.scrollHeight ?? 0,
+      contentScrollWidth: content?.scrollWidth ?? 0,
+      contentWidth: contentRect?.width ?? 0,
+      controlHeights: controls.map((rect) => rect.height),
+      controlWidths: controls.map((rect) => rect.width),
+      gaps: controls.slice(1).map((rect, index) => rect.top - controls[index].bottom),
+      paperLeft: paperRect.left,
+      paperRight: paperRect.right,
+      paperWidth: paperRect.width,
+      viewportWidth: window.innerWidth,
+    };
+  });
+}
 
 test.describe('planting plans area assignment dialog', () => {
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    await loginWithDeterministicProject(page, request, 'planting-plans-area-dialog-layout', {
-      demoProject: true,
-      loginAsAdmin: true,
-    });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-compact');
 
-    await page.goto('/app/planting-plans');
-    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
-    await expect(page.locator('[role="gridcell"][data-field="bed"]').first()).toBeVisible();
-
-    await page.locator('[role="gridcell"][data-field="bed"]').first().click();
-    await page.getByLabel('Anbaufläche bearbeiten').click();
-
-    const dialog = page.getByRole('dialog', { name: 'Anbaufläche ändern' });
-    await expect(dialog).toBeVisible();
-
-    const metrics = await dialog.evaluate((dialogElement) => {
-      const content = dialogElement.querySelector<HTMLElement>('.MuiDialogContent-root');
-      const controls = Array.from(dialogElement.querySelectorAll<HTMLElement>('.MuiFormControl-root'))
-        .map((element) => element.getBoundingClientRect());
-      const gaps = controls.slice(1).map((rect, index) => rect.top - controls[index].bottom);
-
-      return {
-        contentClientHeight: content?.clientHeight ?? 0,
-        contentScrollHeight: content?.scrollHeight ?? 0,
-        controlHeights: controls.map((rect) => rect.height),
-        gaps,
-      };
-    });
+    await openAreaAssignmentDialog(page, 'Anbaufläche ändern', 'Anbaufläche bearbeiten');
+    const metrics = await readDialogMetrics(page, 'Anbaufläche ändern');
 
     expect(metrics.controlHeights).toHaveLength(3);
     for (const height of metrics.controlHeights) {
@@ -40,6 +142,69 @@ test.describe('planting plans area assignment dialog', () => {
     for (const gap of metrics.gaps) {
       expect(gap).toBeLessThan(32);
     }
+    expect(metrics.contentClientWidth).toBeLessThanOrEqual(460);
+    expect(metrics.paperWidth).toBeLessThan(500);
+    for (const width of metrics.controlWidths) {
+      expect(width).toBeGreaterThanOrEqual(360);
+      expect(width).toBeLessThanOrEqual(420);
+      expect(width).toBeGreaterThan(metrics.contentWidth - 56);
+    }
     expect(metrics.contentScrollHeight - metrics.contentClientHeight).toBeLessThanOrEqual(1);
+  });
+
+  test('keeps long hierarchy names compact and accessible in German and English', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-long-de', { longNames: true });
+
+    await openAreaAssignmentDialog(page, 'Anbaufläche ändern', 'Anbaufläche bearbeiten');
+    let metrics = await readDialogMetrics(page, 'Anbaufläche ändern');
+    expect(metrics.paperWidth).toBeLessThan(500);
+    expect(metrics.contentScrollWidth - metrics.contentClientWidth).toBeLessThanOrEqual(1);
+
+    await page.getByRole('combobox', { name: 'Standort' }).click();
+    const listbox = page.getByRole('listbox');
+    await expect(listbox).toBeVisible();
+    await expect(listbox.getByRole('option', { name: 'Sonnenacker mit sehr langer Standortbezeichnung am Nordhang' })).toBeVisible();
+    const menuMetrics = await listbox.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: rect.width, viewportWidth: window.innerWidth };
+    });
+    expect(menuMetrics.left).toBeGreaterThanOrEqual(0);
+    expect(menuMetrics.right).toBeLessThanOrEqual(menuMetrics.viewportWidth);
+
+    await page.keyboard.press('Escape');
+
+    await page.setViewportSize({ width: 920, height: 900 });
+    metrics = await readDialogMetrics(page, 'Anbaufläche ändern');
+    expect(metrics.paperWidth).toBeLessThan(500);
+    expect(metrics.paperLeft).toBeGreaterThanOrEqual(16);
+    expect(metrics.paperRight).toBeLessThanOrEqual(metrics.viewportWidth - 16);
+    expect(metrics.contentScrollWidth - metrics.contentClientWidth).toBeLessThanOrEqual(1);
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    metrics = await readDialogMetrics(page, 'Anbaufläche ändern');
+    expect(metrics.paperWidth).toBeLessThanOrEqual(metrics.viewportWidth - 32);
+    expect(metrics.paperWidth).toBeGreaterThan(280);
+    expect(metrics.contentScrollWidth - metrics.contentClientWidth).toBeLessThanOrEqual(1);
+
+    await page.keyboard.press('Escape');
+
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-long-en', {
+      languageCode: 'en',
+      longNames: true,
+    });
+    await openAreaAssignmentDialog(page, 'Change growing area', 'Edit growing area');
+    metrics = await readDialogMetrics(page, 'Change growing area');
+    expect(metrics.paperWidth).toBeLessThan(500);
+    for (const width of metrics.controlWidths) {
+      expect(width).toBeGreaterThanOrEqual(360);
+      expect(width).toBeLessThanOrEqual(420);
+    }
+
+    await page.getByRole('combobox', { name: 'Location' }).click();
+    await expect(page.getByRole('listbox').getByRole('option', {
+      name: 'Sonnenacker mit sehr langer Standortbezeichnung am Nordhang',
+    })).toBeVisible();
   });
 });

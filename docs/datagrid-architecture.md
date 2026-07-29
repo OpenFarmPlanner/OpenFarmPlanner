@@ -154,6 +154,12 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   focus helper focuses the target cell's actual editor input instead of only
   the DataGrid cell wrapper; otherwise the cell can look focused while
   printable keystrokes are ignored.
+- While a row is in edit mode, `EditableDataGrid` owns Tab/Shift+Tab
+  navigation even when focus is inside a custom editor input. MUI's own
+  native capture handlers can otherwise move to the next row before React
+  editor handlers run, so the wrapper uses one grid-scoped capture listener
+  that only handles Tab events originating inside the edited grid surface and
+  then routes them through the same pure navigation helpers.
 - **`keyboardEditing.ts`**'s `useSpreadsheetEditStarter` implements
   Excel-like "just start typing" (a printable keydown on a non-editing
   cell immediately opens edit mode and *replaces* the cell's value with the
