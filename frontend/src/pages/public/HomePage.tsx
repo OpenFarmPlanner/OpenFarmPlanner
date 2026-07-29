@@ -19,6 +19,7 @@ import { AuthApiError } from '../../auth/authApi';
 import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 import LegalLinks from '../../components/legal/LegalLinks';
+import HeroImage from '../../components/HeroImage';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 
@@ -293,8 +294,6 @@ export default function HomePage() {
 
         <Box
           component="section"
-          role="img"
-          aria-label={t('landing.heroImageAlt')}
           sx={{
             position: 'relative',
             width: '100%',
@@ -305,11 +304,10 @@ export default function HomePage() {
             px: 2,
             py: { xs: 4, md: 5 },
             overflow: 'hidden',
-            backgroundImage: `url(${publicAssetUrl('/landing/hero-field.webp')})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            bgcolor: '#0d1f12',
           }}
         >
+          <HeroImage alt={t('landing.heroImageAlt')} />
           <Box sx={HERO_CARD_SX}>
             <Stack spacing={{ xs: 2, md: 2.2 }} alignItems="center">
               <Typography

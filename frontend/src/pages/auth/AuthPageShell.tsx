@@ -1,9 +1,10 @@
 import { Box, Container, Paper, Stack, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import LegalLinks from '../../components/legal/LegalLinks';
+import HeroImage from '../../components/HeroImage';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { authLegalLinkSx } from './authPageStyles';
-import PublicPageLanguageBar from '../../i18n/PublicPageLanguageBar';
+import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
 
 type AuthPageShellProps = {
   title: string;
@@ -16,19 +17,27 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
   return (
     <Box
       sx={{
+        position: 'relative',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: '#f5f7f1',
-        backgroundImage: `linear-gradient(rgba(245, 247, 241, 0.88), rgba(245, 247, 241, 0.9)), url(${publicAssetUrl('/landing/hero-field.webp')})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: { xs: 'scroll', md: 'fixed' },
+        overflow: 'hidden',
       }}
     >
+      <HeroImage
+        alt=""
+        sx={{ position: { xs: 'absolute', md: 'fixed' } }}
+        overlaySx={{
+          backgroundImage:
+            'linear-gradient(rgba(245, 247, 241, 0.88), rgba(245, 247, 241, 0.9))',
+        }}
+      />
       <Container
         maxWidth="lg"
         sx={{
+          position: 'relative',
+          zIndex: 1,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -37,28 +46,41 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
           py: { xs: 3, sm: 5, md: 7 },
         }}
       >
-        <PublicPageLanguageBar sx={{ width: '100%', maxWidth: 560, alignSelf: 'center' }} />
         <Stack spacing={{ xs: 2.5, md: 3.5 }} alignItems="center">
-          <Stack direction="row" spacing={1.4} alignItems="center" justifyContent="center">
-            <Box
-              component="img"
-              src={publicAssetUrl('/favicon.png')}
-              alt=""
-              aria-hidden
-              sx={{ width: { xs: 40, md: 48 }, height: 'auto', opacity: 0.95 }}
-            />
-            <Typography
-              variant="h2"
-              component="div"
-              sx={{
-                fontSize: { xs: '1.9rem', md: '2.5rem' },
-                fontWeight: 600,
-                lineHeight: 1.1,
-              }}
-            >
-              OpenFarmPlanner
-            </Typography>
-          </Stack>
+          <Box
+            sx={{
+              width: '100%',
+              maxWidth: 560,
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              rowGap: 1,
+              columnGap: 2,
+            }}
+          >
+            <Stack direction="row" spacing={1.4} alignItems="center">
+              <Box
+                component="img"
+                src={publicAssetUrl('/favicon.png')}
+                alt=""
+                aria-hidden
+                sx={{ width: { xs: 40, md: 48 }, height: 'auto', opacity: 0.95 }}
+              />
+              <Typography
+                variant="h2"
+                component="div"
+                sx={{
+                  fontSize: { xs: '1.9rem', md: '2.5rem' },
+                  fontWeight: 600,
+                  lineHeight: 1.1,
+                }}
+              >
+                OpenFarmPlanner
+              </Typography>
+            </Stack>
+            <PublicLanguageSwitcher dense />
+          </Box>
 
           <Paper
             elevation={0}

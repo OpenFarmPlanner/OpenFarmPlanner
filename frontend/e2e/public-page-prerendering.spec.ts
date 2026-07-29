@@ -76,6 +76,21 @@ test.describe('public page prerendering', () => {
     expect(existsSync(path.join(distDir, 'register'))).toBe(false);
   });
 
+  test('app-shell.html stays the empty SPA shell, not the prerendered landing page', () => {
+    // Production's Apache SPA fallback serves this file for any route that
+    // isn't one of the prerendered public pages above (all /app/*, /login,
+    // etc.) - see OpenFarmPlanner-ops/deploy/deploy_frontend.sh. If this ever
+    // regressed to contain rendered landing-page markup again, reloading an
+    // authenticated route in production would flash the landing/login page
+    // before the SPA bundle boots.
+    const appShellPath = path.join(distDir, 'app-shell.html');
+    expect(existsSync(appShellPath), 'missing dist/app-shell.html').toBe(true);
+
+    const html = readFileSync(appShellPath, 'utf-8');
+    expect(html).toMatch(/<div id="root">\s*<\/div>/);
+    expect(html).not.toMatch(/<h1[^>]*>[^<]+<\/h1>/);
+  });
+
   test('a JS-disabled browser sees the real privacy policy content, not a blank shell', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();

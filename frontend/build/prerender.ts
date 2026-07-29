@@ -34,10 +34,19 @@
  * this project's `src/seo/*` modules using the same extensionless/aliased
  * imports as the rest of the app — something only Vite's resolver (not
  * Node's own ESM loader) understands.
+ *
+ * Before any route is prerendered, the pristine (un-prerendered) `index.html`
+ * is copied to `app-shell.html`. Production's reverse proxy uses SPA-fallback
+ * rewriting to serve a single file for any URL that isn't a real file/dir —
+ * that file must stay the empty SPA shell, never the prerendered landing page
+ * that ends up at `index.html`. Otherwise, reloading an authenticated route
+ * (e.g. `/app/dashboard`) serves the landing page's baked-in markup for one
+ * frame before the SPA bundle boots and takes over, which reads as a
+ * login/landing "flash" to the user.
  */
 
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -127,6 +136,10 @@ async function main(): Promise<void> {
   if (!existsSync(indexHtmlPath)) {
     throw new Error(`prerender: no build output at ${indexHtmlPath} — run "vite build" first.`);
   }
+
+  const appShellPath = path.join(distDir, 'app-shell.html');
+  await copyFile(indexHtmlPath, appShellPath);
+  console.log(`prerender: index.html -> ${path.relative(distDir, appShellPath)} (SPA fallback shell)`);
 
   const { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE, applyHeadTags } = await loadSeoHelpers();
 
