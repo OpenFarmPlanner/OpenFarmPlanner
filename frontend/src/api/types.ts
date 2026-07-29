@@ -402,6 +402,8 @@ export interface PublishPublicCultureResponse {
 export interface SeedDemand {
   culture_id: number;
   culture_name: string;
+  culture_display_name?: string | null;
+  culture_display_language_code?: string | null;
   variety?: string | null;
   supplier?: string | null;
   selected_supplier_id?: number | null;
@@ -559,6 +561,8 @@ export interface RemainingAreaResponse {
 export interface YieldCalendarCulture {
   culture_id: number;
   culture_name: string;
+  culture_display_name?: string | null;
+  culture_display_language_code?: string | null;
   color: string;
   yield: number;
 }

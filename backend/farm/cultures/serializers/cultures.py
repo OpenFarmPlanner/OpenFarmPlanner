@@ -30,6 +30,7 @@ from farm.seed_units import (
     SEED_PACKAGE_UNIT_SEEDS,
     SEED_RATE_UNITS,
 )
+from farm.services.culture_display import resolve_culture_display_name
 
 from .seed_packages import SeedPackageSerializer
 from .seed_rates import (
@@ -198,10 +199,7 @@ class CultureSerializer(serializers.ModelSerializer):
         return None
 
     def _get_localized_culture_name(self, obj: Culture) -> tuple[str | None, str]:
-        species = self._get_culture_species(obj)
-        if species is None:
-            return obj.name, ''
-        return species.localized_name(self._request_language())
+        return resolve_culture_display_name(obj, self._request_language())
 
     def get_culture_display_name(self, obj: Culture) -> str | None:
         return self._get_localized_culture_name(obj)[0]

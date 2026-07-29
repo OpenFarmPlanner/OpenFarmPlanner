@@ -17,6 +17,14 @@ describe('culture display names', () => {
     })).toBe('Ackerbohne');
   });
 
+  it('supports planting-plan and aggregate rows with culture_name fields', () => {
+    expect(formatCultureDisplayName({
+      culture_name: 'Ackerbohne',
+      culture_display_name: 'Broad bean',
+      culture_variety: 'Hangdown',
+    })).toBe('Broad bean (Hangdown)');
+  });
+
   it('keeps variety language-independent when formatting display labels', () => {
     expect(formatCultureDisplayName({
       name: 'Ackerbohne',

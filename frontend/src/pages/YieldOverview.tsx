@@ -24,6 +24,7 @@ import {
   type ChartPeriod,
   type YieldCultureMeta,
 } from "./yieldOverviewUtils";
+import { getCultureDisplayName } from "../cultures/cultureDisplay";
 
 export default function YieldOverviewPage() {
   const { t, i18n } = useTranslation("yieldOverview");
@@ -90,7 +91,7 @@ export default function YieldOverviewPage() {
       week.cultures.forEach((culture) => {
         cultureMap.set(culture.culture_id, {
           id: culture.culture_id,
-          name: culture.culture_name,
+          name: getCultureDisplayName(culture),
           color: culture.color,
         });
       });

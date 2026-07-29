@@ -30,6 +30,7 @@ from farm.seed_units import (
     grams_to_seeds,
     seeds_to_grams,
 )
+from farm.services.culture_display import resolve_culture_display_name
 from farm.services.seed_packages import PackageOption, compute_seed_package_suggestion
 
 REQUIRED_AMOUNT_WARNING_MISSING_TKG = 'missing_tkg'
@@ -320,7 +321,7 @@ def compute_plan_requirement(plan: PlantingPlan) -> PlanRequirementResult:
     )
 
 
-def _aggregate_requirements_by_culture(project: Project) -> dict[int, dict]:
+def _aggregate_requirements_by_culture(project: Project, language_code: str) -> dict[int, dict]:
     """Group all of a project's plans by culture and sum margin-adjusted
     requirements into per-unit buckets (grams and seeds separately)."""
     plans = (
@@ -329,18 +330,25 @@ def _aggregate_requirements_by_culture(project: Project) -> dict[int, dict]:
         # per-culture seed requirement — exclude them rather than crashing.
         .filter(project=project, culture__isnull=False)
         .select_related(
-            'culture', 'culture__supplier', 'culture__selected_seed_demand_supplier',
+            'culture',
+            'culture__crop_species',
+            'culture__supplier',
+            'culture__selected_seed_demand_supplier',
         )
+        .prefetch_related('culture__crop_species__translations')
         .order_by('culture__name', 'culture__variety')
     )
     grouped: dict[int, dict] = {}
     for plan in plans:
         culture = plan.culture
+        culture_display_name, culture_display_language_code = resolve_culture_display_name(culture, language_code)
         entry = grouped.setdefault(
             culture.id,
             {
                 'culture_id': culture.id,
                 'culture_name': culture.name,
+                'culture_display_name': culture_display_name,
+                'culture_display_language_code': culture_display_language_code,
                 'variety': culture.variety,
                 'supplier': (
                     culture.supplier.name if culture.supplier else (culture.seed_supplier or '')
@@ -454,6 +462,8 @@ def _base_row(
     row = {
         'culture_id': entry['culture_id'],
         'culture_name': entry['culture_name'],
+        'culture_display_name': entry['culture_display_name'],
+        'culture_display_language_code': entry['culture_display_language_code'],
         'variety': entry['variety'],
         'supplier': (
             selected_supplier.supplier.name
@@ -556,9 +566,10 @@ def build_seed_demand_rows(
     *,
     project: Project,
     selected_supplier_by_culture: dict[int, int],
+    language_code: str,
 ) -> list[dict]:
     """Build the display-ready seed-demand rows for a project, one per culture."""
-    grouped = _aggregate_requirements_by_culture(project)
+    grouped = _aggregate_requirements_by_culture(project, language_code)
     suppliers_map = _supplier_options_by_culture(project, list(grouped.keys()))
 
     rows: list[dict] = []
@@ -617,5 +628,5 @@ def build_seed_demand_rows(
                 row['package_blocker'] = PACKAGE_BLOCKER_NO_MATCHING_PACKAGE_SIZES
         rows.append(row)
 
-    rows.sort(key=lambda item: (item['culture_name'] or '', item['variety'] or ''))
+    rows.sort(key=lambda item: (item['culture_display_name'] or item['culture_name'] or '', item['variety'] or ''))
     return rows

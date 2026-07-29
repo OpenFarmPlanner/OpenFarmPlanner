@@ -41,6 +41,7 @@ import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
+import { getPublicCultureTitle } from '../publicCultureDisplay';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -149,7 +150,8 @@ export function PublicCultureLibraryDialog({
   onSearch,
   onImport,
 }: PublicCultureLibraryDialogProps) {
-  const { t } = useTranslation('cultures');
+  const { t, i18n } = useTranslation('cultures');
+  const language = i18n.resolvedLanguage ?? i18n.language;
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [varietyFilter, setVarietyFilter] = useState('');
@@ -225,13 +227,19 @@ export function PublicCultureLibraryDialog({
   );
 
   const filteredCultures = useMemo(() => cultures.filter((entry) => {
-    const label = `${entry.name} ${entry.variety || ''} ${entry.crop_species_name || ''} ${entry.crop_family || ''}`.toLowerCase();
+    const label = [
+      getPublicCultureTitle(entry, language, t('library.translation.missingName')),
+      entry.name,
+      entry.variety || '',
+      entry.crop_species_name || '',
+      entry.crop_family || '',
+    ].join(' ').toLowerCase();
     const matchesQuery = normalizedQuery.length === 0 || label.includes(normalizedQuery);
     const matchesVariety = !varietyFilter || (entry.variety || '') === varietyFilter;
     const matchesNutrient = !nutrientFilter || (entry.nutrient_demand || '') === nutrientFilter;
     const matchesCropFamily = !cropFamilyFilter || (entry.crop_family || '') === cropFamilyFilter;
     return matchesQuery && matchesVariety && matchesNutrient && matchesCropFamily;
-  }), [cropFamilyFilter, cultures, normalizedQuery, nutrientFilter, varietyFilter]);
+  }), [cropFamilyFilter, cultures, language, normalizedQuery, nutrientFilter, t, varietyFilter]);
 
   useEffect(() => {
     if (loading || (initialSelectedId && selectedId === initialSelectedId && cultures.length === 0)) {
@@ -471,8 +479,8 @@ export function PublicCultureLibraryDialog({
                   sx={{ py: 0.75, px: 1.25 }}
                 >
                   <ListItemText
-                    primary={culture.variety ? `${culture.name} (${culture.variety})` : culture.name}
-                    secondary={culture.crop_species_name || culture.name}
+                    primary={getPublicCultureTitle(culture, language, t('library.translation.missingName'))}
+                    secondary={culture.crop_family || culture.supplier_name || culture.seed_supplier || undefined}
                     primaryTypographyProps={{ fontSize: '0.92rem', lineHeight: 1.25 }}
                     secondaryTypographyProps={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.2 }}
                   />
@@ -485,7 +493,9 @@ export function PublicCultureLibraryDialog({
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: useMobileFilterLayout ? 1.5 : 2, minHeight: useMobileFilterLayout ? '100%' : 420, maxHeight: useMobileFilterLayout ? 'none' : 420, overflowY: 'auto', scrollbarGutter: 'stable' }}>
             {selectedCulture ? (
               <>
-                <Typography variant="h6" sx={{ lineHeight: 1.25 }}>{selectedCulture.name}</Typography>
+                <Typography variant="h6" sx={{ lineHeight: 1.25 }}>
+                  {getPublicCultureTitle(selectedCulture, language, t('library.translation.missingName'))}
+                </Typography>
                 {selectedCulture.variety ? (
                   <Typography color="text.secondary" sx={{ mb: 0.75, lineHeight: 1.35 }}>{selectedCulture.variety}</Typography>
                 ) : null}

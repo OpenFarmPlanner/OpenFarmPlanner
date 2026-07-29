@@ -1,12 +1,24 @@
-import type { Culture } from '../api/types';
-
-export type CultureDisplayFields = Pick<Culture, 'name' | 'culture_display_name'>;
-
-export function getCultureDisplayName(culture: CultureDisplayFields): string {
-  return culture.culture_display_name || culture.name;
+export interface CultureDisplayFields {
+  name?: string | null;
+  culture_name?: string | null;
+  culture_display_name?: string | null;
+  variety?: string | null;
+  culture_variety?: string | null;
 }
 
-export function formatCultureDisplayName(culture: CultureDisplayFields & Pick<Culture, 'variety'>): string {
+export function getCultureDisplayName(culture: CultureDisplayFields): string {
+  return culture.culture_display_name || culture.name || culture.culture_name || '';
+}
+
+export function getCultureVariety(culture: CultureDisplayFields): string {
+  return culture.variety || culture.culture_variety || '';
+}
+
+export function formatCultureDisplayName(culture: CultureDisplayFields): string {
   const displayName = getCultureDisplayName(culture);
-  return culture.variety ? `${displayName} (${culture.variety})` : displayName;
+  const variety = getCultureVariety(culture);
+  if (displayName && variety) {
+    return `${displayName} (${variety})`;
+  }
+  return displayName || variety;
 }

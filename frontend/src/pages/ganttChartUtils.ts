@@ -1,6 +1,7 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
+import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
 
 export interface GanttTask {
   id: string;
@@ -150,7 +151,7 @@ export function formatCultureDisplayLabel(cultureName?: string | null, variety?:
 }
 
 function getPlanCultureDisplayName(plan: Pick<PlantingPlan, 'culture_display_name' | 'culture_name'>): string {
-  return plan.culture_display_name || plan.culture_name || '';
+  return getCultureDisplayName(plan);
 }
 
 export function formatSeedlingTooltipTitle(task: Pick<GanttTask, 'cultureName' | 'cultureVariety' | 'name'>): string {
@@ -173,7 +174,11 @@ function formatCultureLabel(culture?: Culture, fallbackName?: string | null, fal
   if (!culture) {
     return fallbackName || 'Unbekannte Kultur';
   }
-  return formatCultureDisplayLabel(fallbackName || culture.name, fallbackVariety || culture.variety);
+  return formatCultureDisplayName({
+    ...culture,
+    culture_display_name: culture.culture_display_name || fallbackName,
+    variety: fallbackVariety || culture.variety,
+  });
 }
 
 export function buildOccupancyTooltipDetails(task: Pick<

@@ -22,6 +22,7 @@ import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { collectHierarchyAvailability } from '../components/planting-plans/areaHierarchySelection';
 import type { SearchableSelectOption } from '../components/data-grid';
 import { useTranslation } from '../i18n';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
 
 export interface CultivationTypeSelectOption {
   value: CultivationType;
@@ -96,7 +97,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
         .filter((c) => c.id !== undefined)
         .map((c) => ({
           value: c.id!,
-          label: c.variety ? `${c.name} (${c.variety})` : c.name,
+          label: formatCultureDisplayName(c),
         })),
     [cultures],
   );

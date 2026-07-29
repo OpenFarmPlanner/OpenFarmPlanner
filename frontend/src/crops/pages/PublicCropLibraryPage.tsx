@@ -2015,7 +2015,7 @@ export default function PublicCropLibraryPage() {
                     >
                       <ListItemText
                         primary={getCultureTitle(culture, t, language)}
-                        secondary={culture.crop_species_name || culture.name}
+                        secondary={culture.crop_family || culture.supplier_name || culture.seed_supplier || undefined}
                         primaryTypographyProps={{ fontWeight: 700, noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
                       />
@@ -2199,7 +2199,7 @@ export default function PublicCropLibraryPage() {
                     <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
                       <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCulture.crop_species_name || selectedCulture.name || t('library.page.notSpecified')} />
+                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
                           <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
                           <DetailRow label={t('library.page.fields.cropFamily')} value={selectedCulture.crop_family || t('library.page.notSpecified')} />
                           <DetailRow

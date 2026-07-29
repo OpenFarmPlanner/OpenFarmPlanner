@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
 
+from config.languages import resolve_request_language
 from farm.common.mixins import ProjectScopedMixin
 from farm.models import (
     Culture,
@@ -34,6 +35,7 @@ class SeedDemandListView(ProjectScopedMixin, generics.ListAPIView):
             selected_supplier_by_culture=parse_selected_suppliers(
                 request.query_params.get('supplier_selection')
             ),
+            language_code=resolve_request_language(request),
         )
         serializer = self.get_serializer(rows, many=True)
         return Response({'count': len(rows), 'next': None, 'previous': None, 'results': serializer.data})
