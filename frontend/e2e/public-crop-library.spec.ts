@@ -166,24 +166,7 @@ test('public crop library supports quick import, direct edit, versions, discussi
   expect(saveResponse.ok()).toBeTruthy();
   await expect(editDialog).not.toBeVisible();
   await expect(page.getByText('48 Tage')).toBeVisible();
-
-  await page.getByTestId('public-crop-detail-header').getByRole('button', { name: 'Übersetzen' }).click();
-  const translationDialog = page.getByRole('dialog', { name: 'Übersetzung bearbeiten' });
-  await expect(translationDialog).toBeVisible();
-  const notesInput = translationDialog.getByPlaceholder('Beschreibung und Anbauhinweise in dieser Sprache…');
-  await expect(notesInput).toHaveValue('Bestehende öffentliche Notiz.');
-  await notesInput.fill('E2E direkt bearbeitete öffentliche Notiz.');
-  await expect(notesInput).toHaveValue('E2E direkt bearbeitete öffentliche Notiz.');
-  const [translationSaveResponse] = await Promise.all([
-    page.waitForResponse((response) => (
-      response.url().includes(`/api/public-cultures/${publicCulture.id}/translations/`)
-      && response.request().method() === 'PUT'
-    )),
-    translationDialog.getByRole('button', { name: 'Speichern' }).click(),
-  ]);
-  expect(translationSaveResponse.ok()).toBeTruthy();
-  await expect(translationDialog).not.toBeVisible();
-  await expect(page.getByText('E2E direkt bearbeitete öffentliche Notiz.')).toBeVisible();
+  await expect(page.getByTestId('public-crop-detail-header').getByRole('button', { name: 'Übersetzen' })).toHaveCount(0);
 
   await page.getByRole('tab', { name: /Versionen/ }).click();
   await expect(page.getByRole('heading', { name: 'Version 2' })).toBeVisible();
