@@ -1,6 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { updatePublicDisplayName } from '../auth/authApi';
 import AccountSettingsPage from '../pages/AccountSettingsPage';
 import { DEV_ONBOARDING_PREVIEW_STORAGE_KEY } from '../projects/devOnboardingPreview';
 
@@ -116,6 +118,17 @@ describe('AccountSettingsPage', () => {
 
     expect(moderatorRequestApiMocks.create).toHaveBeenCalledWith('Ich kenne mich mit Kulturarten aus.');
     expect(await screen.findByText('Deine Anfrage wird geprüft.')).toBeInTheDocument();
+  });
+
+  it('saves the public display name with Enter', async () => {
+    render(<MemoryRouter><AccountSettingsPage /></MemoryRouter>);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Namen festlegen' }));
+    const input = screen.getByLabelText('Name bei Veröffentlichungen');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Martin Stipsitz{Enter}');
+
+    expect(updatePublicDisplayName).toHaveBeenCalledWith('Martin Stipsitz');
   });
 
   it('describes the moderator role in terms of reviewing proposals, not approving all public culture edits (BUG-M03 copy regression guard)', async () => {

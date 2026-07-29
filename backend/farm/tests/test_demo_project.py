@@ -33,6 +33,7 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(Supplier.objects.filter(project=result.project).count(), 3)
         self.assertEqual(FieldLayout.objects.filter(project=result.project).count(), 4)
         self.assertEqual(BedLayout.objects.filter(project=result.project).count(), 12)
+        self.assertEqual(Culture.objects.filter(project=result.project, crop_species__isnull=False).count(), 8)
         self.assertTrue(
             Culture.objects.filter(
                 project=result.project,

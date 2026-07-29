@@ -5,11 +5,14 @@ from datetime import date
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
+from config.languages import DEFAULT_LANGUAGE_CODE, resolve_request_language
+from crops.models import CropSpecies
 from farm.common.serializer_fields import (
     AuditUserSerializer,
     _resolve_active_project_from_serializer,
 )
-from farm.models import PlantingPlan, Task
+from farm.models import Culture, PlantingPlan, Task
+from farm.services.demo_project import find_demo_culture_species, is_demo_project_description
 
 
 class PlantingPlanSerializer(serializers.ModelSerializer):
@@ -18,6 +21,8 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     # a culture chosen yet) — see get_attribute in rest_framework/fields.py.
     culture_name = serializers.CharField(source='culture.name', read_only=True, allow_null=True)
     culture_variety = serializers.CharField(source='culture.variety', read_only=True, allow_blank=True, allow_null=True)
+    culture_display_name = serializers.SerializerMethodField(read_only=True)
+    culture_display_language_code = serializers.SerializerMethodField(read_only=True)
     culture_display_color = serializers.CharField(source='culture.display_color', read_only=True, allow_blank=True, allow_null=True)
     culture_propagation_duration_days = serializers.IntegerField(source='culture.propagation_duration_days', read_only=True, allow_null=True)
     culture_cultivation_type = serializers.CharField(source='culture.cultivation_type', read_only=True, allow_blank=True, allow_null=True)
@@ -55,6 +60,38 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
 
     def get_bed_name(self, obj: PlantingPlan) -> str | None:
         return obj.bed.name if obj.bed else None
+
+    def _request_language(self) -> str:
+        request = self.context.get('request')
+        if request is None:
+            return DEFAULT_LANGUAGE_CODE
+        return resolve_request_language(request)
+
+    def _get_culture_species(self, culture: Culture) -> CropSpecies | None:
+        if culture.crop_species_id:
+            return culture.crop_species
+        if not is_demo_project_description(culture.project.description if culture.project_id else None):
+            return None
+
+        cache = self.context.setdefault('_demo_culture_species_by_name', {})
+        if culture.name not in cache:
+            cache[culture.name] = find_demo_culture_species(culture.name)
+        return cache[culture.name]
+
+    def _get_localized_culture_name(self, obj: PlantingPlan) -> tuple[str | None, str]:
+        culture = obj.culture
+        if culture is None:
+            return None, ''
+        species = self._get_culture_species(culture)
+        if species is None:
+            return culture.name, ''
+        return species.localized_name(self._request_language())
+
+    def get_culture_display_name(self, obj: PlantingPlan) -> str | None:
+        return self._get_localized_culture_name(obj)[0]
+
+    def get_culture_display_language_code(self, obj: PlantingPlan) -> str:
+        return self._get_localized_culture_name(obj)[1]
 
     def get_harvest_date(self, obj: PlantingPlan) -> date | None:
         """Return harvest start only when culture growth timing is known."""

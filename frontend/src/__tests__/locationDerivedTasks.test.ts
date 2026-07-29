@@ -54,6 +54,35 @@ describe('deriveLocationTasks', () => {
     expect(tasks[1][0].date).toBe('2026-04-12');
   });
 
+  it('prefers localized planting plan culture names', () => {
+    const cultures: Culture[] = [
+      { id: 5, name: 'Karotte', cultivation_types: ['direct_sowing'], growth_duration_days: 60 },
+    ];
+    const plans: PlantingPlan[] = [
+      {
+        id: 99,
+        culture: 5,
+        culture_name: 'Karotte',
+        culture_display_name: 'Carrot',
+        bed: 100,
+        planting_date: '2026-04-12',
+        cultivation_type: 'direct_sowing',
+      },
+    ];
+
+    const tasks = deriveLocationTasks({
+      locations,
+      fields,
+      beds,
+      plantingPlans: plans,
+      cultures,
+      today: new Date('2026-04-01'),
+    });
+
+    expect(tasks[1][0].cultureName).toBe('Carrot');
+    expect(tasks[1][1].cultureName).toBe('Carrot');
+  });
+
   it('skips duplicates and tasks with missing relation data', () => {
     const cultures: Culture[] = [{ id: 6, name: 'Salat', cultivation_types: ['direct_sowing'] }];
     const plans: PlantingPlan[] = [

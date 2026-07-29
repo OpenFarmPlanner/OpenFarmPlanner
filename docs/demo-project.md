@@ -21,9 +21,11 @@ The demo data exists in German and English. The authenticated API and guest
 demo resolve the language from the request/UI language and create new demo
 projects with matching project, location, field, bed, crop, crop-family, and
 plan-note text. Existing demo projects are user-entered project content after
-creation and are not translated in place. The management command defaults to
-German for existing screenshot workflows and accepts `--language en` for the
-English fixture.
+creation and are not translated in place. Demo cultures are linked to
+`CropSpecies` when a matching species exists, so planning read views can show
+localized crop names without rewriting the stored demo records. The management
+command defaults to German for existing screenshot workflows and accepts
+`--language en` for the English fixture.
 
 The public landing page also starts an isolated anonymous guest project from this template. Guest workspaces are editable but session-bound, reset on the next browser session, and removed after their short server-side retention period by `cleanup_guest_demo_sessions`. This is separate from the persistent personal demo project.
 

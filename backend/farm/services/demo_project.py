@@ -12,6 +12,8 @@ from django.utils.text import slugify
 
 from accounts.models import UserProjectSettings
 from config.languages import UI_LANGUAGE_AUTO, normalize_language_tag, parse_accept_language
+from crops.models import CropSpecies
+from crops.services import find_species_by_common_name
 from farm.models import (
     Bed,
     BedLayout,
@@ -210,6 +212,23 @@ def reset_project_demo_data(project: Project) -> None:
 def is_demo_project_description(description: str | None) -> bool:
     """Return whether a project description marks one of the demo templates."""
     return (description or '') in DEMO_PROJECT_DESCRIPTIONS
+
+
+def find_demo_culture_species(name: str | None) -> CropSpecies | None:
+    """Resolve a demo crop name through all language variants in the template."""
+    species = find_species_by_common_name(name)
+    if species is not None:
+        return species
+
+    for text in DEMO_TEXT.values():
+        for culture_key, culture_text in text['cultures'].items():
+            if culture_text[0] != name:
+                continue
+            for fallback_text in DEMO_TEXT.values():
+                species = find_species_by_common_name(fallback_text['cultures'][culture_key][0])
+                if species is not None:
+                    return species
+    return None
 
 
 def resolve_demo_language(language_code: str | None) -> str:
@@ -727,6 +746,7 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
         culture = Culture.objects.create(
             name=spec.name,
             variety=spec.variety,
+            crop_species=find_demo_culture_species(spec.name),
             crop_family=spec.crop_family,
             nutrient_demand=spec.nutrient_demand,
             cultivation_types=spec.cultivation_types,
