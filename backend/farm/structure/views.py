@@ -76,6 +76,11 @@ class LocationViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
         queryset: All Location objects ordered by name
         serializer_class: LocationSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     ensure_default_location = True
@@ -110,6 +115,11 @@ class FieldViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewS
         queryset: All Field objects ordered by location and name
         serializer_class: FieldSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = Field.objects.select_related('location').all()
     serializer_class = FieldSerializer
 
@@ -149,6 +159,11 @@ class BedViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet
         queryset: All Bed objects ordered by field and name
         serializer_class: BedSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = Bed.objects.select_related('field', 'field__location').all()
     serializer_class = BedSerializer
 

@@ -1,5 +1,8 @@
 import http from './httpClient';
 import type {
+  ApiToken,
+  ApiTokenCreatePayload,
+  ApiTokenCreated,
   Culture,
   Location,
   Field,
@@ -405,7 +408,24 @@ export const versionAPI = {
   get: () => http.get<VersionResponse>('/version/'),
 };
 
+/**
+ * Project-bound API tokens for external agents.
+ *
+ * `create` is the only call that ever returns the plaintext token; the backend
+ * stores it hashed and cannot show it again. Revocation is a DELETE that marks
+ * the token revoked rather than removing the audit row.
+ */
+export const apiTokenAPI = {
+  list: () => http.get<ApiToken[]>('/api-tokens/'),
+  create: (payload: ApiTokenCreatePayload) =>
+    http.post<ApiTokenCreated>('/api-tokens/', payload),
+  revoke: (id: number) => http.delete<ApiToken>(`/api-tokens/${id}/`),
+};
+
 export type {
+  ApiToken,
+  ApiTokenCreatePayload,
+  ApiTokenCreated,
   Culture,
   Location,
   Field,

@@ -48,6 +48,11 @@ class SupplierViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
         queryset: All Supplier objects ordered by name
         serializer_class: SupplierSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
 
@@ -188,6 +193,11 @@ class SupplierViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
 
 
 class CultureSupplierDataViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = CultureSupplierData.objects.select_related('culture', 'supplier')
     serializer_class = CultureSupplierDataSerializer
 

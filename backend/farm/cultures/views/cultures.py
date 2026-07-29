@@ -53,6 +53,19 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     queryset = Culture.objects.select_related('supplier', 'image_file', 'source_public_culture')
     serializer_class = CultureSerializer
 
+    # Actions reachable with a project-bound API token (see
+    # farm/agent_api/permissions.py). `destroy` and `undelete` are deliberately
+    # absent: deletion and restoration stay session-only in this version.
+    api_token_actions = {
+        'list',
+        'retrieve',
+        'create',
+        'update',
+        'partial_update',
+        'duplicate_check',
+        'history',
+    }
+
     def _set_latest_revision_actor(self, culture: Culture) -> None:
         actor_label = _current_actor_label(self.request)
         if not actor_label:
@@ -124,8 +137,10 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         supplier_name = culture_data.get('supplier_name')
         
         if supplier_id:
+            # Project-scoped so a supplied id cannot pull in a supplier from
+            # another project and attach it to this project's culture.
             try:
-                return Supplier.objects.get(id=supplier_id)
+                return Supplier.objects.get(id=supplier_id, project=self.request.active_project)
             except Supplier.DoesNotExist:
                 return None
         elif supplier_name:
@@ -163,8 +178,12 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         
         name_norm = normalize_text(name) or ''
         variety_norm = normalize_text(variety)
-        
+
+        # Scoped to the active project: without this filter an import row could
+        # match — and then overwrite — a culture belonging to a different
+        # project that happens to share a name/variety pair.
         base_queryset = Culture.objects.filter(
+            project=self.request.active_project,
             name_normalized=name_norm,
             variety_normalized=variety_norm,
         )

@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import exceptions
 from rest_framework.request import Request
 
+from .agent_api.permissions import get_request_api_token
 from .models import Project, ProjectMembership
 
 
@@ -41,6 +42,19 @@ def resolve_project_for_user(user) -> tuple[Project | None, bool]:
 
 def get_active_project_or_400(request: Request) -> Project:
     """Resolve and validate active project from request header for authenticated users."""
+    # API tokens are bound to exactly one project at creation time. That
+    # binding is read from the token row, never from the request, so no
+    # X-Project-Id header, query parameter, or body field can point a token at
+    # another project — not even one its owner is legitimately a member of.
+    # A mismatching header is rejected rather than ignored, so a
+    # misconfigured agent fails loudly instead of silently writing elsewhere.
+    api_token = get_request_api_token(request)
+    if api_token is not None:
+        requested_header = request.META.get(PROJECT_HEADER)
+        if requested_header and str(requested_header) != str(api_token.project_id):
+            raise exceptions.PermissionDenied('This API token is bound to a different project.')
+        return api_token.project
+
     agent_mode = bool(request.session.get('agent_mode'))
     agent_project_id = request.session.get('agent_project_id')
 
@@ -81,6 +95,8 @@ def get_active_project_or_400(request: Request) -> Project:
 
 def require_project_admin(user, project_id: int, request: Request | None = None) -> None:
     """Raise permission denied when user lacks project admin permissions."""
+    if request is not None and get_request_api_token(request) is not None:
+        raise exceptions.PermissionDenied('API tokens cannot perform project administration.')
     if request is not None and bool(request.session.get('agent_mode')):
         raise exceptions.PermissionDenied('Agent sessions are restricted to member permissions.')
 

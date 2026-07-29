@@ -181,6 +181,13 @@ docs/                  # This documentation
   header sent, and is explicitly never treated as admin even if the
   underlying user is one — used for automation/agent tooling access, not
   regular users.
+- **Project-bound API tokens** (`ProjectApiToken`, created by any member from
+  account settings) are the supported way for external coding agents to call
+  the API. They authenticate a single request via `Authorization: Bearer …`,
+  derive the project from the token row rather than from any header, carry a
+  `read` or `write` scope, and can only reach views that explicitly declare
+  `api_token_actions`. Session authentication is unaffected — see
+  [agent-api.md](./agent-api.md).
 - Full model relationships: [data-model.md](./data-model.md#1-projects-users-and-access).
 
 ## Notable architecture & UX decisions worth knowing before changing things

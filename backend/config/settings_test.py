@@ -19,7 +19,12 @@ DATABASES = {
 
 # Keep existing test suite behavior focused on domain logic.
 # Authentication behavior is validated separately in accounts tests.
+#
+# The API-token permission stays enabled: relaxing IsAuthenticated must not
+# also relax the deny-by-default rule for API tokens, otherwise the token
+# isolation tests would pass against a configuration production never runs.
 REST_FRAMEWORK['DEFAULT_PERMISSION_CLASSES'] = [  # type: ignore[name-defined]
     'rest_framework.permissions.AllowAny',
+    'farm.agent_api.permissions.ApiTokenAccessPermission',
 ]
 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []  # type: ignore[name-defined]

@@ -87,6 +87,11 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
         queryset: All PlantingPlan objects ordered by planting_date (descending)
         serializer_class: PlantingPlanSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = (
         PlantingPlan.objects
         .select_related('culture', 'bed', 'created_by', 'updated_by')
@@ -170,6 +175,11 @@ class TaskViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSe
         queryset: All Task objects ordered by due_date and created_at
         serializer_class: TaskSerializer for serialization
     """
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = Task.objects.select_related('planting_plan', 'planting_plan__culture', 'planting_plan__bed').all()
     serializer_class = TaskSerializer
 

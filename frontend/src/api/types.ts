@@ -610,3 +610,47 @@ export interface CultureHistoryChange {
   old_value: unknown;
   new_value: unknown;
 }
+
+/**
+ * Scope of a project-bound API token.
+ *
+ * `read` permits safe requests only; `write` additionally permits creating and
+ * updating project data. Neither scope can delete anything or reach
+ * administrative endpoints — see docs/agent-api.md.
+ */
+export type ApiTokenScope = 'read' | 'write';
+
+/** Lifecycle status derived server-side from expiry and revocation. */
+export type ApiTokenStatus = 'active' | 'expired' | 'revoked';
+
+/**
+ * A project-bound API token as listed in the account settings.
+ *
+ * Deliberately without the secret: the plaintext value exists only in the
+ * creation response (`ApiTokenCreated`) and is never returned again.
+ */
+export interface ApiToken {
+  id: number;
+  name: string;
+  project: number;
+  project_name: string;
+  scope: ApiTokenScope;
+  token_prefix: string;
+  status: ApiTokenStatus;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** Creation response — the only place the plaintext token is ever available. */
+export interface ApiTokenCreated extends ApiToken {
+  token: string;
+}
+
+export interface ApiTokenCreatePayload {
+  name: string;
+  project: number;
+  scope: ApiTokenScope;
+  expires_at?: string | null;
+}

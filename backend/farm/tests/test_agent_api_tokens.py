@@ -1,0 +1,481 @@
+"""Tests for project-bound API tokens: storage, lifecycle, scope, and isolation."""
+
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework.test import APIClient, APITestCase
+
+from farm.models import (
+    API_TOKEN_PREFIX,
+    Culture,
+    Project,
+    ProjectApiToken,
+    ProjectMembership,
+    Supplier,
+)
+
+User = get_user_model()
+
+
+class ApiTokenTestBase(APITestCase):
+    """Two projects with separate owners and one culture each."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='agent-owner', email='owner@example.com', password='pw', is_active=True
+        )
+        self.other_user = User.objects.create_user(
+            username='outsider', email='outsider@example.com', password='pw', is_active=True
+        )
+        self.project = Project.objects.create(name='Home Farm', slug='home-farm')
+        self.foreign_project = Project.objects.create(name='Foreign Farm', slug='foreign-farm')
+        ProjectMembership.objects.create(user=self.user, project=self.project, role='admin')
+        ProjectMembership.objects.create(
+            user=self.other_user, project=self.foreign_project, role='admin'
+        )
+        self.culture = Culture.objects.create(
+            name='Brokkoli', variety='Calabrese', project=self.project
+        )
+        self.foreign_culture = Culture.objects.create(
+            name='Foreign Crop', variety='Secret', project=self.foreign_project
+        )
+
+    def issue_token(self, *, scope=ProjectApiToken.SCOPE_READ, project=None, user=None, **kwargs):
+        """Create a token and return the (instance, plaintext) pair."""
+        return ProjectApiToken.create_token(
+            user=user or self.user,
+            project=project or self.project,
+            name=kwargs.pop('name', 'Test token'),
+            scope=scope,
+            expires_at=kwargs.pop('expires_at', None),
+        )
+
+    def bearer_client(self, raw_token: str) -> APIClient:
+        """Return a client that authenticates with the given bearer token."""
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {raw_token}')
+        return client
+
+
+class ApiTokenStorageTests(ApiTokenTestBase):
+    """The plaintext token must never be recoverable from the database."""
+
+    def test_token_is_stored_only_as_hash(self):
+        token, raw_token = self.issue_token()
+
+        self.assertTrue(raw_token.startswith(API_TOKEN_PREFIX))
+        self.assertNotEqual(token.token_hash, raw_token)
+        self.assertEqual(token.token_hash, ProjectApiToken.hash_token(raw_token))
+        self.assertEqual(len(token.token_hash), 64)
+
+        stored = ProjectApiToken.objects.filter(pk=token.pk).values().first()
+        self.assertNotIn(raw_token, str(stored))
+        secret_part = raw_token[len(API_TOKEN_PREFIX):]
+        self.assertNotIn(secret_part, str(stored))
+
+    def test_display_prefix_is_short_and_not_the_secret(self):
+        token, raw_token = self.issue_token()
+        secret_part = raw_token[len(API_TOKEN_PREFIX):]
+
+        self.assertEqual(token.token_prefix, secret_part[:8])
+        self.assertLess(len(token.token_prefix), len(secret_part))
+
+    def test_two_tokens_never_share_a_value(self):
+        _, first = self.issue_token(name='first')
+        _, second = self.issue_token(name='second')
+        self.assertNotEqual(first, second)
+
+    def test_last_used_at_is_recorded_on_use(self):
+        token, raw_token = self.issue_token()
+        self.assertIsNone(token.last_used_at)
+
+        self.bearer_client(raw_token).get('/api/cultures/')
+
+        token.refresh_from_db()
+        self.assertIsNotNone(token.last_used_at)
+
+
+class ApiTokenLifecycleTests(ApiTokenTestBase):
+    """Expired, revoked, and orphaned tokens must stop working immediately."""
+
+    def test_valid_token_authenticates(self):
+        _, raw_token = self.issue_token()
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_expired_token_is_rejected(self):
+        _, raw_token = self.issue_token(expires_at=timezone.now() - timedelta(minutes=1))
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_revoked_token_is_rejected(self):
+        token, raw_token = self.issue_token()
+        token.revoke()
+
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_unknown_token_is_rejected(self):
+        client = self.bearer_client(f'{API_TOKEN_PREFIX}definitely-not-issued')
+        response = client.get('/api/cultures/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_token_stops_working_when_membership_is_removed(self):
+        _, raw_token = self.issue_token()
+        ProjectMembership.objects.filter(user=self.user, project=self.project).delete()
+
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_token_stops_working_when_project_is_deactivated(self):
+        _, raw_token = self.issue_token()
+        self.project.is_active = False
+        self.project.save(update_fields=['is_active'])
+
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_revoking_twice_keeps_the_first_timestamp(self):
+        token, _ = self.issue_token()
+        token.revoke()
+        first_revoked_at = token.revoked_at
+        token.revoke()
+
+        token.refresh_from_db()
+        self.assertEqual(token.revoked_at, first_revoked_at)
+
+
+class ApiTokenScopeTests(ApiTokenTestBase):
+    """`read` must not mutate; `write` must not delete or administrate."""
+
+    def test_read_token_can_list_and_retrieve(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+        client = self.bearer_client(raw_token)
+
+        self.assertEqual(client.get('/api/cultures/').status_code, 200)
+        self.assertEqual(client.get(f'/api/cultures/{self.culture.id}/').status_code, 200)
+
+    def test_read_token_cannot_create(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+        response = self.bearer_client(raw_token).post(
+            '/api/cultures/', {'name': 'Neu', 'variety': 'X'}, format='json'
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Culture.objects.filter(name='Neu').exists())
+
+    def test_read_token_cannot_patch(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+        response = self.bearer_client(raw_token).patch(
+            f'/api/cultures/{self.culture.id}/', {'notes': 'changed'}, format='json'
+        )
+        self.assertEqual(response.status_code, 403)
+        self.culture.refresh_from_db()
+        self.assertEqual(self.culture.notes, '')
+
+    def test_write_token_can_create_and_patch(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        client = self.bearer_client(raw_token)
+
+        created = client.post('/api/cultures/', {'name': 'Neu', 'variety': 'X'}, format='json')
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(Culture.objects.get(name='Neu').project_id, self.project.id)
+
+        patched = client.patch(
+            f'/api/cultures/{self.culture.id}/', {'notes': 'via token'}, format='json'
+        )
+        self.assertEqual(patched.status_code, 200)
+
+    def test_write_token_cannot_delete(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).delete(f'/api/cultures/{self.culture.id}/')
+
+        self.assertEqual(response.status_code, 403)
+        self.culture.refresh_from_db()
+        self.assertIsNone(self.culture.deleted_at)
+
+    def test_write_token_cannot_undelete(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).post(f'/api/cultures/{self.culture.id}/undelete/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_supporting_collections_are_read_only(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        client = self.bearer_client(raw_token)
+
+        self.assertEqual(client.get('/api/suppliers/').status_code, 200)
+        response = client.post(
+            '/api/suppliers/', {'name': 'X', 'homepage_url': 'https://x.example'}, format='json'
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Supplier.objects.filter(name='X').exists())
+
+
+class ApiTokenForbiddenSurfaceTests(ApiTokenTestBase):
+    """Administration, membership, and account endpoints stay out of reach."""
+
+    def test_token_cannot_read_project_members(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).get(f'/api/projects/{self.project.id}/members/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_token_cannot_invite_members(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).post(
+            f'/api/projects/{self.project.id}/invitations/',
+            {'email': 'x@example.com', 'role': 'member'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_token_cannot_read_account_profile(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).get('/api/auth/me/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_token_cannot_manage_api_tokens(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        client = self.bearer_client(raw_token)
+
+        self.assertEqual(client.get('/api/api-tokens/').status_code, 403)
+        self.assertEqual(
+            client.post(
+                '/api/api-tokens/',
+                {'name': 'escalation', 'project': self.project.id, 'scope': 'write'},
+                format='json',
+            ).status_code,
+            403,
+        )
+
+    def test_token_cannot_switch_projects(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).post(
+            '/api/projects-switch/', {'project_id': self.foreign_project.id}, format='json'
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_token_cannot_restore_project_history(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).post(
+            '/api/history/project/restore/', {'history_id': 1}, format='json'
+        )
+        self.assertEqual(response.status_code, 403)
+
+
+class ApiTokenProjectIsolationTests(ApiTokenTestBase):
+    """The bound project is derived server-side and cannot be widened."""
+
+    def test_listing_returns_only_bound_project_data(self):
+        _, raw_token = self.issue_token()
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+
+        names = {row['name'] for row in response.data['results']}
+        self.assertIn('Brokkoli', names)
+        self.assertNotIn('Foreign Crop', names)
+
+    def test_foreign_project_header_is_rejected(self):
+        _, raw_token = self.issue_token()
+        client = self.bearer_client(raw_token)
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        self.assertEqual(response.status_code, 403)
+
+    def test_matching_project_header_is_accepted(self):
+        _, raw_token = self.issue_token()
+        client = self.bearer_client(raw_token)
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        self.assertEqual(response.status_code, 200)
+
+    def test_missing_project_header_is_fine_for_tokens(self):
+        _, raw_token = self.issue_token()
+        response = self.bearer_client(raw_token).get('/api/cultures/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_foreign_object_id_is_not_retrievable(self):
+        _, raw_token = self.issue_token()
+        response = self.bearer_client(raw_token).get(f'/api/cultures/{self.foreign_culture.id}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_foreign_object_id_is_not_writable(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).patch(
+            f'/api/cultures/{self.foreign_culture.id}/', {'notes': 'hijacked'}, format='json'
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.foreign_culture.refresh_from_db()
+        self.assertEqual(self.foreign_culture.notes, '')
+
+    def test_token_owner_membership_elsewhere_does_not_widen_the_token(self):
+        # The owner joins the other project too; the token stays bound to the
+        # project it was issued for.
+        ProjectMembership.objects.create(
+            user=self.user, project=self.foreign_project, role='member'
+        )
+        _, raw_token = self.issue_token()
+
+        response = self.bearer_client(raw_token).get(
+            '/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id)
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_payload_project_field_is_ignored_on_create(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        response = self.bearer_client(raw_token).post(
+            '/api/cultures/',
+            {'name': 'Injected', 'variety': 'Y', 'project': self.foreign_project.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Culture.objects.get(name='Injected').project_id, self.project.id)
+
+
+class ApiTokenCsrfTests(ApiTokenTestBase):
+    """Token auth needs no CSRF token; session auth keeps needing one."""
+
+    def test_token_post_succeeds_without_csrf_token(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        client = APIClient(enforce_csrf_checks=True)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {raw_token}')
+
+        response = client.post(
+            '/api/cultures/', {'name': 'CSRF-free', 'variety': 'Z'}, format='json'
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_session_post_without_csrf_token_is_still_rejected(self):
+        client = APIClient(enforce_csrf_checks=True)
+        self.assertTrue(client.login(username='agent-owner', password='pw'))
+
+        response = client.post(
+            '/api/cultures/',
+            {'name': 'Session', 'variety': 'Z'},
+            format='json',
+            HTTP_X_PROJECT_ID=str(self.project.id),
+        )
+        self.assertEqual(response.status_code, 403)
+
+
+class SessionAuthenticationRegressionTests(ApiTokenTestBase):
+    """Adding token auth must not change existing browser behaviour."""
+
+    def test_session_user_still_uses_the_project_header(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Brokkoli', {row['name'] for row in response.data['results']})
+
+    def test_session_user_can_still_delete(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        response = client.delete(
+            f'/api/cultures/{self.culture.id}/', HTTP_X_PROJECT_ID=str(self.project.id)
+        )
+        self.assertEqual(response.status_code, 204)
+
+    def test_session_user_can_still_reach_account_endpoints(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        self.assertEqual(client.get('/api/auth/me/').status_code, 200)
+
+    def test_session_user_can_switch_between_their_projects(self):
+        ProjectMembership.objects.create(
+            user=self.user, project=self.foreign_project, role='member'
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Foreign Crop', {row['name'] for row in response.data['results']})
+
+    def test_non_bearer_authorization_header_falls_through(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        client.credentials(HTTP_AUTHORIZATION='Basic irrelevant')
+
+        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        self.assertEqual(response.status_code, 200)
+
+
+class ApiTokenManagementEndpointTests(ApiTokenTestBase):
+    """Token self-service: create once, list without the secret, revoke."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_returns_the_plaintext_exactly_once(self):
+        response = self.client.post(
+            '/api/api-tokens/',
+            {'name': 'Codex', 'project': self.project.id, 'scope': 'write'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        raw_token = response.data['token']
+        self.assertTrue(raw_token.startswith(API_TOKEN_PREFIX))
+
+        listed = self.client.get('/api/api-tokens/')
+        self.assertEqual(listed.status_code, 200)
+        self.assertNotIn('token', listed.data[0])
+        self.assertEqual(listed.data[0]['token_prefix'], raw_token[len(API_TOKEN_PREFIX):][:8])
+
+    def test_cannot_create_a_token_for_a_project_the_user_is_not_in(self):
+        response = self.client.post(
+            '/api/api-tokens/',
+            {'name': 'Sneaky', 'project': self.foreign_project.id, 'scope': 'write'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ProjectApiToken.objects.filter(project=self.foreign_project).exists())
+
+    def test_expiry_must_be_in_the_future(self):
+        response = self.client.post(
+            '/api/api-tokens/',
+            {
+                'name': 'Past',
+                'project': self.project.id,
+                'expires_at': (timezone.now() - timedelta(days=1)).isoformat(),
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_listing_never_exposes_other_users_tokens(self):
+        ProjectApiToken.create_token(
+            user=self.other_user, project=self.foreign_project, name='Theirs'
+        )
+        response = self.client.get('/api/api-tokens/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row['name'] for row in response.data], [])
+
+    def test_cannot_revoke_another_users_token(self):
+        foreign_token, _ = ProjectApiToken.create_token(
+            user=self.other_user, project=self.foreign_project, name='Theirs'
+        )
+        response = self.client.delete(f'/api/api-tokens/{foreign_token.id}/')
+
+        self.assertEqual(response.status_code, 404)
+        foreign_token.refresh_from_db()
+        self.assertIsNone(foreign_token.revoked_at)
+
+    def test_revoke_marks_the_token_and_disables_it(self):
+        created = self.client.post(
+            '/api/api-tokens/', {'name': 'Temp', 'project': self.project.id}, format='json'
+        )
+        raw_token = created.data['token']
+
+        revoked = self.client.delete(f'/api/api-tokens/{created.data["id"]}/')
+        self.assertEqual(revoked.status_code, 200)
+        self.assertEqual(revoked.data['status'], 'revoked')
+
+        self.assertEqual(self.bearer_client(raw_token).get('/api/cultures/').status_code, 401)
