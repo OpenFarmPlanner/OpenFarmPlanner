@@ -72,7 +72,6 @@ import {
   GANTT_VIEWPORT_BOTTOM_MARGIN_PX,
   GANTT_VIEWPORT_MIN_HEIGHT_PX,
   OCCUPANCY_COMPACT_ROW_HEIGHT,
-  OCCUPANCY_TREE_AUTO_EXPAND_ALL_THRESHOLD,
   type SyntheticMousePoint,
   addTimelinePeriod,
   addTimelinePeriodLarge,
@@ -100,7 +99,6 @@ import {
   toSyntheticMousePoint,
 } from './ganttChartState';
 import {
-  buildFieldOccupancyHierarchy,
   buildOccupancyTooltipDetails,
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
@@ -113,15 +111,14 @@ import {
 } from './ganttChartUtils';
 import { useGanttContextMenu } from './useGanttContextMenu';
 import { useGanttTaskActions } from './useGanttTaskActions';
+import { useOccupancyHierarchyFilter } from './useOccupancyHierarchyFilter';
 import { getFirstMissingCultivationPlanRequirement, getTranslatedProjectSetupActions } from './requirementFlow';
 import {
   getSegmentedActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
 import { getGanttRenderWindow } from './ganttRenderWindow';
-import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { collectVisibleIdsWithAncestors, flattenTreeRows } from '../components/hierarchy/utils/treeRows';
-import { useHierarchyLevelToggle } from '../components/hierarchy/hooks/useHierarchyLevelToggle';
 import { HierarchyLevelButtons } from '../components/hierarchy/HierarchyLevelToggle';
 import { CalendarFiltersPopover } from '../components/gantt/CalendarFiltersPopover';
 import { OccupancyFilterRow } from '../components/gantt/OccupancyFilterRow';
@@ -188,9 +185,6 @@ function GanttChartPage() {
 
   // Standort/Parzelle/Beet tree: filter + search state for the occupancy view
   const [occupancySearchText, setOccupancySearchText] = useState('');
-  const [occupancyLocationFilter, setOccupancyLocationFilter] = useState<number | 'all'>('all');
-  const [occupancyFieldFilter, setOccupancyFieldFilter] = useState<number | 'all'>('all');
-  const [onlyOccupiedBeds, setOnlyOccupiedBeds] = useState(true);
 
   // Seedling (Anzucht) view: search-only, no hierarchy/location filters —
   // it's a flat, culture-grouped list, not tied to a specific bed/field.
@@ -217,16 +211,6 @@ function GanttChartPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [mobileSearchOpen]);
 
-  const occupancyTreeStorageKey = activeProjectId
-    ? `occupancyTree.${activeProjectId}`
-    : 'occupancyTree';
-  const {
-    expandedRows: expandedHierarchyIds,
-    hasPersistedState: hasPersistedHierarchyExpansion,
-    toggleExpand: toggleHierarchyExpand,
-    expandAll: expandAllHierarchy,
-  } = useExpandedState(occupancyTreeStorageKey);
-  const hasInitiallyExpandedHierarchyRef = useRef(false);
 
   const [ganttRenderKey, setGanttRenderKey] = useState(0);
   const [ganttScrollTop, setGanttScrollTop] = useState(0);
@@ -241,6 +225,30 @@ function GanttChartPage() {
   const [displayYear] = useState(currentYear);
   const startDate = useMemo(() => new Date(displayYear, 0, 1), [displayYear]);
   const endDate = useMemo(() => new Date(displayYear, 11, 31), [displayYear]);
+
+  const {
+    occupancyHierarchyNodes,
+    occupancyLocationFilter,
+    setOccupancyLocationFilter,
+    occupancyFieldFilter,
+    setOccupancyFieldFilter,
+    onlyOccupiedBeds,
+    setOnlyOccupiedBeds,
+    occupancyFieldOptions,
+    activeHierarchyFilterCount,
+    resetOccupancyHierarchyFilters,
+    expandedHierarchyIds,
+    toggleHierarchyExpand,
+    hierarchyLevelToggle,
+  } = useOccupancyHierarchyFilter({
+    locations,
+    fields,
+    beds,
+    plantingPlans,
+    cultures,
+    displayYear,
+    activeProjectId,
+  });
 
   const ganttStateStorageKey = useMemo(
     () => (canUseStoredCalendarView ? getGanttStateStorageKey(activeProjectId) : null),
@@ -643,63 +651,8 @@ function GanttChartPage() {
     addPlantingPlanForBed,
   }, t);
 
-  const occupancyHierarchyNodes = useMemo<OccupancyHierarchyNode[]>(() => buildFieldOccupancyHierarchy({
-    locations,
-    fields,
-    beds,
-    plantingPlans,
-    cultures,
-    displayYear,
-  }), [beds, cultures, displayYear, fields, locations, plantingPlans]);
-
-  // Default expansion — once per project, until the user manually
-  // expands/collapses something (which then persists via useExpandedState's
-  // sessionStorage backing). For small farms (few locations/fields/beds
-  // combined), fully expanding is more useful than hiding everything behind
-  // a chevron. Once the tree grows past a size where that would get
-  // unwieldy, fall back to locations-open/fields-collapsed so the view
-  // stays scannable.
-  useEffect(() => {
-    if (
-      !hasPersistedHierarchyExpansion
-      && !hasInitiallyExpandedHierarchyRef.current
-      && occupancyHierarchyNodes.length > 0
-    ) {
-      const canFullyExpand = occupancyHierarchyNodes.length <= OCCUPANCY_TREE_AUTO_EXPAND_ALL_THRESHOLD;
-      const idsToExpand = occupancyHierarchyNodes
-        .filter((node) => node.type === 'location' || (canFullyExpand && node.type === 'field'))
-        .map((node) => node.id);
-      expandAllHierarchy(idsToExpand);
-      hasInitiallyExpandedHierarchyRef.current = true;
-    }
-  }, [expandAllHierarchy, hasPersistedHierarchyExpansion, occupancyHierarchyNodes]);
-
-  const hierarchyLevelToggle = useHierarchyLevelToggle(
-    occupancyHierarchyNodes,
-    expandedHierarchyIds,
-    expandAllHierarchy,
-  );
-
-  const occupancyFieldOptions = useMemo(
-    () => (occupancyLocationFilter === 'all'
-      ? []
-      : occupancyHierarchyNodes.filter(
-        (node) => node.type === 'field' && node.locationId === occupancyLocationFilter,
-      )),
-    [occupancyHierarchyNodes, occupancyLocationFilter],
-  );
-  const activeHierarchyFilterCount = [
-    occupancyLocationFilter !== 'all',
-    occupancyFieldFilter !== 'all',
-    onlyOccupiedBeds,
-  ].filter(Boolean).length;
   const activeSearchText = calendarMode === 'occupancy' ? occupancySearchText.trim() : seedlingSearchText.trim();
   const isCalendarFilterPopoverOpen = Boolean(calendarFilterAnchorEl);
-  const resetOccupancyHierarchyFilters = useCallback(() => {
-    setOccupancyLocationFilter('all');
-    setOccupancyFieldFilter('all');
-    setOnlyOccupiedBeds(false);
-  }, []);
   const clearActiveSearch = useCallback(() => {
     if (calendarMode === 'occupancy') {
       setOccupancySearchText('');
