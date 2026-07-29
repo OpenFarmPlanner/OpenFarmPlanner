@@ -80,6 +80,7 @@ describe('isPathIndexable', () => {
       '/app',
       '/app/dashboard',
       '/app/cultures',
+      '/demo',
       '/login',
       '/register',
       '/activate/abc/def',

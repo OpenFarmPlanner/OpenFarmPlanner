@@ -11,17 +11,15 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
-import type { TFunction } from 'i18next';
-import { Link as RouterLink, useNavigate } from 'react-router';
-import { AuthApiError } from '../../auth/authApi';
-import { useAuth } from '../../auth/useAuth';
+import { Link as RouterLink } from 'react-router';
 import { useTranslation } from '../../i18n';
 import LegalLinks from '../../components/legal/LegalLinks';
 import HeroImage from '../../components/HeroImage';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
+import { useGuestDemoStart } from './useGuestDemoStart';
 
 const PRODUCT_TOUR_ITEMS = [
   {
@@ -71,7 +69,6 @@ const PRODUCT_TOUR_ITEMS = [
 type ProductTourKey = (typeof PRODUCT_TOUR_ITEMS)[number]['key'];
 
 const HERO_TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5)';
-const RETRY_DETAIL_PATTERN = /available in (\d+(?:\.\d+)?) seconds/i;
 
 // Single glassmorphism card behind all hero content (heading, description,
 // buttons, beta note, GitHub link) - one clearly-bounded, semi-transparent
@@ -93,69 +90,6 @@ const HERO_CARD_SX = {
   boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
 };
 
-function parsePositiveSeconds(value: unknown): number | null {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return Math.ceil(parsed);
-}
-
-function getRetrySeconds(error: AuthApiError): number | null {
-  const explicitRetry = parsePositiveSeconds(error.retryAfterSeconds);
-  if (explicitRetry !== null) {
-    return explicitRetry;
-  }
-
-  const payloadRetry = parsePositiveSeconds(error.payload?.retry_after);
-  if (payloadRetry !== null) {
-    return payloadRetry;
-  }
-
-  if (typeof error.payload?.detail !== 'string') {
-    return null;
-  }
-
-  const match = RETRY_DETAIL_PATTERN.exec(error.payload.detail);
-  return match ? parsePositiveSeconds(match[1]) : null;
-}
-
-function formatRetryTime(seconds: number, t: TFunction<'home'>): string {
-  if (seconds < 60) {
-    return t('landing.retryTime.lessThanMinute');
-  }
-
-  const totalMinutes = Math.ceil(seconds / 60);
-  if (totalMinutes < 60) {
-    return t('landing.retryTime.minutes', { count: totalMinutes });
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (minutes === 0) {
-    return t('landing.retryTime.hours', { count: hours });
-  }
-  return t('landing.retryTime.hoursAndMinutes', { hours, minutes });
-}
-
-function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
-  if (seconds < 60) {
-    return t('landing.retryTime.compact.lessThanMinute');
-  }
-
-  const totalMinutes = Math.ceil(seconds / 60);
-  if (totalMinutes < 60) {
-    return t('landing.retryTime.compact.minutes', { count: totalMinutes });
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (minutes === 0) {
-    return t('landing.retryTime.compact.hours', { count: hours });
-  }
-  return t('landing.retryTime.compact.hoursAndMinutes', { hours, minutes });
-}
-
 /**
  * Public landing page with refined spacing and modern visual hierarchy.
  *
@@ -163,83 +97,21 @@ function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
  */
 export default function HomePage() {
   const { t, i18n } = useTranslation('home');
-  const navigate = useNavigate();
-  const { startGuestDemo } = useAuth();
-  const [isStartingDemo, setIsStartingDemo] = useState(false);
-  const [demoStartError, setDemoStartError] = useState<string | null>(null);
-  const [retryAvailableAt, setRetryAvailableAt] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const {
+    isStartingDemo,
+    demoStartError,
+    isDemoRetryBlocked,
+    isDemoButtonDisabled,
+    compactRetryTime,
+    startDemo,
+  } = useGuestDemoStart();
   const [activeTourKey, setActiveTourKey] = useState<ProductTourKey>('areas');
   const activeTourItem = PRODUCT_TOUR_ITEMS.find((item) => item.key === activeTourKey) ?? PRODUCT_TOUR_ITEMS[0];
   const screenshotLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'de').split('-')[0] === 'en' ? 'en' : 'de';
   const activeTourImage = activeTourItem.images[screenshotLanguage];
-  const retryRemainingSeconds = retryAvailableAt === null
-    ? 0
-    : Math.max(0, Math.ceil((retryAvailableAt - currentTime) / 1000));
-  const isDemoRetryBlocked = retryRemainingSeconds > 0;
-  const isDemoButtonDisabled = isStartingDemo || isDemoRetryBlocked;
-
-  useEffect(() => {
-    if (retryAvailableAt === null) {
-      return undefined;
-    }
-
-    if (retryAvailableAt <= Date.now()) {
-      setRetryAvailableAt(null);
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      const nextTime = Date.now();
-      setCurrentTime(nextTime);
-      if (retryAvailableAt <= nextTime) {
-        setRetryAvailableAt(null);
-      }
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [retryAvailableAt]);
 
   const handleTourChange = (_event: SyntheticEvent, value: ProductTourKey): void => {
     setActiveTourKey(value);
-  };
-
-  const handleStartDemo = async (): Promise<void> => {
-    if (isDemoButtonDisabled) {
-      return;
-    }
-
-    setIsStartingDemo(true);
-    setDemoStartError(null);
-    try {
-      await startGuestDemo();
-      navigate('/app/fields-beds');
-    } catch (error) {
-      if (error instanceof AuthApiError && error.status === 429) {
-        const retrySeconds = getRetrySeconds(error);
-        if (retrySeconds !== null) {
-          const retryUntil = Date.now() + retrySeconds * 1000;
-          setCurrentTime(Date.now());
-          setRetryAvailableAt(retryUntil);
-          setDemoStartError(t('landing.actions.demoRateLimitedWithTime', {
-            time: formatRetryTime(retrySeconds, t),
-          }));
-        } else {
-          setDemoStartError(t('landing.actions.demoRateLimited'));
-        }
-      } else if (error instanceof AuthApiError && error.isNetworkError) {
-        setDemoStartError(t('landing.actions.demoNetworkError'));
-      } else if (error instanceof AuthApiError && error.status !== undefined && error.status >= 500) {
-        setDemoStartError(t('landing.actions.demoServerError'));
-      } else if (error instanceof AuthApiError && error.code === 'unexpected_response') {
-        setDemoStartError(t('landing.actions.demoUnexpectedResponse'));
-      } else {
-        console.error('Error starting guest demo:', error);
-        setDemoStartError(t('landing.actions.demoStartError'));
-      }
-    } finally {
-      setIsStartingDemo(false);
-    }
   };
 
   return (
@@ -392,7 +264,7 @@ export default function HomePage() {
                   variant="text"
                   disabled={isDemoButtonDisabled}
                   onClick={() => {
-                    void handleStartDemo();
+                    void startDemo();
                   }}
                   sx={{
                     minHeight: 34,
@@ -423,7 +295,7 @@ export default function HomePage() {
                     </Stack>
                   ) : isDemoRetryBlocked ? (
                     t('landing.actions.demoAvailableIn', {
-                      time: formatCompactRetryTime(retryRemainingSeconds, t),
+                      time: compactRetryTime,
                     })
                   ) : (
                     t('landing.actions.demoWithoutRegistration')

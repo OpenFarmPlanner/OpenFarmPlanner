@@ -28,6 +28,7 @@ import {
 
 
 const HomePage = React.lazy(() => import('./pages/public/HomePage'));
+const DemoPage = React.lazy(() => import('./pages/public/DemoPage'));
 const ImprintPage = React.lazy(() => import('./pages/public/ImprintPage'));
 const PrivacyPolicyPage = React.lazy(() => import('./pages/public/PrivacyPolicyPage'));
 const TermsOfServicePage = React.lazy(() => import('./pages/public/TermsOfServicePage'));
@@ -177,6 +178,10 @@ function createAppRouter(basename: string) {
         {
           index: true,
           element: withLazyFallback(<HomePage />),
+        },
+        {
+          path: 'demo',
+          element: withLazyFallback(<DemoPage />),
         },
         {
           path: 'impressum',

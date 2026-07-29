@@ -59,4 +59,13 @@ describe('RouteSeo', () => {
     );
     await waitFor(() => expect(robotsContent()).toBe('noindex, nofollow'));
   });
+
+  it('sets noindex on the shareable demo start route', async () => {
+    render(
+      <MemoryRouter initialEntries={['/demo']}>
+        <RouteSeo />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(robotsContent()).toBe('noindex, nofollow'));
+  });
 });
