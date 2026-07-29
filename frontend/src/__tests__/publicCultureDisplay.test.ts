@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import type { PublicCulture } from '../api/types';
 import i18n from '../i18n/config';
 import {
+  getDescriptionFallbackNotice,
   getFallbackNotice,
   getPublicCultureDescription,
   getPublicCultureName,
@@ -156,5 +157,45 @@ describe('getFallbackNotice', () => {
     );
 
     expect(getFallbackNotice(localized, t, 'de')).toBeNull();
+  });
+});
+
+describe('getDescriptionFallbackNotice', () => {
+  it('falls back to the original (German) description and labels it, with a call to contribute a translation', () => {
+    const localized = getPublicCultureDescription(
+      buildCulture({ description: 'A robust variety.', description_language_code: 'en' }),
+      'de',
+    );
+
+    const notice = getDescriptionFallbackNotice(localized, t, 'de');
+
+    expect(notice).not.toBeNull();
+    expect(notice?.label).toContain('Englisch');
+    expect(notice?.tooltip).toContain('Englisch');
+    expect(notice?.tooltip).toMatch(/Deutsch/);
+  });
+
+  it('shows an equivalent, localized message in every supported UI language', () => {
+    const localized = getPublicCultureDescription(
+      buildCulture({ description: 'Robuste Sorte.', description_language_code: 'de' }),
+      'en',
+    );
+
+    const tEn = i18n.getFixedT('en', 'cultures');
+    const notice = getDescriptionFallbackNotice(localized, tEn, 'en');
+
+    expect(notice).not.toBeNull();
+    expect(notice?.label).toBe('Only available in German');
+    expect(notice?.tooltip).toContain('German');
+    expect(notice?.tooltip).toMatch(/help/i);
+  });
+
+  it('shows no notice when the description is already in the current language', () => {
+    const localized = getPublicCultureDescription(
+      buildCulture({ description: 'Robuste Sorte.', description_language_code: 'de' }),
+      'de',
+    );
+
+    expect(getDescriptionFallbackNotice(localized, t, 'de')).toBeNull();
   });
 });

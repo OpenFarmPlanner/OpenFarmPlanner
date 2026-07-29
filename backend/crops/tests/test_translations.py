@@ -384,6 +384,21 @@ class CropApiLocalizationTest(DRFAPITestCase):
             ).exists(),
         )
 
+    def test_translations_endpoint_reports_the_last_language_as_a_client_error(self):
+        response = self.client.put(
+            f'/openfarmplanner/api/public-cultures/{self.crop.id}/translations/',
+            {'translations': {'de': ''}},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['code'], 'translation_required')
+        self.assertTrue(
+            PublicCultureTranslation.objects.filter(
+                public_culture=self.crop, language_code='de',
+            ).exists(),
+        )
+
 
 class CrossLanguageMatchingTest(DRFAPITestCase):
     def setUp(self):

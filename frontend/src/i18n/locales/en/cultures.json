@@ -897,6 +897,7 @@
     "translation": {
       "fallbackNotice": "Only available in {{language}}",
       "fallbackNoticeTooltip": "There is no translation of this text in your language yet. The {{language}} version is shown instead.",
+      "descriptionFallbackNoticeTooltip": "There is no {{targetLanguage}} translation of this text yet. The {{language}} version is shown instead. You can help by adding a {{targetLanguage}} translation.",
       "missingName": "Unnamed",
       "sectionGeneral": "General data",
       "sectionGeneralHint": "Language-independent details: variety name, supplier, spacings, time periods and quantities. They apply to every language and are not translated.",
@@ -904,8 +905,13 @@
       "descriptionLabel": "Public description ({{language}})",
       "descriptionPlaceholder": "Description and growing notes in this language…",
       "atLeastOneRequired": "At least one language version must contain a description.",
-      "saveError": "The language versions could not be saved.",
-      "saveSuccess": "The language versions were saved."
+      "saveError": "The language version could not be saved.",
+      "saveSuccess": "The language version was saved.",
+      "loadError": "The language versions could not be loaded.",
+      "editDialogOpen": "Translate",
+      "editDialogTitle": "Edit translation",
+      "originalSectionTitle": "Original ({{language}})",
+      "editorSectionTitle": "{{language}} translation"
     },
     "commands": {
       "focusSearch": "Search the crop library (/)",

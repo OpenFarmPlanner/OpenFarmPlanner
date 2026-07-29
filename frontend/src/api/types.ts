@@ -237,6 +237,12 @@ export interface PublicCulture {
   source_project?: number | null;
 }
 
+export interface PublicCultureTranslations {
+  original_language_code: string;
+  translations: Record<string, string>;
+  crop_species_translations?: Record<string, string>;
+}
+
 export type PublicCultureChangeProposalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface PublicCultureChangeProposal {

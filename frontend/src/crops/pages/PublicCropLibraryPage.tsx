@@ -70,11 +70,13 @@ import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigat
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
+  getDescriptionFallbackNotice,
   getFallbackNotice,
   getPublicCultureDescription,
   getPublicCultureName,
   getPublicCultureTitle,
 } from '../publicCultureDisplay';
+import { PublicCultureTranslationDialog } from '../components/PublicCultureTranslationDialog';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -1059,6 +1061,7 @@ export default function PublicCropLibraryPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -1212,7 +1215,7 @@ export default function PublicCropLibraryPage() {
     [language, selectedCulture],
   );
   const descriptionFallbackNotice = useMemo(
-    () => getFallbackNotice(selectedCultureDescription, t, language),
+    () => getDescriptionFallbackNotice(selectedCultureDescription, t, language),
     [selectedCultureDescription, t, language],
   );
   const selectedTopic = useMemo(
@@ -1554,6 +1557,17 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
+  const openTranslationDialog = useCallback((): void => {
+    if (!selectedCulture) {
+      return;
+    }
+    setTranslationDialogOpen(true);
+  }, [selectedCulture]);
+
+  const closeTranslationDialog = (): void => {
+    setTranslationDialogOpen(false);
+  };
+
   const openModeration = useCallback((): void => {
     navigate('/app/public-library-moderation');
   }, [navigate]);
@@ -1615,6 +1629,19 @@ export default function PublicCropLibraryPage() {
       showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
     } catch {
       showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
+    }
+  };
+
+  const handleTranslationSaved = async (): Promise<void> => {
+    if (!selectedCulture) {
+      return;
+    }
+    try {
+      const response = await publicCultureAPI.get(selectedCulture.id);
+      upsertCultureInList(response.data);
+      showGlobalSnackbar({ message: t('library.translation.saveSuccess'), severity: 'success' });
+    } catch {
+      showGlobalSnackbar({ message: t('library.translation.saveError'), severity: 'error' });
     }
   };
 
@@ -1839,6 +1866,11 @@ export default function PublicCropLibraryPage() {
           label: t('library.page.edit.open'),
           icon: <EditOutlinedIcon fontSize="small" />,
           onClick: openEditDialog,
+        },
+        {
+          label: t('library.translation.editDialogOpen'),
+          icon: <TranslateOutlinedIcon fontSize="small" />,
+          onClick: openTranslationDialog,
         },
         {
           label: importingId ? t('library.importing') : t('library.importButton'),
@@ -2471,6 +2503,15 @@ export default function PublicCropLibraryPage() {
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}
           variant="publicLibrary"
+        />
+      ) : null}
+      {selectedCulture ? (
+        <PublicCultureTranslationDialog
+          open={translationDialogOpen}
+          culture={selectedCulture}
+          language={language}
+          onClose={closeTranslationDialog}
+          onSaved={() => void handleTranslationSaved()}
         />
       ) : null}
     </PageContainer>

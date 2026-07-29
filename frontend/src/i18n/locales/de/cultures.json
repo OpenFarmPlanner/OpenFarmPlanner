@@ -897,6 +897,7 @@
     "translation": {
       "fallbackNotice": "Nur auf {{language}} verfügbar",
       "fallbackNoticeTooltip": "Für diese Angabe gibt es noch keine Übersetzung in deiner Sprache. Angezeigt wird die Version auf {{language}}.",
+      "descriptionFallbackNoticeTooltip": "Für diese Angabe gibt es noch keine {{targetLanguage}}-Übersetzung. Angezeigt wird die Version auf {{language}}. Du kannst helfen, indem du eine {{targetLanguage}}-Übersetzung hinzufügst.",
       "missingName": "Ohne Bezeichnung",
       "sectionGeneral": "Allgemeine Daten",
       "sectionGeneralHint": "Sprachunabhängige Angaben: Sortenname, Lieferant, Abstände, Zeiträume und Mengen. Sie gelten für alle Sprachen und werden nicht übersetzt.",
@@ -904,8 +905,13 @@
       "descriptionLabel": "Öffentliche Beschreibung ({{language}})",
       "descriptionPlaceholder": "Beschreibung und Anbauhinweise in dieser Sprache…",
       "atLeastOneRequired": "Mindestens eine Sprachversion muss eine Beschreibung enthalten.",
-      "saveError": "Die Sprachversionen konnten nicht gespeichert werden.",
-      "saveSuccess": "Die Sprachversionen wurden gespeichert."
+      "saveError": "Die Sprachversion konnte nicht gespeichert werden.",
+      "saveSuccess": "Die Sprachversion wurde gespeichert.",
+      "loadError": "Die Sprachversionen konnten nicht geladen werden.",
+      "editDialogOpen": "Übersetzen",
+      "editDialogTitle": "Übersetzung bearbeiten",
+      "originalSectionTitle": "Original ({{language}})",
+      "editorSectionTitle": "{{language}}-Übersetzung"
     },
     "commands": {
       "focusSearch": "Kulturbibliothek durchsuchen (/)",

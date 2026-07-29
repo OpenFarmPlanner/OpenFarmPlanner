@@ -235,6 +235,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             )
         except PublicCulturePermissionError as error:
             return Response({'detail': error.message, 'code': error.code}, status=status.HTTP_403_FORBIDDEN)
+        except PublicCultureStatusTransitionError as error:
+            return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
         return Response({
             'original_language_code': updated.original_language_code,
             'translations': updated.descriptions_by_language(),

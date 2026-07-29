@@ -111,3 +111,28 @@ export function getFallbackNotice(
     tooltip: t('library.translation.fallbackNoticeTooltip', { language: languageName }),
   };
 }
+
+/**
+ * Same as {@link getFallbackNotice}, but for the description specifically:
+ * the tooltip also invites the reader to contribute a translation in their
+ * own UI language, since (unlike the species name) the description is
+ * something any signed-in user can translate via the edit dialog.
+ */
+export function getDescriptionFallbackNotice(
+  localized: LocalizedText,
+  t: TFunction,
+  displayLanguage: string,
+): { label: string; tooltip: string } | null {
+  if (!localized.isFallback || !localized.languageCode) {
+    return null;
+  }
+  const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);
+  const targetLanguageName = getLanguageDisplayName(displayLanguage, displayLanguage);
+  return {
+    label: t('library.translation.fallbackNotice', { language: languageName }),
+    tooltip: t('library.translation.descriptionFallbackNoticeTooltip', {
+      language: languageName,
+      targetLanguage: targetLanguageName,
+    }),
+  };
+}

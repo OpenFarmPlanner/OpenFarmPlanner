@@ -44,7 +44,9 @@ export function publicCultureToCultureFormData(culture: PublicCulture): Culture 
     id: culture.id,
     name: culture.name,
     variety: culture.variety ?? '',
-    notes: culture.notes ?? '',
+    // Notes are per-language and edited separately via the translations
+    // dialog/endpoint; this generic form never touches them.
+    notes: '',
     crop_family: culture.crop_family ?? '',
     nutrient_demand: culture.nutrient_demand ?? '',
     cultivation_type: culture.cultivation_type || cultivationTypes[0] || 'pre_cultivation',
@@ -97,7 +99,6 @@ export function buildPublicCultureUpdatePayload(
 
   return {
     base_version: baseVersion,
-    notes: draft.notes ?? '',
     crop_family: draft.crop_family ?? '',
     nutrient_demand: normalizeNutrientDemand(draft.nutrient_demand),
     cultivation_type: normalizeCultivationType(draft.cultivation_type),

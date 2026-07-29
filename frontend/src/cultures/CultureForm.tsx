@@ -789,7 +789,9 @@ export function CultureForm({
             <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} />
             <SeedingSection formData={formData} errors={errors} onChange={handleChange} t={t} />
             <ColorSection formData={formData} errors={errors} onChange={handleChange} t={t} defaultColor={DEFAULT_DISPLAY_COLOR} />
-            <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />
+            {isProjectForm ? (
+              <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />
+            ) : null}
             {showSupplierDataSection ? (
               <>
                 <Typography variant="h6" sx={{ mt: 1 }}>{t('form.supplierDataSectionTitle')}</Typography>

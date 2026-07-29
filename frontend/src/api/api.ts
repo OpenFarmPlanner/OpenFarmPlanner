@@ -21,6 +21,7 @@ import type {
   PublicCultureRemovalReason,
   PublicCultureRevision,
   PublicCultureDuplicateCandidate,
+  PublicCultureTranslations,
   CropSpecies,
   PublicLibraryModeratorRequest,
   PublicLibraryModeratorRequestMine,
@@ -179,6 +180,10 @@ export const publicCultureAPI = {
   versions: (id: number) => http.get<PublicCultureRevision[]>(`/public-cultures/${id}/versions/`),
   revert: (id: number, data: { version: number; base_version?: number }) =>
     http.post<PublicCulture>(`/public-cultures/${id}/revert/`, data),
+  getTranslations: (id: number) =>
+    http.get<PublicCultureTranslations>(`/public-cultures/${id}/translations/`),
+  updateTranslations: (id: number, translations: Record<string, string>) =>
+    http.put<PublicCultureTranslations>(`/public-cultures/${id}/translations/`, { translations }),
   changeProposals: (id: number) => http.get<PublicCultureChangeProposal[]>(`/public-cultures/${id}/change-proposals/`),
   createChangeProposal: (id: number, data: { summary: string; proposed_data: Partial<PublicCulture> }) =>
     http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/`, data),
