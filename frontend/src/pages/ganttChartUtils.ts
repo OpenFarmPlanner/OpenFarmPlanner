@@ -48,6 +48,8 @@ export interface GanttTaskGroup {
   isExpandable?: boolean;
   isExpanded?: boolean;
   emptyRowLabel?: string;
+  /** Compact grey summary line under the row name in the left column. */
+  metaLabel?: string;
   rowHeightOverride?: number;
 }
 

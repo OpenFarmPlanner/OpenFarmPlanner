@@ -109,6 +109,10 @@ import {
   type GanttTaskGroup,
   type OccupancyHierarchyNode,
 } from './ganttChartUtils';
+import {
+  buildOccupancyStructureSummaries,
+  formatOccupancyStructureSummary,
+} from './occupancyStructureSummary';
 import { useGanttContextMenu } from './useGanttContextMenu';
 import { useGanttTaskActions } from './useGanttTaskActions';
 import { useOccupancyHierarchyFilter } from './useOccupancyHierarchyFilter';
@@ -843,6 +847,16 @@ function GanttChartPage() {
       visibleIds = collectVisibleIdsWithAncestors(prunedNodes, matchedBedIds);
     }
 
+    // Summaries come from the filtered node set (structural "nur belegte
+    // Beete" pruning plus the location/field/search match), so the grey meta
+    // line can never claim more beds than the view actually lists. Expansion
+    // state is intentionally not folded in — collapsing a row hides it, it
+    // does not remove it from the structure.
+    const summarizedNodes = visibleIds
+      ? prunedNodes.filter((node) => visibleIds.has(node.id))
+      : prunedNodes;
+    const structureSummaries = buildOccupancyStructureSummaries(summarizedNodes);
+
     const flatRows = flattenTreeRows(prunedNodes, {
       expandedIds: expandedHierarchyIds,
       visibleIds,
@@ -852,15 +866,10 @@ function GanttChartPage() {
       const isExpandable = node.type !== 'bed' && hasChildren;
       const isExpanded = expandedHierarchyIds.has(node.id);
 
-      let emptyRowLabel: string | undefined;
-      if (node.type === 'field') {
-        emptyRowLabel = `${node.bedCount} Beet${node.bedCount === 1 ? '' : 'e'} · ${node.occupiedBedCount} belegt`;
-      } else if (node.type === 'location') {
-        const fieldCount = prunedNodes.filter(
-          (candidate) => candidate.type === 'field' && candidate.parentId === node.id,
-        ).length;
-        emptyRowLabel = `${fieldCount} Parzelle${fieldCount === 1 ? '' : 'n'} · ${node.bedCount} Beet${node.bedCount === 1 ? '' : 'e'} · ${node.occupiedBedCount} belegt`;
-      }
+      const structureSummary = structureSummaries.get(node.id);
+      const metaLabel = structureSummary
+        ? formatOccupancyStructureSummary(structureSummary, t)
+        : undefined;
 
       const group: GanttTaskGroup = {
         id: node.id,
@@ -869,10 +878,11 @@ function GanttChartPage() {
         depth,
         isExpandable,
         isExpanded,
-        emptyRowLabel,
+        metaLabel,
         // Standort/Parzelle rows have no bars of their own, so they don't
-        // need a full task-row height — Beet rows keep the normal,
-        // task-count-based height (rowHeightOverride left unset).
+        // need a full task-row height — just enough for the name plus the
+        // meta line. Beet rows keep the normal, task-count-based height
+        // (rowHeightOverride left unset).
         rowHeightOverride: node.type === 'bed' ? undefined : OCCUPANCY_COMPACT_ROW_HEIGHT,
         locationId: node.locationId,
         fieldId: node.fieldId,
@@ -888,6 +898,7 @@ function GanttChartPage() {
     occupancyLocationFilter,
     occupancySearchText,
     onlyOccupiedBeds,
+    t,
   ]);
 
   const handleToggleGroupExpand = useCallback((groupId: string) => {

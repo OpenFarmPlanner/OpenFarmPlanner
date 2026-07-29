@@ -153,6 +153,11 @@ export function getLabelLinesSource(
  * eats into the space a wrapped label actually has to render in. */
 export const TREE_INDENT_PX = 20;
 
+/** Extra left offset for a tree row's `metaLabel` line so it starts under the
+ * name rather than under the chevron: the fixed 16px chevron column plus the
+ * 2px gap `.rmg-task-group-tree-content` puts after it. */
+export const TREE_META_LABEL_OFFSET_PX = 18;
+
 /**
  * Estimates a task group's row height contribution from its label alone
  * (before factoring in how many task bars need to stack). Used by both
@@ -169,7 +174,7 @@ export function estimateTaskGroupLabelHeight(
   const isTreeRow = taskGroup.depth !== undefined;
   const hierarchyLevels = isTreeRow ? null : getHierarchyLevels(taskGroup);
   const labelLinesSource = isTreeRow
-    ? [taskGroup.name || "Unnamed"]
+    ? [taskGroup.name || "Unnamed", taskGroup.metaLabel ?? ""].filter(Boolean)
     : getLabelLinesSource(taskGroup, hierarchyLevels, options.includeDescription ?? true);
   const effectiveWidth = leftColumnWidth - (isTreeRow ? (taskGroup.depth ?? 0) * TREE_INDENT_PX : 0);
   return estimateLabelHeight(labelLinesSource, effectiveWidth);

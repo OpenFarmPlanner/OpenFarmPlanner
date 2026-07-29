@@ -425,6 +425,31 @@
   color: var(--rmg-gray-200);
 }
 
+/* Structural summary line under a tree row's name (Standort/Parzelle:
+   "2 Parzellen · 6 Beete · 5 belegt"). Deliberately quiet — small,
+   secondary colour, tight line-height — so it reads as metadata and never
+   competes with the row name or the timeline bars next to it. */
+.rmg-task-group-tree-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--rmg-gray-500);
+}
+
+.rmg-dark .rmg-task-group-tree-meta {
+  color: var(--rmg-gray-400);
+}
+
+/* The name's per-depth weight/colour ramp must not bleed into the meta
+   line — it stays uniformly secondary at every depth. */
+.rmg-task-group-tree-row[data-depth="0"] .rmg-task-group-tree-meta,
+.rmg-task-group-tree-row[data-depth="1"] .rmg-task-group-tree-meta {
+  font-weight: 400;
+}
+
 .rmg-task-row-empty-label {
   display: flex;
   align-items: center;
