@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
+from accounts.guest_demo import create_guest_demo_session
 from crops.models import CropSpecies, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
@@ -104,6 +105,16 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.get(name='Tree onion')
         self.assertEqual(proposal.proposed_by, self.user)
 
+    def test_guest_demo_user_cannot_create_species_proposal(self):
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Demo species'})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(CropSpecies.objects.filter(name='Demo species').exists())
+
     def test_normal_user_cannot_list_or_review_species_proposals(self):
         proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
         self.client.force_authenticate(user=self.user)
@@ -197,6 +208,20 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(duplicate_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(mine_response.data['is_moderator'])
         self.assertEqual(mine_response.data['request']['status'], PublicLibraryModeratorRequest.STATUS_PENDING)
+
+    def test_guest_demo_user_cannot_request_moderator_access(self):
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        response = self.client.post(
+            '/openfarmplanner/api/public-library/moderator-requests/',
+            {'motivation': 'Demo request'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(PublicLibraryModeratorRequest.objects.filter(user=demo_session.user).exists())
 
     def test_admin_can_approve_moderator_request_without_staff_rights_for_user(self):
         admin = User.objects.create_user(

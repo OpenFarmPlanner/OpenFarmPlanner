@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
-
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -57,10 +55,3 @@ def delete_guest_demo_session(session: GuestDemoSession) -> None:
     project.delete()
     user.delete()
 
-
-def is_active_guest_demo_user(user: Any) -> bool:
-    """Return whether a user belongs to an unexpired guest demo session."""
-    try:
-        return user.guest_demo_session.expires_at > timezone.now()
-    except GuestDemoSession.DoesNotExist:
-        return False

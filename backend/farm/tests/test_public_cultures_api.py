@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
+from accounts.guest_demo import create_guest_demo_session
 from accounts.models import DocumentConsent
 from crops.models import CropSpecies
 from crops.permissions import grant_public_library_moderator_access
@@ -81,6 +82,22 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['code'], 'public_library_terms_required')
+        self.assertEqual(PublicCulture.objects.count(), 0)
+
+    def test_guest_demo_user_cannot_publish_to_public_library(self):
+        demo_session = create_guest_demo_session()
+        demo_culture = Culture.objects.filter(project=demo_session.project).first()
+        self.client.force_authenticate(user=demo_session.user)
+        self.client.defaults['HTTP_X_PROJECT_ID'] = str(demo_session.project_id)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{demo_culture.id}/publish-public/',
+            {'accepted_public_library_terms': True},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
         self.assertEqual(PublicCulture.objects.count(), 0)
 
     def test_publish_preview_reports_quality_gate_status(self):
@@ -489,6 +506,23 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertIn(create_response.status_code, {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN})
 
+    def test_guest_demo_user_can_read_but_cannot_create_public_discussions(self):
+        public_culture = PublicCulture.objects.create(name='Lettuce', variety='Bijella', status='published', created_by=self.user)
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        list_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/')
+        create_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/discussion-topics/',
+            {'title': 'Demo topic', 'body': 'Demo text'},
+            format='json',
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(create_response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(PublicCultureDiscussionTopic.objects.filter(public_culture=public_culture).exists())
+
     def test_comment_owner_can_edit_and_soft_delete_but_other_user_cannot(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)
         topic = PublicCultureDiscussionTopic.objects.create(public_culture=public_culture, title='Spacing', created_by=self.user)
@@ -813,6 +847,21 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(proposal.status, PublicCultureChangeProposal.STATUS_PENDING)
         self.assertEqual(proposal.proposed_by, self.user)
         self.assertEqual(proposal.proposed_data['notes'], 'Prefers warm protected conditions.')
+
+    def test_guest_demo_user_cannot_create_change_proposal(self):
+        public_culture = PublicCulture.objects.create(name='Lettuce', variety='Bijella', status='published', created_by=self.user)
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/change-proposals/',
+            {'summary': 'Demo proposal', 'proposed_data': {'notes': 'Demo edit'}},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(PublicCultureChangeProposal.objects.filter(public_culture=public_culture).exists())
 
     def test_change_proposal_rejects_unsupported_fields(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)

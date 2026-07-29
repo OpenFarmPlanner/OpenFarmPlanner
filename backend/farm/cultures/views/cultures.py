@@ -11,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.consent import has_accepted_current, record_acceptance
 from accounts.models import DocumentConsent
 from farm.common.mixins import ProjectScopedMixin
@@ -495,6 +496,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='publish-public')
     def publish_public(self, request, pk=None):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         culture = self.get_object()
         if not culture.name.strip():
             return Response({'detail': 'Name is required for publishing.'}, status=status.HTTP_400_BAD_REQUEST)
