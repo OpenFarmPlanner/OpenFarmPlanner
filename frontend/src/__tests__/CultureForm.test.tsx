@@ -445,6 +445,66 @@ describe('CultureForm', () => {
     });
   });
 
+  it('shows only a compact hint instead of supplier fields while no supplier is selected', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(await screen.findByTestId('culture-supplier-data-hint')).toHaveTextContent('form.supplierDataSelectSupplierHint');
+    expect(screen.queryByLabelText('form.supplierProductNameLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('form.seedPackagesLabel')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'form.addSeedPackage' })).not.toBeInTheDocument();
+    // The row stays removable even without a selected supplier.
+    expect(screen.getByRole('button', { name: 'form.removeSupplierData' })).toBeInTheDocument();
+  });
+
+  it('reveals the supplier fields once a supplier is selected', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const supplierSelect = await screen.findByRole('combobox');
+    fireEvent.mouseDown(supplierSelect);
+    fireEvent.click(screen.getByRole('option', { name: 'Bingenheimer' }));
+
+    expect(await screen.findByLabelText('form.supplierProductNameLabel')).toBeInTheDocument();
+    expect(screen.getByText('form.seedPackagesLabel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'form.addSeedPackage' })).toBeInTheDocument();
+    expect(screen.queryByTestId('culture-supplier-data-hint')).not.toBeInTheDocument();
+  });
+
+  it('lays out the supplier section vertically without reserving extra height', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ supplier_id: 10, supplier_name: 'Bingenheimer', packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const section = await screen.findByTestId('culture-supplier-data-section');
+    expect(section).toHaveStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '14px',
+    });
+    expect(section).not.toHaveStyle({ height: '100%' });
+  });
+
   it('shows duplicate culture validation and blocks saving', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: true } });
