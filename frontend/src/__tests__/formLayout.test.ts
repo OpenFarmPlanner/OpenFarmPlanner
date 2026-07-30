@@ -4,8 +4,11 @@ import {
   formRowSx,
   fullWidthFieldSx,
   mediumFieldSx,
+  mediumStackedFieldSx,
   smallFieldSx,
   wideFieldSx,
+  wideSingleColumnFieldSx,
+  wideStackedFieldSx,
 } from '../components/forms/formLayout';
 
 describe('form layout widths', () => {
@@ -18,6 +21,17 @@ describe('form layout widths', () => {
     expect(sx.width).toEqual({ xs: '100%', sm: desktopWidth });
     expect(sx.maxWidth).toEqual({ xs: '100%', sm: desktopWidth });
     expect(sx.flex).toEqual({ xs: '1 1 100%', sm: `0 1 ${desktopWidth}px` });
+  });
+
+  it.each([
+    ['mediumStacked', mediumStackedFieldSx],
+    ['wideSingleColumn', wideSingleColumnFieldSx],
+    ['wideStacked', wideStackedFieldSx],
+  ])('keeps %s fields free of a flex-basis that would become a height in a column', (_name, sx) => {
+    expect(sx).not.toHaveProperty('flex');
+    expect(sx).not.toHaveProperty('flexBasis');
+    expect(sx).not.toHaveProperty('height');
+    expect(sx).not.toHaveProperty('minHeight');
   });
 
   it('keeps prose fields full width and allows compact rows to wrap', () => {
