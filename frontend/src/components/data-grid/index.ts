@@ -18,8 +18,9 @@ export type {
 } from './types';
 export { NotesCell } from './NotesCell';
 export { NotesDrawer } from './NotesDrawer';
-export { MarkdownToolbar } from './MarkdownToolbar';
-export type { MarkdownFormat } from './MarkdownToolbar';
+export { RichTextEditor } from './RichTextEditor';
+export { normalizeRichTextMarkdown } from './richText';
+export { RichTextViewer } from './RichTextViewer';
 export { getPlainExcerpt, stripMarkdown } from './markdown';
 export { useNotesEditor } from './useNotesEditor';
 export type { UseNotesEditorConfig, UseNotesEditorReturn, NotesEditorSaveOptions } from './useNotesEditor';

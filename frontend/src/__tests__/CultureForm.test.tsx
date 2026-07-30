@@ -424,6 +424,27 @@ describe('CultureForm', () => {
     expect(screen.getByText('form.supplierDataSectionTitle')).toBeInTheDocument();
   });
 
+  it('keeps supplier information rows compact without stretch layout', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ supplier_id: 10, supplier_name: 'Bingenheimer', packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const row = await screen.findByTestId('culture-supplier-data-row');
+    expect(row).toHaveStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      flexGrow: '0',
+      minHeight: '0',
+    });
+  });
+
   it('shows duplicate culture validation and blocks saving', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: true } });

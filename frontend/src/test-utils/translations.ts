@@ -1,11 +1,17 @@
-
 /**
- * Re-export translations for synchronous use in tests
- * 
- * This file provides a synchronous import of translation keys for use in test files,
- * avoiding the need for async i18next initialization in tests.
+ * Synchronous access to the real German translation bundles for use in tests,
+ * without needing to await i18next initialization.
+ *
+ * These are the same namespace files i18n/config.ts loads at runtime, so
+ * `translations.navigation.cultures` always reflects the copy users actually see.
  */
 
-import translations from '../../public/locales/de/translation.json';
+import cultures from '../i18n/locales/de/cultures.json';
+import navigation from '../i18n/locales/de/navigation.json';
+
+const translations = {
+  navigation,
+  cultures,
+};
 
 export default translations;

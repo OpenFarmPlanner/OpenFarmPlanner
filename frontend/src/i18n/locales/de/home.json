@@ -86,7 +86,7 @@
         "alt": "Ertragsübersicht mit erwarteten Erntemengen nach Kalenderwochen und Kulturen"
       },
       "cultures": {
-        "tab": "Kulturbibliothek",
+        "tab": "Kulturen",
         "title": "Kulturen zentral pflegen",
         "description": "Sorten, Anbauarten, Abstände, Ernteerwartung und Saatgutdaten liegen an einem Ort und speisen die Planung.",
         "alt": "Kulturen-Ansicht mit mehreren Gemüsearten und Sorten im Demo-Projekt"
@@ -271,7 +271,7 @@
         },
         "contributionLicense": {
           "title": "Offene Lizenz für veröffentlichte Kulturdaten",
-          "content": "Wenn Sie einen Kultur-Datensatz in die öffentliche Kulturbibliothek veröffentlichen, stellen Sie die veröffentlichten Kulturdaten unter die Creative Commons Attribution-ShareAlike 4.0 International Lizenz (CC BY-SA 4.0). Die Lizenz erlaubt Dritten insbesondere, die veröffentlichten Kulturdaten zu vervielfältigen, zu verbreiten, zu bearbeiten, mit anderen Daten zu kombinieren und auch kommerziell zu nutzen, sofern die Lizenzbedingungen eingehalten werden. Dazu gehören insbesondere eine angemessene Namensnennung, ein Hinweis auf die Lizenz und die Weitergabe bearbeiteter Fassungen unter denselben oder kompatiblen Bedingungen.\n\nDie Einräumung der Lizenz ist nach den Lizenzbedingungen unwiderruflich, soweit die Lizenz einmal wirksam erteilt wurde. OpenFarmPlanner darf die veröffentlichten Kulturdaten dauerhaft speichern, anzeigen, in Such- und Importfunktionen einbinden, in öffentlichen Datenexporten oder APIs bereitstellen, technisch aufbereiten und im Rahmen der gemeinschaftlichen Kulturbibliothek weiterentwickeln. Sie bleiben Inhaber etwaiger eigener Rechte an Ihrem Beitrag; die offene Lizenz ermöglicht jedoch die dauerhafte Nutzung durch OpenFarmPlanner und Dritte."
+          "content": "Wenn Sie einen Kultur-Datensatz in die öffentliche Kulturbibliothek veröffentlichen, stellen Sie die veröffentlichten Kulturdaten unter die Creative Commons Attribution-ShareAlike 4.0 International Lizenz (CC BY-SA 4.0). Die Lizenz erlaubt Dritten insbesondere, die veröffentlichten Kulturdaten zu vervielfältigen, zu verbreiten, zu bearbeiten, mit anderen Daten zu kombinieren und auch kommerziell zu nutzen, sofern die Lizenzbedingungen eingehalten werden. Dazu gehören insbesondere eine angemessene Namensnennung, ein Hinweis auf die Lizenz und die Weitergabe bearbeiteter Fassungen unter denselben oder kompatiblen Bedingungen.\n\nDie Einräumung der Lizenz ist nach den Lizenzbedingungen unwiderruflich, soweit die Lizenz einmal wirksam erteilt wurde. OpenFarmPlanner darf die veröffentlichten Kulturdaten dauerhaft speichern, anzeigen, in Such- und Importfunktionen einbinden, in öffentlichen Datenexporten oder APIs bereitstellen, technisch aufbereiten und im Rahmen der gemeinschaftlichen Kulturbibliothek weiterentwickeln."
         },
         "prohibitedContent": {
           "title": "Verbotene Inhalte und Verhalten",

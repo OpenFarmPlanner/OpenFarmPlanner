@@ -86,7 +86,7 @@
         "alt": "Yield overview with expected harvest quantities by calendar week and crop"
       },
       "cultures": {
-        "tab": "Crop library",
+        "tab": "Crops",
         "title": "Maintain crops centrally",
         "description": "Varieties, cultivation methods, spacing, expected yield, and seed data live in one place and feed the plan.",
         "alt": "Crops view with several vegetables and varieties in the demo project"
@@ -271,7 +271,7 @@
         },
         "contributionLicense": {
           "title": "Open license for published crop data",
-          "content": "When you publish a crop record to the public crop library, you license the published crop data under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). This license in particular allows third parties to reproduce, distribute, edit, and combine the published crop data with other data, and to use it commercially, provided the license terms are followed. These terms include, in particular, appropriate attribution, an indication of the license, and sharing modified versions under the same or compatible terms.\n\nOnce validly granted, the license is irrevocable under its terms. OpenFarmPlanner may permanently store and display the published crop data, include it in search and import features, make it available in public data exports or APIs, technically process it, and further develop it as part of the collaborative crop library. You remain the owner of any rights you hold in your contribution; however, the open license enables its permanent use by OpenFarmPlanner and third parties."
+          "content": "When you publish a crop record to the public crop library, you license the published crop data under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). This license in particular allows third parties to reproduce, distribute, edit, and combine the published crop data with other data, and to use it commercially, provided the license terms are followed. These terms include, in particular, appropriate attribution, an indication of the license, and sharing modified versions under the same or compatible terms.\n\nOnce validly granted, the license is irrevocable under its terms. OpenFarmPlanner may permanently store and display the published crop data, include it in search and import features, make it available in public data exports or APIs, technically process it, and further develop it as part of the collaborative crop library."
         },
         "prohibitedContent": {
           "title": "Prohibited content and behavior",

@@ -1,5 +1,5 @@
 {
-  "title": "Crop library",
+  "title": "Crops",
   "searchPlaceholder": "Search crop",
   "searchInputPlaceholder": "Enter crop name...",
   "noOptions": "No crops found",
@@ -41,7 +41,7 @@
     "title": "No crops yet",
     "description": "Crops are the basis of your planting planning. Create your first crop or import crops from the crop library.",
     "createAction": "Add crop",
-    "openLibraryAction": "Open crop library"
+    "openLibraryAction": "Open crops"
   },
   "perennial": "Perennial",
   "annual": "Annual",
@@ -914,8 +914,8 @@
       "loadError": "The language versions could not be loaded.",
       "editDialogOpen": "Translate",
       "editDialogTitle": "Edit translation",
-      "originalSectionTitle": "Original ({{language}})",
-      "editorSectionTitle": "{{language}} translation"
+      "originalSectionTitle": "{{language}} – Original",
+      "editorSectionTitle": "{{language}} – Translation"
     },
     "commands": {
       "focusSearch": "Search the crop library (/)",

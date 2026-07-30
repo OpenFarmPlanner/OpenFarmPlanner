@@ -27,6 +27,9 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.20.0",
+    "@tiptap/extension-link": "^3.29.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
     "fflate": "^0.8.3",
@@ -41,7 +44,8 @@
     "react-konva": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-router": "^8.3.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "tiptap-markdown": "^0.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

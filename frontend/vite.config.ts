@@ -26,6 +26,9 @@ const backendProxy = {
 export default defineConfig({
   base: basePath,
   plugins: [react(), seoPlugin(process.env)],
+  optimizeDeps: {
+    include: ['tiptap-markdown'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

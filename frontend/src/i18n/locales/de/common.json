@@ -116,7 +116,8 @@
       "bulletList": "Aufzählungsliste",
       "numberedList": "Nummerierte Liste",
       "link": "Link einfügen",
-      "quote": "Zitat"
+      "quote": "Zitat",
+      "ariaLabel": "Formatierungsleiste"
     },
     "defaults": {
       "bold": "fetter Text",

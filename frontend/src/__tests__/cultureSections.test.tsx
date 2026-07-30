@@ -9,6 +9,25 @@ import { BasicInfoSection } from '../cultures/sections/BasicInfoSection';
 
 import i18n from '../i18n/config';
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel?: string;
+  }) => (
+    <textarea
+      data-testid="rich-text-editor"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 // Resolve against the real German bundle rather than a hand-kept stub map, so
 // a key removed from the bundle fails the test instead of silently rendering
 // the raw key.
@@ -70,7 +89,7 @@ describe('culture form UI sections', () => {
     expect(screen.getByText('Ungültiges Farbformat (verwenden Sie #RRGGBB)')).toBeInTheDocument();
   });
 
-  it('renders NotesSection and emits note changes', () => {
+  it('renders NotesSection as a rich-text editor and emits note changes', async () => {
     const onChange = vi.fn();
 
     render(
@@ -82,12 +101,13 @@ describe('culture form UI sections', () => {
       />
     );
 
-    const notesInput = screen.getByLabelText('Notizen');
+    const notesInput = screen.getByRole('textbox', { name: 'Notizen' });
+    expect(screen.getByTestId('rich-text-editor')).toBeInTheDocument();
     expect(notesInput).toHaveValue('Bestehende Notiz');
 
     fireEvent.change(notesInput, { target: { value: 'Neue Notiz' } });
 
-    expect(onChange).toHaveBeenCalledWith('notes', 'Neue Notiz');
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('notes', 'Neue Notiz'));
   });
 
   it('renders SpacingSection and parses numeric inputs', () => {
