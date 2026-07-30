@@ -78,6 +78,21 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+      testIgnore: /scrollbar-layout\.spec\.ts/,
+    },
+    {
+      // Headless Chrome is launched with `--hide-scrollbars`, so the page never
+      // gets the classic scrollbar that MUI's modal scroll lock compensates for
+      // - the very thing scrollbar-layout.spec.ts is about. Dropping that flag
+      // for this project only keeps the rest of the suite (and its screenshot
+      // baselines) on the default, scrollbar-free rendering.
+      name: 'chromium-scrollbars',
+      testMatch: /scrollbar-layout\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome',
+        launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] },
+      },
     },
   ],
 });
