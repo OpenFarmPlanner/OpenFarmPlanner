@@ -18,7 +18,7 @@
       ]
     },
     {
-      "title": "Kulturbibliothek",
+      "title": "Kulturen",
       "points": [
         "Hier trägst du deine Kulturdaten ein oder greifst auf die öffentliche Kulturbibliothek zurück."
       ]
@@ -132,7 +132,7 @@
       }
     },
     "cultures": {
-      "title": "Hilfe: Kulturbibliothek",
+      "title": "Hilfe: Kulturen",
       "intro": "Hier verwaltest du Kulturen und ihre wichtigsten Eigenschaften. Diese Daten werden in Anbauplänen, Kalender und Saatgutbedarf verwendet.",
       "sections": [
         {

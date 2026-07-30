@@ -24,7 +24,7 @@ describe('i18n Configuration', () => {
     const locations = i18n.t('navigation:locations');
     expect(locations).toBe('Standorte');
 
-    expect(i18n.t('navigation:cultures')).toBe('Kulturbibliothek');
+    expect(i18n.t('navigation:cultures')).toBe('Kulturen');
     expect(i18n.t('navigation:cropLibrary')).toBe('Öffentliche Kulturbibliothek');
     expect(i18n.t('navigation:cultureActions.library')).toBe('Aus Bibliothek importieren');
   });
@@ -34,7 +34,7 @@ describe('i18n Configuration', () => {
     expect(locationsTitle).toBe('Standorte');
     
     const culturesTitle = i18n.t('cultures:title');
-    expect(culturesTitle).toBe('Kulturbibliothek');
+    expect(culturesTitle).toBe('Kulturen');
 
     expect(i18n.t('cultures:library.dialogTitle')).toBe('Aus Kulturbibliothek importieren');
     expect(i18n.t('cultures:library.page.title')).toBe('Öffentliche Kulturbibliothek');

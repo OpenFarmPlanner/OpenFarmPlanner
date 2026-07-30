@@ -12,7 +12,7 @@ function renderItem(overrides: Partial<React.ComponentProps<typeof NavListItem>>
     <MemoryRouter>
       <NavListItem
         to="/app/cultures"
-        label="Kulturbibliothek"
+        label="Kulturen"
         icon={<span data-testid="icon" />}
         isActive={false}
         disabled={false}
