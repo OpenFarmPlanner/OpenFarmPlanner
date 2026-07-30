@@ -185,7 +185,7 @@ describe('App', () => {
     expect(await screen.findByRole('tab', { name: 'Flächen' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Flächen',
-      'Kulturbibliothek',
+      'Kulturen',
       'Anbaupläne',
       'Kalender',
       'Erträge',
@@ -222,7 +222,7 @@ describe('App', () => {
     expect(await screen.findByRole('tab', { name: 'Areas' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Areas',
-      'Crop library',
+      'Crops',
       'Planting plans',
       'Calendar',
       'Yields',

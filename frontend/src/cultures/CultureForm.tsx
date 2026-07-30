@@ -811,7 +811,22 @@ export function CultureForm({
                   </Typography>
                 ) : null}
                 {supplierRows.map((row, supplierIndex) => (
-              <div key={`supplier-row-${supplierIndex}`} style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Box
+                    key={`supplier-row-${supplierIndex}`}
+                    data-testid="culture-supplier-data-row"
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      p: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                      minHeight: 0,
+                      flexGrow: 0,
+                    }}
+                  >
                 {(() => {
                   const selectedSupplierId = row.supplier_id ?? row.supplier?.id ?? null;
                   const availableSupplierIds = new Set(supplierOptions.map((supplier) => supplier.id));
@@ -932,7 +947,7 @@ export function CultureForm({
                   <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
                   <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
                 </Box>
-              </div>
+                  </Box>
                 ))}
                 <Button variant="outlined" onClick={addSupplierRow}>{t('form.addSupplierData')}</Button>
               </>

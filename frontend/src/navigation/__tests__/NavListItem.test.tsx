@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import NavListItem from '../NavListItem';
 
 const DISABLED_TOOLTIP = 'Erstelle zuerst ein Projekt.';
+const LABEL = 'Test Destination';
 
 function renderItem(overrides: Partial<React.ComponentProps<typeof NavListItem>> = {}) {
   const onNavigate = vi.fn();
@@ -12,7 +13,7 @@ function renderItem(overrides: Partial<React.ComponentProps<typeof NavListItem>>
     <MemoryRouter>
       <NavListItem
         to="/app/cultures"
-        label="Kulturen"
+        label={LABEL}
         icon={<span data-testid="icon" />}
         isActive={false}
         disabled={false}
@@ -32,7 +33,7 @@ describe('NavListItem — no active project (disabled)', () => {
   it('stays visible (icon + label) but is not rendered as a navigable link', () => {
     renderItem({ disabled: true });
 
-    expect(screen.getByText('Kulturbibliothek')).toBeInTheDocument();
+    expect(screen.getByText(LABEL)).toBeInTheDocument();
     expect(screen.getByTestId('icon')).toBeInTheDocument();
     // No <a href> exists at all — navigation cannot be triggered by click or
     // keyboard, independent of any CSS pointer-events/disabled styling.
@@ -42,7 +43,7 @@ describe('NavListItem — no active project (disabled)', () => {
   it('exposes an accessible disabled state', () => {
     renderItem({ disabled: true });
 
-    const control = screen.getByText('Kulturbibliothek').closest('[aria-disabled]');
+    const control = screen.getByText(LABEL).closest('[aria-disabled]');
     expect(control).toHaveAttribute('aria-disabled', 'true');
     expect(control).toHaveAttribute('tabindex', '-1');
   });
@@ -54,7 +55,7 @@ describe('NavListItem — no active project (disabled)', () => {
     // The disabled control itself has `pointer-events: none` (real browser
     // behavior, honored by userEvent) — only the Tooltip's wrapper span is
     // actually clickable, exactly as a real pointer interaction would land.
-    const control = screen.getByText('Kulturbibliothek').closest('[aria-disabled]') as HTMLElement;
+    const control = screen.getByText(LABEL).closest('[aria-disabled]') as HTMLElement;
     await user.click(control.parentElement as HTMLElement);
 
     expect(onNavigate).not.toHaveBeenCalled();
@@ -66,7 +67,7 @@ describe('NavListItem — no active project (disabled)', () => {
 
     // Disabled items are removed from the tab order (tabindex=-1); simulate a
     // determined keyboard user who still dispatches Enter/Space at the node.
-    const control = screen.getByText('Kulturbibliothek').closest('[aria-disabled]') as HTMLElement;
+    const control = screen.getByText(LABEL).closest('[aria-disabled]') as HTMLElement;
     control.focus();
     await user.keyboard('{Enter}');
     await user.keyboard(' ');
@@ -78,7 +79,7 @@ describe('NavListItem — no active project (disabled)', () => {
     const user = userEvent.setup();
     renderItem({ disabled: true });
 
-    const control = screen.getByText('Kulturbibliothek').closest('[aria-disabled]') as HTMLElement;
+    const control = screen.getByText(LABEL).closest('[aria-disabled]') as HTMLElement;
     await user.hover(control.parentElement as HTMLElement);
 
     expect(await screen.findByText(DISABLED_TOOLTIP)).toBeInTheDocument();
@@ -89,7 +90,7 @@ describe('NavListItem — active project (enabled)', () => {
   it('renders as a real link to the destination', () => {
     renderItem({ disabled: false });
 
-    const link = screen.getByRole('link', { name: 'Kulturbibliothek' });
+    const link = screen.getByRole('link', { name: LABEL });
     expect(link).toHaveAttribute('href', '/app/cultures');
     expect(link).not.toHaveAttribute('aria-disabled');
   });
@@ -98,17 +99,17 @@ describe('NavListItem — active project (enabled)', () => {
     const user = userEvent.setup();
     const { onNavigate } = renderItem({ disabled: false });
 
-    await user.click(screen.getByRole('link', { name: 'Kulturbibliothek' }));
+    await user.click(screen.getByRole('link', { name: LABEL }));
 
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('shows the label as a tooltip when an explicit enabledTooltip is given (collapsed sidebar)', async () => {
     const user = userEvent.setup();
-    renderItem({ disabled: false, enabledTooltip: 'Kulturbibliothek' });
+    renderItem({ disabled: false, enabledTooltip: LABEL });
 
-    await user.hover(screen.getByRole('link', { name: 'Kulturbibliothek' }));
+    await user.hover(screen.getByRole('link', { name: LABEL }));
 
-    expect(await screen.findAllByText('Kulturbibliothek')).not.toHaveLength(0);
+    expect(await screen.findAllByText(LABEL)).not.toHaveLength(0);
   });
 });

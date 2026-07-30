@@ -55,7 +55,7 @@
     }
   ],
   "workflowTitle": "Workflow",
-  "workflow": "Growing areas → Crop library → Planting plans → Planting calendar → Seed demand",
+  "workflow": "Growing areas → Crops → Planting plans → Planting calendar → Seed demand",
   "pages": {
     "dashboard": {
       "title": "Help: Overview",

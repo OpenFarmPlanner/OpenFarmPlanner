@@ -55,7 +55,7 @@
     }
   ],
   "workflowTitle": "Workflow",
-  "workflow": "Anbauflächen → Kulturbibliothek → Anbaupläne → Anbaukalender → Saatgutbedarf",
+  "workflow": "Anbauflächen → Kulturen → Anbaupläne → Anbaukalender → Saatgutbedarf",
   "pages": {
     "dashboard": {
       "title": "Hilfe: Übersicht",
