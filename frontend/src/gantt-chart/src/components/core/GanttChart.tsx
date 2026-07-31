@@ -16,7 +16,12 @@ import {
   type ExportResult,
   type ExportFormat,
 } from "../../types";
-import { getMonthsBetween, findEarliestDate, findLatestDate } from "../../utils";
+import {
+  getMonthsBetween,
+  findEarliestDate,
+  findLatestDate,
+  normalizeLeftColumnWidth,
+} from "../../utils";
 import { Timeline, TodayMarker } from "../../components/timeline";
 import { ViewModeSelector } from "../../components/ui";
 import { TaskRow, TaskList } from "../../components/task";
@@ -1075,6 +1080,11 @@ const GanttChart = forwardRef<GanttChartRef, GanttChartProps>(
           {
             ...style,
             "--gantt-unit-width": `${viewUnitWidth}px`,
+            // Published so timeline-side content can align itself with the
+            // sticky left column's edge (see `.rmg-task-row-empty-label`).
+            // Normalized exactly like TaskList's own width, so the two can
+            // never disagree.
+            "--rmg-left-column-width": `${normalizeLeftColumnWidth(leftColumnWidth)}px`,
           } as React.CSSProperties
         }
         data-testid="gantt-chart"

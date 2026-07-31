@@ -899,8 +899,11 @@ const TaskRow: React.FC<TaskRowProps> = ({
         data-testid={`task-row-${taskGroupId}`}
         data-group-id={taskGroupId}
       >
-        {taskGroup?.emptyRowLabel && (
-          <span className="rmg-task-row-empty-label">
+        {taskGroup?.emptyRowLabel?.trim() && (
+          <span
+            className="rmg-task-row-empty-label"
+            data-rmg-component="task-row-empty-label"
+          >
             {taskGroup.emptyRowLabel}
           </span>
         )}

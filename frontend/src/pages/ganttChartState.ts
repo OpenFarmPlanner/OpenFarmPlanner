@@ -37,14 +37,16 @@ export const GANTT_VIEWPORT_MIN_HEIGHT_PX = 320;
 // locations-expanded/fields-collapsed instead of fully expanding the tree.
 export const OCCUPANCY_TREE_AUTO_EXPAND_ALL_THRESHOLD = 30;
 // Compact row height for Standort/Parzelle rows, which show a structural
-// meta-text summary ("2 Parzellen · 6 Beete · 5 belegt") instead of bars.
-// Beet rows keep the normal, task-count-based height computed by the Gantt
-// library itself. Must be tall enough to fit the sidebar's two content
-// lines (chevron + name at ~17px, meta line at ~14px) plus its ~8px
+// meta-text summary ("2 Parzellen · 6 Beete · 5 belegt") in their timeline
+// area instead of bars. Beet rows keep the normal, task-count-based height
+// computed by the Gantt library itself. Must be tall enough to fit the
+// sidebar's single content line (chevron + name, ~17px) plus its ~8px
 // vertical padding without TaskList's minHeight being exceeded by actual
 // content — otherwise the sidebar row silently renders taller than
 // TaskRow's timeline row and the two columns drift out of sync row by row.
-export const OCCUPANCY_COMPACT_ROW_HEIGHT = 40;
+// The summary itself is a single short line inside the timeline row, so it
+// stays well under this height on that side too.
+export const OCCUPANCY_COMPACT_ROW_HEIGHT = 32;
 export const GANTT_HEADER_VIEW_MODES = [
   ViewMode.DAY,
   ViewMode.WEEK,

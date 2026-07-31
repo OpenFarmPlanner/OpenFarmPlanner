@@ -848,10 +848,10 @@ function GanttChartPage() {
     }
 
     // Summaries come from the filtered node set (structural "nur belegte
-    // Beete" pruning plus the location/field/search match), so the grey meta
-    // line can never claim more beds than the view actually lists. Expansion
-    // state is intentionally not folded in — collapsing a row hides it, it
-    // does not remove it from the structure.
+    // Beete" pruning plus the location/field/search match), so the grey
+    // summary can never claim more beds than the view actually lists.
+    // Expansion state is intentionally not folded in — collapsing a row
+    // hides it, it does not remove it from the structure.
     const summarizedNodes = visibleIds
       ? prunedNodes.filter((node) => visibleIds.has(node.id))
       : prunedNodes;
@@ -867,7 +867,7 @@ function GanttChartPage() {
       const isExpanded = expandedHierarchyIds.has(node.id);
 
       const structureSummary = structureSummaries.get(node.id);
-      const metaLabel = structureSummary
+      const emptyRowLabel = structureSummary
         ? formatOccupancyStructureSummary(structureSummary, t)
         : undefined;
 
@@ -878,11 +878,13 @@ function GanttChartPage() {
         depth,
         isExpandable,
         isExpanded,
-        metaLabel,
+        // Standort/Parzelle rows carry no bars — their structural summary is
+        // rendered in the timeline area instead (see TaskRow's
+        // `emptyRowLabel` handling), not as a second line in the left column.
+        emptyRowLabel,
         // Standort/Parzelle rows have no bars of their own, so they don't
-        // need a full task-row height — just enough for the name plus the
-        // meta line. Beet rows keep the normal, task-count-based height
-        // (rowHeightOverride left unset).
+        // need a full task-row height — Beet rows keep the normal,
+        // task-count-based height (rowHeightOverride left unset).
         rowHeightOverride: node.type === 'bed' ? undefined : OCCUPANCY_COMPACT_ROW_HEIGHT,
         locationId: node.locationId,
         fieldId: node.fieldId,
