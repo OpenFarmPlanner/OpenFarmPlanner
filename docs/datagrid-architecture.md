@@ -157,6 +157,18 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   focus helper focuses the target cell's actual editor input instead of only
   the DataGrid cell wrapper; otherwise the cell can look focused while
   printable keystrokes are ignored.
+- Scrolling a navigation target into view goes through
+  `keyboardNavigation.ts`'s `scrollCellIntoView` / `getVisibleColumnIndex`,
+  never through MUI's `getColumnIndexRelativeToVisibleColumns`. That API is
+  misnamed: it resolves the field against *all* columns, hidden ones
+  included, while `scrollToIndexes` indexes into the visible column
+  definitions. Mixing the two is off by however many columns are hidden to
+  the left and throws (`visibleColumns[colIndex].computedWidth` on
+  `undefined`) once the index passes the visible column count — and because
+  the throw escapes the Tab handler, keyboard navigation stops dead. That was
+  the planting plans bug below the `lg` breakpoint, where both harvest-date
+  columns are hidden by default: Tab out of "Pflanzdatum" reached "Fläche"
+  and never arrived at "Pflanzen".
 - While a row is in edit mode, `EditableDataGrid` owns Tab/Shift+Tab
   navigation even when focus is inside a custom editor input. MUI's own
   native capture handlers can otherwise move to the next row before React

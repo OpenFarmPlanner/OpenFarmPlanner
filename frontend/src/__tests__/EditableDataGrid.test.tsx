@@ -54,6 +54,7 @@ vi.mock('@mui/x-data-grid', async () => {
     onRowSelectionModelChange,
     rowModesModel,
     rowSelectionModel,
+    columnVisibilityModel,
     slots,
     pagination,
     paginationModel,
@@ -62,6 +63,9 @@ vi.mock('@mui/x-data-grid', async () => {
   }: unknown) => {
     const [, forceFocusRender] = React.useState(0);
     const [editValues, setEditValues] = React.useState<Record<string, unknown>>({});
+    const visibleColumns = columns.filter(
+      (column: GridColDef) => columnVisibilityModel?.[column.field] !== false,
+    );
 
     if (apiRef?.current) {
       apiRef.current.state = apiRef.current.state ?? { focus: { cell: null } };
@@ -77,7 +81,7 @@ vi.mock('@mui/x-data-grid', async () => {
         }));
         return mockSetEditCellValue(params);
       };
-      apiRef.current.getVisibleColumns = () => columns;
+      apiRef.current.getVisibleColumns = () => visibleColumns;
       apiRef.current.getAllRowIds = () => rows.map((row: TestGridRow) => row.id);
       apiRef.current.getRowWithUpdatedValues = (id: string | number) => {
         const baseRow = rows.find((row: TestGridRow) => String(row.id) === String(id));
@@ -97,6 +101,8 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.getRowIndexRelativeToVisibleRows = (id: string | number) =>
         rows.findIndex((row: TestGridRow) => String(row.id) === String(id));
+      // Deliberately mirrors MUI's own (misnamed) implementation: it resolves
+      // the field against *all* columns, hidden ones included.
       apiRef.current.getColumnIndexRelativeToVisibleColumns = (field: string) =>
         columns.findIndex((column: GridColDef) => column.field === field);
       apiRef.current.getCellParams = (id: string | number, field: string) => {
@@ -105,7 +111,13 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.isCellEditable = (params: { field: string }) =>
         columns.find((column: GridColDef) => column.field === params.field)?.editable !== false;
-      apiRef.current.scrollToIndexes = vi.fn();
+      // MUI reads `visibleColumns[colIndex].computedWidth`, so an index that
+      // counted hidden columns too blows up here instead of scrolling.
+      apiRef.current.scrollToIndexes = (indexes: { rowIndex?: number; colIndex?: number }) => {
+        if (indexes.colIndex !== undefined && !visibleColumns[indexes.colIndex]) {
+          throw new TypeError("Cannot read properties of undefined (reading 'computedWidth')");
+        }
+      };
       apiRef.current.setCellFocus = (id: string | number, field: string) => {
         mockSetCellFocus(id, field);
         apiRef.current.state.focus.cell = { id, field };
@@ -149,7 +161,7 @@ vi.mock('@mui/x-data-grid', async () => {
             data-testid={`row-${row.id}`}
           >
             <span data-testid={`mode-${row.id}`}>{rowModesModel?.[row.id]?.mode ?? GridRowModes.View}</span>
-            {columns.map((col: GridColDef) => {
+            {visibleColumns.map((col: GridColDef) => {
               const isEditingCell =
                 rowModesModel?.[row.id]?.mode === GridRowModes.Edit &&
                 rowModesModel?.[row.id]?.fieldToFocus === col.field;
@@ -993,6 +1005,49 @@ describe('EditableDataGrid', () => {
 
     await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-notes'));
     expect(screen.getByTestId('focused-cell')).not.toHaveTextContent('1-area_sqm');
+  });
+
+  it('keeps tabbing through an edited row when columns to the left are hidden', async () => {
+    // Regression: the planting plans grid hides both harvest-date columns
+    // below the `lg` breakpoint. Resolving the scroll target with MUI's
+    // `getColumnIndexRelativeToVisibleColumns` (which counts hidden columns)
+    // made `scrollToIndexes` throw, and the exception aborted the Tab
+    // handler — Tab out of "Pflanzdatum" reached "Fläche" and then went dead,
+    // never arriving at "Pflanzen".
+    const props = baseProps(() => null);
+    const plantingPlanColumns: GridColDef[] = [
+      { field: 'culture', headerName: 'Kultur', editable: true },
+      { field: 'planting_date', headerName: 'Pflanzdatum', editable: true },
+      { field: 'harvest_date', headerName: 'Erntebeginn', editable: false },
+      { field: 'harvest_end_date', headerName: 'Ernteende', editable: false },
+      { field: 'area_sqm', headerName: 'Fläche', editable: true },
+      { field: 'plants_count', headerName: 'Pflanzen', editable: true },
+    ];
+
+    render(
+      <EditableDataGrid
+        {...props}
+        columns={plantingPlanColumns}
+        columnVisibilityModel={{ harvest_date: false, harvest_end_date: false }}
+        showDeleteAction={false}
+      />,
+    );
+
+    const dateCell = await screen.findByRole('button', { name: 'Zelle 1-planting_date' });
+    fireEvent.click(dateCell);
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+    fireEvent.keyDown(dateCell, { key: 'Tab' });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-area_sqm'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Zelle 1-area_sqm' }), { key: 'Tab' });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-plants_count'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Zelle 1-plants_count' }), {
+      key: 'Tab',
+      shiftKey: true,
+    });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-area_sqm'));
   });
 
   describe('dialog-edited cells', () => {
