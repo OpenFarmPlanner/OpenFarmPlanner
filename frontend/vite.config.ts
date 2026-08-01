@@ -22,6 +22,37 @@ const backendProxy = {
   '/media': { target: backendDevOrigin, changeOrigin: true },
 }
 
+function manualChunks(id: string): string | undefined {
+  if (!id.includes('/node_modules/')) {
+    return undefined
+  }
+
+  if (
+    id.includes('/node_modules/react/') ||
+    id.includes('/node_modules/react-dom/') ||
+    id.includes('/node_modules/react-router/')
+  ) {
+    return 'react'
+  }
+
+  if (id.includes('/node_modules/@mui/icons-material/')) {
+    return 'muiIcons'
+  }
+
+  if (id.includes('/node_modules/@mui/material/')) {
+    return 'mui'
+  }
+
+  if (
+    id.includes('/node_modules/i18next/') ||
+    id.includes('/node_modules/react-i18next/')
+  ) {
+    return 'i18n'
+  }
+
+  return undefined
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: basePath,
@@ -83,12 +114,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router'],
-          mui: ['@mui/material'],
-          muiIcons: ['@mui/icons-material'],
-          i18n: ['i18next', 'react-i18next'],
-        },
+        manualChunks,
       },
     },
   },
