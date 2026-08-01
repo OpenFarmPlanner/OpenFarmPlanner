@@ -5,13 +5,13 @@ import {
   InputAdornment,
   Stack,
   TextField,
-  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
 
 import { useTranslation } from '../../i18n';
+import { AppTooltip } from '../AppTooltip';
 
 interface OccupancyMobileFilterBarProps {
   /** Show the expanded search field instead of the search icon. */
@@ -66,7 +66,7 @@ export function OccupancyMobileFilterBar({
         }}
         sx={{ flex: '1 1 auto', minWidth: 0 }}
       />
-      <Tooltip title={t('ganttChart:treeFilters.clearSearch')}>
+      <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
         <IconButton
           size="small"
           aria-label={t('ganttChart:treeFilters.clearSearch')}
@@ -75,7 +75,7 @@ export function OccupancyMobileFilterBar({
         >
           <CloseIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
       <Button
         size="small"
         variant="outlined"
@@ -101,7 +101,7 @@ export function OccupancyMobileFilterBar({
     </Stack>
   ) : (
     <Stack direction="row" spacing={0.75} alignItems="center">
-      <Tooltip title={t('common:actions.search')}>
+      <AppTooltip title={t('common:actions.search')}>
         <IconButton
           size="small"
           aria-label={t('common:actions.search')}
@@ -110,7 +110,7 @@ export function OccupancyMobileFilterBar({
         >
           <SearchIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
       <Button
         size="small"
         variant="outlined"

@@ -9,7 +9,6 @@ import {
   IconButton,
   Paper,
   Stack,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -93,6 +92,7 @@ import {
   type RectViewModel,
   type SelectedElement,
 } from "./graphicalFieldsGeometry";
+import { AppTooltip } from '../components/AppTooltip';
 
 /** Gap used when auto-arranging beds that do not yet have a saved layout. */
 const BED_AUTO_LAYOUT_GAP = DEFAULT_PLACEMENT_SPACING;
@@ -1119,7 +1119,7 @@ export default function GraphicalFields({
                   </Typography>
                   {!globalEditMode ? (
                     <>
-                      <Tooltip
+                      <AppTooltip
                         title={t(
                           locationIsEditable
                             ? "fields:graphical.disableLocationEditMode"
@@ -1190,8 +1190,8 @@ export default function GraphicalFields({
                               : "fields:graphical.locationEditModeAction",
                           )}
                         </Box>
-                      </Tooltip>
-                      <Tooltip
+                      </AppTooltip>
+                      <AppTooltip
                         title={t("fields:graphical.locationEditModeAction")}
                       >
                         <Box
@@ -1242,7 +1242,7 @@ export default function GraphicalFields({
                             <EditOutlinedIcon fontSize="small" />
                           )}
                         </Box>
-                      </Tooltip>
+                      </AppTooltip>
                     </>
                   ) : null}
                 </Box>
@@ -1287,7 +1287,7 @@ export default function GraphicalFields({
                     <Stack spacing={0} alignItems="stretch">
                       <Box sx={{ display: { xs: "none", sm: "block" } }}>
                         <Box sx={{ display: "flex", justifyContent: "center" }}>
-                          <Tooltip title={t("fields:graphical.panUp")} placement="left">
+                          <AppTooltip title={t("fields:graphical.panUp")} placement="left">
                             <IconButton
                               size="small"
                               onClick={() => handlePanByOffset(locationId, 0, PAN_STEP)}
@@ -1296,10 +1296,10 @@ export default function GraphicalFields({
                             >
                               <KeyboardArrowUpIcon fontSize="small" />
                             </IconButton>
-                          </Tooltip>
+                          </AppTooltip>
                         </Box>
                         <Stack direction="row" spacing={0}>
-                          <Tooltip
+                          <AppTooltip
                             title={t("fields:graphical.panLeft")}
                             placement="left"
                           >
@@ -1319,8 +1319,8 @@ export default function GraphicalFields({
                             >
                               <KeyboardArrowLeftIcon fontSize="small" />
                             </IconButton>
-                          </Tooltip>
-                          <Tooltip
+                          </AppTooltip>
+                          <AppTooltip
                             title={t("fields:graphical.panRight")}
                             placement="left"
                           >
@@ -1339,10 +1339,10 @@ export default function GraphicalFields({
                             >
                               <KeyboardArrowRightIcon fontSize="small" />
                             </IconButton>
-                          </Tooltip>
+                          </AppTooltip>
                         </Stack>
                         <Box sx={{ display: "flex", justifyContent: "center" }}>
-                          <Tooltip
+                          <AppTooltip
                             title={t("fields:graphical.panDown")}
                             placement="left"
                           >
@@ -1359,10 +1359,10 @@ export default function GraphicalFields({
                             >
                               <KeyboardArrowDownIcon fontSize="small" />
                             </IconButton>
-                          </Tooltip>
+                          </AppTooltip>
                         </Box>
                       </Box>
-                      <Tooltip
+                      <AppTooltip
                         title={t("fields:graphical.zoomIn")}
                         placement="left"
                       >
@@ -1374,8 +1374,8 @@ export default function GraphicalFields({
                         >
                           <AddIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip
+                      </AppTooltip>
+                      <AppTooltip
                         title={t("fields:graphical.zoomOut")}
                         placement="left"
                       >
@@ -1392,8 +1392,8 @@ export default function GraphicalFields({
                         >
                           <RemoveIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip
+                      </AppTooltip>
+                      <AppTooltip
                         title={t("fields:graphical.fitToView")}
                         placement="left"
                       >
@@ -1410,8 +1410,8 @@ export default function GraphicalFields({
                         >
                           <FitScreenIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip
+                      </AppTooltip>
+                      <AppTooltip
                         title={
                           fullscreenLocationId === locationId
                             ? t("fields:graphical.exitFullscreen")
@@ -1442,7 +1442,7 @@ export default function GraphicalFields({
                             <FullscreenIcon fontSize="small" />
                           )}
                         </IconButton>
-                      </Tooltip>
+                      </AppTooltip>
                     </Stack>
                   </Paper>
                   <Typography

@@ -43,6 +43,7 @@ frontend/src/components/data-grid/
   useNotesEditor.ts, useNotesPreview.ts, markdown.ts,
   noteAttachmentsCache.ts               rich markdown notes + photo attachments
   ../OverflowTooltip.tsx                overflow-only desktop tooltip wrapper
+  ../AppTooltip.tsx                     the app's Tooltip (context-menu aware)
   tableClipboard.ts, TableCopyMenuItems.tsx   copy row/table as TSV
   columns.tsx, calculatedColumns.tsx    column builders (select, computed)
   dataGridUtils.tsx, handlers.ts, styles.ts, localeText.ts   shared helpers
@@ -52,6 +53,7 @@ frontend/src/components/contextMenu/
   useContextMenuPositionState.ts generic open/close/reposition state
   useRowContextMenuState.ts      row-menu state plus focus restoration
   useLongPressTimer.ts           touch long-press helper
+  contextMenuOpenState.ts        global "a context menu is open" signal
 ```
 
 ## Imperative API (`EditableDataGridCommandApi`)
@@ -202,6 +204,37 @@ shell instead of repeating MUI's `hideBackdrop`, pointer-events, paper class,
 `useRowContextMenuState.ts` when the menu should restore focus to the row or
 cell that opened it.
 
+### Tooltips never cover an open context menu
+
+`components/contextMenu/contextMenuOpenState.ts` is a module-level store
+holding "is any context menu open right now?". `useContextMenuPositionState`
+registers there for as long as its menu is open, so *every* app context menu
+— row menus, the hierarchy menu, the Gantt task/group menu, the yield
+segment menu — reports the same signal without each page wiring anything up.
+
+Tooltip surfaces subscribe to it and suppress themselves while it is set:
+
+- `components/AppTooltip.tsx` is the app's tooltip and the only place allowed
+  to import MUI's `Tooltip` (enforced by `no-restricted-imports` in
+  `eslint.config.js`). `OverflowTooltip`, `FullCellTooltip`,
+  `DropdownAwareTooltip` and `ContextMenuIndicator` all build on it.
+- the Gantt task tooltip (`gantt-chart/src/components/ui/Tooltip.tsx`)
+- the notes preview popover (`useNotesPreview.ts`)
+
+Suppression is real, not a z-index fight: an open tooltip closes, MUI's
+hover/focus/touch listeners are disabled, and a tooltip whose enter delay (or
+the preview's 250ms hover delay) elapses while the menu is open never opens
+at all. `AppTooltip` remembers the `openSequence` it was opened in, so a
+tooltip opened *before* the menu is invalidated for good — closing the menu
+leaves no stale tooltip behind, and the next hover/focus/long press works
+normally. This covers mouse, keyboard (`ContextMenu`/`Shift+F10`) and touch
+long-press alike, because all three go through the same open state.
+
+Truly native browser context menus — the ones the app deliberately does not
+intercept over inputs/`contenteditable` (`shouldOpenCustomContextMenu`) — are
+out of this mechanism's reach by definition; there is no event that says when
+the browser closed its own menu.
+
 A first-run **discovery hint** (`ContextMenuHint.tsx` /
 `useContextMenuHint.ts`) shows a small "right-click a row" banner once,
 only on fine-pointer desktop viewports, persisted per-user in
@@ -299,7 +332,9 @@ recoverable without adding hover-equivalent popovers or tap targets on
 mobile/touch surfaces. Explanatory tooltips remain separate: icon labels,
 calculated-column explanations, unavailable-value reasons, note previews,
 and package/blocker diagnostics should still use their dedicated tooltip or
-popover components.
+popover components — all of which render through `AppTooltip`, so they hide
+themselves while a context menu is open (see "Tooltips never cover an open
+context menu" above).
 
 `markdown.ts`'s `stripCitationMarkers` strips AI-citation markers of the
 form `【digits†identifier】` from note text. **Unclear/needs check**: trace

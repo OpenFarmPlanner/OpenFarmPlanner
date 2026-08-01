@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Box, Tooltip, type SxProps, type Theme, type TooltipProps } from '@mui/material';
+import { Box, type SxProps, type Theme, type TooltipProps } from '@mui/material';
+import { AppTooltip } from '../AppTooltip';
 
 export const FULL_CELL_TOOLTIP_CELL_CLASS = 'ofp-cell-full-tooltip';
 
@@ -22,7 +23,7 @@ export function FullCellTooltip({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <Tooltip
+    <AppTooltip
       {...tooltipProps}
       open={cellHasFocus || isFocused || isInteractionOpen}
       onOpen={() => setIsInteractionOpen(true)}
@@ -48,6 +49,6 @@ export function FullCellTooltip({
       >
         {children}
       </Box>
-    </Tooltip>
+    </AppTooltip>
   );
 }

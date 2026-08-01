@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown, type MarkdownStorage } from 'tiptap-markdown';
-import { Box, Divider, IconButton, Tooltip } from '@mui/material';
+import { Box, Divider, IconButton } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
 import CodeIcon from '@mui/icons-material/Code';
@@ -13,6 +13,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import { useTranslation } from '../../i18n';
 import { normalizeRichTextMarkdown } from './richText';
+import { AppTooltip } from '../AppTooltip';
 
 export interface RichTextEditorProps {
   value: string;
@@ -147,52 +148,52 @@ export function RichTextEditor({
   return (
     <Box sx={editorWrapperSx(minHeight)} data-testid="rich-text-editor">
       <Box sx={toolbarSx} role="toolbar" aria-label={t('notesDrawer.markdownToolbar.ariaLabel')}>
-        <Tooltip title={t('notesDrawer.markdownToolbar.boldTooltip')}>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.boldTooltip')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleBold().run(); }} aria-label={t('notesDrawer.markdownToolbar.bold')} aria-pressed={editor?.isActive('bold') ?? false}>
             <FormatBoldIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('notesDrawer.markdownToolbar.italicTooltip')}>
+        </AppTooltip>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.italicTooltip')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleItalic().run(); }} aria-label={t('notesDrawer.markdownToolbar.italic')} aria-pressed={editor?.isActive('italic') ?? false}>
             <FormatItalicIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('notesDrawer.markdownToolbar.code')}>
+        </AppTooltip>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.code')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleCode().run(); }} aria-label={t('notesDrawer.markdownToolbar.code')} aria-pressed={editor?.isActive('code') ?? false}>
             <CodeIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
+        </AppTooltip>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title={t('notesDrawer.markdownToolbar.heading')}>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.heading')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 2 }).run(); }} aria-label={t('notesDrawer.markdownToolbar.heading')} aria-pressed={editor?.isActive('heading', { level: 2 }) ?? false}>
             <TitleIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('notesDrawer.markdownToolbar.bulletList')}>
+        </AppTooltip>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.bulletList')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleBulletList().run(); }} aria-label={t('notesDrawer.markdownToolbar.bulletList')} aria-pressed={editor?.isActive('bulletList') ?? false}>
             <FormatListBulletedIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('notesDrawer.markdownToolbar.numberedList')}>
+        </AppTooltip>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.numberedList')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleOrderedList().run(); }} aria-label={t('notesDrawer.markdownToolbar.numberedList')} aria-pressed={editor?.isActive('orderedList') ?? false}>
             <FormatListNumberedIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
+        </AppTooltip>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title={t('notesDrawer.markdownToolbar.link')}>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.link')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); handleSetLink(); }} aria-label={t('notesDrawer.markdownToolbar.link')} aria-pressed={editor?.isActive('link') ?? false}>
             <LinkIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
-        <Tooltip title={t('notesDrawer.markdownToolbar.quote')}>
+        </AppTooltip>
+        <AppTooltip title={t('notesDrawer.markdownToolbar.quote')}>
           <IconButton size="small" onMouseDown={(event) => { event.preventDefault(); editor?.chain().focus().toggleBlockquote().run(); }} aria-label={t('notesDrawer.markdownToolbar.quote')} aria-pressed={editor?.isActive('blockquote') ?? false}>
             <FormatQuoteIcon fontSize="small" />
           </IconButton>
-        </Tooltip>
+        </AppTooltip>
       </Box>
 
       <EditorContent editor={editor} />

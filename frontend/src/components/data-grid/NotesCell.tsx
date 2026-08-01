@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useRef, type MouseEvent } from 'react';
-import { Badge, Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { Badge, Box, IconButton, Typography } from '@mui/material';
 import NotesIcon from '@mui/icons-material/Notes';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
 import type { NotesPreviewOpenMode } from './useNotesPreview';
+import { AppTooltip } from '../AppTooltip';
 
 export interface NotesCellProps {
   hasValue: boolean;
@@ -167,7 +168,7 @@ export function NotesCell({
   }
 
   return (
-    <Tooltip
+    <AppTooltip
       title={tooltipContent}
       placement="top-start"
       arrow
@@ -250,7 +251,7 @@ export function NotesCell({
         </Typography>
 
         {hasAttachments && onOpenAttachments && (
-          <Tooltip title={attachmentTooltip} arrow>
+          <AppTooltip title={attachmentTooltip} arrow>
             <IconButton
               size="small"
               onClick={(event) => { event.stopPropagation(); event.preventDefault(); onOpenAttachments(event); }}
@@ -277,9 +278,9 @@ export function NotesCell({
                 <PhotoLibraryIcon fontSize="small" color="action" />
               </Badge>
             </IconButton>
-          </Tooltip>
+          </AppTooltip>
         )}
       </Box>
-    </Tooltip>
+    </AppTooltip>
   );
 }

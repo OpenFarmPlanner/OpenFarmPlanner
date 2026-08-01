@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useCloseCustomContextMenuOnNativeContextMenu } from '../../utils/contextMenu';
+import { useContextMenuOpenRegistration } from './contextMenuOpenState';
 
 export interface ContextMenuPositionState<TKey> {
   key: TKey;
@@ -50,6 +51,10 @@ export function useContextMenuPositionState<TKey>({
     isContextMenuTarget,
     reposition,
   );
+
+  // Single place every app context menu reports "I am open" from, so tooltips
+  // can hide themselves instead of covering the menu.
+  useContextMenuOpenRegistration(state !== null);
 
   return { state, open, close, clearIf };
 }

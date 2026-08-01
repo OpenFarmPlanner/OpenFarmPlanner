@@ -37,7 +37,7 @@ import {
   isEnterSaveInputTarget,
 } from './domEventTargets';
 import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel, GridEventListener } from '@mui/x-data-grid';
-import { Box, Alert, IconButton, Chip, Button, Tooltip, useMediaQuery } from '@mui/material';
+import { Box, Alert, IconButton, Chip, Button, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
@@ -143,6 +143,7 @@ export type {
   EditableRow,
   NotesFieldConfig,
 } from './types';
+import { AppTooltip } from '../AppTooltip';
 
 type DataGridKeyboardEvent = (KeyboardEvent | EditCellKeyboardEvent) & {
   defaultMuiPrevented?: boolean;
@@ -2084,7 +2085,7 @@ export function EditableDataGrid<T extends EditableRow>({
           }}
         >
           {actions.map((action) => (
-            <Tooltip key={action.id} title={action.label} arrow>
+            <AppTooltip key={action.id} title={action.label} arrow>
               <span>
                 <IconButton
                   size="small"
@@ -2100,7 +2101,7 @@ export function EditableDataGrid<T extends EditableRow>({
                   {action.icon}
                 </IconButton>
               </span>
-            </Tooltip>
+            </AppTooltip>
           ))}
           {hasInlineMenuAction ? (
             <ContextMenuIndicator
@@ -2137,7 +2138,7 @@ export function EditableDataGrid<T extends EditableRow>({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           {showAddAction && (
-            <Tooltip title={addButtonLabel}>
+            <AppTooltip title={addButtonLabel}>
               <Button
                 onClick={handleAddClick}
                 size="small"
@@ -2147,7 +2148,7 @@ export function EditableDataGrid<T extends EditableRow>({
               >
                 {addButtonText ?? addButtonLabel}
               </Button>
-            </Tooltip>
+            </AppTooltip>
           )}
           {showFooterEditControls && hasUnsavedChanges && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: showAddAction ? 1 : 0 }}>
@@ -2269,19 +2270,19 @@ export function EditableDataGrid<T extends EditableRow>({
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: '100%', justifyContent: 'flex-end' }}>
                   {(isEditing || hasLocalDraft) && (
                     <>
-                      <Tooltip title={t('actions.saveRow')} arrow>
+                      <AppTooltip title={t('actions.saveRow')} arrow>
                         <IconButton size="small" color="primary" aria-label={t('actions.save')} onClick={() => void handleSaveRow(rowId)}>
                           <CheckIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('actions.cancelRowEdit')} arrow>
+                      </AppTooltip>
+                      <AppTooltip title={t('actions.cancelRowEdit')} arrow>
                         <IconButton size="small" aria-label={t('actions.cancel')} onClick={() => handleDiscardRowChanges(rowId)}>
                           <CloseIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
+                      </AppTooltip>
                     </>
                   )}
-                  <Tooltip title={t('actions.deleteRow')} arrow>
+                  <AppTooltip title={t('actions.deleteRow')} arrow>
                     <IconButton
                       size="small"
                       color="error"
@@ -2290,7 +2291,7 @@ export function EditableDataGrid<T extends EditableRow>({
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
+                  </AppTooltip>
                 </Box>
               );
             },

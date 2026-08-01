@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
-import { Stack, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
+import { Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import {
   segmentedToggleButtonGroupSx,
   segmentedToggleButtonSx,
 } from './buttons/segmentedControlStyles';
+import { AppTooltip } from './AppTooltip';
 
 export type ModeToggleValue = 'view' | 'edit';
 
@@ -28,9 +29,9 @@ function renderToggleButtonWithOptionalTooltip(
   }
 
   return (
-    <Tooltip title={tooltip}>
+    <AppTooltip title={tooltip}>
       {button}
-    </Tooltip>
+    </AppTooltip>
   );
 }
 
