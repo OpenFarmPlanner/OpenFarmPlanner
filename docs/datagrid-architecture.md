@@ -28,7 +28,7 @@ frontend/src/components/data-grid/
   hooks/
     useDataGridCommandApi.ts     builds the imperative EditableDataGridCommandApi
     useDataGridRowCommands.ts    addRow/editSelectedRow/openRowById/focusTable
-    useDataGridDelete.ts         delete + optional undo-snackbar flow
+    useDataGridDelete.ts         immediate delete + optional undo-snackbar flow
     useDataGridRowActionMenu.ts  right-click / long-press / keyboard row menu
   StableScrollbarTrack.tsx       shared track/thumb overlay for useStableDataGridScrollbar
   keyboardEditing.ts       "just start typing" / F2 spreadsheet-edit-start behavior
@@ -157,6 +157,18 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   focus helper focuses the target cell's actual editor input instead of only
   the DataGrid cell wrapper; otherwise the cell can look focused while
   printable keystrokes are ignored.
+- Scrolling a navigation target into view goes through
+  `keyboardNavigation.ts`'s `scrollCellIntoView` / `getVisibleColumnIndex`,
+  never through MUI's `getColumnIndexRelativeToVisibleColumns`. That API is
+  misnamed: it resolves the field against *all* columns, hidden ones
+  included, while `scrollToIndexes` indexes into the visible column
+  definitions. Mixing the two is off by however many columns are hidden to
+  the left and throws (`visibleColumns[colIndex].computedWidth` on
+  `undefined`) once the index passes the visible column count — and because
+  the throw escapes the Tab handler, keyboard navigation stops dead. That was
+  the planting plans bug below the `lg` breakpoint, where both harvest-date
+  columns are hidden by default: Tab out of "Pflanzdatum" reached "Fläche"
+  and never arrived at "Pflanzen".
 - While a row is in edit mode, `EditableDataGrid` owns Tab/Shift+Tab
   navigation even when focus is inside a custom editor input. MUI's own
   native capture handlers can otherwise move to the next row before React
@@ -233,6 +245,41 @@ first persists the current row draft with the note value, then closes the
 drawer. Users should never need to click outside the grid to make a new row
 exist before saving its notes.
 
+## Delete with undo — app-wide semantics
+
+Every "Löschen" flow that shows a `DeleteUndoSnackbar` follows the same
+contract, and new ones must too:
+
+1. **The delete hits the backend immediately.** The row disappears from the
+   list optimistically, but the DELETE request is sent in the same user
+   action — it is never deferred until the undo window has elapsed. A browser
+   reload right after deleting must never bring the record back.
+2. **"Rückgängig" restores, it never cancels.** By the time the snackbar is
+   visible the record is already gone server-side, so undo means calling a
+   restore/recreate endpoint.
+3. **A failed DELETE rolls the row back** into the list and reports the error;
+   no snackbar is shown, because there is nothing to undo.
+4. **Dismissing the snackbar does nothing** but drop the pending entry — it is
+   not a commit point.
+
+Where this lives:
+
+| Entity | Delete | Undo |
+| --- | --- | --- |
+| Anbaupläne (`useDataGridDelete.ts`, `deleteUndoOptions`) | `api.delete` | `api.create(mapToApiData(row))` + reload |
+| Kulturen (`pages/useCultureDelete.ts`) | `cultureAPI.delete` (soft delete) | `cultureAPI.undelete` |
+| Standorte/Parzellen/Beete (`hooks/useHierarchyDelete.ts`) | `locationAPI`/`fieldAPI`/`bedAPI.delete` | recreate location → field → bed, remapping parent ids |
+| Lieferanten (`pages/Suppliers.tsx`) | `supplierAPI.delete` (409 when still referenced) | `supplierAPI.restoreUnlinkedDelete` with the payload the delete/unlink response returned |
+| Projekte (`projects/projectDeletionFeedback.ts`) | `projectAPI.delete` (soft delete) | `projectAPI.restore` |
+
+Entities that are recreated rather than undeleted come back with a **new id**
+— the grid reloads from the backend after a restore instead of re-inserting
+the old row, so sorting decides the position, not the previous id.
+
+The supplier delete endpoint returns the same `undo_payload` shape as
+`unlink-and-delete` (instead of an empty `204`) so that both supplier delete
+paths share one restore endpoint.
+
 ## Notes / markdown cells
 
 Any column listed in `EditableDataGrid`'s `notes` prop renders through
@@ -272,6 +319,38 @@ grid then treats them exactly like notes cells:
   the trigger element itself, which stops propagation so the grid does not
   also react; after the dialog closes, focus returns to that trigger and
   ordinary navigation continues.
+- **Tab/Shift+Tab onto the cell opens the dialog** — that is what "entering
+  edit mode" means for a cell whose dialog *is* its edit session. Arrow keys
+  deliberately stay pure movement, so the cell can still be passed by without
+  a modal opening.
+
+That last point is what `DialogEditCellContext.tsx` exists for. The grid has
+no inline edit session to hang the dialog off, so `EditableDataGrid` publishes
+a *request* — `{ cellKey, token }` — every time keyboard navigation enters a
+`dialogEditFields` cell, and the cell's renderer opens on it via
+`useDialogEditCellOpenRequest(rowId, field, open)`. Two properties make
+repeated entries work where a "did I already open?" flag would not:
+
+- the token is bumped per entry, and a cell opens for a given token **exactly
+  once**, so a focus event, a click and the request all landing on the same
+  entry cannot stack up two dialogs (`AreaAssignmentDialog`'s `handleOpen` is
+  additionally idempotent while open, so a duplicate impulse can't reset a
+  draft the user is mid-way through);
+- the cell **consumes** the request as it opens, so nothing is left behind for
+  a later re-render or a re-mount (grid virtualization) to replay.
+
+Requests are issued from the Tab paths only — `handleViewModeCellNavigation`
+for a row in view mode, and `handleEditedCellTabNavigation` (via
+`navigateFromEditedCell` / `saveEditedRowAndFocusTarget` /
+`focusKeyboardNavigableCell`'s `requestDialogEdit` option) for a row in inline
+edit mode. Don't reintroduce a "the dialog was already opened once" flag or a
+timeout-based reopen: both are what made the cell open on the first Tab and
+never again.
+
+For this to hold, a cell renderer that focuses itself on `hasFocus` must
+cancel that pending frame on cleanup (see `CompactAreaCell`) — otherwise the
+frame scheduled by the focus that *caused* the request fires after the dialog
+mounted and pulls focus straight back out of it.
 
 The dialog writes its result back through the command API's
 `applyDialogEditValues(rowId, values)`, **not** `setEditCellValue` (there is

@@ -276,8 +276,8 @@
     "restoreError": "Version konnte nicht wiederhergestellt werden"
   },
   "deleteDialog": {
-    "title": "Kultur löschen?",
-    "confirmation": "„{{name}}“ löschen?"
+    "title": "Projektkultur löschen?",
+    "confirmation": "Möchtest du die Projektkultur „{{name}}“ wirklich löschen?"
   },
   "seedDemand": {
     "title": "Saatgutbedarf",
@@ -475,7 +475,6 @@
     "versions": "Versionen",
     "delete": "Löschen",
     "moreActions": "Weitere Aktionen",
-    "deleteProjectCulture": "Projektkultur löschen",
     "deleteConfirm": "Möchten Sie diese Kultur wirklich löschen?",
     "createPlantingPlan": "Anbauplan hinzufügen",
     "goToFieldsBeds": "Zu Anbauflächen",
@@ -766,22 +765,16 @@
     "publishDuplicateError": "Diese Kultur ist bereits in der Kulturbibliothek vorhanden.",
     "publishDuplicateErrorWithCandidates": "Diese Kultur ist bereits öffentlich vorhanden: {{duplicates}}",
     "publishError": "Die Kultur konnte nicht veröffentlicht werden.",
-    "withdrawAction": "Veröffentlichung zurückziehen",
-    "withdrawSuccess": "Die Veröffentlichung von „{{name}}“ wurde zurückgezogen.",
-    "withdrawError": "Die Veröffentlichung konnte nicht zurückgezogen werden.",
     "removeAction": "Aus Bibliothek entfernen",
     "removeSuccess": "„{{name}}“ wurde aus der öffentlichen Kulturbibliothek entfernt.",
     "removeError": "Die Kultur konnte nicht aus der Bibliothek entfernt werden.",
     "hardDeleteAction": "Endgültig löschen",
     "hardDeleteSuccess": "„{{name}}“ wurde endgültig gelöscht.",
     "hardDeleteError": "Die Kultur konnte nicht endgültig gelöscht werden. Wahrscheinlich existieren noch Referenzen oder Herkunftsdaten.",
-    "withdrawDialog": {
-      "title": "Veröffentlichung zurückziehen?",
-      "message": "„{{name}}“ verschwindet aus der öffentlichen Kulturbibliothek. Bereits importierte Kulturen in Projekten bleiben vollständig erhalten. Du kannst die Kultur später erneut veröffentlichen."
-    },
     "removeDialog": {
       "title": "Aus Bibliothek entfernen?",
-      "message": "„{{name}}“ wird für alle Nutzer aus der öffentlichen Kulturbibliothek entfernt. Bereits importierte Projektkulturen bleiben unverändert. Bitte wähle den Moderationsgrund.",
+      "message": "„{{name}}“ verschwindet aus der öffentlichen Kulturbibliothek. Bereits importierte Kulturen in Projekten bleiben vollständig erhalten. Du kannst die Kultur später erneut veröffentlichen.",
+      "moderationMessage": "„{{name}}“ wird für alle Nutzer aus der öffentlichen Kulturbibliothek entfernt. Bereits importierte Projektkulturen bleiben unverändert. Bitte wähle den Moderationsgrund.",
       "reasonLabel": "Grund"
     },
     "hardDeleteDialog": {

@@ -59,6 +59,10 @@ export interface SupplierUnlinkDeleteResponse {
   undo_payload: SupplierDeleteUndoPayload;
 }
 
+export interface SupplierDeleteResponse {
+  undo_payload: SupplierDeleteUndoPayload;
+}
+
 export interface SupplierRestoreUnlinkedDeleteResponse {
   supplier: Supplier;
   restored_culture_count: number;
@@ -80,6 +84,7 @@ export interface Culture {
   source_public_version?: number | null;
   origin_type?: 'manual' | 'imported';
   owned_public_culture_id?: number | null;
+  owned_public_culture_role?: PublicCultureOwnershipRole | null;
   is_modified_from_source?: boolean;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
@@ -311,6 +316,13 @@ export interface PublicCultureDiscussionTopic {
   last_activity_at?: string | null;
   last_comment_preview?: string | null;
 }
+
+/**
+ * How the current user relates to the public-library entry linked to a project
+ * culture. Contributors remove their own entry without a reason, moderators
+ * remove somebody else's entry and must pick a moderation reason.
+ */
+export type PublicCultureOwnershipRole = 'contributor' | 'moderator';
 
 export type PublicCultureRemovalReason =
   | 'accidental_publication'

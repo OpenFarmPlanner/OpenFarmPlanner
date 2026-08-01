@@ -150,25 +150,13 @@ export function usePublicCultureLibrary({
     }
   };
 
-  const handleWithdrawPublicCulture = async (culture: Culture): Promise<boolean> => {
-    if (!culture.owned_public_culture_id) {
-      return false;
-    }
-    try {
-      await publicCultureAPI.withdraw(culture.owned_public_culture_id);
-      await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.withdrawSuccess', { name: formatCultureDisplayName(culture) }), 'success');
-      return true;
-    } catch (error) {
-      console.error('Error withdrawing public culture:', error);
-      showSnackbar(extractApiErrorMessage(error, t, t('library.withdrawError')), 'error');
-      return false;
-    }
-  };
-
+  /**
+   * Removes the culture from the public library. Contributors withdraw their
+   * own entry (no reason needed), moderators pass a moderation reason.
+   */
   const handleRemovePublicCulture = async (
     culture: Culture,
-    reason: PublicCultureRemovalReason,
+    reason?: PublicCultureRemovalReason,
   ): Promise<boolean> => {
     if (!culture.owned_public_culture_id) {
       return false;
@@ -222,7 +210,6 @@ export function usePublicCultureLibrary({
     handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleWithdrawPublicCulture,
     handleRemovePublicCulture,
   };
 }

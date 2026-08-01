@@ -4,8 +4,10 @@ import {
   getCellLocationFromDomTarget,
   getHorizontalKeyboardNavigationTarget,
   getKeyboardNavigationTarget,
+  getVisibleColumnIndex,
   isCellKeyboardNavigable,
   resolveFocusedCellFromEvent,
+  scrollCellIntoView,
 } from '../components/data-grid/keyboardNavigation';
 
 function buildGridCell(rowId: string, field: string): HTMLElement {
@@ -28,7 +30,7 @@ describe('keyboardNavigation', () => {
 
     const api = {
       getCellElement: vi.fn(() => cellElement),
-      getColumnIndexRelativeToVisibleColumns: vi.fn(() => 1),
+      getVisibleColumns: vi.fn(() => [{ field: 'name' }, { field: 'width_m' }]),
       getRowIndexRelativeToVisibleRows: vi.fn(() => 0),
       scrollToIndexes: vi.fn(),
       setCellFocus: vi.fn(),
@@ -125,6 +127,86 @@ describe('getHorizontalKeyboardNavigationTarget', () => {
 
   it('returns null when the current field is not navigable', () => {
     expect(getHorizontalKeyboardNavigationTarget(fields, 5, 'unknown', 1)).toBeNull();
+  });
+});
+
+describe('scrollCellIntoView', () => {
+  // Mirrors MUI's own `scrollToIndexes`, which indexes into the *visible*
+  // column definitions: an index that counts hidden columns too silently
+  // scrolls to the wrong column and throws once it runs past the visible
+  // count. Passing that index used to abort Tab navigation for good (below
+  // the `lg` breakpoint the planting plans grid hides both harvest-date
+  // columns, so Tab out of "Pflanzdatum" reached "Fläche" and then stopped
+  // short of "Pflanzen").
+  const createApiWithHiddenColumns = () => {
+    const visibleColumns = [
+      { field: 'culture' },
+      { field: 'planting_date' },
+      { field: 'area_m2' },
+      { field: 'plants_count' },
+    ];
+    return {
+      visibleColumns,
+      getVisibleColumns: vi.fn(() => visibleColumns),
+      getRowIndexRelativeToVisibleRows: vi.fn(() => 3),
+      scrollToIndexes: vi.fn((indexes: { rowIndex?: number; colIndex?: number }) => {
+        if (indexes.colIndex !== undefined) {
+          // Throws exactly like MUI does on `visibleColumns[colIndex].computedWidth`.
+          expect(visibleColumns[indexes.colIndex]).toBeDefined();
+        }
+      }),
+      setCellFocus: vi.fn(),
+    };
+  };
+
+  it('resolves the column index against the visible columns, not the hidden ones', () => {
+    const api = createApiWithHiddenColumns();
+
+    scrollCellIntoView(api, { id: 10, field: 'plants_count' });
+
+    expect(api.scrollToIndexes).toHaveBeenCalledWith({ rowIndex: 3, colIndex: 3 });
+  });
+
+  it('skips the column axis for a hidden field instead of scrolling out of range', () => {
+    const api = createApiWithHiddenColumns();
+
+    scrollCellIntoView(api, { id: 10, field: 'harvest_end_date' });
+
+    expect(api.scrollToIndexes).toHaveBeenCalledWith({ rowIndex: 3 });
+  });
+
+  it('does not scroll at all when neither axis resolves', () => {
+    const api = createApiWithHiddenColumns();
+    api.getRowIndexRelativeToVisibleRows.mockReturnValue(-1);
+
+    scrollCellIntoView(api, { id: 999, field: 'harvest_end_date' });
+
+    expect(api.scrollToIndexes).not.toHaveBeenCalled();
+  });
+
+  it('keeps focusing a cell behind hidden columns instead of throwing', () => {
+    const api = createApiWithHiddenColumns();
+
+    expect(() =>
+      focusKeyboardNavigableCell({ api, cell: { id: 10, field: 'plants_count' } }),
+    ).not.toThrow();
+    expect(api.setCellFocus).toHaveBeenCalledWith(10, 'plants_count');
+  });
+});
+
+describe('getVisibleColumnIndex', () => {
+  const api = {
+    getVisibleColumns: vi.fn(() => [{ field: 'name' }, { field: 'area_m2' }]),
+  };
+
+  it('returns the index within the visible columns', () => {
+    expect(getVisibleColumnIndex(api, 'area_m2')).toBe(1);
+  });
+
+  it('returns undefined for a hidden field and for a missing grid API', () => {
+    expect(getVisibleColumnIndex(api, 'harvest_date')).toBeUndefined();
+    expect(getVisibleColumnIndex(null, 'name')).toBeUndefined();
+    expect(getVisibleColumnIndex({}, 'name')).toBeUndefined();
   });
 });
 

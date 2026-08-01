@@ -73,35 +73,9 @@ interface CultureFormProps {
 
 // Default color for display color picker
 const DEFAULT_DISPLAY_COLOR = '#3498db';
+
 // Vertical rhythm of the supplier data section (MUI spacing unit = 8px -> 14px).
 const SUPPLIER_SECTION_GAP = 1.75;
-const FOCUSABLE_DIALOG_ELEMENT_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[role="button"]:not([aria-disabled="true"])',
-  '[role="combobox"]:not([aria-disabled="true"])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-const isElementVisible = (element: HTMLElement): boolean => (
-  element.offsetParent !== null || element.getClientRects().length > 0
-);
-
-const getDialogFocusableElements = (dialogElement: HTMLElement): HTMLElement[] => (
-  Array.from(dialogElement.querySelectorAll<HTMLElement>(FOCUSABLE_DIALOG_ELEMENT_SELECTOR))
-    .filter((element) => (
-      isElementVisible(element)
-      && element.tabIndex >= 0
-      && element.getAttribute('aria-hidden') !== 'true'
-    ))
-);
-
-const isFloatingSelectMenuOpen = (): boolean => (
-  Boolean(document.querySelector('.MuiPopover-paper [role="listbox"], .MuiMenu-paper [role="listbox"]'))
-);
 
 // Empty culture template
 const EMPTY_CULTURE: Partial<Culture> = {
@@ -492,50 +466,9 @@ export function CultureForm({
     });
   };
 
-  useEffect(() => {
-    const handleDialogTabKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (
-        event.key !== 'Tab'
-        || event.altKey
-        || event.ctrlKey
-        || event.metaKey
-        || isFloatingSelectMenuOpen()
-      ) {
-        return;
-      }
-
-      const dialogElement = formRef.current?.closest('[role="dialog"]') as HTMLElement | null;
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (!dialogElement || !activeElement || !dialogElement.contains(activeElement)) {
-        return;
-      }
-
-      const focusableElements = getDialogFocusableElements(dialogElement);
-      if (focusableElements.length === 0) {
-        return;
-      }
-
-      const currentIndex = focusableElements.findIndex((element) => (
-        element === activeElement || element.contains(activeElement)
-      ));
-      const nextIndex = currentIndex >= 0
-        ? event.shiftKey
-          ? (currentIndex - 1 + focusableElements.length) % focusableElements.length
-          : (currentIndex + 1) % focusableElements.length
-        : 0;
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      requestAnimationFrame(() => {
-        focusableElements[nextIndex]?.focus();
-      });
-    };
-
-    document.addEventListener('keydown', handleDialogTabKeyDown, true);
-    return () => document.removeEventListener('keydown', handleDialogTabKeyDown, true);
-  }, []);
+  // Tab/Shift+Tab inside this dialog is MUI's `Dialog` focus trap's job; Tab
+  // out of an open Select dropdown belongs to `TypeaheadSelect`. Do not add a
+  // second trap here — see docs/keyboard-architecture.md.
 
   // Handle manual save (for Save button)
   const handleSubmit = async (e: React.FormEvent) => {
