@@ -47,9 +47,8 @@ export interface GanttTaskGroup {
   depth?: number;
   isExpandable?: boolean;
   isExpanded?: boolean;
+  /** Structural summary rendered in the row's timeline area instead of bars. */
   emptyRowLabel?: string;
-  /** Compact grey summary line under the row name in the left column. */
-  metaLabel?: string;
   rowHeightOverride?: number;
 }
 
