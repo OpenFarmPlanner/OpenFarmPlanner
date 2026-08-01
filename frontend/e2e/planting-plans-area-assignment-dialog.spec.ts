@@ -7,6 +7,8 @@ const apiBase = `http://127.0.0.1:${backendPort}/api`;
 type AreaDialogFixtureOptions = {
   languageCode?: 'de' | 'en';
   longNames?: boolean;
+  /** Number of planting plans to create; defaults to a single row. */
+  planCount?: number;
 };
 
 async function createAreaDialogFixture(
@@ -76,13 +78,15 @@ async function createAreaDialogFixture(
     cultivation_types: ['pre_cultivation'],
     plants_per_m2: 4,
   });
-  await api<{ id: number }>('/planting-plans/', {
-    bed: bed.id,
-    culture: culture.id,
-    cultivation_type: 'pre_cultivation',
-    planting_date: '2026-04-10',
-    area_usage_sqm: 2,
-  });
+  for (let index = 0; index < (options.planCount ?? 1); index += 1) {
+    await api<{ id: number }>('/planting-plans/', {
+      bed: bed.id,
+      culture: culture.id,
+      cultivation_type: 'pre_cultivation',
+      planting_date: `2026-04-${String(10 + index).padStart(2, '0')}`,
+      area_usage_sqm: 2,
+    });
+  }
 }
 
 async function openAreaAssignmentDialog(page: Page, title: string, editLabel: string) {
@@ -155,6 +159,69 @@ test.describe('planting plans area assignment dialog', () => {
     await expect(
       page.locator('[role="gridcell"][data-field="cultivation_type"]').first(),
     ).toHaveAttribute('tabindex', '0');
+  });
+
+  test('reopens on every keyboard entry into the cell, forwards and backwards', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-keyboard', { planCount: 3 });
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+
+    const dialog = page.getByRole('dialog', { name: 'Anbaufläche ändern' });
+    const cellAt = (field: string, rowIndex: number) =>
+      page.locator(`[role="gridcell"][data-field="${field}"]`).nth(rowIndex);
+    const bedCell = cellAt('bed', 0);
+    const previousCell = cellAt('cultivation_type', 0);
+    await expect(bedCell).toBeVisible();
+
+    // Tab onto the cell opens the dialog …
+    await previousCell.click();
+    await page.keyboard.press('Escape');
+    await previousCell.focus();
+    await page.keyboard.press('Tab');
+    await expect(dialog).toBeVisible();
+
+    // … cancelling leaves focus on the cell, and re-entering opens it again.
+    await page.getByRole('button', { name: 'Abbrechen' }).click();
+    await expect(dialog).toBeHidden();
+    await page.keyboard.press('Shift+Tab');
+    await expect(previousCell).toHaveAttribute('tabindex', '0');
+    await expect(dialog).toBeHidden();
+    await page.keyboard.press('Tab');
+    await expect(dialog).toBeVisible();
+
+    // Escape must not save, and must not stop the next entry from opening.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(dialog).toBeVisible();
+
+    // Backwards navigation from the following cell opens it too.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await cellAt('planting_date', 0).focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    // Every other row behaves the same, in both directions.
+    for (const rowIndex of [1, 2]) {
+      await cellAt('cultivation_type', rowIndex).focus();
+      await page.keyboard.press('Tab');
+      await expect(dialog).toBeVisible();
+      await page.getByRole('button', { name: 'Abbrechen' }).click();
+      await expect(dialog).toBeHidden();
+      await expect(cellAt('bed', rowIndex)).toHaveAttribute('tabindex', '0');
+
+      await cellAt('planting_date', rowIndex).focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toBeHidden();
+    }
   });
 
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
