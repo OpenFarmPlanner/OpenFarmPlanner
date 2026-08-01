@@ -60,7 +60,6 @@ interface CultureDetailProps {
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
   onPublishCulture?: () => void;
-  onRemovePublicCulture?: (culture: Culture) => void;
   onDeleteCulture?: (culture: Culture) => void;
   canCreatePlan?: boolean;
   isPublishingCulture?: boolean;
@@ -91,7 +90,6 @@ export function CultureDetail({
   onCreatePlan,
   onOpenHistory,
   onPublishCulture,
-  onRemovePublicCulture,
   onDeleteCulture,
   canCreatePlan = true,
   isPublishingCulture = false,
@@ -756,8 +754,6 @@ export function CultureDetail({
                 onPublish={() => onPublishCulture?.()}
                 isPublishing={isPublishingCulture}
                 publishLabel={publishActionLabel ?? t('library.publishButton')}
-                onRemovePublicCulture={() => onRemovePublicCulture?.(selectedCulture)}
-                canRemovePublicCulture={Boolean(selectedCulture.owned_public_culture_id && onRemovePublicCulture)}
                 onDelete={() => onDeleteCulture?.(selectedCulture)}
                 t={t}
               />

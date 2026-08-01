@@ -31,7 +31,6 @@ from farm.seed_units import (
     SEED_RATE_UNITS,
 )
 from farm.services.culture_display import resolve_culture_display_name
-from farm.services.public_cultures import is_public_culture_contributor
 
 from .seed_packages import SeedPackageSerializer
 from .seed_rates import (
@@ -47,9 +46,6 @@ from .suppliers import (
     _supplier_data_payload_has_information,
     _supplier_data_payload_has_supplier,
 )
-
-# Sentinel so a resolved `None` is cached instead of re-queried per field.
-_UNRESOLVED = object()
 
 
 class CultureSerializer(serializers.ModelSerializer):
@@ -169,8 +165,7 @@ class CultureSerializer(serializers.ModelSerializer):
         help_text='Calculated plants per square meter based on spacing (read-only)'
     )
     owned_public_culture_id = serializers.SerializerMethodField()
-    owned_public_culture_role = serializers.SerializerMethodField()
-
+    
     def get_image_file(self, obj):
         if not obj.image_file_id:
             return None
@@ -218,66 +213,37 @@ class CultureSerializer(serializers.ModelSerializer):
             return {}
         return species.translations_by_language()
     
-    def _resolve_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
-        """The published public-library entry the requesting user may act on for this culture."""
-        cached = getattr(obj, '_resolved_owned_public_culture', _UNRESOLVED)
-        if cached is not _UNRESOLVED:
-            return cached
-
-        resolved = self._query_owned_public_culture(obj)
-        obj._resolved_owned_public_culture = resolved
-        return resolved
-
-    def _query_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
+    def get_owned_public_culture_id(self, obj: Culture) -> int | None:
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:
             return None
 
         if obj.source_public_culture_id:
-            source_public = obj.source_public_culture
             if (
-                source_public
-                and source_public.status == PublicCulture.STATUS_PUBLISHED
+                obj.source_public_culture
+                and obj.source_public_culture.status == PublicCulture.STATUS_PUBLISHED
                 and (
-                    source_public.created_by_id == user.id
+                    obj.source_public_culture.created_by_id == user.id
                     or self._can_moderate_public_cultures(user)
                 )
             ):
-                return source_public
+                return obj.source_public_culture_id
             return None
 
         prefetched = getattr(obj, '_prefetched_owned_public_cultures', None)
         if prefetched is not None:
-            return prefetched[0] if prefetched else None
+            if prefetched:
+                return prefetched[0].id
+            return None
 
         linked_public = PublicCulture.objects.filter(
             source_project_culture=obj,
             status=PublicCulture.STATUS_PUBLISHED,
         )
-        if not self._can_moderate_public_cultures(user):
+        if prefetched is None and not self._can_moderate_public_cultures(user):
             linked_public = linked_public.filter(created_by=user)
-        return linked_public.order_by('-updated_at', '-id').first()
-
-    def get_owned_public_culture_id(self, obj: Culture) -> int | None:
-        public_culture = self._resolve_owned_public_culture(obj)
-        return public_culture.id if public_culture else None
-
-    def get_owned_public_culture_role(self, obj: Culture) -> str | None:
-        """How the requesting user relates to the linked public entry.
-
-        `contributor` means they published it themselves and can withdraw it
-        without a reason; `moderator` means removing it is a moderation action
-        that requires a structured reason.
-        """
-        public_culture = self._resolve_owned_public_culture(obj)
-        if public_culture is None:
-            return None
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if is_public_culture_contributor(public_culture=public_culture, user=user):
-            return 'contributor'
-        return 'moderator'
+        return linked_public.order_by('-updated_at', '-id').values_list('id', flat=True).first()
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')

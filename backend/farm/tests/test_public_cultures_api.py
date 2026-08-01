@@ -1209,30 +1209,6 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['owned_public_culture_id'], public_culture.id)
-        self.assertEqual(response.data['results'][0]['owned_public_culture_role'], 'moderator')
-
-    def test_contributor_culture_list_reports_the_contributor_role_for_their_public_entry(self):
-        public_culture = PublicCulture.objects.create(
-            name='Lettuce',
-            variety='Bijella',
-            status=PublicCulture.STATUS_PUBLISHED,
-            created_by=self.user,
-            source_project=self.project,
-            source_project_culture=self.culture,
-        )
-
-        response = self.client.get('/openfarmplanner/api/cultures/')
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['results'][0]['owned_public_culture_id'], public_culture.id)
-        self.assertEqual(response.data['results'][0]['owned_public_culture_role'], 'contributor')
-
-    def test_culture_list_reports_no_public_library_role_without_a_linked_entry(self):
-        response = self.client.get('/openfarmplanner/api/cultures/')
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsNone(response.data['results'][0]['owned_public_culture_id'])
-        self.assertIsNone(response.data['results'][0]['owned_public_culture_role'])
 
     def test_moderator_removing_their_own_public_culture_withdraws_it_without_a_reason(self):
         moderator = User.objects.create_user(

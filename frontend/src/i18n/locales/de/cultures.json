@@ -764,29 +764,12 @@
     "publishDuplicateError": "Diese Kultur ist bereits in der Kulturbibliothek vorhanden.",
     "publishDuplicateErrorWithCandidates": "Diese Kultur ist bereits öffentlich vorhanden: {{duplicates}}",
     "publishError": "Die Kultur konnte nicht veröffentlicht werden.",
-    "removeAction": "Aus Bibliothek entfernen",
-    "removeSuccess": "„{{name}}“ wurde aus der öffentlichen Kulturbibliothek entfernt.",
-    "removeError": "Die Kultur konnte nicht aus der Bibliothek entfernt werden.",
     "hardDeleteAction": "Endgültig löschen",
     "hardDeleteSuccess": "„{{name}}“ wurde endgültig gelöscht.",
     "hardDeleteError": "Die Kultur konnte nicht endgültig gelöscht werden. Wahrscheinlich existieren noch Referenzen oder Herkunftsdaten.",
-    "removeDialog": {
-      "title": "Aus Bibliothek entfernen?",
-      "message": "„{{name}}“ verschwindet aus der öffentlichen Kulturbibliothek. Bereits importierte Kulturen in Projekten bleiben vollständig erhalten. Du kannst die Kultur später erneut veröffentlichen.",
-      "moderationMessage": "„{{name}}“ wird für alle Nutzer aus der öffentlichen Kulturbibliothek entfernt. Bereits importierte Projektkulturen bleiben unverändert. Bitte wähle den Moderationsgrund.",
-      "reasonLabel": "Grund"
-    },
     "hardDeleteDialog": {
       "title": "Endgültig löschen?",
       "message": "„{{name}}“ wird nur gelöscht, wenn keine Importe, Herkunftsdaten oder Abhängigkeiten mehr existieren. Für normale Moderationsfälle ist Entfernen aus der Bibliothek vorgesehen."
-    },
-    "removeReasons": {
-      "accidental_publication": "Versehentliche Veröffentlichung",
-      "test_data": "Testdatensatz",
-      "duplicate": "Duplikat",
-      "wrong_mapping": "Falsche Zuordnung",
-      "unlawful_content": "Unzulässiger Inhalt",
-      "other": "Sonstiges"
     },
     "loadError": "Die Kulturbibliothek konnte nicht geladen werden.",
     "versionLabel": "Version",

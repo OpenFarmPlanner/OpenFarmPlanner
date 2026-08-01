@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import axios from 'axios';
 import { cultureAPI, publicCultureAPI } from '../api/api';
 import type { Culture } from '../api/api';
-import type { PublicCulture, PublicCultureRemovalReason, PublishPublicCultureDuplicateError } from '../api/types';
+import type { PublicCulture, PublishPublicCultureDuplicateError } from '../api/types';
 import { useTranslation } from '../i18n';
 import { useAuth } from '../auth/useAuth';
 import { extractApiErrorMessage } from '../api/errors';
@@ -150,29 +150,6 @@ export function usePublicCultureLibrary({
     }
   };
 
-  /**
-   * Removes the culture from the public library. Contributors withdraw their
-   * own entry (no reason needed), moderators pass a moderation reason.
-   */
-  const handleRemovePublicCulture = async (
-    culture: Culture,
-    reason?: PublicCultureRemovalReason,
-  ): Promise<boolean> => {
-    if (!culture.owned_public_culture_id) {
-      return false;
-    }
-    try {
-      await publicCultureAPI.remove(culture.owned_public_culture_id, reason);
-      await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.removeSuccess', { name: formatCultureDisplayName(culture) }), 'success');
-      return true;
-    } catch (error) {
-      console.error('Error removing public culture:', error);
-      showSnackbar(extractApiErrorMessage(error, t, t('library.removeError')), 'error');
-      return false;
-    }
-  };
-
   useEffect(() => {
     if (shouldShowProjectRequiredState || publicLibraryOpen) {
       return;
@@ -210,6 +187,5 @@ export function usePublicCultureLibrary({
     handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleRemovePublicCulture,
   };
 }

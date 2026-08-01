@@ -162,8 +162,9 @@ export const publicCultureAPI = {
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
   importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
-  // Contributors remove their own entry without a reason; moderators removing
-  // somebody else's entry must supply a structured moderation reason.
+  // Moderation-only endpoints. They have no UI surface in the app; the culture
+  // overflow menu deliberately does not expose them (see
+  // docs/crop-library-architecture.md, section 8).
   remove: (id: number, reason?: PublicCultureRemovalReason) =>
     http.post<PublicCulture>(`/public-cultures/${id}/remove/`, reason ? { reason } : {}),
   hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
