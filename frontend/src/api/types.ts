@@ -59,6 +59,10 @@ export interface SupplierUnlinkDeleteResponse {
   undo_payload: SupplierDeleteUndoPayload;
 }
 
+export interface SupplierDeleteResponse {
+  undo_payload: SupplierDeleteUndoPayload;
+}
+
 export interface SupplierRestoreUnlinkedDeleteResponse {
   supplier: Supplier;
   restored_culture_count: number;

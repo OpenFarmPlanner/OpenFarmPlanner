@@ -92,6 +92,45 @@ class SupplierApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['homepage_url'], 'https://supplier.example/path')
 
+    def test_supplier_delete_removes_supplier_and_returns_undo_payload(self):
+        """Delete must persist immediately and hand back a restore payload for undo."""
+        response = self.client.delete(f'/openfarmplanner/api/suppliers/{self.supplier.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Supplier.objects.filter(pk=self.supplier.id).exists())
+        undo_payload = response.data['undo_payload']
+        self.assertEqual(undo_payload['supplier']['id'], self.supplier.id)
+        self.assertEqual(undo_payload['supplier']['name'], self.supplier.name)
+        self.assertEqual(undo_payload['culture_ids'], [])
+        self.assertEqual(undo_payload['supplier_data'], [])
+
+    def test_supplier_delete_undo_payload_restores_supplier(self):
+        """The undo payload from a delete restores the supplier under its old id."""
+        delete_response = self.client.delete(f'/openfarmplanner/api/suppliers/{self.supplier.id}/')
+        self.assertEqual(delete_response.status_code, status.HTTP_200_OK)
+
+        restore_response = self.client.post(
+            '/openfarmplanner/api/suppliers/restore-unlinked-delete/',
+            delete_response.data['undo_payload'],
+            format='json',
+        )
+
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
+        restored = Supplier.objects.get(pk=self.supplier.id)
+        self.assertEqual(restored.name, self.supplier.name)
+        self.assertEqual(restored.homepage_url, self.supplier.homepage_url)
+
+    def test_supplier_delete_rejects_supplier_still_in_use(self):
+        """A supplier referenced by a culture is kept and reported as a conflict."""
+        self.culture.supplier = self.supplier
+        self.culture.save(update_fields=['supplier'])
+
+        response = self.client.delete(f'/openfarmplanner/api/suppliers/{self.supplier.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(response.data['usage']['can_delete'])
+        self.assertTrue(Supplier.objects.filter(pk=self.supplier.id).exists())
+
     def test_supplier_update_not_limited_by_list_slice(self):
         """Supplier updates must work even if list endpoint shows only first 20 rows."""
         for idx in range(30):

@@ -32,6 +32,7 @@ import type {
   FieldLayoutEntry,
   LocationLayoutsResponse,
   CultureSupplierData,
+  SupplierDeleteResponse,
   SupplierDeleteUsage,
   SupplierDeleteUndoPayload,
   SupplierRestoreUnlinkedDeleteResponse,
@@ -205,7 +206,7 @@ export const supplierAPI = {
   unlinkAndDelete: (id: number) => http.post<SupplierUnlinkDeleteResponse>(`/suppliers/${id}/unlink-and-delete/`, {}),
   restoreUnlinkedDelete: (undoPayload: SupplierDeleteUndoPayload) =>
     http.post<SupplierRestoreUnlinkedDeleteResponse>('/suppliers/restore-unlinked-delete/', undoPayload),
-  delete: (id: number) => http.delete(`/suppliers/${id}/`),
+  delete: (id: number) => http.delete<SupplierDeleteResponse>(`/suppliers/${id}/`),
 };
 
 export const cultureSupplierDataAPI = {
