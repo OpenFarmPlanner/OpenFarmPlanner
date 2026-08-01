@@ -1551,6 +1551,7 @@ describe('PublicCropLibraryPage', () => {
       });
     });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument());
 
     await act(async () => {
       staleList.resolve({ data: { results: publicCultures } });

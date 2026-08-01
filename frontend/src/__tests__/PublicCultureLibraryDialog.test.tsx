@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import type { PublicCulture } from '../api/types';
 
@@ -38,6 +38,8 @@ const carrotCulture: PublicCulture = {
   harvest_duration_days: 21,
   version: 1,
 };
+
+const originalMatchMedia = window.matchMedia;
 
 function createMatchMedia(width: number) {
   return vi.fn().mockImplementation((query: string) => {
@@ -85,6 +87,13 @@ describe('PublicCultureLibraryDialog', () => {
   beforeEach(() => {
     mockMobileViewport();
     window.history.replaceState({ page: 'cultures' }, '', '/app/cultures');
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
   });
 
   it('closes the mobile dialog when the browser history entry is popped', async () => {
