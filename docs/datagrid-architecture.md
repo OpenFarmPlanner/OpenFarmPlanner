@@ -272,6 +272,38 @@ grid then treats them exactly like notes cells:
   the trigger element itself, which stops propagation so the grid does not
   also react; after the dialog closes, focus returns to that trigger and
   ordinary navigation continues.
+- **Tab/Shift+Tab onto the cell opens the dialog** — that is what "entering
+  edit mode" means for a cell whose dialog *is* its edit session. Arrow keys
+  deliberately stay pure movement, so the cell can still be passed by without
+  a modal opening.
+
+That last point is what `DialogEditCellContext.tsx` exists for. The grid has
+no inline edit session to hang the dialog off, so `EditableDataGrid` publishes
+a *request* — `{ cellKey, token }` — every time keyboard navigation enters a
+`dialogEditFields` cell, and the cell's renderer opens on it via
+`useDialogEditCellOpenRequest(rowId, field, open)`. Two properties make
+repeated entries work where a "did I already open?" flag would not:
+
+- the token is bumped per entry, and a cell opens for a given token **exactly
+  once**, so a focus event, a click and the request all landing on the same
+  entry cannot stack up two dialogs (`AreaAssignmentDialog`'s `handleOpen` is
+  additionally idempotent while open, so a duplicate impulse can't reset a
+  draft the user is mid-way through);
+- the cell **consumes** the request as it opens, so nothing is left behind for
+  a later re-render or a re-mount (grid virtualization) to replay.
+
+Requests are issued from the Tab paths only — `handleViewModeCellNavigation`
+for a row in view mode, and `handleEditedCellTabNavigation` (via
+`navigateFromEditedCell` / `saveEditedRowAndFocusTarget` /
+`focusKeyboardNavigableCell`'s `requestDialogEdit` option) for a row in inline
+edit mode. Don't reintroduce a "the dialog was already opened once" flag or a
+timeout-based reopen: both are what made the cell open on the first Tab and
+never again.
+
+For this to hold, a cell renderer that focuses itself on `hasFocus` must
+cancel that pending frame on cleanup (see `CompactAreaCell`) — otherwise the
+frame scheduled by the focus that *caused* the request fires after the dialog
+mounted and pulls focus straight back out of it.
 
 The dialog writes its result back through the command API's
 `applyDialogEditValues(rowId, values)`, **not** `setEditCellValue` (there is

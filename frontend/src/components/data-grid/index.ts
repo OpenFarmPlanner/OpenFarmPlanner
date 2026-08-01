@@ -56,6 +56,13 @@ export {
 export { buildTsv, copyRowsToClipboard, copyTextToClipboard, copyTextToClipboardSilently, formatClipboardValue } from './tableClipboard';
 export type { TableClipboardRow } from './tableClipboard';
 
+export {
+  buildDialogEditCellKey,
+  DialogEditCellContext,
+  useDialogEditCellOpenRequest,
+} from './DialogEditCellContext';
+export type { DialogEditCellContextValue, DialogEditCellRequest } from './DialogEditCellContext';
+
 export { handleEditableCellClick, handleRowEditStop } from './handlers';
 
 export { StableScrollbarTrack } from './StableScrollbarTrack';
