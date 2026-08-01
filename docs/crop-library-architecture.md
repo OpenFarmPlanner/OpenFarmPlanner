@@ -18,10 +18,11 @@ The public Crop Library follows an open-data model:
 
 - Published crop data becomes part of a shared knowledge base intended to
   persist beyond the contributing user's project or account.
-- Contributors may withdraw their own publications when a publication was
-  accidental or needs correction. Withdrawal is non-destructive: the entry
-  disappears from discovery, but attribution, license evidence, import
-  lineage, and already-imported project copies remain intact.
+- Contributors may take their own publications back out of the library when a
+  publication was accidental or needs correction. Withdrawal is
+  non-destructive: the entry disappears from discovery, but attribution,
+  license evidence, import lineage, and already-imported project copies remain
+  intact. The UI offers this as a single "Aus Bibliothek entfernen" action.
 - Moderator removal is reserved for exceptional cases such as test data,
   duplicates, unlawful content, personal data in a published record, spam,
   obvious abuse, or another moderation decision. It is also non-destructive.
@@ -330,10 +331,19 @@ multilingual species library.
 
 The status-change API lives on `/api/public-cultures/<id>/`:
 
-- `withdraw/` lets the contributor withdraw their own published entry.
-- `remove/` lets staff remove an entry with a structured reason
-  (`accidental_publication`, `test_data`, `duplicate`, `wrong_mapping`,
-  `unlawful_content`, `other`).
+- `remove/` is the single entry point for taking an entry out of the library,
+  so the culture overflow menu only needs one "Aus Bibliothek entfernen"
+  action. The actor decides the transition: the contributor of the entry
+  withdraws it (`withdrawn`, no reason required, reversible by publishing the
+  project culture again), while a moderator removing somebody else's entry
+  must pass a structured reason (`accidental_publication`, `test_data`,
+  `duplicate`, `wrong_mapping`, `unlawful_content`, `other`) and produces
+  `removed`. Contributor intent wins for moderators acting on their own
+  entries — a moderator who wants the stronger `removed` state for their own
+  publication uses the admin surface.
+  `CultureSerializer.owned_public_culture_role` (`contributor` / `moderator` /
+  `null`) tells the UI which of the two paths applies, so the confirmation
+  dialog only asks for a moderation reason when one is actually required.
 - `hard-delete/` is staff-only and intentionally narrow. It is blocked when
   the public entry has imported project copies or source-project provenance;
   ordinary cleanup and moderation should use `removed` instead.
