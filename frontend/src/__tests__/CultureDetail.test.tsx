@@ -724,7 +724,7 @@ describe('CultureDetail Component', () => {
     expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Versionen' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Veröffentlichen' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Projektkultur löschen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
   });
 
   it('keeps the portrait mobile culture UI in short-height phone landscape', () => {

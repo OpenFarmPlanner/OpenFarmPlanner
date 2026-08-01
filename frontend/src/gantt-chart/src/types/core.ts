@@ -35,20 +35,13 @@ export interface TaskGroup {
   isExpanded?: boolean;
   /**
    * Shown in the timeline area instead of bars when `tasks` is empty —
-   * e.g. a parent row summarizing its children ("12 beds, 34 plans").
-   * Purely a caller-provided string; this library has no opinion on its
-   * content.
+   * e.g. a parent row summarizing its children ("2 fields · 6 beds ·
+   * 5 occupied"). Rendered as quiet secondary text pinned to the start of
+   * the row, so it stays clear of the sticky left column and adds no row
+   * height of its own. Purely a caller-provided string; this library has no
+   * opinion on its content.
    */
   emptyRowLabel?: string;
-  /**
-   * Compact secondary line rendered in the left column directly beneath the
-   * group's name — e.g. a structural summary of a tree parent row
-   * ("2 fields · 6 beds · 5 occupied"). Purely a caller-provided string;
-   * this library has no opinion on its content. Tree rows only; callers that
-   * set it should also size the row (see `rowHeightOverride`) so the extra
-   * line fits, otherwise the left column and the timeline drift apart.
-   */
-  metaLabel?: string;
   /**
    * Overrides the computed row height for this group only (e.g. a compact
    * height for a tree parent row that has no bars of its own). Falls back

@@ -54,6 +54,7 @@ vi.mock('@mui/x-data-grid', async () => {
     onRowSelectionModelChange,
     rowModesModel,
     rowSelectionModel,
+    columnVisibilityModel,
     slots,
     pagination,
     paginationModel,
@@ -62,6 +63,9 @@ vi.mock('@mui/x-data-grid', async () => {
   }: unknown) => {
     const [, forceFocusRender] = React.useState(0);
     const [editValues, setEditValues] = React.useState<Record<string, unknown>>({});
+    const visibleColumns = columns.filter(
+      (column: GridColDef) => columnVisibilityModel?.[column.field] !== false,
+    );
 
     if (apiRef?.current) {
       apiRef.current.state = apiRef.current.state ?? { focus: { cell: null } };
@@ -77,7 +81,7 @@ vi.mock('@mui/x-data-grid', async () => {
         }));
         return mockSetEditCellValue(params);
       };
-      apiRef.current.getVisibleColumns = () => columns;
+      apiRef.current.getVisibleColumns = () => visibleColumns;
       apiRef.current.getAllRowIds = () => rows.map((row: TestGridRow) => row.id);
       apiRef.current.getRowWithUpdatedValues = (id: string | number) => {
         const baseRow = rows.find((row: TestGridRow) => String(row.id) === String(id));
@@ -97,6 +101,8 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.getRowIndexRelativeToVisibleRows = (id: string | number) =>
         rows.findIndex((row: TestGridRow) => String(row.id) === String(id));
+      // Deliberately mirrors MUI's own (misnamed) implementation: it resolves
+      // the field against *all* columns, hidden ones included.
       apiRef.current.getColumnIndexRelativeToVisibleColumns = (field: string) =>
         columns.findIndex((column: GridColDef) => column.field === field);
       apiRef.current.getCellParams = (id: string | number, field: string) => {
@@ -105,7 +111,13 @@ vi.mock('@mui/x-data-grid', async () => {
       };
       apiRef.current.isCellEditable = (params: { field: string }) =>
         columns.find((column: GridColDef) => column.field === params.field)?.editable !== false;
-      apiRef.current.scrollToIndexes = vi.fn();
+      // MUI reads `visibleColumns[colIndex].computedWidth`, so an index that
+      // counted hidden columns too blows up here instead of scrolling.
+      apiRef.current.scrollToIndexes = (indexes: { rowIndex?: number; colIndex?: number }) => {
+        if (indexes.colIndex !== undefined && !visibleColumns[indexes.colIndex]) {
+          throw new TypeError("Cannot read properties of undefined (reading 'computedWidth')");
+        }
+      };
       apiRef.current.setCellFocus = (id: string | number, field: string) => {
         mockSetCellFocus(id, field);
         apiRef.current.state.focus.cell = { id, field };
@@ -149,7 +161,7 @@ vi.mock('@mui/x-data-grid', async () => {
             data-testid={`row-${row.id}`}
           >
             <span data-testid={`mode-${row.id}`}>{rowModesModel?.[row.id]?.mode ?? GridRowModes.View}</span>
-            {columns.map((col: GridColDef) => {
+            {visibleColumns.map((col: GridColDef) => {
               const isEditingCell =
                 rowModesModel?.[row.id]?.mode === GridRowModes.Edit &&
                 rowModesModel?.[row.id]?.fieldToFocus === col.field;
@@ -307,6 +319,27 @@ describe('EditableDataGrid', () => {
       notes: '',
     }),
   });
+
+  /**
+   * Grid props whose api mock keeps its own row set, so an immediate delete and
+   * a following restore-by-recreate are visible in the next `list()` call.
+   */
+  const serverBackedProps = (initialRows: TestGridRow[]) => {
+    let serverRows = [...initialRows];
+    let nextCreatedId = 100;
+    const props = baseProps(() => null);
+    vi.spyOn(props.api, 'list').mockImplementation(async () => ({ data: { results: [...serverRows] } }));
+    vi.spyOn(props.api, 'delete').mockImplementation(async (id) => {
+      serverRows = serverRows.filter((row) => row.id !== Number(id));
+    });
+    vi.spyOn(props.api, 'create').mockImplementation(async (data) => {
+      const createdRow = createGridRow({ ...(data as Partial<TestGridRow>), id: nextCreatedId });
+      nextCreatedId += 1;
+      serverRows = [...serverRows, createdRow];
+      return { data: createdRow };
+    });
+    return props;
+  };
 
   const basePropsWithRows = (rows: TestGridRow[]) => {
     const props = baseProps(() => null);
@@ -974,6 +1007,49 @@ describe('EditableDataGrid', () => {
     expect(screen.getByTestId('focused-cell')).not.toHaveTextContent('1-area_sqm');
   });
 
+  it('keeps tabbing through an edited row when columns to the left are hidden', async () => {
+    // Regression: the planting plans grid hides both harvest-date columns
+    // below the `lg` breakpoint. Resolving the scroll target with MUI's
+    // `getColumnIndexRelativeToVisibleColumns` (which counts hidden columns)
+    // made `scrollToIndexes` throw, and the exception aborted the Tab
+    // handler — Tab out of "Pflanzdatum" reached "Fläche" and then went dead,
+    // never arriving at "Pflanzen".
+    const props = baseProps(() => null);
+    const plantingPlanColumns: GridColDef[] = [
+      { field: 'culture', headerName: 'Kultur', editable: true },
+      { field: 'planting_date', headerName: 'Pflanzdatum', editable: true },
+      { field: 'harvest_date', headerName: 'Erntebeginn', editable: false },
+      { field: 'harvest_end_date', headerName: 'Ernteende', editable: false },
+      { field: 'area_sqm', headerName: 'Fläche', editable: true },
+      { field: 'plants_count', headerName: 'Pflanzen', editable: true },
+    ];
+
+    render(
+      <EditableDataGrid
+        {...props}
+        columns={plantingPlanColumns}
+        columnVisibilityModel={{ harvest_date: false, harvest_end_date: false }}
+        showDeleteAction={false}
+      />,
+    );
+
+    const dateCell = await screen.findByRole('button', { name: 'Zelle 1-planting_date' });
+    fireEvent.click(dateCell);
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+
+    fireEvent.keyDown(dateCell, { key: 'Tab' });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-area_sqm'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Zelle 1-area_sqm' }), { key: 'Tab' });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-plants_count'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Zelle 1-plants_count' }), {
+      key: 'Tab',
+      shiftKey: true,
+    });
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('1-area_sqm'));
+  });
+
   describe('dialog-edited cells', () => {
     const dialogColumns: GridColDef[] = [
       { field: 'name', headerName: 'Name', editable: true },
@@ -1596,13 +1672,9 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith(1));
   });
 
-  it('optimistically removes a row and restores it from the delete undo snackbar', async () => {
+  it('deletes a row in the backend right away and recreates it from the delete undo snackbar', async () => {
     const user = userEvent.setup();
-    const props = baseProps();
-    vi.spyOn(props.api, 'list').mockResolvedValue({
-      data: { results: [createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })] },
-    });
-    const deleteSpy = vi.spyOn(props.api, 'delete');
+    const props = serverBackedProps([createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })]);
     const confirmSpy = vi.spyOn(window, 'confirm');
 
     render(
@@ -1620,18 +1692,24 @@ describe('EditableDataGrid', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
 
     expect(screen.queryByTestId('row-1')).not.toBeInTheDocument();
-    expect(screen.getByText('Anbauplan gelöscht')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' })).toBeInTheDocument();
-    expect(deleteSpy).not.toHaveBeenCalled();
+    // The delete is already persisted while undo is still offered — a reload
+    // at this point must not bring the row back.
+    await waitFor(() => expect(props.api.delete).toHaveBeenCalledWith(1));
     expect(confirmSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText('Anbauplan gelöscht')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' }));
 
-    expect(screen.getByTestId('row-1')).toBeInTheDocument();
-    expect(deleteSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(props.api.create).toHaveBeenCalledWith({
+      name: 'Beet A',
+      area_sqm: 12,
+      notes: '',
+    }));
+    await waitFor(() => expect(screen.getByTestId('row-count')).toHaveTextContent('2'));
+    expect(screen.getByTestId('row-100')).toBeInTheDocument();
   });
 
-  it('finalizes optimistic delete after the 10000 ms undo window', async () => {
+  it('does not defer the backend delete until the undo window has passed', async () => {
     const props = baseProps();
     const deleteSpy = vi.spyOn(props.api, 'delete');
 
@@ -1647,16 +1725,41 @@ describe('EditableDataGrid', () => {
 
     await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
     fireEvent.contextMenu(screen.getByTestId('row-1'));
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    });
 
-    vi.advanceTimersByTime(9999);
-    expect(deleteSpy).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(1);
-    await Promise.resolve();
     expect(deleteSpy).toHaveBeenCalledWith(1);
-    vi.useRealTimers();
+  });
+
+  it('puts the row back and reports the error when the immediate delete fails', async () => {
+    const props = baseProps();
+    vi.spyOn(props.api, 'list').mockResolvedValue({
+      data: { results: [createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })] },
+    });
+    vi.spyOn(props.api, 'delete').mockRejectedValue(new Error('boom'));
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(
+      <EditableDataGrid
+        {...props}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+        deleteUndoOptions={{ message: 'Anbauplan gelöscht' }}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
+    fireEvent.contextMenu(screen.getByTestId('row-1'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    });
+
+    expect(screen.getByTestId('row-1')).toBeInTheDocument();
+    expect(screen.queryByText('Anbauplan gelöscht')).not.toBeInTheDocument();
+    expect(screen.getByText('Löschen fehlgeschlagen')).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
   });
 
   it('discards an unsaved new row without backend delete or undo state', async () => {
@@ -1684,12 +1787,9 @@ describe('EditableDataGrid', () => {
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
-  it('handles multiple optimistic deletions independently', async () => {
-    const props = baseProps();
-    vi.spyOn(props.api, 'list').mockResolvedValue({
-      data: { results: [createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })] },
-    });
-    const deleteSpy = vi.spyOn(props.api, 'delete');
+  it('handles multiple immediate deletions independently', async () => {
+    const user = userEvent.setup();
+    const props = serverBackedProps([createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })]);
 
     render(
       <EditableDataGrid
@@ -1703,31 +1803,30 @@ describe('EditableDataGrid', () => {
 
     await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
     fireEvent.contextMenu(screen.getByTestId('row-1'));
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
     fireEvent.contextMenu(screen.getByTestId('row-2'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
 
     expect(screen.queryByTestId('row-1')).not.toBeInTheDocument();
     expect(screen.queryByTestId('row-2')).not.toBeInTheDocument();
+    await waitFor(() => expect(props.api.delete).toHaveBeenCalledWith(1));
+    expect(props.api.delete).toHaveBeenCalledWith(2);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' })[0]);
-    expect(screen.getByTestId('row-1')).toBeInTheDocument();
+    const undoButtons = await screen.findAllByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' });
+    expect(undoButtons).toHaveLength(2);
+    await user.click(undoButtons[0]);
+
+    // Only the undone row is recreated; the second deletion stays deleted and
+    // keeps its own snackbar.
+    await waitFor(() => expect(props.api.create).toHaveBeenCalledTimes(1));
+    expect(props.api.create).toHaveBeenCalledWith({ name: 'Beet A', area_sqm: 12, notes: '' });
+    await waitFor(() => expect(screen.getByTestId('row-100')).toBeInTheDocument());
     expect(screen.queryByTestId('row-2')).not.toBeInTheDocument();
-
-    vi.advanceTimersByTime(10000);
-    await Promise.resolve();
-    expect(deleteSpy).toHaveBeenCalledWith(2);
-    expect(deleteSpy).not.toHaveBeenCalledWith(1);
-    vi.useRealTimers();
   });
 
-  it('restores an optimistically deleted row to its previous sorted position', async () => {
+  it('reloads the restored row from the backend after undo', async () => {
     const user = userEvent.setup();
-    const props = baseProps();
-    vi.spyOn(props.api, 'list').mockResolvedValue({
-      data: { results: [createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })] },
-    });
+    const props = serverBackedProps([createGridRow({ id: 1 }), createGridRow({ id: 2, name: 'Beet B' })]);
 
     render(
       <EditableDataGrid
@@ -1742,12 +1841,15 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
     fireEvent.contextMenu(screen.getByTestId('row-1'));
     await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
-    await user.click(screen.getByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' }));
+    await user.click(await screen.findByRole('button', { name: 'Rückgängig: Anbauplan gelöscht' }));
 
-    expect(screen.getAllByRole('row').map((row) => row.getAttribute('data-id'))).toEqual(['1', '2']);
+    // The restore recreates the record, so the row comes back with the id the
+    // backend assigned rather than the id it had before the delete.
+    await waitFor(() => expect(screen.getByTestId('row-100')).toBeInTheDocument());
+    expect(screen.getAllByRole('row').map((row) => row.getAttribute('data-id'))).toEqual(['2', '100']);
   });
 
-  it('cleans pending optimistic delete timers on unmount', async () => {
+  it('keeps the delete persisted when the grid unmounts right after deleting', async () => {
     const props = baseProps();
     const deleteSpy = vi.spyOn(props.api, 'delete');
     const { unmount } = render(
@@ -1762,12 +1864,13 @@ describe('EditableDataGrid', () => {
 
     await waitFor(() => expect(screen.getByTestId('row-1')).toBeInTheDocument());
     fireEvent.contextMenu(screen.getByTestId('row-1'));
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Löschen' }));
+    });
     unmount();
-    vi.advanceTimersByTime(8000);
 
-    expect(deleteSpy).not.toHaveBeenCalled();
+    // Leaving the page (or reloading it) must not undo the delete.
+    expect(deleteSpy).toHaveBeenCalledWith(1);
   });
 
   it('keeps inline editing available when contextual actions are enabled', async () => {

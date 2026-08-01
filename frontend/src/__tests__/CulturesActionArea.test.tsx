@@ -15,7 +15,6 @@ const {
   cropSpeciesListMock,
   publishPreviewMock,
   publicCultureListMock,
-  publicCultureWithdrawMock,
   publicCultureRemoveMock,
   publishPublicMock,
   deleteMock,
@@ -30,7 +29,6 @@ const {
   cropSpeciesListMock: vi.fn(),
   publishPreviewMock: vi.fn(),
   publicCultureListMock: vi.fn(),
-  publicCultureWithdrawMock: vi.fn(),
   publicCultureRemoveMock: vi.fn(),
   publishPublicMock: vi.fn(),
   deleteMock: vi.fn(),
@@ -78,11 +76,19 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
-      withdraw: publicCultureWithdrawMock,
       remove: publicCultureRemoveMock,
     },
   };
 });
+
+interface CultureDetailMockCulture {
+  id?: number;
+  name: string;
+  variety?: string;
+  cultivation_type?: string;
+  owned_public_culture_id?: number | null;
+  owned_public_culture_role?: 'contributor' | 'moderator' | null;
+}
 
 vi.mock('../cultures/CultureDetail', () => ({
   CultureDetail: ({
@@ -91,7 +97,6 @@ vi.mock('../cultures/CultureDetail', () => ({
     onCreateCulture,
     onCreatePlan,
     onPublishCulture,
-    onWithdrawPublicCulture,
     onRemovePublicCulture,
     onEditCulture,
     onDeleteCulture,
@@ -99,13 +104,12 @@ vi.mock('../cultures/CultureDetail', () => ({
     publishActionLabel,
     selectedCultureId,
   }: {
-    cultures: Array<{ id?: number; name: string; variety?: string; cultivation_type?: string; owned_public_culture_id?: number | null }>;
+    cultures: Array<CultureDetailMockCulture>;
     onCultureSelect: (culture: { id?: number; name: string } | null) => void;
     onCreateCulture?: () => void;
     onCreatePlan?: () => void;
     onPublishCulture?: () => void;
-    onWithdrawPublicCulture?: (culture: { id?: number; name: string; owned_public_culture_id?: number | null }) => void;
-    onRemovePublicCulture?: (culture: { id?: number; name: string; owned_public_culture_id?: number | null }) => void;
+    onRemovePublicCulture?: (culture: CultureDetailMockCulture) => void;
     onEditCulture?: (culture: { id?: number; name: string }) => void;
     onDeleteCulture?: (culture: { id?: number; name: string; variety?: string; cultivation_type?: string }) => void;
     canCreatePlan?: boolean;
@@ -119,7 +123,6 @@ vi.mock('../cultures/CultureDetail', () => ({
       ))}
       <button type="button" onClick={() => onCreateCulture?.()}>Kultur hinzufügen</button>
       <button type="button" onClick={() => onPublishCulture?.()}>{publishActionLabel ?? 'Veröffentlichen'}</button>
-      <button type="button" onClick={() => onWithdrawPublicCulture?.(cultures[0])}>Veröffentlichung zurückziehen</button>
       <button type="button" onClick={() => onRemovePublicCulture?.(cultures[0])}>Aus Bibliothek entfernen</button>
       <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
       <button type="button" onClick={() => onEditCulture?.(cultures[0])}>Kultur bearbeiten</button>
@@ -160,7 +163,7 @@ function renderCultures(initialPath = '/cultures'): ReturnType<typeof render> {
 
 const waitForDeleteDialogToClose = async (): Promise<void> => {
   await waitFor(() => {
-    expect(screen.queryByRole('dialog', { name: 'Kultur löschen?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Projektkultur löschen?' })).not.toBeInTheDocument();
   });
 };
 
@@ -221,7 +224,6 @@ describe('Cultures action area', () => {
         duplicates: [],
       },
     });
-    publicCultureWithdrawMock.mockResolvedValue({ data: { id: 77, name: 'Tomate', version: 1, status: 'withdrawn' } });
     publicCultureRemoveMock.mockResolvedValue({ data: { id: 77, name: 'Tomate', version: 1, status: 'removed' } });
   });
 
@@ -431,29 +433,38 @@ describe('Cultures action area', () => {
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
   });
 
-  it('withdraws an owned public culture after confirmation', async () => {
+  it('removes an owned public culture from the library without asking for a reason', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 1,
         next: null,
         previous: null,
         results: [
-          { id: 1, name: 'Tomate', growth_duration_days: 1, harvest_duration_days: 1, owned_public_culture_id: 77 },
+          {
+            id: 1,
+            name: 'Tomate',
+            growth_duration_days: 1,
+            harvest_duration_days: 1,
+            owned_public_culture_id: 77,
+            owned_public_culture_role: 'contributor',
+          },
         ],
       },
     });
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Veröffentlichung zurückziehen' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Veröffentlichung zurückziehen' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Veröffentlichung zurückziehen?' });
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Aus Bibliothek entfernen?');
     expect(dialog).toHaveTextContent('Bereits importierte Kulturen in Projekten bleiben vollständig erhalten.');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Veröffentlichung zurückziehen' }));
+    expect(within(dialog).queryByLabelText('Grund')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
 
     await waitFor(() => {
-      expect(publicCultureWithdrawMock).toHaveBeenCalledWith(77);
+      expect(publicCultureRemoveMock).toHaveBeenCalledWith(77, undefined);
     });
     expect(listMock).toHaveBeenCalledTimes(2);
   });
@@ -466,7 +477,14 @@ describe('Cultures action area', () => {
         next: null,
         previous: null,
         results: [
-          { id: 1, name: 'Tomate', growth_duration_days: 1, harvest_duration_days: 1, owned_public_culture_id: 77 },
+          {
+            id: 1,
+            name: 'Tomate',
+            growth_duration_days: 1,
+            harvest_duration_days: 1,
+            owned_public_culture_id: 77,
+            owned_public_culture_role: 'moderator',
+          },
         ],
       },
     });
@@ -476,7 +494,8 @@ describe('Cultures action area', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Bitte wähle den Moderationsgrund.');
     expect(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeDisabled();
     fireEvent.mouseDown(within(dialog).getByLabelText('Grund'));
     fireEvent.click(await screen.findByRole('option', { name: 'Duplikat' }));
@@ -515,8 +534,8 @@ describe('Cultures action area', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Kultur löschen' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Kultur löschen?');
-    expect(dialog).toHaveTextContent('„Tomate“ löschen?');
+    expect(dialog).toHaveTextContent('Projektkultur löschen?');
+    expect(dialog).toHaveTextContent('Möchtest du die Projektkultur „Tomate“ wirklich löschen?');
     expect(dialog).not.toHaveTextContent('Roma');
     expect(dialog).not.toHaveTextContent('Pflanzung');
     expect(dialog).not.toHaveTextContent('8 Sekunden');

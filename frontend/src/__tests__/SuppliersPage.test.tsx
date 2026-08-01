@@ -468,10 +468,10 @@ describe('Suppliers page empty and table states', () => {
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
   });
 
-  it('deletes an unused supplier with undo feedback without a native browser confirm', async () => {
+  it('deletes an unused supplier immediately and offers undo without a native browser confirm', async () => {
     mocks.list.mockResolvedValue({
       data: {
-        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', slug: 'reinsaat', allowed_domains: [] }],
       },
     });
     mocks.deleteUsage.mockResolvedValue({
@@ -485,6 +485,7 @@ describe('Suppliers page empty and table states', () => {
         culture_ids: [],
       },
     });
+    mocks.delete.mockResolvedValue({ data: { undo_payload: undefined } });
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     render(
@@ -497,12 +498,104 @@ describe('Suppliers page empty and table states', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
 
     await waitFor(() => expect(mocks.deleteUsage).toHaveBeenCalledWith(1));
+    // The delete must already be persisted while undo is still offered, so a
+    // browser reload cannot bring the supplier back.
+    await waitFor(() => expect(mocks.delete).toHaveBeenCalledWith(1));
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(screen.queryByText('Reinsaat')).not.toBeInTheDocument();
-    expect(screen.getByText('Lieferant gelöscht.')).toBeInTheDocument();
+    expect(await screen.findByText('Lieferant gelöscht.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rückgängig: Lieferant gelöscht.' })).toBeInTheDocument();
 
     confirmSpy.mockRestore();
+  });
+
+  it('restores a deleted supplier through the restore endpoint when undo is used', async () => {
+    const serverUndoPayload = {
+      supplier: {
+        id: 1,
+        name: 'Reinsaat',
+        homepage_url: 'https://example.com',
+        slug: 'reinsaat',
+        allowed_domains: ['example.com'],
+      },
+      culture_ids: [],
+      seed_demand_culture_ids: [],
+      supplier_data: [],
+    };
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', slug: 'reinsaat', allowed_domains: [] }],
+      },
+    });
+    mocks.deleteUsage.mockResolvedValue({
+      data: {
+        can_delete: true,
+        culture_count: 0,
+        seed_demand_culture_count: 0,
+        supplier_data_culture_count: 0,
+        supplier_data_count: 0,
+        total_culture_count: 0,
+        culture_ids: [],
+      },
+    });
+    mocks.delete.mockResolvedValue({ data: { undo_payload: serverUndoPayload } });
+    mocks.restoreUnlinkedDelete.mockResolvedValue({
+      data: {
+        supplier: { id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', allowed_domains: [] },
+        restored_culture_count: 0,
+        restored_supplier_data_count: 0,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Reinsaat');
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rückgängig: Lieferant gelöscht.' }));
+
+    await waitFor(() => expect(mocks.restoreUnlinkedDelete).toHaveBeenCalledWith(serverUndoPayload));
+    await waitFor(() => expect(screen.getByText('Reinsaat')).toBeInTheDocument());
+  });
+
+  it('puts the supplier back and reports the error when the delete request fails', async () => {
+    mocks.list.mockResolvedValue({
+      data: {
+        results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', slug: 'reinsaat', allowed_domains: [] }],
+      },
+    });
+    mocks.deleteUsage.mockResolvedValue({
+      data: {
+        can_delete: true,
+        culture_count: 0,
+        seed_demand_culture_count: 0,
+        supplier_data_culture_count: 0,
+        supplier_data_count: 0,
+        total_culture_count: 0,
+        culture_ids: [],
+      },
+    });
+    mocks.delete.mockRejectedValue(new Error('network down'));
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(
+      <MemoryRouter>
+        <Suppliers />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Reinsaat');
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+
+    await waitFor(() => expect(mocks.delete).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(screen.getByText('Reinsaat')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Rückgängig: Lieferant gelöscht.' })).not.toBeInTheDocument();
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('blocks supplier deletion when existing cultures still use it', async () => {

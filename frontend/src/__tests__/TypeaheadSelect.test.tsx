@@ -184,4 +184,81 @@ describe('TypeaheadSelect', () => {
     expect(screen.getByRole('combobox')).toHaveTextContent('Minze');
     expect(within(screen.getByRole('combobox')).queryByText('Mittel')).not.toBeInTheDocument();
   });
+
+  describe('Tab out of an open dropdown', () => {
+    it('takes over the highlighted option, closes the menu and moves on', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <form>
+          <SelectHarness initialValue="low" onChange={onChange} />
+          <button type="button">Weiter</button>
+        </form>,
+      );
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{ArrowDown}');
+      await user.tab();
+
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(onChange).toHaveBeenCalledWith('corn');
+      expect(screen.getByRole('combobox')).toHaveTextContent('Mais');
+      expect(screen.getByRole('button', { name: 'Weiter' })).toHaveFocus();
+    });
+
+    it('moves to the previous field on Shift+Tab', async () => {
+      const user = userEvent.setup();
+      render(
+        <form>
+          <button type="button">Zurück</button>
+          <SelectHarness initialValue="low" />
+        </form>,
+      );
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{Shift>}{Tab}{/Shift}');
+
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Zurück' })).toHaveFocus();
+    });
+
+    it('does not toggle the highlighted option of a multi-select', async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <FormControl fullWidth>
+          <InputLabel id="crops-label">Kulturen</InputLabel>
+          <TypeaheadSelect<string[]>
+            multiple
+            labelId="crops-label"
+            label="Kulturen"
+            value={[]}
+            onChange={onChange}
+          >
+            <MenuItem value="low">Niedrig</MenuItem>
+            <MenuItem value="corn">Mais</MenuItem>
+          </TypeaheadSelect>
+        </FormControl>,
+      );
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{ArrowDown}');
+      await user.tab();
+
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('keeps focus on the trigger when there is no field to move to', async () => {
+      const user = userEvent.setup();
+      render(<SelectHarness initialValue="low" />);
+
+      const select = screen.getByRole('combobox');
+      await user.click(select);
+      await user.tab();
+
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(select).toHaveFocus();
+    });
+  });
 });

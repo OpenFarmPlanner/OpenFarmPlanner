@@ -3,11 +3,11 @@ import { GridRowModes } from '@mui/x-data-grid';
 import type { GridApi, GridColDef, GridRowId, GridRowModesModel } from '@mui/x-data-grid';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 import type { EditableRow } from '../types';
+import { scrollCellIntoView } from '../keyboardNavigation';
 
 interface ScrollFocusGridApi {
   getVisibleColumns: () => { field: string }[];
   getRowIndexRelativeToVisibleRows: (id: GridRowId) => number;
-  getColumnIndexRelativeToVisibleColumns: (field: string) => number;
   scrollToIndexes: (params: { rowIndex?: number; colIndex?: number }) => void;
   setCellFocus: (id: GridRowId, field: string) => void;
 }
@@ -32,12 +32,14 @@ function scrollAndFocusRow(
         return;
       }
 
-      api.scrollToIndexes(firstField
-        ? {
-            rowIndex: api.getRowIndexRelativeToVisibleRows(rowId),
-            colIndex: api.getColumnIndexRelativeToVisibleColumns(firstField),
-          }
-        : { rowIndex: api.getRowIndexRelativeToVisibleRows(rowId) });
+      if (firstField) {
+        // Resolves the column index against the visible columns (see
+        // scrollCellIntoView) — MUI's own getColumnIndexRelativeToVisibleColumns
+        // counts hidden columns too and makes scrollToIndexes throw.
+        scrollCellIntoView(api, { id: rowId, field: firstField });
+      } else {
+        api.scrollToIndexes({ rowIndex: api.getRowIndexRelativeToVisibleRows(rowId) });
+      }
       if (options.focus !== false && firstField) {
         api.setCellFocus(rowId, firstField);
       }

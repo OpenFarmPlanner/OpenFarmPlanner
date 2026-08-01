@@ -276,8 +276,8 @@
     "restoreError": "Version could not be restored"
   },
   "deleteDialog": {
-    "title": "Delete culture?",
-    "confirmation": "Delete “{{name}}”?"
+    "title": "Delete project culture?",
+    "confirmation": "Do you really want to delete the project culture “{{name}}”?"
   },
   "seedDemand": {
     "title": "Seed demand",
@@ -475,7 +475,6 @@
     "versions": "Versions",
     "delete": "Delete",
     "moreActions": "More actions",
-    "deleteProjectCulture": "Delete project culture",
     "deleteConfirm": "Do you really want to delete this crop?",
     "createPlantingPlan": "Add planting plan",
     "goToFieldsBeds": "Go to growing areas",
@@ -766,22 +765,16 @@
     "publishDuplicateError": "This crop already exists in the crop library.",
     "publishDuplicateErrorWithCandidates": "This crop already exists publicly: {{duplicates}}",
     "publishError": "The crop could not be published.",
-    "withdrawAction": "Withdraw publication",
-    "withdrawSuccess": "The publication of “{{name}}” was withdrawn.",
-    "withdrawError": "The publication could not be withdrawn.",
     "removeAction": "Remove from library",
     "removeSuccess": "“{{name}}” was removed from the public crop library.",
     "removeError": "The culture could not be removed from the library.",
     "hardDeleteAction": "Permanently delete",
     "hardDeleteSuccess": "“{{name}}” was permanently deleted.",
     "hardDeleteError": "The culture could not be permanently deleted. There are probably still references or provenance data.",
-    "withdrawDialog": {
-      "title": "Withdraw publication?",
-      "message": "“{{name}}” disappears from the public crop library. Cultures already imported into projects remain fully intact. You can publish the culture again later."
-    },
     "removeDialog": {
       "title": "Remove from library?",
-      "message": "“{{name}}” is removed from the public crop library for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
+      "message": "“{{name}}” disappears from the public crop library. Cultures already imported into projects remain fully intact. You can publish the culture again later.",
+      "moderationMessage": "“{{name}}” is removed from the public crop library for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
       "reasonLabel": "Reason"
     },
     "hardDeleteDialog": {

@@ -100,7 +100,6 @@ function Cultures() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<CultureHistoryEntry[]>([]);
   const [historyScope, setHistoryScope] = useState<HistoryScope>('culture');
-  const [withdrawDialogCulture, setWithdrawDialogCulture] = useState<Culture | null>(null);
   const [removeDialogCulture, setRemoveDialogCulture] = useState<Culture | null>(null);
   const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -111,7 +110,6 @@ function Cultures() {
   const [hasFields, setHasFields] = useState(false);
   const [hasBeds, setHasBeds] = useState(false);
   const selectedCulture = cultures.find((culture) => culture.id === selectedCultureId);
-  const canModeratePublicCulture = Boolean(user?.is_staff || user?.is_superuser);
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -231,7 +229,6 @@ function Cultures() {
     handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleWithdrawPublicCulture,
     handleRemovePublicCulture,
   } = usePublicCultureLibrary({
     shouldShowProjectRequiredState,
@@ -260,26 +257,27 @@ function Cultures() {
     });
   }, [handlePublishCurrentCulture]);
 
-  const handleConfirmWithdrawPublicCulture = useCallback(async () => {
-    if (!withdrawDialogCulture) {
-      return;
-    }
-    const success = await handleWithdrawPublicCulture(withdrawDialogCulture);
-    if (success) {
-      setWithdrawDialogCulture(null);
-    }
-  }, [handleWithdrawPublicCulture, withdrawDialogCulture]);
+  // Moderators removing an entry they did not publish must state a reason;
+  // contributors withdrawing their own entry do not.
+  const removeRequiresModerationReason = removeDialogCulture?.owned_public_culture_role === 'moderator';
+
+  const closeRemovePublicCultureDialog = useCallback(() => {
+    setRemoveDialogCulture(null);
+    setRemoveReason('');
+  }, []);
 
   const handleConfirmRemovePublicCulture = useCallback(async () => {
-    if (!removeDialogCulture || !removeReason) {
+    if (!removeDialogCulture || (removeRequiresModerationReason && !removeReason)) {
       return;
     }
-    const success = await handleRemovePublicCulture(removeDialogCulture, removeReason);
+    const success = await handleRemovePublicCulture(
+      removeDialogCulture,
+      removeRequiresModerationReason ? removeReason || undefined : undefined,
+    );
     if (success) {
-      setRemoveDialogCulture(null);
-      setRemoveReason('');
+      closeRemovePublicCultureDialog();
     }
-  }, [handleRemovePublicCulture, removeDialogCulture, removeReason]);
+  }, [closeRemovePublicCultureDialog, handleRemovePublicCulture, removeDialogCulture, removeReason, removeRequiresModerationReason]);
 
   // Fetch cultures on mount
   useEffect(() => {
@@ -596,13 +594,11 @@ function Cultures() {
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
           onPublishCulture={handleRequestPublishCulture}
-          onWithdrawPublicCulture={(culture) => setWithdrawDialogCulture(culture)}
           onRemovePublicCulture={(culture) => {
             setRemoveReason('');
             setRemoveDialogCulture(culture);
           }}
           onDeleteCulture={handleDelete}
-          canModeratePublicCulture={canModeratePublicCulture}
           canCreatePlan={canCreatePlantingPlan}
           isPublishingCulture={Boolean(selectedCulture && publishingCultureId === selectedCulture.id)}
           publishActionLabel={publishingCultureId === selectedCulture?.id
@@ -660,76 +656,55 @@ function Cultures() {
         confirmButtonProps={{ color: 'error', variant: 'contained' }}
       />
 
-      <ConfirmationDialog
-        open={Boolean(withdrawDialogCulture)}
-        fullWidth
-        title={t('library.withdrawDialog.title')}
-        message={t('library.withdrawDialog.message', { name: withdrawDialogCulture ? getCultureDisplayName(withdrawDialogCulture) : '' })}
-        cancelLabel={t('common:actions.cancel')}
-        confirmLabel={t('library.withdrawAction')}
-        onCancel={() => setWithdrawDialogCulture(null)}
-        onConfirm={handleConfirmWithdrawPublicCulture}
-        titleSx={{ pb: 1 }}
-        contentSx={{ pt: 1 }}
-        messageTypographyProps={{ variant: 'body1', color: 'text.secondary' }}
-        actionsSx={{ px: 3, pb: 2.5, pt: 1 }}
-        cancelButtonProps={{ variant: 'outlined' }}
-        confirmButtonProps={{ color: 'warning', variant: 'contained' }}
-      />
-
       <Dialog
         open={Boolean(removeDialogCulture)}
-        onClose={() => {
-          setRemoveDialogCulture(null);
-          setRemoveReason('');
-        }}
+        onClose={closeRemovePublicCultureDialog}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle>{t('library.removeDialog.title')}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {t('library.removeDialog.message', { name: removeDialogCulture ? getCultureDisplayName(removeDialogCulture) : '' })}
+            {t(
+              removeRequiresModerationReason ? 'library.removeDialog.moderationMessage' : 'library.removeDialog.message',
+              { name: removeDialogCulture ? getCultureDisplayName(removeDialogCulture) : '' },
+            )}
           </Typography>
-          <FormControl fullWidth size="small">
-            <InputLabel id="public-culture-removal-reason-label">
-              {t('library.removeDialog.reasonLabel')}
-            </InputLabel>
-            <Select
-              labelId="public-culture-removal-reason-label"
-              value={removeReason}
-              label={t('library.removeDialog.reasonLabel')}
-              onChange={(event) => setRemoveReason(event.target.value as PublicCultureRemovalReason)}
-            >
-              {([
-                'accidental_publication',
-                'test_data',
-                'duplicate',
-                'wrong_mapping',
-                'unlawful_content',
-                'other',
-              ] as PublicCultureRemovalReason[]).map((reason) => (
-                <MenuItem key={reason} value={reason}>
-                  {t(`library.removeReasons.${reason}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {removeRequiresModerationReason ? (
+            <FormControl fullWidth size="small">
+              <InputLabel id="public-culture-removal-reason-label">
+                {t('library.removeDialog.reasonLabel')}
+              </InputLabel>
+              <Select
+                labelId="public-culture-removal-reason-label"
+                value={removeReason}
+                label={t('library.removeDialog.reasonLabel')}
+                onChange={(event) => setRemoveReason(event.target.value as PublicCultureRemovalReason)}
+              >
+                {([
+                  'accidental_publication',
+                  'test_data',
+                  'duplicate',
+                  'wrong_mapping',
+                  'unlawful_content',
+                  'other',
+                ] as PublicCultureRemovalReason[]).map((reason) => (
+                  <MenuItem key={reason} value={reason}>
+                    {t(`library.removeReasons.${reason}`)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setRemoveDialogCulture(null);
-              setRemoveReason('');
-            }}
-          >
+          <Button variant="outlined" onClick={closeRemovePublicCultureDialog}>
             {t('common:actions.cancel')}
           </Button>
           <Button
-            color="error"
+            color={removeRequiresModerationReason ? 'error' : 'warning'}
             variant="contained"
-            disabled={!removeReason}
+            disabled={removeRequiresModerationReason && !removeReason}
             onClick={() => void handleConfirmRemovePublicCulture()}
           >
             {t('library.removeAction')}

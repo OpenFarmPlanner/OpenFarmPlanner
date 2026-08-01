@@ -3,7 +3,6 @@ import type { GridRowId, GridRowModesModel, GridRowsProp } from '@mui/x-data-gri
 import { extractApiErrorMessage } from '../../../api/errors';
 import { confirmAction } from '../../../utils/confirmAction';
 import { createTransientId } from '../../../utils/transientId';
-import { DELETE_UNDO_DURATION_MS } from '../DeleteUndoSnackbar';
 import { isUnsavedDraftRow } from '../dataGridUtils';
 import type { TFunction } from 'i18next';
 import type { DataGridAPI, DeleteUndoOptions, EditableRow } from '../types';
@@ -26,8 +25,11 @@ interface UseDataGridDeleteParams<T extends EditableRow> {
   api: DataGridAPI<T>;
   deleteConfirmMessage: string;
   deleteErrorMessage: string;
+  saveErrorMessage: string;
   deleteUndoOptions: DeleteUndoOptions | undefined;
   t: TFunction;
+  mapToApiData: (row: T) => Partial<T> | Promise<Partial<T>>;
+  reloadRows: () => Promise<void>;
   setRows: React.Dispatch<React.SetStateAction<GridRowsProp<T>>>;
   setStableRowOrder: React.Dispatch<React.SetStateAction<GridRowId[]>>;
   setRowModesModel: React.Dispatch<React.SetStateAction<GridRowModesModel>>;
@@ -44,8 +46,11 @@ export function useDataGridDelete<T extends EditableRow>({
   api,
   deleteConfirmMessage,
   deleteErrorMessage,
+  saveErrorMessage,
   deleteUndoOptions,
   t,
+  mapToApiData,
+  reloadRows,
   setRows,
   setStableRowOrder,
   setRowModesModel,
@@ -54,16 +59,7 @@ export function useDataGridDelete<T extends EditableRow>({
   moveFocusAwayFromRemovedRow,
 }: UseDataGridDeleteParams<T>) {
   const [pendingDeleteWithUndo, setPendingDeleteWithUndo] = useState<PendingDeleteWithUndo<T>[]>([]);
-  const pendingDeleteTimersRef = useRef<Map<string, number>>(new Map());
   const deleteRowCommandRef = useRef<(rowId: GridRowId) => void>(() => undefined);
-
-  useEffect(() => {
-    const pendingDeleteTimers = pendingDeleteTimersRef.current;
-    return () => {
-      pendingDeleteTimers.forEach((timerId) => window.clearTimeout(timerId));
-      pendingDeleteTimers.clear();
-    };
-  }, []);
 
   const removePendingDeleteWithUndo = useCallback((deletionId: string): void => {
     setPendingDeleteWithUndo((current) =>
@@ -106,48 +102,56 @@ export function useDataGridDelete<T extends EditableRow>({
     }
   }, [setRowModesModel, setRows, setStableRowOrder]);
 
-  const finalizeDeleteWithUndo = useCallback(async (deletion: PendingDeleteWithUndo<T>): Promise<void> => {
-    pendingDeleteTimersRef.current.delete(deletion.id);
-    removePendingDeleteWithUndo(deletion.id);
-
-    const numericId = Number(deletion.rowId);
-    if (numericId < 0) {
-      return;
-    }
-
+  /**
+   * Deletes the row in the backend right away and only then offers undo. The
+   * row is already gone from the grid at this point, so a failing request has
+   * to put it back; a successful one hands the snapshot to the undo snackbar,
+   * which recreates the record instead of cancelling a pending delete.
+   */
+  const deleteRowWithUndoSnackbar = useCallback(async (deletion: PendingDeleteWithUndo<T>): Promise<void> => {
     try {
-      await api.delete(numericId);
-      setError('');
+      await api.delete(Number(deletion.rowId));
     } catch (err) {
       restorePendingDeleteWithUndo(deletion);
       setError(extractApiErrorMessage(err, t, deleteErrorMessage));
       console.error('Error deleting data:', err);
+      return;
     }
-  }, [api, deleteErrorMessage, removePendingDeleteWithUndo, restorePendingDeleteWithUndo, setError, t]);
+
+    setError('');
+    setPendingDeleteWithUndo((current) => [...current, deletion]);
+  }, [api, deleteErrorMessage, restorePendingDeleteWithUndo, setError, t]);
 
   const closeDeleteWithUndoSnackbar = useCallback((deletionId: string): void => {
-    setPendingDeleteWithUndo((current) =>
-      current.map((deletion) =>
-        deletion.id === deletionId ? { ...deletion, visible: false } : deletion,
-      ),
-    );
-  }, []);
+    removePendingDeleteWithUndo(deletionId);
+  }, [removePendingDeleteWithUndo]);
 
-  const undoDeleteWithUndo = useCallback((deletionId: string): void => {
+  const undoDeleteWithUndo = useCallback(async (deletionId: string): Promise<void> => {
     const deletion = pendingDeleteWithUndo.find((d) => d.id === deletionId);
     if (!deletion) {
       return;
     }
 
-    const timerId = pendingDeleteTimersRef.current.get(deletionId);
-    if (timerId !== undefined) {
-      window.clearTimeout(timerId);
-      pendingDeleteTimersRef.current.delete(deletionId);
-    }
-
-    restorePendingDeleteWithUndo(deletion);
     removePendingDeleteWithUndo(deletionId);
-  }, [pendingDeleteWithUndo, removePendingDeleteWithUndo, restorePendingDeleteWithUndo]);
+    try {
+      await api.create(await mapToApiData(deletion.row));
+      await reloadRows();
+      setError('');
+    } catch (err) {
+      await reloadRows();
+      setError(extractApiErrorMessage(err, t, saveErrorMessage));
+      console.error('Error restoring deleted data:', err);
+    }
+  }, [
+    api,
+    mapToApiData,
+    pendingDeleteWithUndo,
+    reloadRows,
+    removePendingDeleteWithUndo,
+    saveErrorMessage,
+    setError,
+    t,
+  ]);
 
   const handleDeleteClick = useCallback((id: GridRowId) => (): void => {
     const rowKey = String(id);
@@ -184,12 +188,7 @@ export function useDataGridDelete<T extends EditableRow>({
       setStableRowOrder((previous) => previous.filter((orderedId) => String(orderedId) !== rowKey));
       clearRowInteractionState(id);
       setError('');
-      setPendingDeleteWithUndo((current) => [...current, pendingDeletion]);
-
-      const timerId = window.setTimeout(() => {
-        void finalizeDeleteWithUndo(pendingDeletion);
-      }, DELETE_UNDO_DURATION_MS);
-      pendingDeleteTimersRef.current.set(deletionId, timerId);
+      void deleteRowWithUndoSnackbar(pendingDeletion);
       return;
     }
 
@@ -223,8 +222,8 @@ export function useDataGridDelete<T extends EditableRow>({
     clearRowInteractionState,
     deleteConfirmMessage,
     deleteErrorMessage,
+    deleteRowWithUndoSnackbar,
     deleteUndoOptions,
-    finalizeDeleteWithUndo,
     moveFocusAwayFromRemovedRow,
     rowModesModel,
     rows,

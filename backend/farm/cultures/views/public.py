@@ -32,7 +32,6 @@ from farm.services.public_cultures import (
     replace_public_culture_translations,
     restore_public_culture_version,
     update_public_culture_directly,
-    withdraw_public_culture,
 )
 
 from ..serializers import (
@@ -465,21 +464,9 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         proposal.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note', 'updated_at'])
         return Response(PublicCultureChangeProposalSerializer(proposal).data)
 
-    @action(detail=True, methods=['post'], url_path='withdraw')
-    def withdraw(self, request, pk=None):
-        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
-            return forbidden
-        public_culture = self._get_public_culture_for_status_action()
-        try:
-            updated = withdraw_public_culture(public_culture=public_culture, user=request.user)
-        except PublicCulturePermissionError as error:
-            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
-        except PublicCultureStatusTransitionError as error:
-            return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
-        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
-
     @action(detail=True, methods=['post'], url_path='remove')
     def remove(self, request, pk=None):
+        """Remove an entry from the public library (contributor withdrawal or moderator removal)."""
         if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
             return forbidden
         public_culture = self._get_public_culture_for_status_action()

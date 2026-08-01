@@ -42,6 +42,37 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
   });
 };
 
+/** Renders the dialog between focusable page elements, so a Tab that escapes
+ * the modal overlay lands on one of them instead of silently passing. */
+const renderWithPageBackground = (
+  props: Partial<Parameters<typeof AreaAssignmentDialog>[0]> = {},
+): void => {
+  render(
+    <>
+      <button type="button">Navigation davor</button>
+      <AreaAssignmentDialog
+        bedId={101}
+        beds={beds}
+        fields={fields}
+        locations={locations}
+        locale="de-DE"
+        compactLabel="x"
+        onApply={vi.fn()}
+        {...props}
+      />
+      <button type="button">Tabellenzelle danach</button>
+    </>,
+  );
+};
+
+const getDialog = (): HTMLElement => screen.getByRole('dialog', { name: 'Anbaufläche ändern' });
+
+const expectFocusInsideDialog = (): void => {
+  const active = document.activeElement;
+  expect(active).not.toBeNull();
+  expect(getDialog().contains(active)).toBe(true);
+};
+
 describe('AreaAssignmentDialog', () => {
   it('opens on a single click on the cell without a separate edit affordance', async () => {
     const user = userEvent.setup();
@@ -316,6 +347,175 @@ describe('AreaAssignmentDialog', () => {
     await user.keyboard('{Shift>}{Tab}{/Shift}');
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveFocus();
+    });
+  });
+
+  describe('keyboard focus control', () => {
+    it('keeps Tab inside the dialog instead of reaching the page behind it', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+
+      for (let step = 0; step < 8; step += 1) {
+        await user.tab();
+        expectFocusInsideDialog();
+      }
+    });
+
+    it('hides the page behind the dialog from keyboard and assistive technology', async () => {
+      renderWithPageBackground();
+
+      await openDialog();
+
+      // The page content is dropped from the accessibility tree entirely, so
+      // it can only be found with `hidden: true`.
+      expect(screen.queryByRole('button', { name: 'Tabellenzelle danach' })).not.toBeInTheDocument();
+      const backgroundButton = screen.getByRole('button', { name: 'Tabellenzelle danach', hidden: true });
+      expect(backgroundButton.closest('[aria-hidden="true"]')).not.toBeNull();
+    });
+
+    it('keeps Shift+Tab inside the dialog instead of reaching the page behind it', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+
+      for (let step = 0; step < 8; step += 1) {
+        await user.keyboard('{Shift>}{Tab}{/Shift}');
+        expectFocusInsideDialog();
+      }
+    });
+
+    it('marks the dialog as modal and labels it through its title', async () => {
+      renderWithPageBackground();
+
+      await openDialog();
+
+      const dialog = getDialog();
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      const labelledBy = dialog.getAttribute('aria-labelledby');
+      expect(labelledBy).toBeTruthy();
+      expect(document.getElementById(labelledBy as string)).toHaveTextContent('Anbaufläche ändern');
+    });
+
+    it('takes over the highlighted option and moves to the next field on Tab', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+      await user.click(screen.getByRole('combobox', { name: 'Standort' }));
+      await user.keyboard('{ArrowDown}');
+      await user.tab();
+
+      await waitFor(() => {
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      });
+      expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveTextContent('Sonnengarten');
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveFocus();
+      });
+    });
+
+    it('moves to the previous field on Shift+Tab out of an open dropdown', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+      await user.click(screen.getByRole('combobox', { name: 'Beet' }));
+      await user.keyboard('{Shift>}{Tab}{/Shift}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveFocus();
+      });
+    });
+
+    it('never lands behind the dialog when tabbing out of any of the three dropdowns', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+
+      for (const label of ['Standort', 'Parzelle', 'Beet']) {
+        await user.click(screen.getByRole('combobox', { name: label }));
+        expect(await screen.findByRole('listbox')).toBeInTheDocument();
+        await user.tab();
+        await waitFor(() => {
+          expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+        });
+        expectFocusInsideDialog();
+      }
+    });
+
+    it('keeps arrow keys and Enter working inside an open dropdown', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+      await user.click(screen.getByRole('combobox', { name: 'Parzelle' }));
+      await user.keyboard('{ArrowDown}{Enter}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      });
+      expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveTextContent('9 Pastinake');
+      expectFocusInsideDialog();
+    });
+
+    it('closes only the dropdown on the first Escape and the dialog on the second', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+      await user.click(screen.getByRole('combobox', { name: 'Standort' }));
+      expect(await screen.findByRole('listbox')).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      });
+      expect(getDialog()).toBeInTheDocument();
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Anbaufläche ändern' })).not.toBeInTheDocument();
+      });
+    });
+
+    it('returns focus to the opening cell trigger after Escape', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground({ hasFocus: true });
+
+      await openDialog();
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Anbaufläche bearbeiten' })).toHaveFocus();
+      });
+    });
+
+    it('stays inside the dialog when a Tab commit resets the downstream fields', async () => {
+      const user = userEvent.setup();
+      renderWithPageBackground();
+
+      await openDialog();
+      // Switching the location clears parcel and bed, so the bed select and the
+      // apply button leave the tab order while focus is being moved.
+      await user.click(screen.getByRole('combobox', { name: 'Standort' }));
+      await user.keyboard('{ArrowDown}');
+      await user.tab();
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveFocus();
+      });
+      expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveAttribute('aria-disabled', 'true');
+
+      await user.tab();
+      expectFocusInsideDialog();
+      expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus();
     });
   });
 

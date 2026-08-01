@@ -6,7 +6,6 @@ import {
   getHierarchyLevels,
   normalizeLeftColumnWidth,
   TREE_INDENT_PX,
-  TREE_META_LABEL_OFFSET_PX,
 } from "../../utils";
 import { ContextMenuIndicator } from "../../../../components/contextMenu/ContextMenuIndicator";
 import { OverflowTooltip } from "../../../../components/OverflowTooltip";
@@ -143,7 +142,6 @@ const TaskList: React.FC<TaskListProps> = ({
           const depth = taskGroup.depth ?? 0;
           const isExpanded = Boolean(taskGroup.isExpanded);
           const displayName = taskGroup.name || "Unnamed";
-          const metaLabel = taskGroup.metaLabel?.trim() || undefined;
 
           return (
             <div
@@ -193,8 +191,8 @@ const TaskList: React.FC<TaskListProps> = ({
                 )}
 
                 <OverflowTooltip
-                  title={metaLabel
-                    ? `${displayName} — ${metaLabel}`
+                  title={taskGroup.emptyRowLabel
+                    ? `${displayName} — ${taskGroup.emptyRowLabel}`
                     : displayName}
                 >
                   <span
@@ -205,20 +203,6 @@ const TaskList: React.FC<TaskListProps> = ({
                   </span>
                 </OverflowTooltip>
               </div>
-
-              {/* Compact structural summary beneath the name. Indented to
-                  line up with the name itself (tree indent + the fixed
-                  chevron column) so it reads as that row's subtitle rather
-                  than as another tree level. */}
-              {metaLabel && (
-                <div
-                  className="rmg-task-group-tree-meta"
-                  data-rmg-component="task-group-meta"
-                  style={{ paddingLeft: `${depth * TREE_INDENT_PX + TREE_META_LABEL_OFFSET_PX}px` }}
-                >
-                  {metaLabel}
-                </div>
-              )}
 
               {showTaskCount && taskGroup.tasks && taskGroup.tasks.length > 0 && (
                 <div
