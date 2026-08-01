@@ -122,6 +122,7 @@ import {
   isInteractiveCellTarget,
   preventReadOnlyCellMouseFocus,
   resolveFocusedCellFromEvent,
+  scrollCellIntoView,
 } from './keyboardNavigation';
 import { useSpreadsheetEditStarter } from './keyboardEditing';
 import type {
@@ -799,9 +800,7 @@ export function EditableDataGrid<T extends EditableRow>({
         return;
       }
 
-      const rowIndex = api.getRowIndexRelativeToVisibleRows(rowId);
-      const colIndex = api.getColumnIndexRelativeToVisibleColumns(field);
-      api.scrollToIndexes({ rowIndex, colIndex });
+      scrollCellIntoView<T>(api, { id: rowId, field });
       focusDataGridKeyboardNavigableCell<T>({
         api,
         cell: { id: rowId, field },
