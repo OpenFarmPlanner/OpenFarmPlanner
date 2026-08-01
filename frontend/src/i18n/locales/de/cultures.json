@@ -161,6 +161,7 @@
     "supplierDataSectionTitle": "Kulturspezifische Lieferantendaten",
     "supplierDataSectionDescription": "Die folgenden Angaben gelten nur für den ausgewählten Lieferanten dieser Kultur.",
     "noSupplierDataRows": "Noch keine kulturspezifischen Lieferanteninformationen vorhanden.",
+    "supplierDataSelectSupplierHint": "Wähle einen Lieferanten aus, um kulturspezifische Daten zu bearbeiten.",
     "supplierProductNameLabel": "Artikelbezeichnung beim Lieferanten",
     "supplierDataMissingSupplier": "Bitte einen Lieferanten auswählen oder die Lieferantendaten entfernen.",
     "addSupplierData": "Lieferanteninformation hinzufügen",

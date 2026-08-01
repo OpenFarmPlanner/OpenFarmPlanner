@@ -28,7 +28,7 @@ frontend/src/components/data-grid/
   hooks/
     useDataGridCommandApi.ts     builds the imperative EditableDataGridCommandApi
     useDataGridRowCommands.ts    addRow/editSelectedRow/openRowById/focusTable
-    useDataGridDelete.ts         delete + optional undo-snackbar flow
+    useDataGridDelete.ts         immediate delete + optional undo-snackbar flow
     useDataGridRowActionMenu.ts  right-click / long-press / keyboard row menu
   StableScrollbarTrack.tsx       shared track/thumb overlay for useStableDataGridScrollbar
   keyboardEditing.ts       "just start typing" / F2 spreadsheet-edit-start behavior
@@ -232,6 +232,41 @@ directly: saving notes for a new or still-editing Standort/Parzelle/Beet row
 first persists the current row draft with the note value, then closes the
 drawer. Users should never need to click outside the grid to make a new row
 exist before saving its notes.
+
+## Delete with undo — app-wide semantics
+
+Every "Löschen" flow that shows a `DeleteUndoSnackbar` follows the same
+contract, and new ones must too:
+
+1. **The delete hits the backend immediately.** The row disappears from the
+   list optimistically, but the DELETE request is sent in the same user
+   action — it is never deferred until the undo window has elapsed. A browser
+   reload right after deleting must never bring the record back.
+2. **"Rückgängig" restores, it never cancels.** By the time the snackbar is
+   visible the record is already gone server-side, so undo means calling a
+   restore/recreate endpoint.
+3. **A failed DELETE rolls the row back** into the list and reports the error;
+   no snackbar is shown, because there is nothing to undo.
+4. **Dismissing the snackbar does nothing** but drop the pending entry — it is
+   not a commit point.
+
+Where this lives:
+
+| Entity | Delete | Undo |
+| --- | --- | --- |
+| Anbaupläne (`useDataGridDelete.ts`, `deleteUndoOptions`) | `api.delete` | `api.create(mapToApiData(row))` + reload |
+| Kulturen (`pages/useCultureDelete.ts`) | `cultureAPI.delete` (soft delete) | `cultureAPI.undelete` |
+| Standorte/Parzellen/Beete (`hooks/useHierarchyDelete.ts`) | `locationAPI`/`fieldAPI`/`bedAPI.delete` | recreate location → field → bed, remapping parent ids |
+| Lieferanten (`pages/Suppliers.tsx`) | `supplierAPI.delete` (409 when still referenced) | `supplierAPI.restoreUnlinkedDelete` with the payload the delete/unlink response returned |
+| Projekte (`projects/projectDeletionFeedback.ts`) | `projectAPI.delete` (soft delete) | `projectAPI.restore` |
+
+Entities that are recreated rather than undeleted come back with a **new id**
+— the grid reloads from the backend after a restore instead of re-inserting
+the old row, so sorting decides the position, not the previous id.
+
+The supplier delete endpoint returns the same `undo_payload` shape as
+`unlink-and-delete` (instead of an empty `204`) so that both supplier delete
+paths share one restore endpoint.
 
 ## Notes / markdown cells
 

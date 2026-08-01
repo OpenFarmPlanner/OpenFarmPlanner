@@ -27,7 +27,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
     >
       <HeroImage
         alt=""
-        sx={{ position: { xs: 'absolute', md: 'fixed' } }}
+        position={{ xs: 'absolute', md: 'fixed' }}
         overlaySx={{
           backgroundImage:
             'linear-gradient(rgba(245, 247, 241, 0.88), rgba(245, 247, 241, 0.9))',

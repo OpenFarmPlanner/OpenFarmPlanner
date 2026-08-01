@@ -1916,8 +1916,11 @@ export function EditableDataGrid<T extends EditableRow>({
     api,
     deleteConfirmMessage,
     deleteErrorMessage,
+    saveErrorMessage,
     deleteUndoOptions,
     t,
+    mapToApiData,
+    reloadRows: fetchData,
     setRows,
     setStableRowOrder,
     setRowModesModel,
@@ -2896,7 +2899,9 @@ export function EditableDataGrid<T extends EditableRow>({
           offsetIndex={index}
           testId={deleteUndoOptions.snackbarTestId ?? 'data-grid-delete-snackbar'}
           onClose={() => closeDeleteWithUndoSnackbar(deletion.id)}
-          onUndo={() => undoDeleteWithUndo(deletion.id)}
+          onUndo={() => {
+            void undoDeleteWithUndo(deletion.id);
+          }}
         />
       )) : null}
 
