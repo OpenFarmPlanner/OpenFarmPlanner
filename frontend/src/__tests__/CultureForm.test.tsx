@@ -206,11 +206,13 @@ describe('CultureForm', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'form.createSuppliers' })).not.toBeInTheDocument());
 
     const supplierSelect = await screen.findByRole('combobox');
-    expect(supplierSelect).toHaveTextContent('Reinsaat');
+    await waitFor(() => expect(supplierSelect).toHaveTextContent('Reinsaat'));
     expect(screen.getByLabelText('name-input')).toHaveValue('Neue Karotte');
     expect(screen.getByText('messages.unsavedChanges')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+    const saveButton = screen.getByRole('button', { name: 'form.save' });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
       name: 'Neue Karotte',

@@ -948,6 +948,7 @@ describe('PublicCropLibraryPage', () => {
       body: 'Was ist hier gemeint?',
       revision: undefined,
     }));
+    await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
     expect(screen.getByText('Was ist hier gemeint?')).toBeInTheDocument();
   }, 30000);
