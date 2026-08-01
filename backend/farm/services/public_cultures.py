@@ -777,21 +777,42 @@ def publish_culture_to_public_library(
     return public_culture, duplicates, 'created'
 
 
-def withdraw_public_culture(*, public_culture: PublicCulture, user: User | None) -> PublicCulture:
-    if not user or not user.is_authenticated or public_culture.created_by_id != user.id:
-        raise PublicCulturePermissionError('Only the contributor may withdraw this public culture.')
-    if public_culture.status != PublicCulture.STATUS_PUBLISHED:
-        raise PublicCultureStatusTransitionError('Only published public cultures can be withdrawn.')
-    return _set_public_culture_status(
-        public_culture=public_culture,
-        status=PublicCulture.STATUS_WITHDRAWN,
-        user=user,
-    )
+def is_public_culture_contributor(*, public_culture: PublicCulture, user: User | None) -> bool:
+    """Whether `user` is the contributor who published this public culture."""
+    return bool(user and user.is_authenticated and public_culture.created_by_id == user.id)
 
 
-def remove_public_culture(*, public_culture: PublicCulture, user: User | None, reason: str) -> PublicCulture:
+def remove_public_culture(
+    *,
+    public_culture: PublicCulture,
+    user: User | None,
+    reason: str = '',
+) -> PublicCulture:
+    """Remove a public culture from the public library.
+
+    This is the single entry point for both removal paths, so the UI only has
+    to offer one "remove from library" action:
+
+    - the contributor withdraws their own entry (`withdrawn`), which stays
+      reversible: publishing the project culture again republishes it;
+    - a moderator removes somebody else's entry (`removed`) and must supply a
+      structured moderation reason.
+    """
+    if is_public_culture_contributor(public_culture=public_culture, user=user):
+        if public_culture.status != PublicCulture.STATUS_PUBLISHED:
+            raise PublicCultureStatusTransitionError(
+                'Only published public cultures can be removed from the library.',
+            )
+        return _set_public_culture_status(
+            public_culture=public_culture,
+            status=PublicCulture.STATUS_WITHDRAWN,
+            user=user,
+        )
+
     if not _is_public_library_moderator(user):
-        raise PublicCulturePermissionError('Only moderators may remove public cultures.')
+        raise PublicCulturePermissionError(
+            'Only the contributor or a moderator may remove this public culture.',
+        )
     if reason not in {item[0] for item in PublicCulture.REMOVAL_REASON_CHOICES}:
         raise PublicCultureStatusTransitionError('A valid removal reason is required.', code='removal_reason_required')
     if public_culture.status == PublicCulture.STATUS_REMOVED:
