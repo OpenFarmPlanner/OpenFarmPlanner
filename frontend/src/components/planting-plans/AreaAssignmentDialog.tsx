@@ -12,8 +12,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import type { GridRowId } from '@mui/x-data-grid';
 import { useTranslation } from '../../i18n';
 import type { Bed, Field, Location } from '../../api/types';
+import { useDialogEditCellOpenRequest } from '../data-grid/DialogEditCellContext';
 import EmptyStateCard from '../project/EmptyStateCard';
 import { CompactAreaCell } from './CompactAreaCell';
 import {
@@ -35,6 +37,13 @@ interface AreaAssignmentDialogProps {
   placeholder?: string;
   hasFocus?: boolean;
   memoKey?: string;
+  /**
+   * Grid cell identity. Passing both lets the cell pick up the grid's
+   * "keyboard navigation entered this cell" requests and open the dialog —
+   * see `DialogEditCellContext`.
+   */
+  rowId?: GridRowId;
+  field?: string;
 }
 
 interface AssignmentState {
@@ -138,9 +147,12 @@ function AreaAssignmentDialogComponent({
   compactLabel,
   placeholder,
   hasFocus = false,
+  rowId,
+  field,
 }: AreaAssignmentDialogProps) {
   const { t } = useTranslation('plantingPlans');
   const [isOpen, setIsOpen] = useState(false);
+  const isOpenRef = useRef(false);
   const [openSelect, setOpenSelect] = useState<'location' | 'field' | 'bed' | null>(null);
   const [draft, setDraft] = useState<AssignmentState>({ locationId: null, fieldId: null, bedId: bedId ?? null });
   const locationSelectRef = useRef<HTMLDivElement | null>(null);
@@ -303,6 +315,7 @@ function AreaAssignmentDialogComponent({
       return;
     }
     await onApply(activeDraft.bedId);
+    isOpenRef.current = false;
     setIsOpen(false);
   };
 
@@ -386,13 +399,26 @@ function AreaAssignmentDialogComponent({
 
   const handleCancel = (): void => {
     setOpenSelect(null);
+    isOpenRef.current = false;
     setIsOpen(false);
   };
 
-  const handleOpen = (): void => {
+  /**
+   * Idempotent per edit cycle: the click, the Enter/Space keydown and the
+   * grid's keyboard-entry request can all fire for one and the same entry into
+   * the cell, and re-running the body would reset an already edited draft.
+   */
+  const handleOpen = useCallback((): void => {
+    if (isOpenRef.current) {
+      return;
+    }
+
+    isOpenRef.current = true;
     setDraft(getOpeningDraft());
     setIsOpen(true);
-  };
+  }, [getOpeningDraft]);
+
+  useDialogEditCellOpenRequest(rowId, field, handleOpen);
 
   useEffect(() => {
     if (!isOpen) {
@@ -535,4 +561,6 @@ export const AreaAssignmentDialog = memo(AreaAssignmentDialogComponent, (previou
   && previous.placeholder === next.placeholder
   && previous.hasFocus === next.hasFocus
   && previous.memoKey === next.memoKey
+  && previous.rowId === next.rowId
+  && previous.field === next.field
 ));

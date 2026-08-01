@@ -32,12 +32,18 @@ export function CompactAreaCell({
 
   useEffect(() => {
     if (!hasFocus || suppressFocus) {
-      return;
+      return undefined;
     }
 
-    requestAnimationFrame(() => {
+    // Cancelled on cleanup: when the cell's own dialog opens in the same commit
+    // that focused the cell, a still-pending frame would pull focus back out of
+    // the dialog right after it mounted.
+    const frame = requestAnimationFrame(() => {
       triggerRef.current?.focus();
     });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, [hasFocus, suppressFocus]);
 
   return (
