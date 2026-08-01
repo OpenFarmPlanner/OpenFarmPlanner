@@ -32,4 +32,20 @@ describe('HeroImage', () => {
     const overlay = container.querySelector('[aria-hidden="true"]');
     expect(overlay).not.toBeNull();
   });
+
+  // Regression: the auth pages used to pin the image to the viewport while the
+  // overlay stayed bound to the container. Whenever the two containing blocks
+  // disagreed in width - e.g. while MUI's modal scroll lock pads <body> - the
+  // undimmed image showed through as a strip along the right edge.
+  it('positions the overlay in the same containing block as the image', () => {
+    render(
+      <HeroImage alt="A field" position="fixed" overlaySx={{ backgroundColor: 'red' }} />,
+    );
+
+    const img = screen.getByRole('img', { name: 'A field' });
+    const overlay = screen.getByTestId('hero-image-overlay');
+
+    expect(img).toHaveStyle({ position: 'fixed' });
+    expect(overlay).toHaveStyle({ position: 'fixed' });
+  });
 });

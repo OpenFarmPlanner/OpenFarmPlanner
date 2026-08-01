@@ -209,6 +209,20 @@ a new one.
 - **Deployment/infrastructure live in a separate repository**
   (`OpenFarmPlanner-ops`) — this repo intentionally has no Dockerfile,
   deploy scripts, or cron config for production use.
+- **`overflow-x: hidden` belongs on `<body>`/`#root`, never on `<html>`**
+  (`frontend/src/index.css`). The viewport takes its overflow from the root
+  element and only falls back to `<body>` when the root's own overflow is
+  `visible`. Setting it on `<html>` makes `<html>` the scrolling box, which
+  silently disables MUI's modal scroll lock — `Modal`/`Menu`/`Popover`/
+  `Dialog` set `overflow: hidden` on `<body>` and add the scrollbar width as
+  `padding-right` to compensate. With the compensation applied but the
+  scrollbar still there, every menu shrank the page sideways. Guarded by
+  `frontend/e2e/scrollbar-layout.spec.ts`.
+- **A viewport-fixed backdrop and its overlay must share one containing
+  block** (`components/HeroImage.tsx`'s `position` prop applies to the image
+  *and* the dimming overlay). Pinning the image to the viewport while the
+  overlay stays bound to a container lets the raw image show through
+  wherever the two disagree in width.
 
 ## Unclear / needs check
 

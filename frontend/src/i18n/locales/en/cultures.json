@@ -161,6 +161,7 @@
     "supplierDataSectionTitle": "Crop-specific supplier data",
     "supplierDataSectionDescription": "The following details apply only to the selected supplier of this crop.",
     "noSupplierDataRows": "No crop-specific supplier information yet.",
+    "supplierDataSelectSupplierHint": "Select a supplier to edit crop-specific data.",
     "supplierProductNameLabel": "Product name at the supplier",
     "supplierDataMissingSupplier": "Please select a supplier or remove the supplier data.",
     "addSupplierData": "Add supplier information",
