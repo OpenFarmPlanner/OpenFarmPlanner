@@ -178,6 +178,40 @@ fields, and Autocomplete inputs remain owned by their native/MUI handlers.
 Autocomplete-based `SearchableSelect` stays separate because it is an editable
 combobox with its own input-value search behavior.
 
+### Tab out of an open Select dropdown
+
+MUI's `Menu` reacts to Tab by closing the dropdown and swallowing the browser's
+default focus move. That is what keeps focus inside a surrounding `Dialog` or
+`Popover`, but on its own it drops the highlighted option and parks focus back
+on the trigger, so Tab reads as "nothing happened".
+
+`components/inputs/selectDropdownTabNavigation.ts`
+(`useOpenSelectTabNavigation`, wired into `TypeaheadSelect` for every Select in
+the app) adds the two missing halves:
+
+1. **Take over the highlighted option.** The focused `[role="option"]` carries
+   MUI's `data-value`; it is matched back to the typed option list and applied
+   through the same synthesized `SelectChangeEvent` the closed-Select typeahead
+   uses. Multi-selects are skipped — their menu survives selections, and
+   toggling an option on the way out would be surprising.
+2. **Continue to the neighbouring field.** The focus scope is the Select's
+   nearest modal surface (`[role="dialog"]`, `[role="alertdialog"]`,
+   `.MuiPopover-paper`), where Tab wraps at the edges, or its `<form>`, where it
+   does not — a page form must stay leavable. Outside both, focus is left alone.
+
+The focus move deliberately runs from an effect: MUI restores focus to the
+trigger while committing the close, so anything scheduled earlier is overwritten
+again. Arrow keys, Enter, and Escape stay entirely with MUI.
+
+**Modal dialogs must not add a second focus trap.** MUI's `Dialog` already
+contains Tab, `aria-hidden`s the page behind it, and restores focus to the
+element that opened it. `AreaAssignmentDialog` and `CultureForm` used to run
+their own `document`-level Tab traps on top of that; both had to opt out while a
+dropdown was open — precisely the gap focus escaped through — and both fought
+MUI's restore with `requestAnimationFrame(() => …focus())` calls. They are gone;
+new dialogs should rely on MUI and, if a field needs special Tab handling, add
+it at the input level the way `TypeaheadSelect` does.
+
 ## 5. Adding this to a new page
 
 ```tsx

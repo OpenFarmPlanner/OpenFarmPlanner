@@ -7,11 +7,18 @@ import {
   useClosedSelectTypeahead,
 } from './selectTypeahead';
 import type { SelectTypeaheadOption } from './selectTypeahead';
+import { useOpenSelectTabNavigation } from './selectDropdownTabNavigation';
+import type { SelectMenuKeyboardEvent } from './selectDropdownTabNavigation';
 
 export type TypeaheadSelectProps<Value = unknown> = Omit<SelectProps<Value>, 'onKeyDown'> & {
   onKeyDown?: (event: KeyboardEvent<Element>) => void;
   typeaheadTimeoutMs?: number;
 };
+
+type SelectMenuProps<Value> = NonNullable<SelectProps<Value>['MenuProps']>;
+type MenuListSlotProps = {
+  onKeyDown?: (event: SelectMenuKeyboardEvent) => void;
+} & Record<string, unknown>;
 
 const createSelectChangeEvent = <Value,>(
   sourceEvent: KeyboardEvent<Element>,
@@ -26,6 +33,13 @@ const createSelectChangeEvent = <Value,>(
   } as unknown as SelectChangeEvent<Value>;
 };
 
+/** `slotProps.list` may be a callback that receives MUI's owner state; only the
+ * object form can be merged with the menu keyboard handling added here. */
+const readMenuListSlotProps = <Value,>(menuProps: SelectMenuProps<Value> | undefined): MenuListSlotProps => {
+  const listSlotProps = menuProps?.slotProps?.list;
+  return typeof listSlotProps === 'function' ? {} : (listSlotProps as MenuListSlotProps | undefined) ?? {};
+};
+
 function TypeaheadSelectInner<Value = unknown>(
   {
     children,
@@ -35,6 +49,7 @@ function TypeaheadSelectInner<Value = unknown>(
     typeaheadTimeoutMs,
     value,
     name,
+    MenuProps,
     ...props
   }: TypeaheadSelectProps<Value>,
   ref: Ref<HTMLDivElement>,
@@ -61,6 +76,22 @@ function TypeaheadSelectInner<Value = unknown>(
     onKeyDown,
   });
 
+  const listSlotProps = useMemo(() => readMenuListSlotProps<Value>(MenuProps), [MenuProps]);
+  const handleMenuKeyDown = useOpenSelectTabNavigation<Value>({
+    options,
+    multiple,
+    onSelect: handleSelect,
+    onKeyDown: listSlotProps.onKeyDown ?? MenuProps?.MenuListProps?.onKeyDown,
+  });
+
+  const menuProps = useMemo((): SelectMenuProps<Value> => ({
+    ...MenuProps,
+    slotProps: {
+      ...MenuProps?.slotProps,
+      list: { ...listSlotProps, onKeyDown: handleMenuKeyDown },
+    },
+  }), [MenuProps, handleMenuKeyDown, listSlotProps]);
+
   return (
     <MuiSelect<Value>
       {...props}
@@ -70,6 +101,7 @@ function TypeaheadSelectInner<Value = unknown>(
       value={value}
       onChange={onChange}
       onKeyDown={handleKeyDown}
+      MenuProps={menuProps}
     >
       {children}
     </MuiSelect>
