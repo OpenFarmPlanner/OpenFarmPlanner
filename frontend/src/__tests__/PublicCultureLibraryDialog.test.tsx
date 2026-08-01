@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import type { PublicCulture } from '../api/types';
 
@@ -39,11 +39,17 @@ const carrotCulture: PublicCulture = {
   version: 1,
 };
 
-function mockMobileViewport(): void {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width:599.95px') || query.includes('max-width:899.95px'),
+const originalMatchMedia = window.matchMedia;
+
+function createMatchMedia(width: number) {
+  return vi.fn().mockImplementation((query: string) => {
+    const minWidth = query.match(/min-width:\s*(\d+(?:\.\d+)?)px/);
+    const maxWidth = query.match(/max-width:\s*(\d+(?:\.\d+)?)px/);
+    const matchesMinWidth = !minWidth || width >= Number(minWidth[1]);
+    const matchesMaxWidth = !maxWidth || width <= Number(maxWidth[1]);
+
+    return {
+      matches: matchesMinWidth && matchesMaxWidth,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -51,23 +57,21 @@ function mockMobileViewport(): void {
       addListener: vi.fn(),
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    })),
+    };
+  });
+}
+
+function mockMobileViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: createMatchMedia(390),
   });
 }
 
 function mockDesktopViewport(): void {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('min-width:900px'),
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    value: createMatchMedia(1024),
   });
 }
 
@@ -83,6 +87,13 @@ describe('PublicCultureLibraryDialog', () => {
   beforeEach(() => {
     mockMobileViewport();
     window.history.replaceState({ page: 'cultures' }, '', '/app/cultures');
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
   });
 
   it('closes the mobile dialog when the browser history entry is popped', async () => {
@@ -167,13 +178,9 @@ describe('PublicCultureLibraryDialog', () => {
     const dialog = await screen.findByRole('dialog');
     const paper = dialog.closest('.MuiDialog-paper');
 
-    expect(paper).toHaveStyle({
-      width: '100vw',
-      maxWidth: '100vw',
-      height: '100dvh',
-      maxHeight: '100dvh',
-      margin: '0px',
-    });
+    expect(paper).toHaveClass('MuiDialog-paperFullScreen');
+    expect(paper).toHaveClass('MuiDialog-paperWidthFalse');
+    expect(paper).not.toHaveStyle({ backgroundColor: 'transparent' });
   });
 
   it('shows a community invitation in the desktop detail empty state', async () => {
