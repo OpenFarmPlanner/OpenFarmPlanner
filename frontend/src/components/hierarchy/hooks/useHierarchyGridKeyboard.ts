@@ -22,7 +22,6 @@ interface HierarchyGridKeyboardApi {
   getAllRowIds?: () => GridRowId[];
   getCellElement?: (id: GridRowId, field: string) => HTMLElement | null;
   getCellParams?: (id: GridRowId, field: string) => GridCellParams<HierarchyRow>;
-  getColumnIndexRelativeToVisibleColumns?: (field: string) => number;
   getRowIndexRelativeToVisibleRows?: (id: GridRowId) => number;
   getVisibleColumns?: () => GridColDef<HierarchyRow>[];
   isCellEditable?: (params: GridCellParams<HierarchyRow>) => boolean;

@@ -55,9 +55,9 @@ import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
 import {
   compactFieldSx,
   formRowSx,
-  mediumFieldSx,
+  mediumStackedFieldSx,
   smallFieldSx,
-  wideFieldSx,
+  wideSingleColumnFieldSx,
 } from '../components/forms/formLayout';
 
 interface CultureFormProps {
@@ -73,33 +73,9 @@ interface CultureFormProps {
 
 // Default color for display color picker
 const DEFAULT_DISPLAY_COLOR = '#3498db';
-const FOCUSABLE_DIALOG_ELEMENT_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[role="button"]:not([aria-disabled="true"])',
-  '[role="combobox"]:not([aria-disabled="true"])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
 
-const isElementVisible = (element: HTMLElement): boolean => (
-  element.offsetParent !== null || element.getClientRects().length > 0
-);
-
-const getDialogFocusableElements = (dialogElement: HTMLElement): HTMLElement[] => (
-  Array.from(dialogElement.querySelectorAll<HTMLElement>(FOCUSABLE_DIALOG_ELEMENT_SELECTOR))
-    .filter((element) => (
-      isElementVisible(element)
-      && element.tabIndex >= 0
-      && element.getAttribute('aria-hidden') !== 'true'
-    ))
-);
-
-const isFloatingSelectMenuOpen = (): boolean => (
-  Boolean(document.querySelector('.MuiPopover-paper [role="listbox"], .MuiMenu-paper [role="listbox"]'))
-);
+// Vertical rhythm of the supplier data section (MUI spacing unit = 8px -> 14px).
+const SUPPLIER_SECTION_GAP = 1.75;
 
 // Empty culture template
 const EMPTY_CULTURE: Partial<Culture> = {
@@ -490,50 +466,9 @@ export function CultureForm({
     });
   };
 
-  useEffect(() => {
-    const handleDialogTabKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (
-        event.key !== 'Tab'
-        || event.altKey
-        || event.ctrlKey
-        || event.metaKey
-        || isFloatingSelectMenuOpen()
-      ) {
-        return;
-      }
-
-      const dialogElement = formRef.current?.closest('[role="dialog"]') as HTMLElement | null;
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (!dialogElement || !activeElement || !dialogElement.contains(activeElement)) {
-        return;
-      }
-
-      const focusableElements = getDialogFocusableElements(dialogElement);
-      if (focusableElements.length === 0) {
-        return;
-      }
-
-      const currentIndex = focusableElements.findIndex((element) => (
-        element === activeElement || element.contains(activeElement)
-      ));
-      const nextIndex = currentIndex >= 0
-        ? event.shiftKey
-          ? (currentIndex - 1 + focusableElements.length) % focusableElements.length
-          : (currentIndex + 1) % focusableElements.length
-        : 0;
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      requestAnimationFrame(() => {
-        focusableElements[nextIndex]?.focus();
-      });
-    };
-
-    document.addEventListener('keydown', handleDialogTabKeyDown, true);
-    return () => document.removeEventListener('keydown', handleDialogTabKeyDown, true);
-  }, []);
+  // Tab/Shift+Tab inside this dialog is MUI's `Dialog` focus trap's job; Tab
+  // out of an open Select dropdown belongs to `TypeaheadSelect`. Do not add a
+  // second trap here — see docs/keyboard-architecture.md.
 
   // Handle manual save (for Save button)
   const handleSubmit = async (e: React.FormEvent) => {
@@ -800,8 +735,16 @@ export function CultureForm({
             ) : null}
             {extraSections}
             {showSupplierDataSection ? (
-              <>
-                <Typography variant="h6" sx={{ mt: 1 }}>{t('form.supplierDataSectionTitle')}</Typography>
+              <Box
+                data-testid="culture-supplier-data-section"
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: SUPPLIER_SECTION_GAP,
+                  mt: 1,
+                }}
+              >
+                <Typography variant="h6">{t('form.supplierDataSectionTitle')}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {t('form.supplierDataSectionDescription')}
                 </Typography>
@@ -810,147 +753,171 @@ export function CultureForm({
                     {t('form.noSupplierDataRows')}
                   </Typography>
                 ) : null}
-                {supplierRows.map((row, supplierIndex) => (
-                  <Box
-                    key={`supplier-row-${supplierIndex}`}
-                    data-testid="culture-supplier-data-row"
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      p: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                      minHeight: 0,
-                      flexGrow: 0,
-                    }}
-                  >
-                {(() => {
+                {supplierRows.map((row, supplierIndex) => {
                   const selectedSupplierId = row.supplier_id ?? row.supplier?.id ?? null;
                   const availableSupplierIds = new Set(supplierOptions.map((supplier) => supplier.id));
                   const hasSelectedSupplier = typeof selectedSupplierId === 'number';
                   const isSelectedSupplierAvailable = hasSelectedSupplier && availableSupplierIds.has(selectedSupplierId);
                   const selectValue = isSelectedSupplierAvailable ? String(selectedSupplierId) : '';
-                  if (supplierOptions.length === 0) {
-                    return (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: { xs: 'stretch', sm: 'center' },
-                          justifyContent: 'space-between',
-                          gap: 1,
-                          flexDirection: { xs: 'column', sm: 'row' },
-                          border: '1px solid',
-                          borderColor: 'surface.surfaceSoftBorder',
-                          borderRadius: 1,
-                          bgcolor: 'surface.surfaceSubtleBackground',
-                          px: 1.5,
-                          py: 1.25,
-                        }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          {t('form.noSuppliers')}
-                        </Typography>
-                        <Button
-                          ref={(element) => {
-                            createSupplierButtonRefs.current[supplierIndex] = element;
-                          }}
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleCreateSupplierClick(supplierIndex)}
-                        >
-                          {t('form.createSuppliers')}
-                        </Button>
-                      </Box>
-                    );
-                  }
+                  const hasSupplierOptions = supplierOptions.length > 0;
+                  // Supplier-specific inputs stay unmounted until a supplier is picked so the
+                  // section never reserves height for fields that cannot be filled in yet.
+                  const showSupplierFields = hasSupplierOptions && isSelectedSupplierAvailable;
 
                   return (
-                    <FormControl size="small" sx={mediumFieldSx}>
-                      <InputLabel shrink>{t('form.supplier')}</InputLabel>
-                      <Select
-                        fullWidth
-                        value={selectValue}
-                        label={t('form.supplier')}
-                        renderValue={(selected) => {
-                          if (!selected) {
-                            return (
-                              <Typography component="span" color="text.secondary">
-                                {t('form.supplierPlaceholder')}
-                              </Typography>
-                            );
-                          }
-                          const selectedSupplier = supplierOptions.find((supplier) => String(supplier.id) === String(selected));
-                          return selectedSupplier?.name ?? '';
-                        }}
-                        onChange={(event) => {
-                          const selectedValue = String(event.target.value ?? '');
+                    <Box
+                      key={`supplier-row-${supplierIndex}`}
+                      data-testid="culture-supplier-data-row"
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: SUPPLIER_SECTION_GAP,
+                        minHeight: 0,
+                        flexGrow: 0,
+                      }}
+                    >
+                      {hasSupplierOptions ? (
+                        <FormControl size="small" sx={mediumStackedFieldSx}>
+                          <InputLabel shrink>{t('form.supplier')}</InputLabel>
+                          <Select
+                            fullWidth
+                            value={selectValue}
+                            label={t('form.supplier')}
+                            renderValue={(selected) => {
+                              if (!selected) {
+                                return (
+                                  <Typography component="span" color="text.secondary">
+                                    {t('form.supplierPlaceholder')}
+                                  </Typography>
+                                );
+                              }
+                              const selectedSupplier = supplierOptions.find((supplier) => String(supplier.id) === String(selected));
+                              return selectedSupplier?.name ?? '';
+                            }}
+                            onChange={(event) => {
+                              const selectedValue = String(event.target.value ?? '');
 
-                          const parsedSupplierId = Number(selectedValue);
-                          const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
-                          updateSupplierRow(supplierIndex, {
-                            supplier_id: parsedSupplierId,
-                            supplier: selectedSupplier,
-                            supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
-                            supplier_name: selectedSupplier?.name ?? row.supplier_name,
-                          });
-                        }}
-                        displayEmpty
-                      >
-                        {supplierOptions.map((supplier) => (
-                          <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                              const parsedSupplierId = Number(selectedValue);
+                              const selectedSupplier = supplierOptions.find((supplier) => supplier.id === parsedSupplierId);
+                              updateSupplierRow(supplierIndex, {
+                                supplier_id: parsedSupplierId,
+                                supplier: selectedSupplier,
+                                supplier_name_input: selectedSupplier ? undefined : row.supplier_name_input,
+                                supplier_name: selectedSupplier?.name ?? row.supplier_name,
+                              });
+                            }}
+                            displayEmpty
+                          >
+                            {supplierOptions.map((supplier) => (
+                              <MenuItem key={supplier.id} value={String(supplier.id)}>{supplier.name}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: { xs: 'stretch', sm: 'center' },
+                            justifyContent: 'space-between',
+                            gap: 1,
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            border: '1px solid',
+                            borderColor: 'surface.surfaceSoftBorder',
+                            borderRadius: 1,
+                            bgcolor: 'surface.surfaceSubtleBackground',
+                            px: 1.5,
+                            py: 1.25,
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            {t('form.noSuppliers')}
+                          </Typography>
+                          <Button
+                            ref={(element) => {
+                              createSupplierButtonRefs.current[supplierIndex] = element;
+                            }}
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleCreateSupplierClick(supplierIndex)}
+                          >
+                            {t('form.createSuppliers')}
+                          </Button>
+                        </Box>
+                      )}
+                      {hasSupplierOptions && !showSupplierFields ? (
+                        <Box
+                          data-testid="culture-supplier-data-hint"
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'surface.surfaceSoftBorder',
+                            borderRadius: 1,
+                            bgcolor: 'surface.surfaceSubtleBackground',
+                            px: 1.5,
+                            py: 1,
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            {t('form.supplierDataSelectSupplierHint')}
+                          </Typography>
+                        </Box>
+                      ) : null}
+                      {showSupplierFields ? (
+                        <>
+                          <TextField
+                            label={t('form.supplierProductNameLabel')}
+                            value={row.supplier_product_name ?? ''}
+                            onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
+                            sx={wideSingleColumnFieldSx}
+                          />
+                          <Typography variant="subtitle2">{t('form.seedPackagesLabel')}</Typography>
+                          {(row.packaging_sizes ?? []).map((pkg, packageIndex) => (
+                            <Box
+                              key={`pkg-${supplierIndex}-${packageIndex}`}
+                              sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}
+                            >
+                              <TextField
+                                label={t('form.seedAmountLabel')}
+                                type="number"
+                                value={pkg.size_value}
+                                onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
+                                sx={compactFieldSx}
+                              />
+                              <Select
+                                value={pkg.size_unit}
+                                onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_unit: event.target.value })}
+                                size="small"
+                                sx={smallFieldSx}
+                              >
+                                <MenuItem value="g">{t('form.packageUnitGram')}</MenuItem>
+                                <MenuItem value="seeds">{t('form.packageUnitSeeds')}</MenuItem>
+                              </Select>
+                              <IconButton
+                                color="error"
+                                onClick={() => removePackageRow(supplierIndex, packageIndex)}
+                                aria-label={t('form.removeSeedPackageAriaLabel')}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          ))}
+                        </>
+                      ) : null}
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {showSupplierFields ? (
+                          <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
+                        ) : null}
+                        <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
+                      </Box>
+                    </Box>
                   );
-                })()}
-                <TextField
-                  label={t('form.supplierProductNameLabel') }
-                  value={row.supplier_product_name ?? ''}
-                  onChange={(event) => updateSupplierRow(supplierIndex, { supplier_product_name: event.target.value })}
-                  sx={wideFieldSx}
-                />
-                <Typography variant="subtitle2">{t('form.seedPackagesLabel')}</Typography>
-                {(row.packaging_sizes ?? []).map((pkg, packageIndex) => (
-                  <Box
-                    key={`pkg-${supplierIndex}-${packageIndex}`}
-                    sx={{ ...formRowSx, gap: 1, alignItems: 'center' }}
-                  >
-                    <TextField
-                      label={t('form.seedAmountLabel')}
-                      type="number"
-                      value={pkg.size_value}
-                      onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
-                      sx={compactFieldSx}
-                    />
-                    <Select
-                      value={pkg.size_unit}
-                      onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_unit: event.target.value })}
-                      size="small"
-                      sx={smallFieldSx}
-                    >
-                      <MenuItem value="g">{t('form.packageUnitGram')}</MenuItem>
-                      <MenuItem value="seeds">{t('form.packageUnitSeeds')}</MenuItem>
-                    </Select>
-                    <IconButton
-                      color="error"
-                      onClick={() => removePackageRow(supplierIndex, packageIndex)}
-                      aria-label={t('form.removeSeedPackageAriaLabel')}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  <Button variant="outlined" onClick={() => addPackageRow(supplierIndex)}>{t('form.addSeedPackage')}</Button>
-                  <Button variant="outlined" color="error" onClick={() => removeSupplierRow(supplierIndex)}>{t('form.removeSupplierData')}</Button>
-                </Box>
-                  </Box>
-                ))}
+                })}
                 <Button variant="outlined" onClick={addSupplierRow}>{t('form.addSupplierData')}</Button>
-              </>
+              </Box>
             ) : null}
           </div>
         </DialogContent>

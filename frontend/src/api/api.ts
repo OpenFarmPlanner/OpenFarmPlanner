@@ -32,6 +32,7 @@ import type {
   FieldLayoutEntry,
   LocationLayoutsResponse,
   CultureSupplierData,
+  SupplierDeleteResponse,
   SupplierDeleteUsage,
   SupplierDeleteUndoPayload,
   SupplierRestoreUnlinkedDeleteResponse,
@@ -162,9 +163,10 @@ export const publicCultureAPI = {
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
   importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
-  withdraw: (id: number) => http.post<PublicCulture>(`/public-cultures/${id}/withdraw/`, {}),
-  remove: (id: number, reason: PublicCultureRemovalReason) =>
-    http.post<PublicCulture>(`/public-cultures/${id}/remove/`, { reason }),
+  // Contributors remove their own entry without a reason; moderators removing
+  // somebody else's entry must supply a structured moderation reason.
+  remove: (id: number, reason?: PublicCultureRemovalReason) =>
+    http.post<PublicCulture>(`/public-cultures/${id}/remove/`, reason ? { reason } : {}),
   hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
   discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
   createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>
@@ -205,7 +207,7 @@ export const supplierAPI = {
   unlinkAndDelete: (id: number) => http.post<SupplierUnlinkDeleteResponse>(`/suppliers/${id}/unlink-and-delete/`, {}),
   restoreUnlinkedDelete: (undoPayload: SupplierDeleteUndoPayload) =>
     http.post<SupplierRestoreUnlinkedDeleteResponse>('/suppliers/restore-unlinked-delete/', undoPayload),
-  delete: (id: number) => http.delete(`/suppliers/${id}/`),
+  delete: (id: number) => http.delete<SupplierDeleteResponse>(`/suppliers/${id}/`),
 };
 
 export const cultureSupplierDataAPI = {

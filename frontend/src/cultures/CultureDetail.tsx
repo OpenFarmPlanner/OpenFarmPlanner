@@ -60,10 +60,8 @@ interface CultureDetailProps {
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
   onPublishCulture?: () => void;
-  onWithdrawPublicCulture?: (culture: Culture) => void;
   onRemovePublicCulture?: (culture: Culture) => void;
   onDeleteCulture?: (culture: Culture) => void;
-  canModeratePublicCulture?: boolean;
   canCreatePlan?: boolean;
   isPublishingCulture?: boolean;
   publishActionLabel?: string;
@@ -93,10 +91,8 @@ export function CultureDetail({
   onCreatePlan,
   onOpenHistory,
   onPublishCulture,
-  onWithdrawPublicCulture,
   onRemovePublicCulture,
   onDeleteCulture,
-  canModeratePublicCulture = false,
   canCreatePlan = true,
   isPublishingCulture = false,
   publishActionLabel,
@@ -760,10 +756,8 @@ export function CultureDetail({
                 onPublish={() => onPublishCulture?.()}
                 isPublishing={isPublishingCulture}
                 publishLabel={publishActionLabel ?? t('library.publishButton')}
-                onWithdrawPublicCulture={() => onWithdrawPublicCulture?.(selectedCulture)}
                 onRemovePublicCulture={() => onRemovePublicCulture?.(selectedCulture)}
-                canWithdrawPublicCulture={Boolean(selectedCulture.owned_public_culture_id && onWithdrawPublicCulture)}
-                canModeratePublicCulture={Boolean(selectedCulture.owned_public_culture_id && canModeratePublicCulture)}
+                canRemovePublicCulture={Boolean(selectedCulture.owned_public_culture_id && onRemovePublicCulture)}
                 onDelete={() => onDeleteCulture?.(selectedCulture)}
                 t={t}
               />

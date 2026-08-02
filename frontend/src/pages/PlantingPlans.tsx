@@ -578,6 +578,8 @@ function PlantingPlans() {
               compactLabel={label}
               placeholder={t("plantingPlans:placeholders.selectArea")}
               hasFocus={params.hasFocus}
+              rowId={params.id}
+              field={params.field}
               memoKey={`${String(params.id)}:${params.field}`}
               onApply={(nextBedId) => applyBedSelection(params.id, row, nextBedId)}
             />
