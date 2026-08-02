@@ -58,6 +58,7 @@ interface PrerenderSeoModule {
   PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[];
   SITE_LANGUAGE: string;
   applyHeadTags: (html: string, route: PublicRoute, env: NodeJS.ProcessEnv) => string;
+  assertNoLoopbackUrls: (html: string, routePath: string) => void;
 }
 
 interface PrerenderedPage {
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
   await copyFile(indexHtmlPath, appShellPath);
   console.log(`prerender: index.html -> ${path.relative(distDir, appShellPath)} (SPA fallback shell)`);
 
-  const { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE, applyHeadTags } = await loadSeoHelpers();
+  const { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE, applyHeadTags, assertNoLoopbackUrls } = await loadSeoHelpers();
 
   const server = await preview({
     root: rootDir,
@@ -179,6 +180,7 @@ async function main(): Promise<void> {
         await serializeCssInJsRules(page);
         const html = await page.content();
         const finalHtml = applyHeadTags(html, route, process.env);
+        assertNoLoopbackUrls(finalHtml, route.path);
 
         prerenderedPages.push({
           routePath: route.path,
