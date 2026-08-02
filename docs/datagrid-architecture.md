@@ -36,6 +36,7 @@ frontend/src/components/data-grid/
   contextMenuFocus.ts      Arrow/Home/End/Enter/Esc navigation *inside* an open menu
   AreaM2EditCell.tsx, DateEditCell.tsx, PlantsCountEditCell.tsx,
   SearchableSelectEditCell.tsx                            custom edit cells
+  SelectEditCellContext.tsx, selectEditMenuClose.ts        select dropdown open/close bridge
   FullCellTooltip.tsx     full-cell hover/focus target for unavailable values
   GermanDateEditCell.tsx   shared German date parse/format helpers only
                            (its edit-cell component was removed as dead code)
@@ -141,7 +142,14 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   through `StandardSingleSelectEditCell`, which reuses the shared closed
   Select typeahead hook from `components/inputs/selectTypeahead.ts` so typing
   on a focused closed editor selects by the localized visible label just like
-  form-level Selects.
+  form-level Selects. A primary click on an inline `singleSelect` cell opens
+  row edit mode and immediately requests the mounted select editor to open its
+  dropdown via `SelectEditCellContext`; keyboard entry into the same cell only
+  focuses the editor, so Tab/F2/type-to-edit behavior stays unchanged. When a
+  controlled select menu closes from a pointer click outside the edited row,
+  `selectEditMenuClose.ts` routes that close back through the grid's normal
+  save-and-exit-row path. Closes caused by choosing an option or by keyboard
+  dismissal stay inside the current row edit session.
 
 ## Keyboard editing/navigation inside the grid
 

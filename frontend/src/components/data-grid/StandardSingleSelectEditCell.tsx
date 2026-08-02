@@ -1,8 +1,9 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import { Box, MenuItem, TextField } from '@mui/material';
 import { useClosedSelectTypeahead } from '../inputs/selectTypeahead';
 import type { SearchableSelectOption } from './SearchableSelectEditCell';
+import { useSelectEditCellOpenRequest } from './SelectEditCellContext';
 
 interface StandardSingleSelectEditCellProps extends GridRenderEditCellParams {
   options: SearchableSelectOption[];
@@ -18,7 +19,16 @@ export const StandardSingleSelectEditCell = memo(function StandardSingleSelectEd
   options,
   placeholder,
 }: StandardSingleSelectEditCellProps) {
+  const [open, setOpen] = useState(false);
   const selectedOption = options.find((option) => option.value === value);
+  const handleOpen = useCallback((): void => {
+    setOpen(true);
+  }, []);
+  const notifyMenuClose = useSelectEditCellOpenRequest(id, field, handleOpen);
+  const handleClose = useCallback((event: unknown): void => {
+    setOpen(false);
+    notifyMenuClose(event);
+  }, [notifyMenuClose]);
   const handleTypeaheadSelect = useCallback((nextValue: number | number[]): void => {
     const selectedValue = Array.isArray(nextValue) ? nextValue[0] : nextValue;
     void api.setEditCellValue({
@@ -46,6 +56,9 @@ export const StandardSingleSelectEditCell = memo(function StandardSingleSelectEd
         },
         select: {
           displayEmpty: Boolean(placeholder),
+          open,
+          onClose: handleClose,
+          onOpen: handleOpen,
           onKeyDown: handleSelectKeyDown,
           renderValue: () => selectedOption?.label ?? (
             <Box component="span" sx={{ color: 'text.disabled' }}>

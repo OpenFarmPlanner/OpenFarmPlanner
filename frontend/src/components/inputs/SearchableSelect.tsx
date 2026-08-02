@@ -46,6 +46,9 @@ export interface SearchableSelectProps<T = unknown> {
   onInputChange?: (value: string) => void;
   endAdornment?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
+  open?: boolean;
+  onOpen?: () => void;
+  onClose?: (event: unknown) => void;
 }
 
 // Combines Autocomplete's own internal input ref (needed for its keyboard/focus
@@ -82,6 +85,9 @@ export function SearchableSelect<T = unknown>({
   onInputChange,
   endAdornment,
   inputRef,
+  open,
+  onOpen,
+  onClose,
 }: SearchableSelectProps<T>) {
   const [internalInputValue, setInternalInputValue] = useState('');
   const resolvedInputValue = inputValue ?? internalInputValue;
@@ -100,6 +106,9 @@ export function SearchableSelect<T = unknown>({
       fullWidth={fullWidth}
       autoHighlight
       openOnFocus
+      open={open}
+      onOpen={onOpen}
+      onClose={onClose}
       size={size}
       options={options}
       value={value}

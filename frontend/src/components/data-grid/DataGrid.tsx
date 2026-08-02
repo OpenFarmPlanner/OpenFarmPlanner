@@ -87,6 +87,12 @@ import {
   type DialogEditCellRequest,
 } from './DialogEditCellContext';
 import {
+  buildSelectEditCellKey,
+  SelectEditCellContext,
+  type SelectEditCellContextValue,
+  type SelectEditCellOpenRequest,
+} from './SelectEditCellContext';
+import {
   CONTINUOUS_SCROLL_PAGE_SIZE,
   CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
   CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX,
@@ -153,6 +159,10 @@ export type {
   NotesFieldConfig,
 } from './types';
 import { AppTooltip } from '../AppTooltip';
+import {
+  isSelectEditMenuCloseOutsideElement,
+  isSelectEditMenuInternalCloseTarget,
+} from './selectEditMenuClose';
 
 type DataGridKeyboardEvent = (KeyboardEvent | EditCellKeyboardEvent) & {
   defaultMuiPrevented?: boolean;
@@ -704,6 +714,18 @@ export function EditableDataGrid<T extends EditableRow>({
     request: dialogEditRequest,
     consumeRequest: consumeDialogEditRequest,
   }), [consumeDialogEditRequest, dialogEditRequest]);
+  const [selectEditOpenRequest, setSelectEditOpenRequest] = useState<SelectEditCellOpenRequest | null>(null);
+  const selectEditOpenTokenRef = useRef(0);
+  const requestSelectEditOpenForCell = useCallback((rowId: GridRowId, field: string): void => {
+    selectEditOpenTokenRef.current += 1;
+    setSelectEditOpenRequest({
+      cellKey: buildSelectEditCellKey(rowId, field),
+      token: selectEditOpenTokenRef.current,
+    });
+  }, []);
+  const consumeSelectEditOpenRequest = useCallback((token: number): void => {
+    setSelectEditOpenRequest((current) => (current?.token === token ? null : current));
+  }, []);
 
   // Check if there's a validation error (indicating incomplete/invalid data)
   const hasValidationError = Boolean(error);
@@ -1599,6 +1621,28 @@ export function EditableDataGrid<T extends EditableRow>({
     processRowUpdate,
   ]);
 
+  const handleSelectEditMenuClose = useCallback((rowId: GridRowId, _field: string, event: unknown): void => {
+    const rowMode = rowModesModel[rowId] ?? rowModesModel[String(rowId)];
+    if (rowMode?.mode !== GridRowModes.Edit || isSelectEditMenuInternalCloseTarget(event)) {
+      return;
+    }
+
+    const rowElement = gridApiRef.current?.rootElementRef?.current?.querySelector<HTMLElement>(
+      `[role="row"][data-id="${cssEscape(String(rowId))}"]`,
+    );
+    if (!rowElement || !isSelectEditMenuCloseOutsideElement(event, rowElement)) {
+      return;
+    }
+
+    void handleSaveRow(rowId);
+  }, [gridApiRef, handleSaveRow, rowModesModel]);
+
+  const selectEditCellContextValue = useMemo<SelectEditCellContextValue>(() => ({
+    request: selectEditOpenRequest,
+    consumeRequest: consumeSelectEditOpenRequest,
+    onMenuClose: handleSelectEditMenuClose,
+  }), [consumeSelectEditOpenRequest, handleSelectEditMenuClose, selectEditOpenRequest]);
+
   const saveEditedRowAndFocusTarget = useCallback(async (
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
@@ -2395,6 +2439,16 @@ export function EditableDataGrid<T extends EditableRow>({
     t,
   ]);
 
+  const isInlineSingleSelectCell = useCallback((params: GridCellParams<T>): boolean => {
+    if (!params.isEditable || hasDedicatedEditor(params.field)) {
+      return false;
+    }
+
+    return columnsWithActions.some((column) => (
+      column.field === params.field && column.type === 'singleSelect'
+    ));
+  }, [columnsWithActions, hasDedicatedEditor]);
+
   const handleViewModeCellNavigation = useCallback((params: GridCellParams<T>, event: DataGridKeyboardEvent): boolean => {
     if (
       rowModesModel[params.id]?.mode === GridRowModes.Edit ||
@@ -2632,6 +2686,7 @@ export function EditableDataGrid<T extends EditableRow>({
             }}
           >
             <EditCellNavigationContext.Provider value={handleEditCellTabNavigation}>
+              <SelectEditCellContext.Provider value={selectEditCellContextValue}>
               <DialogEditCellContext.Provider value={dialogEditCellContextValue}>
               <DataGrid
           rows={rowsForGrid}
@@ -2780,6 +2835,9 @@ export function EditableDataGrid<T extends EditableRow>({
               // already opened it — never layer inline edit mode on top.
               return;
             }
+            if (isInlineSingleSelectCell(params)) {
+              requestSelectEditOpenForCell(params.id, params.field);
+            }
             handleEditableCellClick(params, rowModesModel, setRowModesModel);
           }}
           onCellKeyDown={(params: GridCellParams<T>, event) => {
@@ -2901,6 +2959,7 @@ export function EditableDataGrid<T extends EditableRow>({
           apiRef={gridApiRef}
               />
               </DialogEditCellContext.Provider>
+              </SelectEditCellContext.Provider>
             </EditCellNavigationContext.Provider>
           </Box>
           </Box>
