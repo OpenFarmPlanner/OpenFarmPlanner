@@ -33,7 +33,20 @@ export function AreaValidationDialog({
   const { t } = useTranslation(["plantingPlans", "common"]);
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+    <Dialog
+      open
+      onClose={onClose}
+      onKeyDownCapture={(event) => {
+        if (event.key !== "Escape") {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+      fullWidth
+      maxWidth="xs"
+    >
       <DialogTitle>
         {dialog.mode === "bedLimit"
           ? t("plantingPlans:areaValidation.bedLimitTitle")

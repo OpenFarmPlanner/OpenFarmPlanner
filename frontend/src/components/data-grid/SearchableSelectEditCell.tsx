@@ -9,11 +9,12 @@
  * @returns Autocomplete-based edit cell.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import { SearchableSelect } from '../inputs/SearchableSelect';
 import type { SearchableSelectOption } from '../inputs/SearchableSelect';
+import { useSelectEditCellOpenRequest } from './SelectEditCellContext';
 
 export interface SearchableSelectEditCellProps extends GridRenderEditCellParams {
   options: SearchableSelectOption[];
@@ -32,22 +33,22 @@ export function SearchableSelectEditCell({
 }: SearchableSelectEditCellProps) {
   const apiRef = useGridApiContext();
   const [inputValue, setInputValue] = useState('');
+  const [open, setOpen] = useState(false);
+  const handleOpen = useCallback((): void => {
+    setOpen(true);
+  }, []);
+  const notifyMenuClose = useSelectEditCellOpenRequest(id, field, handleOpen);
+  const handleClose = useCallback((event: unknown): void => {
+    setOpen(false);
+    notifyMenuClose(event);
+  }, [notifyMenuClose]);
 
   const selectedOption = useMemo(
     () => options.find((option) => option.value === value) ?? null,
     [options, value]
   );
 
-  const [currentOption, setCurrentOption] = useState<SearchableSelectOption | null>(
-    selectedOption
-  );
-
-  useEffect(() => {
-    setCurrentOption(selectedOption);
-  }, [selectedOption]);
-
-  const handleChange = async (_: unknown, newValue: SearchableSelectOption | null) => {
-    setCurrentOption(newValue);
+  const handleChange = useCallback(async (newValue: SearchableSelectOption | null): Promise<void> => {
     const nextValue = newValue?.value ?? null;
 
     if (nextValue !== value) {
@@ -58,22 +59,25 @@ export function SearchableSelectEditCell({
       });
       await onValueChange?.(nextValue);
     }
-  };
+  }, [apiRef, field, id, onValueChange, value]);
 
   return (
     <SearchableSelect
       options={options}
-      value={currentOption}
+      value={selectedOption}
       inputValue={inputValue}
       onInputChange={setInputValue}
       onChange={(newValue) => {
-        void handleChange(undefined, newValue);
+        void handleChange(newValue);
       }}
       placeholder={placeholder}
       size="small"
       autoFocus={hasFocus}
       inputTabIndex={hasFocus ? 0 : -1}
       textFieldSx={{ '& .MuiInputBase-root': { height: '100%' } }}
+      open={open}
+      onOpen={handleOpen}
+      onClose={handleClose}
     />
   );
 }

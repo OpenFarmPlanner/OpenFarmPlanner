@@ -30,6 +30,7 @@ export interface ContextMenuOpenSnapshot {
 type ContextMenuOpenListener = () => void;
 
 const openContextMenus = new Set<symbol>();
+const contextMenuCloseHandlers = new Map<symbol, () => void>();
 const listeners = new Set<ContextMenuOpenListener>();
 
 const CLOSED_SNAPSHOT: ContextMenuOpenSnapshot = { open: false, openSequence: 0 };
@@ -83,6 +84,23 @@ export function subscribeToContextMenuOpenState(listener: ContextMenuOpenListene
   };
 }
 
+export function registerContextMenuCloseHandler(menuId: symbol, onClose: () => void): () => void {
+  contextMenuCloseHandlers.set(menuId, onClose);
+  return () => {
+    if (contextMenuCloseHandlers.get(menuId) === onClose) {
+      contextMenuCloseHandlers.delete(menuId);
+    }
+  };
+}
+
+export function closeOtherContextMenus(menuId: symbol): void {
+  contextMenuCloseHandlers.forEach((onClose, registeredMenuId) => {
+    if (registeredMenuId !== menuId) {
+      onClose();
+    }
+  });
+}
+
 /** Reactive read of the whole snapshot. */
 export function useContextMenuOpenSnapshot(): ContextMenuOpenSnapshot {
   return useSyncExternalStore(
@@ -104,15 +122,15 @@ export function useIsAnyContextMenuOpen(): boolean {
  * that renders the menu — a tooltip that is open at that moment is hidden
  * before the browser paints the menu, never one frame on top of it.
  */
-export function useContextMenuOpenRegistration(open: boolean): void {
-  const [menuId] = useState(() => Symbol('contextMenu'));
-
+export function useContextMenuOpenRegistration(open: boolean, menuId?: symbol): void {
+  const [fallbackMenuId] = useState(() => Symbol('contextMenu'));
+  const resolvedMenuId = menuId ?? fallbackMenuId;
   useLayoutEffect(() => {
     if (!open) {
       return undefined;
     }
-    return registerOpenContextMenu(menuId);
-  }, [menuId, open]);
+    return registerOpenContextMenu(resolvedMenuId);
+  }, [resolvedMenuId, open]);
 }
 
 /**

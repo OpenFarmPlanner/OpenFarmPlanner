@@ -1,6 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCloseCustomContextMenuOnNativeContextMenu } from '../../utils/contextMenu';
-import { useContextMenuOpenRegistration } from './contextMenuOpenState';
+import {
+  closeOtherContextMenus,
+  registerContextMenuCloseHandler,
+  useContextMenuOpenRegistration,
+} from './contextMenuOpenState';
 
 export interface ContextMenuPositionState<TKey> {
   key: TKey;
@@ -20,6 +24,7 @@ export function useContextMenuPositionState<TKey>({
   isContextMenuTarget,
   onClose,
 }: UseContextMenuPositionStateParams) {
+  const [menuId] = useState(() => Symbol('contextMenu'));
   const [state, setState] = useState<ContextMenuPositionState<TKey> | null>(null);
 
   const open = useCallback((
@@ -27,8 +32,9 @@ export function useContextMenuPositionState<TKey>({
     mouseX: number,
     mouseY: number,
   ): void => {
+    closeOtherContextMenus(menuId);
     setState({ key, mouseX, mouseY });
-  }, []);
+  }, [menuId]);
 
   const close = useCallback((): void => {
     setState(null);
@@ -54,7 +60,9 @@ export function useContextMenuPositionState<TKey>({
 
   // Single place every app context menu reports "I am open" from, so tooltips
   // can hide themselves instead of covering the menu.
-  useContextMenuOpenRegistration(state !== null);
+  useContextMenuOpenRegistration(state !== null, menuId);
+
+  useEffect(() => registerContextMenuCloseHandler(menuId, close), [close, menuId]);
 
   return { state, open, close, clearIf };
 }

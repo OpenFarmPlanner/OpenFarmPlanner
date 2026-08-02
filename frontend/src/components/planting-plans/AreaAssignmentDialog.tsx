@@ -16,6 +16,7 @@ import type { GridRowId } from '@mui/x-data-grid';
 import { useTranslation } from '../../i18n';
 import type { Bed, Field, Location } from '../../api/types';
 import { useDialogEditCellOpenRequest } from '../data-grid/DialogEditCellContext';
+import { isAnyContextMenuOpen } from '../contextMenu/contextMenuOpenState';
 import EmptyStateCard from '../project/EmptyStateCard';
 import { CompactAreaCell } from './CompactAreaCell';
 import {
@@ -25,6 +26,7 @@ import {
 import { formatAreaM2, toNumericValue } from '../../pages/plantingPlansUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
 import { fullWidthFieldSx } from '../forms/formLayout';
+import { isContextMenuDismissGestureInProgress } from '../../utils/contextMenu';
 
 interface AreaAssignmentDialogProps {
   bedId: number | null;
@@ -324,7 +326,7 @@ function AreaAssignmentDialogComponent({
    * the cell, and re-running the body would reset an already edited draft.
    */
   const handleOpen = useCallback((): void => {
-    if (isOpenRef.current) {
+    if (isOpenRef.current || isAnyContextMenuOpen() || isContextMenuDismissGestureInProgress()) {
       return;
     }
 

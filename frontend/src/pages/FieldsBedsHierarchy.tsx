@@ -1547,7 +1547,7 @@ function FieldsBedsHierarchy({
               },
             }}
             onClick={() => setTreeActive(true)}
-            onContextMenu={handleGridContextMenu}
+            onContextMenuCapture={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}
             onTouchMove={handleGridTouchMove}

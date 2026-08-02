@@ -36,6 +36,7 @@ frontend/src/components/data-grid/
   contextMenuFocus.ts      Arrow/Home/End/Enter/Esc navigation *inside* an open menu
   AreaM2EditCell.tsx, DateEditCell.tsx, PlantsCountEditCell.tsx,
   SearchableSelectEditCell.tsx                            custom edit cells
+  SelectEditCellContext.tsx, selectEditMenuClose.ts        select dropdown open/close bridge
   FullCellTooltip.tsx     full-cell hover/focus target for unavailable values
   GermanDateEditCell.tsx   shared German date parse/format helpers only
                            (its edit-cell component was removed as dead code)
@@ -141,7 +142,18 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   through `StandardSingleSelectEditCell`, which reuses the shared closed
   Select typeahead hook from `components/inputs/selectTypeahead.ts` so typing
   on a focused closed editor selects by the localized visible label just like
-  form-level Selects.
+  form-level Selects. A primary click on an inline `singleSelect` cell opens
+  row edit mode and immediately requests the mounted select editor to open its
+  dropdown via `SelectEditCellContext`; keyboard entry into the same cell only
+  focuses the editor, so Tab/F2/type-to-edit behavior stays unchanged. When a
+  controlled select menu closes from a pointer click outside the edited row,
+  `selectEditMenuClose.ts` routes that close back through the grid's normal
+  save-and-exit-row path. Escape closes reuse the row cancel path. If keyboard
+  navigation moves from an inline select editor into a dialog-owned cell on an
+  existing row, the grid commits the select draft into local row state and exits
+  inline row edit mode before the dialog opens; new draft rows keep their row
+  edit session so the final create save can still validate the full row.
+  Closes caused by choosing an option stay inside the current row edit session.
 
 ## Keyboard editing/navigation inside the grid
 
@@ -215,6 +227,21 @@ shell instead of repeating MUI's `hideBackdrop`, pointer-events, paper class,
 `useContextMenuPositionState.ts` for positioned chart-style menus, and
 `useRowContextMenuState.ts` when the menu should restore focus to the row or
 cell that opened it.
+
+`useContextMenuPositionState.ts` is also the app-wide exclusivity gate: when a
+new app context menu opens, any previously open app context menu is closed
+first. The shared DOM listeners in `utils/contextMenu.ts` guard the event
+sequence around those menus. Secondary-button `pointerdown`/`mousedown`/
+`pointerup`/`mouseup` events on custom-menu targets are stopped before MUI
+DataGrid, chart bars, links, or buttons can treat the right-click as a normal
+activation. While any custom context menu is open, the first primary-button
+click/tap outside the menu is a dismiss-only gesture: it closes the menu and
+suppresses the matching pointer/mouse/click sequence, so the element under the
+cursor does not open a dialog, enter edit mode, navigate, or change selection.
+`EditableDataGrid` also checks the same dismiss-gesture flag before accepting
+a `rowFocusOut` edit stop, so a dismiss-only click cannot commit a row and
+open save-time validation dialogs. The next separate click works normally.
+Clicks inside the menu are excluded so menu items can run their actions.
 
 ### Tooltips never cover an open context menu
 

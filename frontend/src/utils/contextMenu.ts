@@ -5,6 +5,10 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 interface SuppressibleEvent {
   preventDefault: () => void;
   stopPropagation: () => void;
+  stopImmediatePropagation?: () => void;
+  nativeEvent?: {
+    stopImmediatePropagation?: () => void;
+  };
 }
 
 /** Duration a touch must be held before it counts as a long press (ca. 500-700ms). */
@@ -134,6 +138,77 @@ export function shouldOpenCustomContextMenu(target: EventTarget | null): boolean
 export function suppressNativeContextMenu(event: SuppressibleEvent): void {
   event.preventDefault();
   event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  event.nativeEvent?.stopImmediatePropagation?.();
+}
+
+function stopEventImmediately(event: Event, options: { preventDefault?: boolean } = {}): void {
+  if (options.preventDefault && event.cancelable) {
+    event.preventDefault();
+  }
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+}
+
+function isPrimaryButtonEvent(event: MouseEvent | PointerEvent): boolean {
+  return event.button === 0;
+}
+
+function isSecondaryButtonEvent(event: MouseEvent | PointerEvent): boolean {
+  return event.button === 2;
+}
+
+let contextMenuDismissGestureActive = false;
+let clearContextMenuDismissGestureTimer: number | null = null;
+
+export function isContextMenuDismissGestureInProgress(): boolean {
+  return contextMenuDismissGestureActive;
+}
+
+function clearContextMenuDismissGesture(): void {
+  contextMenuDismissGestureActive = false;
+  if (clearContextMenuDismissGestureTimer !== null) {
+    window.clearTimeout(clearContextMenuDismissGestureTimer);
+    clearContextMenuDismissGestureTimer = null;
+  }
+}
+
+function beginContextMenuDismissGesture(): void {
+  contextMenuDismissGestureActive = true;
+  if (clearContextMenuDismissGestureTimer !== null) {
+    window.clearTimeout(clearContextMenuDismissGestureTimer);
+  }
+  clearContextMenuDismissGestureTimer = window.setTimeout(() => {
+    clearContextMenuDismissGesture();
+  }, 1000);
+}
+
+function armDismissedContextMenuClickSuppression(): void {
+  beginContextMenuDismissGesture();
+
+  const stopPendingMouseEvent = (event: MouseEvent | PointerEvent): void => {
+    if (isPrimaryButtonEvent(event)) {
+      stopEventImmediately(event, { preventDefault: true });
+    }
+  };
+
+  const stopPendingClick = (event: MouseEvent): void => {
+    stopEventImmediately(event, { preventDefault: true });
+    cleanup();
+  };
+
+  const cleanup = (): void => {
+    document.removeEventListener('pointerup', stopPendingMouseEvent, true);
+    document.removeEventListener('mouseup', stopPendingMouseEvent, true);
+    document.removeEventListener('click', stopPendingClick, true);
+    clearContextMenuDismissGesture();
+  };
+
+  document.addEventListener('pointerup', stopPendingMouseEvent, true);
+  document.addEventListener('mouseup', stopPendingMouseEvent, true);
+  document.addEventListener('click', stopPendingClick, true);
+
+  window.setTimeout(cleanup, 1000);
 }
 
 export function useCloseCustomContextMenuOnNativeContextMenu(
@@ -142,6 +217,28 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
   isCustomContextMenuTarget: (target: EventTarget | null) => boolean,
   onOpenMenuContextMenu?: (event: MouseEvent) => void,
 ): void {
+  useEffect(() => {
+    const handleSecondaryPointerEvent = (event: MouseEvent | PointerEvent): void => {
+      if (!isSecondaryButtonEvent(event) || !isCustomContextMenuTarget(event.target)) {
+        return;
+      }
+
+      stopEventImmediately(event);
+    };
+
+    document.addEventListener('pointerdown', handleSecondaryPointerEvent, true);
+    document.addEventListener('mousedown', handleSecondaryPointerEvent, true);
+    document.addEventListener('pointerup', handleSecondaryPointerEvent, true);
+    document.addEventListener('mouseup', handleSecondaryPointerEvent, true);
+
+    return () => {
+      document.removeEventListener('pointerdown', handleSecondaryPointerEvent, true);
+      document.removeEventListener('mousedown', handleSecondaryPointerEvent, true);
+      document.removeEventListener('pointerup', handleSecondaryPointerEvent, true);
+      document.removeEventListener('mouseup', handleSecondaryPointerEvent, true);
+    };
+  }, [isCustomContextMenuTarget]);
+
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -175,19 +272,39 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
     }
 
     const handleDocumentMouseDown = (event: MouseEvent): void => {
-      if (event.button !== 0) {
+      if (!isPrimaryButtonEvent(event)) {
         return;
       }
       if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
         return;
       }
 
+      stopEventImmediately(event, { preventDefault: true });
+      if (isContextMenuDismissGestureInProgress()) {
+        return;
+      }
+      armDismissedContextMenuClickSuppression();
       onClose();
     };
 
+    const handleDocumentPointerDown = (event: PointerEvent): void => {
+      if (!isPrimaryButtonEvent(event)) {
+        return;
+      }
+      if (closestContextMenuElement(event.target, customContextMenuSelector) !== null) {
+        return;
+      }
+
+      stopEventImmediately(event, { preventDefault: true });
+      armDismissedContextMenuClickSuppression();
+      onClose();
+    };
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown, true);
     document.addEventListener('mousedown', handleDocumentMouseDown, true);
 
     return () => {
+      document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
       document.removeEventListener('mousedown', handleDocumentMouseDown, true);
     };
   }, [onClose, open]);
@@ -200,10 +317,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
     // `CustomContextMenu` deliberately renders with `hideBackdrop` and
     // `pointerEvents: 'none'` on its root (see CustomContextMenu.tsx), so a
     // tap outside it reaches the DOM underneath same as if the menu weren't
-    // there — the mousedown listener above is what actually closes it. On
-    // desktop that's fine and intentional: a left click that dismisses the
-    // menu also acting on whatever's under the cursor matches how a native
-    // context menu behaves, and changing that isn't asked for here.
+    // there — the pointer/mouse listeners above are what actually close it.
     //
     // On touch a single tap must ONLY dismiss the menu — not also start
     // editing the cell (or run whatever tap action) the finger landed on.
@@ -218,8 +332,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
         return;
       }
 
-      event.preventDefault();
-      event.stopPropagation();
+      stopEventImmediately(event, { preventDefault: true });
       onClose();
     };
 
