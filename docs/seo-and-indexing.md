@@ -176,6 +176,7 @@ npm run build   # postbuild runs prerender.ts automatically
 grep -E '<title>|rel="canonical"|name="description"' dist/impressum/index.html
 grep -E '<title>|rel="canonical"|name="description"' dist/datenschutz/index.html
 grep -E '<title>|rel="canonical"|name="description"' dist/nutzungsbedingungen/index.html
+! grep -R -E 'https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|::1)' dist --include='*.html'
 ```
 
 Or over HTTP against `vite preview` — note the trailing slash (see the caveat
