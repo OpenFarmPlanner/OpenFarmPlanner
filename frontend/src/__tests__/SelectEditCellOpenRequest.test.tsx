@@ -10,6 +10,7 @@ import {
 } from '../components/data-grid/SelectEditCellContext';
 import {
   isSelectEditMenuCloseOutsideElement,
+  isSelectEditMenuEscapeClose,
   isSelectEditMenuInternalCloseTarget,
 } from '../components/data-grid/selectEditMenuClose';
 import { StandardSingleSelectEditCell } from '../components/data-grid/StandardSingleSelectEditCell';
@@ -172,5 +173,11 @@ describe('select edit cell open requests', () => {
     });
 
     expect(isSelectEditMenuCloseOutsideElement({ target: document.body }, row)).toBe(false);
+  });
+
+  it('detects Escape closes from synthetic and native select events', () => {
+    expect(isSelectEditMenuEscapeClose({ key: 'Escape' })).toBe(true);
+    expect(isSelectEditMenuEscapeClose({ nativeEvent: new KeyboardEvent('keydown', { key: 'Escape' }) })).toBe(true);
+    expect(isSelectEditMenuEscapeClose({ key: 'Enter' })).toBe(false);
   });
 });

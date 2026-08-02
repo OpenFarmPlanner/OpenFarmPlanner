@@ -161,6 +161,7 @@ export type {
 import { AppTooltip } from '../AppTooltip';
 import {
   isSelectEditMenuCloseOutsideElement,
+  isSelectEditMenuEscapeClose,
   isSelectEditMenuInternalCloseTarget,
 } from './selectEditMenuClose';
 
@@ -178,6 +179,17 @@ const wrapNativeKeyboardEvent = (event: globalThis.KeyboardEvent): DataGridKeybo
   shiftKey: event.shiftKey,
   stopPropagation: () => event.stopPropagation(),
 } as DataGridKeyboardEvent);
+
+const rowsHaveSameValues = <T extends EditableRow>(first: T, second: T): boolean => {
+  const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
+  for (const key of keys) {
+    if (!Object.is(first[key], second[key])) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 export function EditableDataGrid<T extends EditableRow>({
   columns,
@@ -1249,6 +1261,41 @@ export function EditableDataGrid<T extends EditableRow>({
     return true;
   }, [getDraftRow, markRowDirty]);
 
+  const stopExistingEditedRow = useCallback((rowId: GridRowId): boolean => {
+    const rowKey = String(rowId);
+    const currentRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
+    if (!currentRow || isUnsavedDraftRow(currentRow)) {
+      return false;
+    }
+
+    const snapshot = rowSnapshotRef.current.get(rowKey);
+    const hasActualChanges = snapshot ? !rowsHaveSameValues(snapshot, currentRow) : true;
+
+    setRows((previousRows) =>
+      previousRows.map((row) => (String(row.id) === rowKey ? currentRow : row)),
+    );
+
+    setDirtyRowIds((previous) => {
+      const next = new Set(previous);
+      if (hasActualChanges) {
+        next.add(rowKey);
+      } else {
+        next.delete(rowKey);
+      }
+      return next;
+    });
+    setActiveValidationErrors((previous) => {
+      const next = { ...previous };
+      delete next[rowKey];
+      return next;
+    });
+    setRowModesModel((oldModel) => ({
+      ...oldModel,
+      [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
+    }));
+    return true;
+  }, [getDraftRow, rowsById]);
+
   const navigateFromEditedCell = useCallback((
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
@@ -1259,8 +1306,9 @@ export function EditableDataGrid<T extends EditableRow>({
     }
 
     const isSameRow = String(current.id) === String(target.id);
+    const targetHasDedicatedEditor = hasDedicatedEditor(target.field);
     const canCommitCurrentDraft = commitEditedRowDraftForKeyboardNavigation(current.id, {
-      syncRows: !isSameRow,
+      syncRows: !isSameRow || targetHasDedicatedEditor,
     });
     if (!canCommitCurrentDraft) {
       return;
@@ -1268,6 +1316,9 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (isSameRow) {
       internalEditNavigationRowIdRef.current = String(current.id);
+      if (targetHasDedicatedEditor) {
+        stopExistingEditedRow(current.id);
+      }
       focusKeyboardNavigableCell(target.id, target.field, {
         startEdit: options.startTargetEdit,
         requestDialogEdit: options.requestDialogEdit,
@@ -1294,7 +1345,9 @@ export function EditableDataGrid<T extends EditableRow>({
   }, [
     commitEditedRowDraftForKeyboardNavigation,
     focusKeyboardNavigableCell,
+    hasDedicatedEditor,
     rowModesModel,
+    stopExistingEditedRow,
   ]);
 
   const recoverSameRowNavigationFromTabEvent = useCallback((
@@ -1627,6 +1680,11 @@ export function EditableDataGrid<T extends EditableRow>({
       return;
     }
 
+    if (isSelectEditMenuEscapeClose(event)) {
+      handleDiscardRowChanges(rowId);
+      return;
+    }
+
     const rowElement = gridApiRef.current?.rootElementRef?.current?.querySelector<HTMLElement>(
       `[role="row"][data-id="${cssEscape(String(rowId))}"]`,
     );
@@ -1635,7 +1693,7 @@ export function EditableDataGrid<T extends EditableRow>({
     }
 
     void handleSaveRow(rowId);
-  }, [gridApiRef, handleSaveRow, rowModesModel]);
+  }, [gridApiRef, handleDiscardRowChanges, handleSaveRow, rowModesModel]);
 
   const selectEditCellContextValue = useMemo<SelectEditCellContextValue>(() => ({
     request: selectEditOpenRequest,

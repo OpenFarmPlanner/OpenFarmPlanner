@@ -148,8 +148,12 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   focuses the editor, so Tab/F2/type-to-edit behavior stays unchanged. When a
   controlled select menu closes from a pointer click outside the edited row,
   `selectEditMenuClose.ts` routes that close back through the grid's normal
-  save-and-exit-row path. Closes caused by choosing an option or by keyboard
-  dismissal stay inside the current row edit session.
+  save-and-exit-row path. Escape closes reuse the row cancel path. If keyboard
+  navigation moves from an inline select editor into a dialog-owned cell on an
+  existing row, the grid commits the select draft into local row state and exits
+  inline row edit mode before the dialog opens; new draft rows keep their row
+  edit session so the final create save can still validate the full row.
+  Closes caused by choosing an option stay inside the current row edit session.
 
 ## Keyboard editing/navigation inside the grid
 

@@ -24,6 +24,19 @@ const getUnknownEventNativeEvent = (event: unknown): unknown => {
   return (event as Record<string, unknown>).nativeEvent ?? event;
 };
 
+const getUnknownEventKey = (event: unknown): string | null => {
+  const readKey = (source: unknown): string | null => {
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+
+    const key = (source as Record<string, unknown>).key;
+    return typeof key === 'string' ? key : null;
+  };
+
+  return readKey(getUnknownEventNativeEvent(event)) ?? readKey(event);
+};
+
 const getUnknownEventPoint = (event: unknown): { clientX: number; clientY: number } | null => {
   const readPoint = (source: unknown): { clientX: number; clientY: number } | null => {
     if (!source || typeof source !== 'object') {
@@ -45,6 +58,9 @@ export const isSelectEditMenuInternalCloseTarget = (event: unknown): boolean => 
   const target = getUnknownEventTarget(event);
   return target instanceof Element && target.closest(SELECT_MENU_INTERNAL_CLOSE_TARGET_SELECTOR) !== null;
 };
+
+export const isSelectEditMenuEscapeClose = (event: unknown): boolean =>
+  getUnknownEventKey(event) === 'Escape';
 
 export const isSelectEditMenuCloseOutsideElement = (
   event: unknown,
