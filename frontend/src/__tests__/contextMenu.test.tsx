@@ -190,6 +190,31 @@ describe('context menu helpers', () => {
     expect(onNativeTargetActivate).not.toHaveBeenCalled();
   });
 
+  it('closes on outside pointerdown even when that prevents a follow-up mousedown', () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const onNativeTargetActivate = vi.fn();
+      const { getByTestId } = render(
+        <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+      );
+      const nativeTarget = getByTestId('native-target');
+
+      const pointerDownEvent = createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 });
+      fireEvent(nativeTarget, pointerDownEvent);
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(pointerDownEvent.defaultPrevented).toBe(true);
+      expect(onNativeTargetActivate).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('marks the outside-click dismiss gesture while the original mouse sequence is still being swallowed', () => {
     vi.useFakeTimers();
     try {

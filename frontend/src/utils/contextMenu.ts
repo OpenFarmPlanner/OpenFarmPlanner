@@ -280,6 +280,9 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
       }
 
       stopEventImmediately(event, { preventDefault: true });
+      if (isContextMenuDismissGestureInProgress()) {
+        return;
+      }
       armDismissedContextMenuClickSuppression();
       onClose();
     };
@@ -292,8 +295,9 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
         return;
       }
 
-      beginContextMenuDismissGesture();
       stopEventImmediately(event, { preventDefault: true });
+      armDismissedContextMenuClickSuppression();
+      onClose();
     };
 
     document.addEventListener('pointerdown', handleDocumentPointerDown, true);
@@ -313,10 +317,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
     // `CustomContextMenu` deliberately renders with `hideBackdrop` and
     // `pointerEvents: 'none'` on its root (see CustomContextMenu.tsx), so a
     // tap outside it reaches the DOM underneath same as if the menu weren't
-    // there — the mousedown listener above is what actually closes it. On
-    // desktop that's fine and intentional: a left click that dismisses the
-    // menu also acting on whatever's under the cursor matches how a native
-    // context menu behaves, and changing that isn't asked for here.
+    // there — the pointer/mouse listeners above are what actually close it.
     //
     // On touch a single tap must ONLY dismiss the menu — not also start
     // editing the cell (or run whatever tap action) the finger landed on.

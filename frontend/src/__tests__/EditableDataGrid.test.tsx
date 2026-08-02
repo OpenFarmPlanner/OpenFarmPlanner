@@ -1493,7 +1493,7 @@ describe('EditableDataGrid', () => {
 
     expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
     expect(pointerDownEvent.defaultPrevented).toBe(true);
-    expect(mouseDownEvent.defaultPrevented).toBe(true);
+    expect(mouseDownEvent.defaultPrevented).toBe(false);
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
 
