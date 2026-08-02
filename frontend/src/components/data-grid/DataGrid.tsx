@@ -2597,7 +2597,7 @@ export function EditableDataGrid<T extends EditableRow>({
           >
             <Box
             ref={gridSurfaceRef}
-            onContextMenu={hasContextualRowActions ? (event) => {
+            onContextMenuCapture={hasContextualRowActions ? (event) => {
               if (!isRowActionContextMenuTarget(event.target)) {
                 return;
               }

@@ -216,6 +216,19 @@ shell instead of repeating MUI's `hideBackdrop`, pointer-events, paper class,
 `useRowContextMenuState.ts` when the menu should restore focus to the row or
 cell that opened it.
 
+`useContextMenuPositionState.ts` is also the app-wide exclusivity gate: when a
+new app context menu opens, any previously open app context menu is closed
+first. The shared DOM listeners in `utils/contextMenu.ts` guard the event
+sequence around those menus. Secondary-button `pointerdown`/`mousedown`/
+`pointerup`/`mouseup` events on custom-menu targets are stopped before MUI
+DataGrid, chart bars, links, or buttons can treat the right-click as a normal
+activation. While any custom context menu is open, the first primary-button
+click/tap outside the menu is a dismiss-only gesture: it closes the menu and
+suppresses the matching pointer/mouse/click sequence, so the element under the
+cursor does not open a dialog, enter edit mode, navigate, or change selection.
+The next separate click works normally. Clicks inside the menu are excluded so
+menu items can run their actions.
+
 ### Tooltips never cover an open context menu
 
 `components/contextMenu/contextMenuOpenState.ts` is a module-level store

@@ -288,4 +288,44 @@ describe('context menus reporting their open state', () => {
     closeMenu();
     expect(isAnyContextMenuOpen()).toBe(false);
   });
+
+  it('keeps only one positioned app context menu open at a time', () => {
+    function TwoMenus() {
+      const firstMenu = useContextMenuPositionState<string>({ isContextMenuTarget: never });
+      const secondMenu = useContextMenuPositionState<string>({ isContextMenuTarget: never });
+
+      return (
+        <>
+          <span data-testid="first-menu-open">{String(firstMenu.state !== null)}</span>
+          <span data-testid="second-menu-open">{String(secondMenu.state !== null)}</span>
+          <button type="button" data-testid="open-first-menu" onClick={() => firstMenu.open('first', 4, 8)}>
+            Erstes Menü
+          </button>
+          <button type="button" data-testid="open-second-menu" onClick={() => secondMenu.open('second', 20, 24)}>
+            Zweites Menü
+          </button>
+          <CustomContextMenu open={firstMenu.state !== null} onClose={firstMenu.close} mouseX={4} mouseY={8}>
+            <span>Erste Aktion</span>
+          </CustomContextMenu>
+          <CustomContextMenu open={secondMenu.state !== null} onClose={secondMenu.close} mouseX={20} mouseY={24}>
+            <span>Zweite Aktion</span>
+          </CustomContextMenu>
+        </>
+      );
+    }
+
+    render(<TwoMenus />);
+
+    fireEvent.click(screen.getByTestId('open-first-menu'));
+    expect(screen.getByTestId('first-menu-open')).toHaveTextContent('true');
+    expect(screen.getByTestId('second-menu-open')).toHaveTextContent('false');
+    expect(screen.getByText('Erste Aktion')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('open-second-menu'));
+
+    expect(screen.getByTestId('first-menu-open')).toHaveTextContent('false');
+    expect(screen.getByTestId('second-menu-open')).toHaveTextContent('true');
+    expect(screen.getByText('Zweite Aktion')).toBeInTheDocument();
+    expect(isAnyContextMenuOpen()).toBe(true);
+  });
 });

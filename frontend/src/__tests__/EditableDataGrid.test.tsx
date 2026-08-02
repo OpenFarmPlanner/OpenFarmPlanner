@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/refs */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -1463,6 +1462,41 @@ describe('EditableDataGrid', () => {
 
     // A further, separate tap on that same cell now behaves completely
     // normally — the menu is closed, so nothing intercepts it.
+    fireEvent.click(otherCell);
+
+    await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
+  });
+
+  it('a left click outside the open row-action menu only closes it before a second click can edit the cell', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    const row = screen.getByTestId('row-1');
+    const otherCell = screen.getByRole('button', { name: 'Zelle 1-area_sqm' });
+
+    fireEvent.contextMenu(row);
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+
+    const pointerDownEvent = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(otherCell, pointerDownEvent);
+    const mouseDownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(otherCell, mouseDownEvent);
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(otherCell, clickEvent);
+
+    expect(screen.queryByRole('menuitem', { name: 'Duplizieren' })).not.toBeInTheDocument();
+    expect(pointerDownEvent.defaultPrevented).toBe(true);
+    expect(mouseDownEvent.defaultPrevented).toBe(true);
+    expect(clickEvent.defaultPrevented).toBe(true);
+    expect(screen.queryByTestId('mode-1')).not.toHaveTextContent('edit');
+
     fireEvent.click(otherCell);
 
     await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
