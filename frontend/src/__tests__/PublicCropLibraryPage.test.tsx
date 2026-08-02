@@ -910,7 +910,10 @@ describe('PublicCropLibraryPage', () => {
       created_at: '2026-07-28T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-28T10:00:00Z',
-      last_comment_preview: 'Was ist hier gemeint?',
+      // Deliberately not the comment body: the overview list renders this
+      // preview, so reusing the body text let the assertion below pass by
+      // matching the overview instead of the opened discussion.
+      last_comment_preview: 'Vorschau des Kommentars',
     };
     const createdComment: PublicCultureDiscussionComment = {
       id: 21,
