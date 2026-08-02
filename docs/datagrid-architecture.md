@@ -226,8 +226,10 @@ activation. While any custom context menu is open, the first primary-button
 click/tap outside the menu is a dismiss-only gesture: it closes the menu and
 suppresses the matching pointer/mouse/click sequence, so the element under the
 cursor does not open a dialog, enter edit mode, navigate, or change selection.
-The next separate click works normally. Clicks inside the menu are excluded so
-menu items can run their actions.
+`EditableDataGrid` also checks the same dismiss-gesture flag before accepting
+a `rowFocusOut` edit stop, so a dismiss-only click cannot commit a row and
+open save-time validation dialogs. The next separate click works normally.
+Clicks inside the menu are excluded so menu items can run their actions.
 
 ### Tooltips never cover an open context menu
 

@@ -158,7 +158,34 @@ function isSecondaryButtonEvent(event: MouseEvent | PointerEvent): boolean {
   return event.button === 2;
 }
 
+let contextMenuDismissGestureActive = false;
+let clearContextMenuDismissGestureTimer: number | null = null;
+
+export function isContextMenuDismissGestureInProgress(): boolean {
+  return contextMenuDismissGestureActive;
+}
+
+function clearContextMenuDismissGesture(): void {
+  contextMenuDismissGestureActive = false;
+  if (clearContextMenuDismissGestureTimer !== null) {
+    window.clearTimeout(clearContextMenuDismissGestureTimer);
+    clearContextMenuDismissGestureTimer = null;
+  }
+}
+
+function beginContextMenuDismissGesture(): void {
+  contextMenuDismissGestureActive = true;
+  if (clearContextMenuDismissGestureTimer !== null) {
+    window.clearTimeout(clearContextMenuDismissGestureTimer);
+  }
+  clearContextMenuDismissGestureTimer = window.setTimeout(() => {
+    clearContextMenuDismissGesture();
+  }, 1000);
+}
+
 function armDismissedContextMenuClickSuppression(): void {
+  beginContextMenuDismissGesture();
+
   const stopPendingMouseEvent = (event: MouseEvent | PointerEvent): void => {
     if (isPrimaryButtonEvent(event)) {
       stopEventImmediately(event, { preventDefault: true });
@@ -174,14 +201,14 @@ function armDismissedContextMenuClickSuppression(): void {
     document.removeEventListener('pointerup', stopPendingMouseEvent, true);
     document.removeEventListener('mouseup', stopPendingMouseEvent, true);
     document.removeEventListener('click', stopPendingClick, true);
-    window.clearTimeout(cleanupTimer);
+    clearContextMenuDismissGesture();
   };
 
   document.addEventListener('pointerup', stopPendingMouseEvent, true);
   document.addEventListener('mouseup', stopPendingMouseEvent, true);
   document.addEventListener('click', stopPendingClick, true);
 
-  const cleanupTimer = window.setTimeout(cleanup, 1000);
+  window.setTimeout(cleanup, 1000);
 }
 
 export function useCloseCustomContextMenuOnNativeContextMenu(
@@ -265,6 +292,7 @@ export function useCloseCustomContextMenuOnNativeContextMenu(
         return;
       }
 
+      beginContextMenuDismissGesture();
       stopEventImmediately(event, { preventDefault: true });
     };
 

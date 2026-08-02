@@ -73,6 +73,7 @@ import { useDataGridRowCommands } from './hooks/useDataGridRowCommands';
 import { useScrollDrivenRowWindow } from './hooks/useScrollDrivenRowWindow';
 import { useStableDataGridScrollbar } from './hooks/useStableDataGridScrollbar';
 import { StableScrollbarTrack } from './StableScrollbarTrack';
+import { isContextMenuDismissGestureInProgress } from '../../utils/contextMenu';
 import {
   EditCellNavigationContext,
   type EditCellKeyboardEvent,
@@ -1305,6 +1306,11 @@ export function EditableDataGrid<T extends EditableRow>({
 
   const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
     if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      if (isContextMenuDismissGestureInProgress()) {
+        event.defaultMuiPrevented = true;
+        return;
+      }
+
       const rowKey = String(params.id);
       if (internalEditNavigationRowIdRef.current === rowKey) {
         internalEditNavigationRowIdRef.current = null;

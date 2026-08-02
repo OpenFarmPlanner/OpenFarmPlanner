@@ -521,6 +521,27 @@ describe("PlantingPlans save-time area validation", () => {
     expect(screen.getByRole("button", { name: "Beetfläche übernehmen" })).toBeInTheDocument();
   });
 
+  it("closes the area validation dialog with Escape", async () => {
+    mockGridRowState.row = {
+      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+    };
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+    await userEvent.click(await screen.findByRole("button", { name: "Zeile speichern" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Die angegebene Fläche überschreitet die Größe dieses Beets.",
+    });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "Die angegebene Fläche überschreitet die Größe dieses Beets.",
+      })).not.toBeInTheDocument();
+    });
+    expect(commandApiSpies.saveAttemptResult).toHaveBeenLastCalledWith(false);
+  });
+
   it("shows bed-limit dialog when saving via Enter flow", async () => {
     mockGridRowState.row = {
       id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",

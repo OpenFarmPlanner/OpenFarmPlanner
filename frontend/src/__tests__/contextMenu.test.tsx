@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LONG_PRESS_THRESHOLD_MS,
   closestContextMenuElement,
+  isContextMenuDismissGestureInProgress,
   shouldOpenCustomContextMenu,
   useCloseCustomContextMenuOnNativeContextMenu,
   useIsCoarsePointer,
@@ -187,6 +188,26 @@ describe('context menu helpers', () => {
     expect(mouseDownEvent.defaultPrevented).toBe(true);
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(onNativeTargetActivate).not.toHaveBeenCalled();
+  });
+
+  it('marks the outside-click dismiss gesture while the original mouse sequence is still being swallowed', () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const { getByTestId } = render(<ContextMenuBoundary open onClose={onClose} />);
+      const nativeTarget = getByTestId('native-target');
+
+      fireEvent(nativeTarget, createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+
+      expect(isContextMenuDismissGestureInProgress()).toBe(true);
+
+      fireEvent(nativeTarget, new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+      fireEvent(nativeTarget, new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+
+      expect(isContextMenuDismissGestureInProgress()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not intercept a touch tap that lands on the menu itself (menu actions keep working)', () => {
