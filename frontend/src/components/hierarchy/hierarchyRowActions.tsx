@@ -1,6 +1,6 @@
 import type { ReactElement, MouseEvent } from 'react';
 import type { TFunction } from 'i18next';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { HierarchyRow } from './utils/types';
@@ -11,6 +11,7 @@ import {
   type HierarchyColumnOptions,
   type NameCellCallbacks,
 } from './hierarchyColumnShared';
+import { AppTooltip } from '../AppTooltip';
 
 function renderHierarchyAddIconButton({
   label,
@@ -20,7 +21,7 @@ function renderHierarchyAddIconButton({
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }): ReactElement {
   return (
-    <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
+    <AppTooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
       <span>
         <HierarchyAddIcon
           ariaLabel={label}
@@ -32,7 +33,7 @@ function renderHierarchyAddIconButton({
           sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: 18 } }}
         />
       </span>
-    </Tooltip>
+    </AppTooltip>
   );
 }
 
@@ -46,7 +47,7 @@ function renderPlantingPlanActionButton(
   }
 
   return (
-    <Tooltip title={t('hierarchy:createPlantingPlan')} {...NON_BLOCKING_TOOLTIP_PROPS}>
+    <AppTooltip title={t('hierarchy:createPlantingPlan')} {...NON_BLOCKING_TOOLTIP_PROPS}>
       <IconButton
         size="small"
         color="primary"
@@ -71,7 +72,7 @@ function renderPlantingPlanActionButton(
       >
         <AgricultureIcon />
       </IconButton>
-    </Tooltip>
+    </AppTooltip>
   );
 }
 
@@ -84,7 +85,7 @@ function renderDeleteActionButton(
 
   if (row.type === 'location' && row.locationId !== undefined) {
     return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
+      <AppTooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
         <IconButton
           size="small"
           color="error"
@@ -98,13 +99,13 @@ function renderDeleteActionButton(
         >
           <DeleteIcon />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
     );
   }
 
   if (row.type === 'field' && row.fieldId !== undefined) {
     return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
+      <AppTooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
         <IconButton
           size="small"
           color="error"
@@ -118,13 +119,13 @@ function renderDeleteActionButton(
         >
           <DeleteIcon />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
     );
   }
 
   if (row.type === 'bed' && row.bedId !== undefined) {
     return (
-      <Tooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
+      <AppTooltip title={label} {...NON_BLOCKING_TOOLTIP_PROPS}>
         <IconButton
           size="small"
           color="error"
@@ -138,7 +139,7 @@ function renderDeleteActionButton(
         >
           <DeleteIcon />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
     );
   }
 

@@ -8,7 +8,6 @@ import {
   ListItemText,
   Paper,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -23,6 +22,7 @@ import { openProjectCreationFlow } from '../projects/projectCreationFlow';
 import { showProjectDeleteUndoSnackbar } from '../projects/projectDeletionFeedback';
 import { confirmAction } from '../utils/confirmAction';
 import { showGlobalSnackbar } from '../utils/globalSnackbar';
+import { AppTooltip } from '../components/AppTooltip';
 
 const isDevQuickDeleteEnabled = import.meta.env.DEV;
 
@@ -343,7 +343,7 @@ export default function ProjectSelectionPage() {
                         {t('projectSwitcher.openProjectAction')}
                       </Button>
                       {isDevQuickDeleteEnabled ? (
-                        <Tooltip title={t('projectInvitations:projectDelete.devQuickHint')}>
+                        <AppTooltip title={t('projectInvitations:projectDelete.devQuickHint')}>
                           <span>
                             <Button
                               size="small"
@@ -359,7 +359,7 @@ export default function ProjectSelectionPage() {
                               <DeleteOutlineIcon fontSize="small" />
                             </Button>
                           </span>
-                        </Tooltip>
+                        </AppTooltip>
                       ) : null}
                     </Stack>
                   )}

@@ -21,7 +21,6 @@ import {
   Divider,
   MenuItem,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -128,6 +127,7 @@ import { CalendarFiltersPopover } from '../components/gantt/CalendarFiltersPopov
 import { OccupancyFilterRow } from '../components/gantt/OccupancyFilterRow';
 import { SeedlingFilters } from '../components/gantt/SeedlingFilters';
 import { OccupancyMobileFilterBar } from '../components/gantt/OccupancyMobileFilterBar';
+import { AppTooltip } from '../components/AppTooltip';
 
 const GanttChartWithFocusMode = GanttChart as React.ComponentType<
   React.ComponentProps<typeof GanttChart> & { focusMode?: boolean }
@@ -1030,7 +1030,7 @@ function GanttChartPage() {
             {title}
           </Typography>
           {calendarMode === 'occupancy' ? (
-            <Tooltip
+            <AppTooltip
               title={(
                 <Box component="span" sx={{ display: 'block' }}>
                   <Box component="span" sx={{ display: 'block', fontWeight: 600 }}>
@@ -1087,7 +1087,7 @@ function GanttChartPage() {
                   {editMode ? t('ganttChart:moveModeActiveOption') : t('ganttChart:moveModeOption')}
                 </Box>
               </Button>
-            </Tooltip>
+            </AppTooltip>
           ) : null}
         </Box>
         {showViewModeSelector ? (

@@ -30,7 +30,6 @@ import {
   type SvgIconProps,
   Drawer,
   Toolbar,
-  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -105,6 +104,7 @@ import {
 } from '../navigation/navigationStyles';
 import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
+import { AppTooltip } from '../components/AppTooltip';
 
 const CONTENT_ALIGNMENT_MODE = 'centered';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
@@ -823,7 +823,7 @@ function RootLayout() {
                     OpenFarmPlanner
                   </Typography>
                 </Box>
-                <Tooltip
+                <AppTooltip
                   title={t('globalMenu.closeSidebar')}
                   placement="right"
                   enterDelay={350}
@@ -838,11 +838,11 @@ function RootLayout() {
                   >
                     <PanelLeft size={18} strokeWidth={1.8} />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               </Stack>
             ) : (
               <Stack direction="row" alignItems="center" justifyContent="center" sx={{ py: 1, mb: 0.75 }}>
-                <Tooltip
+                <AppTooltip
                   title={t('globalMenu.openSidebar')}
                   placement="right"
                   enterDelay={350}
@@ -857,7 +857,7 @@ function RootLayout() {
                   >
                     <PanelLeft size={18} strokeWidth={1.8} />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               </Stack>
             )}
             <List sx={{ px: 1, pt: 0.5, pb: 1, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -997,7 +997,7 @@ function RootLayout() {
                       return null;
                     }
                     return (
-                      <Tooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
+                      <AppTooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
                         <ToggleButton
                           value={action.id}
                           aria-label={action.label}
@@ -1010,7 +1010,7 @@ function RootLayout() {
                         >
                           {icon}
                         </ToggleButton>
-                      </Tooltip>
+                      </AppTooltip>
                     );
                   })}
                 </ToggleButtonGroup>
@@ -1045,7 +1045,7 @@ function RootLayout() {
           {isCulturesPage ? (
             <>
               {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
-                <Tooltip title={t('cultureActions.openLibrary')}>
+                <AppTooltip title={t('cultureActions.openLibrary')}>
                   <span>
                     <Button
                       size="small"
@@ -1059,7 +1059,7 @@ function RootLayout() {
                       {!showIconOnlyCultureLibrary ? (showCompactCultureLibrary ? t('cultureActions.libraryShort') : t('cultureActions.library')) : null}
                     </Button>
                   </span>
-                </Tooltip>
+                </AppTooltip>
               ) : null}
               {(showCultureImportExportButton || isMobile) && !showDesktopCultureActionsOverflow ? (
                 <Button
@@ -1187,9 +1187,9 @@ function RootLayout() {
                 </Button>
                 );
                 return action.tooltip ? (
-                  <Tooltip key={action.id} title={action.tooltip}>
+                  <AppTooltip key={action.id} title={action.tooltip}>
                     <Box component="span" sx={{ display: 'inline-flex', minWidth: 0 }}>{button}</Box>
-                  </Tooltip>
+                  </AppTooltip>
                 ) : React.cloneElement(button, { key: action.id });
               });
               return isSegmentedGroup ? (
@@ -1229,7 +1229,7 @@ function RootLayout() {
                 </Button>
               </ButtonGroup>
             ) : (
-              <Tooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
+              <AppTooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
                 <Button
                   size="small"
                   variant="contained"
@@ -1240,7 +1240,7 @@ function RootLayout() {
                 >
                   {isPhone ? <AddIcon fontSize="small" /> : topbarPrimaryAction.label}
                 </Button>
-              </Tooltip>
+              </AppTooltip>
             )
           ) : null}
             </Box>
@@ -1348,7 +1348,7 @@ function RootLayout() {
               {isCulturesPage ? (
                 <>
                   {cultureLibraryAction ? (
-                    <Tooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
                       <Box component="span" sx={{ display: 'inline-flex' }}>
                         <IconButton
                           size="small"
@@ -1366,10 +1366,10 @@ function RootLayout() {
                           <PublicIcon />
                         </IconButton>
                       </Box>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {showCultureImportExportButton ? (
-                    <Tooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
                         size="small"
                         aria-label={t('cultureActions.openImportExport')}
@@ -1388,7 +1388,7 @@ function RootLayout() {
                       >
                         <FileExportIcon />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   <Menu
                     id="culture-actions-menu-mobile"
@@ -1459,7 +1459,7 @@ function RootLayout() {
                           return null;
                         }
                         return (
-                          <Tooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
+                          <AppTooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
                             <ToggleButton
                               value={action.id}
                               aria-label={action.ariaLabel ?? action.label}
@@ -1468,13 +1468,13 @@ function RootLayout() {
                             >
                               {icon}
                             </ToggleButton>
-                          </Tooltip>
+                          </AppTooltip>
                         );
                       })}
                     </ToggleButtonGroup>
                   ) : null}
                   {isFieldsBedsPage && fieldsGlobalAddAction ? (
-                    <Tooltip title={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label} enterTouchDelay={0}>
+                    <AppTooltip title={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label} enterTouchDelay={0}>
                       <IconButton
                         size="small"
                         aria-label={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label}
@@ -1503,10 +1503,10 @@ function RootLayout() {
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {mobileFieldsAddLocationAction ? (
-                    <Tooltip title={mobileFieldsAddLocationAction.label}>
+                    <AppTooltip title={mobileFieldsAddLocationAction.label}>
                       <IconButton
                         size="small"
                         aria-label={mobileFieldsAddLocationAction.ariaLabel ?? mobileFieldsAddLocationAction.label}
@@ -1529,12 +1529,12 @@ function RootLayout() {
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                 </Box>
               ) : null}
               {topbarPrimaryAction && !showMobileTopbarViewActions ? (
-                <Tooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
+                <AppTooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
                   <Button
                     size="small"
                     variant="contained"
@@ -1553,7 +1553,7 @@ function RootLayout() {
                   >
                     <AddIcon fontSize="small" />
                   </Button>
-                </Tooltip>
+                </AppTooltip>
               ) : null}
               {topbarPrimaryAction?.menuActions && topbarPrimaryAction.menuActions.length > 0 ? (
                 <Menu
@@ -1617,7 +1617,7 @@ function RootLayout() {
               {isCulturesPage ? (
                 <>
                   {cultureLibraryAction ? (
-                    <Tooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
                       <span>
                         <IconButton
                           onClick={() => cultureLibraryAction.onClick()}
@@ -1628,10 +1628,10 @@ function RootLayout() {
                           <PublicIcon />
                         </IconButton>
                       </span>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {showCultureImportExportButton || isMobile ? (
-                    <Tooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
                         aria-label={t('cultureActions.openImportExport')}
                         aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu-mobile' : undefined}
@@ -1642,7 +1642,7 @@ function RootLayout() {
                       >
                         <FileExportIcon />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   <Menu
                     id="culture-actions-menu-mobile"

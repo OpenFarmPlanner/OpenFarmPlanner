@@ -1,7 +1,8 @@
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { useTranslation } from '../../i18n';
+import { AppTooltip } from '../AppTooltip';
 
 /**
  * Shared expand/collapse-one-level buttons for hierarchical Standort/Parzelle/
@@ -52,7 +53,7 @@ export function HierarchyLevelButtons({
       // column's own sort-toggle click handler when embedded in its header.
       onClick={(event) => event.stopPropagation()}
     >
-      <Tooltip title={collapseTooltip}>
+      <AppTooltip title={collapseTooltip}>
         <span>
           <Button
             size="small"
@@ -66,8 +67,8 @@ export function HierarchyLevelButtons({
             <RemoveIcon fontSize="small" />
           </Button>
         </span>
-      </Tooltip>
-      <Tooltip title={expandTooltip}>
+      </AppTooltip>
+      <AppTooltip title={expandTooltip}>
         <span>
           <Button
             size="small"
@@ -81,7 +82,7 @@ export function HierarchyLevelButtons({
             <AddIcon fontSize="small" />
           </Button>
         </span>
-      </Tooltip>
+      </AppTooltip>
     </Box>
   );
 }

@@ -9,7 +9,8 @@ import {
   type MouseEventHandler,
   type ReactElement,
 } from 'react';
-import { Tooltip, type TooltipProps } from '@mui/material';
+import type { TooltipProps } from '@mui/material';
+import { AppTooltip } from './AppTooltip';
 
 type OverflowTooltipChild = ReactElement<{
   onBlur?: FocusEventHandler<HTMLElement>;
@@ -61,7 +62,7 @@ export function OverflowTooltip({
   }, [activeElement, updateTooltipVisibility]);
 
   return (
-    <Tooltip
+    <AppTooltip
       open={isActive && showTooltip}
       title={showTooltip ? title : ''}
       arrow={arrow}
@@ -94,6 +95,6 @@ export function OverflowTooltip({
           children.props.onMouseLeave?.(event);
         },
       })}
-    </Tooltip>
+    </AppTooltip>
   );
 }

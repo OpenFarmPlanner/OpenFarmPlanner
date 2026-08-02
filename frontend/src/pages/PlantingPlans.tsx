@@ -23,7 +23,6 @@ import {
   CircularProgress,
   IconButton,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -115,6 +114,7 @@ import {
   type MobileCreateFormState,
   type PlantingPlanRow,
 } from './plantingPlansUtils';
+import { AppTooltip } from '../components/AppTooltip';
 
 const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
@@ -646,7 +646,7 @@ function PlantingPlans() {
         maxWidth: dynamicWidths.area,
         editable: true,
         renderHeader: () => (
-          <Tooltip
+          <AppTooltip
             title={(
               <Box component="span" sx={{ display: "block" }}>
                 <Box component="span" sx={{ display: "block", fontWeight: 600 }}>
@@ -661,7 +661,7 @@ function PlantingPlans() {
             <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
               {t("plantingPlans:columns.areaM2")}
             </Box>
-          </Tooltip>
+          </AppTooltip>
         ),
         preProcessEditCellProps: (params) => {
           if (params.hasChanged) {
@@ -704,11 +704,11 @@ function PlantingPlans() {
         editable: true,
         type: "number",
         renderHeader: () => (
-          <Tooltip title={t("plantingPlans:tooltips.plantsFromSpacing")}>
+          <AppTooltip title={t("plantingPlans:tooltips.plantsFromSpacing")}>
             <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
               {t("plantingPlans:columns.plantsCount")}
             </Box>
-          </Tooltip>
+          </AppTooltip>
         ),
         preProcessEditCellProps: (params) => {
           if (params.hasChanged) {
@@ -1481,7 +1481,7 @@ function PlantingPlans() {
               renderPrimary={(item) => getCultureLabel(item)}
               renderSecondary={(item) => `${formatDateForDisplay(item.planting_date)} · ${getBedLabelForRow(item)}`}
               renderHeaderAction={(item) => (
-                <Tooltip title={t("common:actions.actions")}>
+                <AppTooltip title={t("common:actions.actions")}>
                   <IconButton
                     size="small"
                     aria-label={t("plantingPlans:mobile.actionsAria", {
@@ -1495,7 +1495,7 @@ function PlantingPlans() {
                   >
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               )}
               renderDetails={(item) => (
                 <Stack spacing={0.75}>

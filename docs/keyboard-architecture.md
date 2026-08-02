@@ -142,9 +142,13 @@ is the *pattern*, demonstrated end-to-end on the yield distribution chart
    **Shift+F10** open the same context menu a right-click would, positioned
    from the focused element's bounding rect instead of a mouse event.
 4. A tooltip or popover driven by keyboard state must be a *fully controlled*
-   MUI `Tooltip` (`open` always a real boolean, never `undefined`) — MUI
+   `AppTooltip` (`open` always a real boolean, never `undefined`) — MUI
    locks a `Tooltip` into "uncontrolled" mode forever if its first render has
    `open={undefined}`, so a later prop flip to `true` is silently ignored.
+   Hiding it while the widget's context menu is open is not the caller's job:
+   `AppTooltip` force-closes every tooltip for as long as any context menu is
+   open (see [datagrid-architecture.md](./datagrid-architecture.md),
+   "Tooltips never cover an open context menu").
 
 Applying this same pattern to the Gantt calendar's bars (2D, collision-based
 layout) and to DataGrid (which already has its own cell-navigation code) is

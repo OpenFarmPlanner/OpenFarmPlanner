@@ -6,10 +6,16 @@
  * be rendered regardless of row count. Hover opens with a short delay to
  * avoid flicker while the pointer passes over several cells; keyboard focus
  * and touch open immediately.
+ *
+ * Like every tooltip-style surface, the preview is suppressed while a context
+ * menu is open (see components/contextMenu/contextMenuOpenState.ts): opening
+ * a menu closes it and cancels a pending hover delay, and no new preview
+ * opens until the menu is gone.
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { GridRowId } from '@mui/x-data-grid';
+import { isAnyContextMenuOpen, useOnContextMenuOpened } from '../contextMenu/contextMenuOpenState';
 
 const HOVER_OPEN_DELAY_MS = 250;
 const CLOSE_DELAY_MS = 200;
@@ -56,16 +62,22 @@ export function useNotesPreview(): UseNotesPreviewReturn {
     mode: NotesPreviewOpenMode,
   ): void => {
     cancelCloseTimer();
+    cancelOpenTimer();
+
+    if (isAnyContextMenuOpen()) {
+      return;
+    }
 
     if (mode === 'immediate') {
-      cancelOpenTimer();
       setState({ anchorEl, rowId, field });
       return;
     }
 
-    cancelOpenTimer();
     openTimerRef.current = window.setTimeout(() => {
       openTimerRef.current = null;
+      if (isAnyContextMenuOpen()) {
+        return;
+      }
       setState({ anchorEl, rowId, field });
     }, HOVER_OPEN_DELAY_MS);
   }, [cancelCloseTimer, cancelOpenTimer]);
@@ -88,6 +100,8 @@ export function useNotesPreview(): UseNotesPreviewReturn {
     cancelCloseTimer();
     setState(null);
   }, [cancelCloseTimer, cancelOpenTimer]);
+
+  useOnContextMenuOpened(close);
 
   return useMemo(() => ({
     state,

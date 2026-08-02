@@ -4,9 +4,10 @@ import {
   type MouseEvent as ReactMouseEvent,
   type TouchEvent as ReactTouchEvent,
 } from "react";
-import { Box, Tooltip, Typography } from "@mui/material";
+import { Box, Typography } from '@mui/material';
 import { ContextMenuIndicator } from "../components/contextMenu/ContextMenuIndicator";
 import { contextMenuIndicatorHostSx } from "../components/contextMenu/contextMenuIndicatorStyles";
+import { AppTooltip } from '../components/AppTooltip';
 
 export interface YieldSegmentPayload {
   cultureId: number;
@@ -28,7 +29,6 @@ interface YieldChartSegmentProps {
   isTabbable: boolean;
   isHovered: boolean;
   isKeyboardTooltipOpen: boolean;
-  isTooltipSuppressed: boolean;
   isPressed: boolean;
   isDimmed: boolean;
   tooltipPeriodLabel: string;
@@ -73,7 +73,6 @@ export const YieldChartSegment = memo(function YieldChartSegment({
   isTabbable,
   isHovered,
   isKeyboardTooltipOpen,
-  isTooltipSuppressed,
   isPressed,
   isDimmed,
   tooltipPeriodLabel,
@@ -92,12 +91,11 @@ export const YieldChartSegment = memo(function YieldChartSegment({
   const payload: YieldSegmentPayload = { cultureId, cultureName, periodLabel, yieldValue };
 
   return (
-    <Tooltip
+    <AppTooltip
       // Always an explicit boolean (never `undefined`) — driven by hover and
-      // the keyboard (Space) toggle. Force-closed while a context menu is
-      // open, since the pointer may still technically be hovering the
-      // segment underneath it.
-      open={!isTooltipSuppressed && (isHovered || isKeyboardTooltipOpen)}
+      // the keyboard (Space) toggle. Hiding it while the segment's context
+      // menu is open is AppTooltip's job, not this component's.
+      open={isHovered || isKeyboardTooltipOpen}
       slotProps={{
         tooltip: {
           sx: {
@@ -169,6 +167,6 @@ export const YieldChartSegment = memo(function YieldChartSegment({
           sx={{ position: "absolute", top: -2, right: -2 }}
         />
       </Box>
-    </Tooltip>
+    </AppTooltip>
   );
 });

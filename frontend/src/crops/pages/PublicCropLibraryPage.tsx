@@ -27,7 +27,6 @@ import {
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -77,6 +76,7 @@ import {
   getPublicCultureTitle,
 } from '../publicCultureDisplay';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
+import { AppTooltip } from '../../components/AppTooltip';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -735,7 +735,7 @@ function DiscussionComment({
         </Box>
         {!comment.deleted_at && !isEditing ? (
           <Stack direction="row" spacing={0.25} sx={{ mt: -0.5 }}>
-            <Tooltip title={replyLabel}>
+            <AppTooltip title={replyLabel}>
               <IconButton
                 ref={(element: HTMLButtonElement | null) => registerReplyActionRef(comment.id, element)}
                 size="small"
@@ -744,10 +744,10 @@ function DiscussionComment({
               >
                 <ReplyOutlinedIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </AppTooltip>
             {comment.can_edit || canShowDeleteAction ? (
               <>
-                <Tooltip title={t('library.page.discussion.moreActions')}>
+                <AppTooltip title={t('library.page.discussion.moreActions')}>
                   <IconButton
                     size="small"
                     aria-label={t('library.page.discussion.moreActions')}
@@ -757,7 +757,7 @@ function DiscussionComment({
                   >
                     <MoreVertOutlinedIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
                 <Menu
                   anchorEl={menuAnchorElement}
                   open={Boolean(menuAnchorElement)}
@@ -2151,7 +2151,7 @@ export default function PublicCropLibraryPage() {
                                 rather than letting an English name read as a
                                 German translation. */}
                             {nameFallbackNotice ? (
-                              <Tooltip title={nameFallbackNotice.tooltip}>
+                              <AppTooltip title={nameFallbackNotice.tooltip}>
                                 <Chip
                                   size="small"
                                   icon={<TranslateOutlinedIcon fontSize="small" />}
@@ -2159,7 +2159,7 @@ export default function PublicCropLibraryPage() {
                                   variant="outlined"
                                   color="warning"
                                 />
-                              </Tooltip>
+                              </AppTooltip>
                             ) : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCulture.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>
@@ -2300,7 +2300,7 @@ export default function PublicCropLibraryPage() {
                             alignItems={{ xs: 'flex-start', sm: 'center' }}
                             sx={{ mb: 1 }}
                           >
-                            <Tooltip title={descriptionFallbackNotice.tooltip}>
+                            <AppTooltip title={descriptionFallbackNotice.tooltip}>
                               <Chip
                                 size="small"
                                 icon={<TranslateOutlinedIcon fontSize="small" />}
@@ -2308,7 +2308,7 @@ export default function PublicCropLibraryPage() {
                                 variant="outlined"
                                 color="warning"
                               />
-                            </Tooltip>
+                            </AppTooltip>
                             {canEditPublicCulture ? (
                               <Button
                                 size="small"

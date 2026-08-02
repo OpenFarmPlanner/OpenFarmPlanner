@@ -489,7 +489,6 @@ export function YieldDistributionChart({
                           isTabbable={segmentKey === activeSegmentKey}
                           isHovered={hoveredSegmentKey === segmentKey}
                           isKeyboardTooltipOpen={keyboardTooltipKey === segmentKey}
-                          isTooltipSuppressed={contextMenuState !== null}
                           isPressed={pressedSegmentKey === segmentKey && isLongPressing}
                           isDimmed={activeHighlightedCultureId !== null && activeHighlightedCultureId !== culture.culture_id}
                           tooltipPeriodLabel={tooltipPeriodLabel}

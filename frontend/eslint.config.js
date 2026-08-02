@@ -25,6 +25,31 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Tooltips must go through AppTooltip so they hide themselves while a
+      // context menu is open (see components/contextMenu/contextMenuOpenState.ts).
+      // MUI's Tooltip has no idea about app context menus and would cover them.
+      'no-restricted-imports': ['error', {
+        paths: [
+          {
+            name: '@mui/material',
+            importNames: ['Tooltip'],
+            message: "Use AppTooltip from 'components/AppTooltip' instead - it hides tooltips while a context menu is open.",
+          },
+          {
+            name: '@mui/material/Tooltip',
+            message: "Use AppTooltip from 'components/AppTooltip' instead - it hides tooltips while a context menu is open.",
+          },
+        ],
+      }],
+    },
+  },
+  {
+    // AppTooltip is the one place allowed to build on MUI's Tooltip.
+    files: ['src/components/AppTooltip.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
   },
   {
     // Vendored from react-modern-gantt (see src/gantt-chart/README.md), which

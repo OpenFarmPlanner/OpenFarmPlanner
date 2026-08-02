@@ -5,12 +5,12 @@ import {
   InputAdornment,
   Stack,
   TextField,
-  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 
 import { useTranslation } from '../../i18n';
+import { AppTooltip } from '../AppTooltip';
 
 interface SeedlingFiltersProps {
   /** Mobile layout renders a collapsible search icon; desktop a plain field. */
@@ -68,7 +68,7 @@ export function SeedlingFilters({
                 }}
                 sx={{ flex: '1 1 auto', minWidth: 0 }}
               />
-              <Tooltip title={t('ganttChart:treeFilters.clearSearch')}>
+              <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
                 <IconButton
                   size="small"
                   aria-label={t('ganttChart:treeFilters.clearSearch')}
@@ -77,10 +77,10 @@ export function SeedlingFilters({
                 >
                   <CloseIcon fontSize="small" />
                 </IconButton>
-              </Tooltip>
+              </AppTooltip>
             </Stack>
           ) : (
-            <Tooltip title={t('common:actions.search')}>
+            <AppTooltip title={t('common:actions.search')}>
               <IconButton
                 size="small"
                 aria-label={t('common:actions.search')}
@@ -89,7 +89,7 @@ export function SeedlingFilters({
               >
                 <SearchIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </AppTooltip>
           )}
         </Stack>
       ) : (

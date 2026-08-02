@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useIsAnyContextMenuOpen } from "../../../../components/contextMenu/contextMenuOpenState";
 import { ViewMode, type TooltipRenderProps } from "../../types";
 import { TaskService } from "../../services";
 import type { TooltipProps } from "../../types";
@@ -73,6 +74,9 @@ const Tooltip: React.FC<
 }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
+  // A task tooltip must never sit on top of the Gantt context menu the same
+  // right-click/long-press just opened - see components/contextMenu/contextMenuOpenState.ts.
+  const contextMenuOpen = useIsAnyContextMenuOpen();
   const [portalPosition, setPortalPosition] = useState<{
     left: number;
     top: number;
@@ -352,6 +356,10 @@ const Tooltip: React.FC<
       }
     };
   }, []);
+
+  if (contextMenuOpen) {
+    return null;
+  }
 
   const tooltipNode = (
     <div

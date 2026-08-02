@@ -1,7 +1,8 @@
-import { Box, Button, Stack, Tooltip } from '@mui/material';
+import { Box, Button, Stack } from '@mui/material';
 import type { MouseEvent, ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { getStandardActionButtonSx } from '../buttons/segmentedControlStyles';
+import { AppTooltip } from '../AppTooltip';
 
 export interface DetailPagePrimaryAction {
   label: string;
@@ -59,13 +60,13 @@ export function DetailPageActions({
         }
 
         return (
-          <Tooltip key={action.label} title={action.tooltip}>
+          <AppTooltip key={action.label} title={action.tooltip}>
             <span>{button}</span>
-          </Tooltip>
+          </AppTooltip>
         );
       })}
       {overflowLabel && onOpenOverflow ? (
-        <Tooltip title={overflowLabel}>
+        <AppTooltip title={overflowLabel}>
           <Button
             aria-label={overflowLabel}
             onClick={onOpenOverflow}
@@ -81,7 +82,7 @@ export function DetailPageActions({
           >
             <MoreVertIcon fontSize="small" />
           </Button>
-        </Tooltip>
+        </AppTooltip>
       ) : null}
     </Stack>
   );

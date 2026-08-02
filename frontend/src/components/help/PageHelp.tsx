@@ -35,7 +35,6 @@ import {
   ListItemText,
   Popover,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -44,6 +43,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, typ
 import { useTranslation } from '../../i18n';
 import HelpIconRow from './HelpIconRow';
 import { HierarchyAddIcon } from '../hierarchy/HierarchyAddIcon';
+import { AppTooltip } from '../AppTooltip';
 
 export type HelpPageKey =
   | 'dashboard'
@@ -410,11 +410,11 @@ export default function PageHelp({ pageKey, ariaLabel, tooltip }: PageHelpProps)
 
   return (
     <>
-      <Tooltip title={tooltip ?? t('showTooltip')}>
+      <AppTooltip title={tooltip ?? t('showTooltip')}>
         <IconButton ref={triggerButtonRef} aria-label={ariaLabel ?? t('showTooltip')} onClick={handleOpen} size={isMobile ? 'medium' : 'small'} sx={{ color: 'text.secondary' }}>
           <HelpOutlineIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
 
       <Popover
         open={Boolean(anchorEl)}

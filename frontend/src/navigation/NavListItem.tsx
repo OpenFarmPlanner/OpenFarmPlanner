@@ -15,11 +15,12 @@
  *     `<span>` per MUI's documented pattern for disabled Tooltip children).
  */
 
-import { ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
+import { ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type React from 'react';
 import type { ComponentProps } from 'react';
 import { Link as RouterLink } from 'react-router';
+import { AppTooltip } from '../components/AppTooltip';
 
 type ListItemTextPrimaryProps = ComponentProps<typeof ListItemText>['primaryTypographyProps'];
 
@@ -74,17 +75,17 @@ export default function NavListItem({
       // rendered size — `block` would stretch it to the full-width list row,
       // anchoring the tooltip far to the right of the icon/label instead of
       // right next to them.
-      <Tooltip title={disabledTooltip} placement={enabledTooltipPlacement}>
+      <AppTooltip title={disabledTooltip} placement={enabledTooltipPlacement}>
         <span style={{ display: 'inline-block' }}>{button}</span>
-      </Tooltip>
+      </AppTooltip>
     );
   }
 
   if (enabledTooltip) {
     return (
-      <Tooltip title={enabledTooltip} placement={enabledTooltipPlacement}>
+      <AppTooltip title={enabledTooltip} placement={enabledTooltipPlacement}>
         {button}
-      </Tooltip>
+      </AppTooltip>
     );
   }
 
