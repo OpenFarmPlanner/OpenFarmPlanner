@@ -75,6 +75,7 @@ import {
   getPublicCultureName,
   getPublicCultureTitle,
 } from '../publicCultureDisplay';
+import { applySavedCultures } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
 
@@ -1090,6 +1091,12 @@ export default function PublicCropLibraryPage() {
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const cultureListRequestIdRef = useRef(0);
+  // Cultures this client has saved, kept until a list response catches up with
+  // them. Bumping cultureListRequestIdRef on save only discards list requests
+  // that are already in flight; one started right after the save (the search
+  // box refreshes on a debounce) still carries pre-save data and would
+  // otherwise write the old values straight back over the saved ones.
+  const savedCulturesRef = useRef<Map<number, PublicCulture>>(new Map());
   const newTopicButtonRef = useRef<HTMLButtonElement>(null);
   const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
   const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
@@ -1429,7 +1436,7 @@ export default function PublicCropLibraryPage() {
       if (requestId !== cultureListRequestIdRef.current) {
         return;
       }
-      setCultures(results);
+      setCultures(applySavedCultures(results, savedCulturesRef.current));
       setLoadStatus('success');
     } catch {
       if (requestId !== cultureListRequestIdRef.current) {
@@ -1640,6 +1647,7 @@ export default function PublicCropLibraryPage() {
 
   const upsertCultureInList = (updatedCulture: PublicCulture): void => {
     cultureListRequestIdRef.current += 1;
+    savedCulturesRef.current.set(updatedCulture.id, updatedCulture);
     setLoadError('');
     setLoadStatus('success');
     setCultures((current) => {

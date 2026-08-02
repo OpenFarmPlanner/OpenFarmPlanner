@@ -910,7 +910,10 @@ describe('PublicCropLibraryPage', () => {
       created_at: '2026-07-28T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-28T10:00:00Z',
-      last_comment_preview: 'Was ist hier gemeint?',
+      // Deliberately not the comment body: the overview list renders this
+      // preview, so reusing the body text let the assertion below pass by
+      // matching the overview instead of the opened discussion.
+      last_comment_preview: 'Vorschau des Kommentars',
     };
     const createdComment: PublicCultureDiscussionComment = {
       id: 21,
@@ -1555,14 +1558,19 @@ describe('PublicCropLibraryPage', () => {
       });
     });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
-    // Both waits outlast RTL's 1s default: this test drives several chained
-    // requests, which on a loaded CI runner can take longer than that.
-    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
+    // Deliberately no assertion on the saved values here. The search above
+    // refreshes the list on a debounce, so a request can still be in flight at
+    // this point, and while it is the page shows "Kulturen werden geladen…"
+    // with no detail pane at all. Whether that request has fired yet is a race,
+    // which is what made this spot flaky — raising the timeout could not fix
+    // it, because nothing arrives until the response below lands.
 
     await act(async () => {
       staleList.resolve({ data: { results: publicCultures } });
     });
 
+    // The actual subject: the stale response carries the pre-save culture, and
+    // must not roll the saved values back.
     await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
