@@ -950,7 +950,10 @@ describe('PublicCropLibraryPage', () => {
     }));
     await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
-    expect(screen.getByText('Was ist hier gemeint?')).toBeInTheDocument();
+    // The heading only needs the reloaded topic list, the comment body needs
+    // the separate discussionComments request on top of it - so this has to
+    // wait for one more round trip rather than read the DOM synchronously.
+    expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 10000 })).toBeInTheDocument();
   }, 30000);
 
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
@@ -1552,13 +1555,15 @@ describe('PublicCropLibraryPage', () => {
       });
     });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument());
+    // Both waits outlast RTL's 1s default: this test drives several chained
+    // requests, which on a loaded CI runner can take longer than that.
+    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
 
     await act(async () => {
       staleList.resolve({ data: { results: publicCultures } });
     });
 
-    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
 
