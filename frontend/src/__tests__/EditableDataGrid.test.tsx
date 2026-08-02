@@ -1502,6 +1502,28 @@ describe('EditableDataGrid', () => {
     await waitFor(() => expect(screen.getByTestId('mode-1')).toHaveTextContent('edit'));
   });
 
+  it('ignores normal cell clicks while a row-action context menu is still open', async () => {
+    render(
+      <EditableDataGrid
+        {...baseProps()}
+        showDeleteAction={false}
+        showRowEditActions={false}
+        duplicateRow={(row) => ({ ...row, id: -2, isNew: true })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Zelle 1-name' })).toBeInTheDocument());
+    fireEvent.contextMenu(screen.getByTestId('row-1'));
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    const otherCell = screen.getByText('Zelle 1-area_sqm').closest('button');
+    expect(otherCell).not.toBeNull();
+
+    fireEvent.click(otherCell as HTMLButtonElement);
+
+    expect(screen.getByRole('menuitem', { name: 'Duplizieren' })).toBeInTheDocument();
+    expect(screen.getByTestId('mode-1')).toHaveTextContent('view');
+  });
+
   it('does not open row actions on a short tap (touch)', async () => {
     render(
       <EditableDataGrid

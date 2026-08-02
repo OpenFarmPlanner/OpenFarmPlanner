@@ -47,6 +47,7 @@ import { CustomContextMenu } from '../contextMenu/CustomContextMenu';
 import { ContextMenuActionItem } from '../contextMenu/ContextMenuActionItem';
 import { ContextMenuIndicator } from '../contextMenu/ContextMenuIndicator';
 import { contextMenuActionsOverlaySx } from '../contextMenu/contextMenuIndicatorStyles';
+import { isAnyContextMenuOpen } from '../contextMenu/contextMenuOpenState';
 import { useNavigationBlocker } from '../../hooks/autosave';
 import { usePersistentSortModel } from '../../hooks/usePersistentSortModel';
 import { useTranslation } from '../../i18n';
@@ -1306,7 +1307,7 @@ export function EditableDataGrid<T extends EditableRow>({
 
   const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
     if (params.reason === GridRowEditStopReasons.rowFocusOut) {
-      if (isContextMenuDismissGestureInProgress()) {
+      if (isAnyContextMenuOpen() || isContextMenuDismissGestureInProgress()) {
         event.defaultMuiPrevented = true;
         return;
       }
@@ -2744,6 +2745,15 @@ export function EditableDataGrid<T extends EditableRow>({
             return '';
           }}
           onCellClick={(params, event) => {
+            if (isAnyContextMenuOpen() || isContextMenuDismissGestureInProgress()) {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
+              if (event) {
+                event.defaultMuiPrevented = true;
+              }
+              return;
+            }
+
             if (!isCellKeyboardNavigable<T>({
               api: gridApiRef.current,
               field: params.field,
