@@ -967,6 +967,16 @@ function PublicCultureMobileSelectorDialog({
     }
     ensureExpanded(selectedVariety.parentId);
   }, [ensureExpanded, hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+  useEffect(() => {
+    if (!query.trim()) {
+      return;
+    }
+    hierarchyItems.forEach((item) => {
+      if (item.kind === 'variety' && item.parentId) {
+        ensureExpanded(item.parentId);
+      }
+    });
+  }, [ensureExpanded, hierarchyItems, query]);
   const visibleRows = useMemo(
     () => flattenTreeRows(hierarchyItems, { expandedIds: expandedRows }),
     [expandedRows, hierarchyItems],
@@ -1151,6 +1161,7 @@ export default function PublicCropLibraryPage() {
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const cultureListRequestIdRef = useRef(0);
+  const collaborationLoadRequestIdRef = useRef(0);
   const {
     expandedRows: expandedCropRows,
     toggleExpand: toggleCropRow,
@@ -1430,6 +1441,16 @@ export default function PublicCropLibraryPage() {
     }
     ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
   }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
+  useEffect(() => {
+    if (!query.trim()) {
+      return;
+    }
+    cropHierarchyItems.forEach((item) => {
+      if (item.kind === 'variety' && item.parentId) {
+        ensureCropRowExpanded(item.parentId);
+      }
+    });
+  }, [cropHierarchyItems, ensureCropRowExpanded, query]);
   const visibleCropRows = useMemo(
     () => flattenTreeRows(cropHierarchyItems, { expandedIds: expandedCropRows }),
     [cropHierarchyItems, expandedCropRows],
@@ -1672,17 +1693,25 @@ export default function PublicCropLibraryPage() {
   }, [t, updateSelectedCultureId]);
 
   const loadCollaboration = useCallback(async (cultureId: number): Promise<void> => {
+    const requestId = collaborationLoadRequestIdRef.current + 1;
+    collaborationLoadRequestIdRef.current = requestId;
     setCollaborationStatus('loading');
     try {
       const [topicsResponse, versionsResponse] = await Promise.all([
         publicCultureAPI.discussionTopics(cultureId),
         publicCultureAPI.versions(cultureId),
       ]);
+      if (requestId !== collaborationLoadRequestIdRef.current) {
+        return;
+      }
       setTopics(topicsResponse.data);
       setComments([]);
       setVersions(versionsResponse.data);
       setCollaborationStatus('success');
     } catch {
+      if (requestId !== collaborationLoadRequestIdRef.current) {
+        return;
+      }
       setComments([]);
       setTopics([]);
       setVersions([]);
@@ -1957,6 +1986,7 @@ export default function PublicCropLibraryPage() {
         setComments(response.data);
       } else {
         const createdTopic = await publicCultureAPI.createDiscussionTopic(selectedCulture.id, { title: topicTitle.trim(), body: commentBody.trim(), revision: topicRevision });
+        collaborationLoadRequestIdRef.current += 1;
         const [topicsResponse, commentsResponse] = await Promise.all([
           publicCultureAPI.discussionTopics(selectedCulture.id),
           publicCultureAPI.discussionComments(selectedCulture.id, createdTopic.data.id),
@@ -1964,6 +1994,7 @@ export default function PublicCropLibraryPage() {
         setTopics(topicsResponse.data);
         setComments(commentsResponse.data);
         setCommentsStatus('success');
+        setCollaborationStatus('success');
         navigateToLibraryState({
           cultureId: selectedCulture.id,
           tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,

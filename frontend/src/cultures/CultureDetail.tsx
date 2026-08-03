@@ -457,6 +457,16 @@ const detailSectionGridSx = {
     }
     ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
   }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
+  useEffect(() => {
+    if (!filters.searchQuery.trim()) {
+      return;
+    }
+    cropHierarchyItems.forEach((item) => {
+      if (item.kind === 'variety' && item.parentId) {
+        ensureCropRowExpanded(item.parentId);
+      }
+    });
+  }, [cropHierarchyItems, ensureCropRowExpanded, filters.searchQuery]);
 
   const selectedCropRowId = selectedCulture
     ? (isSpeciesView && selectedCultureSpeciesKey ? `species:${selectedCultureSpeciesKey}` : `culture:${selectedCulture.id}`)

@@ -27,8 +27,12 @@ test.describe('planting plans tab navigation with hidden columns', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
 
-    const firstRow = page.locator('[role="row"][data-id]').first();
-    await firstRow.locator('[data-field="planting_date"]').dblclick();
+    const rowWithEditablePlantCount = page
+      .locator('[role="row"][data-id]')
+      .filter({ has: page.locator('[data-field="plants_count"]', { hasText: /≈/ }) })
+      .first();
+    await expect(rowWithEditablePlantCount).toBeVisible();
+    await rowWithEditablePlantCount.locator('[data-field="planting_date"]').dblclick();
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
     await expect.poll(() => focusedField(page)).toBe('planting_date');
 
