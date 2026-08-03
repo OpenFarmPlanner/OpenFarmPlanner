@@ -41,8 +41,11 @@ import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { publicCultureAPI } from '../../api/api';
 import type {
+  CultivationType,
   Culture,
   PublicCulture,
   PublicCultureDiscussionComment,
@@ -57,6 +60,9 @@ import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languag
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
+import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
+import { flattenTreeRows } from '../../components/hierarchy/utils/treeRows';
+import { useExpandedState } from '../../components/hierarchy/hooks/useExpandedState';
 import { CultureForm } from '../../cultures/CultureForm';
 import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
 import {
@@ -78,6 +84,7 @@ import {
 import { applySavedCultures } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
+import { CultureSeedDetails, type CultureSeedRateRow } from '../../cultures/CultureSeedDetails';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -92,6 +99,24 @@ const PUBLIC_CULTURE_TAB_INDEX_BY_PARAM: Record<PublicCultureTab, number> = {
   versions: 1,
   discussion: 2,
 };
+const cropChevronButtonSx = {
+  width: 30,
+  height: 30,
+  minWidth: 30,
+  p: 0,
+  mr: 0.5,
+  color: 'text.primary',
+  opacity: 0.72,
+  flexShrink: 0,
+  '&:hover': {
+    opacity: 1,
+    bgcolor: 'rgba(37, 111, 42, 0.08)',
+  },
+} as const;
+const desktopCropChevronButtonSx = {
+  ...cropChevronButtonSx,
+  mt: -0.375,
+} as const;
 
 interface ThreadCommentGroup {
   comment: PublicCultureDiscussionComment;
@@ -263,32 +288,6 @@ function formatMetersAsCentimeters(value: number | null | undefined, locale: str
     : `${formatLocalizedNumber(value * 100, locale, fallback, { maximumFractionDigits: 1 })} cm`;
 }
 
-function formatPercent(value: number | null | undefined, locale: string, fallback: string): string {
-  return value === null || value === undefined
-    ? fallback
-    : `${formatLocalizedNumber(value, locale, fallback, { maximumFractionDigits: 1 })} %`;
-}
-
-function formatSeedUnit(unit: string | null | undefined, t: (key: string, options?: Record<string, unknown>) => string): string {
-  if (!unit) {
-    return '';
-  }
-  return t(`library.page.seedUnits.${unit}`, { defaultValue: unit });
-}
-
-function formatSeedRate(
-  value: number | null | undefined,
-  unit: string | null | undefined,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  if (value === null || value === undefined || !unit) {
-    return fallback;
-  }
-  return `${formatLocalizedNumber(value, locale, fallback, { maximumFractionDigits: 2 })} ${formatSeedUnit(unit, t)}`;
-}
-
 function getCultivationTypeLabel(
   value: PublicCulture['cultivation_type'],
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -342,16 +341,6 @@ function getHarvestMethodLabel(
   return fallback;
 }
 
-function getSeedingRequirementTypeLabel(value: PublicCulture['seeding_requirement_type'], t: (key: string, options?: Record<string, unknown>) => string): string {
-  if (value === 'per_sqm') {
-    return t('library.page.seedingRequirementTypes.perSqm');
-  }
-  if (value === 'per_plant') {
-    return t('library.page.seedingRequirementTypes.perPlant');
-  }
-  return '';
-}
-
 function getLanguageLabel(code: string | null | undefined, displayLanguage: string, fallback: string): string {
   if (!code) {
     return fallback;
@@ -377,41 +366,6 @@ function buildPublicCultureDescriptionDrafts(culture: PublicCulture): Record<str
     translations[originalLanguageCode] = culture.notes;
   }
   return translations;
-}
-
-function formatSeedPackages(
-  culture: PublicCulture,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const packages = culture.seed_packages ?? [];
-  if (packages.length === 0) {
-    return fallback;
-  }
-  return packages
-    .map((entry) => `${formatLocalizedNumber(entry.size_value, locale, fallback, { maximumFractionDigits: 1 })} ${t(`library.page.packageUnits.${entry.size_unit}`, { defaultValue: entry.size_unit })}`)
-    .join(', ');
-}
-
-function formatSeedRateByCultivation(
-  culture: PublicCulture,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const entries = Object.entries(culture.seed_rate_by_cultivation ?? {});
-  if (entries.length === 0) {
-    return fallback;
-  }
-  return entries
-    .map(([type, rate]) => {
-      const methodLabel = type === 'pre_cultivation'
-        ? t('library.page.fields.cultivationTypes.preCultivation')
-        : t('library.page.fields.cultivationTypes.directSowing');
-      return `${methodLabel}: ${formatSeedRate(rate?.value, rate?.unit, locale, fallback, t)}`;
-    })
-    .join(', ');
 }
 
 function getPublicCultureFieldLabel(field: string, t: (key: string, options?: Record<string, unknown>) => string): string {
@@ -446,9 +400,11 @@ function getRevisionValueLabel(value: unknown, fallback: string): string {
 interface DetailRowProps {
   label: string;
   value: string;
+  source?: 'fromCrop' | 'ownValue' | null;
+  t?: (key: string) => string;
 }
 
-function DetailRow({ label, value }: DetailRowProps) {
+function DetailRow({ label, value, source = null, t }: DetailRowProps) {
   return (
     <Box>
       <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
@@ -457,6 +413,14 @@ function DetailRow({ label, value }: DetailRowProps) {
       <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
         {value}
       </Typography>
+      {source && t ? (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={source === 'fromCrop' ? t('hierarchy.fromCrop') : t('hierarchy.ownValue')}
+          sx={{ mt: 0.75 }}
+        />
+      ) : null}
     </Box>
   );
 }
@@ -945,11 +909,12 @@ interface PublicCultureMobileSelectorDialogProps {
   loading: boolean;
   error: string;
   selectedCultureId: number | null;
+  selectedSpeciesViewKey?: string | null;
   listRef: Ref<HTMLUListElement>;
   onClose: () => void;
   onQueryChange: (value: string) => void;
   onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelect: (culture: PublicCulture) => void;
+  onSelect: (culture: PublicCulture, itemKind: CropHierarchyItemKind, speciesKey: string) => void;
   onListScroll: (event: UIEvent<HTMLUListElement>) => void;
 }
 
@@ -960,6 +925,7 @@ function PublicCultureMobileSelectorDialog({
   loading,
   error,
   selectedCultureId,
+  selectedSpeciesViewKey = null,
   listRef,
   onClose,
   onQueryChange,
@@ -969,6 +935,27 @@ function PublicCultureMobileSelectorDialog({
 }: PublicCultureMobileSelectorDialogProps) {
   const { t, i18n } = useTranslation('cultures');
   const language = i18n.resolvedLanguage ?? i18n.language;
+  const {
+    expandedRows,
+    toggleExpand,
+    ensureExpanded,
+  } = useExpandedState('publicCropLibraryMobile');
+  const hierarchyItems = useMemo(() => buildCropHierarchy(cultures), [cultures]);
+  useEffect(() => {
+    const selectedVariety = hierarchyItems.find((item) => (
+      item.kind === 'variety'
+      && item.culture?.id === selectedCultureId
+      && selectedSpeciesViewKey !== item.speciesKey
+    ));
+    if (!selectedVariety?.parentId) {
+      return;
+    }
+    ensureExpanded(selectedVariety.parentId);
+  }, [ensureExpanded, hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+  const visibleRows = useMemo(
+    () => flattenTreeRows(hierarchyItems, { expandedIds: expandedRows }),
+    [expandedRows, hierarchyItems],
+  );
 
   useOverlayHistory({
     open,
@@ -1017,23 +1004,75 @@ function PublicCultureMobileSelectorDialog({
             onScroll={onListScroll}
             sx={{ py: 0.5, px: 0.25, overflowY: 'auto' }}
           >
-            {cultures.map((culture) => (
+            {visibleRows.map(({ node, depth, hasChildren }) => {
+              const culture = node.culture;
+              const isRowSelected = Boolean(
+                culture?.id !== undefined
+                && culture.id === selectedCultureId
+                && (node.kind === 'species'
+                  ? selectedSpeciesViewKey === node.speciesKey || !(culture.variety || '').trim()
+                  : selectedSpeciesViewKey !== node.speciesKey),
+              );
+              return (
               <ListItemButton
-                key={`mobile-public-${culture.id}`}
-                role="option"
-                aria-selected={culture.id === selectedCultureId}
-                selected={culture.id === selectedCultureId}
-                onClick={() => onSelect(culture)}
-                sx={{ borderRadius: 1.25, mb: 0.375 }}
+                key={`mobile-public-${node.id}`}
+                role={culture ? 'option' : 'presentation'}
+                aria-label={node.kind === 'species'
+                  ? node.label
+                  : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
+                aria-selected={culture ? isRowSelected : undefined}
+                selected={isRowSelected}
+                disabled={!culture}
+                onClick={() => {
+                  if (culture) {
+                    onSelect(culture, node.kind, node.speciesKey);
+                  }
+                }}
+                onDoubleClick={(event) => {
+                  if (!hasChildren) {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.stopPropagation();
+                  toggleExpand(node.id);
+                }}
+                sx={{ borderRadius: 1.25, mb: 0.375, pl: `calc(${0.75 + depth * 0.85}rem)` }}
               >
+                {hasChildren ? (
+                  <IconButton
+                    size="small"
+                    aria-label={expandedRows.has(node.id) ? t('hierarchy.collapseCrop') : t('hierarchy.expandCrop')}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleExpand(node.id);
+                    }}
+                    onDoubleClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    sx={cropChevronButtonSx}
+                  >
+                    {expandedRows.has(node.id) ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
+                  </IconButton>
+                ) : (
+                  <Box component="span" sx={{ width: 24, flexShrink: 0 }} />
+                )}
                 <ListItemText
-                  primary={getCultureTitle(culture, t, language)}
-                  secondary={culture.crop_species_name || culture.crop_family || undefined}
-                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 600 }}
+                  primary={node.kind === 'species' ? node.label : node.label}
+                  secondary={node.kind === 'species'
+                    ? [
+                      culture?.crop_family,
+                      node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
+                    ].filter(Boolean).join(' • ') || undefined
+                    : undefined}
+                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 }}
                   secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
                 />
               </ListItemButton>
-            ))}
+              );
+            })}
           </List>
         )}
       </DialogContent>
@@ -1084,6 +1123,7 @@ export default function PublicCropLibraryPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [descriptionDrafts, setDescriptionDrafts] = useState<Record<string, string>>({});
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
+  const [selectedSpeciesViewKey, setSelectedSpeciesViewKey] = useState<string | null>(null);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
   const useCompactLibraryLayout = useMediaQuery('(max-width:899.95px)');
@@ -1091,6 +1131,11 @@ export default function PublicCropLibraryPage() {
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const cultureListRequestIdRef = useRef(0);
+  const {
+    expandedRows: expandedCropRows,
+    toggleExpand: toggleCropRow,
+    ensureExpanded: ensureCropRowExpanded,
+  } = useExpandedState('publicCropLibrary');
   // Cultures this client has saved, kept until a list response catches up with
   // them. Bumping cultureListRequestIdRef on save only discards list requests
   // that are already in flight; one started right after the save (the search
@@ -1171,7 +1216,8 @@ export default function PublicCropLibraryPage() {
     );
   }, [activeTab, location.hash, location.pathname, location.search, navigate]);
 
-  const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean } = {}): void => {
+  const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean; speciesViewKey?: string | null } = {}): void => {
+    setSelectedSpeciesViewKey(options.speciesViewKey ?? null);
     setSelectedCultureId(cultureId);
     selectedCultureIdRef.current = cultureId;
     if (cultureId === null) {
@@ -1187,8 +1233,8 @@ export default function PublicCropLibraryPage() {
     });
   }, [activeTab, navigateToLibraryState]);
 
-  const selectMobileCulture = useCallback((culture: PublicCulture): void => {
-    updateSelectedCultureId(culture.id, { replace: false });
+  const selectMobileCulture = useCallback((culture: PublicCulture, itemKind: CropHierarchyItemKind, speciesKey: string): void => {
+    updateSelectedCultureId(culture.id, { replace: false, speciesViewKey: itemKind === 'species' ? speciesKey : null });
     setMobileSelectorOpen(false);
   }, [updateSelectedCultureId]);
 
@@ -1223,6 +1269,148 @@ export default function PublicCropLibraryPage() {
   const selectedCulture = useMemo(
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
+  );
+  const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
+  const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
+  const isSpeciesView = Boolean(
+    selectedCulture
+    && (
+      isSelectedSpeciesEntry
+      || (selectedSpeciesViewKey !== null && selectedSpeciesViewKey === selectedCultureSpeciesKey)
+    ),
+  );
+  const selectedSpeciesCulture = useMemo(
+    () => findSpeciesCulture(selectedCulture, cultures),
+    [cultures, selectedCulture],
+  );
+  const getPublicFieldValue = <TValue,>(field: keyof PublicCulture, value: TValue): TValue => {
+    if (
+      selectedCulture?.variety
+      && !isSpeciesView
+      && selectedSpeciesCulture
+      && (value === null || value === undefined || value === '')
+    ) {
+      return selectedSpeciesCulture[field] as TValue;
+    }
+    return value;
+  };
+  const getPublicFieldSource = (field: keyof PublicCulture): 'fromCrop' | 'ownValue' | null => {
+    if (isSpeciesView || !selectedCulture?.variety || !selectedSpeciesCulture) {
+      return null;
+    }
+    const ownValue = selectedCulture[field];
+    const cropValue = selectedSpeciesCulture[field];
+    if ((ownValue === null || ownValue === undefined || ownValue === '') && cropValue !== null && cropValue !== undefined && cropValue !== '') {
+      return 'fromCrop';
+    }
+    if (ownValue !== null && ownValue !== undefined && ownValue !== '') {
+      return 'ownValue';
+    }
+    return null;
+  };
+  const publicActiveCultivationTypes: CultivationType[] = selectedCulture
+    ? (
+      selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
+        ? selectedCulture.cultivation_types
+        : (
+          !isSpeciesView
+          && selectedCulture.variety
+          && selectedSpeciesCulture?.cultivation_types
+          && selectedSpeciesCulture.cultivation_types.length > 0
+            ? selectedSpeciesCulture.cultivation_types
+            : (
+              getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type)
+                ? [getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type)]
+                : []
+            )
+        )
+    ).filter((item): item is CultivationType => item === 'direct_sowing' || item === 'pre_cultivation')
+    : [];
+  const publicSeedRateRows: CultureSeedRateRow[] = selectedCulture
+    ? (() => {
+      const isDirectActive = publicActiveCultivationTypes.includes('direct_sowing');
+      const isPreCultivationActive = publicActiveCultivationTypes.includes('pre_cultivation');
+      const directValue = getPublicFieldValue('seed_rate_direct_value', selectedCulture.seed_rate_direct_value);
+      const directUnit = getPublicFieldValue('seed_rate_direct_unit', selectedCulture.seed_rate_direct_unit);
+      const preCultivationValue = getPublicFieldValue('seed_rate_pre_cultivation_value', selectedCulture.seed_rate_pre_cultivation_value);
+      const preCultivationUnit = getPublicFieldValue('seed_rate_pre_cultivation_unit', selectedCulture.seed_rate_pre_cultivation_unit);
+      const rows: CultureSeedRateRow[] = [];
+
+      if (isDirectActive && directValue !== null && directValue !== undefined && directUnit) {
+        rows.push({
+          method: 'direct_sowing',
+          value: directValue,
+          unit: directUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent_direct', selectedCulture.sowing_calculation_safety_percent_direct) ?? null,
+        });
+      }
+      if (isPreCultivationActive && preCultivationValue !== null && preCultivationValue !== undefined && preCultivationUnit) {
+        rows.push({
+          method: 'pre_cultivation',
+          value: preCultivationValue,
+          unit: preCultivationUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent_pre_cultivation', selectedCulture.sowing_calculation_safety_percent_pre_cultivation) ?? null,
+        });
+      }
+
+      if (rows.length > 0) {
+        return rows;
+      }
+
+      const seedRateByCultivation = getPublicFieldValue('seed_rate_by_cultivation', selectedCulture.seed_rate_by_cultivation);
+      if (seedRateByCultivation && Object.keys(seedRateByCultivation).length > 0) {
+        return Object.entries(seedRateByCultivation)
+          .filter(([method, payload]) => (
+            publicActiveCultivationTypes.includes(method as CultivationType)
+            && (method === 'direct_sowing' || method === 'pre_cultivation')
+            && payload
+            && typeof payload.value === 'number'
+            && typeof payload.unit === 'string'
+          ))
+          .map(([method, payload]) => ({
+            method: method as CultivationType,
+            value: payload.value,
+            unit: payload.unit,
+            safety: null,
+          }));
+      }
+
+      const generalSeedRateValue = getPublicFieldValue('seed_rate_value', selectedCulture.seed_rate_value);
+      const generalSeedRateUnit = getPublicFieldValue('seed_rate_unit', selectedCulture.seed_rate_unit);
+      if (
+        publicActiveCultivationTypes.length > 0
+        && generalSeedRateValue !== null
+        && generalSeedRateValue !== undefined
+        && generalSeedRateUnit
+      ) {
+        return [{
+          method: publicActiveCultivationTypes.includes('direct_sowing') ? 'direct_sowing' : 'pre_cultivation',
+          value: generalSeedRateValue,
+          unit: generalSeedRateUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent) ?? null,
+        }];
+      }
+
+      return [];
+    })()
+    : [];
+  const cropHierarchyItems = useMemo(
+    () => buildCropHierarchy(cultures),
+    [cultures],
+  );
+  useEffect(() => {
+    if (!selectedCulture?.variety || isSpeciesView || !selectedCultureSpeciesKey) {
+      return;
+    }
+    ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
+  }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
+  const visibleCropRows = useMemo(
+    () => flattenTreeRows(cropHierarchyItems, { expandedIds: expandedCropRows }),
+    [cropHierarchyItems, expandedCropRows],
+  );
+  const selectableCropRows = useMemo(
+    () => visibleCropRows.map((row) => row.node).filter((item) => item.culture?.id !== undefined),
+    [visibleCropRows],
   );
   // Localized species name for the selected entry, plus the notice shown when
   // only another language's text is available.
@@ -1310,11 +1498,19 @@ export default function PublicCropLibraryPage() {
     }, 0);
   }, []);
 
+  const selectedCropRowId = selectedCulture
+    ? (isSpeciesView && selectedCultureSpeciesKey ? `species:${selectedCultureSpeciesKey}` : `culture:${selectedCulture.id}`)
+    : null;
+
   const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: cultures,
-    selectedId: selectedCultureId,
-    getId: (culture) => culture.id,
-    onSelect: (culture) => updateSelectedCultureId(culture.id),
+    items: selectableCropRows,
+    selectedId: selectedCropRowId,
+    getId: (item) => item.id,
+    onSelect: (item) => {
+      if (item.culture?.id !== undefined) {
+        updateSelectedCultureId(item.culture.id, { speciesViewKey: item.kind === 'species' ? item.speciesKey : null });
+      }
+    },
   });
 
   const goToRelativeCulture = useCallback((direction: 'next' | 'previous') => {
@@ -1996,19 +2192,47 @@ export default function PublicCropLibraryPage() {
                   onScroll={handleCultureListScroll}
                   sx={{ maxHeight: { xs: 280, md: 'calc(100vh - 290px)' }, overflow: 'auto' }}
                 >
-                  {cultures.map((culture) => (
+                  {visibleCropRows.map(({ node, depth, hasChildren }) => {
+                    const culture = node.culture;
+                    const itemProps = culture?.id !== undefined ? cultureListNavigation.getItemProps(node) : {};
+                    const isRowSelected = Boolean(
+                      culture?.id !== undefined
+                      && culture.id === selectedCultureId
+                      && (node.kind === 'species' ? isSpeciesView : !isSpeciesView),
+                    );
+                    return (
                     <ListItemButton
-                      key={culture.id}
-                      {...cultureListNavigation.getItemProps(culture)}
-                      selected={culture.id === selectedCultureId}
+                      key={node.id}
+                      {...itemProps}
+                      role={culture ? 'option' : 'presentation'}
+                      aria-label={node.kind === 'species'
+                        ? node.label
+                        : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
+                      aria-selected={culture ? isRowSelected : undefined}
+                      selected={isRowSelected}
+                      disabled={!culture}
                       onClick={() => {
-                        updateSelectedCultureId(culture.id, { replace: false });
+                        if (culture?.id !== undefined) {
+                          updateSelectedCultureId(culture.id, {
+                            replace: false,
+                            speciesViewKey: node.kind === 'species' ? node.speciesKey : null,
+                          });
+                        }
+                      }}
+                      onDoubleClick={(event) => {
+                        if (!hasChildren) {
+                          return;
+                        }
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleCropRow(node.id);
                       }}
                       sx={{
                         borderBottom: '1px solid',
                         borderColor: 'divider',
                         alignItems: 'flex-start',
-                        px: 1.5,
+                        pl: `calc(${1.5 + depth * 0.85}rem)`,
+                        pr: 1.5,
                         py: 1.25,
                         '&.Mui-selected': {
                           bgcolor: 'success.50',
@@ -2021,14 +2245,41 @@ export default function PublicCropLibraryPage() {
                         },
                       }}
                     >
+                      {hasChildren ? (
+                        <IconButton
+                          size="small"
+                          aria-label={expandedCropRows.has(node.id) ? t('hierarchy.collapseCrop') : t('hierarchy.expandCrop')}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            toggleCropRow(node.id);
+                          }}
+                          onDoubleClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          sx={desktopCropChevronButtonSx}
+                        >
+                          {expandedCropRows.has(node.id) ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
+                        </IconButton>
+                      ) : (
+                        <Box component="span" sx={{ width: 24, flexShrink: 0 }} />
+                      )}
                       <ListItemText
-                        primary={getCultureTitle(culture, t, language)}
-                        secondary={culture.crop_family || culture.supplier_name || culture.seed_supplier || undefined}
-                        primaryTypographyProps={{ fontWeight: 700, noWrap: true }}
+                        primary={node.kind === 'species' ? node.label : node.label}
+                        secondary={node.kind === 'species'
+                          ? [
+                            culture?.crop_family,
+                            node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
+                          ].filter(Boolean).join(' • ') || undefined
+                          : culture?.supplier_name || culture?.seed_supplier || undefined}
+                        primaryTypographyProps={{ fontWeight: node.kind === 'species' ? 700 : 500, noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
                       />
                     </ListItemButton>
-                  ))}
+                    );
+                  })}
                 </List>
               )}
             </Card>
@@ -2148,13 +2399,18 @@ export default function PublicCropLibraryPage() {
                             </Typography>
                           )}
                           {selectedCulture.variety ? (
-                            <Typography variant="body2" color="text.secondary">
-                              {selectedCulture.variety}
-                            </Typography>
+                            !isSpeciesView ? (
+                              <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
+                                  {t('hierarchy.varietyLabel')}
+                                </Typography>
+                                <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+                                  {selectedCulture.variety}
+                                </Typography>
+                              </Stack>
+                            ) : null
                           ) : null}
                           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                            <Chip size="small" label={t('library.versionLabel') + ` ${selectedCulture.version}`} />
-                            <Chip size="small" label={selectedCultureName.text} variant="outlined" />
                             {/* Say plainly that this is another language's text
                                 rather than letting an English name read as a
                                 German translation. */}
@@ -2208,7 +2464,9 @@ export default function PublicCropLibraryPage() {
                       <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
                           <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
-                          <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
+                          {!isSpeciesView ? (
+                            <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
+                          ) : null}
                           <DetailRow label={t('library.page.fields.cropFamily')} value={selectedCulture.crop_family || t('library.page.notSpecified')} />
                           <DetailRow
                             label={t('library.page.fields.nutrientDemand')}
@@ -2225,9 +2483,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.timing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(selectedCulture.growth_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
-                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(selectedCulture.harvest_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
-                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(selectedCulture.propagation_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
+                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(getPublicFieldValue('growth_duration_days', selectedCulture.growth_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('growth_duration_days')} t={t} />
+                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(getPublicFieldValue('harvest_duration_days', selectedCulture.harvest_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('harvest_duration_days')} t={t} />
+                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(getPublicFieldValue('propagation_duration_days', selectedCulture.propagation_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('propagation_duration_days')} t={t} />
                         </DetailGrid>
                       </DetailSection>
 
@@ -2235,44 +2493,26 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.spacing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(selectedCulture.distance_within_row_m, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(selectedCulture.row_spacing_m, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(selectedCulture.sowing_depth_m, locale, t('library.page.notSpecified'))} />
+                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(getPublicFieldValue('distance_within_row_m', selectedCulture.distance_within_row_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('distance_within_row_m')} t={t} />
+                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(getPublicFieldValue('row_spacing_m', selectedCulture.row_spacing_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('row_spacing_m')} t={t} />
+                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(getPublicFieldValue('sowing_depth_m', selectedCulture.sowing_depth_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('sowing_depth_m')} t={t} />
                         </DetailGrid>
                       </DetailSection>
 
                       <Divider />
 
                       <DetailSection title={t('library.page.sections.seed')}>
-                        <DetailGrid>
-                          <DetailRow
-                            label={t('library.page.fields.seedRate')}
-                            value={formatSeedRate(selectedCulture.seed_rate_value, selectedCulture.seed_rate_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRateByCultivation')}
-                            value={formatSeedRateByCultivation(selectedCulture, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRateDirect')}
-                            value={formatSeedRate(selectedCulture.seed_rate_direct_value, selectedCulture.seed_rate_direct_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRatePreCultivation')}
-                            value={formatSeedRate(selectedCulture.seed_rate_pre_cultivation_value, selectedCulture.seed_rate_pre_cultivation_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercent')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercentDirect')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent_direct, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercentPreCultivation')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent_pre_cultivation, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.thousandKernelWeight')} value={selectedCulture.thousand_kernel_weight_g === null || selectedCulture.thousand_kernel_weight_g === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(selectedCulture.thousand_kernel_weight_g, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} g`} />
-                          <DetailRow
-                            label={t('library.page.fields.seedingRequirement')}
-                            value={selectedCulture.seeding_requirement === null || selectedCulture.seeding_requirement === undefined
-                              ? t('library.page.notSpecified')
-                              : `${formatLocalizedNumber(selectedCulture.seeding_requirement, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })}${getSeedingRequirementTypeLabel(selectedCulture.seeding_requirement_type, t) ? ` ${getSeedingRequirementTypeLabel(selectedCulture.seeding_requirement_type, t)}` : ''}`}
-                          />
-                          <DetailRow label={t('library.page.fields.seedPackages')} value={formatSeedPackages(selectedCulture, locale, t('library.page.notSpecified'), t)} />
-                        </DetailGrid>
+                        <CultureSeedDetails
+                          activeCultivationTypes={publicActiveCultivationTypes}
+                          seedRateRows={publicSeedRateRows}
+                          sowingSafetyPercent={getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
+                          seedingRequirement={getPublicFieldValue('seeding_requirement', selectedCulture.seeding_requirement)}
+                          seedingRequirementType={getPublicFieldValue('seeding_requirement_type', selectedCulture.seeding_requirement_type)}
+                          thousandKernelWeightG={getPublicFieldValue('thousand_kernel_weight_g', selectedCulture.thousand_kernel_weight_g)}
+                          emptyValueLabel={t('library.page.notSpecified')}
+                          locale={locale}
+                          t={t}
+                        />
                       </DetailSection>
 
                       <Divider />
@@ -2553,6 +2793,7 @@ export default function PublicCropLibraryPage() {
         loading={isCultureLoading}
         error={loadStatus === 'error' ? loadError : ''}
         selectedCultureId={selectedCultureId}
+        selectedSpeciesViewKey={selectedSpeciesViewKey}
         listRef={cultureListRef}
         onClose={() => setMobileSelectorOpen(false)}
         onQueryChange={setQuery}

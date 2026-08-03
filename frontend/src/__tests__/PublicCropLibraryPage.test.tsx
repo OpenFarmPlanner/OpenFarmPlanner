@@ -331,6 +331,59 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
   });
 
+  it('uses the project seed layout without package sizes in public crop details', async () => {
+    publicCultureApiMocks.list.mockResolvedValue({
+      data: {
+        results: [{
+          id: 10,
+          status: 'published',
+          name: 'Möhre',
+          variety: 'Nantaise',
+          crop_species_name: 'Möhre',
+          cultivation_types: ['pre_cultivation', 'direct_sowing'],
+          seed_rate_direct_value: 0.014,
+          seed_rate_direct_unit: 'seeds_per_lfm',
+          sowing_calculation_safety_percent_direct: 5,
+          seed_rate_pre_cultivation_value: 1.357,
+          seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+          sowing_calculation_safety_percent_pre_cultivation: 10,
+          thousand_kernel_weight_g: 1.3,
+          seeding_requirement: 4.5,
+          seeding_requirement_type: 'per_sqm',
+          seed_packages: [{ size_value: 250, size_unit: 'g' }],
+          version: 1,
+          original_language_code: 'de',
+          published_at: '2026-07-24T10:00:00Z',
+          created_at: '2026-07-21T08:00:00Z',
+          updated_at: '2026-07-25T12:00:00Z',
+        }],
+      },
+    });
+
+    renderPage(['/app/crop-library?cultureId=10']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Möhre' });
+    expect(screen.getByText('Saatgutmenge nach Anbauart')).toBeInTheDocument();
+    expect(screen.getByText('Methode')).toBeInTheDocument();
+    expect(screen.getByText('Menge')).toBeInTheDocument();
+    expect(screen.getByText('Einheit')).toBeInTheDocument();
+    expect(screen.getByText('Sicherheitszuschlag (%)')).toBeInTheDocument();
+    expect(screen.getByText('Pflanzung')).toBeInTheDocument();
+    expect(screen.getByText('Direktsaat')).toBeInTheDocument();
+    expect(screen.getByText('1,357')).toBeInTheDocument();
+    expect(screen.getByText('0,014')).toBeInTheDocument();
+    expect(screen.getByText('Korn / Pflanze')).toBeInTheDocument();
+    expect(screen.getByText('Korn / lfm')).toBeInTheDocument();
+    expect(screen.getByText('10 %')).toBeInTheDocument();
+    expect(screen.getByText('5 %')).toBeInTheDocument();
+    expect(screen.getByText('1000-Korn-Gewicht (g)')).toBeInTheDocument();
+    expect(screen.getByText('1,3 g')).toBeInTheDocument();
+    expect(screen.getByText('Saatgutbedarf')).toBeInTheDocument();
+    expect(screen.getByText('4,5 / m²')).toBeInTheDocument();
+    expect(screen.queryByText('Packungsgrößen')).not.toBeInTheDocument();
+    expect(screen.queryByText('250 g')).not.toBeInTheDocument();
+  });
+
   it('uses the selected public culture title as the mobile selector trigger', async () => {
     mockMobileViewport();
     renderPage(['/app/crop-library?cultureId=1']);
@@ -342,7 +395,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
-    expect(screen.getByText('Version 1')).toBeInTheDocument();
+    expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
     expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).not.toBeInTheDocument();
   });
@@ -408,6 +461,11 @@ describe('PublicCropLibraryPage', () => {
     renderPage(['/app/crop-library?cultureId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+    const salatRow = within(screen.getByRole('option', { name: 'Salat' }));
+    const expandSalat = salatRow.queryByRole('button', { name: 'Kultur aufklappen' });
+    if (expandSalat) {
+      await user.click(expandSalat);
+    }
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
     await waitFor(() => {
@@ -874,6 +932,11 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Thread der Tomate'));
     await screen.findByText('Tomaten-Kommentar');
+    const salatDiscussionRow = within(screen.getByRole('option', { name: 'Salat' }));
+    const expandDiscussionSalat = salatDiscussionRow.queryByRole('button', { name: 'Kultur aufklappen' });
+    if (expandDiscussionSalat) {
+      await user.click(expandDiscussionSalat);
+    }
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2&tab=discussion');
@@ -1427,19 +1490,29 @@ describe('PublicCropLibraryPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const tomatoOption = await screen.findByRole('option', { name: /Tomate/ });
+    const tomatoOption = await screen.findByRole('option', { name: 'Tomate' });
     tomatoOption.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
 
     await user.keyboard('{ArrowDown}');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Salat/ })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
     });
 
     await user.keyboard('{ArrowUp}');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
   });
 
   it('shows public culture primary actions as labeled buttons', async () => {
@@ -1455,7 +1528,7 @@ describe('PublicCropLibraryPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
@@ -1580,7 +1653,7 @@ describe('PublicCropLibraryPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     (document.activeElement as HTMLElement | null)?.blur();
 

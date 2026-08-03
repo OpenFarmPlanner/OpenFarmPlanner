@@ -147,6 +147,57 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('button', { name: 'Suche und Filter zurücksetzen' })).toBeInTheDocument();
   });
 
+  it('collapses a crop group without changing the selected detail view', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={2}
+        onCultureSelect={onSelect}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Cherry' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Kultur aufklappen' }));
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Cherry' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Kultur zuklappen' }));
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Cherry' })).not.toBeInTheDocument();
+  });
+
+  it('expands a species row on double click while keeping single click as selection', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={2}
+        onCultureSelect={onSelect}
+      />,
+    );
+
+    expect(screen.queryByRole('option', { name: 'Cherry' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('option', { name: 'Tomato' }));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('option', { name: 'Cherry' })).not.toBeInTheDocument();
+
+    await user.dblClick(screen.getByRole('option', { name: 'Tomato' }));
+
+    expect(onSelect).toHaveBeenCalled();
+    expect(screen.getByRole('option', { name: 'Cherry' })).toBeInTheDocument();
+  });
+
   it('selects the next and previous visible culture with arrow keys and keeps focus in the list', async () => {
     const user = userEvent.setup();
     renderCultureDetail(<KeyboardNavigationHarness />);
@@ -165,7 +216,7 @@ describe('CultureDetail Component', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Tomato/ })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Cherry' })).toHaveFocus();
     });
   });
 
@@ -212,6 +263,9 @@ describe('CultureDetail Component', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
     expect(within(cultureList).queryByRole('option', { name: /Asparagus/ })).not.toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();

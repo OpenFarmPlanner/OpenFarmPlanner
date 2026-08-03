@@ -36,6 +36,15 @@ from farm.services.public_cultures import (
     publish_culture_to_public_library,
 )
 
+
+def _request_boolean(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return False
+
+
 from ..serializers import (
     CultureSerializer,
     PublicCultureSerializer,
@@ -525,6 +534,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 user=request.user,
                 crop_species_id=crop_species_id,
                 original_language_code=request.data.get('original_language_code'),
+                publish_as_general=_request_boolean(request.data.get('publish_as_general')),
             )
         except PublicCulturePublishingValidationError as error:
             return Response(
@@ -603,6 +613,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             culture=culture,
             crop_species_id=crop_species_id,
             original_language_code=request.query_params.get('original_language_code'),
+            user=request.user,
+            publish_as_general=_request_boolean(request.query_params.get('publish_as_general')),
         )
         return Response(self._serialize_publishing_check_result(result))
 

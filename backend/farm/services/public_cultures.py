@@ -380,8 +380,10 @@ def get_public_supplier_label(public_culture: PublicCulture) -> str:
     return public_culture.supplier_name or public_culture.seed_supplier or ''
 
 
-def build_public_culture_payload(culture: Culture) -> dict[str, Any]:
+def build_public_culture_payload(culture: Culture, *, public_variety: str | None = None) -> dict[str, Any]:
     payload = _copy_fields(culture)
+    if public_variety is not None:
+        payload['variety'] = public_variety
     payload['supplier_name'] = culture.supplier.name if culture.supplier else (culture.seed_supplier or '')
     payload['seed_packages'] = _seed_packages_payload_from_culture(culture)
     payload['source_project_culture'] = culture
@@ -502,9 +504,11 @@ def detect_available_language_codes(culture: Culture) -> list[str]:
     return sorted(public_culture.descriptions_by_language())
 
 
-def get_public_required_field_gaps(culture: Culture) -> list[MissingRequiredField]:
+def get_public_required_field_gaps(culture: Culture, *, require_variety: bool = True) -> list[MissingRequiredField]:
     gaps: list[MissingRequiredField] = []
     for field in PUBLIC_REQUIRED_FIELDS:
+        if field == 'variety' and not require_variety:
+            continue
         value = getattr(culture, field)
         if value is None or (isinstance(value, str) and not value.strip()):
             gaps.append(MissingRequiredField(field=field, label_key=f'library.publishWizard.fields.{field}'))
@@ -550,7 +554,12 @@ def link_project_culture_to_public_reference(*, culture: Culture, public_culture
     return culture
 
 
-def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpecies | None = None) -> list[DuplicateCandidate]:
+def detect_public_culture_duplicates(
+    culture: Culture,
+    *,
+    crop_species: CropSpecies | None = None,
+    public_variety: str | None = None,
+) -> list[DuplicateCandidate]:
     """Published entries that would be duplicates of this culture.
 
     Identity is the *language-independent* species plus a normalized variety
@@ -568,8 +577,13 @@ def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpec
     case-fold — and never touches the stored or displayed original name.
     """
     normalized_supplier = normalize_identity_value(get_culture_supplier_label(culture))
+    normalized_variety = (
+        normalize_identity_value(public_variety)
+        if public_variety is not None
+        else culture.variety_normalized
+    )
     queryset = PublicCulture.objects.filter(
-        variety_normalized=culture.variety_normalized,
+        variety_normalized=normalized_variety,
         status=PublicCulture.STATUS_PUBLISHED,
     )
     species = crop_species or culture.crop_species or find_species_by_common_name(culture.name)
@@ -605,14 +619,24 @@ def build_publishing_check_result(
     culture: Culture,
     crop_species_id: int | None,
     original_language_code: str | None,
+    user: User | None = None,
+    publish_as_general: bool = False,
 ) -> PublishingCheckResult:
     crop_species = resolve_publishing_crop_species(culture=culture, crop_species_id=crop_species_id)
     language_code = normalize_language_code(original_language_code)
     available_language_codes = detect_available_language_codes(culture)
     if language_code and language_code not in available_language_codes:
         available_language_codes = [language_code, *available_language_codes]
-    duplicates = detect_public_culture_duplicates(culture, crop_species=crop_species) if crop_species else []
-    missing_required_fields = get_public_required_field_gaps(culture)
+    public_variety = '' if publish_as_general else None
+    duplicates = detect_public_culture_duplicates(
+        culture,
+        crop_species=crop_species,
+        public_variety=public_variety,
+    ) if crop_species else []
+    update_target = find_owned_public_culture_for_update(culture=culture, user=user)
+    if update_target:
+        duplicates = [item for item in duplicates if item.id != update_target.id]
+    missing_required_fields = get_public_required_field_gaps(culture, require_variety=not publish_as_general)
     can_publish = bool(crop_species and language_code and not missing_required_fields and not duplicates)
     return PublishingCheckResult(
         crop_species=crop_species,
@@ -733,11 +757,14 @@ def publish_culture_to_public_library(
     user: User | None,
     crop_species_id: int | None = None,
     original_language_code: str | None = None,
+    publish_as_general: bool = False,
 ) -> tuple[PublicCulture, list[DuplicateCandidate], str]:
     check_result = build_publishing_check_result(
         culture=culture,
         crop_species_id=crop_species_id,
         original_language_code=original_language_code,
+        user=user,
+        publish_as_general=publish_as_general,
     )
     if not check_result.crop_species or not check_result.original_language_code or check_result.missing_required_fields:
         raise PublicCulturePublishingValidationError(check_result=check_result)
@@ -769,7 +796,7 @@ def publish_culture_to_public_library(
             duplicates=duplicates,
             normalized_identity={
                 'name': culture.name_normalized,
-                'variety': culture.variety_normalized,
+                'variety': '' if publish_as_general else culture.variety_normalized,
                 'seed_supplier': normalize_identity_value(get_culture_supplier_label(culture)),
                 'crop_species': str(check_result.crop_species.id),
             },
@@ -782,7 +809,7 @@ def publish_culture_to_public_library(
         version=1,
         crop_species=check_result.crop_species,
         original_language_code=check_result.original_language_code,
-        **build_public_culture_payload(culture),
+        **build_public_culture_payload(culture, public_variety='' if publish_as_general else None),
     )
     sync_original_language_translation(public_culture)
     _record_public_culture_status_event(

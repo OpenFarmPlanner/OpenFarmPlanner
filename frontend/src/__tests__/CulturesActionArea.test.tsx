@@ -15,6 +15,7 @@ const {
   cropSpeciesListMock,
   publishPreviewMock,
   publicCultureListMock,
+  publicCultureGetMock,
   publishPublicMock,
   deleteMock,
   undeleteMock,
@@ -28,6 +29,7 @@ const {
   cropSpeciesListMock: vi.fn(),
   publishPreviewMock: vi.fn(),
   publicCultureListMock: vi.fn(),
+  publicCultureGetMock: vi.fn(),
   publishPublicMock: vi.fn(),
   deleteMock: vi.fn(),
   undeleteMock: vi.fn(),
@@ -74,6 +76,7 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
+      get: publicCultureGetMock,
     },
   };
 });
@@ -188,6 +191,20 @@ describe('Cultures action area', () => {
         next: null,
         previous: null,
         results: [],
+      },
+    });
+    publicCultureGetMock.mockResolvedValue({
+      data: {
+        id: 77,
+        name: 'Tomate',
+        variety: 'Roma',
+        status: 'published',
+        version: 1,
+        crop_species: 1,
+        crop_species_name: 'Tomate',
+        original_language_code: 'de',
+        growth_duration_days: 1,
+        harvest_duration_days: 1,
       },
     });
     locationListMock.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
@@ -424,6 +441,68 @@ describe('Cultures action area', () => {
       expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the public target fixed in the owned public culture update dialog', async () => {
+    authUser.public_library_terms_accepted = true;
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 1,
+            name: 'Tomate',
+            variety: 'Roma',
+            crop_species: 1,
+            growth_duration_days: 2,
+            harvest_duration_days: 1,
+            owned_public_culture_id: 77,
+          },
+        ],
+      },
+    });
+    publicCultureGetMock.mockResolvedValue({
+      data: {
+        id: 77,
+        name: 'Tomate',
+        variety: 'Roma',
+        status: 'published',
+        version: 1,
+        crop_species: 12,
+        crop_species_name: 'Tomate',
+        original_language_code: 'en',
+        growth_duration_days: 1,
+        harvest_duration_days: 1,
+      },
+    });
+
+    renderCultures('/cultures?cultureId=1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Öffentlicher Eintrag')).toBeInTheDocument();
+    expect(within(dialog).getByText('Tomate · Roma')).toBeInTheDocument();
+    expect(within(dialog).getByText('Diese Projektkultur ist bereits mit diesem öffentlichen Eintrag verknüpft.')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: 'Passende öffentliche Kultur' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Offizielle Kulturart/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();
+    expect(publicCultureListMock).not.toHaveBeenCalled();
+
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Öffentliche Version aktualisieren' }));
+
+    await waitFor(() => {
+      expect(publishPublicMock).toHaveBeenCalledWith(1, {
+        accepted_public_library_terms: false,
+        crop_species_id: 12,
+        original_language_code: 'en',
+      });
+    });
   });
 
   it('does not expose the remove from library action for owned public cultures', async () => {

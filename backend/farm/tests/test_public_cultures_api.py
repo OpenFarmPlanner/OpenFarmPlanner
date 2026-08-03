@@ -126,6 +126,60 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertFalse(response.data['can_publish'])
         self.assertEqual(response.data['missing_required_fields'][0]['field'], 'variety')
 
+    def test_publish_as_general_crop_allows_empty_public_variety(self):
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+                'publish_as_general': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        public_culture = PublicCulture.objects.get()
+        self.assertEqual(public_culture.name, self.culture.name)
+        self.assertEqual(public_culture.variety, '')
+        self.assertEqual(public_culture.crop_species, self.species)
+
+    def test_publish_preview_as_general_crop_does_not_require_variety(self):
+        self.culture.variety = ''
+        self.culture.save()
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en', 'publish_as_general': 'true'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['can_publish'])
+        self.assertEqual(response.data['missing_required_fields'], [])
+
+    def test_publish_preview_allows_update_of_owned_public_culture(self):
+        public_culture = PublicCulture.objects.create(
+            name=self.culture.name,
+            variety=self.culture.variety,
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.species,
+            created_by=self.user,
+            source_project=self.project,
+            source_project_culture=self.culture,
+        )
+        self.culture.source_public_culture = public_culture
+        self.culture.source_public_version = public_culture.version
+        self.culture.save(update_fields=['source_public_culture', 'source_public_version'])
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['can_publish'])
+        self.assertEqual(response.data['duplicates'], [])
+
     def test_publish_rejects_duplicates_with_conflict_response(self):
         other_culture = Culture.objects.create(
             name='Lettuce',

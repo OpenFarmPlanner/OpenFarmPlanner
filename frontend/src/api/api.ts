@@ -129,9 +129,9 @@ export const cultureAPI = {
     skipped_count: number;
     errors: Array<{ index: number; error: unknown }>;
   }>('/cultures/import/apply/', data),
-  publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string }) =>
+  publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
     http.get<PublishPublicCulturePreview>(`/cultures/${id}/publish-public/preview/`, { params }),
-  publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string }) =>
+  publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
     http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
   linkPublicCulture: (id: number, publicCultureId: number) =>
     http.post<Culture>(`/cultures/${id}/link-public-culture/`, { public_culture_id: publicCultureId }),
