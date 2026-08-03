@@ -50,6 +50,7 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
+import { varietySpecificFieldAccentSx } from './varietyValueAccent';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -520,9 +521,9 @@ const detailSectionGridSx = {
     return value;
   }, [isSpeciesView, selectedCulture?.variety, selectedSpeciesCulture]);
 
-  const getOwnValueLabelSx = (...fields: (keyof Culture)[]) => (
+  const getOwnValueFieldSx = (...fields: (keyof Culture)[]) => (
     fields.some((field) => getCropValueSource(field) === 'ownValue')
-      ? { color: 'primary.main', fontWeight: 700 }
+      ? varietySpecificFieldAccentSx
       : undefined
   );
 
@@ -974,8 +975,8 @@ const detailSectionGridSx = {
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {getCropValue('crop_family', selectedCulture.crop_family) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('crop_family')}>
+                  <Box sx={getOwnValueFieldSx('crop_family')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.cropFamily')}
                     </Typography>
                     <Typography variant="body1">
@@ -984,8 +985,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {getCropValue('nutrient_demand', selectedCulture.nutrient_demand) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('nutrient_demand')}>
+                  <Box sx={getOwnValueFieldSx('nutrient_demand')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.nutrientDemand')}
                     </Typography>
                     <Typography variant="body1">
@@ -998,8 +999,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {activeCultivationTypes.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('cultivation_types', 'cultivation_type')}>
+                  <Box sx={getOwnValueFieldSx('cultivation_types', 'cultivation_type')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.cultivationType')}
                     </Typography>
                     <Typography variant="body1">
@@ -1024,16 +1025,16 @@ const detailSectionGridSx = {
                 {t('form.sectionTiming')}
               </Typography>
               <Box sx={detailSectionGridSx}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('growth_duration_days')}>
+                <Box sx={getOwnValueFieldSx('growth_duration_days')}>
+                  <Typography variant="body2" color="text.secondary">
                     {t('form.growthDurationDays')}
                   </Typography>
                   <Typography variant="body1">
                     {formatNumber(getCropValue('growth_duration_days', selectedCulture.growth_duration_days), t, locale)} {t('detail.units.days')}
                   </Typography>
                 </Box>
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('harvest_duration_days')}>
+                <Box sx={getOwnValueFieldSx('harvest_duration_days')}>
+                  <Typography variant="body2" color="text.secondary">
                     {t('form.harvestDurationDays')}
                   </Typography>
                   <Typography variant="body1">
@@ -1041,8 +1042,8 @@ const detailSectionGridSx = {
                   </Typography>
                 </Box>
                 {getCropValue('propagation_duration_days', selectedCulture.propagation_duration_days) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('propagation_duration_days')}>
+                  <Box sx={getOwnValueFieldSx('propagation_duration_days')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.propagationDurationDays')}
                     </Typography>
                     <Typography variant="body1">
@@ -1062,8 +1063,8 @@ const detailSectionGridSx = {
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {getCropValue('distance_within_row_cm', selectedCulture.distance_within_row_cm) !== null && getCropValue('distance_within_row_cm', selectedCulture.distance_within_row_cm) !== undefined && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('distance_within_row_cm')}>
+                  <Box sx={getOwnValueFieldSx('distance_within_row_cm')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('detail.fields.distanceWithinRow')}
                     </Typography>
                     <Typography variant="body1">
@@ -1072,8 +1073,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {getCropValue('row_spacing_cm', selectedCulture.row_spacing_cm) !== null && getCropValue('row_spacing_cm', selectedCulture.row_spacing_cm) !== undefined && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('row_spacing_cm')}>
+                  <Box sx={getOwnValueFieldSx('row_spacing_cm')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('detail.fields.rowSpacing')}
                     </Typography>
                     <Typography variant="body1">
@@ -1082,8 +1083,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {getCropValue('sowing_depth_cm', selectedCulture.sowing_depth_cm) !== null && getCropValue('sowing_depth_cm', selectedCulture.sowing_depth_cm) !== undefined && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('sowing_depth_cm')}>
+                  <Box sx={getOwnValueFieldSx('sowing_depth_cm')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('detail.fields.sowingDepth')}
                     </Typography>
                     <Typography variant="body1">
@@ -1181,8 +1182,8 @@ const detailSectionGridSx = {
                 }}
               >
                 {getCropValue('harvest_method', selectedCulture.harvest_method) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('harvest_method')}>
+                  <Box sx={getOwnValueFieldSx('harvest_method')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.yieldUnit')}
                     </Typography>
                     <Typography variant="body1">
@@ -1191,8 +1192,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {getCropValue('expected_yield', selectedCulture.expected_yield) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('expected_yield')}>
+                  <Box sx={getOwnValueFieldSx('expected_yield')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('form.expectedYield')}
                     </Typography>
                     <Typography variant="body1">
@@ -1201,8 +1202,8 @@ const detailSectionGridSx = {
                   </Box>
                 )}
                 {getCropValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={getOwnValueLabelSx('allow_deviation_delivery_weeks')}>
+                  <Box sx={getOwnValueFieldSx('allow_deviation_delivery_weeks')}>
+                    <Typography variant="body2" color="text.secondary">
                       {t('detail.fields.allowDeviationDeliveryWeeks')}
                     </Typography>
                     <Chip

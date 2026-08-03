@@ -86,6 +86,7 @@ import { MultilingualTextFieldSection } from '../components/MultilingualTextFiel
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
+import { varietySpecificFieldAccentSx } from '../../cultures/varietyValueAccent';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -425,14 +426,14 @@ interface DetailRowProps {
 }
 
 function DetailRow({ label, value, source = null }: DetailRowProps) {
-  const ownValueSx = source === 'ownValue' ? { color: 'primary.main', fontWeight: 700 } : undefined;
+  const ownValueSx = source === 'ownValue' ? varietySpecificFieldAccentSx : undefined;
 
   return (
-    <Box>
-      <Typography variant="body2" color="text.secondary" sx={{ display: 'block', ...ownValueSx }}>
+    <Box sx={ownValueSx}>
+      <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
         {label}
       </Typography>
-      <Typography variant="body1" sx={{ overflowWrap: 'anywhere', ...ownValueSx }}>
+      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
         {value}
       </Typography>
     </Box>

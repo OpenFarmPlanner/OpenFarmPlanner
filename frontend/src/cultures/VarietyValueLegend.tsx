@@ -17,9 +17,9 @@ export function VarietyValueLegend({ label }: VarietyValueLegendProps) {
       <Box
         aria-hidden="true"
         sx={{
-          width: 9,
-          height: 9,
-          borderRadius: 0.75,
+          width: 4,
+          height: 18,
+          borderRadius: 999,
           bgcolor: 'primary.main',
         }}
       />
