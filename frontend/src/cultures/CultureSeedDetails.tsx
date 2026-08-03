@@ -6,7 +6,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Chip,
 } from '@mui/material';
 import type { ReactNode } from 'react';
 import type { CultivationType, SeedRateUnit } from '../api/types';
@@ -54,17 +53,14 @@ const seedDetailGridSx = {
   justifyContent: 'start',
 } as const;
 
-function ValueSourceBadge({ source, t }: { source?: ValueSource | null; t: (key: string) => string }) {
-  if (!source) {
+function OwnValueIndicator({ source, t }: { source?: ValueSource | null; t: (key: string) => string }) {
+  if (source !== 'ownValue') {
     return null;
   }
   return (
-    <Chip
-      size="small"
-      variant="outlined"
-      label={source === 'fromCrop' ? t('hierarchy.fromCrop') : t('hierarchy.ownValue')}
-      sx={{ mt: 0.75 }}
-    />
+    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+      {t('hierarchy.ownValue')}
+    </Typography>
   );
 }
 
@@ -82,7 +78,7 @@ function ValueWithSource({
       <Typography variant="body1">
         {children}
       </Typography>
-      <ValueSourceBadge source={source} t={t} />
+      <OwnValueIndicator source={source} t={t} />
     </>
   );
 }
@@ -143,15 +139,14 @@ export function CultureSeedDetails({
                   <TableCell>{row.method === 'pre_cultivation' ? t('form.cultivationTypePreCultivation') : t('form.cultivationTypeDirectSowing')}</TableCell>
                   <TableCell>
                     {formatSeedRateNumber(row.value, t, locale)}
-                    <ValueSourceBadge source={row.valueSource} t={t} />
+                    <OwnValueIndicator source={row.valueSource} t={t} />
                   </TableCell>
                   <TableCell>
                     {formatSeedUnitLabel(row.unit, t)}
-                    <ValueSourceBadge source={row.valueSource} t={t} />
                   </TableCell>
                   <TableCell>
                     {row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}
-                    <ValueSourceBadge source={row.safetySource} t={t} />
+                    <OwnValueIndicator source={row.safetySource} t={t} />
                   </TableCell>
                 </TableRow>
               ))}

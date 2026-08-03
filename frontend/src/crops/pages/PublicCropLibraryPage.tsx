@@ -397,6 +397,26 @@ function getRevisionValueLabel(value: unknown, fallback: string): string {
   return String(value);
 }
 
+const isEmptyPublicValue = (value: unknown): boolean => (
+  value === null
+  || value === undefined
+  || value === ''
+  || (Array.isArray(value) && value.length === 0)
+);
+
+function arePublicValuesEqual(left: unknown, right: unknown): boolean {
+  if (isEmptyPublicValue(left) && isEmptyPublicValue(right)) {
+    return true;
+  }
+  if (typeof left === 'number' && typeof right === 'number') {
+    return Math.abs(left - right) < Number.EPSILON;
+  }
+  if (Array.isArray(left) || Array.isArray(right) || (typeof left === 'object' && left !== null) || (typeof right === 'object' && right !== null)) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  return left === right;
+}
+
 interface DetailRowProps {
   label: string;
   value: string;
@@ -413,13 +433,10 @@ function DetailRow({ label, value, source = null, t }: DetailRowProps) {
       <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
         {value}
       </Typography>
-      {source && t ? (
-        <Chip
-          size="small"
-          variant="outlined"
-          label={source === 'fromCrop' ? t('hierarchy.fromCrop') : t('hierarchy.ownValue')}
-          sx={{ mt: 0.75 }}
-        />
+      {source === 'ownValue' && t ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+          {t('hierarchy.ownValue')}
+        </Typography>
       ) : null}
     </Box>
   );
@@ -1283,13 +1300,6 @@ export default function PublicCropLibraryPage() {
     () => findSpeciesCulture(selectedCulture, cultures),
     [cultures, selectedCulture],
   );
-  const isEmptyPublicValue = (value: unknown): boolean => (
-    value === null
-    || value === undefined
-    || value === ''
-    || (Array.isArray(value) && value.length === 0)
-  );
-
   const getPublicFieldValue = <TValue,>(field: keyof PublicCulture, value: TValue): TValue => {
     if (
       selectedCulture?.variety
@@ -1307,9 +1317,10 @@ export default function PublicCropLibraryPage() {
     }
     const ownValue = selectedCulture[field];
     if (isEmptyPublicValue(ownValue)) {
-      return 'fromCrop';
+      return null;
     }
-    return 'ownValue';
+    const cropValue = selectedSpeciesCulture[field];
+    return arePublicValuesEqual(ownValue, cropValue) ? null : 'ownValue';
   };
   const publicActiveCultivationTypes: CultivationType[] = selectedCulture
     ? (

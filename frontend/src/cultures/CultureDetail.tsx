@@ -75,6 +75,19 @@ const isEmptyCropValue = (value: unknown): boolean => (
   || (Array.isArray(value) && value.length === 0)
 );
 
+const areCropValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (isEmptyCropValue(left) && isEmptyCropValue(right)) {
+    return true;
+  }
+  if (typeof left === 'number' && typeof right === 'number') {
+    return Math.abs(left - right) < Number.EPSILON;
+  }
+  if (Array.isArray(left) || Array.isArray(right) || (typeof left === 'object' && left !== null) || (typeof right === 'object' && right !== null)) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  return left === right;
+};
+
 import {
   CULTURE_FILTERS_STORAGE_KEY,
   formatDistance,
@@ -485,9 +498,10 @@ const detailSectionGridSx = {
     }
     const ownValue = selectedCulture[field];
     if (isEmptyCropValue(ownValue)) {
-      return 'fromCrop';
+      return null;
     }
-    return 'ownValue';
+    const cropValue = selectedSpeciesCulture[field];
+    return areCropValuesEqual(ownValue, cropValue) ? null : 'ownValue';
   }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
   const getCropValue = useCallback(<TValue,>(
@@ -511,12 +525,9 @@ const detailSectionGridSx = {
       return null;
     }
     return (
-      <Chip
-        size="small"
-        variant="outlined"
-        label={source === 'fromCrop' ? t('hierarchy.fromCrop') : t('hierarchy.ownValue')}
-        sx={{ mt: 0.75 }}
-      />
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
+        {t('hierarchy.ownValue')}
+      </Typography>
     );
   };
   

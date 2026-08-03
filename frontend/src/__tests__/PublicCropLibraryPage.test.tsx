@@ -443,7 +443,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
     expect(screen.getByText('3,2 g')).toBeInTheDocument();
     expect(screen.getAllByText('Eigener Wert').length).toBeGreaterThanOrEqual(3);
-    expect(screen.getAllByText('Aus der Kultur').length).toBeGreaterThanOrEqual(5);
+    expect(screen.queryByText('Aus der Kultur')).not.toBeInTheDocument();
   });
 
   it('uses the selected public culture title as the mobile selector trigger', async () => {
