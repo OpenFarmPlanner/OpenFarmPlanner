@@ -33,9 +33,9 @@
     "supplierDataUsage": "{{cultureCount}} Kulturen haben Saatgut- oder Lieferantendaten mit {{rowCount}} Einträgen.",
     "seedDemandUsage_one": "{{count}} Kultur nutzt diesen Lieferanten in der Saatgutplanung.",
     "seedDemandUsage_other": "{{count}} Kulturen nutzen diesen Lieferanten in der Saatgutplanung.",
-    "unlinkExplanation": "Beim Fortfahren bleiben alle Kulturen erhalten. Lediglich die Lieferantenzuordnung wird entfernt.",
+    "unlinkExplanation": "Kulturen werden nicht gelöscht. Vor dem Löschen des Lieferanten wird nur die Lieferantenzuordnung entfernt.",
     "openAffectedCultures": "Zu betroffenen Kulturen",
-    "unlinkAndDelete": "Lieferant aus allen Kulturen entfernen und löschen"
+    "unlinkAndDelete": "Lieferant löschen"
   },
   "invalidDomain": "Ungültige Domain: {{domain}}. Domains müssen gültige Hostnamen ohne Schema oder Pfad sein (z.B. example.com).",
   "domainValidationError": "Einige Domains sind ungültig. Bitte korrigieren Sie die Eingabe.",

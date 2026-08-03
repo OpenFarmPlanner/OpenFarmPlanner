@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Suppliers from '../pages/Suppliers';
@@ -628,9 +628,15 @@ describe('Suppliers page empty and table states', () => {
     expect(await screen.findByRole('heading', { name: 'Lieferant wird noch verwendet' })).toBeInTheDocument();
     expect(screen.getByText('Dieser Lieferant wird noch von 12 Kulturen verwendet.')).toBeInTheDocument();
     expect(screen.getByText('12 Kulturen nutzen diesen Lieferanten direkt.')).toBeInTheDocument();
-    expect(screen.getByText('Beim Fortfahren bleiben alle Kulturen erhalten. Lediglich die Lieferantenzuordnung wird entfernt.')).toBeInTheDocument();
+    expect(screen.getByText('Kulturen werden nicht gelöscht. Vor dem Löschen des Lieferanten wird nur die Lieferantenzuordnung entfernt.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Zu betroffenen Kulturen' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Lieferant aus allen Kulturen entfernen und löschen' })).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    const footer = dialog.querySelector('.MuiDialogActions-root');
+    expect(footer).not.toBeNull();
+    expect(within(footer as HTMLElement).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Abbrechen',
+      'Lieferant löschen',
+    ]);
     expect(mocks.delete).not.toHaveBeenCalled();
     expect(screen.getAllByText('Reinsaat').length).toBeGreaterThan(0);
   });
@@ -686,7 +692,7 @@ describe('Suppliers page empty and table states', () => {
 
     await screen.findByText('Reinsaat');
     fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Lieferant aus allen Kulturen entfernen und löschen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lieferant löschen' }));
 
     await waitFor(() => expect(mocks.unlinkAndDelete).toHaveBeenCalledWith(1));
     expect(screen.queryByText('Reinsaat')).not.toBeInTheDocument();
