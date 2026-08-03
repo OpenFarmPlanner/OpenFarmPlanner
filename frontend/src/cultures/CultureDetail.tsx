@@ -817,7 +817,8 @@ const detailSectionGridSx = {
                     }}
                     sx={{
                       borderRadius: 1.5,
-                      pl: `calc(${0.875 + depth * 0.85}rem)`,
+                      ml: `calc(${depth * 1.75}rem)`,
+                      pl: { xs: 0.75, lg: 0.875 },
                       pr: { xs: 0.875, lg: 1 },
                       py: { xs: 0.5, lg: 0.75 },
                       mb: { xs: 0.375, lg: 0.5 },

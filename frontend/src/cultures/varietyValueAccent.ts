@@ -9,7 +9,7 @@ export const varietySpecificValueHighlightSx = {
   py: 0.125,
   mx: -0.5,
   borderRadius: 0.75,
-  backgroundColor: (theme: Theme) => alpha(theme.palette.primary.main, 0.04),
+  backgroundColor: (theme: Theme) => alpha(theme.palette.primary.light, 0.1),
   color: 'inherit',
   overflowWrap: 'anywhere',
   boxDecorationBreak: 'clone',

@@ -1051,7 +1051,12 @@ function PublicCultureMobileSelectorDialog({
                   event.stopPropagation();
                   toggleExpand(node.id);
                 }}
-                sx={{ borderRadius: 1.25, mb: 0.375, pl: `calc(${0.75 + depth * 0.85}rem)` }}
+                sx={{
+                  borderRadius: 1.25,
+                  mb: 0.375,
+                  ml: `calc(${depth * 1.75}rem)`,
+                  pl: 0.75,
+                }}
               >
                 {hasChildren ? (
                   <IconButton
@@ -2251,15 +2256,15 @@ export default function PublicCropLibraryPage() {
                       sx={{
                         borderBottom: '1px solid',
                         borderColor: 'divider',
+                        borderLeft: '3px solid transparent',
                         alignItems: 'flex-start',
-                        pl: `calc(${1.5 + depth * 0.85}rem)`,
+                        ml: `calc(${depth * 1.75}rem)`,
+                        pl: 1.125,
                         pr: 1.5,
                         py: 1.25,
                         '&.Mui-selected': {
                           bgcolor: 'success.50',
-                          borderLeft: '3px solid',
                           borderLeftColor: 'success.main',
-                          pl: 1.125,
                         },
                         '&.Mui-selected:hover': {
                           bgcolor: 'success.100',
