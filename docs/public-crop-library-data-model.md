@@ -32,9 +32,10 @@ single-language columns (phase 5).
 The UI now reflects the planned hierarchy before the full target data model is
 in place: records are grouped by `CropSpecies`, entries without a variety are
 treated as the current general crop entry, and variety entries are shown below
-that species in both the project and public crop libraries. Value-source labels
-are resolved from those existing records for display only; the persisted
-`CropVariety` table and formal nullable override chain remain future work.
+that species in both the project and public crop libraries. Subtle
+variety-specific value cues are resolved from those existing records for
+display only; the persisted `CropVariety` table and formal nullable override
+chain remain future work.
 
 ## 1. Scope and current-state analysis
 

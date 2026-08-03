@@ -85,6 +85,7 @@ import { applySavedCultures } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
+import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -421,23 +422,19 @@ interface DetailRowProps {
   label: string;
   value: string;
   source?: 'fromCrop' | 'ownValue' | null;
-  t?: (key: string) => string;
 }
 
-function DetailRow({ label, value, source = null, t }: DetailRowProps) {
+function DetailRow({ label, value, source = null }: DetailRowProps) {
+  const ownValueSx = source === 'ownValue' ? { color: 'primary.main', fontWeight: 700 } : undefined;
+
   return (
     <Box>
-      <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+      <Typography variant="body2" color="text.secondary" sx={{ display: 'block', ...ownValueSx }}>
         {label}
       </Typography>
-      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
+      <Typography variant="body1" sx={{ overflowWrap: 'anywhere', ...ownValueSx }}>
         {value}
       </Typography>
-      {source === 'ownValue' && t ? (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, lineHeight: 1.2 }}>
-          {t('hierarchy.ownValue')}
-        </Typography>
-      ) : null}
     </Box>
   );
 }
@@ -1322,6 +1319,7 @@ export default function PublicCropLibraryPage() {
     const cropValue = selectedSpeciesCulture[field];
     return arePublicValuesEqual(ownValue, cropValue) ? null : 'ownValue';
   };
+  const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
   const publicActiveCultivationTypes: CultivationType[] = selectedCulture
     ? (
       selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
@@ -2483,18 +2481,21 @@ export default function PublicCropLibraryPage() {
 
                   {activeTab === 0 ? (
                     <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
+                      {showVarietyValueLegend ? (
+                        <VarietyValueLegend label={t('hierarchy.ownValueLegend')} />
+                      ) : null}
+
                       <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
                           <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
                           {!isSpeciesView ? (
                             <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
                           ) : null}
-                          <DetailRow label={t('library.page.fields.cropFamily')} value={getPublicFieldValue('crop_family', selectedCulture.crop_family) || t('library.page.notSpecified')} source={getPublicFieldSource('crop_family')} t={t} />
+                          <DetailRow label={t('library.page.fields.cropFamily')} value={getPublicFieldValue('crop_family', selectedCulture.crop_family) || t('library.page.notSpecified')} source={getPublicFieldSource('crop_family')} />
                           <DetailRow
                             label={t('library.page.fields.nutrientDemand')}
                             value={getNutrientDemandLabel(getPublicFieldValue('nutrient_demand', selectedCulture.nutrient_demand), t, t('library.page.notSpecified'))}
                             source={getPublicFieldSource('nutrient_demand')}
-                            t={t}
                           />
                           <DetailRow
                             label={t('library.page.fields.cultivationType')}
@@ -2504,7 +2505,6 @@ export default function PublicCropLibraryPage() {
                               cultivation_type: getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type),
                             }, t, t('library.page.notSpecified'))}
                             source={getPublicFieldSource('cultivation_types') ?? getPublicFieldSource('cultivation_type')}
-                            t={t}
                           />
                         </DetailGrid>
                       </DetailSection>
@@ -2513,9 +2513,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.timing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(getPublicFieldValue('growth_duration_days', selectedCulture.growth_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('growth_duration_days')} t={t} />
-                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(getPublicFieldValue('harvest_duration_days', selectedCulture.harvest_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('harvest_duration_days')} t={t} />
-                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(getPublicFieldValue('propagation_duration_days', selectedCulture.propagation_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('propagation_duration_days')} t={t} />
+                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(getPublicFieldValue('growth_duration_days', selectedCulture.growth_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('growth_duration_days')} />
+                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(getPublicFieldValue('harvest_duration_days', selectedCulture.harvest_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('harvest_duration_days')} />
+                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(getPublicFieldValue('propagation_duration_days', selectedCulture.propagation_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('propagation_duration_days')} />
                         </DetailGrid>
                       </DetailSection>
 
@@ -2523,9 +2523,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.spacing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(getPublicFieldValue('distance_within_row_m', selectedCulture.distance_within_row_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('distance_within_row_m')} t={t} />
-                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(getPublicFieldValue('row_spacing_m', selectedCulture.row_spacing_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('row_spacing_m')} t={t} />
-                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(getPublicFieldValue('sowing_depth_m', selectedCulture.sowing_depth_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('sowing_depth_m')} t={t} />
+                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(getPublicFieldValue('distance_within_row_m', selectedCulture.distance_within_row_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('distance_within_row_m')} />
+                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(getPublicFieldValue('row_spacing_m', selectedCulture.row_spacing_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('row_spacing_m')} />
+                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(getPublicFieldValue('sowing_depth_m', selectedCulture.sowing_depth_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('sowing_depth_m')} />
                         </DetailGrid>
                       </DetailSection>
 
@@ -2553,9 +2553,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.harvest')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(getPublicFieldValue('harvest_method', selectedCulture.harvest_method), t, t('library.page.notSpecified'))} source={getPublicFieldSource('harvest_method')} t={t} />
-                          <DetailRow label={t('library.page.fields.expectedYield')} value={getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === null || getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(getPublicFieldValue('expected_yield', selectedCulture.expected_yield), locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} source={getPublicFieldSource('expected_yield')} t={t} />
-                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={getPublicFieldValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) ? t('library.page.boolean.yes') : t('library.page.boolean.no')} source={getPublicFieldSource('allow_deviation_delivery_weeks')} t={t} />
+                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(getPublicFieldValue('harvest_method', selectedCulture.harvest_method), t, t('library.page.notSpecified'))} source={getPublicFieldSource('harvest_method')} />
+                          <DetailRow label={t('library.page.fields.expectedYield')} value={getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === null || getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(getPublicFieldValue('expected_yield', selectedCulture.expected_yield), locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} source={getPublicFieldSource('expected_yield')} />
+                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={getPublicFieldValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) ? t('library.page.boolean.yes') : t('library.page.boolean.no')} source={getPublicFieldSource('allow_deviation_delivery_weeks')} />
                         </DetailGrid>
                       </DetailSection>
 

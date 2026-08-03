@@ -117,11 +117,11 @@ The project Crop Library and the full public Crop Library now render the same
 species → variety hierarchy. A public or private row with a selected
 `crop_species` and an empty `variety` is the current "general crop" entry for
 that species. Rows with a variety are rendered below that species. The UI uses
-plain user-facing wording such as "Allgemeine Kultur", "Aus der Kultur", and
-"Eigener Wert"; it does not expose implementation terms from the target data
-model. Until the future `CropVariety` entity and persisted nullable override
-chain exist, value-source badges are resolved from the current row plus the
-matching no-variety general crop row.
+plain user-facing wording and a subtle visual cue for variety-specific values;
+it does not expose implementation terms from the target data model. Until the
+future `CropVariety` entity and persisted nullable override chain exist,
+value-source cues are resolved from the current row plus the matching
+no-variety general crop row.
 
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`

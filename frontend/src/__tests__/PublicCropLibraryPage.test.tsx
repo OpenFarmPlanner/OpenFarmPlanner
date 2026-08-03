@@ -442,7 +442,8 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('56 Tage')).toBeInTheDocument();
     expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
     expect(screen.getByText('3,2 g')).toBeInTheDocument();
-    expect(screen.getAllByText('Eigener Wert').length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText('Grün markierte Angaben gelten nur für diese Sorte.')).toBeInTheDocument();
+    expect(screen.queryByText('Eigener Wert')).not.toBeInTheDocument();
     expect(screen.queryByText('Aus der Kultur')).not.toBeInTheDocument();
   });
 

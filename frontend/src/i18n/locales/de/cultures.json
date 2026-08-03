@@ -51,6 +51,7 @@
     "generalCrop": "Allgemeine Kultur",
     "fromCrop": "Aus der Kultur",
     "ownValue": "Eigener Wert",
+    "ownValueLegend": "Grün markierte Angaben gelten nur für diese Sorte.",
     "setOwnValue": "Eigenen Wert setzen",
     "useCropValue": "Kulturwert nutzen",
     "varietyLabel": "Sorte",
