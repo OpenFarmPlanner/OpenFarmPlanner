@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CultureForm } from '../cultures/CultureForm';
-import type { Culture } from '../api/types';
+import type { Culture, PublicCulture } from '../api/types';
 
 vi.mock('../i18n', () => ({
   useTranslation: () => ({
@@ -10,9 +10,9 @@ vi.mock('../i18n', () => ({
   }),
 }));
 
-const { cultureDuplicateCheckMock, publicCultureMatchMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
+const { cultureDuplicateCheckMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
   cultureDuplicateCheckMock: vi.fn().mockResolvedValue({ data: { exists: false } }),
-  publicCultureMatchMock: vi.fn().mockResolvedValue({ data: { exists: false, culture: null } }),
+  publicCultureListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
   supplierCreateMock: vi.fn(),
   supplierListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
 }));
@@ -27,7 +27,7 @@ vi.mock('../api/api', async () => {
     },
     publicCultureAPI: {
       ...actual.publicCultureAPI,
-      match: publicCultureMatchMock,
+      list: publicCultureListMock,
     },
     supplierAPI: {
       list: supplierListMock,
@@ -42,18 +42,33 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     errors,
     identityHint,
     onChange,
+    publicCultureOptions = [],
+    onPublicCultureSearchChange,
+    onPublicCultureSelect,
   }: {
     formData: Partial<Culture>;
     errors: Record<string, string>;
     identityHint?: ReactNode;
     onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
+    publicCultureOptions?: PublicCulture[];
+    onPublicCultureSearchChange?: (value: string) => void;
+    onPublicCultureSelect?: (culture: PublicCulture | null) => void;
   }) => (
     <div>
       <input
         aria-label="name-input"
         value={formData.name ?? ''}
-        onChange={(event) => onChange('name', event.target.value)}
+        onChange={(event) => {
+          onPublicCultureSearchChange?.(event.target.value);
+          onChange('name', event.target.value);
+          onPublicCultureSelect?.(null);
+        }}
       />
+      {publicCultureOptions[0] ? (
+        <button type="button" onClick={() => onPublicCultureSelect?.(publicCultureOptions[0])}>
+          select-public-culture
+        </button>
+      ) : null}
       {errors.name ? <span>{errors.name}</span> : null}
       <input
         aria-label="variety-input"
@@ -121,8 +136,8 @@ describe('CultureForm', () => {
   beforeEach(() => {
     cultureDuplicateCheckMock.mockReset();
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockReset();
-    publicCultureMatchMock.mockResolvedValue({ data: { exists: false, culture: null } });
+    publicCultureListMock.mockReset();
+    publicCultureListMock.mockResolvedValue({ data: { results: [] } });
     supplierCreateMock.mockReset();
     supplierCreateMock.mockResolvedValue({
       data: { id: 42, name: 'Reinsaat', homepage_url: 'https://reinsaat.at', allowed_domains: [] },
@@ -527,59 +542,76 @@ describe('CultureForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('shows public library match hint only when creating a culture', async () => {
+  it('keeps free-text culture names private without requiring a public match', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockResolvedValue({
-      data: {
-        exists: true,
-        culture: { id: 42, name: 'Karotte', variety: 'Nantaise' },
-      },
-    });
+    publicCultureListMock.mockResolvedValue({ data: { results: [] } });
 
     render(
       <CultureForm
         onSave={vi.fn().mockResolvedValue(undefined)}
         onCancel={() => {}}
-        onViewPublicLibraryMatch={vi.fn()}
       />
     );
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
     fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
 
-    await waitFor(() => expect(publicCultureMatchMock).toHaveBeenCalledWith(
-      { name: 'Karotte', variety: 'Nantaise' },
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { q: 'Karotte' },
       expect.any(AbortSignal),
     ));
-    expect(await screen.findByText('form.publicLibraryMatchHint')).toBeInTheDocument();
+    expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
   });
 
-  it('does not check or show public library match hint when editing a culture', async () => {
+  it('copies public culture base values when a suggestion is selected', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockResolvedValue({
-      data: {
-        exists: true,
-        culture: { id: 42, name: 'Neue Karotte', variety: 'Nantaise' },
-      },
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        crop_family: 'Nachtschattengewächse',
+        growth_duration_days: 90,
+        row_spacing_m: 0.5,
+        version: 3,
+      } as PublicCulture] },
     });
+    const onSave = vi.fn().mockResolvedValue(undefined);
 
     render(
       <CultureForm
-        culture={CULTURE_A}
-        onSave={vi.fn().mockResolvedValue(undefined)}
+        onSave={onSave}
         onCancel={() => {}}
-        onViewPublicLibraryMatch={vi.fn()}
       />
     );
 
-    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Neue Karotte' } });
-
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-public-culture' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-public-culture' }));
     await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
-      { name: 'Neue Karotte', variety: 'Nantaise', exclude_id: 1 },
+      { name: 'Tomate', variety: 'Moneymaker', exclude_id: undefined },
       expect.any(AbortSignal),
     ));
-    expect(publicCultureMatchMock).not.toHaveBeenCalled();
-    expect(screen.queryByText('form.publicLibraryMatchHint')).not.toBeInTheDocument();
+    const saveButton = screen.getByRole('button', { name: 'form.create' });
+    await waitFor(() => expect(saveButton).not.toBeDisabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Tomate',
+      variety: 'Moneymaker',
+      crop_species: 7,
+      source_public_culture: 42,
+      source_public_version: 3,
+      crop_family: 'Nachtschattengewächse',
+      growth_duration_days: 90,
+      row_spacing_cm: 50,
+      origin_type: 'imported',
+    }));
+    expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument();
   });
 
   it('saves changed form data when editing a culture', async () => {

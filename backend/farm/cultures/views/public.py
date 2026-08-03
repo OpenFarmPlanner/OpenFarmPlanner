@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from crops.permissions import is_public_library_moderator
-from crops.services import find_exact_crop_match
+from crops.services import build_public_crop_search_query, find_exact_crop_match
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
@@ -86,18 +86,9 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         variety = (self.request.query_params.get('variety') or '').strip()
 
         if query:
-            queryset = queryset.filter(
-                Q(name__icontains=query)
-                | Q(variety__icontains=query)
-                | Q(crop_species__name__icontains=query)
-                | Q(crop_species__translations__common_name__icontains=query),
-            ).distinct()
+            queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
         if name:
-            queryset = queryset.filter(
-                Q(name__icontains=name)
-                | Q(crop_species__name__icontains=name)
-                | Q(crop_species__translations__common_name__icontains=name),
-            ).distinct()
+            queryset = queryset.filter(build_public_crop_search_query(name, include_variety=False)).distinct()
         if variety:
             # Variety names are proper names — matched verbatim, not translated.
             queryset = queryset.filter(variety__icontains=variety)

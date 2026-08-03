@@ -21,8 +21,8 @@ import {
   Typography,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router';
-import { cropSpeciesAPI, cultureAPI, type Culture } from '../api/api';
-import type { CropSpecies, PublishPublicCulturePreview } from '../api/types';
+import { cropSpeciesAPI, cultureAPI, publicCultureAPI, type Culture } from '../api/api';
+import type { CropSpecies, PublicCulture, PublishPublicCulturePreview } from '../api/types';
 import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
@@ -33,7 +33,7 @@ interface CulturesPublishingWizardDialogProps {
   termsAlreadyAccepted: boolean;
   publishing: boolean;
   onClose: () => void;
-  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId: number; originalLanguageCode: string }) => void;
+  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null }) => void;
 }
 
 const LANGUAGE_CODES = ['de', 'en'] as const;
@@ -62,6 +62,11 @@ const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined):
   return items.find((item) => normalizeSpeciesName(item.name) === normalizedCultureName) ?? null;
 };
 
+const getPublicCultureOptionLabel = (option: PublicCulture): string => {
+  const name = option.display_name || option.crop_species_name || option.name;
+  return option.variety ? `${name} · ${option.variety}` : name;
+};
+
 export function CulturesPublishingWizardDialog({
   open,
   culture,
@@ -74,6 +79,10 @@ export function CulturesPublishingWizardDialog({
   const [species, setSpecies] = useState<CropSpecies[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<CropSpecies | null>(null);
+  const [publicCultureOptions, setPublicCultureOptions] = useState<PublicCulture[]>([]);
+  const [publicCultureLoading, setPublicCultureLoading] = useState(false);
+  const [selectedPublicCulture, setSelectedPublicCulture] = useState<PublicCulture | null>(null);
+  const [publicCultureInput, setPublicCultureInput] = useState('');
   const [originalLanguageCode, setOriginalLanguageCode] = useState(getDefaultLanguageCode());
   const [acceptedLicense, setAcceptedLicense] = useState(false);
   const [validationResult, setValidationResult] = useState<PublishPublicCulturePreview | null>(null);
@@ -95,8 +104,56 @@ export function CulturesPublishingWizardDialog({
       setProposalSent(false);
       setValidationResult(null);
       setOriginalLanguageCode(getDefaultLanguageCode());
+      setPublicCultureInput(culture?.name ?? '');
+      setSelectedPublicCulture(null);
     });
-  }, [open]);
+  }, [culture?.name, open]);
+
+  useEffect(() => {
+    if (!open || !culture?.source_public_culture) return;
+    let cancelled = false;
+    publicCultureAPI.get(culture.source_public_culture)
+      .then((response) => {
+        if (cancelled) return;
+        setSelectedPublicCulture(response.data);
+        setPublicCultureInput(getPublicCultureOptionLabel(response.data));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [culture?.source_public_culture, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const searchTerm = publicCultureInput.trim();
+    if (!searchTerm) {
+      queueMicrotask(() => setPublicCultureOptions([]));
+      return undefined;
+    }
+
+    let cancelled = false;
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setPublicCultureLoading(true);
+      publicCultureAPI.list({ q: searchTerm }, abortController.signal)
+        .then((response) => {
+          if (!cancelled) setPublicCultureOptions(response.data.results);
+        })
+        .catch(() => {
+          if (!cancelled && !abortController.signal.aborted) setPublicCultureOptions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setPublicCultureLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      abortController.abort();
+    };
+  }, [open, publicCultureInput]);
 
   useEffect(() => {
     if (!open) return;
@@ -140,6 +197,14 @@ export function CulturesPublishingWizardDialog({
 
   const handlePublish = useCallback(async () => {
     if (!culture?.id) return;
+    if (selectedPublicCulture) {
+      onPublish({
+        acceptedPublicLibraryTerms: false,
+        originalLanguageCode,
+        publicCultureId: selectedPublicCulture.id,
+      });
+      return;
+    }
     if (!selectedSpecies) {
       speciesInputRef.current?.focus();
       return;
@@ -179,10 +244,11 @@ export function CulturesPublishingWizardDialog({
     });
   }, [
     acceptedLicense,
-    culture?.id,
+    culture,
     licenseAccepted,
     onPublish,
     originalLanguageCode,
+    selectedPublicCulture,
     selectedSpecies,
     showLicenseConfirmation,
     termsAlreadyAccepted,
@@ -198,6 +264,45 @@ export function CulturesPublishingWizardDialog({
           </Typography>
 
           <Stack spacing={2}>
+            <Autocomplete
+              options={publicCultureOptions}
+              value={selectedPublicCulture}
+              inputValue={publicCultureInput}
+              loading={publicCultureLoading}
+              getOptionLabel={getPublicCultureOptionLabel}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              filterOptions={(options) => options}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'reset') return;
+                setPublicCultureInput(value);
+                setSelectedPublicCulture(null);
+                resetValidationResult();
+              }}
+              onChange={(_, value) => {
+                setSelectedPublicCulture(value);
+                if (value?.crop_species) {
+                  setSelectedSpecies(species.find((item) => item.id === value.crop_species) ?? selectedSpecies);
+                }
+                resetValidationResult();
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('library.publishWizard.publicCultureLabel')}
+                  helperText={t('library.publishWizard.publicCultureHelp')}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+
             <Autocomplete
               options={species}
               value={selectedSpecies}
@@ -246,6 +351,7 @@ export function CulturesPublishingWizardDialog({
             </FormControl>
           </Stack>
 
+          {!selectedPublicCulture ? (
           <Box>
             <Button size="small" variant="text" onClick={() => setShowProposalForm((value) => !value)}>
               {t('library.publishWizard.proposeSpeciesToggle')}
@@ -266,6 +372,7 @@ export function CulturesPublishingWizardDialog({
             ) : null}
             {proposalSent ? <Typography sx={{ mt: 1 }} variant="body2" color="success.main">{t('library.publishWizard.proposalSent')}</Typography> : null}
           </Box>
+          ) : null}
 
           {hasVisibleValidationIssues ? (
             <Stack spacing={1}>
@@ -308,9 +415,11 @@ export function CulturesPublishingWizardDialog({
         <Button
           onClick={() => void handlePublish()}
           variant="contained"
-          disabled={!selectedSpecies || !originalLanguageCode || publishing || validationLoading || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)}
+          disabled={(!selectedPublicCulture && !selectedSpecies) || !originalLanguageCode || publishing || validationLoading || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)}
         >
-          {publishing || validationLoading ? t('library.publishing') : t('library.publishWizard.publishNow')}
+          {publishing || validationLoading
+            ? t('library.publishing')
+            : selectedPublicCulture ? t('library.publishWizard.linkExisting') : t('library.publishWizard.publishNow')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -104,7 +104,7 @@ export function usePublicCultureLibrary({
 
   const handlePublishCurrentCulture = async (
     acceptedPublicLibraryTerms = false,
-    publishingData?: { cropSpeciesId: number; originalLanguageCode: string },
+    publishingData?: { cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null },
   ): Promise<boolean> => {
     if (!selectedCulture?.id) {
       return false;
@@ -112,6 +112,12 @@ export function usePublicCultureLibrary({
 
     try {
       setPublishingCultureId(selectedCulture.id);
+      if (publishingData?.publicCultureId) {
+        await cultureAPI.linkPublicCulture(selectedCulture.id, publishingData.publicCultureId);
+        showSnackbar(t('library.linkPublicCultureSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
+        await refreshPublicCultureStatusContext();
+        return true;
+      }
       const response = await cultureAPI.publishPublic(selectedCulture.id, {
         accepted_public_library_terms: acceptedPublicLibraryTerms,
         ...(publishingData ? {

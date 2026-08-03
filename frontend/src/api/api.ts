@@ -133,6 +133,8 @@ export const cultureAPI = {
     http.get<PublishPublicCulturePreview>(`/cultures/${id}/publish-public/preview/`, { params }),
   publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string }) =>
     http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
+  linkPublicCulture: (id: number, publicCultureId: number) =>
+    http.post<Culture>(`/cultures/${id}/link-public-culture/`, { public_culture_id: publicCultureId }),
 };
 
 export const cropSpeciesAPI = {
@@ -156,7 +158,8 @@ export const publicLibraryModeratorRequestAPI = {
 
 
 export const publicCultureAPI = {
-  list: (params?: { q?: string; name?: string; variety?: string }) => http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params }),
+  list: (params?: { q?: string; name?: string; variety?: string }, signal?: AbortSignal) =>
+    http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params, signal }),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
   update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
     http.patch<PublicCulture>(`/public-cultures/${id}/`, data),

@@ -2,9 +2,9 @@
  * BasicInfoSection: Name, Variety, Crop Family, Nutrient Demand
  */
 import type { ReactNode } from 'react';
-import { Box, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
+import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
 import { fieldRowSx, mediumFieldSx, smallFieldSx, wideFieldSx } from './styles.tsx';
-import type { Culture } from '../../api/types';
+import type { Culture, PublicCulture } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 
@@ -15,24 +15,105 @@ interface BasicInfoSectionProps {
   t: TFunction;
   identityHint?: ReactNode;
   showIdentityFields?: boolean;
+  publicCultureOptions?: PublicCulture[];
+  publicCultureOptionsLoading?: boolean;
+  onPublicCultureSearchChange?: (value: string) => void;
+  onPublicCultureSelect?: (culture: PublicCulture | null) => void;
 }
 
-export function BasicInfoSection({ formData, errors, onChange, t, identityHint, showIdentityFields = true }: BasicInfoSectionProps) {
+const getPublicCultureOptionLabel = (option: PublicCulture | string): string => {
+  if (typeof option === 'string') {
+    return option;
+  }
+  const name = option.display_name || option.crop_species_name || option.name;
+  return option.variety ? `${name} · ${option.variety}` : name;
+};
+
+export function BasicInfoSection({
+  formData,
+  errors,
+  onChange,
+  t,
+  identityHint,
+  showIdentityFields = true,
+  publicCultureOptions,
+  publicCultureOptionsLoading = false,
+  onPublicCultureSearchChange,
+  onPublicCultureSelect,
+}: BasicInfoSectionProps) {
+  const usesPublicCultureAutocomplete = Boolean(publicCultureOptions && onPublicCultureSearchChange && onPublicCultureSelect);
+
   return (
     <>
       {showIdentityFields ? (
         <Box sx={fieldRowSx}>
-          <TextField
-            sx={wideFieldSx}
-            required
-            label={t('form.name')}
-            placeholder={t('form.namePlaceholder')}
-            value={formData.name}
-            onChange={e => onChange('name', e.target.value)}
-            error={Boolean(errors.name)}
-            helperText={errors.name}
-            slotProps={{ htmlInput: { maxLength: 200 } }}
-          />
+          {usesPublicCultureAutocomplete ? (
+            <Autocomplete
+              freeSolo
+              clearOnBlur={false}
+              options={publicCultureOptions ?? []}
+              value={formData.name ?? ''}
+              inputValue={formData.name ?? ''}
+              loading={publicCultureOptionsLoading}
+              getOptionLabel={getPublicCultureOptionLabel}
+              isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.id === value.id}
+              filterOptions={(options) => options}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'reset') {
+                  return;
+                }
+                onPublicCultureSearchChange(value);
+                onChange('name', value);
+                onPublicCultureSelect(null);
+              }}
+              onChange={(_, value) => {
+                if (typeof value === 'string') {
+                  onChange('name', value);
+                  onPublicCultureSelect(null);
+                  return;
+                }
+                if (value) {
+                  onPublicCultureSelect(value);
+                  return;
+                }
+                onChange('name', '');
+                onPublicCultureSelect(null);
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  sx={wideFieldSx}
+                  required
+                  label={t('form.name')}
+                  placeholder={t('form.namePlaceholder')}
+                  error={Boolean(errors.name)}
+                  helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
+                  slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {publicCultureOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+          ) : (
+            <TextField
+              sx={wideFieldSx}
+              required
+              label={t('form.name')}
+              placeholder={t('form.namePlaceholder')}
+              value={formData.name}
+              onChange={e => onChange('name', e.target.value)}
+              error={Boolean(errors.name)}
+              helperText={errors.name}
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
+          )}
           <TextField
             sx={wideFieldSx}
             required

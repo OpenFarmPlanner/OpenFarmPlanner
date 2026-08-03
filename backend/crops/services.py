@@ -28,6 +28,64 @@ from farm.utils import normalize_text
 if TYPE_CHECKING:
     from .models import CropSpecies
 
+SEARCH_ALIASES = {
+    'paradeis': 'tomate',
+    'paradeiser': 'tomate',
+    'paradeisern': 'tomate',
+    'paradeisers': 'tomate',
+}
+
+
+def build_crop_search_terms(value: str) -> set[str]:
+    """Return normalized search variants for user-facing crop lookup."""
+    normalized = normalize_text(value)
+    if not normalized:
+        return set()
+
+    terms = {normalized}
+    for token in normalized.split():
+        terms.add(token)
+        alias = SEARCH_ALIASES.get(token)
+        if alias:
+            terms.add(alias)
+        if token.endswith('en') and len(token) > 4:
+            terms.add(token[:-1])
+        if token.endswith('n') and len(token) > 4:
+            terms.add(token[:-1])
+        if token.endswith('s') and len(token) > 4:
+            terms.add(token[:-1])
+
+    alias = SEARCH_ALIASES.get(normalized)
+    if alias:
+        terms.add(alias)
+    return {term for term in terms if term}
+
+
+def build_public_crop_search_query(value: str, *, include_variety: bool = True) -> Q:
+    """Build a search query spanning crop names, species names, and translations."""
+    query = Q()
+    stripped_value = value.strip()
+    if stripped_value and include_variety:
+        query |= Q(variety__icontains=stripped_value)
+    for term in build_crop_search_terms(value):
+        query |= (
+            Q(name_normalized__icontains=term)
+            | Q(crop_species__name_normalized__icontains=term)
+            | Q(crop_species__translations__common_name_normalized__icontains=term)
+        )
+    return query
+
+
+def build_species_search_query(value: str) -> Q:
+    """Build a search query for official crop species and translations."""
+    query = Q()
+    stripped_value = value.strip()
+    if stripped_value:
+        query |= Q(name__icontains=stripped_value) | Q(translations__common_name__icontains=stripped_value)
+    for term in build_crop_search_terms(value):
+        query |= Q(name_normalized__icontains=term) | Q(translations__common_name_normalized__icontains=term)
+    return query
+
 
 def list_published_crops(*, query: str = '', name: str = '', variety: str = '') -> QuerySet[PublicCulture]:
     """Published crops, optionally filtered by a free-text query and/or exact-field substrings.
@@ -54,18 +112,9 @@ def list_published_crops(*, query: str = '', name: str = '', variety: str = '') 
     variety = variety.strip()
 
     if query:
-        queryset = queryset.filter(
-            Q(name__icontains=query)
-            | Q(variety__icontains=query)
-            | Q(crop_species__name__icontains=query)
-            | Q(crop_species__translations__common_name__icontains=query),
-        ).distinct()
+        queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
     if name:
-        queryset = queryset.filter(
-            Q(name__icontains=name)
-            | Q(crop_species__name__icontains=name)
-            | Q(crop_species__translations__common_name__icontains=name),
-        ).distinct()
+        queryset = queryset.filter(build_public_crop_search_query(name, include_variety=False)).distinct()
     if variety:
         # Variety names are proper names: never translated, matched verbatim.
         queryset = queryset.filter(variety__icontains=variety)

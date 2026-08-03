@@ -226,7 +226,6 @@ function Cultures() {
     isUpdatingOwnPublicCulture,
     fetchPublicCultures,
     handleOpenPublicLibrary,
-    handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
     handleRemovePublicCulture,
@@ -247,13 +246,15 @@ function Cultures() {
 
   const handlePublishingWizardPublish = useCallback((data: {
     acceptedPublicLibraryTerms: boolean;
-    cropSpeciesId: number;
+    cropSpeciesId?: number;
     originalLanguageCode: string;
+    publicCultureId?: number | null;
   }) => {
     setPublishWizardOpen(false);
     void handlePublishCurrentCulture(data.acceptedPublicLibraryTerms, {
       cropSpeciesId: data.cropSpeciesId,
       originalLanguageCode: data.originalLanguageCode,
+      publicCultureId: data.publicCultureId,
     });
   }, [handlePublishCurrentCulture]);
 
@@ -726,7 +727,6 @@ function Cultures() {
           culture={editingCulture}
           onSave={handleSave}
           onCancel={handleCancel}
-          onViewPublicLibraryMatch={(match) => void handleViewPublicLibraryMatch(match)}
         />
       ) : null}
 

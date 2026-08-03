@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n';
-import type { Culture, PublicCultureMatchResponse, Supplier } from '../api/types';
+import type { Culture, PublicCulture, Supplier } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import {
   Dialog,
@@ -64,7 +64,6 @@ interface CultureFormProps {
   culture?: Culture;
   onSave: (culture: Culture) => Promise<void>;
   onCancel: () => void;
-  onViewPublicLibraryMatch?: (culture: NonNullable<PublicCultureMatchResponse['culture']>) => void;
   title?: string;
   variant?: 'project' | 'publicLibrary';
   extraSections?: ReactNode;
@@ -112,6 +111,55 @@ const EMPTY_CULTURE: Partial<Culture> = {
 };
 
 const DUPLICATE_CHECK_DEBOUNCE_MS = 400;
+const PUBLIC_CULTURE_SEARCH_DEBOUNCE_MS = 250;
+
+const metersToCentimeters = (value: number | null | undefined): number | undefined => (
+  typeof value === 'number' ? Math.round(value * 100) : undefined
+);
+
+const getPublicCultureDraftName = (publicCulture: PublicCulture): string => (
+  publicCulture.display_name || publicCulture.crop_species_name || publicCulture.name
+);
+
+const buildDraftFromPublicCulture = (publicCulture: PublicCulture): Partial<Culture> => ({
+  name: getPublicCultureDraftName(publicCulture),
+  variety: publicCulture.variety ?? '',
+  notes: publicCulture.notes ?? '',
+  seed_supplier: publicCulture.supplier_name || publicCulture.seed_supplier || '',
+  crop_species: publicCulture.crop_species ?? null,
+  source_public_culture: publicCulture.id,
+  source_public_version: publicCulture.version,
+  origin_type: 'imported',
+  is_modified_from_source: false,
+  crop_family: publicCulture.crop_family ?? '',
+  nutrient_demand: publicCulture.nutrient_demand ?? '',
+  cultivation_type: publicCulture.cultivation_type || 'pre_cultivation',
+  cultivation_types: publicCulture.cultivation_types?.length ? publicCulture.cultivation_types : ['pre_cultivation'],
+  growth_duration_days: publicCulture.growth_duration_days ?? undefined,
+  harvest_duration_days: publicCulture.harvest_duration_days ?? undefined,
+  propagation_duration_days: publicCulture.propagation_duration_days ?? undefined,
+  harvest_method: publicCulture.harvest_method ?? '',
+  expected_yield: publicCulture.expected_yield ?? undefined,
+  allow_deviation_delivery_weeks: publicCulture.allow_deviation_delivery_weeks ?? false,
+  distance_within_row_cm: metersToCentimeters(publicCulture.distance_within_row_m),
+  row_spacing_cm: metersToCentimeters(publicCulture.row_spacing_m),
+  sowing_depth_cm: metersToCentimeters(publicCulture.sowing_depth_m),
+  seed_rate_value: publicCulture.seed_rate_value ?? null,
+  seed_rate_unit: publicCulture.seed_rate_unit ?? null,
+  seed_rate_by_cultivation: publicCulture.seed_rate_by_cultivation ?? null,
+  seed_rate_direct_value: publicCulture.seed_rate_direct_value ?? null,
+  seed_rate_direct_unit: publicCulture.seed_rate_direct_unit ?? null,
+  sowing_calculation_safety_percent_direct: publicCulture.sowing_calculation_safety_percent_direct ?? null,
+  seed_rate_pre_cultivation_value: publicCulture.seed_rate_pre_cultivation_value ?? null,
+  seed_rate_pre_cultivation_unit: publicCulture.seed_rate_pre_cultivation_unit ?? null,
+  sowing_calculation_safety_percent_pre_cultivation: publicCulture.sowing_calculation_safety_percent_pre_cultivation ?? null,
+  sowing_calculation_safety_percent: publicCulture.sowing_calculation_safety_percent ?? 0,
+  thousand_kernel_weight_g: publicCulture.thousand_kernel_weight_g ?? undefined,
+  seeding_requirement: publicCulture.seeding_requirement ?? undefined,
+  seeding_requirement_type: publicCulture.seeding_requirement_type ?? '',
+  display_color: publicCulture.display_color ?? '',
+  seed_packages: publicCulture.seed_packages ?? [],
+});
 
 const buildInitialFormData = (culture?: Culture): Partial<Culture> => {
   if (!culture) {
@@ -168,7 +216,6 @@ export function CultureForm({
   culture,
   onSave,
   onCancel,
-  onViewPublicLibraryMatch,
   title,
   variant = 'project',
   extraSections,
@@ -197,8 +244,9 @@ export function CultureForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [duplicateErrorKey, setDuplicateErrorKey] = useState<string>('');
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
-  const [projectDuplicateClearedKey, setProjectDuplicateClearedKey] = useState<string | null>(null);
-  const [publicLibraryMatch, setPublicLibraryMatch] = useState<PublicCultureMatchResponse['culture']>(null);
+  const [publicCultureOptions, setPublicCultureOptions] = useState<PublicCulture[]>([]);
+  const [publicCultureOptionsLoading, setPublicCultureOptionsLoading] = useState(false);
+  const [publicCultureSearchTerm, setPublicCultureSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -213,10 +261,8 @@ export function CultureForm({
   const formRef = useRef<HTMLFormElement | null>(null);
   const supplierOptionsRef = useRef<Supplier[]>([]);
   const duplicateCheckSequenceRef = useRef(0);
-  const publicLibraryMatchSequenceRef = useRef(0);
-  const currentIdentityKeyRef = useRef<string | null>(null);
-  const publicLibraryMatchCacheRef = useRef<Map<string, PublicCultureMatchResponse['culture']>>(new Map());
-  const hasUnsavedChanges = (isDirty && userInteractedRef.current) || hasExternalChanges;
+  const publicCultureSearchSequenceRef = useRef(0);
+  const hasUnsavedChanges = isDirty || hasExternalChanges;
 
   // Move focus to the first input after MUI's FocusTrap has settled
   useEffect(() => {
@@ -273,13 +319,15 @@ export function CultureForm({
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setFormData(buildInitialFormData(culture));
     setErrors({});
     setDuplicateErrorKey('');
     setIsDuplicateChecking(false);
-    setProjectDuplicateClearedKey(null);
-    setPublicLibraryMatch(null);
+    setPublicCultureOptions([]);
+    setPublicCultureOptionsLoading(false);
+    setPublicCultureSearchTerm('');
     setIsDirty(false);
     setIsValid(true);
     setHasSubmitted(false);
@@ -288,15 +336,18 @@ export function CultureForm({
     isSavingRef.current = false;
     userInteractedRef.current = false;
   }, [culture]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!showSupplierDataSection) {
       supplierOptionsRef.current = [];
-      setSupplierOptions([]);
+      queueMicrotask(() => setSupplierOptions([]));
       return undefined;
     }
 
-    void loadSuppliers();
+    queueMicrotask(() => {
+      void loadSuppliers();
+    });
 
     const onWindowFocus = () => {
       void loadSuppliers();
@@ -314,14 +365,12 @@ export function CultureForm({
     return result.isValid;
   }, [hasSubmitted, t]);
 
-  const currentIdentityKey = buildCultureIdentityKey(formData.name, formData.variety);
-  currentIdentityKeyRef.current = currentIdentityKey;
-
   useEffect(() => {
     if (!isProjectForm) {
-      setDuplicateErrorKey('');
-      setProjectDuplicateClearedKey(null);
-      setIsDuplicateChecking(false);
+      queueMicrotask(() => {
+        setDuplicateErrorKey('');
+        setIsDuplicateChecking(false);
+      });
       return undefined;
     }
 
@@ -331,21 +380,19 @@ export function CultureForm({
     const originalIdentityKey = buildCultureIdentityKey(culture?.name, culture?.variety);
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
-    setDuplicateErrorKey('');
-    setProjectDuplicateClearedKey(null);
+    queueMicrotask(() => setDuplicateErrorKey(''));
 
     if (!identityKey) {
-      setIsDuplicateChecking(false);
+      queueMicrotask(() => setIsDuplicateChecking(false));
       return;
     }
 
     if (culture?.id && identityKey === originalIdentityKey) {
-      setIsDuplicateChecking(false);
-      setProjectDuplicateClearedKey(identityKey);
+      queueMicrotask(() => setIsDuplicateChecking(false));
       return;
     }
 
-    setIsDuplicateChecking(true);
+    queueMicrotask(() => setIsDuplicateChecking(true));
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => {
       cultureAPI.duplicateCheck(
@@ -357,22 +404,19 @@ export function CultureForm({
         abortController.signal,
       )
         .then((response) => {
-          if (duplicateCheckSequenceRef.current !== currentSequence || identityKey !== currentIdentityKeyRef.current) {
+          if (duplicateCheckSequenceRef.current !== currentSequence) {
             return;
           }
           setDuplicateErrorKey(response.data.exists ? 'form.duplicateNameVariety' : '');
-          setProjectDuplicateClearedKey(response.data.exists ? null : identityKey);
         })
         .catch(() => {
           if (
             duplicateCheckSequenceRef.current !== currentSequence
             || abortController.signal.aborted
-            || identityKey !== currentIdentityKeyRef.current
           ) {
             return;
           }
           setDuplicateErrorKey('');
-          setProjectDuplicateClearedKey(null);
         })
         .finally(() => {
           if (duplicateCheckSequenceRef.current === currentSequence) {
@@ -389,64 +433,52 @@ export function CultureForm({
 
   useEffect(() => {
     if (!isProjectForm) {
-      setPublicLibraryMatch(null);
+      queueMicrotask(() => {
+        setPublicCultureOptions([]);
+        setPublicCultureOptionsLoading(false);
+      });
       return undefined;
     }
 
-    const name = formData.name ?? '';
-    const variety = formData.variety ?? '';
-    const identityKey = buildCultureIdentityKey(name, variety);
-    const currentSequence = publicLibraryMatchSequenceRef.current + 1;
-    publicLibraryMatchSequenceRef.current = currentSequence;
-    setPublicLibraryMatch(null);
+    const searchTerm = publicCultureSearchTerm.trim();
+    const currentSequence = publicCultureSearchSequenceRef.current + 1;
+    publicCultureSearchSequenceRef.current = currentSequence;
 
-    if (isEdit) {
-      return;
+    if (!searchTerm) {
+      queueMicrotask(() => {
+        setPublicCultureOptions([]);
+        setPublicCultureOptionsLoading(false);
+      });
+      return undefined;
     }
 
-    if (!identityKey || projectDuplicateClearedKey !== identityKey) {
-      return;
-    }
-
-    if (publicLibraryMatchCacheRef.current.has(identityKey)) {
-      setPublicLibraryMatch(publicLibraryMatchCacheRef.current.get(identityKey) ?? null);
-      return;
-    }
-
+    queueMicrotask(() => setPublicCultureOptionsLoading(true));
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => {
-      publicCultureAPI.match({ name, variety }, abortController.signal)
+      publicCultureAPI.list({ q: searchTerm }, abortController.signal)
         .then((response) => {
-          if (
-            publicLibraryMatchSequenceRef.current !== currentSequence
-            || identityKey !== currentIdentityKeyRef.current
-            || projectDuplicateClearedKey !== identityKey
-          ) {
+          if (publicCultureSearchSequenceRef.current !== currentSequence) {
             return;
           }
-          const match = response.data.exists ? response.data.culture : null;
-          publicLibraryMatchCacheRef.current.set(identityKey, match);
-          setPublicLibraryMatch(match);
+          setPublicCultureOptions(response.data.results);
         })
         .catch(() => {
-          if (
-            publicLibraryMatchSequenceRef.current !== currentSequence
-            || abortController.signal.aborted
-            || identityKey !== currentIdentityKeyRef.current
-            || projectDuplicateClearedKey !== identityKey
-          ) {
-            return;
+          if (publicCultureSearchSequenceRef.current === currentSequence && !abortController.signal.aborted) {
+            setPublicCultureOptions([]);
           }
-          publicLibraryMatchCacheRef.current.set(identityKey, null);
-          setPublicLibraryMatch(null);
+        })
+        .finally(() => {
+          if (publicCultureSearchSequenceRef.current === currentSequence) {
+            setPublicCultureOptionsLoading(false);
+          }
         });
-    }, DUPLICATE_CHECK_DEBOUNCE_MS);
+    }, PUBLIC_CULTURE_SEARCH_DEBOUNCE_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [formData.name, formData.variety, isEdit, isProjectForm, projectDuplicateClearedKey]);
+  }, [isProjectForm, publicCultureSearchTerm]);
 
   // Handle field changes
   // Strongly typed change handler
@@ -458,13 +490,50 @@ export function CultureForm({
       setSaveError('');
       if (name === 'name' || name === 'variety') {
         setDuplicateErrorKey('');
-        setProjectDuplicateClearedKey(null);
-        setPublicLibraryMatch(null);
       }
       validateAndSet(updated);
       return updated;
     });
   };
+
+  const handleManualPublicCultureSearchChange = useCallback((value: string) => {
+    setPublicCultureSearchTerm(value);
+  }, []);
+
+  const handlePublicCultureSelect = useCallback((publicCulture: PublicCulture | null) => {
+    if (!publicCulture) {
+      setFormData((prev) => {
+        const updated = {
+          ...prev,
+          crop_species: null,
+          source_public_culture: null,
+          source_public_version: null,
+          origin_type: 'manual',
+          is_modified_from_source: false,
+        };
+        setIsDirty(true);
+        userInteractedRef.current = true;
+        setSaveError('');
+        validateAndSet(updated);
+        return updated;
+      });
+      return;
+    }
+
+    setPublicCultureSearchTerm(getPublicCultureDraftName(publicCulture));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        ...buildDraftFromPublicCulture(publicCulture),
+      };
+      setIsDirty(true);
+      userInteractedRef.current = true;
+      setSaveError('');
+      setDuplicateErrorKey('');
+      validateAndSet(updated);
+      return updated;
+    });
+  }, [validateAndSet]);
 
   // Tab/Shift+Tab inside this dialog is MUI's `Dialog` focus trap's job; Tab
   // out of an open Select dropdown belongs to `TypeaheadSelect`. Do not add a
@@ -688,14 +757,13 @@ export function CultureForm({
               onChange={handleChange}
               t={t}
               showIdentityFields={isProjectForm}
-              identityHint={!isEdit && publicLibraryMatch && currentIdentityKey !== null && projectDuplicateClearedKey === currentIdentityKey && !duplicateErrorKey && !isDuplicateChecking ? (
+              publicCultureOptions={isProjectForm ? publicCultureOptions : undefined}
+              publicCultureOptionsLoading={publicCultureOptionsLoading}
+              onPublicCultureSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}
+              onPublicCultureSelect={isProjectForm ? handlePublicCultureSelect : undefined}
+              identityHint={isProjectForm && formData.source_public_culture ? (
                 <Box
                   sx={(theme) => ({
-                    display: 'flex',
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    justifyContent: 'space-between',
-                    gap: 1.5,
-                    flexDirection: { xs: 'column', sm: 'row' },
                     px: 1.5,
                     py: 1,
                     borderLeft: `4px solid ${theme.palette.primary.main}`,
@@ -705,23 +773,8 @@ export function CultureForm({
                   })}
                 >
                   <Typography variant="body2" sx={{ lineHeight: 1.35 }}>
-                    {t('form.publicLibraryMatchHint')}
+                    {t('form.publicCultureSourceHint')}
                   </Typography>
-                  {onViewPublicLibraryMatch ? (
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={() => onViewPublicLibraryMatch(publicLibraryMatch)}
-                      sx={{
-                        flexShrink: 0,
-                        px: 1,
-                        py: 0.5,
-                        color: 'primary.dark',
-                      }}
-                    >
-                      {t('form.viewPublicLibraryMatch')}
-                    </Button>
-                  ) : null}
                 </Box>
               ) : null}
             />

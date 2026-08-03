@@ -241,6 +241,22 @@ class CropSearchTest(DRFAPITestCase):
 
         self.assertIn(self.crop.id, [item['id'] for item in results])
 
+    def test_public_culture_endpoint_uses_fuzzy_species_terms(self):
+        for query in ('Tomaten', 'Paradeiser'):
+            with self.subTest(query=query):
+                response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': query})
+                results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+                self.assertIn(self.crop.id, [item['id'] for item in results])
+
+    def test_species_endpoint_uses_fuzzy_species_terms(self):
+        for query in ('Tomaten', 'Paradeiser'):
+            with self.subTest(query=query):
+                response = self.client.get('/openfarmplanner/api/crop-species/', {'q': query})
+                results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+                self.assertIn(self.species.id, [item['id'] for item in results])
+
     def test_search_does_not_scale_queries_with_the_number_of_results(self):
         """Cross-language search must stay O(1) in queries, not O(rows).
 

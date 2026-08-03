@@ -528,6 +528,28 @@ def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, An
     return payload
 
 
+def link_project_culture_to_public_reference(*, culture: Culture, public_culture: PublicCulture) -> Culture:
+    """Link a private culture to a published public culture without publishing a duplicate."""
+    source_payload = build_project_culture_payload(public_culture)
+    tracked_fields = Culture._SOURCE_DIVERGENCE_TRACKED_FIELDS
+    is_modified = any(getattr(culture, field) != source_payload.get(field) for field in tracked_fields)
+
+    culture.crop_species = public_culture.crop_species
+    culture.source_public_culture = public_culture
+    culture.source_public_version = public_culture.version
+    culture.origin_type = Culture.ORIGIN_IMPORTED
+    culture.is_modified_from_source = is_modified
+    culture.save(update_fields=[
+        'crop_species',
+        'source_public_culture',
+        'source_public_version',
+        'origin_type',
+        'is_modified_from_source',
+        'updated_at',
+    ])
+    return culture
+
+
 def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpecies | None = None) -> list[DuplicateCandidate]:
     """Published entries that would be duplicates of this culture.
 

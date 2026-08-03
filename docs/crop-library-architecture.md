@@ -99,6 +99,15 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+Private project cultures are intentionally independent from that public master
+data. The project culture form may suggest published public cultures while the
+user types `Kulturart`, and selecting one copies available baseline values plus
+`source_public_culture`/`source_public_version` into the private draft. Free
+text remains valid at all times and never creates or proposes a public entry.
+Only the publishing wizard requires a public-library decision: users either
+link the private culture to an existing published `PublicCulture`, or continue
+the existing new-public-entry flow after choosing an official `CropSpecies`.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational

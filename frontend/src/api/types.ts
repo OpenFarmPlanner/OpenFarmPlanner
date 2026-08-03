@@ -364,6 +364,9 @@ export interface PublishPublicCultureDuplicateError {
 export interface CropSpecies {
   id: number;
   name: string;
+  display_name?: string;
+  display_language_code?: string;
+  translations?: Array<{ language_code: string; common_name: string }>;
   status: 'published' | 'proposed' | 'rejected';
   proposed_by_label?: string;
   reviewed_by_label?: string;
