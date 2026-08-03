@@ -15,7 +15,6 @@ const {
   cropSpeciesListMock,
   publishPreviewMock,
   publicCultureListMock,
-  publicCultureRemoveMock,
   publishPublicMock,
   deleteMock,
   undeleteMock,
@@ -29,7 +28,6 @@ const {
   cropSpeciesListMock: vi.fn(),
   publishPreviewMock: vi.fn(),
   publicCultureListMock: vi.fn(),
-  publicCultureRemoveMock: vi.fn(),
   publishPublicMock: vi.fn(),
   deleteMock: vi.fn(),
   undeleteMock: vi.fn(),
@@ -76,7 +74,6 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
-      remove: publicCultureRemoveMock,
     },
   };
 });
@@ -97,7 +94,6 @@ vi.mock('../cultures/CultureDetail', () => ({
     onCreateCulture,
     onCreatePlan,
     onPublishCulture,
-    onRemovePublicCulture,
     onEditCulture,
     onDeleteCulture,
     canCreatePlan,
@@ -109,7 +105,6 @@ vi.mock('../cultures/CultureDetail', () => ({
     onCreateCulture?: () => void;
     onCreatePlan?: () => void;
     onPublishCulture?: () => void;
-    onRemovePublicCulture?: (culture: CultureDetailMockCulture) => void;
     onEditCulture?: (culture: { id?: number; name: string }) => void;
     onDeleteCulture?: (culture: { id?: number; name: string; variety?: string; cultivation_type?: string }) => void;
     canCreatePlan?: boolean;
@@ -123,7 +118,6 @@ vi.mock('../cultures/CultureDetail', () => ({
       ))}
       <button type="button" onClick={() => onCreateCulture?.()}>Kultur hinzufügen</button>
       <button type="button" onClick={() => onPublishCulture?.()}>{publishActionLabel ?? 'Veröffentlichen'}</button>
-      <button type="button" onClick={() => onRemovePublicCulture?.(cultures[0])}>Aus Bibliothek entfernen</button>
       <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
       <button type="button" onClick={() => onEditCulture?.(cultures[0])}>Kultur bearbeiten</button>
       <button type="button" onClick={() => onDeleteCulture?.(cultures[0])}>Kultur löschen</button>
@@ -224,7 +218,6 @@ describe('Cultures action area', () => {
         duplicates: [],
       },
     });
-    publicCultureRemoveMock.mockResolvedValue({ data: { id: 77, name: 'Tomate', version: 1, status: 'removed' } });
   });
 
   afterEach(() => {
@@ -433,7 +426,7 @@ describe('Cultures action area', () => {
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
   });
 
-  it('removes an owned public culture from the library without asking for a reason', async () => {
+  it('does not expose the remove from library action for owned public cultures', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 1,
@@ -454,56 +447,10 @@ describe('Cultures action area', () => {
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Aus Bibliothek entfernen?');
-    expect(dialog).toHaveTextContent('Bereits importierte Kulturen in Projekten bleiben vollständig erhalten.');
-    expect(within(dialog).queryByLabelText('Grund')).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
     await waitFor(() => {
-      expect(publicCultureRemoveMock).toHaveBeenCalledWith(77, undefined);
+      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
-    expect(listMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('removes an owned public culture with a moderation reason', async () => {
-    authUser.is_staff = true;
-    listMock.mockResolvedValue({
-      data: {
-        count: 1,
-        next: null,
-        previous: null,
-        results: [
-          {
-            id: 1,
-            name: 'Tomate',
-            growth_duration_days: 1,
-            harvest_duration_days: 1,
-            owned_public_culture_id: 77,
-            owned_public_culture_role: 'moderator',
-          },
-        ],
-      },
-    });
-
-    renderCultures('/cultures?cultureId=1');
-
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Bitte wähle den Moderationsgrund.');
-    expect(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeDisabled();
-    fireEvent.mouseDown(within(dialog).getByLabelText('Grund'));
-    fireEvent.click(await screen.findByRole('option', { name: 'Duplikat' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
-    await waitFor(() => {
-      expect(publicCultureRemoveMock).toHaveBeenCalledWith(77, 'duplicate');
-    });
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
 
   it('does not expose hard delete from the standard culture action area', async () => {
@@ -521,7 +468,8 @@ describe('Cultures action area', () => {
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
   });
 
