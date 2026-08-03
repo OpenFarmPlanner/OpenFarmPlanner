@@ -95,6 +95,18 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(names, ['Tomate'])
         self.assertNotIn('Draft species', names)
 
+    def test_species_search_finds_plural_english_bean_query(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/openfarmplanner/api/crop-species/', {'q': 'beans'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = {item['name'] for item in response.data['results']}
+        self.assertIn('Bohne', names)
+        self.assertIn('Ackerbohne', names)
+        self.assertIn('Buschbohne', names)
+        self.assertIn('Stangenbohne', names)
+
     def test_species_create_stores_a_proposal(self):
         self.client.force_authenticate(user=self.user)
 
