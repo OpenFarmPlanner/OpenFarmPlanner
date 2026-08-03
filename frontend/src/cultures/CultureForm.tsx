@@ -508,7 +508,7 @@ export function CultureForm({
           crop_species: null,
           source_public_culture: null,
           source_public_version: null,
-          origin_type: 'manual',
+          origin_type: 'manual' as const,
           is_modified_from_source: false,
         };
         setIsDirty(true);

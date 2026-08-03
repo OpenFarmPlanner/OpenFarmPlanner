@@ -7,6 +7,8 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
+from django.db import connection
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.request import Request
@@ -16,12 +18,13 @@ from config.frontend_urls import build_public_frontend_url
 
 from accounts.consent import record_acceptance
 from accounts.models import DocumentConsent
-from farm.models import Project, ProjectInvitation, ProjectMembership
+from farm.models import Project, ProjectInvitation, ProjectMembership, PublicCulture
 from farm.services.demo_project import get_demo_project_name, populate_demo_project, resolve_demo_language
 
 User = get_user_model()
 E2E_PASSWORD = 'Pass12345!'
 TEST_EMAIL_DOMAIN = 'e2e.local'
+E2E_PUBLIC_CULTURE_VARIETY_PREFIXES = ('E2E Kollaboration ', 'Visual Empty ')
 
 
 def _e2e_token() -> str:
@@ -44,6 +47,28 @@ def _scenario_slug(raw_value: str) -> str:
 
 def _user_email(scenario: str, role: str) -> str:
     return f'{scenario}-{role}@{TEST_EMAIL_DOMAIN}'
+
+
+def _scenario_user_emails(scenario: str) -> list[str]:
+    return [
+        _user_email(scenario, 'admin'),
+        _user_email(scenario, 'invitee'),
+        _user_email(scenario, 'outsider'),
+        _user_email(scenario, 'starter'),
+    ]
+
+
+def _delete_legacy_public_culture_versions(public_culture_ids: list[int]) -> None:
+    if not public_culture_ids:
+        return
+    if 'farm_publiccultureversion' not in connection.introspection.table_names():
+        return
+    with connection.cursor() as cursor:
+        placeholders = ', '.join(['%s'] * len(public_culture_ids))
+        cursor.execute(
+            f'DELETE FROM farm_publiccultureversion WHERE public_culture_id IN ({placeholders})',
+            public_culture_ids,
+        )
 
 
 class E2EInvitationFixtureView(APIView):
@@ -70,15 +95,24 @@ class E2EInvitationFixtureView(APIView):
         raise PermissionDenied('Unsupported E2E action.')
 
     def _reset(self, scenario: str) -> None:
+        scenario_emails = _scenario_user_emails(scenario)
+        public_culture_ids = list(PublicCulture.objects.filter(
+            Q(source_project__slug=scenario)
+            | Q(source_project_culture__project__slug=scenario)
+            | (
+                Q(created_by__email__in=scenario_emails)
+                & (
+                    Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[0])
+                    | Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[1])
+                )
+            )
+        ).values_list('id', flat=True))
+        _delete_legacy_public_culture_versions(public_culture_ids)
+        PublicCulture.objects.filter(id__in=public_culture_ids).delete()
         ProjectMembership.objects.filter(project__slug=scenario).delete()
         ProjectInvitation.objects.filter(project__slug=scenario).delete()
         Project.objects.filter(slug=scenario).delete()
-        User.objects.filter(email__in=[
-            _user_email(scenario, 'admin'),
-            _user_email(scenario, 'invitee'),
-            _user_email(scenario, 'outsider'),
-            _user_email(scenario, 'starter'),
-        ]).delete()
+        User.objects.filter(email__in=scenario_emails).delete()
 
     def _setup_empty_user(self, scenario: str) -> dict[str, object]:
         self._reset(scenario)

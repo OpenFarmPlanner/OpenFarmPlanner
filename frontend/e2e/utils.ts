@@ -46,6 +46,13 @@ export async function setupUserWithoutProjects(
   return fixture.user;
 }
 
+export async function resetE2EScenario(
+  request: APIRequestContext,
+  scenarioId: string,
+): Promise<void> {
+  await invokeE2EAction(request, 'reset', { scenario_id: scenarioId });
+}
+
 // Submits the already-filled login form and waits for the app shell. A
 // transiently failed login request (backend/network hiccup under CI load)
 // keeps the login form on screen with an error alert instead of navigating,

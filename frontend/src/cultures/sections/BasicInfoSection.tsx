@@ -41,17 +41,23 @@ export function BasicInfoSection({
   onPublicCultureSearchChange,
   onPublicCultureSelect,
 }: BasicInfoSectionProps) {
-  const usesPublicCultureAutocomplete = Boolean(publicCultureOptions && onPublicCultureSearchChange && onPublicCultureSelect);
+  const publicCultureAutocomplete = publicCultureOptions && onPublicCultureSearchChange && onPublicCultureSelect
+    ? {
+      options: publicCultureOptions,
+      onSearchChange: onPublicCultureSearchChange,
+      onSelect: onPublicCultureSelect,
+    }
+    : null;
 
   return (
     <>
       {showIdentityFields ? (
         <Box sx={fieldRowSx}>
-          {usesPublicCultureAutocomplete ? (
-            <Autocomplete
+          {publicCultureAutocomplete ? (
+            <Autocomplete<PublicCulture, false, false, true>
               freeSolo
               clearOnBlur={false}
-              options={publicCultureOptions ?? []}
+              options={publicCultureAutocomplete.options}
               value={formData.name ?? ''}
               inputValue={formData.name ?? ''}
               loading={publicCultureOptionsLoading}
@@ -62,22 +68,22 @@ export function BasicInfoSection({
                 if (reason === 'reset') {
                   return;
                 }
-                onPublicCultureSearchChange(value);
+                publicCultureAutocomplete.onSearchChange(value);
                 onChange('name', value);
-                onPublicCultureSelect(null);
+                publicCultureAutocomplete.onSelect(null);
               }}
               onChange={(_, value) => {
                 if (typeof value === 'string') {
                   onChange('name', value);
-                  onPublicCultureSelect(null);
+                  publicCultureAutocomplete.onSelect(null);
                   return;
                 }
                 if (value) {
-                  onPublicCultureSelect(value);
+                  publicCultureAutocomplete.onSelect(value);
                   return;
                 }
                 onChange('name', '');
-                onPublicCultureSelect(null);
+                publicCultureAutocomplete.onSelect(null);
               }}
               renderInput={(params) => (
                 <TextField
