@@ -802,7 +802,7 @@ describe('CultureDetail Component', () => {
     expect(screen.getByText('56 Tage')).toBeInTheDocument();
     expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
     expect(screen.getByText('3,2 g')).toBeInTheDocument();
-    expect(screen.getByText('Grüner Rand: gilt nur für diese Sorte.')).toBeInTheDocument();
+    expect(screen.getByText('Markiert: gilt nur für diese Sorte.')).toBeInTheDocument();
     expect(screen.queryByText('Eigener Wert')).not.toBeInTheDocument();
     expect(screen.queryByText('Aus der Kultur')).not.toBeInTheDocument();
   });

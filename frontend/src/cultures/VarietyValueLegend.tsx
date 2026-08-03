@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { getVarietyValueLegendMarkerSx } from './varietyValueAccent';
 
 interface VarietyValueLegendProps {
   label: string;
@@ -16,12 +17,7 @@ export function VarietyValueLegend({ label }: VarietyValueLegendProps) {
     >
       <Box
         aria-hidden="true"
-        sx={{
-          width: 4,
-          height: 18,
-          borderRadius: 999,
-          bgcolor: 'primary.main',
-        }}
+        sx={getVarietyValueLegendMarkerSx()}
       />
       <Typography variant="body2" color="text.secondary">
         {label}

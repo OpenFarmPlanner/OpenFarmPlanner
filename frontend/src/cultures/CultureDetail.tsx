@@ -50,7 +50,7 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
-import { varietySpecificFieldAccentSx } from './varietyValueAccent';
+import { getVarietySpecificFieldSx } from './varietyValueAccent';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -523,7 +523,7 @@ const detailSectionGridSx = {
 
   const getOwnValueFieldSx = (...fields: (keyof Culture)[]) => (
     fields.some((field) => getCropValueSource(field) === 'ownValue')
-      ? varietySpecificFieldAccentSx
+      ? getVarietySpecificFieldSx()
       : undefined
   );
 

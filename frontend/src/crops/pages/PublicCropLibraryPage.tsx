@@ -86,7 +86,7 @@ import { MultilingualTextFieldSection } from '../components/MultilingualTextFiel
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
-import { varietySpecificFieldAccentSx } from '../../cultures/varietyValueAccent';
+import { getVarietySpecificFieldSx } from '../../cultures/varietyValueAccent';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -426,7 +426,7 @@ interface DetailRowProps {
 }
 
 function DetailRow({ label, value, source = null }: DetailRowProps) {
-  const ownValueSx = source === 'ownValue' ? varietySpecificFieldAccentSx : undefined;
+  const ownValueSx = source === 'ownValue' ? getVarietySpecificFieldSx() : undefined;
 
   return (
     <Box sx={ownValueSx}>

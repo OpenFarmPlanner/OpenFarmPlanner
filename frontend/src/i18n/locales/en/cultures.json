@@ -51,7 +51,7 @@
     "generalCrop": "General crop",
     "fromCrop": "From crop",
     "ownValue": "Own value",
-    "ownValueLegend": "Green edge: applies only to this variety.",
+    "ownValueLegend": "Marked: applies only to this variety.",
     "setOwnValue": "Set own value",
     "useCropValue": "Use crop value",
     "varietyLabel": "Variety",

@@ -14,7 +14,7 @@ import {
   formatSeedRateNumber,
   formatSeedUnitLabel,
 } from './cultureDetailFormatters';
-import { varietySpecificFieldAccentSx } from './varietyValueAccent';
+import { getVarietySpecificFieldSx } from './varietyValueAccent';
 
 export interface CultureSeedRateRow {
   method: CultivationType;
@@ -55,7 +55,7 @@ const seedDetailGridSx = {
 } as const;
 
 function getOwnValueFieldSx(source?: ValueSource | null) {
-  return source === 'ownValue' ? varietySpecificFieldAccentSx : undefined;
+  return source === 'ownValue' ? getVarietySpecificFieldSx() : undefined;
 }
 
 function ValueWithSource({
