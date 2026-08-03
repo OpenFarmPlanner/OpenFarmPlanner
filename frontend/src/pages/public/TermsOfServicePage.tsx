@@ -1,5 +1,4 @@
-import PrintIcon from '@mui/icons-material/Print';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { useTranslation } from '../../i18n';
 import LegalDocumentLayout from '../../components/legal/LegalDocumentLayout';
 
@@ -30,20 +29,7 @@ export default function TermsOfServicePage() {
   const { t } = useTranslation('home');
 
   return (
-    <LegalDocumentLayout
-      title={t('legal.terms.title')}
-      actions={
-        <Button
-          type="button"
-          variant="outlined"
-          startIcon={<PrintIcon />}
-          onClick={() => window.print()}
-          sx={{ '@media print': { display: 'none' } }}
-        >
-          {t('legal.terms.print')}
-        </Button>
-      }
-    >
+    <LegalDocumentLayout title={t('legal.terms.title')}>
       {termsSections.map((sectionKey, index) => {
         const bulletKeys = termsSectionBulletKeys[sectionKey];
         return (
