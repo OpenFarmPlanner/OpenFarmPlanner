@@ -1,26 +1,27 @@
 import { Box, Typography } from '@mui/material';
-import { getVarietyValueLegendMarkerSx } from './varietyValueAccent';
+import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 
 interface VarietyValueLegendProps {
-  label: string;
+  sampleLabel: string;
+  description: string;
 }
 
-export function VarietyValueLegend({ label }: VarietyValueLegendProps) {
+export function VarietyValueLegend({ sampleLabel, description }: VarietyValueLegendProps) {
   return (
     <Box
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 0.75,
+        gap: 0.5,
+        flexWrap: 'wrap',
         color: 'text.secondary',
       }}
     >
-      <Box
-        aria-hidden="true"
-        sx={getVarietyValueLegendMarkerSx()}
-      />
+      <Typography variant="body2" color="text.secondary" component="span" sx={varietySpecificValueHighlightSx}>
+        {sampleLabel}
+      </Typography>
       <Typography variant="body2" color="text.secondary">
-        {label}
+        = {description}
       </Typography>
     </Box>
   );

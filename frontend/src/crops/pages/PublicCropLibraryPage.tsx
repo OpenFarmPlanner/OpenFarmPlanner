@@ -86,7 +86,7 @@ import { MultilingualTextFieldSection } from '../components/MultilingualTextFiel
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
-import { getVarietySpecificFieldSx } from '../../cultures/varietyValueAccent';
+import { varietySpecificValueHighlightSx } from '../../cultures/varietyValueAccent';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -426,14 +426,14 @@ interface DetailRowProps {
 }
 
 function DetailRow({ label, value, source = null }: DetailRowProps) {
-  const ownValueSx = source === 'ownValue' ? getVarietySpecificFieldSx() : undefined;
+  const ownValueSx = source === 'ownValue' ? varietySpecificValueHighlightSx : undefined;
 
   return (
-    <Box sx={ownValueSx}>
+    <Box>
       <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
         {label}
       </Typography>
-      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
+      <Typography variant="body1" sx={[{ overflowWrap: 'anywhere' }, ...(ownValueSx ? [ownValueSx] : [])]}>
         {value}
       </Typography>
     </Box>
@@ -2483,7 +2483,10 @@ export default function PublicCropLibraryPage() {
                   {activeTab === 0 ? (
                     <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
                       {showVarietyValueLegend ? (
-                        <VarietyValueLegend label={t('hierarchy.ownValueLegend')} />
+                        <VarietyValueLegend
+                          sampleLabel={t('hierarchy.ownValueLegendSample')}
+                          description={t('hierarchy.ownValueLegendDescription')}
+                        />
                       ) : null}
 
                       <DetailSection title={t('library.page.sections.general')} outlined>

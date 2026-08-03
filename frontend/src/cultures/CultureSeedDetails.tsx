@@ -14,7 +14,7 @@ import {
   formatSeedRateNumber,
   formatSeedUnitLabel,
 } from './cultureDetailFormatters';
-import { getVarietySpecificFieldSx } from './varietyValueAccent';
+import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 
 export interface CultureSeedRateRow {
   method: CultivationType;
@@ -54,17 +54,19 @@ const seedDetailGridSx = {
   justifyContent: 'start',
 } as const;
 
-function getOwnValueFieldSx(source?: ValueSource | null) {
-  return source === 'ownValue' ? getVarietySpecificFieldSx() : undefined;
+function getOwnValueSx(source?: ValueSource | null) {
+  return source === 'ownValue' ? varietySpecificValueHighlightSx : undefined;
 }
 
 function ValueWithSource({
   children,
+  source,
 }: {
   children: ReactNode;
+  source?: ValueSource | null;
 }) {
   return (
-    <Typography variant="body1">
+    <Typography variant="body1" sx={getOwnValueSx(source)}>
       {children}
     </Typography>
   );
@@ -91,17 +93,17 @@ export function CultureSeedDetails({
   return (
     <Box sx={seedDetailGridSx}>
       {hasSingleSeedRate && (
-        <Box sx={getOwnValueFieldSx(seedRateRows[0].valueSource)}>
+        <Box>
           <Typography variant="body2" color="text.secondary">
             {t('form.seedAmountLabel')}
           </Typography>
-          <ValueWithSource>
+          <ValueWithSource source={seedRateRows[0].valueSource}>
             {formatSeedRateNumber(seedRateRows[0].value, t, locale)} {formatSeedUnitLabel(seedRateRows[0].unit, t)}
           </ValueWithSource>
         </Box>
       )}
       {hasSingleSeedRate && (
-        <Box sx={getOwnValueFieldSx(seedRateRows[0].safetySource)}>
+        <Box>
           <Typography
             variant="body2"
             color="text.secondary"
@@ -109,7 +111,7 @@ export function CultureSeedDetails({
           >
             {t('detail.fields.seedSafetyMargin')}
           </Typography>
-          <ValueWithSource>
+          <ValueWithSource source={seedRateRows[0].safetySource}>
             {seedRateRows[0].safety !== null ? `${formatNumber(seedRateRows[0].safety, t, locale)} ${t('detail.units.percent')}` : '-'}
           </ValueWithSource>
         </Box>
@@ -130,14 +132,18 @@ export function CultureSeedDetails({
               {seedRateRows.map((row) => (
                 <TableRow key={`${row.method}-${row.unit}-${row.value}`}>
                   <TableCell>{row.method === 'pre_cultivation' ? t('form.cultivationTypePreCultivation') : t('form.cultivationTypeDirectSowing')}</TableCell>
-                  <TableCell sx={getOwnValueFieldSx(row.valueSource)}>
-                    {formatSeedRateNumber(row.value, t, locale)}
+                  <TableCell>
+                    <Box component="span" sx={getOwnValueSx(row.valueSource)}>
+                      {formatSeedRateNumber(row.value, t, locale)}
+                    </Box>
                   </TableCell>
                   <TableCell>
                     {formatSeedUnitLabel(row.unit, t)}
                   </TableCell>
-                  <TableCell sx={getOwnValueFieldSx(row.safetySource)}>
-                    {row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}
+                  <TableCell>
+                    <Box component="span" sx={getOwnValueSx(row.safetySource)}>
+                      {row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
@@ -146,24 +152,24 @@ export function CultureSeedDetails({
         </Box>
       )}
       {seedRateRows.length === 0 && sowingSafetyPercent !== undefined && sowingSafetyPercent !== null && (
-        <Box sx={getOwnValueFieldSx(sowingSafetySource)}>
+        <Box>
           <Typography variant="body2" color="text.secondary">
             {t('detail.fields.seedSafetyMargin')}
           </Typography>
-          <ValueWithSource>
+          <ValueWithSource source={sowingSafetySource}>
             {formatNumber(sowingSafetyPercent, t, locale)} {t('detail.units.percent')}
           </ValueWithSource>
         </Box>
       )}
       {seedingRequirement !== undefined && seedingRequirement !== null && (
-        <Box sx={getOwnValueFieldSx(seedingRequirementSource ?? seedingRequirementTypeSource)}>
+        <Box>
           <Typography
             variant="body2"
             color="text.secondary"
           >
             {t('detail.fields.seedingRequirement')}
           </Typography>
-          <ValueWithSource>
+          <ValueWithSource source={seedingRequirementSource ?? seedingRequirementTypeSource}>
             {formatSeedRateNumber(seedingRequirement, t, locale)}
             {seedingRequirementType === 'per_sqm'
               ? ` ${t('detail.seedingRequirementTypes.perSqm')}`
@@ -173,11 +179,11 @@ export function CultureSeedDetails({
           </ValueWithSource>
         </Box>
       )}
-      <Box sx={getOwnValueFieldSx(thousandKernelWeightSource)}>
+      <Box>
         <Typography variant="body2" color="text.secondary">
           {t('form.thousandKernelWeightLabel')}
         </Typography>
-        <ValueWithSource>
+        <ValueWithSource source={thousandKernelWeightSource}>
           {thousandKernelWeightG !== null && thousandKernelWeightG !== undefined
             ? `${formatNumber(thousandKernelWeightG, t, locale)} ${t('detail.units.grams')}`
             : emptyValueLabel}
