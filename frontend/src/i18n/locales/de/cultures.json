@@ -848,6 +848,7 @@
       "intro": "Prüfe zuerst, ob bereits eine passende öffentliche Kultur existiert. Nur wenn keine passt, wird ein neuer öffentlicher Eintrag vorgeschlagen.",
       "publishNow": "Jetzt veröffentlichen",
       "linkExisting": "Mit öffentlicher Kultur verknüpfen",
+      "resolveBlockingIssues": "Warnungen zuerst lösen",
       "summaryTitle": "Zusammenfassung",
       "publicCultureLabel": "Passende öffentliche Kultur",
       "publicCultureHelp": "Freitext bleibt privat. Für die Veröffentlichung muss eine passende öffentliche Kultur gewählt oder ein neuer öffentlicher Eintrag vorgeschlagen werden.",

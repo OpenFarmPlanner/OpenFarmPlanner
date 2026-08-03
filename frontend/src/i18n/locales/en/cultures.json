@@ -848,6 +848,7 @@
       "intro": "First check whether a matching public crop already exists. Only propose a new public entry if none fits.",
       "publishNow": "Publish now",
       "linkExisting": "Link public crop",
+      "resolveBlockingIssues": "Resolve warnings first",
       "summaryTitle": "Summary",
       "publicCultureLabel": "Matching public crop",
       "publicCultureHelp": "Free text stays private. Publishing requires either selecting a matching public crop or proposing a new public entry.",

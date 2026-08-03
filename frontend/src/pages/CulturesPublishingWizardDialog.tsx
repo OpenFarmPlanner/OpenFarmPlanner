@@ -182,6 +182,7 @@ export function CulturesPublishingWizardDialog({
   const duplicates = validationResult?.duplicates ?? EMPTY_DUPLICATES;
   const licenseAccepted = termsAlreadyAccepted || acceptedLicense;
   const hasVisibleValidationIssues = missingRequiredFields.length > 0 || duplicates.length > 0;
+  const isBlockedByValidation = !selectedPublicCulture && validationResult !== null && !validationResult.can_publish;
 
   const handleProposeSpecies = useCallback(async () => {
     const trimmedName = proposalName.trim();
@@ -415,11 +416,20 @@ export function CulturesPublishingWizardDialog({
         <Button
           onClick={() => void handlePublish()}
           variant="contained"
-          disabled={(!selectedPublicCulture && !selectedSpecies) || !originalLanguageCode || publishing || validationLoading || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)}
+          disabled={
+            (!selectedPublicCulture && !selectedSpecies)
+            || !originalLanguageCode
+            || publishing
+            || validationLoading
+            || isBlockedByValidation
+            || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)
+          }
         >
           {publishing || validationLoading
             ? t('library.publishing')
-            : selectedPublicCulture ? t('library.publishWizard.linkExisting') : t('library.publishWizard.publishNow')}
+            : isBlockedByValidation
+              ? t('library.publishWizard.resolveBlockingIssues')
+              : selectedPublicCulture ? t('library.publishWizard.linkExisting') : t('library.publishWizard.publishNow')}
         </Button>
       </DialogActions>
     </Dialog>
