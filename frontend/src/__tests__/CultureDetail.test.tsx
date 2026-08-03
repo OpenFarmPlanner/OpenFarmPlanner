@@ -756,6 +756,56 @@ describe('CultureDetail Component', () => {
     expect(screen.queryByText('9 %')).not.toBeInTheDocument();
   });
 
+  it('marks variety values as from the crop or own values', () => {
+    const cultures: Culture[] = [
+      {
+        id: 31,
+        name: 'Tomate',
+        variety: '',
+        crop_species: 7,
+        crop_family: 'Nachtschattengewächse',
+        nutrient_demand: 'high',
+        cultivation_types: ['pre_cultivation'],
+        growth_duration_days: 78,
+        harvest_duration_days: 56,
+        row_spacing_cm: 80,
+        distance_within_row_cm: 50,
+        seed_rate_pre_cultivation_value: 1.2,
+        seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+        sowing_calculation_safety_percent_pre_cultivation: 20,
+        thousand_kernel_weight_g: 3.1,
+        harvest_method: 'per_plant',
+        expected_yield: 4.5,
+      },
+      {
+        id: 32,
+        name: 'Tomate',
+        variety: 'Roma',
+        crop_species: 7,
+        growth_duration_days: 72,
+        row_spacing_cm: 70,
+        thousand_kernel_weight_g: 3.2,
+      },
+    ];
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={cultures}
+        selectedCultureId={32}
+        onCultureSelect={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
+    expect(screen.getByText('72 Tage')).toBeInTheDocument();
+    expect(screen.getByText('56 Tage')).toBeInTheDocument();
+    expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
+    expect(screen.getByText('3,2 g')).toBeInTheDocument();
+    expect(screen.getAllByText('Eigener Wert').length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText('Aus der Kultur').length).toBeGreaterThanOrEqual(5);
+  });
+
   it('shows edit and plan as labeled primary actions and keeps secondary actions in overflow', async () => {
     const user = userEvent.setup();
     renderCultureDetail(

@@ -6,7 +6,9 @@ import {
   TableHead,
   TableRow,
   Typography,
+  Chip,
 } from '@mui/material';
+import type { ReactNode } from 'react';
 import type { CultivationType, SeedRateUnit } from '../api/types';
 import {
   formatNumber,
@@ -19,15 +21,23 @@ export interface CultureSeedRateRow {
   value: number;
   unit: SeedRateUnit | string;
   safety: number | null;
+  valueSource?: ValueSource | null;
+  safetySource?: ValueSource | null;
 }
+
+export type ValueSource = 'fromCrop' | 'ownValue';
 
 interface CultureSeedDetailsProps {
   activeCultivationTypes: CultivationType[];
   seedRateRows: CultureSeedRateRow[];
   sowingSafetyPercent?: number | null;
+  sowingSafetySource?: ValueSource | null;
   seedingRequirement?: number | null;
+  seedingRequirementSource?: ValueSource | null;
   seedingRequirementType?: 'per_sqm' | 'per_plant' | '';
+  seedingRequirementTypeSource?: ValueSource | null;
   thousandKernelWeightG?: number | null;
+  thousandKernelWeightSource?: ValueSource | null;
   emptyValueLabel: string;
   locale: string;
   t: (key: string) => string;
@@ -44,13 +54,50 @@ const seedDetailGridSx = {
   justifyContent: 'start',
 } as const;
 
+function ValueSourceBadge({ source, t }: { source?: ValueSource | null; t: (key: string) => string }) {
+  if (!source) {
+    return null;
+  }
+  return (
+    <Chip
+      size="small"
+      variant="outlined"
+      label={source === 'fromCrop' ? t('hierarchy.fromCrop') : t('hierarchy.ownValue')}
+      sx={{ mt: 0.75 }}
+    />
+  );
+}
+
+function ValueWithSource({
+  children,
+  source,
+  t,
+}: {
+  children: ReactNode;
+  source?: ValueSource | null;
+  t: (key: string) => string;
+}) {
+  return (
+    <>
+      <Typography variant="body1">
+        {children}
+      </Typography>
+      <ValueSourceBadge source={source} t={t} />
+    </>
+  );
+}
+
 export function CultureSeedDetails({
   activeCultivationTypes,
   seedRateRows,
   sowingSafetyPercent,
+  sowingSafetySource = null,
   seedingRequirement,
+  seedingRequirementSource = null,
   seedingRequirementType,
+  seedingRequirementTypeSource = null,
   thousandKernelWeightG,
+  thousandKernelWeightSource = null,
   emptyValueLabel,
   locale,
   t,
@@ -63,9 +110,9 @@ export function CultureSeedDetails({
       {hasSingleSeedRate && (
         <Box>
           <Typography variant="body2" color="text.secondary">{t('form.seedAmountLabel')}</Typography>
-          <Typography variant="body1">
+          <ValueWithSource source={seedRateRows[0].valueSource} t={t}>
             {formatSeedRateNumber(seedRateRows[0].value, t, locale)} {formatSeedUnitLabel(seedRateRows[0].unit, t)}
-          </Typography>
+          </ValueWithSource>
         </Box>
       )}
       {hasSingleSeedRate && (
@@ -73,9 +120,9 @@ export function CultureSeedDetails({
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t('detail.fields.seedSafetyMargin')}
           </Typography>
-          <Typography variant="body1">
+          <ValueWithSource source={seedRateRows[0].safetySource} t={t}>
             {seedRateRows[0].safety !== null ? `${formatNumber(seedRateRows[0].safety, t, locale)} ${t('detail.units.percent')}` : '-'}
-          </Typography>
+          </ValueWithSource>
         </Box>
       )}
       {hasMethodSeedRates && (
@@ -94,9 +141,18 @@ export function CultureSeedDetails({
               {seedRateRows.map((row) => (
                 <TableRow key={`${row.method}-${row.unit}-${row.value}`}>
                   <TableCell>{row.method === 'pre_cultivation' ? t('form.cultivationTypePreCultivation') : t('form.cultivationTypeDirectSowing')}</TableCell>
-                  <TableCell>{formatSeedRateNumber(row.value, t, locale)}</TableCell>
-                  <TableCell>{formatSeedUnitLabel(row.unit, t)}</TableCell>
-                  <TableCell>{row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}</TableCell>
+                  <TableCell>
+                    {formatSeedRateNumber(row.value, t, locale)}
+                    <ValueSourceBadge source={row.valueSource} t={t} />
+                  </TableCell>
+                  <TableCell>
+                    {formatSeedUnitLabel(row.unit, t)}
+                    <ValueSourceBadge source={row.valueSource} t={t} />
+                  </TableCell>
+                  <TableCell>
+                    {row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}
+                    <ValueSourceBadge source={row.safetySource} t={t} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -108,9 +164,9 @@ export function CultureSeedDetails({
           <Typography variant="body2" color="text.secondary">
             {t('detail.fields.seedSafetyMargin')}
           </Typography>
-          <Typography variant="body1">
+          <ValueWithSource source={sowingSafetySource} t={t}>
             {formatNumber(sowingSafetyPercent, t, locale)} {t('detail.units.percent')}
-          </Typography>
+          </ValueWithSource>
         </Box>
       )}
       {seedingRequirement !== undefined && seedingRequirement !== null && (
@@ -118,25 +174,25 @@ export function CultureSeedDetails({
           <Typography variant="body2" color="text.secondary">
             {t('detail.fields.seedingRequirement')}
           </Typography>
-          <Typography variant="body1">
+          <ValueWithSource source={seedingRequirementSource ?? seedingRequirementTypeSource} t={t}>
             {formatSeedRateNumber(seedingRequirement, t, locale)}
             {seedingRequirementType === 'per_sqm'
               ? ` ${t('detail.seedingRequirementTypes.perSqm')}`
               : seedingRequirementType === 'per_plant'
                 ? ` ${t('detail.seedingRequirementTypes.perPlant')}`
                 : ''}
-          </Typography>
+          </ValueWithSource>
         </Box>
       )}
       <Box>
         <Typography variant="body2" color="text.secondary">
           {t('form.thousandKernelWeightLabel')}
         </Typography>
-        <Typography variant="body1">
+        <ValueWithSource source={thousandKernelWeightSource} t={t}>
           {thousandKernelWeightG !== null && thousandKernelWeightG !== undefined
             ? `${formatNumber(thousandKernelWeightG, t, locale)} ${t('detail.units.grams')}`
             : emptyValueLabel}
-        </Typography>
+        </ValueWithSource>
       </Box>
     </Box>
   );

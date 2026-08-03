@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from accounts.models import UserProjectSettings
-from farm.models import Bed, BedLayout, Culture, FieldLayout, Location, PlantingPlan, Project, ProjectMembership, Supplier
+from farm.models import Bed, BedLayout, Culture, FieldLayout, Location, PlantingPlan, Project, ProjectMembership, PublicCulture, Supplier
 from farm.services.demo_project import (
     DEMO_PROJECT_DESCRIPTION,
     DEMO_PROJECT_NAME,
@@ -28,12 +28,20 @@ class DemoProjectServiceTests(TestCase):
         self.assertTrue(ProjectMembership.objects.filter(user=result.user, project=result.project, role='admin').exists())
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=result.project).count(), 12)
-        self.assertEqual(Culture.objects.filter(project=result.project).count(), 8)
+        self.assertEqual(Culture.objects.filter(project=result.project).count(), 16)
         self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 12)
         self.assertEqual(Supplier.objects.filter(project=result.project).count(), 3)
         self.assertEqual(FieldLayout.objects.filter(project=result.project).count(), 4)
         self.assertEqual(BedLayout.objects.filter(project=result.project).count(), 12)
-        self.assertEqual(Culture.objects.filter(project=result.project, crop_species__isnull=False).count(), 8)
+        self.assertEqual(Culture.objects.filter(project=result.project, crop_species__isnull=False).count(), 16)
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Tomate', variety='').exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Tomate', variety='Moneymaker', harvest_duration_days=65).exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Tomate', variety='San Marzano', row_spacing_m=0.90).exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Gurke', variety='').exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Gurke', variety='Arola', cultivation_types=['pre_cultivation']).exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Salat', variety='', thousand_kernel_weight_g__isnull=True).exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Salat', variety='Lollo Bionda', thousand_kernel_weight_g=1.10).exists())
+        self.assertTrue(Culture.objects.filter(project=result.project, name='Salat', variety='Maikönig', thousand_kernel_weight_g__isnull=True).exists())
         self.assertTrue(
             Culture.objects.filter(
                 project=result.project,
@@ -100,6 +108,10 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(project.name, 'Solawi Sonnenacker')
         self.assertTrue(ProjectMembership.objects.filter(project=project, user=user, role='admin').exists())
         self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 12)
+        self.assertEqual(PublicCulture.objects.filter(source_project=project, seed_packages=[]).count(), 16)
+        self.assertTrue(PublicCulture.objects.filter(source_project=project, name='Tomate', variety='Roma', row_spacing_m=0.70).exists())
+        self.assertTrue(PublicCulture.objects.filter(source_project=project, name='Tomate', variety='Moneymaker', row_spacing_m__isnull=True).exists())
+        self.assertTrue(PublicCulture.objects.filter(source_project=project, name='Gurke', variety='Arola', cultivation_types=['pre_cultivation']).exists())
 
     def test_create_personal_demo_project_creates_owned_editable_project(self) -> None:
         user = User.objects.create_user(username='owner', email='owner@example.com', password='pass12345', is_active=True)
@@ -115,7 +127,7 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(settings_obj.last_project_id, result.project.id)
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=result.project).count(), 12)
-        self.assertEqual(Culture.objects.filter(project=result.project).count(), 8)
+        self.assertEqual(Culture.objects.filter(project=result.project).count(), 16)
         self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 12)
 
     def test_create_personal_demo_project_can_create_english_template(self) -> None:

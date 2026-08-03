@@ -12,9 +12,12 @@ The service has two persistent-data entry points:
   fixture used by the management command and landing-page screenshot workflow.
 
 The template currently creates the `Solawi Sonnenacker` / `Sunny Acre CSA`
-project with two locations, four fields, twelve beds, three suppliers, eight
-vegetable cultures, seed package data, and twelve planting plans for the 2026
-season. All created records are project-scoped and owned by the receiving user
+project with two locations, four fields, twelve beds, three suppliers, sixteen
+crop-library rows, seed package data for the planned varieties, and twelve
+planting plans for the 2026 season. The crop rows deliberately include
+selectable species entries plus varieties with different shared and own values
+so the species → variety relationship can be reviewed in the UI. All personal
+and guest demo records are project-scoped and owned by the receiving user
 through a regular admin `ProjectMembership`.
 
 The demo data exists in German and English. The authenticated API and guest
@@ -135,3 +138,9 @@ cd backend
 pdm run python manage.py seed_demo_project
 pdm run python manage.py seed_demo_project --project-slug sunny-acre-csa --language en
 ```
+
+The standalone command also refreshes matching public crop-library demo rows
+from the same project data by default, copying only public-safe agronomic
+fields and leaving supplier/package data out of the public library. Use
+`--skip-public-library` when you only want to reset the project-scoped demo
+workspace.

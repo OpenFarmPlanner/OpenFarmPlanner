@@ -2,7 +2,7 @@
  * Culture Detail component with searchable dropdown and detailed crop information view.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
@@ -48,7 +48,7 @@ import { getCultureDisplayName } from './cultureDisplay';
 import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey } from './cropHierarchy';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
-import { CultureSeedDetails, type CultureSeedRateRow } from './CultureSeedDetails';
+import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -67,6 +67,13 @@ interface CultureDetailProps {
   publishActionLabel?: string;
   searchInputRef?: Ref<HTMLInputElement>;
 }
+
+const isEmptyCropValue = (value: unknown): boolean => (
+  value === null
+  || value === undefined
+  || value === ''
+  || (Array.isArray(value) && value.length === 0)
+);
 
 import {
   CULTURE_FILTERS_STORAGE_KEY,
@@ -470,24 +477,20 @@ const detailSectionGridSx = {
     [cultures, selectedCulture],
   );
 
-  const getCropValueSource = (
+  const getCropValueSource = useCallback((
     field: keyof Culture,
-  ): 'fromCrop' | 'ownValue' | null => {
+  ): ValueSource | null => {
     if (isSpeciesView || !selectedCulture?.variety || !selectedSpeciesCulture) {
       return null;
     }
     const ownValue = selectedCulture[field];
-    const cropValue = selectedSpeciesCulture[field];
-    if ((ownValue === null || ownValue === undefined || ownValue === '') && cropValue !== null && cropValue !== undefined && cropValue !== '') {
+    if (isEmptyCropValue(ownValue)) {
       return 'fromCrop';
     }
-    if (ownValue !== null && ownValue !== undefined && ownValue !== '') {
-      return 'ownValue';
-    }
-    return null;
-  };
+    return 'ownValue';
+  }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
-  const getCropValue = <TValue,>(
+  const getCropValue = useCallback(<TValue,>(
     field: keyof Culture,
     value: TValue,
   ): TValue => {
@@ -495,12 +498,12 @@ const detailSectionGridSx = {
       selectedCulture?.variety
       && !isSpeciesView
       && selectedSpeciesCulture
-      && (value === null || value === undefined || value === '')
+      && isEmptyCropValue(value)
     ) {
       return selectedSpeciesCulture[field] as TValue;
     }
     return value;
-  };
+  }, [isSpeciesView, selectedCulture?.variety, selectedSpeciesCulture]);
 
   const renderValueSource = (field: keyof Culture) => {
     const source = getCropValueSource(field);
@@ -544,15 +547,15 @@ const detailSectionGridSx = {
     () => (
       selectedCulture
         ? (
-          selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
-            ? selectedCulture.cultivation_types
-            : (selectedCulture.cultivation_type ? [selectedCulture.cultivation_type] : [])
+          getCropValue('cultivation_types', selectedCulture.cultivation_types) && getCropValue('cultivation_types', selectedCulture.cultivation_types)?.length
+            ? getCropValue('cultivation_types', selectedCulture.cultivation_types) ?? []
+            : (getCropValue('cultivation_type', selectedCulture.cultivation_type) ? [getCropValue('cultivation_type', selectedCulture.cultivation_type)] : [])
         ).filter((item): item is 'direct_sowing' | 'pre_cultivation' => (
           item === 'direct_sowing' || item === 'pre_cultivation'
         ))
         : []
     ),
-    [selectedCulture]
+    [getCropValue, selectedCulture]
   );
   const seedRateRows = useMemo<CultureSeedRateRow[]>(() => {
     if (!selectedCulture) {
@@ -560,32 +563,40 @@ const detailSectionGridSx = {
     }
     const isDirectActive = activeCultivationTypes.includes('direct_sowing');
     const isPreCultivationActive = activeCultivationTypes.includes('pre_cultivation');
+    const directValue = getCropValue('seed_rate_direct_value', selectedCulture.seed_rate_direct_value);
+    const directUnit = getCropValue('seed_rate_direct_unit', selectedCulture.seed_rate_direct_unit);
+    const preCultivationValue = getCropValue('seed_rate_pre_cultivation_value', selectedCulture.seed_rate_pre_cultivation_value);
+    const preCultivationUnit = getCropValue('seed_rate_pre_cultivation_unit', selectedCulture.seed_rate_pre_cultivation_unit);
 
     const rows: CultureSeedRateRow[] = [];
     if (
       isDirectActive
-      && selectedCulture.seed_rate_direct_value !== null
-      && selectedCulture.seed_rate_direct_value !== undefined
-      && selectedCulture.seed_rate_direct_unit
+      && directValue !== null
+      && directValue !== undefined
+      && directUnit
     ) {
       rows.push({
         method: 'direct_sowing',
-        value: selectedCulture.seed_rate_direct_value,
-        unit: selectedCulture.seed_rate_direct_unit,
-        safety: selectedCulture.sowing_calculation_safety_percent_direct ?? null,
+        value: directValue,
+        unit: directUnit,
+        safety: getCropValue('sowing_calculation_safety_percent_direct', selectedCulture.sowing_calculation_safety_percent_direct) ?? null,
+        valueSource: getCropValueSource('seed_rate_direct_value') ?? getCropValueSource('seed_rate_direct_unit'),
+        safetySource: getCropValueSource('sowing_calculation_safety_percent_direct'),
       });
     }
     if (
       isPreCultivationActive
-      && selectedCulture.seed_rate_pre_cultivation_value !== null
-      && selectedCulture.seed_rate_pre_cultivation_value !== undefined
-      && selectedCulture.seed_rate_pre_cultivation_unit
+      && preCultivationValue !== null
+      && preCultivationValue !== undefined
+      && preCultivationUnit
     ) {
       rows.push({
         method: 'pre_cultivation',
-        value: selectedCulture.seed_rate_pre_cultivation_value,
-        unit: selectedCulture.seed_rate_pre_cultivation_unit,
-        safety: selectedCulture.sowing_calculation_safety_percent_pre_cultivation ?? null,
+        value: preCultivationValue,
+        unit: preCultivationUnit,
+        safety: getCropValue('sowing_calculation_safety_percent_pre_cultivation', selectedCulture.sowing_calculation_safety_percent_pre_cultivation) ?? null,
+        valueSource: getCropValueSource('seed_rate_pre_cultivation_value') ?? getCropValueSource('seed_rate_pre_cultivation_unit'),
+        safetySource: getCropValueSource('sowing_calculation_safety_percent_pre_cultivation'),
       });
     }
 
@@ -593,8 +604,9 @@ const detailSectionGridSx = {
       return rows;
     }
 
-    if (selectedCulture.seed_rate_by_cultivation && Object.keys(selectedCulture.seed_rate_by_cultivation).length > 0) {
-      return Object.entries(selectedCulture.seed_rate_by_cultivation)
+    const seedRateByCultivation = getCropValue('seed_rate_by_cultivation', selectedCulture.seed_rate_by_cultivation);
+    if (seedRateByCultivation && Object.keys(seedRateByCultivation).length > 0) {
+      return Object.entries(seedRateByCultivation)
         .filter(([method, payload]) => (
           activeCultivationTypes.includes(method as 'direct_sowing' | 'pre_cultivation')
           && (
@@ -609,25 +621,31 @@ const detailSectionGridSx = {
           value: payload.value,
           unit: payload.unit,
           safety: null,
+          valueSource: getCropValueSource('seed_rate_by_cultivation'),
+          safetySource: null,
         } satisfies CultureSeedRateRow));
     }
 
+    const generalSeedRateValue = getCropValue('seed_rate_value', selectedCulture.seed_rate_value);
+    const generalSeedRateUnit = getCropValue('seed_rate_unit', selectedCulture.seed_rate_unit);
     if (
       activeCultivationTypes.length > 0
-      && selectedCulture.seed_rate_value !== null
-      && selectedCulture.seed_rate_value !== undefined
-      && selectedCulture.seed_rate_unit
+      && generalSeedRateValue !== null
+      && generalSeedRateValue !== undefined
+      && generalSeedRateUnit
     ) {
       return [{
         method: activeCultivationTypes.includes('direct_sowing') ? 'direct_sowing' : 'pre_cultivation',
-        value: selectedCulture.seed_rate_value,
-        unit: selectedCulture.seed_rate_unit,
-        safety: selectedCulture.sowing_calculation_safety_percent ?? null,
+        value: generalSeedRateValue,
+        unit: generalSeedRateUnit,
+        safety: getCropValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent) ?? null,
+        valueSource: getCropValueSource('seed_rate_value') ?? getCropValueSource('seed_rate_unit'),
+        safetySource: getCropValueSource('sowing_calculation_safety_percent'),
       }];
     }
 
     return [];
-  }, [activeCultivationTypes, selectedCulture]);
+  }, [activeCultivationTypes, getCropValue, getCropValueSource, selectedCulture]);
 
   const selectorControl = cultures.length > 0 ? (
       <Box sx={{ width: '100%', p: 1.25, borderBottom: '1px solid #e5e7eb', bgcolor: '#fcfdfc' }}>
@@ -941,28 +959,30 @@ const detailSectionGridSx = {
                 {t('detail.sections.general')}
               </Typography>
               <Box sx={detailSectionGridSx}>
-                {selectedCulture.crop_family && (
+                {getCropValue('crop_family', selectedCulture.crop_family) && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
                       {t('form.cropFamily')}
                     </Typography>
                     <Typography variant="body1">
-                      {selectedCulture.crop_family}
+                      {getCropValue('crop_family', selectedCulture.crop_family)}
                     </Typography>
+                    {renderValueSource('crop_family')}
                   </Box>
                 )}
-                {selectedCulture.nutrient_demand && (
+                {getCropValue('nutrient_demand', selectedCulture.nutrient_demand) && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
                       {t('form.nutrientDemand')}
                     </Typography>
                     <Typography variant="body1">
-                      {selectedCulture.nutrient_demand === 'low'
+                      {getCropValue('nutrient_demand', selectedCulture.nutrient_demand) === 'low'
                         ? t('form.nutrientDemandLow')
-                        : selectedCulture.nutrient_demand === 'medium'
+                        : getCropValue('nutrient_demand', selectedCulture.nutrient_demand) === 'medium'
                           ? t('form.nutrientDemandMedium')
                           : t('form.nutrientDemandHigh')}
                     </Typography>
+                    {renderValueSource('nutrient_demand')}
                   </Box>
                 )}
                 {activeCultivationTypes.length > 0 && (
@@ -979,6 +999,7 @@ const detailSectionGridSx = {
                         ))
                         .join(', ')}
                     </Typography>
+                    {renderValueSource('cultivation_types') ?? renderValueSource('cultivation_type')}
                   </Box>
                 )}
               </Box>
@@ -1078,10 +1099,14 @@ const detailSectionGridSx = {
               <CultureSeedDetails
                 activeCultivationTypes={activeCultivationTypes}
                 seedRateRows={seedRateRows}
-                sowingSafetyPercent={selectedCulture.sowing_calculation_safety_percent}
-                seedingRequirement={selectedCulture.seeding_requirement}
-                seedingRequirementType={selectedCulture.seeding_requirement_type}
-                thousandKernelWeightG={selectedCulture.thousand_kernel_weight_g}
+                sowingSafetyPercent={getCropValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
+                sowingSafetySource={getCropValueSource('sowing_calculation_safety_percent')}
+                seedingRequirement={getCropValue('seeding_requirement', selectedCulture.seeding_requirement)}
+                seedingRequirementSource={getCropValueSource('seeding_requirement')}
+                seedingRequirementType={getCropValue('seeding_requirement_type', selectedCulture.seeding_requirement_type)}
+                seedingRequirementTypeSource={getCropValueSource('seeding_requirement_type')}
+                thousandKernelWeightG={getCropValue('thousand_kernel_weight_g', selectedCulture.thousand_kernel_weight_g)}
+                thousandKernelWeightSource={getCropValueSource('thousand_kernel_weight_g')}
                 emptyValueLabel={t('noData')}
                 locale={locale}
                 t={t}
@@ -1150,27 +1175,29 @@ const detailSectionGridSx = {
                   justifyContent: 'start',
                 }}
               >
-                {selectedCulture.harvest_method && (
+                {getCropValue('harvest_method', selectedCulture.harvest_method) && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
                       {t('form.yieldUnit')}
                     </Typography>
                     <Typography variant="body1">
-                      {selectedCulture.harvest_method === 'per_plant' ? t('form.yieldUnitPerPlant') : t('form.yieldUnitPerSqm')}
+                      {getCropValue('harvest_method', selectedCulture.harvest_method) === 'per_plant' ? t('form.yieldUnitPerPlant') : t('form.yieldUnitPerSqm')}
                     </Typography>
+                    {renderValueSource('harvest_method')}
                   </Box>
                 )}
-                {selectedCulture.expected_yield && (
+                {getCropValue('expected_yield', selectedCulture.expected_yield) && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
                       {t('form.expectedYield')}
                     </Typography>
                     <Typography variant="body1">
-                      {formatNumber(selectedCulture.expected_yield, t, locale)} {t('detail.units.kilograms')}
+                      {formatNumber(getCropValue('expected_yield', selectedCulture.expected_yield), t, locale)} {t('detail.units.kilograms')}
                     </Typography>
+                    {renderValueSource('expected_yield')}
                   </Box>
                 )}
-                {selectedCulture.allow_deviation_delivery_weeks && (
+                {getCropValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) && (
                   <Box>
                     <Typography variant="body2" color="text.secondary">
                       {t('detail.fields.allowDeviationDeliveryWeeks')}
@@ -1181,6 +1208,7 @@ const detailSectionGridSx = {
                       color="primary"
                       variant="outlined"
                     />
+                    {renderValueSource('allow_deviation_delivery_weeks')}
                   </Box>
                 )}
               </Box>

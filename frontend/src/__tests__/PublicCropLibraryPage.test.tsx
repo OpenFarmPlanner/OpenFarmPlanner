@@ -384,6 +384,68 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByText('250 g')).not.toBeInTheDocument();
   });
 
+  it('marks public variety values as from the crop or own values', async () => {
+    publicCultureApiMocks.list.mockResolvedValue({
+      data: {
+        results: [
+          {
+            id: 20,
+            status: 'published',
+            name: 'Tomate',
+            variety: '',
+            crop_species: 7,
+            crop_species_name: 'Tomate',
+            crop_family: 'Nachtschattengewächse',
+            nutrient_demand: 'high',
+            cultivation_types: ['pre_cultivation'],
+            growth_duration_days: 78,
+            harvest_duration_days: 56,
+            row_spacing_m: 0.80,
+            distance_within_row_m: 0.50,
+            seed_rate_by_cultivation: {
+              pre_cultivation: { value: 1.2, unit: 'seeds_per_plant' },
+            },
+            thousand_kernel_weight_g: 3.1,
+            harvest_method: 'per_plant',
+            expected_yield: 4.5,
+            version: 1,
+            original_language_code: 'de',
+            published_at: '2026-07-24T10:00:00Z',
+            created_at: '2026-07-21T08:00:00Z',
+            updated_at: '2026-07-25T12:00:00Z',
+          },
+          {
+            id: 21,
+            status: 'published',
+            name: 'Tomate',
+            variety: 'Roma',
+            crop_species: 7,
+            crop_species_name: 'Tomate',
+            growth_duration_days: 72,
+            row_spacing_m: 0.70,
+            thousand_kernel_weight_g: 3.2,
+            version: 1,
+            original_language_code: 'de',
+            published_at: '2026-07-24T10:00:00Z',
+            created_at: '2026-07-21T08:00:00Z',
+            updated_at: '2026-07-25T12:00:00Z',
+          },
+        ],
+      },
+    });
+
+    renderPage(['/app/crop-library?cultureId=21']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
+    expect(screen.getByText('72 Tage')).toBeInTheDocument();
+    expect(screen.getByText('56 Tage')).toBeInTheDocument();
+    expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
+    expect(screen.getByText('3,2 g')).toBeInTheDocument();
+    expect(screen.getAllByText('Eigener Wert').length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText('Aus der Kultur').length).toBeGreaterThanOrEqual(5);
+  });
+
   it('uses the selected public culture title as the mobile selector trigger', async () => {
     mockMobileViewport();
     renderPage(['/app/crop-library?cultureId=1']);

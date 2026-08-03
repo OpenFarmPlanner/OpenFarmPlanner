@@ -84,7 +84,7 @@ import {
 import { applySavedCultures } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
-import { CultureSeedDetails, type CultureSeedRateRow } from '../../cultures/CultureSeedDetails';
+import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
@@ -1283,30 +1283,33 @@ export default function PublicCropLibraryPage() {
     () => findSpeciesCulture(selectedCulture, cultures),
     [cultures, selectedCulture],
   );
+  const isEmptyPublicValue = (value: unknown): boolean => (
+    value === null
+    || value === undefined
+    || value === ''
+    || (Array.isArray(value) && value.length === 0)
+  );
+
   const getPublicFieldValue = <TValue,>(field: keyof PublicCulture, value: TValue): TValue => {
     if (
       selectedCulture?.variety
       && !isSpeciesView
       && selectedSpeciesCulture
-      && (value === null || value === undefined || value === '')
+      && isEmptyPublicValue(value)
     ) {
       return selectedSpeciesCulture[field] as TValue;
     }
     return value;
   };
-  const getPublicFieldSource = (field: keyof PublicCulture): 'fromCrop' | 'ownValue' | null => {
+  const getPublicFieldSource = (field: keyof PublicCulture): ValueSource | null => {
     if (isSpeciesView || !selectedCulture?.variety || !selectedSpeciesCulture) {
       return null;
     }
     const ownValue = selectedCulture[field];
-    const cropValue = selectedSpeciesCulture[field];
-    if ((ownValue === null || ownValue === undefined || ownValue === '') && cropValue !== null && cropValue !== undefined && cropValue !== '') {
+    if (isEmptyPublicValue(ownValue)) {
       return 'fromCrop';
     }
-    if (ownValue !== null && ownValue !== undefined && ownValue !== '') {
-      return 'ownValue';
-    }
-    return null;
+    return 'ownValue';
   };
   const publicActiveCultivationTypes: CultivationType[] = selectedCulture
     ? (
@@ -1342,6 +1345,8 @@ export default function PublicCropLibraryPage() {
           value: directValue,
           unit: directUnit,
           safety: getPublicFieldValue('sowing_calculation_safety_percent_direct', selectedCulture.sowing_calculation_safety_percent_direct) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_direct_value') ?? getPublicFieldSource('seed_rate_direct_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_direct'),
         });
       }
       if (isPreCultivationActive && preCultivationValue !== null && preCultivationValue !== undefined && preCultivationUnit) {
@@ -1350,6 +1355,8 @@ export default function PublicCropLibraryPage() {
           value: preCultivationValue,
           unit: preCultivationUnit,
           safety: getPublicFieldValue('sowing_calculation_safety_percent_pre_cultivation', selectedCulture.sowing_calculation_safety_percent_pre_cultivation) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_pre_cultivation_value') ?? getPublicFieldSource('seed_rate_pre_cultivation_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_pre_cultivation'),
         });
       }
 
@@ -1372,6 +1379,8 @@ export default function PublicCropLibraryPage() {
             value: payload.value,
             unit: payload.unit,
             safety: null,
+            valueSource: getPublicFieldSource('seed_rate_by_cultivation'),
+            safetySource: null,
           }));
       }
 
@@ -1388,6 +1397,8 @@ export default function PublicCropLibraryPage() {
           value: generalSeedRateValue,
           unit: generalSeedRateUnit,
           safety: getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_value') ?? getPublicFieldSource('seed_rate_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent'),
         }];
       }
 
@@ -2467,14 +2478,22 @@ export default function PublicCropLibraryPage() {
                           {!isSpeciesView ? (
                             <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
                           ) : null}
-                          <DetailRow label={t('library.page.fields.cropFamily')} value={selectedCulture.crop_family || t('library.page.notSpecified')} />
+                          <DetailRow label={t('library.page.fields.cropFamily')} value={getPublicFieldValue('crop_family', selectedCulture.crop_family) || t('library.page.notSpecified')} source={getPublicFieldSource('crop_family')} t={t} />
                           <DetailRow
                             label={t('library.page.fields.nutrientDemand')}
-                            value={getNutrientDemandLabel(selectedCulture.nutrient_demand, t, t('library.page.notSpecified'))}
+                            value={getNutrientDemandLabel(getPublicFieldValue('nutrient_demand', selectedCulture.nutrient_demand), t, t('library.page.notSpecified'))}
+                            source={getPublicFieldSource('nutrient_demand')}
+                            t={t}
                           />
                           <DetailRow
                             label={t('library.page.fields.cultivationType')}
-                            value={getCultivationTypesLabel(selectedCulture, t, t('library.page.notSpecified'))}
+                            value={getCultivationTypesLabel({
+                              ...selectedCulture,
+                              cultivation_types: getPublicFieldValue('cultivation_types', selectedCulture.cultivation_types),
+                              cultivation_type: getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type),
+                            }, t, t('library.page.notSpecified'))}
+                            source={getPublicFieldSource('cultivation_types') ?? getPublicFieldSource('cultivation_type')}
+                            t={t}
                           />
                         </DetailGrid>
                       </DetailSection>
@@ -2506,9 +2525,13 @@ export default function PublicCropLibraryPage() {
                           activeCultivationTypes={publicActiveCultivationTypes}
                           seedRateRows={publicSeedRateRows}
                           sowingSafetyPercent={getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
+                          sowingSafetySource={getPublicFieldSource('sowing_calculation_safety_percent')}
                           seedingRequirement={getPublicFieldValue('seeding_requirement', selectedCulture.seeding_requirement)}
+                          seedingRequirementSource={getPublicFieldSource('seeding_requirement')}
                           seedingRequirementType={getPublicFieldValue('seeding_requirement_type', selectedCulture.seeding_requirement_type)}
+                          seedingRequirementTypeSource={getPublicFieldSource('seeding_requirement_type')}
                           thousandKernelWeightG={getPublicFieldValue('thousand_kernel_weight_g', selectedCulture.thousand_kernel_weight_g)}
+                          thousandKernelWeightSource={getPublicFieldSource('thousand_kernel_weight_g')}
                           emptyValueLabel={t('library.page.notSpecified')}
                           locale={locale}
                           t={t}
@@ -2519,9 +2542,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.harvest')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(selectedCulture.harvest_method, t, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.expectedYield')} value={selectedCulture.expected_yield === null || selectedCulture.expected_yield === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(selectedCulture.expected_yield, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} />
-                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={selectedCulture.allow_deviation_delivery_weeks ? t('library.page.boolean.yes') : t('library.page.boolean.no')} />
+                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(getPublicFieldValue('harvest_method', selectedCulture.harvest_method), t, t('library.page.notSpecified'))} source={getPublicFieldSource('harvest_method')} t={t} />
+                          <DetailRow label={t('library.page.fields.expectedYield')} value={getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === null || getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(getPublicFieldValue('expected_yield', selectedCulture.expected_yield), locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} source={getPublicFieldSource('expected_yield')} t={t} />
+                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={getPublicFieldValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) ? t('library.page.boolean.yes') : t('library.page.boolean.no')} source={getPublicFieldSource('allow_deviation_delivery_weeks')} t={t} />
                         </DetailGrid>
                       </DetailSection>
 
