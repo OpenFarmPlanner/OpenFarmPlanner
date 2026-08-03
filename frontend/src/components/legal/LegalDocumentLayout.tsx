@@ -1,67 +1,135 @@
 /**
  * Shared shell for the legal documents (imprint, privacy policy, terms).
  *
- * The language switcher is pinned to the top-right corner of the document
- * container instead of sitting in a row of its own: it is taken out of the
- * document flow, so it costs no vertical space and cannot push or shift the
- * centred title. The container's top padding is only large enough to clear the
- * pinned switcher, which keeps the document starting as high as the switcher
- * allows without ever overlapping the title on narrow screens.
+ * The title remains the primary element while compact document controls share
+ * the same row on wider screens. The grid gives the title a balanced centre
+ * column and lets the controls stack underneath it on phones.
  */
 
 import type { ReactNode } from 'react';
-import { Container, Stack, Typography } from '@mui/material';
+import PrintIcon from '@mui/icons-material/Print';
+import { Box, Container, IconButton, Stack, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 
+import { useTranslation } from '../../i18n';
 import PublicPageLanguageBar from '../../i18n/PublicPageLanguageBar';
+import { AppTooltip } from '../AppTooltip';
 
-/**
- * Distance in px from the container's top/right edge to the switcher (`top` and
- * `right` are not spacing-aware in `sx`). Together with the switcher's 44px
- * touch target this defines how far down the title can start.
- */
-const languageSwitcherSx = {
-  position: 'absolute',
-  top: { xs: 8, sm: 12, md: 16 },
-  right: { xs: 8, sm: 12, md: 16 },
-  zIndex: 1,
-  '@media print': { display: 'none' },
-} as const;
-
-/** Clears the pinned switcher (top offset + its 44px height) with a little air. */
 const documentSx = {
-  position: 'relative',
-  pt: { xs: 7, sm: 7.5, md: 8 },
+  pt: { xs: 2, sm: 2.5, md: 3 },
   pb: { xs: 6, md: 9 },
 } as const;
 
-/**
- * The German titles are single long words ("Nutzungsbedingungen"), so the
- * heading scales down on phones instead of overflowing the viewport.
- */
+const headerSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'minmax(7rem, 1fr) minmax(0, auto) minmax(7rem, 1fr)' },
+  alignItems: 'center',
+  columnGap: { sm: 1.5, md: 2 },
+  rowGap: 1,
+} as const;
+
 const titleSx = {
+  gridColumn: { xs: '1', sm: '2' },
+  justifySelf: 'center',
+  minWidth: 0,
+  maxWidth: '100%',
   textAlign: 'center',
-  fontSize: { xs: '1.75rem', sm: '2.5rem', md: '3rem' },
+  fontSize: { xs: '1.65rem', sm: '2.25rem', md: '2.75rem' },
   overflowWrap: 'anywhere',
 } as const;
 
+const headerControlsSx = {
+  gridColumn: { xs: '1', sm: '3' },
+  justifySelf: { xs: 'center', sm: 'end' },
+  display: 'flex',
+  alignItems: 'center',
+  gap: { xs: 0.5, sm: 0.75 },
+  '@media print': { display: 'none' },
+} as const;
+
+const getLegalToolbarInteractionSx = (theme: Theme) => ({
+  borderRadius: 1,
+  '&.Mui-focusVisible': {
+    outline: `2px solid ${theme.palette.primary.light}`,
+    outlineOffset: 2,
+  },
+});
+
+const printButtonSx = (theme: Theme) => ({
+  ...getLegalToolbarInteractionSx(theme),
+  flex: '0 0 auto',
+  width: 40,
+  height: 40,
+  color: theme.palette.primary.main,
+  '&:hover, &.Mui-focusVisible': {
+    color: theme.palette.primary.dark,
+    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+  },
+});
+
+const languageSwitcherButtonSx = (theme: Theme) => ({
+  ...getLegalToolbarInteractionSx(theme),
+  color: theme.palette.text.primary,
+  '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+    color: theme.palette.primary.main,
+  },
+  '&:hover, &.Mui-focusVisible': {
+    color: theme.palette.text.primary,
+    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+    '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+      color: theme.palette.primary.dark,
+    },
+  },
+});
+
+const languageSwitcherSx = { flex: '0 1 auto' } as const;
+
 interface LegalDocumentLayoutProps {
   title: string;
-  /** Centred under the title, e.g. the print action or a cross-reference link. */
+  /** Optional secondary content below the title row, e.g. a cross-reference link. */
   actions?: ReactNode;
   children: ReactNode;
 }
 
 export default function LegalDocumentLayout({ title, actions, children }: LegalDocumentLayoutProps) {
+  const { t } = useTranslation('home');
+  const printLabel = t('legal.terms.print');
+
   return (
     <Container maxWidth="md" sx={documentSx}>
-      <PublicPageLanguageBar sx={languageSwitcherSx} />
       <Stack spacing={3}>
-        <Stack spacing={2} alignItems="center">
+        <Box component="header" sx={headerSx}>
           <Typography variant="h3" component="h1" sx={titleSx}>
             {title}
           </Typography>
-          {actions}
-        </Stack>
+          <Box sx={headerControlsSx}>
+            <AppTooltip title={printLabel}>
+              <IconButton
+                type="button"
+                aria-label={printLabel}
+                onClick={() => window.print()}
+                size="small"
+                sx={printButtonSx}
+              >
+                <PrintIcon fontSize="small" />
+              </IconButton>
+            </AppTooltip>
+            <PublicPageLanguageBar sx={languageSwitcherSx} buttonSx={languageSwitcherButtonSx} />
+          </Box>
+        </Box>
+        {actions ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              mt: -2,
+              '@media print': { display: 'none' },
+            }}
+          >
+            {actions}
+          </Box>
+        ) : null}
         {children}
       </Stack>
     </Container>
