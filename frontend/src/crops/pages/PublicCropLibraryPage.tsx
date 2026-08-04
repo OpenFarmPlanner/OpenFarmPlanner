@@ -304,7 +304,7 @@ function getNutrientDemandLabel(
 
 function getCultivationTypesLabel(
   culture: PublicCulture,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: TFunction,
   fallback: string,
 ): string {
   const values = culture.cultivation_types?.length
