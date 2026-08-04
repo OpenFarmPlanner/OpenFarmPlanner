@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import type { TFunction } from 'i18next';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
@@ -1144,6 +1144,12 @@ export default function PublicCropLibraryPage() {
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width:600px)');
   const useCompactLibraryLayout = useMediaQuery('(max-width:899.95px)');
+  const libraryAreaRef = useRef<HTMLDivElement>(null);
+  // How tall the two-pane area is allowed to be, measured directly from where it
+  // actually starts in the viewport rather than guessed via a hardcoded "chrome
+  // height" offset (which drifts whenever the surrounding header/layout changes
+  // and silently leaves the panes shorter than the available space).
+  const [libraryAreaMaxHeight, setLibraryAreaMaxHeight] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
@@ -1168,6 +1174,28 @@ export default function PublicCropLibraryPage() {
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
   const isCultureLoading = loadStatus === 'loading';
+  useLayoutEffect(() => {
+    if (useCompactLibraryLayout) {
+      return undefined;
+    }
+    const element = libraryAreaRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const BOTTOM_MARGIN_PX = 16;
+    const updateMaxHeight = () => {
+      const top = element.getBoundingClientRect().top;
+      setLibraryAreaMaxHeight(Math.max(0, window.innerHeight - top - BOTTOM_MARGIN_PX));
+    };
+    updateMaxHeight();
+    window.addEventListener('resize', updateMaxHeight);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateMaxHeight) : undefined;
+    resizeObserver?.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', updateMaxHeight);
+      resizeObserver?.disconnect();
+    };
+  }, [useCompactLibraryLayout, loadError, isCultureLoading]);
   const canEditPublicCulture = Boolean(user);
   const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
 
@@ -2181,12 +2209,13 @@ export default function PublicCropLibraryPage() {
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
 
           <Box
+            ref={libraryAreaRef}
             sx={{
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
               gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
               minHeight: { md: 560 },
-              height: { md: 'calc(100vh - 210px)' },
+              height: { md: libraryAreaMaxHeight !== null ? `${libraryAreaMaxHeight}px` : 'calc(100vh - 210px)' },
             }}
           >
             {!useCompactLibraryLayout ? (
