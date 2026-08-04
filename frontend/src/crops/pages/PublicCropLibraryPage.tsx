@@ -2271,7 +2271,11 @@ export default function PublicCropLibraryPage() {
                   role="listbox"
                   aria-label={t('library.page.title')}
                   onScroll={handleCultureListScroll}
-                  sx={{ maxHeight: { xs: 280 }, flex: { md: 1 }, minHeight: 0, overflow: 'auto' }}
+                  // MUI breakpoint values cascade upward when not overridden, so the
+                  // mobile-only 280px cap must be explicitly cleared at md+ or it
+                  // silently caps the list there too, leaving the flex-grown space
+                  // below it blank no matter how tall the surrounding card is.
+                  sx={{ maxHeight: { xs: 280, md: 'none' }, flex: { md: 1 }, minHeight: 0, overflow: 'auto' }}
                 >
                   {visibleCropRows.map(({ node, depth, hasChildren }) => {
                     const culture = node.culture;
