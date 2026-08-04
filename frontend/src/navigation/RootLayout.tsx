@@ -57,6 +57,7 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
+import GavelIcon from '@mui/icons-material/Gavel';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
@@ -512,8 +513,13 @@ function RootLayout() {
   const isCulturesPage = location.pathname.startsWith('/app/cultures');
   const isFieldsBedsPage = location.pathname.startsWith('/app/fields-beds');
   const isCalendarPage = location.pathname.startsWith('/app/gantt-chart');
+  const isPublicCropLibraryPage = location.pathname.startsWith('/app/crop-library');
   const cultureLibraryAction = useMemo(
     () => topbarContextActions.find((action) => action.id === 'cultures-open-library'),
+    [topbarContextActions],
+  );
+  const publicLibraryModerationAction = useMemo(
+    () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
     [topbarContextActions],
   );
   const cultureImportExportActions = useMemo(
@@ -529,7 +535,12 @@ function RootLayout() {
     [topbarTitleActions],
   );
   const genericTopbarContextActions = useMemo(
-    () => (isCulturesPage ? [] : topbarContextActions.filter((action) => action.id !== 'fields-global-add-field')),
+    () => (isCulturesPage
+      ? []
+      : topbarContextActions.filter((action) => (
+        action.id !== 'fields-global-add-field'
+        && action.id !== 'public-crop-library-moderation'
+      ))),
     [isCulturesPage, topbarContextActions],
   );
   const topbarModeControls = useMemo(
@@ -570,11 +581,12 @@ function RootLayout() {
       !isFieldsBedsPage
       && !isCalendarPage
       && !isCulturesPage
+      && !isPublicCropLibraryPage
       && (
         hasVisibleMobileContextActions
       )
     ),
-    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage],
+    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage, isPublicCropLibraryPage],
   );
   const handleCreateProject = async (): Promise<void> => {
     if (!newProjectName.trim()) {
@@ -1125,6 +1137,22 @@ function RootLayout() {
               </Menu>
             </>
           ) : null}
+          {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+            <Button
+              size="medium"
+              variant="outlined"
+              onClick={() => publicLibraryModerationAction.onClick()}
+              aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+              disabled={publicLibraryModerationAction.disabled}
+              sx={{
+                ...getStandardActionButtonSx(false),
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {publicLibraryModerationAction.label}
+            </Button>
+          ) : null}
           {(() => {
             const groups: TopbarContextAction[][] = [];
             [...topbarModeControls, ...topbarOverflowActions].forEach((action) => {
@@ -1411,6 +1439,27 @@ function RootLayout() {
                     ))}
                   </Menu>
                 </>
+              ) : null}
+              {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+                <AppTooltip title={publicLibraryModerationAction.label} enterTouchDelay={0}>
+                  <Box component="span" sx={{ display: 'inline-flex' }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => publicLibraryModerationAction.onClick()}
+                      aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                      sx={{
+                        width: COMPACT_TOPBAR_TOGGLE_SIZE,
+                        height: COMPACT_TOPBAR_TOGGLE_SIZE,
+                        flexShrink: 0,
+                        color: 'text.primary',
+                        '& .MuiSvgIcon-root': { fontSize: 24 },
+                      }}
+                      disabled={publicLibraryModerationAction.disabled}
+                    >
+                      <GavelIcon />
+                    </IconButton>
+                  </Box>
+                </AppTooltip>
               ) : null}
               {showMobileTopbarViewActions ? (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>

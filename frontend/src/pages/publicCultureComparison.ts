@@ -11,7 +11,6 @@ export interface PublicCultureChange {
 
 const COMPARISON_FIELDS = [
   'notes',
-  'seed_supplier',
   'crop_family',
   'nutrient_demand',
   'cultivation_type',
@@ -73,14 +72,8 @@ export function buildPublicCultureComparison(
   t: TFunction,
 ): PublicCultureChange[] {
   const privatePayload = buildPublicCultureUpdatePayload(culture, publicCulture.version);
-  const privateValues: Partial<PublicCulture> = {
-    ...privatePayload,
-    seed_supplier: culture.supplier?.name || culture.seed_supplier || '',
-  };
-  const publicValues: Partial<PublicCulture> = {
-    ...publicCulture,
-    seed_supplier: publicCulture.supplier_name || publicCulture.seed_supplier || '',
-  };
+  const privateValues: Partial<PublicCulture> = privatePayload;
+  const publicValues: Partial<PublicCulture> = publicCulture;
   return COMPARISON_FIELDS.flatMap((field) => {
     const privateValue = privateValues[field];
     const publicValue = publicValues[field];

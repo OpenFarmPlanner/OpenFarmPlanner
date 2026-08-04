@@ -7,6 +7,9 @@ import { fieldRowSx, mediumFieldSx, smallFieldSx, wideFieldSx } from './styles.t
 import type { Culture, PublicCulture } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
+import { VarietyFieldTooltip } from '../VarietyFieldTooltip';
+import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
+import { mergeVarietyFieldSx } from '../varietyValueAccent';
 
 interface BasicInfoSectionProps {
   formData: Partial<Culture>;
@@ -19,6 +22,7 @@ interface BasicInfoSectionProps {
   publicCultureOptionsLoading?: boolean;
   onPublicCultureSearchChange?: (value: string) => void;
   onPublicCultureSelect?: (culture: PublicCulture | null) => void;
+  getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
 
 const getPublicCultureOptionLabel = (option: PublicCulture | string): string => {
@@ -40,6 +44,7 @@ export function BasicInfoSection({
   publicCultureOptionsLoading = false,
   onPublicCultureSearchChange,
   onPublicCultureSelect,
+  getFieldTooltipProps,
 }: BasicInfoSectionProps) {
   const publicCultureAutocomplete = publicCultureOptions && onPublicCultureSearchChange && onPublicCultureSelect
     ? {
@@ -48,6 +53,8 @@ export function BasicInfoSection({
       onSelect: onPublicCultureSelect,
     }
     : null;
+  const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
+  const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
 
   return (
     <>
@@ -135,29 +142,33 @@ export function BasicInfoSection({
       ) : null}
       {identityHint}
       <Box sx={fieldRowSx}>
-        <TextField
-          sx={mediumFieldSx}
-          label={t('form.cropFamily')}
-          placeholder={t('form.cropFamilyPlaceholder')}
-          value={formData.crop_family}
-          onChange={e => onChange('crop_family', e.target.value)}
-        />
+        <VarietyFieldTooltip tooltipTitle={cropFamilyVariety?.tooltipTitle}>
+          <TextField
+            sx={mergeVarietyFieldSx(mediumFieldSx, cropFamilyVariety?.sx)}
+            label={t('form.cropFamily')}
+            placeholder={t('form.cropFamilyPlaceholder')}
+            value={formData.crop_family}
+            onChange={e => onChange('crop_family', e.target.value)}
+          />
+        </VarietyFieldTooltip>
       </Box>
       <Box sx={fieldRowSx}>
-        <FormControl sx={smallFieldSx}>
-          <InputLabel>{t('form.nutrientDemand')}</InputLabel>
-          <Select
-            fullWidth
-            value={formData.nutrient_demand || ''}
-            onChange={e => onChange('nutrient_demand', e.target.value)}
-            label={t('form.nutrientDemand')}
-          >
-            <MenuItem value="">{t('noData')}</MenuItem>
-            <MenuItem value="low">{t('form.nutrientDemandLow')}</MenuItem>
-            <MenuItem value="medium">{t('form.nutrientDemandMedium')}</MenuItem>
-            <MenuItem value="high">{t('form.nutrientDemandHigh')}</MenuItem>
-          </Select>
-        </FormControl>
+        <VarietyFieldTooltip tooltipTitle={nutrientDemandVariety?.tooltipTitle}>
+          <FormControl sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}>
+            <InputLabel>{t('form.nutrientDemand')}</InputLabel>
+            <Select
+              fullWidth
+              value={formData.nutrient_demand || ''}
+              onChange={e => onChange('nutrient_demand', e.target.value)}
+              label={t('form.nutrientDemand')}
+            >
+              <MenuItem value="">{t('noData')}</MenuItem>
+              <MenuItem value="low">{t('form.nutrientDemandLow')}</MenuItem>
+              <MenuItem value="medium">{t('form.nutrientDemandMedium')}</MenuItem>
+              <MenuItem value="high">{t('form.nutrientDemandHigh')}</MenuItem>
+            </Select>
+          </FormControl>
+        </VarietyFieldTooltip>
       </Box>
     </>
   );

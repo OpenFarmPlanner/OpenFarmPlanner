@@ -53,6 +53,8 @@
     "ownValue": "Eigener Wert",
     "ownValueLegendSample": "Markierte Werte",
     "ownValueLegendDescription": "gelten nur für diese Sorte.",
+    "ownValueFieldTooltip": "Dieser Wert überschreibt den allgemeinen Kulturwert.",
+    "inheritedFieldTooltip": "Dieser Wert wird von der allgemeinen Kultur übernommen.",
     "setOwnValue": "Eigenen Wert setzen",
     "useCropValue": "Kulturwert nutzen",
     "varietyLabel": "Sorte",

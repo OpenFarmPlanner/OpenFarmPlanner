@@ -36,7 +36,6 @@ CULTURE_COPY_FIELDS = [
     'name',
     'variety',
     'notes',
-    'seed_supplier',
     'crop_family',
     'nutrient_demand',
     'cultivation_types',
@@ -62,8 +61,6 @@ CULTURE_COPY_FIELDS = [
 
 PUBLIC_CULTURE_EDITABLE_FIELDS = [
     'notes',
-    'seed_supplier',
-    'supplier_name',
     'crop_family',
     'nutrient_demand',
     'cultivation_types',
@@ -370,21 +367,10 @@ def normalize_identity_value(value: str | None) -> str:
     return compacted.lower()
 
 
-def get_culture_supplier_label(culture: Culture) -> str:
-    if culture.supplier:
-        return culture.supplier.name or ''
-    return culture.seed_supplier or ''
-
-
-def get_public_supplier_label(public_culture: PublicCulture) -> str:
-    return public_culture.supplier_name or public_culture.seed_supplier or ''
-
-
 def build_public_culture_payload(culture: Culture, *, public_variety: str | None = None) -> dict[str, Any]:
     payload = _copy_fields(culture)
     if public_variety is not None:
         payload['variety'] = public_variety
-    payload['supplier_name'] = culture.supplier.name if culture.supplier else (culture.seed_supplier or '')
     payload['seed_packages'] = _seed_packages_payload_from_culture(culture)
     payload['source_project_culture'] = culture
     payload['source_project'] = culture.project
@@ -524,7 +510,6 @@ def resolve_publishing_crop_species(*, culture: Culture, crop_species_id: int | 
 def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, Any]:
     payload = _copy_fields(public_culture)
     payload['crop_species'] = public_culture.crop_species
-    payload['seed_supplier'] = public_culture.supplier_name or public_culture.seed_supplier or ''
     payload['source_public_culture'] = public_culture
     payload['source_public_version'] = public_culture.version
     payload['origin_type'] = Culture.ORIGIN_IMPORTED
@@ -563,9 +548,9 @@ def detect_public_culture_duplicates(
     """Published entries that would be duplicates of this culture.
 
     Identity is the *language-independent* species plus a normalized variety
-    name plus the supplier — never a localized name plus variety. Otherwise
-    "Tomate + Moneymaker" and "Tomato + Moneymaker" would look like two
-    different crops when they are one.
+    name — never a localized name plus variety. Otherwise "Tomate +
+    Moneymaker" and "Tomato + Moneymaker" would look like two different crops
+    when they are one.
 
     When the caller did not pass a species, the culture's own name is resolved
     against every species translation first, so publishing an English-named
@@ -576,7 +561,6 @@ def detect_public_culture_duplicates(
     Normalization is intentionally shallow — trim, collapse whitespace,
     case-fold — and never touches the stored or displayed original name.
     """
-    normalized_supplier = normalize_identity_value(get_culture_supplier_label(culture))
     normalized_variety = (
         normalize_identity_value(public_variety)
         if public_variety is not None
@@ -599,8 +583,6 @@ def detect_public_culture_duplicates(
 
     candidates: list[DuplicateCandidate] = []
     for item in queryset:
-        if normalize_identity_value(get_public_supplier_label(item)) != normalized_supplier:
-            continue
         candidates.append(DuplicateCandidate(
             id=item.id,
             name=item.name,
@@ -797,7 +779,6 @@ def publish_culture_to_public_library(
             normalized_identity={
                 'name': culture.name_normalized,
                 'variety': '' if publish_as_general else culture.variety_normalized,
-                'seed_supplier': normalize_identity_value(get_culture_supplier_label(culture)),
                 'crop_species': str(check_result.crop_species.id),
             },
         )

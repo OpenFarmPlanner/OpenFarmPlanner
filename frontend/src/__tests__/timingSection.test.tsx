@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TimingSection } from '../cultures/sections/TimingSection';
+import type { GetVarietyFieldTooltipProps } from '../cultures/varietyFieldTooltipHelpers';
 
 const translations: Record<string, string> = {
   'form.cultivationType': 'Anbauart',
@@ -122,4 +123,86 @@ describe('TimingSection', () => {
     expect(onChange).not.toHaveBeenCalledWith('propagation_duration_days', 0);
   });
 
+  describe('variety override highlighting', () => {
+    const activeFields = new Set(['growth_duration_days']);
+    const getFieldTooltipProps: GetVarietyFieldTooltipProps = (fields, helpText) => {
+      const fieldList = Array.isArray(fields) ? fields : [fields];
+      const active = fieldList.some((field) => activeFields.has(field));
+      const varietyText = active ? 'hierarchy.ownValueFieldTooltip' : 'hierarchy.inheritedFieldTooltip';
+      return {
+        sx: active ? { backgroundColor: 'rgb(1, 2, 3)' } : undefined,
+        tooltipTitle: helpText ? `${helpText} / ${varietyText}` : varietyText,
+      };
+    };
+
+    it('combines the field help text with the override tooltip and highlights an overridden field', async () => {
+      const user = userEvent.setup();
+      render(
+        <TimingSection
+          formData={{ cultivation_type: 'pre_cultivation', cultivation_types: ['pre_cultivation'], growth_duration_days: 30 }}
+          errors={{}}
+          onChange={vi.fn()}
+          t={t}
+          getFieldTooltipProps={getFieldTooltipProps}
+        />
+      );
+
+      const growthField = screen.getByLabelText('Wachstumszeit (Tage)');
+      await user.hover(growthField);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+        'Zeit vom Pflanzdatum bis zum Erntebeginn. / hierarchy.ownValueFieldTooltip',
+      );
+      expect(growthField.closest('.MuiFormControl-root')).toHaveStyle({ backgroundColor: 'rgb(1, 2, 3)' });
+    });
+
+    it('shows the inherited tooltip and no highlight for a field without an own value', async () => {
+      const user = userEvent.setup();
+      render(
+        <TimingSection
+          formData={{ cultivation_type: 'pre_cultivation', cultivation_types: ['pre_cultivation'], growth_duration_days: 30, harvest_duration_days: 7 }}
+          errors={{}}
+          onChange={vi.fn()}
+          t={t}
+          getFieldTooltipProps={getFieldTooltipProps}
+        />
+      );
+
+      const harvestField = screen.getByLabelText('Erntezeit (Tage)');
+      await user.hover(harvestField);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+        'Zeit vom Erntebeginn bis zum Ernteende. / hierarchy.inheritedFieldTooltip',
+      );
+      expect(harvestField.closest('.MuiFormControl-root')).not.toHaveStyle({ backgroundColor: 'rgb(1, 2, 3)' });
+    });
+
+    it('keeps the override tooltip on a disabled field (direct sowing propagation)', async () => {
+      const user = userEvent.setup();
+      const disabledActiveFields = new Set(['propagation_duration_days']);
+      const getPropagationTooltipProps: GetVarietyFieldTooltipProps = (fields, helpText) => {
+        const fieldList = Array.isArray(fields) ? fields : [fields];
+        const active = fieldList.some((field) => disabledActiveFields.has(field));
+        return {
+          sx: active ? { backgroundColor: 'rgb(9, 9, 9)' } : undefined,
+          tooltipTitle: active ? `${helpText} / hierarchy.ownValueFieldTooltip` : helpText,
+        };
+      };
+
+      render(
+        <TimingSection
+          formData={{ cultivation_type: 'direct_sowing', cultivation_types: ['direct_sowing'] }}
+          errors={{}}
+          onChange={vi.fn()}
+          t={t}
+          getFieldTooltipProps={getPropagationTooltipProps}
+        />
+      );
+
+      const propagationField = screen.getByLabelText(/Anzuchtdauer \(Tage\)/);
+      expect(propagationField).toBeDisabled();
+      expect(propagationField.closest('.MuiFormControl-root')).toHaveStyle({ backgroundColor: 'rgb(9, 9, 9)' });
+
+      await user.hover(propagationField);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('hierarchy.ownValueFieldTooltip');
+    });
+  });
 });

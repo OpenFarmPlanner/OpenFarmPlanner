@@ -191,8 +191,6 @@ export interface PublicCulture {
   name: string;
   variety?: string;
   notes?: string;
-  seed_supplier?: string;
-  supplier_name?: string;
   crop_species?: number | null;
   /** Species common name already resolved into the request language. */
   crop_species_name?: string;
@@ -357,7 +355,6 @@ export interface PublishPublicCultureDuplicateError {
   normalized_identity?: {
     name: string;
     variety: string;
-    seed_supplier: string;
   };
 }
 

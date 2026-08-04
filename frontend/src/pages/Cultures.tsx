@@ -627,6 +627,7 @@ function Cultures() {
       {showForm ? (
         <CultureForm
           culture={editingCulture}
+          cultures={cultures}
           onSave={handleSave}
           onCancel={handleCancel}
         />

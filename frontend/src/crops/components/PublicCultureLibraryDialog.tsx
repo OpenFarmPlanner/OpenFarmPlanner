@@ -41,7 +41,7 @@ import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
-import { getPublicCultureTitle } from '../publicCultureDisplay';
+import { getCultivationTypeLabel, getPublicCultureTitle } from '../publicCultureDisplay';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -480,7 +480,7 @@ export function PublicCultureLibraryDialog({
                 >
                   <ListItemText
                     primary={getPublicCultureTitle(culture, language, t('library.translation.missingName'))}
-                    secondary={culture.crop_family || culture.supplier_name || culture.seed_supplier || undefined}
+                    secondary={culture.crop_family || getCultivationTypeLabel(culture.cultivation_type, t, '') || undefined}
                     primaryTypographyProps={{ fontSize: '0.92rem', lineHeight: 1.25 }}
                     secondaryTypographyProps={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.2 }}
                   />

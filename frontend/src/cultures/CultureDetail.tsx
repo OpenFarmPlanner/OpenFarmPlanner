@@ -51,6 +51,7 @@ import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
+import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -69,26 +70,6 @@ interface CultureDetailProps {
   publishActionLabel?: string;
   searchInputRef?: Ref<HTMLInputElement>;
 }
-
-const isEmptyCropValue = (value: unknown): boolean => (
-  value === null
-  || value === undefined
-  || value === ''
-  || (Array.isArray(value) && value.length === 0)
-);
-
-const areCropValuesEqual = (left: unknown, right: unknown): boolean => {
-  if (isEmptyCropValue(left) && isEmptyCropValue(right)) {
-    return true;
-  }
-  if (typeof left === 'number' && typeof right === 'number') {
-    return Math.abs(left - right) < Number.EPSILON;
-  }
-  if (Array.isArray(left) || Array.isArray(right) || (typeof left === 'object' && left !== null) || (typeof right === 'object' && right !== null)) {
-    return JSON.stringify(left) === JSON.stringify(right);
-  }
-  return left === right;
-};
 
 import {
   CULTURE_FILTERS_STORAGE_KEY,
@@ -504,17 +485,9 @@ const detailSectionGridSx = {
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
-  ): ValueSource | null => {
-    if (isSpeciesView || !selectedCulture?.variety || !selectedSpeciesCulture) {
-      return null;
-    }
-    const ownValue = selectedCulture[field];
-    if (isEmptyCropValue(ownValue)) {
-      return null;
-    }
-    const cropValue = selectedSpeciesCulture[field];
-    return areCropValuesEqual(ownValue, cropValue) ? null : 'ownValue';
-  }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  ): ValueSource | null => (
+    isSpeciesView ? null : getVarietyOwnValueSource(selectedCulture, selectedSpeciesCulture, field)
+  ), [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
   const getCropValue = useCallback(<TValue,>(
     field: keyof Culture,

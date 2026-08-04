@@ -22,8 +22,6 @@ from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
 PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
     'notes',
-    'seed_supplier',
-    'supplier_name',
     'crop_family',
     'nutrient_demand',
     'cultivation_type',
@@ -90,8 +88,6 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'name',
             'variety',
             'notes',
-            'seed_supplier',
-            'supplier_name',
             'crop_species',
             'crop_species_name',
             'crop_species_canonical_name',
@@ -175,8 +171,6 @@ class PublicCultureUpdateSerializer(serializers.ModelSerializer):
         fields = [*PUBLIC_CULTURE_EDITABLE_FIELDS, 'base_version']
         extra_kwargs = {
             'notes': {'required': False, 'allow_blank': True},
-            'seed_supplier': {'required': False, 'allow_blank': True},
-            'supplier_name': {'required': False, 'allow_blank': True},
             'crop_family': {'required': False, 'allow_blank': True},
             'nutrient_demand': {'required': False, 'allow_blank': True},
             'cultivation_type': {'required': False, 'allow_blank': True},

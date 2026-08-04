@@ -195,10 +195,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             created_by=self.user,
             source_project=self.project,
             source_project_culture=other_culture,
-            supplier_name='Reinsaat',
         )
-        self.culture.seed_supplier = 'Reinsaat'
-        self.culture.save(update_fields=['seed_supplier', 'name_normalized', 'variety_normalized', 'updated_at'])
 
         response = self.publish_current_culture()
 
@@ -209,7 +206,6 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['duplicates'][0]['name'], 'Lettuce')
         self.assertEqual(response.data['normalized_identity']['name'], 'lettuce')
         self.assertEqual(response.data['normalized_identity']['variety'], 'bijella')
-        self.assertEqual(response.data['normalized_identity']['seed_supplier'], 'reinsaat')
         self.assertEqual(PublicCulture.objects.count(), 1)
 
     def test_second_publish_updates_own_linked_public_culture_and_increments_version(self):
@@ -270,10 +266,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             source_project=self.project,
             source_project_culture=self.culture,
             version=5,
-            supplier_name='Reinsaat',
         )
         self.culture.source_public_culture = foreign_public
-        self.culture.seed_supplier = 'Reinsaat'
         self.culture.save()
 
         response = self.publish_current_culture()
@@ -292,11 +286,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             crop_species=self.species,
             created_by=self.user,
             source_project=self.project,
-            supplier_name='  Rein   Saat  ',
         )
         self.culture.name = '  lettuce'
         self.culture.variety = 'bijella  '
-        self.culture.seed_supplier = 'rein saat'
         self.culture.save()
 
         response = self.publish_current_culture()
@@ -320,10 +312,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             created_by=self.user,
             source_project=self.project,
             source_project_culture=other_culture,
-            supplier_name='Reinsaat',
         )
         self.culture.variety = 'Other Variety'
-        self.culture.seed_supplier = 'Reinsaat'
         self.culture.save()
 
         response = self.publish_current_culture()
@@ -337,7 +327,6 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             variety='Canadian Wonder',
             status='published',
             created_by=self.user,
-            seed_supplier='Reinsaat',
             growth_duration_days=70,
             harvest_duration_days=30,
             notes='Public notes',
@@ -533,10 +522,15 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             variety='Bijella',
             status='published',
             created_by=self.user,
-            seed_supplier='Reinsaat',
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
         imported_id = import_response.data['id']
+
+        # Public cultures no longer carry supplier data, so seed this
+        # pre-existing legacy text value directly to test that a PUT with an
+        # explicit null supplier_id (and a supplier_name that is therefore
+        # ignored) does not wipe it out.
+        Culture.objects.filter(id=imported_id).update(seed_supplier='Reinsaat')
 
         detail_response = self.client.get(f'/openfarmplanner/api/cultures/{imported_id}/')
         payload = dict(detail_response.data)

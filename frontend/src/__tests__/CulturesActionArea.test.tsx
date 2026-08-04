@@ -407,8 +407,8 @@ describe('Cultures action area', () => {
         next: null,
         previous: null,
         results: [
-          { id: 11, name: 'Salat', variety: 'Bijella', supplier_name: 'Reinsaat', status: 'published', version: 1, published_at: '2026-03-10T12:00:00Z' },
-          { id: 12, name: ' salat ', variety: ' BIJELLA ', seed_supplier: '  rein saat  ', status: 'published', version: 1, published_at: '2026-03-11T12:00:00Z' },
+          { id: 11, name: 'Salat', variety: 'Bijella', status: 'published', version: 1, published_at: '2026-03-10T12:00:00Z' },
+          { id: 12, name: ' salat ', variety: ' BIJELLA ', status: 'published', version: 1, published_at: '2026-03-11T12:00:00Z' },
         ],
       },
     });

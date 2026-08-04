@@ -12,7 +12,7 @@
  * @returns JSX element rendering the culture form
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n';
 import type { Culture, PublicCulture, Supplier } from '../api/types';
@@ -52,6 +52,11 @@ import { NotesSection } from './sections/NotesSection';
 import { hasSupplierDataRowMissingSupplier, hasSupplierInformation } from './supplierDataRows';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
+import { findSpeciesCulture } from './cropHierarchy';
+import { getVarietyOwnValueSource } from './varietyValueSource';
+import { varietySpecificFieldHighlightSx } from './varietyValueAccent';
+import { buildVarietyFieldTooltipTitle, type GetVarietyFieldTooltipProps } from './varietyFieldTooltipHelpers';
+import { VarietyValueLegend } from './VarietyValueLegend';
 import {
   compactFieldSx,
   formRowSx,
@@ -62,6 +67,12 @@ import {
 
 interface CultureFormProps {
   culture?: Culture;
+  /**
+   * Full culture list, used to find the parent species culture for variety inheritance
+   * highlighting. Accepts partial/converted culture data (e.g. public library entries
+   * mapped to the project `Culture` shape) as long as field names/units line up.
+   */
+  cultures?: Partial<Culture>[];
   onSave: (culture: Culture) => Promise<void>;
   onCancel: () => void;
   title?: string;
@@ -125,7 +136,6 @@ const buildDraftFromPublicCulture = (publicCulture: PublicCulture): Partial<Cult
   name: getPublicCultureDraftName(publicCulture),
   variety: publicCulture.variety ?? '',
   notes: publicCulture.notes ?? '',
-  seed_supplier: publicCulture.supplier_name || publicCulture.seed_supplier || '',
   crop_species: publicCulture.crop_species ?? null,
   source_public_culture: publicCulture.id,
   source_public_version: publicCulture.version,
@@ -214,6 +224,7 @@ const buildInitialFormData = (culture?: Culture): Partial<Culture> => {
  */
 export function CultureForm({
   culture,
+  cultures,
   onSave,
   onCancel,
   title,
@@ -241,6 +252,23 @@ export function CultureForm({
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture));
   const identityLabel = [formData.name, formData.variety].filter(Boolean).join(' · ');
+
+  const selectedSpeciesCulture = useMemo(
+    () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
+    [cultures, formData],
+  );
+  const showVarietyValueLegend = Boolean(formData.variety && selectedSpeciesCulture);
+  const getFieldTooltipProps: GetVarietyFieldTooltipProps = useCallback((fields, helpText) => {
+    if (!selectedSpeciesCulture) {
+      return null;
+    }
+    const fieldList = Array.isArray(fields) ? fields : [fields];
+    const active = fieldList.some((field) => getVarietyOwnValueSource(formData, selectedSpeciesCulture, field) === 'ownValue');
+    return {
+      sx: active ? varietySpecificFieldHighlightSx : undefined,
+      tooltipTitle: buildVarietyFieldTooltipTitle(t, active, helpText),
+    };
+  }, [selectedSpeciesCulture, formData, t]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [duplicateErrorKey, setDuplicateErrorKey] = useState<string>('');
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
@@ -751,11 +779,18 @@ export function CultureForm({
                 </Typography>
               </Box>
             ) : null}
+            {showVarietyValueLegend ? (
+              <VarietyValueLegend
+                sampleLabel={t('hierarchy.ownValueLegendSample')}
+                description={t('hierarchy.ownValueLegendDescription')}
+              />
+            ) : null}
             <BasicInfoSection
               formData={formData}
               errors={displayErrors}
               onChange={handleChange}
               t={t}
+              getFieldTooltipProps={getFieldTooltipProps}
               showIdentityFields={isProjectForm}
               publicCultureOptions={isProjectForm ? publicCultureOptions : undefined}
               publicCultureOptionsLoading={publicCultureOptionsLoading}
@@ -778,10 +813,10 @@ export function CultureForm({
                 </Box>
               ) : null}
             />
-            <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} />
-            <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} />
-            <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} />
-            <SeedingSection formData={formData} errors={errors} onChange={handleChange} t={t} />
+            <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
+            <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
+            <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
+            <SeedingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <ColorSection formData={formData} errors={errors} onChange={handleChange} t={t} defaultColor={DEFAULT_DISPLAY_COLOR} />
             {isProjectForm ? (
               <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />

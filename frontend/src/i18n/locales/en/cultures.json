@@ -53,6 +53,8 @@
     "ownValue": "Own value",
     "ownValueLegendSample": "Highlighted values",
     "ownValueLegendDescription": "apply only to this variety.",
+    "ownValueFieldTooltip": "This value overrides the general crop value.",
+    "inheritedFieldTooltip": "This value is inherited from the general crop.",
     "setOwnValue": "Set own value",
     "useCropValue": "Use crop value",
     "varietyLabel": "Variety",

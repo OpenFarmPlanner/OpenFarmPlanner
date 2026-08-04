@@ -75,6 +75,7 @@ import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigat
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
+  getCultivationTypeLabel,
   getDescriptionFallbackNotice,
   getFallbackNotice,
   getPublicCultureDescription,
@@ -288,20 +289,6 @@ function formatMetersAsCentimeters(value: number | null | undefined, locale: str
   return value === null || value === undefined
     ? fallback
     : `${formatLocalizedNumber(value * 100, locale, fallback, { maximumFractionDigits: 1 })} cm`;
-}
-
-function getCultivationTypeLabel(
-  value: PublicCulture['cultivation_type'],
-  t: (key: string, options?: Record<string, unknown>) => string,
-  fallback: string,
-): string {
-  if (value === 'direct_sowing') {
-    return t('library.page.fields.cultivationTypes.directSowing');
-  }
-  if (value === 'pre_cultivation') {
-    return t('library.page.fields.cultivationTypes.preCultivation');
-  }
-  return fallback;
 }
 
 function getNutrientDemandLabel(
@@ -1096,7 +1083,7 @@ function PublicCultureMobileSelectorDialog({
                       culture?.crop_family,
                       node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
                     ].filter(Boolean).join(' • ') || undefined
-                    : undefined}
+                    : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
                   primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 }}
                   secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
                 />
@@ -1309,6 +1296,12 @@ export default function PublicCropLibraryPage() {
       isSelectedSpeciesEntry
       || (selectedSpeciesViewKey !== null && selectedSpeciesViewKey === selectedCultureSpeciesKey)
     ),
+  );
+  // Converted to the project `Culture` shape (matching units/field names) so the edit
+  // form can reuse the same crop/variety inheritance highlighting as the project side.
+  const editFormCultures = useMemo(
+    () => cultures.map(publicCultureToCultureFormData),
+    [cultures],
   );
   const selectedSpeciesCulture = useMemo(
     () => findSpeciesCulture(selectedCulture, cultures),
@@ -2189,16 +2182,11 @@ export default function PublicCropLibraryPage() {
 
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                md: '230px minmax(0, 1fr)',
-                lg: '300px minmax(0, 1fr)',
-                xl: '330px minmax(0, 1fr)',
-              },
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
               gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
-              alignItems: 'start',
               minHeight: { md: 560 },
+              height: { md: 'calc(100vh - 210px)' },
             }}
           >
             {!useCompactLibraryLayout ? (
@@ -2206,8 +2194,15 @@ export default function PublicCropLibraryPage() {
               variant="outlined"
               sx={{
                 ...libraryCardSx,
-                minHeight: 280,
-                maxHeight: { md: 'calc(100vh - 210px)' },
+                width: { md: 230, lg: 300, xl: 330 },
+                flexShrink: 0,
+                height: { md: '100%' },
+                // Flex items default to `min-height: auto`, which ignores the
+                // parent's bounded height and lets content push the card taller
+                // than its 100% instead of letting the inner list scroll.
+                minHeight: { xs: 280, md: 0 },
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Box component="form" onSubmit={handleSearchSubmit} sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
@@ -2247,7 +2242,7 @@ export default function PublicCropLibraryPage() {
                   role="listbox"
                   aria-label={t('library.page.title')}
                   onScroll={handleCultureListScroll}
-                  sx={{ maxHeight: { xs: 280, md: 'calc(100vh - 290px)' }, overflow: 'auto' }}
+                  sx={{ maxHeight: { xs: 280 }, flex: { md: 1 }, minHeight: 0, overflow: 'auto' }}
                 >
                   {visibleCropRows.map(({ node, depth, hasChildren }) => {
                     const culture = node.culture;
@@ -2330,7 +2325,7 @@ export default function PublicCropLibraryPage() {
                             culture?.crop_family,
                             node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
                           ].filter(Boolean).join(' • ') || undefined
-                          : culture?.supplier_name || culture?.seed_supplier || undefined}
+                          : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
                         primaryTypographyProps={{ fontWeight: node.kind === 'species' ? 700 : 500, noWrap: true }}
                         secondaryTypographyProps={{ noWrap: true }}
                       />
@@ -2342,8 +2337,30 @@ export default function PublicCropLibraryPage() {
             </Card>
             ) : null}
 
-            <Box sx={{ minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <Card variant="outlined" sx={{ ...libraryCardSx, width: '100%', maxWidth: { sm: 920, lg: 980, xl: 1040 }, minHeight: 420 }}>
+            <Box
+              sx={{
+                minWidth: 0,
+                width: '100%',
+                flex: { md: 1 },
+                display: 'flex',
+                justifyContent: 'flex-start',
+                height: { md: '100%' },
+              }}
+            >
+              <Card
+                variant="outlined"
+                sx={{
+                  ...libraryCardSx,
+                  width: '100%',
+                  maxWidth: { sm: 920, lg: 980, xl: 1040 },
+                  minHeight: 420,
+                  // The card itself (not a wider wrapper spanning the full column) owns
+                  // the bounded height and scroll, so its own scrollbar hugs the card's
+                  // right edge instead of sitting far away at the wrapper's full width.
+                  height: { md: '100%' },
+                  overflowY: { md: 'auto' },
+                }}
+              >
                 {isCultureLoading ? (
                   <Box sx={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
                     <Stack spacing={1} alignItems="center">
@@ -2878,6 +2895,7 @@ export default function PublicCropLibraryPage() {
       {editDialogOpen && selectedCulture ? (
         <CultureForm
           culture={publicCultureToCultureFormData(selectedCulture)}
+          cultures={editFormCultures}
           onSave={handleEditSave}
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}

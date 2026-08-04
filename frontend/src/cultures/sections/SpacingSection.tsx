@@ -6,52 +6,66 @@ import { Box, Typography, TextField } from '@mui/material';
 import type { Culture } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { fieldRowSx, smallFieldSx } from './styles.tsx';
+import { VarietyFieldTooltip } from '../VarietyFieldTooltip';
+import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
+import { mergeVarietyFieldSx } from '../varietyValueAccent';
 
 interface SpacingSectionProps {
   formData: Partial<Culture>;
   errors: Record<string, string>;
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
+  getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
 
-export function SpacingSection({ formData, errors, onChange, t }: SpacingSectionProps) {
+export function SpacingSection({ formData, errors, onChange, t, getFieldTooltipProps }: SpacingSectionProps) {
+  const distanceWithinRowVariety = getFieldTooltipProps?.('distance_within_row_cm');
+  const rowSpacingVariety = getFieldTooltipProps?.('row_spacing_cm');
+  const sowingDepthVariety = getFieldTooltipProps?.('sowing_depth_cm');
+
   return (
     <>
       <Typography variant="h6" sx={{ mt: 2 }}>{t('form.sectionPlanting')}</Typography>
       <Box sx={fieldRowSx}>
-        <TextField
-          sx={smallFieldSx}
-          type="number"
-          label={t('form.distanceWithinRowCm')}
-          placeholder={t('form.distanceWithinRowCmPlaceholder')}
-          value={formData.distance_within_row_cm ?? ''}
-          onChange={e => onChange('distance_within_row_cm', e.target.value ? parseInt(e.target.value) : undefined)}
-          error={Boolean(errors.distance_within_row_cm)}
-          helperText={errors.distance_within_row_cm}
-          slotProps={{ htmlInput: { min: 0, step: 1 } }}
-        />
-        <TextField
-          sx={smallFieldSx}
-          type="number"
-          label={t('form.rowSpacingCm')}
-          placeholder={t('form.rowSpacingCmPlaceholder')}
-          value={formData.row_spacing_cm ?? ''}
-          onChange={e => onChange('row_spacing_cm', e.target.value ? parseInt(e.target.value) : undefined)}
-          error={Boolean(errors.row_spacing_cm)}
-          helperText={errors.row_spacing_cm}
-          slotProps={{ htmlInput: { min: 0, step: 1 } }}
-        />
-        <TextField
-          sx={smallFieldSx}
-          type="number"
-          label={t('form.sowingDepthCm')}
-          placeholder={t('form.sowingDepthCmPlaceholder')}
-          value={formData.sowing_depth_cm ?? ''}
-          onChange={e => onChange('sowing_depth_cm', e.target.value ? parseFloat(e.target.value) : undefined)}
-          error={Boolean(errors.sowing_depth_cm)}
-          helperText={errors.sowing_depth_cm}
-          slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
-        />
+        <VarietyFieldTooltip tooltipTitle={distanceWithinRowVariety?.tooltipTitle}>
+          <TextField
+            sx={mergeVarietyFieldSx(smallFieldSx, distanceWithinRowVariety?.sx)}
+            type="number"
+            label={t('form.distanceWithinRowCm')}
+            placeholder={t('form.distanceWithinRowCmPlaceholder')}
+            value={formData.distance_within_row_cm ?? ''}
+            onChange={e => onChange('distance_within_row_cm', e.target.value ? parseInt(e.target.value) : undefined)}
+            error={Boolean(errors.distance_within_row_cm)}
+            helperText={errors.distance_within_row_cm}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+          />
+        </VarietyFieldTooltip>
+        <VarietyFieldTooltip tooltipTitle={rowSpacingVariety?.tooltipTitle}>
+          <TextField
+            sx={mergeVarietyFieldSx(smallFieldSx, rowSpacingVariety?.sx)}
+            type="number"
+            label={t('form.rowSpacingCm')}
+            placeholder={t('form.rowSpacingCmPlaceholder')}
+            value={formData.row_spacing_cm ?? ''}
+            onChange={e => onChange('row_spacing_cm', e.target.value ? parseInt(e.target.value) : undefined)}
+            error={Boolean(errors.row_spacing_cm)}
+            helperText={errors.row_spacing_cm}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+          />
+        </VarietyFieldTooltip>
+        <VarietyFieldTooltip tooltipTitle={sowingDepthVariety?.tooltipTitle}>
+          <TextField
+            sx={mergeVarietyFieldSx(smallFieldSx, sowingDepthVariety?.sx)}
+            type="number"
+            label={t('form.sowingDepthCm')}
+            placeholder={t('form.sowingDepthCmPlaceholder')}
+            value={formData.sowing_depth_cm ?? ''}
+            onChange={e => onChange('sowing_depth_cm', e.target.value ? parseFloat(e.target.value) : undefined)}
+            error={Boolean(errors.sowing_depth_cm)}
+            helperText={errors.sowing_depth_cm}
+            slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+          />
+        </VarietyFieldTooltip>
       </Box>
     </>
   );
