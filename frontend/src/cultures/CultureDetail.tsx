@@ -2,7 +2,7 @@
  * Culture Detail component with searchable dropdown and detailed crop information view.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
@@ -108,6 +108,34 @@ export function CultureDetail({
     `${theme.breakpoints.between('sm', 'md')} and (orientation: landscape) and (max-height: 560px)`,
   );
   const useUnifiedMobileLayout = isMobileLayout || isMobileLandscapeLayout;
+  const detailAreaRef = useRef<HTMLDivElement>(null);
+  // How tall the two-pane area is allowed to be, measured directly from where it
+  // actually starts in the viewport rather than guessed via a hardcoded "chrome
+  // height" offset (which drifts whenever the surrounding header/layout changes
+  // and silently leaves the panes shorter than the available space).
+  const [detailAreaMaxHeight, setDetailAreaMaxHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (useUnifiedMobileLayout) {
+      return undefined;
+    }
+    const element = detailAreaRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const BOTTOM_MARGIN_PX = 16;
+    const updateMaxHeight = () => {
+      const top = element.getBoundingClientRect().top;
+      setDetailAreaMaxHeight(Math.max(0, window.innerHeight - top - BOTTOM_MARGIN_PX));
+    };
+    updateMaxHeight();
+    window.addEventListener('resize', updateMaxHeight);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateMaxHeight) : undefined;
+    resizeObserver?.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', updateMaxHeight);
+      resizeObserver?.disconnect();
+    };
+  }, [useUnifiedMobileLayout, isLoading, cultures.length]);
   const supplierIdFromQuery = searchParams.get('supplierId') ?? '';
   
   // Initialize filters from sessionStorage
@@ -711,25 +739,27 @@ const detailSectionGridSx = {
       {/* Detail View */}
       {!isLoading && cultures.length > 0 ? (
         <Box
+          ref={detailAreaRef}
           sx={{
-            display: 'grid',
-            gridTemplateColumns: useUnifiedMobileLayout
-              ? 'minmax(0, 1fr)'
-              : {
-                xs: '1fr',
-                md: '230px minmax(0, 1fr)',
-                lg: '300px minmax(0, 1fr)',
-                xl: '330px minmax(0, 1fr)',
-              },
+            display: 'flex',
+            flexDirection: useUnifiedMobileLayout ? 'column' : { xs: 'column', md: 'row' },
             gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
-            alignItems: 'start',
+            height: {
+              md: detailAreaMaxHeight !== null ? `${detailAreaMaxHeight}px` : 'calc(100vh - 210px)',
+            },
           }}
         >
           {!useUnifiedMobileLayout ? (<Card
             sx={{
-              width: '100%',
+              width: { md: 230, lg: 300, xl: 330 },
               flexShrink: 0,
-              maxHeight: { md: 'calc(100vh - 210px)' },
+              height: { md: '100%' },
+              // Flex items default to `min-height: auto`, which ignores the
+              // parent's bounded height and lets content push the card taller
+              // than its 100% instead of letting the inner list scroll.
+              minHeight: { xs: 280, md: 0 },
+              display: 'flex',
+              flexDirection: 'column',
               overflow: 'hidden',
               border: '1px solid #e5e7eb',
               boxShadow: '0 1px 2px rgba(16, 24, 40, 0.04)',
@@ -745,7 +775,12 @@ const detailSectionGridSx = {
                 py: { xs: 0.5, lg: 0.75 },
                 px: { xs: 0.5, lg: 0.75 },
                 overflowY: 'auto',
-                maxHeight: { sm: 'calc(100vh - 290px)' },
+                // MUI breakpoint values cascade upward when not overridden, so the
+                // sub-md formula must be explicitly cleared at md+ or it silently
+                // caps the list there too instead of letting it fill the card via flex.
+                maxHeight: { sm: 'calc(100vh - 290px)', md: 'none' },
+                flex: { md: 1 },
+                minHeight: 0,
               }}
             >
               {visibleCropRows.map(({ node, depth, hasChildren }) => {
@@ -851,9 +886,31 @@ const detailSectionGridSx = {
               })}
             </List>
           </Card>) : null}
-          <Box sx={{ flex: 1, minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'flex-start',
+              // The card must size to its own (often much taller) content instead of
+              // being stretched to the wrapper's height, or nothing would overflow it.
+              alignItems: { md: 'flex-start' },
+              height: { md: '100%' },
+            }}
+          >
             {selectedCulture ? (
-              <Card sx={{ width: '100%', maxWidth: useUnifiedMobileLayout ? '100%' : { sm: 920, lg: 980, xl: 1040 } }}>
+              <Card
+                sx={{
+                  width: '100%',
+                  maxWidth: useUnifiedMobileLayout ? '100%' : { sm: 920, lg: 980, xl: 1040 },
+                  // The card itself (not a wider wrapper spanning the full column) owns
+                  // the bounded height and scroll, so its own scrollbar hugs the card's
+                  // right edge instead of sitting far away at the wrapper's full width.
+                  height: { md: '100%' },
+                  overflowY: { md: 'auto' },
+                }}
+              >
                 <CardContent sx={{ p: { xs: 1, sm: 2, lg: 2.5 } }}>
             {/* Header with crop name and badge */}
                   <Box sx={{ mb: { xs: 2, sm: 3 } }}>
