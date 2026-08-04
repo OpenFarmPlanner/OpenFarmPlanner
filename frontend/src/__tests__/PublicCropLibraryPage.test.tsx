@@ -1079,7 +1079,11 @@ describe('PublicCropLibraryPage', () => {
       revision: undefined,
     }));
     await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
-    expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
+    // Rendering the reloaded topic list is a real async round trip (state update
+    // -> re-render), which the default 1000ms findByRole timeout occasionally
+    // misses under CI load even though it's near-instant locally - hence the
+    // explicit timeout, matching the one already used for the comment body below.
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' }, { timeout: 10000 })).toBeInTheDocument();
     // The heading only needs the reloaded topic list, the comment body needs
     // the separate discussionComments request on top of it - so this has to
     // wait for one more round trip rather than read the DOM synchronously.
