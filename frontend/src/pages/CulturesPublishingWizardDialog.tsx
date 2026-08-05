@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -180,7 +180,11 @@ export function CulturesPublishingWizardDialog({
     queueMicrotask(() => {
       if (!cancelled) setSpeciesLoading(true);
     });
-    cropSpeciesAPI.list()
+    // The species picker is a client-side-filtered Autocomplete over the full
+    // reference list, not a server-searched one — it needs every published
+    // species in one page, not just the API's default page_size (100), or
+    // species sorted past that cutoff silently become unselectable.
+    cropSpeciesAPI.list({ page_size: 1000 })
       .then((response) => {
         if (cancelled) return;
         setSpecies(response.data.results);
@@ -204,9 +208,12 @@ export function CulturesPublishingWizardDialog({
   const isUpdatingOwnedPublicCulture = Boolean(
     selectedPublicCulture && selectedPublicCulture.id === ownedPublicCultureId,
   );
-  const comparison = isUpdatingOwnedPublicCulture && culture && selectedPublicCulture
-    ? buildPublicCultureComparison(culture, selectedPublicCulture, t)
-    : null;
+  const comparison = useMemo(
+    () => (isUpdatingOwnedPublicCulture && culture && selectedPublicCulture
+      ? buildPublicCultureComparison(culture, selectedPublicCulture, t)
+      : null),
+    [isUpdatingOwnedPublicCulture, culture, selectedPublicCulture, t],
+  );
   const isBlockedByValidation = !isUpdatingOwnedPublicCulture
     && !selectedPublicCulture
     && validationResult !== null

@@ -485,8 +485,14 @@ function RootLayout() {
 
   const applyProjectContextChange = useCallback(async (projectId: number): Promise<void> => {
     await switchActiveProject(projectId);
-    window.location.href = appRouteUrl('/app/dashboard');
-  }, [switchActiveProject]);
+    const currentPath = `${location.pathname}${location.search}${location.hash}`;
+    const targetUrl = appRouteUrl(currentPath);
+    if (targetUrl === `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.location.reload();
+    } else {
+      window.location.href = targetUrl;
+    }
+  }, [switchActiveProject, location.pathname, location.search, location.hash]);
 
   const closeCreateProjectDialog = (): void => {
     setIsCreateProjectOpen(false);

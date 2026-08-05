@@ -840,6 +840,16 @@
         "empty": "Keine offenen Moderator-Anfragen.",
         "approveSuccess": "Die Moderator-Anfrage wurde angenommen.",
         "rejectSuccess": "Die Moderator-Anfrage wurde abgelehnt."
+      },
+      "removed": {
+        "title": "Entfernte Kulturen",
+        "empty": "Keine entfernten Kulturen.",
+        "restore": "Wiederherstellen",
+        "restoreSuccess": "„{{name}}“ wurde wiederhergestellt und ist wieder veröffentlicht.",
+        "restoreError": "Die Kultur konnte nicht wiederhergestellt werden.",
+        "loadError": "Die entfernten Kulturen konnten nicht geladen werden.",
+        "reason": "Grund",
+        "removedOn": "Entfernt am {{date}}"
       }
     },
     "publishConfirm": {

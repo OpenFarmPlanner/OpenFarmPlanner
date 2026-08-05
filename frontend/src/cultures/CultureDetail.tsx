@@ -16,8 +16,8 @@ import { CultureTitleSelectorButton } from './CultureTitleSelectorButton';
 import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
+import { desktopCropChevronButtonSx } from './cropHierarchyRowSx';
 import {
   Badge,
   Box,
@@ -207,22 +207,6 @@ const detailSectionGridSx = {
     gap: 2,
     justifyContent: 'start',
     } as const;
-  const cropChevronButtonSx = {
-    width: 30,
-    height: 30,
-    minWidth: 30,
-    p: 0,
-    mr: 0.5,
-    mt: -0.375,
-    color: 'text.primary',
-    opacity: 0.72,
-    flexShrink: 0,
-    '&:hover': {
-      opacity: 1,
-      bgcolor: 'rgba(37, 111, 42, 0.08)',
-    },
-  } as const;
-
   const activeFilterCount = useMemo(
     () => {
       const filterValues = [
@@ -768,6 +752,7 @@ const detailSectionGridSx = {
           >
             {selectorControl}
             <List
+              {...cultureListNavigation.getListProps()}
               dense
               role="listbox"
               aria-label={t('title')}
@@ -850,27 +835,14 @@ const detailSectionGridSx = {
                       '&.Mui-selected:hover': { bgcolor: 'rgba(37, 111, 42, 0.16)' },
                     }}
                   >
-                    {hasChildren ? (
-                      <IconButton
-                        size="small"
-                        aria-label={expandedCropRows.has(node.id) ? t('hierarchy.collapseCrop') : t('hierarchy.expandCrop')}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          toggleCropRow(node.id);
-                        }}
-                        onDoubleClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                        }}
-                        sx={cropChevronButtonSx}
-                      >
-                        {expandedCropRows.has(node.id) ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
-                      </IconButton>
-                    ) : (
-                      <Box component="span" sx={{ width: 24, flexShrink: 0 }} />
-                    )}
+                    <CropHierarchyExpandToggle
+                      hasChildren={hasChildren}
+                      isExpanded={expandedCropRows.has(node.id)}
+                      onToggle={() => toggleCropRow(node.id)}
+                      expandLabel={t('hierarchy.expandCrop')}
+                      collapseLabel={t('hierarchy.collapseCrop')}
+                      sx={desktopCropChevronButtonSx}
+                    />
                     <ListItemText
                       primary={node.kind === 'species' ? node.label : node.label}
                       primaryTypographyProps={{

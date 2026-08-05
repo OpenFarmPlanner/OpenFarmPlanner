@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -37,18 +38,18 @@ from farm.services.public_cultures import (
 )
 
 
-def _request_boolean(value):
+from ..serializers import (
+    CultureSerializer,
+    PublicCultureSerializer,
+)
+
+
+def _request_boolean(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
         return value.strip().lower() in {'1', 'true', 'yes', 'on'}
     return False
-
-
-from ..serializers import (
-    CultureSerializer,
-    PublicCultureSerializer,
-)
 
 
 class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
@@ -582,7 +583,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='link-public-culture')
-    def link_public_culture(self, request, pk=None):
+    def link_public_culture(self, request: Request, pk: str | None = None) -> Response:
         culture = self.get_object()
         public_culture_id = request.data.get('public_culture_id')
         try:

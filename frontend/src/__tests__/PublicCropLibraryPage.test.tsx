@@ -24,6 +24,7 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   importToProject: vi.fn(),
   update: vi.fn(),
   updateTranslations: vi.fn(),
+  remove: vi.fn(),
 }));
 
 const authMocks = vi.hoisted(() => ({
@@ -95,6 +96,7 @@ vi.mock('../api/api', async () => {
       importToProject: publicCultureApiMocks.importToProject,
       update: publicCultureApiMocks.update,
       updateTranslations: publicCultureApiMocks.updateTranslations,
+      remove: publicCultureApiMocks.remove,
     },
   };
 });
@@ -276,6 +278,9 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+    publicCultureApiMocks.remove.mockResolvedValue({
+      data: { ...publicCultures[0], status: 'removed' },
+    });
   });
 
   it('hides the global moderation action completely for users without moderation rights', async () => {
@@ -289,6 +294,35 @@ describe('PublicCropLibraryPage', () => {
     expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+  });
+
+  it('lets a moderator remove a public culture after selecting a reason', async () => {
+    const user = userEvent.setup();
+    authMocks.user.is_public_library_moderator = true;
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    await user.click(within(cropDetailHeader).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
+
+    const removeDialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
+    const confirmButton = within(removeDialog).getByRole('button', { name: 'Aus Bibliothek entfernen' });
+    expect(confirmButton).toBeDisabled();
+
+    await user.click(within(removeDialog).getByLabelText('Grund'));
+    await user.click(await screen.findByRole('option', { name: 'Duplikat' }));
+    expect(confirmButton).toBeEnabled();
+
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(publicCultureApiMocks.remove).toHaveBeenCalledWith(1, 'duplicate');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Aus Bibliothek entfernen?' })).not.toBeInTheDocument();
+    });
   });
 
   it('opens the global moderation interface from the public crop library header for moderators', async () => {
@@ -1580,6 +1614,40 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+  });
+
+  it('keeps list focus after clicking a public culture so arrow keys choose the next culture', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+    });
+  });
+
+  it('focuses the selected public culture from the URL so arrow keys do not scroll the page', async () => {
+    const user = userEvent.setup();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
     });
   });
 

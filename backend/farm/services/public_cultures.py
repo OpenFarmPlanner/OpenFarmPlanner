@@ -518,9 +518,21 @@ def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, An
 
 
 def link_project_culture_to_public_reference(*, culture: Culture, public_culture: PublicCulture) -> Culture:
-    """Link a private culture to a published public culture without publishing a duplicate."""
+    """Link a private culture to a published public culture without publishing a duplicate.
+
+    This is a one-time baseline comparison (culture-as-linked vs. public
+    source), not the same check as ``Culture._flag_source_divergence``, which
+    compares a culture's *own* previous vs. current row on every save to
+    detect edits made after an import. There is no "previous row" yet here.
+    """
     source_payload = build_project_culture_payload(public_culture)
     tracked_fields = Culture._SOURCE_DIVERGENCE_TRACKED_FIELDS
+    if not (public_culture.variety or '').strip():
+        # A general (species-level) public entry has no variety of its own, so
+        # the private culture naming a specific cultivar is an inherent
+        # granularity difference between the two, not a sign the user edited
+        # anything relative to the source it's being linked to.
+        tracked_fields = tracked_fields - {'variety'}
     is_modified = any(getattr(culture, field) != source_payload.get(field) for field in tracked_fields)
 
     culture.crop_species = public_culture.crop_species
@@ -596,6 +608,17 @@ def detect_public_culture_duplicates(
     return candidates
 
 
+def _resolve_public_variety(publish_as_general: bool) -> str | None:
+    """The ``public_variety`` sentinel for :func:`build_public_culture_payload`.
+
+    ``''`` forces a species-level (variety-less) entry; ``None`` means "keep
+    the culture's own variety verbatim". Every publish/update call site needs
+    this same mapping, so it lives in one place instead of being re-derived
+    (and risking one call site falling out of sync with the others).
+    """
+    return '' if publish_as_general else None
+
+
 def build_publishing_check_result(
     *,
     culture: Culture,
@@ -609,7 +632,7 @@ def build_publishing_check_result(
     available_language_codes = detect_available_language_codes(culture)
     if language_code and language_code not in available_language_codes:
         available_language_codes = [language_code, *available_language_codes]
-    public_variety = '' if publish_as_general else None
+    public_variety = _resolve_public_variety(publish_as_general)
     duplicates = detect_public_culture_duplicates(
         culture,
         crop_species=crop_species,
@@ -642,8 +665,10 @@ def find_owned_public_culture_for_update(*, culture: Culture, user: User | None)
         ).first()
         if source_public and source_public.created_by_id == user.id:
             return source_public
-        if source_public and source_public.created_by_id != user.id:
-            return None
+        # source_public_culture points at an entry owned by someone else (e.g. a
+        # collaborator imported/linked it): that doesn't rule out the user having
+        # already published their own copy of this same project culture, so fall
+        # through to the source_project_culture lookup below instead of bailing.
 
     return PublicCulture.objects.filter(
         source_project_culture=culture,
@@ -711,10 +736,15 @@ def _is_public_library_moderator(user: User | None) -> bool:
     return is_public_library_moderator(user)
 
 
-def _update_public_culture_from_project_culture(*, public_culture: PublicCulture, culture: Culture) -> PublicCulture:
+def _update_public_culture_from_project_culture(
+    *,
+    public_culture: PublicCulture,
+    culture: Culture,
+    public_variety: str | None = None,
+) -> PublicCulture:
     ensure_public_culture_revision(public_culture)
     previous_snapshot = build_public_culture_snapshot(public_culture)
-    payload = build_public_culture_payload(culture)
+    payload = build_public_culture_payload(culture, public_variety=public_variety)
     payload.pop('published_at', None)
     for field, value in payload.items():
         setattr(public_culture, field, value)
@@ -751,13 +781,18 @@ def publish_culture_to_public_library(
     if not check_result.crop_species or not check_result.original_language_code or check_result.missing_required_fields:
         raise PublicCulturePublishingValidationError(check_result=check_result)
 
+    public_variety = _resolve_public_variety(publish_as_general)
     update_target = find_owned_public_culture_for_update(culture=culture, user=user)
     duplicates = check_result.duplicates
     if update_target:
         previous_status = update_target.status
         culture.crop_species = check_result.crop_species
         culture.save(update_fields=['crop_species', 'updated_at'])
-        updated_public_culture = _update_public_culture_from_project_culture(public_culture=update_target, culture=culture)
+        updated_public_culture = _update_public_culture_from_project_culture(
+            public_culture=update_target,
+            culture=culture,
+            public_variety=public_variety,
+        )
         updated_public_culture.crop_species = check_result.crop_species
         updated_public_culture.original_language_code = check_result.original_language_code
         updated_public_culture.status_changed_by = user if previous_status != PublicCulture.STATUS_PUBLISHED else updated_public_culture.status_changed_by
@@ -790,7 +825,7 @@ def publish_culture_to_public_library(
         version=1,
         crop_species=check_result.crop_species,
         original_language_code=check_result.original_language_code,
-        **build_public_culture_payload(culture, public_variety='' if publish_as_general else None),
+        **build_public_culture_payload(culture, public_variety=public_variety),
     )
     sync_original_language_translation(public_culture)
     _record_public_culture_status_event(
@@ -852,6 +887,28 @@ def remove_public_culture(
         status=PublicCulture.STATUS_REMOVED,
         user=user,
         reason=reason,
+    )
+
+
+def reinstate_removed_public_culture(*, public_culture: PublicCulture, user: User | None) -> PublicCulture:
+    """Moderator-only undo for `remove_public_culture`'s moderator path.
+
+    Unlike a contributor's own withdrawal (self-service, reversible by simply
+    publishing again), a moderator-removed entry has no self-service way
+    back — `find_owned_public_culture_for_update` deliberately excludes
+    `removed` so a moderation decision can't be bypassed by republishing.
+    This is the moderator-side counterpart: no time limit, moderator-only.
+    """
+    if not _is_public_library_moderator(user):
+        raise PublicCulturePermissionError('Only a moderator may restore a removed public culture.')
+    if public_culture.status not in {PublicCulture.STATUS_REMOVED, PublicCulture.STATUS_WITHDRAWN}:
+        raise PublicCultureStatusTransitionError(
+            'Only a removed or withdrawn public culture can be restored.',
+        )
+    return _set_public_culture_status(
+        public_culture=public_culture,
+        status=PublicCulture.STATUS_PUBLISHED,
+        user=user,
     )
 
 

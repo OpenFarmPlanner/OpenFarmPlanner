@@ -1,17 +1,13 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo } from 'react';
 import {
-  Box,
   Dialog,
   DialogContent,
   DialogTitle,
-  IconButton,
   List,
   ListItemButton,
   ListItemText,
 } from '@mui/material';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import type { TFunction } from 'i18next';
 
 import type { Culture } from '../api/api';
@@ -20,21 +16,7 @@ import { getCultureDisplayName } from './cultureDisplay';
 import { buildCropHierarchy, type CropHierarchyItemKind } from './cropHierarchy';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
-
-const cropChevronButtonSx = {
-  width: 30,
-  height: 30,
-  minWidth: 30,
-  p: 0,
-  mr: 0.5,
-  color: 'text.primary',
-  opacity: 0.72,
-  flexShrink: 0,
-  '&:hover': {
-    opacity: 1,
-    bgcolor: 'rgba(37, 111, 42, 0.08)',
-  },
-} as const;
+import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
 
 interface CultureMobileSelectorDialogProps {
   open: boolean;
@@ -128,27 +110,13 @@ export function CultureMobileSelectorDialog({
                 }}
                 sx={{ borderRadius: 1.25, mb: 0.375, pl: `calc(${0.75 + depth * 0.85}rem)` }}
               >
-                {hasChildren ? (
-                  <IconButton
-                    size="small"
-                    aria-label={expandedRows.has(node.id) ? t('hierarchy.collapseCrop') : t('hierarchy.expandCrop')}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleExpand(node.id);
-                    }}
-                    onDoubleClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                    sx={cropChevronButtonSx}
-                  >
-                    {expandedRows.has(node.id) ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
-                  </IconButton>
-                ) : (
-                  <Box component="span" sx={{ width: 24, flexShrink: 0 }} />
-                )}
+                <CropHierarchyExpandToggle
+                  hasChildren={hasChildren}
+                  isExpanded={expandedRows.has(node.id)}
+                  onToggle={() => toggleExpand(node.id)}
+                  expandLabel={t('hierarchy.expandCrop')}
+                  collapseLabel={t('hierarchy.collapseCrop')}
+                />
                 <ListItemText
                   primary={node.kind === 'species' ? node.label : node.label || (culture ? getCultureDisplayName(culture) : '')}
                   secondary={node.kind === 'species'

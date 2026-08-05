@@ -138,7 +138,7 @@ export const cultureAPI = {
 };
 
 export const cropSpeciesAPI = {
-  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status'] }) =>
+  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status']; page_size?: number }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
   propose: (name: string) => http.post<CropSpecies>('/crop-species/', { name }),
   approve: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/approve/`, { review_note: reviewNote }),
@@ -158,7 +158,7 @@ export const publicLibraryModeratorRequestAPI = {
 
 
 export const publicCultureAPI = {
-  list: (params?: { q?: string; name?: string; variety?: string }, signal?: AbortSignal) =>
+  list: (params?: { q?: string; name?: string; variety?: string; status?: 'removed' }, signal?: AbortSignal) =>
     http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params, signal }),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
   update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
@@ -170,6 +170,10 @@ export const publicCultureAPI = {
   // somebody else's entry must supply a structured moderation reason.
   remove: (id: number, reason?: PublicCultureRemovalReason) =>
     http.post<PublicCulture>(`/public-cultures/${id}/remove/`, reason ? { reason } : {}),
+  // Moderator-only undo for a moderator removal; no time limit (see
+  // reinstate_removed_public_culture on the backend for why a contributor
+  // can't just republish their way past a moderation decision).
+  restore: (id: number) => http.post<PublicCulture>(`/public-cultures/${id}/restore/`, {}),
   hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
   discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
   createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>

@@ -74,7 +74,6 @@ export const isTypingInEditableElement = (element: Element | null): boolean => {
     '[role="textbox"]',
     '[role="dialog"]',
     '[role="menu"]',
-    '[role="listbox"]',
     '[role="combobox"]',
     '.MuiPopover-root',
     '.MuiMenu-root',

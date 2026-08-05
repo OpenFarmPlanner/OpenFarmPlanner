@@ -770,6 +770,24 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Projekt anlegen' })).toBeInTheDocument();
   });
 
+  it('stays on the current page when switching the active project from the project switcher menu', async () => {
+    authState.user = createAuthenticatedUser([
+      { project_id: 1, project_name: 'Alpha', role: 'admin' },
+      { project_id: 2, project_name: 'Beta', role: 'admin' },
+    ], 1);
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/anbauplaene');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Aktives Projekt wechseln' }));
+    fireEvent.click(await screen.findByText('Beta'));
+
+    await waitFor(() => {
+      expect(authState.switchActiveProject).toHaveBeenCalledWith(2);
+    });
+    expect(window.location.pathname).toBe('/app/anbauplaene');
+  });
+
   it('opens the project trash from the project switcher when deleted projects exist', async () => {
     authState.user = {
       id: 1,

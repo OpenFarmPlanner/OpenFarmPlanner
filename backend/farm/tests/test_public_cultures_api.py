@@ -1231,6 +1231,96 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             created_by=moderator,
         ).exists())
 
+    def test_moderator_can_restore_a_removed_public_culture(self):
+        moderator = User.objects.create_user(
+            username='restore-moderator',
+            email='restore-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_REMOVED,
+            removal_reason=PublicCulture.REMOVAL_REASON_DUPLICATE,
+            created_by=self.user,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/restore/',
+            {},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_PUBLISHED)
+        self.assertEqual(public_culture.removal_reason, '')
+        self.assertTrue(PublicCultureStatusEvent.objects.filter(
+            public_culture=public_culture,
+            from_status=PublicCulture.STATUS_REMOVED,
+            to_status=PublicCulture.STATUS_PUBLISHED,
+            created_by=moderator,
+        ).exists())
+
+    def test_non_moderator_cannot_restore_a_removed_public_culture(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_REMOVED,
+            removal_reason=PublicCulture.REMOVAL_REASON_DUPLICATE,
+            created_by=self.user,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/restore/',
+            {},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.status, PublicCulture.STATUS_REMOVED)
+
+    def test_removed_public_cultures_are_hidden_from_the_default_list(self):
+        moderator = User.objects.create_user(
+            username='list-restore-moderator',
+            email='list-restore-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_REMOVED,
+            created_by=self.user,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        default_response = self.client.get('/openfarmplanner/api/public-cultures/')
+        self.assertEqual(default_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(default_response.data['results'], [])
+
+        removed_response = self.client.get('/openfarmplanner/api/public-cultures/?status=removed')
+        self.assertEqual(removed_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(removed_response.data['results']), 1)
+
+    def test_non_moderator_cannot_list_removed_public_cultures(self):
+        PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status=PublicCulture.STATUS_REMOVED,
+            created_by=self.user,
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/?status=removed')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'], [])
+
     def test_staff_culture_list_exposes_linked_public_culture_id_for_moderation(self):
         moderator = User.objects.create_user(
             username='list-moderator',

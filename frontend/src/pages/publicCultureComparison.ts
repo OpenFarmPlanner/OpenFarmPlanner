@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { Culture, PublicCulture } from '../api/types';
 import { buildPublicCultureUpdatePayload } from '../cultures/publicCultureFormAdapter';
+import { arePublicValuesEqual } from '../crops/components/publicCropLibrary/formatters';
 
 export interface PublicCultureChange {
   field: string;
@@ -43,10 +44,6 @@ const normalizeValue = (value: unknown): unknown => {
   return value;
 };
 
-const valuesMatch = (left: unknown, right: unknown): boolean => (
-  JSON.stringify(normalizeValue(left)) === JSON.stringify(normalizeValue(right))
-);
-
 const formatValue = (field: ComparisonField, value: unknown, t: TFunction): string => {
   const normalized = normalizeValue(value);
   if (normalized === null) return t('library.publishWizard.comparison.empty');
@@ -77,7 +74,7 @@ export function buildPublicCultureComparison(
   return COMPARISON_FIELDS.flatMap((field) => {
     const privateValue = privateValues[field];
     const publicValue = publicValues[field];
-    if (valuesMatch(privateValue, publicValue)) return [];
+    if (arePublicValuesEqual(privateValue, publicValue)) return [];
     return [{
       field,
       label: t(`library.publishWizard.comparison.fields.${field}`),

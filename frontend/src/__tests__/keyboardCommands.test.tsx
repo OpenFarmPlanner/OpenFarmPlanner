@@ -27,6 +27,23 @@ describe('useKeyboardShortcuts helpers', () => {
     div.setAttribute('contenteditable', 'true');
     expect(isTypingInEditableElement(div)).toBe(true);
   });
+
+  it('allows focused page listboxes while still blocking open popover listboxes', () => {
+    const pageListbox = document.createElement('div');
+    pageListbox.setAttribute('role', 'listbox');
+    expect(isTypingInEditableElement(pageListbox)).toBe(false);
+
+    const popover = document.createElement('div');
+    popover.className = 'MuiPopover-root';
+    const popoverListbox = document.createElement('div');
+    popoverListbox.setAttribute('role', 'listbox');
+    popover.append(popoverListbox);
+    document.body.append(popover);
+
+    expect(isTypingInEditableElement(popoverListbox)).toBe(true);
+
+    popover.remove();
+  });
 });
 
 function ShortcutHarness({ contexts, shortcut }: { contexts: string[]; shortcut: ShortcutSpec }): JSX.Element {
@@ -84,6 +101,33 @@ describe('command palette', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(action).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the clicked command even when its group is scattered non-contiguously in the input list', () => {
+    // Regression test: commands sharing a group (e.g. "navigation") can arrive
+    // interleaved with other groups when registered from different scopes
+    // (global commands vs. a page's own commands). The palette visually
+    // buckets same-group items together, so the click handler must resolve
+    // against that same bucketed order — not the original input order.
+    const editAction = vi.fn();
+    const switchProjectAction = vi.fn();
+    const commands: CommandSpec[] = [
+      { id: 'nav.first', label: 'Add crop', group: 'navigation', keywords: [], contextTags: ['global'], action: vi.fn() },
+      { id: 'project.settings', label: 'Open project settings', group: 'project', keywords: [], contextTags: ['global'], action: vi.fn() },
+      { id: 'project.switch.a', label: 'Switch project: Alpha', group: 'project', keywords: [], contextTags: ['global'], action: vi.fn() },
+      { id: 'project.switch.b', label: 'Switch project: Beta', group: 'project', keywords: [], contextTags: ['global'], action: switchProjectAction },
+      { id: 'nav.second', label: 'Toggle sidebar', group: 'navigation', keywords: [], contextTags: ['global'], action: vi.fn() },
+      { id: 'culture.edit', label: 'Edit crop', group: 'navigation', keywords: [], contextTags: ['cultures'], action: editAction },
+    ];
+
+    render(<CommandPalette open commands={commands} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Edit crop'));
+    expect(editAction).toHaveBeenCalledTimes(1);
+    expect(switchProjectAction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Switch project: Beta'));
+    expect(switchProjectAction).toHaveBeenCalledTimes(1);
   });
 
   it('shows shortcut hints in the result list', () => {

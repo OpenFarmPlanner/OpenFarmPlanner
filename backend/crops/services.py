@@ -48,11 +48,13 @@ def build_crop_search_terms(value: str) -> set[str]:
         alias = SEARCH_ALIASES.get(token)
         if alias:
             terms.add(alias)
-        if token.endswith('en') and len(token) > 4:
-            terms.add(token[:-1])
-        if token.endswith('n') and len(token) > 4:
-            terms.add(token[:-1])
-        if token.endswith('s') and len(token) > 4:
+        # Naive plural stripping: German "-e" + "-n" plurals (Tomate ->
+        # Tomaten) and English/German "-s" plurals both drop exactly one
+        # trailing letter, so every matched suffix strips 1 char, not
+        # len(suffix) - stripping "-en" as 2 chars would turn "Tomaten" into
+        # the invalid "Tomat" instead of "Tomate". Guarded to a minimum
+        # length so the truncated term stays specific enough for `icontains`.
+        if any(token.endswith(suffix) for suffix in ('en', 'n', 's')) and len(token) > 4:
             terms.add(token[:-1])
 
     alias = SEARCH_ALIASES.get(normalized)

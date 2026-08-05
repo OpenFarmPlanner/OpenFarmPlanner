@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, type KeyboardEvent } from 'react';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 
 type CultureListItemId = number | string;
 
@@ -7,6 +7,7 @@ interface CultureListKeyboardNavigationOptions<TItem> {
   selectedId: CultureListItemId | null | undefined;
   getId: (item: TItem) => CultureListItemId | null | undefined;
   onSelect: (item: TItem) => void;
+  autoFocusSelected?: boolean;
 }
 
 interface CultureListItemProps {
@@ -15,6 +16,10 @@ interface CultureListItemProps {
   role: 'option';
   'aria-selected': boolean;
   tabIndex: number;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
+}
+
+interface CultureListProps {
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }
 
@@ -27,6 +32,7 @@ export function useCultureListKeyboardNavigation<TItem>({
   selectedId,
   getId,
   onSelect,
+  autoFocusSelected = false,
 }: CultureListKeyboardNavigationOptions<TItem>) {
   const listDomId = useId().replace(/[^a-zA-Z0-9_-]/g, '-');
   const itemRefs = useRef<Map<CultureListItemId, HTMLElement>>(new Map());
@@ -45,13 +51,29 @@ export function useCultureListKeyboardNavigation<TItem>({
     element?.focus?.({ preventScroll: true });
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedId === null || selectedId === undefined) {
       return;
     }
-    const element = itemRefs.current.get(selectedId);
-    element?.scrollIntoView?.({ block: 'nearest' });
-  }, [selectedId]);
+    if (autoFocusSelected) {
+      focusItem(selectedId);
+      return;
+    }
+    itemRefs.current.get(selectedId)?.scrollIntoView?.({ block: 'nearest' });
+  }, [autoFocusSelected, focusItem, selectedId]);
+
+  const getFocusedItemId = useCallback((target: EventTarget | null): CultureListItemId | null => {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+
+    for (const [id, element] of itemRefs.current.entries()) {
+      if (element === target || element.contains(target)) {
+        return id;
+      }
+    }
+    return null;
+  }, []);
 
   const selectItem = useCallback((item: TItem, focusAfterSelect = true): void => {
     const id = getId(item);
@@ -136,7 +158,15 @@ export function useCultureListKeyboardNavigation<TItem>({
     };
   }, [fallbackFocusId, getId, handleKeyDown, listDomId, selectedId]);
 
+  const getListProps = useCallback((): CultureListProps => ({
+    onKeyDown: (event) => {
+      handleKeyDown(event, getFocusedItemId(event.target));
+    },
+  }), [getFocusedItemId, handleKeyDown]);
+
   return {
+    focusItem,
+    getListProps,
     getItemProps,
     selectItem,
   };

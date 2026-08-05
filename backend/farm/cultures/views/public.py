@@ -28,6 +28,7 @@ from farm.services.public_cultures import (
     PublicCultureStatusTransitionError,
     hard_delete_public_culture,
     import_public_culture_into_project,
+    reinstate_removed_public_culture,
     remove_public_culture,
     replace_public_culture_translations,
     restore_public_culture_version,
@@ -76,8 +77,17 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         description for every row — without this, search would add one query
         per result.
         """
+        status_param = (self.request.query_params.get('status') or '').strip()
+        if status_param == PublicCulture.STATUS_REMOVED and is_public_library_moderator(self.request.user):
+            # Removed entries are hidden from every other list/detail call (the
+            # class-level queryset filters to published-only) so a moderator
+            # can find something to restore without exposing removed content
+            # to everyone else.
+            base_queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_REMOVED)
+        else:
+            base_queryset = super().get_queryset()
         queryset = (
-            super().get_queryset()
+            base_queryset
             .select_related('created_by__public_profile', 'crop_species')
             .prefetch_related('crop_species__translations', 'translations')
         )
@@ -467,6 +477,20 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
                 user=request.user,
                 reason=(request.data.get('reason') or '').strip(),
             )
+        except PublicCulturePermissionError as error:
+            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
+        except PublicCultureStatusTransitionError as error:
+            return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request: Request, pk: str | None = None) -> Response:
+        """Moderator-only: bring a removed (or withdrawn) entry back to published."""
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
+        public_culture = self._get_public_culture_for_status_action()
+        try:
+            updated = reinstate_removed_public_culture(public_culture=public_culture, user=request.user)
         except PublicCulturePermissionError as error:
             return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
         except PublicCultureStatusTransitionError as error:

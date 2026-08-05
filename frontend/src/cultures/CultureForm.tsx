@@ -255,7 +255,13 @@ export function CultureForm({
 
   const selectedSpeciesCulture = useMemo(
     () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
-    [cultures, formData],
+    // findSpeciesCulture only reads these fields off formData (via
+    // getCropSpeciesKey's crop_species -> culture_display_name -> name
+    // fallback); keying on the whole object means it re-scans `cultures` on
+    // every keystroke in any unrelated field (yield, notes, ...), not just
+    // when the species identity actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cultures, formData.variety, formData.crop_species, formData.culture_display_name, formData.name],
   );
   const showVarietyValueLegend = Boolean(formData.variety && selectedSpeciesCulture);
   const getFieldTooltipProps: GetVarietyFieldTooltipProps = useCallback((fields, helpText) => {
@@ -283,14 +289,18 @@ export function CultureForm({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [supplierCreateTargetIndex, setSupplierCreateTargetIndex] = useState<number | null>(null);
   const isSavingRef = useRef(false);
-  const userInteractedRef = useRef(false);
+  const [userInteracted, setUserInteracted] = useState(false);
   const createSupplierButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const dialogContentRef = useDialogKeyboardScroll(true);
   const formRef = useRef<HTMLFormElement | null>(null);
   const supplierOptionsRef = useRef<Supplier[]>([]);
   const duplicateCheckSequenceRef = useRef(0);
   const publicCultureSearchSequenceRef = useRef(0);
-  const hasUnsavedChanges = isDirty || hasExternalChanges;
+  // isDirty alone would also fire for purely programmatic state changes (e.g.
+  // auto-selecting a public culture template); userInteracted is set at every
+  // real edit site, so pairing it here keeps "unsaved changes" tied to an
+  // actual user edit instead of any isDirty(true) call.
+  const hasUnsavedChanges = (isDirty && userInteracted) || hasExternalChanges;
 
   // Move focus to the first input after MUI's FocusTrap has settled
   useEffect(() => {
@@ -362,7 +372,7 @@ export function CultureForm({
     setSaveError('');
     setSupplierCreateTargetIndex(null);
     isSavingRef.current = false;
-    userInteractedRef.current = false;
+    setUserInteracted(false);
   }, [culture]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -514,7 +524,7 @@ export function CultureForm({
     setFormData((prev) => {
       const updated = { ...prev, [name]: value };
       setIsDirty(true);
-      userInteractedRef.current = true;
+      setUserInteracted(true);
       setSaveError('');
       if (name === 'name' || name === 'variety') {
         setDuplicateErrorKey('');
@@ -540,7 +550,7 @@ export function CultureForm({
           is_modified_from_source: false,
         };
         setIsDirty(true);
-        userInteractedRef.current = true;
+        setUserInteracted(true);
         setSaveError('');
         validateAndSet(updated);
         return updated;
@@ -555,7 +565,7 @@ export function CultureForm({
         ...buildDraftFromPublicCulture(publicCulture),
       };
       setIsDirty(true);
-      userInteractedRef.current = true;
+      setUserInteracted(true);
       setSaveError('');
       setDuplicateErrorKey('');
       validateAndSet(updated);
@@ -660,7 +670,7 @@ export function CultureForm({
       ));
 
       setIsDirty(true);
-      userInteractedRef.current = true;
+      setUserInteracted(true);
       setSaveError('');
       validateAndSet({ ...prev, supplier_data: nextRows });
       return {

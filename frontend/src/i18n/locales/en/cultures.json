@@ -840,6 +840,16 @@
         "empty": "No open moderator requests.",
         "approveSuccess": "The moderator request was approved.",
         "rejectSuccess": "The moderator request was rejected."
+      },
+      "removed": {
+        "title": "Removed crops",
+        "empty": "No removed crops.",
+        "restore": "Restore",
+        "restoreSuccess": "“{{name}}” has been restored and is published again.",
+        "restoreError": "The crop could not be restored.",
+        "loadError": "The removed crops could not be loaded.",
+        "reason": "Reason",
+        "removedOn": "Removed on {{date}}"
       }
     },
     "publishConfirm": {

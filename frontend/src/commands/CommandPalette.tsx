@@ -43,6 +43,14 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
   const filteredCommands = useMemo(() => filterCommands(commands, query), [commands, query]);
   const groupedCommands = useMemo(() => groupCommands(filteredCommands), [filteredCommands]);
   const groupedWithOffsets = useMemo(() => addGroupOffsets(groupedCommands), [groupedCommands]);
+  // Grouping reorders commands (all "navigation"-group items together, etc.),
+  // so a flatIndex from groupedWithOffsets does NOT line up with the same
+  // index in filteredCommands whenever a group's members aren't contiguous
+  // there. Execution and bounds-checks must use this visual order instead.
+  const orderedCommands = useMemo(
+    () => groupedWithOffsets.flatMap((group) => group.commands),
+    [groupedWithOffsets],
+  );
 
   useEffect(() => {
     if (!open) {
@@ -59,15 +67,15 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
   }, [open]);
 
   useEffect(() => {
-    if (selectedIndex > Math.max(filteredCommands.length - 1, 0)) {
+    if (selectedIndex > Math.max(orderedCommands.length - 1, 0)) {
       queueMicrotask(() => {
         setSelectedIndex(0);
       });
     }
-  }, [filteredCommands.length, selectedIndex]);
+  }, [orderedCommands.length, selectedIndex]);
 
   const runCommand = (index: number) => {
-    const command = filteredCommands[index];
+    const command = orderedCommands[index];
     if (!command) {
       return;
     }
@@ -85,7 +93,7 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSelectedIndex((current) => Math.min(current + 1, Math.max(filteredCommands.length - 1, 0)));
+      setSelectedIndex((current) => Math.min(current + 1, Math.max(orderedCommands.length - 1, 0)));
       return;
     }
 
