@@ -1318,7 +1318,13 @@ export default function PublicCropLibraryPage() {
     bgcolor: 'background.paper',
   } as const;
 
-  const cropActions = selectedCulture ? (
+  // Memoized so unrelated re-renders elsewhere on this page (typing in the
+  // search box, opening a discussion, etc.) don't force DetailPageActions —
+  // and every MUI Button/Emotion style inside it — to re-render from a fresh
+  // primaryActions array on every keystroke. DetailPageActions is wrapped in
+  // React.memo, so this only re-renders when one of the values below
+  // actually changes.
+  const cropActions = useMemo(() => (selectedCulture ? (
     <DetailPageActions
       compact={useCompactLibraryLayout}
       primaryActions={[
@@ -1342,7 +1348,14 @@ export default function PublicCropLibraryPage() {
         },
       ]}
     />
-  ) : null;
+  ) : null), [
+    handleImport,
+    importingId,
+    openEditDialog,
+    selectedCulture,
+    t,
+    useCompactLibraryLayout,
+  ]);
   return (
     <PageContainer variant="xwide">
       <Box sx={{ width: '100%' }}>

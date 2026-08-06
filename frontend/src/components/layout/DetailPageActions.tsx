@@ -1,5 +1,5 @@
 import { Box, Button, Stack } from '@mui/material';
-import type { MouseEvent, ReactNode } from 'react';
+import { memo, type MouseEvent, type ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { getStandardActionButtonSx } from '../buttons/segmentedControlStyles';
 import { AppTooltip } from '../AppTooltip';
@@ -20,7 +20,7 @@ interface DetailPageActionsProps {
   compact?: boolean;
 }
 
-export function DetailPageActions({
+export const DetailPageActions = memo(function DetailPageActions({
   primaryActions,
   overflowLabel,
   onOpenOverflow,
@@ -86,4 +86,4 @@ export function DetailPageActions({
       ) : null}
     </Stack>
   );
-}
+});
