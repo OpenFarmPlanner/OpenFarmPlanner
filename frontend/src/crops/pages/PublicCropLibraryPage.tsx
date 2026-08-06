@@ -1468,7 +1468,17 @@ export default function PublicCropLibraryPage() {
                 >
                   {visibleCropRows.map(({ node, depth, hasChildren }) => {
                     const culture = node.culture;
-                    const itemProps = culture?.id !== undefined ? cultureListNavigation.getItemProps(node) : {};
+                    // A species row with no dedicated varietyless entry (culture === null)
+                    // has nothing of its own to show — but it always has at least one
+                    // variety underneath it (that's the only way it could exist at all),
+                    // so clicking it selects that first variety instead of leaving the
+                    // row inert. This is what removes the grey/disabled "just a group
+                    // label" rows from the list entirely.
+                    const firstVarietyCulture = !culture
+                      ? cropHierarchyItems.find((item) => item.parentId === node.id && item.culture)?.culture ?? null
+                      : null;
+                    const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
+                    const itemProps = isClickable ? cultureListNavigation.getItemProps(node) : {};
                     const isRowSelected = Boolean(
                       culture?.id !== undefined
                       && culture.id === selectedCultureId
@@ -1478,13 +1488,13 @@ export default function PublicCropLibraryPage() {
                     <ListItemButton
                       key={node.id}
                       {...itemProps}
-                      role={culture ? 'option' : 'presentation'}
+                      role={isClickable ? 'option' : 'presentation'}
                       aria-label={node.kind === 'species'
                         ? node.label
                         : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
-                      aria-selected={culture ? isRowSelected : undefined}
+                      aria-selected={isClickable ? isRowSelected : undefined}
                       selected={isRowSelected}
-                      disabled={!culture}
+                      disabled={!isClickable}
                       onClick={() => {
                         if (culture?.id !== undefined) {
                           updateSelectedCultureId(culture.id, {
@@ -1492,6 +1502,9 @@ export default function PublicCropLibraryPage() {
                             speciesViewKey: node.kind === 'species' ? node.speciesKey : null,
                           });
                           cultureListNavigation.focusItem(node.id);
+                        } else if (firstVarietyCulture) {
+                          ensureCropRowExpanded(node.id);
+                          updateSelectedCultureId(firstVarietyCulture.id, { replace: false });
                         }
                       }}
                       onDoubleClick={(event) => {

@@ -138,6 +138,14 @@ export function PublicCultureMobileSelectorDialog({
           >
             {visibleRows.map(({ node, depth, hasChildren }) => {
               const culture = node.culture;
+              // A species row with no dedicated varietyless entry has nothing of its
+              // own to select — but it always has at least one variety underneath it,
+              // so tapping it selects that first variety instead of doing nothing.
+              // Mirrors the desktop list (PublicCropLibraryPage.tsx).
+              const firstVarietyCulture = !culture
+                ? hierarchyItems.find((item) => item.parentId === node.id && item.culture)?.culture ?? null
+                : null;
+              const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
               const isRowSelected = Boolean(
                 culture?.id !== undefined
                 && culture.id === selectedCultureId
@@ -148,16 +156,19 @@ export function PublicCultureMobileSelectorDialog({
               return (
               <ListItemButton
                 key={`mobile-public-${node.id}`}
-                role={culture ? 'option' : 'presentation'}
+                role={isClickable ? 'option' : 'presentation'}
                 aria-label={node.kind === 'species'
                   ? node.label
                   : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
-                aria-selected={culture ? isRowSelected : undefined}
+                aria-selected={isClickable ? isRowSelected : undefined}
                 selected={isRowSelected}
-                disabled={!culture}
+                disabled={!isClickable}
                 onClick={() => {
                   if (culture) {
                     onSelect(culture, node.kind, node.speciesKey);
+                  } else if (firstVarietyCulture) {
+                    ensureExpanded(node.id);
+                    onSelect(firstVarietyCulture, 'variety', node.speciesKey);
                   }
                 }}
                 onDoubleClick={(event) => {

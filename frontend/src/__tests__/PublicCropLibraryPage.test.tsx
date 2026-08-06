@@ -1968,6 +1968,70 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
   }, 30000);
 
+  describe('species groups without a general entry are not greyed out', () => {
+    it('renders the species row as a selectable option instead of a disabled presentation row', async () => {
+      renderPage();
+
+      const tomatoRow = await screen.findByRole('option', { name: 'Tomate' });
+      expect(tomatoRow).not.toHaveAttribute('aria-disabled', 'true');
+      expect(tomatoRow).not.toHaveClass('Mui-disabled');
+    });
+
+    it('selects the first (and only) variety when clicking a single-variety species row', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate' }));
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      expect(within(cropDetailHeader).getByText('Roma')).toBeInTheDocument();
+    });
+
+    it('expands the group and selects the first variety when clicking a multi-variety species row with no general entry', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({
+        data: {
+          results: [
+            ...publicCultures,
+            {
+              id: 3,
+              status: 'published',
+              name: 'Kohl',
+              variety: 'Odysseus',
+              crop_species_name: 'Kohl',
+              version: 1,
+              original_language_code: 'de',
+              published_at: '2026-07-24T10:00:00Z',
+              created_at: '2026-07-21T08:00:00Z',
+              updated_at: '2026-07-25T12:00:00Z',
+            },
+            {
+              id: 4,
+              status: 'published',
+              name: 'Kohl',
+              variety: 'Noriko',
+              crop_species_name: 'Kohl',
+              version: 1,
+              original_language_code: 'de',
+              published_at: '2026-07-24T10:00:00Z',
+              created_at: '2026-07-21T08:00:00Z',
+              updated_at: '2026-07-25T12:00:00Z',
+            },
+          ],
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Kohl' }));
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Kohl' })).toBeInTheDocument();
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      expect(within(cropDetailHeader).getByText('Odysseus')).toBeInTheDocument();
+      expect(await screen.findByRole('option', { name: 'Kohl (Noriko)' })).toBeInTheDocument();
+    });
+  });
+
   describe('import button reflects project_import_status', () => {
     it('shows "Aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
       publicCultureApiMocks.list.mockResolvedValue({
