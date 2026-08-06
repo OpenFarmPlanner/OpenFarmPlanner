@@ -287,14 +287,23 @@ export default function PublicCropLibraryPage() {
     if (nextSearch === currentSearch) {
       return;
     }
-    navigate(
-      {
-        pathname: currentLocation.pathname,
-        search: nextSearch ? `?${nextSearch}` : '',
-        hash: currentLocation.hash,
-      },
-      { replace },
-    );
+    const nextLocation = {
+      pathname: currentLocation.pathname,
+      search: nextSearch ? `?${nextSearch}` : '',
+      hash: currentLocation.hash,
+    };
+    // Write through immediately: locationRef is otherwise only refreshed by the
+    // location-changed effect above, which runs one render behind. Selecting
+    // several cultures in quick succession (fast clicks, arrow-key repeat)
+    // calls this function multiple times before that effect can catch up, so
+    // without this each call after the first would build its URL from a stale
+    // base and could even skip navigating entirely (the nextSearch === currentSearch
+    // check above false-matching a stale, already-superseded search) — the
+    // selection then snaps back to whatever the stale URL said once the
+    // URL-to-state sync effect (below) reconciles it, which reads as the
+    // culture list "jumping back and forth" after a fast selection.
+    locationRef.current = { ...currentLocation, ...nextLocation };
+    navigate(nextLocation, { replace });
   }, [activeTab, navigate]);
 
   const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean; speciesViewKey?: string | null } = {}): void => {
