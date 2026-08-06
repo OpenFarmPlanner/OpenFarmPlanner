@@ -1560,14 +1560,14 @@ export default function PublicCropLibraryPage() {
                   overflowY: { md: 'auto' },
                 }}
               >
-                {isCultureLoading ? (
+                {isCultureLoading && !selectedCulture ? (
                   <Box sx={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
                     <Stack spacing={1} alignItems="center">
                       <CircularProgress size={28} />
                       <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
                     </Stack>
                   </Box>
-                ) : loadStatus === 'error' ? (
+                ) : loadStatus === 'error' && !selectedCulture ? (
                   <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                     <Alert severity="error">{loadError}</Alert>
                   </Box>
