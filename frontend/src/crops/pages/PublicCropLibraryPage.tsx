@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type UIEvent } from 'react';
-import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import axios from 'axios';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
@@ -128,17 +128,7 @@ export default function PublicCropLibraryPage() {
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const [searchParams] = useSearchParams();
-  const location = useLocation();
   const navigate = useNavigate();
-  // navigateToLibraryState reads location fresh via this ref instead of depending on
-  // location.search directly: selecting a culture calls navigate(), which changes
-  // location.search, which would otherwise recreate navigateToLibraryState (and the
-  // updateSelectedCultureId/loadCultures callbacks chained off it) on every selection,
-  // re-triggering the culture list fetch and remounting the list mid keyboard-navigation.
-  const locationRef = useRef(location);
-  useEffect(() => {
-    locationRef.current = location;
-  }, [location]);
   const selectedCultureParam = searchParams.get('cultureId');
   const selectedCultureIdFromUrl = parsePublicCultureId(selectedCultureParam);
   const selectedTopicIdFromUrl = parsePublicCultureId(searchParams.get('discussionId'));
@@ -256,54 +246,37 @@ export default function PublicCropLibraryPage() {
     discussionId?: number | null;
     replace?: boolean;
   }): void => {
-    const currentLocation = locationRef.current;
-    const nextParams = new URLSearchParams(currentLocation.search);
-    if (cultureId === null) {
-      nextParams.delete('cultureId');
-      nextParams.delete('tab');
-      nextParams.delete('discussionId');
-    } else {
+    // Built from scratch (never read back from the current URL) so this is a
+    // pure function of its own arguments: this page only ever owns cultureId,
+    // tab and discussionId, so there is nothing to preserve from "the current
+    // search" — and nothing to go stale. A previous version rebuilt the next
+    // URL on top of a ref mirroring `location`, refreshed only by an effect
+    // running one render behind; selecting several cultures in quick
+    // succession (fast clicks, arrow-key repeat) called that version before
+    // the ref had caught up, so a later call could build its URL from an
+    // already-superseded base and even skip navigating entirely — read as
+    // the culture list (and the import/update button) jumping back to an
+    // earlier selection after a fast pick. Not reading any "current" state
+    // here removes that failure mode structurally instead of papering over it.
+    const nextParams = new URLSearchParams();
+    if (cultureId !== null) {
       nextParams.set('cultureId', String(cultureId));
 
       const nextTab = tab ?? activeTab;
       const tabParam = PUBLIC_CULTURE_TAB_BY_INDEX[nextTab] ?? 'details';
-      if (tabParam === 'details') {
-        nextParams.delete('tab');
-      } else {
+      if (tabParam !== 'details') {
         nextParams.set('tab', tabParam);
       }
 
       const nextDiscussionId = tabParam === 'discussion' ? (discussionId ?? null) : null;
-      if (nextDiscussionId === null) {
-        nextParams.delete('discussionId');
-      } else {
+      if (nextDiscussionId !== null) {
         nextParams.set('discussionId', String(nextDiscussionId));
         nextParams.set('tab', 'discussion');
       }
     }
 
     const nextSearch = nextParams.toString();
-    const currentSearch = currentLocation.search.startsWith('?') ? currentLocation.search.slice(1) : currentLocation.search;
-    if (nextSearch === currentSearch) {
-      return;
-    }
-    const nextLocation = {
-      pathname: currentLocation.pathname,
-      search: nextSearch ? `?${nextSearch}` : '',
-      hash: currentLocation.hash,
-    };
-    // Write through immediately: locationRef is otherwise only refreshed by the
-    // location-changed effect above, which runs one render behind. Selecting
-    // several cultures in quick succession (fast clicks, arrow-key repeat)
-    // calls this function multiple times before that effect can catch up, so
-    // without this each call after the first would build its URL from a stale
-    // base and could even skip navigating entirely (the nextSearch === currentSearch
-    // check above false-matching a stale, already-superseded search) — the
-    // selection then snaps back to whatever the stale URL said once the
-    // URL-to-state sync effect (below) reconciles it, which reads as the
-    // culture list "jumping back and forth" after a fast selection.
-    locationRef.current = { ...currentLocation, ...nextLocation };
-    navigate(nextLocation, { replace });
+    navigate(nextSearch ? `?${nextSearch}` : '', { replace });
   }, [activeTab, navigate]);
 
   const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean; speciesViewKey?: string | null } = {}): void => {
