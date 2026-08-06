@@ -338,6 +338,7 @@ describe('CultureDetail Component', () => {
 
     const sectionTitles = screen.getAllByRole('heading', { level: 6 }).map((node) => node.textContent?.trim());
     expect(sectionTitles).toEqual([
+      'Sorten',
       'Allgemeine Informationen',
       'Zeitplanung',
       'Abstände',
@@ -882,7 +883,7 @@ describe('CultureDetail Component', () => {
       expect(screen.getByText('Nantes')).toBeInTheDocument();
       expect(screen.getByText('Bolero')).toBeInTheDocument();
 
-      await user.click(screen.getByRole('button', { name: '+ Sorte hinzufügen' }));
+      await user.click(screen.getByRole('button', { name: 'Sorte hinzufügen' }));
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 

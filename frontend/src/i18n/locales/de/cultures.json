@@ -64,7 +64,7 @@
     "varietyCount_other": "{{count}} Sorten",
     "varietiesTitle": "Sorten",
     "varietiesEmpty": "Für diese Kultur sind noch keine Sorten angelegt.",
-    "addVariety": "+ Sorte hinzufügen"
+    "addVariety": "Sorte hinzufügen"
   },
   "supplier_id": "Lieferant",
   "noData": "Keine Angabe",
@@ -778,7 +778,7 @@
       "noResultsTitle": "Keine passende öffentliche Kultur gefunden"
     },
     "importButton": "In Projekt importieren",
-    "importUpdateButton": "Aktualisieren",
+    "importUpdateButton": "Im Projekt aktualisieren",
     "importing": "Importiere…",
     "importSuccess": "„{{name}}“ wurde in dieses Projekt importiert.",
     "importError": "Die öffentliche Kultur konnte nicht importiert werden.",

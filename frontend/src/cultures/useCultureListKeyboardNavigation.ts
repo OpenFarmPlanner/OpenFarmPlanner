@@ -56,8 +56,17 @@ export function useCultureListKeyboardNavigation<TItem>({
       return;
     }
     if (autoFocusSelected) {
-      focusItem(selectedId);
-      return;
+      if (itemRefs.current.has(selectedId)) {
+        focusItem(selectedId);
+        return;
+      }
+      // The selected row's own element isn't mounted yet — it may still be
+      // hidden behind a collapsed parent that another effect is about to
+      // expand in this same commit. Retry once the resulting re-render (and
+      // any expansion it triggers) has painted, instead of silently giving
+      // up on the initial focus.
+      const raf = requestAnimationFrame(() => focusItem(selectedId));
+      return () => cancelAnimationFrame(raf);
     }
     itemRefs.current.get(selectedId)?.scrollIntoView?.({ block: 'nearest' });
   }, [autoFocusSelected, focusItem, selectedId]);
@@ -84,10 +93,25 @@ export function useCultureListKeyboardNavigation<TItem>({
     const schedule = window.requestAnimationFrame ?? ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0));
     schedule(() => {
       const element = itemRefs.current.get(id);
-      element?.scrollIntoView?.({ block: 'nearest' });
-      if (focusAfterSelect) {
-        element?.focus?.({ preventScroll: true });
+      if (element) {
+        element.scrollIntoView?.({ block: 'nearest' });
+        if (focusAfterSelect) {
+          element.focus?.({ preventScroll: true });
+        }
+        return;
       }
+      // The newly selected row may still be hidden behind a collapsed parent
+      // that an effect (triggered by onSelect above) is about to expand in a
+      // later commit — retry once that expansion has painted instead of
+      // silently dropping focus (see the mount-focus effect for the same
+      // pattern).
+      schedule(() => {
+        const retryElement = itemRefs.current.get(id);
+        retryElement?.scrollIntoView?.({ block: 'nearest' });
+        if (focusAfterSelect) {
+          retryElement?.focus?.({ preventScroll: true });
+        }
+      });
     });
   }, [getId, onSelect]);
 

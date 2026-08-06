@@ -18,8 +18,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
-import { desktopCropChevronButtonSx } from './cropHierarchyRowSx';
+import { CropHierarchyRow } from './CropHierarchyRow';
 import {
   Badge,
   Box,
@@ -400,8 +399,8 @@ const detailSectionGridSx = {
   );
 
   const selectableCropRows = useMemo(
-    () => visibleCropRows.map((row) => row.node).filter((item) => item.culture?.id !== undefined),
-    [visibleCropRows],
+    () => cropHierarchyItems.filter((item) => item.culture?.id !== undefined),
+    [cropHierarchyItems],
   );
 
   useEffect(() => {
@@ -507,10 +506,14 @@ const detailSectionGridSx = {
   const varietySiblings = useMemo(
     () => (
       selectedCultureSpeciesKey
-        ? cropHierarchyItems.filter((item) => item.kind === 'variety' && item.speciesKey === selectedCultureSpeciesKey)
+        ? cropHierarchyItems.filter((item) => (
+          item.kind === 'variety'
+          && item.speciesKey === selectedCultureSpeciesKey
+          && item.culture?.id !== selectedCulture?.id
+        ))
         : []
     ),
-    [cropHierarchyItems, selectedCultureSpeciesKey],
+    [cropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
   );
   const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
 
@@ -799,15 +802,11 @@ const detailSectionGridSx = {
                     : cultivationValues.includes('pre_cultivation')
                       ? t('filters.preCultivation')
                       : '';
-                const secondaryParts = node.kind === 'species'
-                  ? [
-                    culture?.crop_family,
-                    node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
-                  ]
+                const secondary = node.kind === 'species'
+                  ? undefined
                   : isTabletLayout
-                    ? []
-                    : [cultivationLabel, culture?.seed_supplier].filter(Boolean);
-                const secondary = secondaryParts.filter(Boolean).join(' • ');
+                    ? undefined
+                    : [cultivationLabel, culture?.seed_supplier].filter(Boolean).join(' • ') || undefined;
                 // A species row with no dedicated varietyless entry has nothing of its
                 // own to select — but it always has at least one variety underneath it,
                 // so clicking it selects that first variety instead of leaving the row
@@ -822,21 +821,28 @@ const detailSectionGridSx = {
                 );
 
                 return (
-                  <ListItemButton
+                  <CropHierarchyRow
                     key={node.id}
-                    {...itemProps}
-                    role={isClickable ? 'option' : 'presentation'}
-                    aria-label={node.kind === 'species' ? node.label : undefined}
-                    aria-selected={isClickable ? isRowSelected : undefined}
-                    selected={isRowSelected}
-                    disabled={!isClickable}
+                    itemProps={itemProps}
+                    depth={depth}
+                    hasChildren={hasChildren}
+                    isExpanded={expandedCropRows.has(node.id)}
+                    onToggleExpand={() => toggleCropRow(node.id)}
+                    expandLabel={t('hierarchy.expandCrop')}
+                    collapseLabel={t('hierarchy.collapseCrop')}
+                    isSelected={isRowSelected}
+                    isClickable={isClickable}
+                    ariaLabel={node.kind === 'species' ? node.label : undefined}
+                    primary={node.label}
+                    isPrimaryEmphasized={node.kind === 'species'}
+                    secondary={secondary}
+                    varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
                     onClick={() => {
                       if (culture) {
                         cultureListNavigation.selectItem(node);
                         return;
                       }
                       if (firstVariety) {
-                        ensureCropRowExpanded(node.id);
                         cultureListNavigation.selectItem(firstVariety);
                       }
                     }}
@@ -848,42 +854,7 @@ const detailSectionGridSx = {
                       event.stopPropagation();
                       toggleCropRow(node.id);
                     }}
-                    sx={{
-                      borderRadius: 1.5,
-                      ml: `calc(${depth * 1.75}rem)`,
-                      pl: { xs: 0.75, lg: 0.875 },
-                      pr: { xs: 0.875, lg: 1 },
-                      py: { xs: 0.5, lg: 0.75 },
-                      mb: { xs: 0.375, lg: 0.5 },
-                      alignItems: 'flex-start',
-                      border: '1px solid transparent',
-                      '&:hover': { bgcolor: '#f4f8f4', borderColor: '#d6e6d8' },
-                      '&.Mui-selected': {
-                        bgcolor: 'rgba(37, 111, 42, 0.12)',
-                        borderColor: 'rgba(37, 111, 42, 0.32)',
-                      },
-                      '&.Mui-selected:hover': { bgcolor: 'rgba(37, 111, 42, 0.16)' },
-                    }}
-                  >
-                    <CropHierarchyExpandToggle
-                      hasChildren={hasChildren}
-                      isExpanded={expandedCropRows.has(node.id)}
-                      onToggle={() => toggleCropRow(node.id)}
-                      expandLabel={t('hierarchy.expandCrop')}
-                      collapseLabel={t('hierarchy.collapseCrop')}
-                      sx={desktopCropChevronButtonSx}
-                    />
-                    <ListItemText
-                      primary={node.kind === 'species' ? node.label : node.label}
-                      primaryTypographyProps={{
-                        fontSize: { xs: '0.9rem', lg: '0.95rem' },
-                        fontWeight: node.kind === 'species' ? 700 : 500,
-                        lineHeight: 1.25,
-                      }}
-                      secondary={secondary || (node.kind === 'species' ? culture?.crop_family : undefined)}
-                      secondaryTypographyProps={{ fontSize: { xs: '0.76rem', lg: '0.8rem' }, color: 'text.secondary', lineHeight: 1.25 }}
-                    />
-                  </ListItemButton>
+                  />
                 );
               })}
             </List>

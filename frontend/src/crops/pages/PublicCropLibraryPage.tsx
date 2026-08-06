@@ -21,7 +21,6 @@ import {
   InputLabel,
   List,
   ListItemButton,
-  ListItemText,
   MenuItem,
   Select,
   Stack,
@@ -85,8 +84,7 @@ import { MultilingualTextFieldSection } from '../components/MultilingualTextFiel
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
-import { CropHierarchyExpandToggle } from '../../cultures/CropHierarchyExpandToggle';
-import { desktopCropChevronButtonSx } from '../../cultures/cropHierarchyRowSx';
+import { CropHierarchyRow } from '../../cultures/CropHierarchyRow';
 import { DetailGrid, DetailRow, DetailSection } from '../components/publicCropLibrary/DetailPrimitives';
 import { VersionCard } from '../components/publicCropLibrary/VersionCard';
 import { CommentForm } from '../components/publicCropLibrary/CommentForm';
@@ -506,8 +504,8 @@ export default function PublicCropLibraryPage() {
     [cropHierarchyItems, expandedCropRows],
   );
   const selectableCropRows = useMemo(
-    () => visibleCropRows.map((row) => row.node).filter((item) => item.culture?.id !== undefined),
-    [visibleCropRows],
+    () => cropHierarchyItems.filter((item) => item.culture?.id !== undefined),
+    [cropHierarchyItems],
   );
   // Localized species name for the selected entry, plus the notice shown when
   // only another language's text is available.
@@ -1491,16 +1489,26 @@ export default function PublicCropLibraryPage() {
                       && (node.kind === 'species' ? isSpeciesView : !isSpeciesView),
                     );
                     return (
-                    <ListItemButton
+                    <CropHierarchyRow
                       key={node.id}
-                      {...itemProps}
-                      role={isClickable ? 'option' : 'presentation'}
-                      aria-label={node.kind === 'species'
+                      itemProps={itemProps}
+                      depth={depth}
+                      hasChildren={hasChildren}
+                      isExpanded={expandedCropRows.has(node.id)}
+                      onToggleExpand={() => toggleCropRow(node.id)}
+                      expandLabel={t('hierarchy.expandCrop')}
+                      collapseLabel={t('hierarchy.collapseCrop')}
+                      isSelected={isRowSelected}
+                      isClickable={isClickable}
+                      ariaLabel={node.kind === 'species'
                         ? node.label
                         : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
-                      aria-selected={isClickable ? isRowSelected : undefined}
-                      selected={isRowSelected}
-                      disabled={!isClickable}
+                      primary={node.label}
+                      isPrimaryEmphasized={node.kind === 'species'}
+                      secondary={node.kind === 'species'
+                        ? undefined
+                        : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
+                      varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
                       onClick={() => {
                         if (culture?.id !== undefined) {
                           updateSelectedCultureId(culture.id, {
@@ -1521,47 +1529,7 @@ export default function PublicCropLibraryPage() {
                         event.stopPropagation();
                         toggleCropRow(node.id);
                       }}
-                      sx={{
-                        borderRadius: 1.5,
-                        ml: `calc(${depth * 1.75}rem)`,
-                        pl: { xs: 0.75, lg: 0.875 },
-                        pr: { xs: 0.875, lg: 1 },
-                        py: { xs: 0.5, lg: 0.75 },
-                        mb: { xs: 0.375, lg: 0.5 },
-                        alignItems: 'flex-start',
-                        border: '1px solid transparent',
-                        '&:hover': { bgcolor: '#f4f8f4', borderColor: '#d6e6d8' },
-                        '&.Mui-selected': {
-                          bgcolor: 'rgba(37, 111, 42, 0.12)',
-                          borderColor: 'rgba(37, 111, 42, 0.32)',
-                        },
-                        '&.Mui-selected:hover': { bgcolor: 'rgba(37, 111, 42, 0.16)' },
-                      }}
-                    >
-                      <CropHierarchyExpandToggle
-                        hasChildren={hasChildren}
-                        isExpanded={expandedCropRows.has(node.id)}
-                        onToggle={() => toggleCropRow(node.id)}
-                        expandLabel={t('hierarchy.expandCrop')}
-                        collapseLabel={t('hierarchy.collapseCrop')}
-                        sx={desktopCropChevronButtonSx}
-                      />
-                      <ListItemText
-                        primary={node.kind === 'species' ? node.label : node.label}
-                        secondary={node.kind === 'species'
-                          ? [
-                            culture?.crop_family,
-                            node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
-                          ].filter(Boolean).join(' • ') || undefined
-                          : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
-                        primaryTypographyProps={{
-                          fontSize: { xs: '0.9rem', lg: '0.95rem' },
-                          fontWeight: node.kind === 'species' ? 700 : 500,
-                          lineHeight: 1.25,
-                        }}
-                        secondaryTypographyProps={{ fontSize: { xs: '0.76rem', lg: '0.8rem' }, color: 'text.secondary', lineHeight: 1.25 }}
-                      />
-                    </ListItemButton>
+                    />
                     );
                   })}
                 </List>

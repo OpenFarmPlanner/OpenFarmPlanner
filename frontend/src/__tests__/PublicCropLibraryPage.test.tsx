@@ -1637,7 +1637,7 @@ describe('PublicCropLibraryPage', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
     });
 
     await user.keyboard('{ArrowUp}');
@@ -1662,7 +1662,7 @@ describe('PublicCropLibraryPage', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
     });
   });
 
@@ -1678,7 +1678,7 @@ describe('PublicCropLibraryPage', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
     });
   });
 
@@ -2059,7 +2059,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   describe('import button reflects project_import_status', () => {
-    it('shows "Aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
+    it('shows "Im Projekt aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
       publicCultureApiMocks.list.mockResolvedValue({
         data: {
           results: [
@@ -2077,17 +2077,17 @@ describe('PublicCropLibraryPage', () => {
       await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
       const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
       await screen.findByRole('heading', { level: 2, name: 'Tomate' });
-      expect(within(cropDetailHeader).getByRole('button', { name: 'Aktualisieren' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).getByRole('button', { name: 'Im Projekt aktualisieren' })).toBeInTheDocument();
       expect(within(cropDetailHeader).queryByRole('button', { name: 'In Projekt importieren' })).not.toBeInTheDocument();
 
       (document.activeElement as HTMLElement | null)?.blur();
       await user.keyboard('{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}');
       expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
       expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
-      expect(within(cropDetailHeader).queryByRole('button', { name: 'Aktualisieren' })).not.toBeInTheDocument();
+      expect(within(cropDetailHeader).queryByRole('button', { name: 'Im Projekt aktualisieren' })).not.toBeInTheDocument();
     });
 
-    it('switches the button to "Aktualisieren" right after a first-time import succeeds', async () => {
+    it('switches the button to "Im Projekt aktualisieren" right after a first-time import succeeds', async () => {
       publicCultureApiMocks.importToProject.mockResolvedValue({
         data: {
           culture: { id: 99, name: 'Tomate', variety: 'Roma', culture_display_name: 'Tomate (Roma)', is_modified_from_source: false },
@@ -2101,7 +2101,7 @@ describe('PublicCropLibraryPage', () => {
       const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
       await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
 
-      expect(await within(cropDetailHeader).findByRole('button', { name: 'Aktualisieren' })).toBeInTheDocument();
+      expect(await within(cropDetailHeader).findByRole('button', { name: 'Im Projekt aktualisieren' })).toBeInTheDocument();
     });
   });
 });

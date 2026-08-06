@@ -64,7 +64,7 @@
     "varietyCount_other": "{{count}} varieties",
     "varietiesTitle": "Varieties",
     "varietiesEmpty": "No varieties have been added to this crop yet.",
-    "addVariety": "+ Add variety"
+    "addVariety": "Add variety"
   },
   "supplier_id": "Supplier",
   "noData": "Not specified",
@@ -778,7 +778,7 @@
       "noResultsTitle": "No matching public culture found"
     },
     "importButton": "Import into project",
-    "importUpdateButton": "Update",
+    "importUpdateButton": "Update in project",
     "importing": "Importing…",
     "importSuccess": "“{{name}}” was imported into this project.",
     "importError": "The public crop could not be imported.",
