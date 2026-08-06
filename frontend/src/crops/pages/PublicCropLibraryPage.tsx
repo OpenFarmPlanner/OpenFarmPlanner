@@ -59,7 +59,7 @@ import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languag
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
-import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
+import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, getFirstVarietyItem, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
 import { flattenTreeRows } from '../../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../../components/hierarchy/hooks/useExpandedState';
 import { CultureForm } from '../../cultures/CultureForm';
@@ -1481,7 +1481,7 @@ export default function PublicCropLibraryPage() {
                     // row inert. This is what removes the grey/disabled "just a group
                     // label" rows from the list entirely.
                     const firstVarietyCulture = !culture
-                      ? cropHierarchyItems.find((item) => item.parentId === node.id && item.culture)?.culture ?? null
+                      ? getFirstVarietyItem(cropHierarchyItems, node.id)?.culture ?? null
                       : null;
                     const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
                     const itemProps = isClickable ? cultureListNavigation.getItemProps(node) : {};

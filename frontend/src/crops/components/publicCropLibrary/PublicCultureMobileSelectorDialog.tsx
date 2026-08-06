@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import type { PublicCulture } from '../../../api/types';
 import { useTranslation } from '../../../i18n';
-import { buildCropHierarchy, type CropHierarchyItemKind } from '../../../cultures/cropHierarchy';
+import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } from '../../../cultures/cropHierarchy';
 import { flattenTreeRows } from '../../../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../../../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from '../../../cultures/CropHierarchyExpandToggle';
@@ -143,7 +143,7 @@ export function PublicCultureMobileSelectorDialog({
               // so tapping it selects that first variety instead of doing nothing.
               // Mirrors the desktop list (PublicCropLibraryPage.tsx).
               const firstVarietyCulture = !culture
-                ? hierarchyItems.find((item) => item.parentId === node.id && item.culture)?.culture ?? null
+                ? getFirstVarietyItem(hierarchyItems, node.id)?.culture ?? null
                 : null;
               const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
               const isRowSelected = Boolean(

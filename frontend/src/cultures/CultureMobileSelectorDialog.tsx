@@ -13,7 +13,7 @@ import type { TFunction } from 'i18next';
 import type { Culture } from '../api/api';
 import { useOverlayHistory } from '../hooks/useOverlayHistory';
 import { getCultureDisplayName } from './cultureDisplay';
-import { buildCropHierarchy, type CropHierarchyItemKind } from './cropHierarchy';
+import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } from './cropHierarchy';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
@@ -80,6 +80,14 @@ export function CultureMobileSelectorDialog({
         <List dense sx={{ py: 0.5, px: 0.25, overflowY: 'auto' }}>
           {visibleRows.map(({ node, depth, hasChildren }) => {
             const culture = node.culture;
+            // A species row with no dedicated varietyless entry has nothing of its own
+            // to select — but it always has at least one variety underneath it, so
+            // tapping it selects that first variety instead of doing nothing. Mirrors
+            // the public crop library's mobile selector (PublicCultureMobileSelectorDialog.tsx).
+            const firstVarietyCulture = !culture
+              ? getFirstVarietyItem(hierarchyItems, node.id)?.culture ?? null
+              : null;
+            const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
             const isRowSelected = Boolean(
               culture?.id !== undefined
               && selectedCultureId === culture.id
@@ -90,14 +98,17 @@ export function CultureMobileSelectorDialog({
             return (
               <ListItemButton
                 key={`mobile-${node.id}`}
-                role={culture ? 'option' : 'presentation'}
+                role={isClickable ? 'option' : 'presentation'}
                 aria-label={node.kind === 'species' ? node.label : undefined}
-                aria-selected={culture ? isRowSelected : undefined}
+                aria-selected={isClickable ? isRowSelected : undefined}
                 selected={isRowSelected}
-                disabled={!culture}
+                disabled={!isClickable}
                 onClick={() => {
                   if (culture) {
                     onSelect(culture, node.kind, node.speciesKey);
+                  } else if (firstVarietyCulture) {
+                    ensureExpanded(node.id);
+                    onSelect(firstVarietyCulture, 'variety', node.speciesKey);
                   }
                 }}
                 onDoubleClick={(event) => {

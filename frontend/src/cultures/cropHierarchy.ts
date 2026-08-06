@@ -94,6 +94,20 @@ export function buildCropHierarchy<TCulture extends CropHierarchySource>(
     });
 }
 
+/**
+ * The first variety under a species node that has no dedicated varietyless
+ * entry of its own (`hasGeneralEntry: false` on the species node — see
+ * buildCropHierarchy). Such a species row has nothing to select directly, so
+ * callers use this as the fallback target: select this variety (and expand
+ * the group) instead of leaving the row inert/disabled.
+ */
+export function getFirstVarietyItem<TCulture extends CropHierarchySource>(
+  items: readonly CropHierarchyItem<TCulture>[],
+  speciesNodeId: string,
+): CropHierarchyItem<TCulture> | null {
+  return items.find((item) => item.parentId === speciesNodeId && item.culture !== null) ?? null;
+}
+
 export function findSpeciesCulture<TCulture extends CropHierarchySource>(
   culture: TCulture | null | undefined,
   cultures: readonly TCulture[],

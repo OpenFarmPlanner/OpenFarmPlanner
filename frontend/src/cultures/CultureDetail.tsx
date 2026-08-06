@@ -47,7 +47,7 @@ import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNaviga
 import { DetailPageActions } from '../components/layout/DetailPageActions';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { getCultureDisplayName } from './cultureDisplay';
-import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey } from './cropHierarchy';
+import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, getFirstVarietyItem } from './cropHierarchy';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
@@ -808,7 +808,13 @@ const detailSectionGridSx = {
                     ? []
                     : [cultivationLabel, culture?.seed_supplier].filter(Boolean);
                 const secondary = secondaryParts.filter(Boolean).join(' • ');
-                const itemProps = culture?.id !== undefined ? cultureListNavigation.getItemProps(node) : {};
+                // A species row with no dedicated varietyless entry has nothing of its
+                // own to select — but it always has at least one variety underneath it,
+                // so clicking it selects that first variety instead of leaving the row
+                // inert. Mirrors the public crop library list (PublicCropLibraryPage.tsx).
+                const firstVariety = !culture ? getFirstVarietyItem(cropHierarchyItems, node.id) : null;
+                const isClickable = culture?.id !== undefined || firstVariety !== null;
+                const itemProps = isClickable ? cultureListNavigation.getItemProps(node) : {};
                 const isRowSelected = Boolean(
                   culture?.id !== undefined
                   && selectedCulture?.id === culture.id
@@ -819,14 +825,19 @@ const detailSectionGridSx = {
                   <ListItemButton
                     key={node.id}
                     {...itemProps}
-                    role={culture ? 'option' : 'presentation'}
+                    role={isClickable ? 'option' : 'presentation'}
                     aria-label={node.kind === 'species' ? node.label : undefined}
-                    aria-selected={culture ? isRowSelected : undefined}
+                    aria-selected={isClickable ? isRowSelected : undefined}
                     selected={isRowSelected}
-                    disabled={!culture}
+                    disabled={!isClickable}
                     onClick={() => {
                       if (culture) {
                         cultureListNavigation.selectItem(node);
+                        return;
+                      }
+                      if (firstVariety) {
+                        ensureCropRowExpanded(node.id);
+                        cultureListNavigation.selectItem(firstVariety);
                       }
                     }}
                     onDoubleClick={(event) => {
