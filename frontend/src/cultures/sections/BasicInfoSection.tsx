@@ -19,6 +19,9 @@ interface BasicInfoSectionProps {
   identityHint?: ReactNode;
   showIdentityFields?: boolean;
   showVarietyField?: boolean;
+  showFirstVarietyField?: boolean;
+  firstVarietyName?: string;
+  onFirstVarietyNameChange?: (value: string) => void;
   publicCultureOptions?: PublicCulture[];
   publicCultureOptionsLoading?: boolean;
   onPublicCultureSearchChange?: (value: string) => void;
@@ -42,6 +45,9 @@ export function BasicInfoSection({
   identityHint,
   showIdentityFields = true,
   showVarietyField = true,
+  showFirstVarietyField = false,
+  firstVarietyName,
+  onFirstVarietyNameChange,
   publicCultureOptions,
   publicCultureOptionsLoading = false,
   onPublicCultureSearchChange,
@@ -142,6 +148,19 @@ export function BasicInfoSection({
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
           ) : null}
+        </Box>
+      ) : null}
+      {showFirstVarietyField ? (
+        <Box sx={fieldRowSx}>
+          <TextField
+            sx={wideFieldSx}
+            label={t('form.firstVarietyLabel')}
+            placeholder={t('form.firstVarietyPlaceholder')}
+            value={firstVarietyName ?? ''}
+            onChange={e => onFirstVarietyNameChange?.(e.target.value)}
+            helperText={t('form.firstVarietyHelperText')}
+            slotProps={{ htmlInput: { maxLength: 200 } }}
+          />
         </Box>
       ) : null}
       {identityHint}

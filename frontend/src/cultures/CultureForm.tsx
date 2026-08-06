@@ -73,7 +73,7 @@ interface CultureFormProps {
    * mapped to the project `Culture` shape) as long as field names/units line up.
    */
   cultures?: Partial<Culture>[];
-  onSave: (culture: Culture) => Promise<void>;
+  onSave: (culture: Culture, firstVarietyName?: string) => Promise<void>;
   onCancel: () => void;
   title?: string;
   variant?: 'project' | 'publicLibrary';
@@ -254,7 +254,9 @@ export function CultureForm({
   const showSupplierDataSection = isProjectForm;
   const showVarietyField = !isProjectForm || formKind === 'variety';
   const requireVariety = isProjectForm && formKind === 'variety';
+  const showFirstVarietyField = isProjectForm && formKind === 'crop' && !isEdit;
   const [saveError, setSaveError] = useState<string>('');
+  const [firstVarietyName, setFirstVarietyName] = useState<string>('');
 
   // --- Validation now imported from ../cultures/validation ---
 
@@ -263,7 +265,7 @@ export function CultureForm({
     const dataToSave: Culture = {
       ...(draft as Culture),
     };
-    await onSave(dataToSave);
+    await onSave(dataToSave, showFirstVarietyField ? (firstVarietyName.trim() || undefined) : undefined);
     return dataToSave;
   };
 
@@ -378,6 +380,7 @@ export function CultureForm({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setFormData(buildInitialFormData(culture, initialDraft));
+    setFirstVarietyName('');
     setErrors({});
     setDuplicateErrorKey('');
     setIsDuplicateChecking(false);
@@ -551,6 +554,12 @@ export function CultureForm({
       return updated;
     });
   };
+
+  const handleFirstVarietyNameChange = useCallback((value: string) => {
+    setFirstVarietyName(value);
+    setIsDirty(true);
+    setUserInteracted(true);
+  }, []);
 
   const handleManualPublicCultureSearchChange = useCallback((value: string) => {
     setPublicCultureSearchTerm(value);
@@ -825,6 +834,9 @@ export function CultureForm({
               getFieldTooltipProps={getFieldTooltipProps}
               showIdentityFields={isProjectForm}
               showVarietyField={showVarietyField}
+              showFirstVarietyField={showFirstVarietyField}
+              firstVarietyName={firstVarietyName}
+              onFirstVarietyNameChange={handleFirstVarietyNameChange}
               publicCultureOptions={isProjectForm ? publicCultureOptions : undefined}
               publicCultureOptionsLoading={publicCultureOptionsLoading}
               onPublicCultureSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}

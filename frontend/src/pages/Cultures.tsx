@@ -399,7 +399,7 @@ function Cultures() {
   };
 
 
-  const handleSave = async (culture: Culture) => {
+  const handleSave = async (culture: Culture, firstVarietyName?: string) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
 
@@ -411,9 +411,26 @@ function Cultures() {
       } else {
         const response = await cultureAPI.create(savePayload as Culture);
         savedCulture = response.data;
-        showSnackbar(t('messages.createSuccess'), 'success');
         // Auto-select the newly created culture
         updateSelectedCultureId(savedCulture.id, 'internal');
+
+        if (firstVarietyName) {
+          try {
+            const varietyPayload = buildCultureSavePayload({
+              ...culture,
+              id: undefined,
+              crop_species: savedCulture.crop_species ?? culture.crop_species,
+              variety: firstVarietyName,
+            });
+            await cultureAPI.create(varietyPayload as Culture);
+            showSnackbar(t('messages.createWithVarietySuccess'), 'success');
+          } catch (varietyError) {
+            console.error('Error creating initial variety:', varietyError);
+            showSnackbar(t('messages.createVarietyPartialError'), 'error');
+          }
+        } else {
+          showSnackbar(t('messages.createSuccess'), 'success');
+        }
       }
       replaceSavedCulture(savedCulture);
       setShowForm(false);

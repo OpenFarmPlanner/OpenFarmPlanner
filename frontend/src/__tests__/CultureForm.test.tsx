@@ -43,6 +43,9 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     identityHint,
     onChange,
     showVarietyField = true,
+    showFirstVarietyField = false,
+    firstVarietyName = '',
+    onFirstVarietyNameChange,
     publicCultureOptions = [],
     onPublicCultureSearchChange,
     onPublicCultureSelect,
@@ -52,6 +55,9 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     identityHint?: ReactNode;
     onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
     showVarietyField?: boolean;
+    showFirstVarietyField?: boolean;
+    firstVarietyName?: string;
+    onFirstVarietyNameChange?: (value: string) => void;
     publicCultureOptions?: PublicCulture[];
     onPublicCultureSearchChange?: (value: string) => void;
     onPublicCultureSelect?: (culture: PublicCulture | null) => void;
@@ -80,6 +86,13 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
         />
       ) : null}
       {errors.variety ? <span>{errors.variety}</span> : null}
+      {showFirstVarietyField ? (
+        <input
+          aria-label="first-variety-input"
+          value={firstVarietyName}
+          onChange={(event) => onFirstVarietyNameChange?.(event.target.value)}
+        />
+      ) : null}
       {identityHint}
     </div>
   ),
@@ -406,7 +419,7 @@ describe('CultureForm', () => {
           supplier_name: 'Reinsaat',
         }),
       ],
-    }));
+    }), undefined);
   });
 
   it('loads all existing supplier rows when editing a culture', async () => {
@@ -617,7 +630,7 @@ describe('CultureForm', () => {
       growth_duration_days: 90,
       row_spacing_cm: 50,
       origin_type: 'imported',
-    }));
+    }), undefined);
     expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument();
   });
 
@@ -640,7 +653,7 @@ describe('CultureForm', () => {
       name: 'Neue Karotte',
       variety: 'Nantaise',
       supplier: { id: 10, name: 'Bingenheimer' },
-    }));
+    }), undefined);
   });
 
   it('hides the variety field and saves without one when formKind is crop', async () => {
@@ -656,7 +669,43 @@ describe('CultureForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }), undefined);
+  });
+
+  it('shows the optional first-variety field only when adding a new crop', () => {
+    const { rerender } = render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.getByLabelText('first-variety-input')).toBeInTheDocument();
+
+    rerender(<CultureForm formKind="variety" onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.queryByLabelText('first-variety-input')).not.toBeInTheDocument();
+
+    rerender(<CultureForm formKind="crop" culture={CULTURE_A} onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.queryByLabelText('first-variety-input')).not.toBeInTheDocument();
+  });
+
+  it('saves the crop without a variety name when the first-variety field is left empty', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }), undefined);
+  });
+
+  it('passes the entered variety name alongside the crop when the first-variety field is filled in', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }), 'Nantaise');
   });
 
   it('shows and still requires the variety field when formKind is variety', async () => {
@@ -762,7 +811,7 @@ describe('CultureForm', () => {
       id: 1,
       name: 'Neue Karotte',
       variety: 'Nantaise',
-    }));
+    }), undefined);
   });
 
   it('saves the active culture edit dialog with Cmd+S', async () => {
@@ -869,7 +918,7 @@ describe('CultureForm', () => {
       variety: 'Batavia',
       row_spacing_cm: 35,
       supplier: { id: 11, name: 'Dreschflegel' },
-    }));
+    }), undefined);
   });
 
   it('saves thousand-kernel weight directly on culture data', async () => {
@@ -884,7 +933,7 @@ describe('CultureForm', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       id: 1,
       thousand_kernel_weight_g: 4.2,
-    }));
+    }), undefined);
   });
 
   it('maps legacy seed_supplier into supplier field for validation and save', async () => {
@@ -900,7 +949,7 @@ describe('CultureForm', () => {
       id: 3,
       supplier: expect.objectContaining({ name: 'Legacy Seeds' }),
       row_spacing_cm: 40,
-    }));
+    }), undefined);
   });
 
   it('resets form state when a different culture is opened for editing', async () => {
@@ -924,7 +973,7 @@ describe('CultureForm', () => {
       variety: 'Batavia',
       row_spacing_cm: 42,
       supplier: { id: 11, name: 'Dreschflegel' },
-    }));
+    }), undefined);
   });
 
   it('renders save error inline instead of snackbar overlap', async () => {

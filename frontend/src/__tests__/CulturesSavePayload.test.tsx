@@ -8,11 +8,12 @@ import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import type { Culture } from '../api/types';
 
-const { listMock, updateMock, createMock, saveCultureMock } = vi.hoisted(() => ({
+const { listMock, updateMock, createMock, saveCultureMock, saveFirstVarietyNameMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   updateMock: vi.fn(),
   createMock: vi.fn(),
   saveCultureMock: vi.fn(),
+  saveFirstVarietyNameMock: vi.fn<() => string | undefined>(() => undefined),
 }));
 
 vi.mock('../api/api', async () => {
@@ -65,10 +66,10 @@ vi.mock('../cultures/CultureDetail', () => ({
 }));
 
 vi.mock('../cultures/CultureForm', () => ({
-  CultureForm: ({ onSave }: { onSave: (culture: Culture) => Promise<void> }): ReactElement => (
+  CultureForm: ({ onSave }: { onSave: (culture: Culture, firstVarietyName?: string) => Promise<void> }): ReactElement => (
     <button
       type="button"
-      onClick={() => void onSave(saveCultureMock())}
+      onClick={() => void onSave(saveCultureMock(), saveFirstVarietyNameMock())}
     >
       submit-edit
     </button>
@@ -437,5 +438,86 @@ describe('Cultures save payload', () => {
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
     expect(screen.getByTestId('selected-culture-id')).toHaveTextContent('2');
+  });
+
+  it('also creates a first variety, inheriting the entered values, when a variety name was provided', async () => {
+    listMock
+      .mockResolvedValueOnce({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [{ id: 1, name: 'Karotte', variety: 'Nantaise' }],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          count: 3,
+          next: null,
+          previous: null,
+          results: [
+            { id: 1, name: 'Karotte', variety: 'Nantaise' },
+            { id: 2, name: 'Neue Kultur', variety: '' },
+            { id: 3, name: 'Neue Kultur', variety: 'Nova' },
+          ],
+        },
+      });
+    createMock
+      .mockResolvedValueOnce({ data: { id: 2, name: 'Neue Kultur', variety: '', crop_species: null } })
+      .mockResolvedValueOnce({ data: { id: 3, name: 'Neue Kultur', variety: 'Nova' } });
+    saveCultureMock.mockReturnValue({
+      name: 'Neue Kultur',
+      variety: '',
+      row_spacing_cm: 30,
+      crop_family: 'Doldenblütler',
+    } as Culture);
+    saveFirstVarietyNameMock.mockReturnValueOnce('Nova');
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <Cultures />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kultur hinzufügen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'submit-edit' }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(2));
+    const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
+    const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
+    expect(cropPayload.variety).toBe('');
+    expect(varietyPayload.name).toBe('Neue Kultur');
+    expect(varietyPayload.variety).toBe('Nova');
+    expect(varietyPayload.row_spacing_cm).toBe(30);
+    expect(varietyPayload.crop_family).toBe('Doldenblütler');
+
+    await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
+  });
+
+  it('does not create a second culture when saving an existing crop even if a variety name mock resolves', async () => {
+    saveCultureMock.mockReturnValue({
+      id: 1,
+      name: 'Karotte',
+      variety: 'Nantaise',
+      supplier: { id: 10, name: 'Bingenheimer' },
+    } as Culture);
+    saveFirstVarietyNameMock.mockReturnValueOnce('Nova');
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <Cultures />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'select-culture' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kultur bearbeiten' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'submit-edit' }));
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalledTimes(1));
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

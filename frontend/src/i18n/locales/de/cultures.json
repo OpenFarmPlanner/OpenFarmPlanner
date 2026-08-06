@@ -167,6 +167,9 @@
     "variety": "Sorte",
     "varietyPlaceholder": "z.B. Cherrytomate",
     "varietyRequired": "Sorte ist erforderlich",
+    "firstVarietyLabel": "Sorte (optional)",
+    "firstVarietyPlaceholder": "z.B. Cherrytomate",
+    "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird zusammen mit der Kultur eine erste Sorte angelegt, die die oben eingegebenen Werte als Startwerte übernimmt.",
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
     "publicCultureAutocompleteHelp": "Öffentliche Kulturen werden vorgeschlagen, Freitext ist jederzeit möglich.",
     "publicCultureSourceHint": "Basiswerte wurden aus der öffentlichen Kulturbibliothek übernommen und können in dieser privaten Kultur angepasst werden.",
@@ -281,6 +284,8 @@
   },
   "messages": {
     "createSuccess": "Kultur erfolgreich erstellt",
+    "createWithVarietySuccess": "Kultur und Sorte erfolgreich erstellt",
+    "createVarietyPartialError": "Die Kultur wurde erstellt, die Sorte konnte aber nicht angelegt werden. Du kannst sie über „Sorte hinzufügen“ ergänzen.",
     "updateSuccess": "Kultur erfolgreich aktualisiert",
     "createError": "Fehler beim Erstellen der Kultur",
     "updateError": "Fehler beim Aktualisieren der Kultur",
