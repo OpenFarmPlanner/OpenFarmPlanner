@@ -914,18 +914,28 @@ export default function PublicCropLibraryPage() {
     try {
       const response = await publicCultureAPI.importToProject(publicCultureId, mode);
       const importedCulture = response.data.culture;
-      setCultures((current) => current.map((culture) => (
-        culture.id === publicCultureId
-          ? {
-            ...culture,
-            project_import_status: {
-              culture_id: importedCulture.id as number,
-              culture_name: importedCulture.culture_display_name || importedCulture.name,
-              is_modified_from_source: Boolean(importedCulture.is_modified_from_source),
-            },
-          }
-          : culture
-      )));
+      // Bump the request id and record the merged row in savedCulturesRef, the
+      // same guards upsertCultureInList uses below: without them, a culture
+      // list request already in flight (or one the search debounce fires right
+      // after) can land after this and overwrite project_import_status with
+      // its pre-import snapshot, which reads as the import/update button
+      // flickering back to its old label.
+      cultureListRequestIdRef.current += 1;
+      setCultures((current) => current.map((culture) => {
+        if (culture.id !== publicCultureId) {
+          return culture;
+        }
+        const updated = {
+          ...culture,
+          project_import_status: {
+            culture_id: importedCulture.id as number,
+            culture_name: importedCulture.culture_display_name || importedCulture.name,
+            is_modified_from_source: Boolean(importedCulture.is_modified_from_source),
+          },
+        };
+        savedCulturesRef.current.set(culture.id, updated);
+        return updated;
+      }));
       if (mode === 'update') {
         showGlobalSnackbar({ message: t('library.importUpdatedForced', { name }), severity: 'success' });
       } else if (mode === 'new') {
