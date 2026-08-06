@@ -295,6 +295,7 @@ describe('PublicCropLibraryPage', () => {
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
 
   it('lets a moderator remove a public culture after selecting a reason', async () => {
@@ -305,7 +306,11 @@ describe('PublicCropLibraryPage', () => {
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
 
-    await user.click(within(cropDetailHeader).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
+    // The remove trigger lives in the topbar (next to "Moderation"), not in
+    // the crop detail header alongside Edit/Import — it's a moderator-only
+    // destructive action, kept visually and positionally separate.
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
 
     const removeDialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
     const confirmButton = within(removeDialog).getByRole('button', { name: 'Aus Bibliothek entfernen' });
@@ -1784,8 +1789,163 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
 
+  describe('re-import handling', () => {
+    async function importViaButton(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
+    }
+
+    it('imports a culture for the first time', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 99 }, operation: 'created' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde in dieses Projekt importiert.');
+      expect(event.detail.severity).toBe('success');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('shows a non-blocking info toast when re-importing an unchanged culture', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 42 }, operation: 'unchanged' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ ist bereits identisch in diesem Projekt vorhanden – kein Update erforderlich.');
+      expect(event.detail.severity).toBe('info');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('automatically syncs and reports an update when the library version changed with no local edits', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 42 }, operation: 'updated' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde aktualisiert (neue Version aus der Bibliothek übernommen).');
+      expect(event.detail.severity).toBe('success');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('opens a conflict dialog when re-importing over local changes, and cancel makes no request', async () => {
+      const user = userEvent.setup();
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject.mockRejectedValue(conflictError);
+      renderPage();
+
+      await importViaButton(user);
+
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      expect(within(dialog).getByText(/wurde bereits in dieses Projekt importiert/)).toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      expect(publicCultureApiMocks.importToProject).toHaveBeenCalledTimes(1);
+    });
+
+    it('resolves the conflict dialog with "Aktualisieren" by re-importing with mode=update', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ data: { culture: { id: 42 }, operation: 'updated' } });
+      renderPage();
+
+      await importViaButton(user);
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      await user.click(within(dialog).getByRole('button', { name: 'Aktualisieren' }));
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'update'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde aktualisiert (lokale Änderungen wurden überschrieben).');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('resolves the conflict dialog with "Als neue Kultur importieren" by re-importing with mode=new', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ data: { culture: { id: 100 }, operation: 'created' } });
+      renderPage();
+
+      await importViaButton(user);
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      await user.click(within(dialog).getByRole('button', { name: 'Als neue Kultur importieren' }));
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'new'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde als neue Kultur importiert.');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+  });
+
   it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
-    publicCultureApiMocks.importToProject.mockResolvedValue({ data: {} });
+    publicCultureApiMocks.importToProject.mockResolvedValue({ data: { culture: {}, operation: 'created' } });
     const user = userEvent.setup();
     renderPage();
 
@@ -1805,6 +1965,53 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
 
     await user.keyboard('{Alt>}i{/Alt}');
-    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
   }, 30000);
+
+  describe('import button reflects project_import_status', () => {
+    it('shows "Aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({
+        data: {
+          results: [
+            {
+              ...publicCultures[0],
+              project_import_status: { culture_id: 5, culture_name: 'Tomate (Roma)', is_modified_from_source: false },
+            },
+            publicCultures[1],
+          ],
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+      expect(within(cropDetailHeader).getByRole('button', { name: 'Aktualisieren' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).queryByRole('button', { name: 'In Projekt importieren' })).not.toBeInTheDocument();
+
+      (document.activeElement as HTMLElement | null)?.blur();
+      await user.keyboard('{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}');
+      expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).queryByRole('button', { name: 'Aktualisieren' })).not.toBeInTheDocument();
+    });
+
+    it('switches the button to "Aktualisieren" right after a first-time import succeeds', async () => {
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: {
+          culture: { id: 99, name: 'Tomate', variety: 'Roma', culture_display_name: 'Tomate (Roma)', is_modified_from_source: false },
+          operation: 'created',
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
+
+      expect(await within(cropDetailHeader).findByRole('button', { name: 'Aktualisieren' })).toBeInTheDocument();
+    });
+  });
 });

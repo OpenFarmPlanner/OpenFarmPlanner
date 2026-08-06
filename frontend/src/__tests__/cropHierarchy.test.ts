@@ -21,6 +21,17 @@ describe('buildCropHierarchy', () => {
       ['variety', 'Nantaise', 'species:species:20'],
     ]);
     expect(rows.find((row) => row.label === 'Tomato')?.culture?.id).toBe(1);
+
+    // Carrot has no dedicated general (variety-less) entry — its species row
+    // must not fall back to displaying/selecting Carrot's only variety as if
+    // it were also the general entry (that would show culture id 4 twice:
+    // once as the species node, once as its own variety row).
+    const carrotSpeciesRow = rows.find((row) => row.kind === 'species' && row.label === 'Carrot');
+    expect(carrotSpeciesRow?.hasGeneralEntry).toBe(false);
+    expect(carrotSpeciesRow?.culture).toBeNull();
+    const carrotVarietyRows = rows.filter((row) => row.kind === 'variety' && row.speciesKey === carrotSpeciesRow?.speciesKey);
+    expect(carrotVarietyRows).toHaveLength(1);
+    expect(carrotVarietyRows[0]?.culture?.id).toBe(4);
   });
 
   it('finds the general crop record for a variety', () => {

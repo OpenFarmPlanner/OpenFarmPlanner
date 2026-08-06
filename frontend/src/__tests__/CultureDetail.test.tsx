@@ -857,4 +857,70 @@ describe('CultureDetail Component', () => {
       display: 'none',
     });
   });
+
+  describe('Varieties section', () => {
+    const carrotSpecies: Culture = {
+      id: 10, name: 'Carrot', variety: '', crop_species: 5, crop_family: 'Apiaceae',
+    };
+    const carrotNantes: Culture = { id: 11, name: 'Carrot', variety: 'Nantes', crop_species: 5 };
+    const carrotBolero: Culture = { id: 12, name: 'Carrot', variety: 'Bolero', crop_species: 5 };
+    const carrotCultures: Culture[] = [carrotSpecies, carrotNantes, carrotBolero];
+
+    it('lists sibling varieties from the species view and pre-fills context for "Add variety"', async () => {
+      const user = userEvent.setup();
+      const onAddVariety = vi.fn();
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+          onAddVariety={onAddVariety}
+        />
+      );
+
+      expect(screen.getByText('Sorten')).toBeInTheDocument();
+      expect(screen.getByText('Nantes')).toBeInTheDocument();
+      expect(screen.getByText('Bolero')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: '+ Sorte hinzufügen' }));
+      expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
+    });
+
+    it('also lists sibling varieties from a variety\'s own detail view, and edit/delete act on the clicked row', async () => {
+      const user = userEvent.setup();
+      const onEditCulture = vi.fn();
+      const onDeleteCulture = vi.fn();
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={11}
+          onCultureSelect={vi.fn()}
+          onEditCulture={onEditCulture}
+          onDeleteCulture={onDeleteCulture}
+        />
+      );
+
+      expect(screen.getByText('Sorten')).toBeInTheDocument();
+      expect(screen.getByText('Bolero')).toBeInTheDocument();
+
+      const boleroRow = screen.getByText('Bolero').closest('[role="button"]') as HTMLElement;
+      await user.click(within(boleroRow).getByRole('button', { name: 'Bearbeiten' }));
+      expect(onEditCulture).toHaveBeenCalledWith(carrotBolero);
+
+      await user.click(within(boleroRow).getByRole('button', { name: 'Löschen' }));
+      expect(onDeleteCulture).toHaveBeenCalledWith(carrotBolero);
+    });
+
+    it('shows an empty state when a crop has no varieties yet', () => {
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[carrotSpecies]}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Für diese Kultur sind noch keine Sorten angelegt.')).toBeInTheDocument();
+    });
+  });
 });

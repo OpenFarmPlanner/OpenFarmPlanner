@@ -83,6 +83,8 @@ function Cultures() {
   const [isCulturesLoading, setIsCulturesLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCulture, setEditingCulture] = useState<Culture | undefined>(undefined);
+  const [cultureFormKind, setCultureFormKind] = useState<'crop' | 'variety'>('crop');
+  const [initialFormDraft, setInitialFormDraft] = useState<Partial<Culture> | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: '', severity: 'success' });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<CultureHistoryEntry[]>([]);
@@ -299,6 +301,19 @@ function Cultures() {
 
   const handleAddNew = useCallback(() => {
     setEditingCulture(undefined);
+    setCultureFormKind('crop');
+    setInitialFormDraft(undefined);
+    setShowForm(true);
+  }, []);
+
+  const handleAddVariety = useCallback((speciesCulture: Culture) => {
+    setEditingCulture(undefined);
+    setCultureFormKind('variety');
+    setInitialFormDraft({
+      crop_species: speciesCulture.crop_species ?? null,
+      name: speciesCulture.name,
+      variety: '',
+    });
     setShowForm(true);
   }, []);
 
@@ -325,6 +340,8 @@ function Cultures() {
 
   const handleEdit = useCallback((culture: Culture) => {
     setEditingCulture(culture);
+    setCultureFormKind((culture.variety || '').trim() ? 'variety' : 'crop');
+    setInitialFormDraft(undefined);
     setShowForm(true);
   }, []);
 
@@ -401,6 +418,7 @@ function Cultures() {
       replaceSavedCulture(savedCulture);
       setShowForm(false);
       setEditingCulture(undefined);
+      setInitialFormDraft(undefined);
       void fetchCultures(savedCulture);
     } catch (error) {
       console.error('Error saving culture:', error);
@@ -411,6 +429,7 @@ function Cultures() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingCulture(undefined);
+    setInitialFormDraft(undefined);
   };
 
   const handleCloseSnackbar = () => {
@@ -554,6 +573,7 @@ function Cultures() {
             void handleOpenPublicLibrary();
           }}
           onEditCulture={handleEdit}
+          onAddVariety={handleAddVariety}
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
           onPublishCulture={handleRequestPublishCulture}
@@ -630,6 +650,8 @@ function Cultures() {
           cultures={cultures}
           onSave={handleSave}
           onCancel={handleCancel}
+          formKind={cultureFormKind}
+          initialDraft={initialFormDraft}
         />
       ) : null}
 

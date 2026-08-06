@@ -16,6 +16,21 @@ describe('validateCulture', () => {
     expect(result.errors.propagation_duration_days).toBeUndefined();
   });
 
+  it('does not require variety for a crop-level entry when requireVariety is false', () => {
+    const result = validateCulture({ name: 'Karotte' }, t, 'submit', false);
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors.variety).toBeUndefined();
+  });
+
+  it('still requires name even when requireVariety is false', () => {
+    const result = validateCulture({}, t, 'submit', false);
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.name).toBe('form.nameRequired');
+    expect(result.errors.variety).toBeUndefined();
+  });
+
   it('validates seed rate value/unit dependencies and positive amount', () => {
     const missingUnit = validateCulture(
       { name: 'Karotte', variety: 'Nantaise', supplier: { id: 1, name: 'Test' } as unknown, cultivation_types: ['direct_sowing'], growth_duration_days: 10, harvest_duration_days: 5, propagation_duration_days: 2, seed_rate_direct_value: 1 },

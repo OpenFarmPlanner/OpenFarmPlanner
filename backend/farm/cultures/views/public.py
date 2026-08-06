@@ -4,7 +4,7 @@
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.db.models import Count, Max, OuterRef, Prefetch, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -16,13 +16,16 @@ from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_
 from crops.permissions import is_public_library_moderator
 from crops.services import build_public_crop_search_query, find_exact_crop_match
 from farm.models import (
+    Culture,
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
+    format_culture_display_name,
 )
-from farm.project_context import get_active_project_or_400
+from farm.project_context import get_active_project_optional, get_active_project_or_400
 from farm.services.public_cultures import (
     PublicCultureEditConflictError,
+    PublicCultureImportConfirmationRequiredError,
     PublicCulturePermissionError,
     PublicCultureRevisionNotFoundError,
     PublicCultureStatusTransitionError,
@@ -91,6 +94,17 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             .select_related('created_by__public_profile', 'crop_species')
             .prefetch_related('crop_species__translations', 'translations')
         )
+        active_project = get_active_project_optional(self.request)
+        if active_project is not None:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'imported_cultures',
+                    queryset=Culture.objects.filter(
+                        project=active_project, deleted_at__isnull=True,
+                    ).order_by('-id'),
+                    to_attr='prefetched_project_cultures',
+                ),
+            )
         query = (self.request.query_params.get('q') or '').strip()
         name = (self.request.query_params.get('name') or '').strip()
         variety = (self.request.query_params.get('variety') or '').strip()
@@ -259,9 +273,24 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     def import_to_project(self, request, pk=None):
         public_culture = self.get_object()
         request.active_project = get_active_project_or_400(request)
-        imported = import_public_culture_into_project(public_culture=public_culture, project=request.active_project)
+        mode = request.data.get('mode') or 'auto'
+        try:
+            imported, operation = import_public_culture_into_project(
+                public_culture=public_culture,
+                project=request.active_project,
+                mode=mode,
+            )
+        except PublicCultureImportConfirmationRequiredError as error:
+            existing = error.existing_culture
+            return Response({
+                'code': error.code,
+                'detail': str(error),
+                'existing_culture_id': existing.id,
+                'existing_culture_name': format_culture_display_name(existing.name, existing.variety),
+            }, status=status.HTTP_409_CONFLICT)
         serializer = CultureSerializer(imported, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        response_status = status.HTTP_201_CREATED if operation == 'created' else status.HTTP_200_OK
+        return Response({'culture': serializer.data, 'operation': operation}, status=response_status)
 
     @action(detail=True, methods=['get', 'post'], url_path='discussion-topics')
     def discussion_topics(self, request: Request, pk: int | None = None) -> Response:

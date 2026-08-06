@@ -928,11 +928,49 @@ def hard_delete_public_culture(*, public_culture: PublicCulture, user: User | No
     public_culture.delete()
 
 
-def import_public_culture_into_project(*, public_culture: PublicCulture, project: Project) -> Culture:
-    culture = Culture.objects.create(
+class PublicCultureImportConfirmationRequiredError(Exception):
+    """Raised when re-importing would silently overwrite local changes.
+
+    The caller already has a culture in this project imported from this same
+    public culture, and that culture has been edited since import
+    (``is_modified_from_source``) — resolving this automatically either way
+    would be a guess, so the API surfaces it as a 409 for the frontend to ask
+    the user instead.
+    """
+
+    def __init__(self, *, existing_culture: Culture) -> None:
+        super().__init__('This public culture was already imported and has local changes.')
+        self.existing_culture = existing_culture
+        self.code = 'import_requires_confirmation'
+
+
+def _unique_project_culture_name(*, name: str, variety: str, project: Project) -> str:
+    """Append " (2)", " (3)", ... to `name` until name+variety no longer collides
+    with an existing culture in this project."""
+    from farm.utils import normalize_text
+
+    variety_normalized = normalize_text(variety)
+    candidate_name = name
+    suffix = 2
+    while Culture.objects.filter(
         project=project,
-        **build_project_culture_payload(public_culture),
-    )
+        name_normalized=normalize_text(candidate_name) or '',
+        variety_normalized=variety_normalized,
+    ).exists():
+        candidate_name = f'{name} ({suffix})'
+        suffix += 1
+    return candidate_name
+
+
+def _create_culture_from_public(*, public_culture: PublicCulture, project: Project, unique_name: bool = False) -> Culture:
+    payload = build_project_culture_payload(public_culture)
+    if unique_name:
+        payload['name'] = _unique_project_culture_name(
+            name=payload['name'],
+            variety=payload.get('variety') or '',
+            project=project,
+        )
+    culture = Culture.objects.create(project=project, **payload)
     for package in public_culture.seed_packages or []:
         culture.seed_packages.create(
             project=project,
@@ -942,3 +980,71 @@ def import_public_culture_into_project(*, public_culture: PublicCulture, project
             last_seen_at=package.get('last_seen_at') or None,
         )
     return culture
+
+
+def _apply_public_culture_update(*, culture: Culture, public_culture: PublicCulture) -> Culture:
+    """Overwrite `culture`'s library-sourced fields with the current public culture."""
+    payload = build_project_culture_payload(public_culture)
+    for field, value in payload.items():
+        setattr(culture, field, value)
+    culture.save()
+    # Culture._flag_source_divergence() runs inside save() and, seeing the tracked
+    # fields differ from the pre-update row, may have just flipped this back to True —
+    # wrong here, since syncing to a newer library version isn't a local edit. A
+    # queryset .update() (not .save()) bypasses Culture.save() entirely, so this
+    # doesn't trigger another divergence pass or a second EntityRevision.
+    Culture.objects.filter(pk=culture.pk).update(is_modified_from_source=False)
+    culture.is_modified_from_source = False
+    return culture
+
+
+def import_public_culture_into_project(
+    *,
+    public_culture: PublicCulture,
+    project: Project,
+    mode: str = 'auto',
+) -> tuple[Culture, str]:
+    """Import a public culture into a project, or resolve a re-import.
+
+    `mode`:
+    - 'auto' (default): look for an existing culture in this project imported
+      from this same public culture. None found -> create. Found and
+      unmodified -> sync if the library version changed, or no-op if already
+      identical. Found and locally modified -> raise
+      PublicCultureImportConfirmationRequiredError instead of guessing.
+    - 'update': overwrite the existing linked culture with the current
+      library version regardless of local changes (the confirmed "yes,
+      overwrite" choice from the conflict dialog).
+    - 'new': always create a fresh culture, uniquifying the name if it
+      collides with an existing one in the project.
+
+    Returns (culture, operation) where operation is one of
+    'created' | 'unchanged' | 'updated'.
+    """
+    if mode == 'new':
+        culture = _create_culture_from_public(public_culture=public_culture, project=project, unique_name=True)
+        return culture, 'created'
+
+    # Duplicates can already exist from before this check existed; picking the
+    # most recent is a defensive choice, not a guarantee only one exists.
+    existing = Culture.objects.filter(
+        project=project,
+        source_public_culture=public_culture,
+    ).order_by('-id').first()
+
+    if existing is None:
+        culture = _create_culture_from_public(public_culture=public_culture, project=project)
+        return culture, 'created'
+
+    if mode == 'update':
+        culture = _apply_public_culture_update(culture=existing, public_culture=public_culture)
+        return culture, 'updated'
+
+    if existing.is_modified_from_source:
+        raise PublicCultureImportConfirmationRequiredError(existing_culture=existing)
+
+    if existing.source_public_version == public_culture.version:
+        return existing, 'unchanged'
+
+    culture = _apply_public_culture_update(culture=existing, public_culture=public_culture)
+    return culture, 'updated'

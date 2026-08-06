@@ -12,6 +12,7 @@ import type {
   NoteAttachment,
   CultureHistoryEntry,
   CultureDuplicateCheckResponse,
+  ImportPublicCultureResponse,
   MediaFileRef,
   PublicCulture,
   PublicCultureChangeProposal,
@@ -165,7 +166,8 @@ export const publicCultureAPI = {
     http.patch<PublicCulture>(`/public-cultures/${id}/`, data),
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
-  importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
+  importToProject: (id: number, mode?: 'update' | 'new') =>
+    http.post<ImportPublicCultureResponse>(`/public-cultures/${id}/import/`, mode ? { mode } : {}),
   // Contributors remove their own entry without a reason; moderators removing
   // somebody else's entry must supply a structured moderation reason.
   remove: (id: number, reason?: PublicCultureRemovalReason) =>

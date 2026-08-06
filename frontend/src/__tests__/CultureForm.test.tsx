@@ -42,6 +42,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     errors,
     identityHint,
     onChange,
+    showVarietyField = true,
     publicCultureOptions = [],
     onPublicCultureSearchChange,
     onPublicCultureSelect,
@@ -50,6 +51,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     errors: Record<string, string>;
     identityHint?: ReactNode;
     onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
+    showVarietyField?: boolean;
     publicCultureOptions?: PublicCulture[];
     onPublicCultureSearchChange?: (value: string) => void;
     onPublicCultureSelect?: (culture: PublicCulture | null) => void;
@@ -70,11 +72,13 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
         </button>
       ) : null}
       {errors.name ? <span>{errors.name}</span> : null}
-      <input
-        aria-label="variety-input"
-        value={formData.variety ?? ''}
-        onChange={(event) => onChange('variety', event.target.value)}
-      />
+      {showVarietyField ? (
+        <input
+          aria-label="variety-input"
+          value={formData.variety ?? ''}
+          onChange={(event) => onChange('variety', event.target.value)}
+        />
+      ) : null}
       {errors.variety ? <span>{errors.variety}</span> : null}
       {identityHint}
     </div>
@@ -315,7 +319,10 @@ describe('CultureForm', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'form.createSuppliers' })).not.toBeInTheDocument());
-    expect(screen.getByRole('heading', { name: 'form.editTitle' })).toBeInTheDocument();
+    // CULTURE_A has a variety, so this is a variety-level edit (formKind
+    // defaults to 'variety' for backward compatibility with callers that
+    // don't pass it, which is correct here).
+    expect(screen.getByRole('heading', { name: 'form.editVarietyTitle' })).toBeInTheDocument();
   });
 
   it('shows only real suppliers in the supplier dropdown when supplier options are available', async () => {
@@ -634,6 +641,50 @@ describe('CultureForm', () => {
       variety: 'Nantaise',
       supplier: { id: 10, name: 'Bingenheimer' },
     }));
+  });
+
+  it('hides the variety field and saves without one when formKind is crop', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    expect(screen.queryByLabelText('variety-input')).not.toBeInTheDocument();
+
+    // A crop-level entry has no variety, so the name+variety duplicate check
+    // (which requires both to be non-empty) never fires here — save directly.
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }));
+  });
+
+  it('shows and still requires the variety field when formKind is variety', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="variety" onSave={onSave} onCancel={() => {}} />);
+
+    expect(screen.getByLabelText('variety-input')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(await screen.findByText('form.varietyRequired')).toBeInTheDocument();
+  });
+
+  it('pre-fills crop_species and name from initialDraft when adding a variety', () => {
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '' }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Karotte');
+    expect(screen.getByLabelText('variety-input')).toHaveValue('');
   });
 
   it('closes without saving when an edited culture has no effective changes', () => {

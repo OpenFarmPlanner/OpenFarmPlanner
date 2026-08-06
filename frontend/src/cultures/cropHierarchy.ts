@@ -58,6 +58,11 @@ export function buildCropHierarchy<TCulture extends CropHierarchySource>(
     .flatMap(([speciesKey, group]) => {
       const speciesCulture = group.find((culture) => !(culture.variety || '').trim()) ?? null;
       const speciesId = `species:${speciesKey}`;
+      // Label falls back to group[0] purely for display text — but the node's `culture`
+      // (its selection/edit identity) must stay null when there's no dedicated
+      // general entry, or group[0] ends up rendered twice: once as a fake species
+      // entry and once as its own variety row. Row rendering already treats
+      // `culture: null` as "nothing to select here" (disabled={!culture}).
       const speciesLabel = getCropSpeciesLabel(speciesCulture ?? group[0]);
       const varietyCultures = group.filter((culture) => culture !== speciesCulture);
       const speciesNode: CropHierarchyItem<TCulture> = {
@@ -66,7 +71,7 @@ export function buildCropHierarchy<TCulture extends CropHierarchySource>(
         kind: 'species',
         label: speciesLabel,
         secondary: '',
-        culture: speciesCulture ?? group[0],
+        culture: speciesCulture,
         hasGeneralEntry: Boolean(speciesCulture),
         speciesKey,
         varietyCount: varietyCultures.length,

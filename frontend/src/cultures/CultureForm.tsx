@@ -79,6 +79,20 @@ interface CultureFormProps {
   variant?: 'project' | 'publicLibrary';
   extraSections?: ReactNode;
   hasExternalChanges?: boolean;
+  /**
+   * Whether this form edits a crop-level entry (no variety, the species'
+   * general record) or a variety-level entry (variety required). Only
+   * relevant for `variant="project"` — the public-library form always shows
+   * both identity fields via `showIdentityFields`. Defaults to 'variety' so
+   * existing callers that don't pass it keep today's behavior.
+   */
+  formKind?: 'crop' | 'variety';
+  /**
+   * Initial field values merged onto the blank template when creating (i.e.
+   * `culture` is undefined) — used by "+ Add variety" to pre-fill the parent
+   * crop's `crop_species`/`name` so the new row groups correctly.
+   */
+  initialDraft?: Partial<Culture>;
 }
 
 // Default color for display color picker
@@ -171,9 +185,9 @@ const buildDraftFromPublicCulture = (publicCulture: PublicCulture): Partial<Cult
   seed_packages: publicCulture.seed_packages ?? [],
 });
 
-const buildInitialFormData = (culture?: Culture): Partial<Culture> => {
+const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>): Partial<Culture> => {
   if (!culture) {
-    return EMPTY_CULTURE;
+    return initialDraft ? { ...EMPTY_CULTURE, ...initialDraft } : EMPTY_CULTURE;
   }
 
   const normalizedSpacingValues: Partial<Culture> = {
@@ -231,11 +245,15 @@ export function CultureForm({
   variant = 'project',
   extraSections,
   hasExternalChanges = false,
+  formKind = 'variety',
+  initialDraft,
 }: CultureFormProps) {
   const { t } = useTranslation('cultures');
   const isEdit = Boolean(culture);
   const isProjectForm = variant === 'project';
   const showSupplierDataSection = isProjectForm;
+  const showVarietyField = !isProjectForm || formKind === 'variety';
+  const requireVariety = isProjectForm && formKind === 'variety';
   const [saveError, setSaveError] = useState<string>('');
 
   // --- Validation now imported from ../cultures/validation ---
@@ -250,7 +268,7 @@ export function CultureForm({
   };
 
   // Local form state (no autosave)
-  const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture));
+  const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture, initialDraft));
   const identityLabel = [formData.name, formData.variety].filter(Boolean).join(' · ');
 
   const selectedSpeciesCulture = useMemo(
@@ -359,7 +377,7 @@ export function CultureForm({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setFormData(buildInitialFormData(culture));
+    setFormData(buildInitialFormData(culture, initialDraft));
     setErrors({});
     setDuplicateErrorKey('');
     setIsDuplicateChecking(false);
@@ -373,7 +391,7 @@ export function CultureForm({
     setSupplierCreateTargetIndex(null);
     isSavingRef.current = false;
     setUserInteracted(false);
-  }, [culture]);
+  }, [culture, initialDraft]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -397,11 +415,11 @@ export function CultureForm({
 
   // Validate on every change
   const validateAndSet = useCallback((draft: Partial<Culture>, mode: 'live' | 'submit' = hasSubmitted ? 'submit' : 'live') => {
-    const result = validateCulture(draft, t, mode);
+    const result = validateCulture(draft, t, mode, requireVariety);
     setErrors(result.errors);
     setIsValid(result.isValid);
     return result.isValid;
-  }, [hasSubmitted, t]);
+  }, [hasSubmitted, requireVariety, t]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -581,7 +599,7 @@ export function CultureForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSavingRef.current) return;
-    if (isEdit && !hasExternalChanges && !hasEffectiveCultureFormChanges(buildInitialFormData(culture), formData)) {
+    if (isEdit && !hasExternalChanges && !hasEffectiveCultureFormChanges(buildInitialFormData(culture, initialDraft), formData)) {
       onCancel();
       return;
     }
@@ -754,7 +772,11 @@ export function CultureForm({
     >
       <form ref={formRef} onSubmit={handleSubmit}>
         <DialogTitle id="culture-form-dialog-title">
-          {title ?? (isEdit ? t('form.editTitle') : t('form.createTitle'))}
+          {title ?? (
+            isProjectForm && formKind === 'variety'
+              ? (isEdit ? t('form.editVarietyTitle') : t('form.createVarietyTitle'))
+              : (isEdit ? t('form.editTitle') : t('form.createTitle'))
+          )}
         </DialogTitle>
         <DialogContent
           ref={dialogContentRef}
@@ -802,6 +824,7 @@ export function CultureForm({
               t={t}
               getFieldTooltipProps={getFieldTooltipProps}
               showIdentityFields={isProjectForm}
+              showVarietyField={showVarietyField}
               publicCultureOptions={isProjectForm ? publicCultureOptions : undefined}
               publicCultureOptionsLoading={publicCultureOptionsLoading}
               onPublicCultureSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}

@@ -18,6 +18,7 @@ interface BasicInfoSectionProps {
   t: TFunction;
   identityHint?: ReactNode;
   showIdentityFields?: boolean;
+  showVarietyField?: boolean;
   publicCultureOptions?: PublicCulture[];
   publicCultureOptionsLoading?: boolean;
   onPublicCultureSearchChange?: (value: string) => void;
@@ -40,6 +41,7 @@ export function BasicInfoSection({
   t,
   identityHint,
   showIdentityFields = true,
+  showVarietyField = true,
   publicCultureOptions,
   publicCultureOptionsLoading = false,
   onPublicCultureSearchChange,
@@ -127,17 +129,19 @@ export function BasicInfoSection({
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
           )}
-          <TextField
-            sx={wideFieldSx}
-            required
-            label={t('form.variety')}
-            placeholder={t('form.varietyPlaceholder')}
-            value={formData.variety}
-            onChange={e => onChange('variety', e.target.value)}
-            error={Boolean(errors.variety)}
-            helperText={errors.variety}
-            slotProps={{ htmlInput: { maxLength: 200 } }}
-          />
+          {showVarietyField ? (
+            <TextField
+              sx={wideFieldSx}
+              required
+              label={t('form.variety')}
+              placeholder={t('form.varietyPlaceholder')}
+              value={formData.variety}
+              onChange={e => onChange('variety', e.target.value)}
+              error={Boolean(errors.variety)}
+              helperText={errors.variety}
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
+          ) : null}
         </Box>
       ) : null}
       {identityHint}

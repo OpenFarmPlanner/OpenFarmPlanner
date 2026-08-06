@@ -61,7 +61,10 @@
     "expandCrop": "Expand crop",
     "collapseCrop": "Collapse crop",
     "varietyCount_one": "{{count}} variety",
-    "varietyCount_other": "{{count}} varieties"
+    "varietyCount_other": "{{count}} varieties",
+    "varietiesTitle": "Varieties",
+    "varietiesEmpty": "No varieties have been added to this crop yet.",
+    "addVariety": "+ Add variety"
   },
   "supplier_id": "Supplier",
   "noData": "Not specified",
@@ -143,6 +146,8 @@
   "form": {
     "createTitle": "Add crop",
     "editTitle": "Edit crop",
+    "createVarietyTitle": "Add variety",
+    "editVarietyTitle": "Edit variety",
     "cancel": "Cancel",
     "save": "Save",
     "create": "Create",
@@ -768,9 +773,22 @@
       "noResultsTitle": "No matching public culture found"
     },
     "importButton": "Import into project",
+    "importUpdateButton": "Update",
     "importing": "Importing…",
     "importSuccess": "“{{name}}” was imported into this project.",
     "importError": "The public crop could not be imported.",
+    "importUnchanged": "“{{name}}” is already identical in this project – no update needed.",
+    "importUpdated": "“{{name}}” was updated (new version taken from the library).",
+    "importUpdatedForced": "“{{name}}” was updated (local changes were overwritten).",
+    "importedAsNew": "“{{name}}” was imported as a new crop.",
+    "importConflictDialog": {
+      "title": "Already imported",
+      "message": "“{{name}}” was already imported into this project and has been edited locally since. How would you like to proceed?",
+      "updateWarning": "Updating will discard your local changes and replace them with the current version from the library.",
+      "importAsNew": "Import as new crop",
+      "update": "Update",
+      "resolveElsewhere": "“{{name}}” was already imported and has been edited locally since. Open the crop in the public crop library to decide how to proceed."
+    },
     "publishButton": "Publish",
     "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
     "updateButton": "Update public crop library",
@@ -791,7 +809,7 @@
     "removeDialog": {
       "title": "Remove from library?",
       "message": "“{{name}}” disappears from the public crop library. Cultures already imported into projects remain fully intact. You can publish the culture again later.",
-      "moderationMessage": "“{{name}}” is removed from the public crop library for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
+      "moderationMessage": "Are you sure you want to remove “{{name}}” from the public crop library? It will be removed for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
       "reasonLabel": "Reason"
     },
     "hardDeleteDialog": {

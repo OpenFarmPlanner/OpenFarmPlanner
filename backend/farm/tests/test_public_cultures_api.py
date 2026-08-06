@@ -13,6 +13,7 @@ from crops.models import CropSpecies, CropSpeciesTranslation
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import (
     Culture,
+    EntityRevision,
     Project,
     ProjectMembership,
     PublicCulture,
@@ -336,13 +337,71 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        imported = Culture.objects.get(id=response.data['id'])
+        self.assertEqual(response.data['operation'], 'created')
+        imported = Culture.objects.get(id=response.data['culture']['id'])
         self.assertEqual(imported.project, self.project)
         self.assertEqual(imported.source_public_culture, public_culture)
         self.assertEqual(imported.origin_type, Culture.ORIGIN_IMPORTED)
         self.assertFalse(imported.is_modified_from_source)
         self.assertEqual(imported.seed_packages.count(), 1)
         self.assertEqual(float(imported.seed_packages.first().size_value), 15.0)
+
+    def test_public_culture_list_shows_no_import_status_when_not_yet_imported(self):
+        PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        entry = next(row for row in response.data['results'] if row['name'] == 'Bean')
+        self.assertIsNone(entry['project_import_status'])
+
+    def test_public_culture_detail_shows_import_status_after_import(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = import_response.data['culture']['id']
+
+        detail_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['project_import_status'], {
+            'culture_id': imported_id,
+            'culture_name': 'Bean (Canadian Wonder)',
+            'is_modified_from_source': False,
+        })
+
+    def test_public_culture_import_status_flags_local_modification(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+            notes='Public notes',
+        )
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = import_response.data['culture']['id']
+        Culture.objects.filter(id=imported_id).update(notes='Locally edited notes')
+        imported = Culture.objects.get(id=imported_id)
+        imported.notes = 'Locally edited again'
+        imported.save()
+
+        detail_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertTrue(detail_response.data['project_import_status']['is_modified_from_source'])
+
+    def test_public_culture_import_status_is_project_scoped(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+        )
+        self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        other_project = Project.objects.create(name='Other Project', slug='other-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        self.client.defaults['HTTP_X_PROJECT_ID'] = str(other_project.id)
+
+        detail_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertIsNone(detail_response.data['project_import_status'])
 
     def test_import_public_culture_keeps_species_translation_link_and_serves_english_name(self):
         species = CropSpecies.objects.create(name='Localized Import Species 1')
@@ -376,7 +435,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        imported = Culture.objects.select_related('crop_species', 'source_public_culture').get(id=response.data['id'])
+        imported = Culture.objects.select_related('crop_species', 'source_public_culture').get(id=response.data['culture']['id'])
         self.assertEqual(imported.name, 'Ackerbohne')
         self.assertEqual(imported.crop_species, species)
         self.assertEqual(imported.source_public_culture, public_culture)
@@ -388,9 +447,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             'de': 'Deutsche Beschreibung',
             'en': 'English description',
         })
-        self.assertEqual(response.data['culture_display_name'], 'Broad bean')
-        self.assertEqual(response.data['culture_display_language_code'], 'en')
-        self.assertEqual(response.data['crop_species_translations'], {
+        self.assertEqual(response.data['culture']['culture_display_name'], 'Broad bean')
+        self.assertEqual(response.data['culture']['culture_display_language_code'], 'en')
+        self.assertEqual(response.data['culture']['crop_species_translations'], {
             'de': 'Ackerbohne',
             'en': 'Broad bean',
         })
@@ -418,7 +477,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             original_language_code='de',
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported_id = import_response.data['id']
+        imported_id = import_response.data['culture']['id']
 
         detail_response = self.client.get(
             f'/openfarmplanner/api/cultures/{imported_id}/',
@@ -441,7 +500,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             original_language_code='de',
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported_id = import_response.data['id']
+        imported_id = import_response.data['culture']['id']
 
         detail_response = self.client.get(
             f'/openfarmplanner/api/cultures/{imported_id}/',
@@ -462,7 +521,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             harvest_duration_days=14,
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported_id = import_response.data['id']
+        imported_id = import_response.data['culture']['id']
 
         detail_response = self.client.get(f'/openfarmplanner/api/cultures/{imported_id}/')
         payload = dict(detail_response.data)
@@ -497,7 +556,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             harvest_duration_days=20,
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported_id = import_response.data['id']
+        imported_id = import_response.data['culture']['id']
 
         detail_response = self.client.get(f'/openfarmplanner/api/cultures/{imported_id}/')
         payload = dict(detail_response.data)
@@ -524,7 +583,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             created_by=self.user,
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported_id = import_response.data['id']
+        imported_id = import_response.data['culture']['id']
 
         # Public cultures no longer carry supplier data, so seed this
         # pre-existing legacy text value directly to test that a PUT with an
@@ -547,6 +606,142 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         imported = Culture.objects.get(id=imported_id)
         self.assertIsNone(imported.supplier_id)
         self.assertEqual(imported.seed_supplier, 'Reinsaat')
+
+    def test_reimporting_an_unchanged_import_is_a_no_op(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        revision_count_after_first_import = EntityRevision.objects.filter(entity_type='culture', object_id=imported_id).count()
+
+        second_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.data['operation'], 'unchanged')
+        self.assertEqual(second_response.data['culture']['id'], imported_id)
+        self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 1)
+        self.assertEqual(
+            EntityRevision.objects.filter(entity_type='culture', object_id=imported_id).count(),
+            revision_count_after_first_import,
+        )
+
+    def test_reimporting_after_library_update_with_no_local_changes_syncs_automatically(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        revision_count_after_first_import = EntityRevision.objects.filter(entity_type='culture', object_id=imported_id).count()
+
+        public_culture.growth_duration_days = 80
+        public_culture.version = 2
+        public_culture.save(update_fields=['growth_duration_days', 'version'])
+
+        second_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.data['operation'], 'updated')
+        self.assertEqual(second_response.data['culture']['id'], imported_id)
+        self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 1)
+        imported = Culture.objects.get(id=imported_id)
+        self.assertEqual(imported.growth_duration_days, 80)
+        self.assertEqual(imported.source_public_version, 2)
+        self.assertFalse(imported.is_modified_from_source)
+        self.assertEqual(
+            EntityRevision.objects.filter(entity_type='culture', object_id=imported_id).count(),
+            revision_count_after_first_import + 1,
+        )
+
+    def test_reimporting_with_local_changes_requires_confirmation(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        imported = Culture.objects.get(id=imported_id)
+        imported.notes = 'Local edit'
+        imported.save()
+        self.assertTrue(Culture.objects.get(id=imported_id).is_modified_from_source)
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'import_requires_confirmation')
+        self.assertEqual(response.data['existing_culture_id'], imported_id)
+        self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 1)
+
+    def test_reimporting_with_mode_update_overwrites_local_changes(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        imported = Culture.objects.get(id=imported_id)
+        imported.notes = 'Local edit'
+        imported.save()
+        self.assertTrue(Culture.objects.get(id=imported_id).is_modified_from_source)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'update'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 1)
+        imported.refresh_from_db()
+        self.assertEqual(imported.notes, public_culture.notes)
+        self.assertFalse(imported.is_modified_from_source)
+
+    def test_reimporting_with_mode_new_creates_a_uniquely_named_copy(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        imported = Culture.objects.get(id=imported_id)
+        imported.notes = 'Local edit'
+        imported.save()
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'new'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'created')
+        new_culture_id = response.data['culture']['id']
+        self.assertNotEqual(new_culture_id, imported_id)
+        new_culture = Culture.objects.get(id=new_culture_id)
+        self.assertEqual(new_culture.name, 'Carrot (2)')
+        self.assertEqual(new_culture.variety, 'Nantes')
+        self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 2)
+        # The original, locally-edited culture is untouched.
+        imported.refresh_from_db()
+        self.assertEqual(imported.notes, 'Local edit')
 
     def test_public_library_list_requires_authentication(self):
         self.client.force_authenticate(user=None)
@@ -967,7 +1162,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             growth_duration_days=55,
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported = Culture.objects.get(id=import_response.data['id'])
+        imported = Culture.objects.get(id=import_response.data['culture']['id'])
 
         self.client.patch(
             f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
@@ -1134,7 +1329,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             harvest_duration_days=30,
         )
         import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
-        imported = Culture.objects.get(id=import_response.data['id'])
+        imported = Culture.objects.get(id=import_response.data['culture']['id'])
 
         response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/remove/', {}, format='json')
 

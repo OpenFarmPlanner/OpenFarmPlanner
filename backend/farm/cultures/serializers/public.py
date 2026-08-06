@@ -17,6 +17,7 @@ from farm.models import (
     PublicCultureDiscussionComment,
     PublicCultureDiscussionTopic,
     PublicCultureRevision,
+    format_culture_display_name,
 )
 from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
@@ -78,6 +79,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     description = serializers.SerializerMethodField()
     description_language_code = serializers.SerializerMethodField()
     translations = serializers.SerializerMethodField()
+    project_import_status = serializers.SerializerMethodField()
 
     class Meta:
         model = PublicCulture
@@ -127,11 +129,30 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'created_by_label',
             'source_project_culture',
             'source_project',
+            'project_import_status',
         ]
         read_only_fields = fields
 
     def get_created_by_label(self, obj: PublicCulture) -> str:
         return obj.created_by_label
+
+    def get_project_import_status(self, obj: PublicCulture) -> dict[str, Any] | None:
+        """Whether the active project already imported this entry, for the import button state.
+
+        Relies on the view prefetching ``prefetched_project_cultures`` (the
+        active project's Cultures linked to this public entry via
+        ``source_public_culture``) so this stays a single extra query for
+        the whole list rather than one per row.
+        """
+        cultures = getattr(obj, 'prefetched_project_cultures', None)
+        if not cultures:
+            return None
+        culture = cultures[0]
+        return {
+            'culture_id': culture.id,
+            'culture_name': format_culture_display_name(culture.name, culture.variety),
+            'is_modified_from_source': culture.is_modified_from_source,
+        }
 
     def _language(self) -> str:
         request = self.context.get('request')

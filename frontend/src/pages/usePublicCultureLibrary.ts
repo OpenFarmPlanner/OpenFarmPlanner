@@ -79,15 +79,28 @@ export function usePublicCultureLibrary({
   }, [fetchPublicCultures, onClearForm]);
 
   const handleImportPublicCulture = async (publicCulture: PublicCulture) => {
+    const name = getPublicCultureTitle(publicCulture, language, t('library.translation.missingName'));
     try {
       setPublicLibraryImportingId(publicCulture.id);
       const response = await publicCultureAPI.importToProject(publicCulture.id);
-      await onImportSuccess(response.data.id!);
+      await onImportSuccess(response.data.culture.id!);
       setPublicLibraryOpen(false);
-      showSnackbar(t('library.importSuccess', {
-        name: getPublicCultureTitle(publicCulture, language, t('library.translation.missingName')),
-      }), 'success');
+      if (response.data.operation === 'unchanged') {
+        showSnackbar(t('library.importUnchanged', { name }), 'info');
+      } else if (response.data.operation === 'updated') {
+        showSnackbar(t('library.importUpdated', { name }), 'success');
+      } else {
+        showSnackbar(t('library.importSuccess', { name }), 'success');
+      }
     } catch (error) {
+      // This search-and-import flow doesn't offer the update/import-as-new
+      // choice the Public Crop Library page's conflict dialog does — a 409
+      // here just means "already imported with local changes", so point the
+      // user at the place that can actually resolve it.
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setPublicLibraryError(t('library.importConflictDialog.resolveElsewhere', { name }));
+        return;
+      }
       console.error('Error importing public culture:', error);
       setPublicLibraryError(extractApiErrorMessage(error, t, t('library.importError')));
     } finally {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type UIEvent } from 'react';
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
+import axios from 'axios';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,17 +33,18 @@ import {
 } from '@mui/material';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
+import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import { publicCultureAPI } from '../../api/api';
 import type {
   CultivationType,
   Culture,
+  ImportPublicCultureConfirmationRequiredError,
   PublicCulture,
   PublicCultureDiscussionComment,
   PublicCultureDiscussionTopic,
@@ -90,6 +92,7 @@ import { VersionCard } from '../components/publicCropLibrary/VersionCard';
 import { CommentForm } from '../components/publicCropLibrary/CommentForm';
 import { ThreadCommentBranch } from '../components/publicCropLibrary/DiscussionComment';
 import { PublicCultureMobileSelectorDialog } from '../components/publicCropLibrary/PublicCultureMobileSelectorDialog';
+import { ImportConflictDialog } from '../components/publicCropLibrary/ImportConflictDialog';
 import {
   PUBLIC_CULTURE_TAB_BY_INDEX,
   PUBLIC_CULTURE_TAB_INDEX_BY_PARAM,
@@ -164,6 +167,7 @@ export default function PublicCropLibraryPage() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
+  const [importConflict, setImportConflict] = useState<{ publicCultureId: number; name: string } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
@@ -892,20 +896,80 @@ export default function PublicCropLibraryPage() {
     void loadCultures(query);
   };
 
-  const handleImport = useCallback(async (): Promise<void> => {
-    if (!selectedCulture) {
-      return;
-    }
-    setImportingId(selectedCulture.id);
+  const performImport = useCallback(async (
+    publicCultureId: number,
+    name: string,
+    mode?: 'update' | 'new',
+  ): Promise<void> => {
+    setImportingId(publicCultureId);
     try {
-      await publicCultureAPI.importToProject(selectedCulture.id);
-      showGlobalSnackbar({ message: t('library.importSuccess', { name: getCultureTitle(selectedCulture, t, language) }), severity: 'success' });
-    } catch {
+      const response = await publicCultureAPI.importToProject(publicCultureId, mode);
+      const importedCulture = response.data.culture;
+      setCultures((current) => current.map((culture) => (
+        culture.id === publicCultureId
+          ? {
+            ...culture,
+            project_import_status: {
+              culture_id: importedCulture.id as number,
+              culture_name: importedCulture.culture_display_name || importedCulture.name,
+              is_modified_from_source: Boolean(importedCulture.is_modified_from_source),
+            },
+          }
+          : culture
+      )));
+      if (mode === 'update') {
+        showGlobalSnackbar({ message: t('library.importUpdatedForced', { name }), severity: 'success' });
+      } else if (mode === 'new') {
+        showGlobalSnackbar({ message: t('library.importedAsNew', { name }), severity: 'success' });
+      } else if (response.data.operation === 'unchanged') {
+        showGlobalSnackbar({ message: t('library.importUnchanged', { name }), severity: 'info' });
+      } else if (response.data.operation === 'updated') {
+        showGlobalSnackbar({ message: t('library.importUpdated', { name }), severity: 'success' });
+      } else {
+        showGlobalSnackbar({ message: t('library.importSuccess', { name }), severity: 'success' });
+      }
+      setImportConflict(null);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const conflict = error.response.data as ImportPublicCultureConfirmationRequiredError | undefined;
+        if (conflict?.code === 'import_requires_confirmation') {
+          setImportConflict({ publicCultureId, name });
+          return;
+        }
+      }
       showGlobalSnackbar({ message: t('library.importError'), severity: 'error' });
     } finally {
       setImportingId(null);
     }
-  }, [language, selectedCulture, t]);
+  }, [t]);
+
+  const handleImport = useCallback(async (): Promise<void> => {
+    if (!selectedCulture) {
+      return;
+    }
+    await performImport(selectedCulture.id, getCultureTitle(selectedCulture, t, language));
+  }, [language, performImport, selectedCulture, t]);
+
+  const closeImportConflictDialog = useCallback((): void => {
+    if (importingId !== null) {
+      return;
+    }
+    setImportConflict(null);
+  }, [importingId]);
+
+  const handleImportConflictUpdate = useCallback((): void => {
+    if (!importConflict) {
+      return;
+    }
+    void performImport(importConflict.publicCultureId, importConflict.name, 'update');
+  }, [importConflict, performImport]);
+
+  const handleImportConflictNew = useCallback((): void => {
+    if (!importConflict) {
+      return;
+    }
+    void performImport(importConflict.publicCultureId, importConflict.name, 'new');
+  }, [importConflict, performImport]);
 
   const openEditDialog = useCallback((): void => {
     if (!selectedCulture) {
@@ -962,15 +1026,24 @@ export default function PublicCropLibraryPage() {
 
   const topbarContextActions = useMemo<TopbarContextAction[]>(() => (
     canModeratePublicLibrary
-      ? [{
-        id: 'public-crop-library-moderation',
-        label: t('library.page.moderation.open'),
-        ariaLabel: t('library.page.moderation.open'),
-        onClick: openModeration,
-        appearance: 'standard' as const,
-      }]
+      ? [
+        {
+          id: 'public-crop-library-moderation',
+          label: t('library.page.moderation.open'),
+          ariaLabel: t('library.page.moderation.open'),
+          onClick: openModeration,
+          appearance: 'standard' as const,
+        },
+        ...(selectedCulture ? [{
+          id: 'public-crop-library-remove',
+          label: t('library.removeAction'),
+          ariaLabel: t('library.removeAction'),
+          onClick: openRemoveDialog,
+          appearance: 'standard' as const,
+        }] : []),
+      ]
       : []
-  ), [canModeratePublicLibrary, openModeration, t]);
+  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, selectedCulture, t]);
 
   useTopbarContextActions(setTopbarContextActions, topbarContextActions);
 
@@ -1263,17 +1336,18 @@ export default function PublicCropLibraryPage() {
           onClick: openEditDialog,
         },
         {
-          label: importingId ? t('library.importing') : t('library.importButton'),
-          icon: <DownloadOutlinedIcon fontSize="small" />,
+          label: importingId
+            ? t('library.importing')
+            : selectedCulture.project_import_status
+              ? t('library.importUpdateButton')
+              : t('library.importButton'),
+          icon: selectedCulture.project_import_status
+            ? <SyncOutlinedIcon fontSize="small" />
+            : <DownloadOutlinedIcon fontSize="small" />,
           onClick: () => void handleImport(),
           disabled: importingId !== null,
           variant: 'contained',
         },
-        ...(canModeratePublicLibrary ? [{
-          label: t('library.removeAction'),
-          icon: <DeleteOutlineIcon fontSize="small" />,
-          onClick: openRemoveDialog,
-        }] : []),
       ]}
     />
   ) : null;
@@ -2075,6 +2149,15 @@ export default function PublicCropLibraryPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ImportConflictDialog
+        open={importConflict !== null}
+        cultureName={importConflict?.name ?? ''}
+        busy={importingId !== null}
+        t={t}
+        onCancel={closeImportConflictDialog}
+        onUpdate={handleImportConflictUpdate}
+        onImportAsNew={handleImportConflictNew}
+      />
     </PageContainer>
   );
 }

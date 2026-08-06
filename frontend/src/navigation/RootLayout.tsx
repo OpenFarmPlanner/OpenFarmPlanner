@@ -58,6 +58,7 @@ import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
 import GavelIcon from '@mui/icons-material/Gavel';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
@@ -123,7 +124,7 @@ function FileExportIcon(props: SvgIconProps) {
 interface SnackbarState {
   open: boolean;
   message: string;
-  severity: 'success' | 'error';
+  severity: 'success' | 'error' | 'info';
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
 }
@@ -307,7 +308,7 @@ function RootLayout() {
     message: '',
     severity: 'success',
   });
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error', actionLabel?: string, onAction?: () => void | Promise<void>) => {
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info', actionLabel?: string, onAction?: () => void | Promise<void>) => {
     setSnackbar({ open: true, message, severity, actionLabel, onAction });
   }, []);
 
@@ -528,6 +529,10 @@ function RootLayout() {
     () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
     [topbarContextActions],
   );
+  const publicLibraryRemoveAction = useMemo(
+    () => topbarContextActions.find((action) => action.id === 'public-crop-library-remove'),
+    [topbarContextActions],
+  );
   const cultureImportExportActions = useMemo(
     () => topbarContextActions.filter((action) => action.id !== 'cultures-open-library'),
     [topbarContextActions],
@@ -546,6 +551,7 @@ function RootLayout() {
       : topbarContextActions.filter((action) => (
         action.id !== 'fields-global-add-field'
         && action.id !== 'public-crop-library-moderation'
+        && action.id !== 'public-crop-library-remove'
       ))),
     [isCulturesPage, topbarContextActions],
   );
@@ -1159,6 +1165,27 @@ function RootLayout() {
               {publicLibraryModerationAction.label}
             </Button>
           ) : null}
+          {isPublicCropLibraryPage && publicLibraryRemoveAction ? (
+            <AppTooltip title={publicLibraryRemoveAction.label}>
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                <IconButton
+                  size="medium"
+                  onClick={() => publicLibraryRemoveAction.onClick()}
+                  aria-label={publicLibraryRemoveAction.ariaLabel ?? publicLibraryRemoveAction.label}
+                  disabled={publicLibraryRemoveAction.disabled}
+                  sx={{
+                    flexShrink: 0,
+                    color: 'error.main',
+                    border: '1px solid',
+                    borderColor: 'error.main',
+                    borderRadius: 1,
+                  }}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </AppTooltip>
+          ) : null}
           {(() => {
             const groups: TopbarContextAction[][] = [];
             [...topbarModeControls, ...topbarOverflowActions].forEach((action) => {
@@ -1463,6 +1490,27 @@ function RootLayout() {
                       disabled={publicLibraryModerationAction.disabled}
                     >
                       <GavelIcon />
+                    </IconButton>
+                  </Box>
+                </AppTooltip>
+              ) : null}
+              {isPublicCropLibraryPage && publicLibraryRemoveAction ? (
+                <AppTooltip title={publicLibraryRemoveAction.label} enterTouchDelay={0}>
+                  <Box component="span" sx={{ display: 'inline-flex' }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => publicLibraryRemoveAction.onClick()}
+                      aria-label={publicLibraryRemoveAction.ariaLabel ?? publicLibraryRemoveAction.label}
+                      sx={{
+                        width: COMPACT_TOPBAR_TOGGLE_SIZE,
+                        height: COMPACT_TOPBAR_TOGGLE_SIZE,
+                        flexShrink: 0,
+                        color: 'error.main',
+                        '& .MuiSvgIcon-root': { fontSize: 24 },
+                      }}
+                      disabled={publicLibraryRemoveAction.disabled}
+                    >
+                      <DeleteOutlineIcon />
                     </IconButton>
                   </Box>
                 </AppTooltip>

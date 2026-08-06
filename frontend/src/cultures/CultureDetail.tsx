@@ -16,6 +16,8 @@ import { CultureTitleSelectorButton } from './CultureTitleSelectorButton';
 import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
 import { desktopCropChevronButtonSx } from './cropHierarchyRowSx';
 import {
@@ -61,6 +63,7 @@ interface CultureDetailProps {
   onCreateCulture?: () => void;
   onOpenPublicLibrary?: () => void;
   onEditCulture?: (culture: Culture) => void;
+  onAddVariety?: (speciesCulture: Culture) => void;
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
   onPublishCulture?: () => void;
@@ -89,6 +92,7 @@ export function CultureDetail({
   onCreateCulture,
   onOpenPublicLibrary,
   onEditCulture,
+  onAddVariety,
   onCreatePlan,
   onOpenHistory,
   onPublishCulture,
@@ -494,6 +498,21 @@ const detailSectionGridSx = {
     () => findSpeciesCulture(selectedCulture, cultures),
     [cultures, selectedCulture],
   );
+
+  // Siblings of the current selection within its species group — shown as
+  // the "Varieties" list regardless of whether a species (general) row or
+  // one of its varieties is currently selected, since a species group with
+  // no general entry (all legacy data, until now) would otherwise have no
+  // way to reach "add a variety" at all.
+  const varietySiblings = useMemo(
+    () => (
+      selectedCultureSpeciesKey
+        ? cropHierarchyItems.filter((item) => item.kind === 'variety' && item.speciesKey === selectedCultureSpeciesKey)
+        : []
+    ),
+    [cropHierarchyItems, selectedCultureSpeciesKey],
+  );
+  const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
@@ -981,6 +1000,71 @@ const detailSectionGridSx = {
                 />
               </Box>
             ) : null}
+
+            <Divider sx={{ mb: 2.5 }} />
+
+            {/* Varieties Section */}
+            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
+                <Typography variant="h6">
+                  {t('hierarchy.varietiesTitle')}
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon fontSize="small" />}
+                  disabled={!onAddVariety || !varietyAddContext}
+                  onClick={() => {
+                    if (varietyAddContext) {
+                      onAddVariety?.(varietyAddContext);
+                    }
+                  }}
+                >
+                  {t('hierarchy.addVariety')}
+                </Button>
+              </Stack>
+              {varietySiblings.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t('hierarchy.varietiesEmpty')}
+                </Typography>
+              ) : (
+                <List dense disablePadding>
+                  {varietySiblings.map((variety) => (
+                    <ListItemButton
+                      key={variety.id}
+                      selected={!isSpeciesView && variety.culture?.id === selectedCulture.id}
+                      onClick={() => {
+                        if (variety.culture) {
+                          setSelectedSpeciesViewKey(null);
+                          onCultureSelect(variety.culture);
+                        }
+                      }}
+                      sx={{ borderRadius: 1, mb: 0.5 }}
+                    >
+                      <ListItemText primary={variety.label} />
+                      <Stack direction="row" spacing={0.5} onClick={(event) => event.stopPropagation()}>
+                        <IconButton
+                          size="small"
+                          aria-label={t('buttons.edit')}
+                          disabled={!onEditCulture || !variety.culture}
+                          onClick={() => variety.culture && onEditCulture?.(variety.culture)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label={t('buttons.delete')}
+                          disabled={!onDeleteCulture || !variety.culture}
+                          onClick={() => variety.culture && onDeleteCulture?.(variety.culture)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </ListItemButton>
+                  ))}
+                </List>
+              )}
+            </Box>
 
             <Divider sx={{ mb: 2.5 }} />
 
