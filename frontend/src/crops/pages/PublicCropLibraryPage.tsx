@@ -142,6 +142,10 @@ export default function PublicCropLibraryPage() {
     selectedCultureIdFromUrl ?? storedViewState?.cultureId ?? getStoredPublicCultureId()
   ));
   const selectedCultureIdRef = useRef<number | null>(selectedCultureId);
+  // Tracks the cultureId our own updateSelectedCultureId last navigated to,
+  // while that navigate() is still in flight (cleared once the URL catches
+  // up, or once an external navigation is detected). See updateSelectedCultureId.
+  const pendingNavigationCultureIdRef = useRef<number | null>(selectedCultureId);
   const [loadStatus, setLoadStatus] = useState<PublicCultureLoadStatus>('loading');
   const [loadError, setLoadError] = useState('');
   const [topics, setTopics] = useState<PublicCultureDiscussionTopic[]>([]);
@@ -283,6 +287,14 @@ export default function PublicCropLibraryPage() {
     setSelectedSpeciesViewKey(options.speciesViewKey ?? null);
     setSelectedCultureId(cultureId);
     selectedCultureIdRef.current = cultureId;
+    // navigate() (called below via navigateToLibraryState) is asynchronous —
+    // searchParams won't reflect `cultureId` until it resolves, some renders
+    // later. Recorded here so the URL-to-state sync effect can tell "the URL
+    // just hasn't caught up with our own pick yet" apart from a genuine
+    // external navigation, instead of reading the still-stale URL as more
+    // authoritative and snapping selectedCultureId back to the previous
+    // value in the meantime (see pendingNavigationCultureIdRef below).
+    pendingNavigationCultureIdRef.current = cultureId;
     if (cultureId === null) {
       window.localStorage.removeItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY);
     } else {
@@ -625,6 +637,22 @@ export default function PublicCropLibraryPage() {
 
   useEffect(() => {
     if (selectedCultureIdFromUrl !== null) {
+      if (pendingNavigationCultureIdRef.current === selectedCultureIdFromUrl) {
+        // Our own navigate() just landed — selectedCultureId was already set
+        // optimistically when it was issued, so there's nothing left to sync.
+        pendingNavigationCultureIdRef.current = null;
+        return;
+      }
+      if (pendingNavigationCultureIdRef.current !== null) {
+        // Our own navigate() is still resolving; the URL hasn't caught up
+        // with it yet. Leave selectedCultureId alone instead of reading this
+        // stale URL as authoritative and snapping the selection back to
+        // whatever it said before we picked something new — that snap-back
+        // (followed by the correction once the URL does catch up) is what
+        // made the culture list, and the import/update button that follows
+        // selectedCulture, look like they were toggling after every pick.
+        return;
+      }
       if (selectedCultureId !== selectedCultureIdFromUrl) {
         setSelectedCultureId(selectedCultureIdFromUrl);
         selectedCultureIdRef.current = selectedCultureIdFromUrl;
