@@ -131,9 +131,9 @@ test('public crop library supports quick import, direct edit, versions, discussi
     await expect(page.getByRole('heading', { name: 'Allgemeine Informationen' })).toBeVisible();
     await expect(page.getByText(publicCulture.variety).first()).toBeVisible();
 
-    await expect(page.getByRole('button', { name: 'In Projekt importieren' })).toBeEnabled();
-    await page.getByRole('button', { name: 'In Projekt importieren' }).click();
-    await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Im Projekt aktualisieren' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Im Projekt aktualisieren' }).click();
+    await expect(page.getByText(/ist bereits identisch/i)).toBeVisible();
 
     await page.getByRole('tab', { name: /Diskussion/ }).click();
     await expect(page.getByText('Noch keine Diskussionen')).toBeVisible();
