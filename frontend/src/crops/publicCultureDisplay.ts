@@ -84,6 +84,21 @@ export function getPublicCultureDescription(
  * Renders as "Tomate (Moneymaker)" in German and "Tomato (Moneymaker)" in
  * English — same variety, same crop, one record.
  */
+/** Localized label for a public culture's cultivation type (e.g. "Direct sowing"). */
+export function getCultivationTypeLabel(
+  value: PublicCulture['cultivation_type'],
+  t: TFunction,
+  fallback: string,
+): string {
+  if (value === 'direct_sowing') {
+    return t('library.page.fields.cultivationTypes.directSowing');
+  }
+  if (value === 'pre_cultivation') {
+    return t('library.page.fields.cultivationTypes.preCultivation');
+  }
+  return fallback;
+}
+
 export function getPublicCultureTitle(
   culture: PublicCulture,
   currentLanguage: string,

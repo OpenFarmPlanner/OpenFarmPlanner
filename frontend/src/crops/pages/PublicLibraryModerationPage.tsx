@@ -18,8 +18,9 @@ import {
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
-import { cropSpeciesAPI, publicLibraryModeratorRequestAPI } from '../../api/api';
-import type { CropSpecies, PublicLibraryModeratorRequest } from '../../api/types';
+import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
+import { cropSpeciesAPI, publicCultureAPI, publicLibraryModeratorRequestAPI } from '../../api/api';
+import type { CropSpecies, PublicCulture, PublicLibraryModeratorRequest } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
@@ -31,6 +32,7 @@ export default function PublicLibraryModerationPage() {
   const { t, i18n } = useTranslation('cultures');
   const [speciesProposals, setSpeciesProposals] = useState<CropSpecies[]>([]);
   const [moderatorRequests, setModeratorRequests] = useState<PublicLibraryModeratorRequest[]>([]);
+  const [removedCultures, setRemovedCultures] = useState<PublicCulture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -62,6 +64,8 @@ export default function PublicLibraryModerationPage() {
       } else {
         setModeratorRequests([]);
       }
+      const removedResponse = await publicCultureAPI.list({ status: 'removed' });
+      setRemovedCultures(removedResponse.data.results);
     } catch {
       setError(t('library.moderation.loadError'));
     } finally {
@@ -102,6 +106,20 @@ export default function PublicLibraryModerationPage() {
       await loadQueues();
     } catch {
       showGlobalSnackbar({ message: t('library.moderation.actionError'), severity: 'error' });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const restoreCulture = async (culture: PublicCulture): Promise<void> => {
+    const name = culture.variety ? `${culture.name} · ${culture.variety}` : culture.name;
+    setBusyAction(`removed-${culture.id}-restore`);
+    try {
+      await publicCultureAPI.restore(culture.id);
+      showGlobalSnackbar({ message: t('library.moderation.removed.restoreSuccess', { name }), severity: 'success' });
+      await loadQueues();
+    } catch {
+      showGlobalSnackbar({ message: t('library.moderation.removed.restoreError'), severity: 'error' });
     } finally {
       setBusyAction(null);
     }
@@ -238,6 +256,50 @@ export default function PublicLibraryModerationPage() {
                 )}
               </Paper>
             ) : null}
+
+            <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 1 }}>
+              <Typography variant="h6" sx={{ mb: 1.5 }}>{t('library.moderation.removed.title')}</Typography>
+              {removedCultures.length === 0 ? (
+                <Typography color="text.secondary">{t('library.moderation.removed.empty')}</Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small" aria-label={t('library.moderation.removed.title')}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{t('library.moderation.columns.name')}</TableCell>
+                        <TableCell>{t('library.moderation.removed.reason')}</TableCell>
+                        <TableCell>{t('library.moderation.columns.date')}</TableCell>
+                        <TableCell align="right">{t('library.moderation.columns.actions')}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {removedCultures.map((culture) => (
+                        <TableRow key={culture.id}>
+                          <TableCell>{culture.variety ? `${culture.name} · ${culture.variety}` : culture.name}</TableCell>
+                          <TableCell>
+                            {culture.removal_reason ? t(`library.removeReasons.${culture.removal_reason}`) : t('library.moderation.none')}
+                          </TableCell>
+                          <TableCell>{formatDate(culture.updated_at)}</TableCell>
+                          <TableCell align="right">
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<RestoreOutlinedIcon />}
+                                disabled={busyAction !== null}
+                                onClick={() => void restoreCulture(culture)}
+                              >
+                                {busyAction === `removed-${culture.id}-restore` ? t('library.moderation.saving') : t('library.moderation.removed.restore')}
+                              </Button>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
           </>
         )}
       </Stack>

@@ -4,6 +4,7 @@ from datetime import date
 
 from rest_framework import status
 
+from crops.models import CropSpecies
 from farm.models import (
     Culture,
     CultureSupplierData,
@@ -170,6 +171,38 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['exists'])
         self.assertEqual(response.data['culture']['name'], 'Tomate')
+
+    def test_link_public_culture_updates_private_reference_without_creating_public_entry(self):
+        species = CropSpecies.objects.get(name_normalized='tomate')
+        public_culture = PublicCulture.objects.create(
+            name='Tomate',
+            variety='Roma',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=species,
+            version=4,
+        )
+        private_culture = Culture.objects.create(
+            name='Paradeiser',
+            variety='Roma',
+            growth_duration_days=88,
+            project=self.project,
+        )
+        public_count_before = PublicCulture.objects.count()
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{private_culture.id}/link-public-culture/',
+            {'public_culture_id': public_culture.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        private_culture.refresh_from_db()
+        self.assertEqual(PublicCulture.objects.count(), public_count_before)
+        self.assertEqual(private_culture.source_public_culture_id, public_culture.id)
+        self.assertEqual(private_culture.source_public_version, 4)
+        self.assertEqual(private_culture.crop_species_id, species.id)
+        self.assertEqual(private_culture.name, 'Paradeiser')
+        self.assertTrue(private_culture.is_modified_from_source)
 
     def test_culture_create_with_all_fields(self):
         """Test creating culture with all manual planning fields"""

@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -32,13 +33,23 @@ from farm.services.public_cultures import (
     DuplicatePublicCultureError,
     PublicCulturePublishingValidationError,
     build_publishing_check_result,
+    link_project_culture_to_public_reference,
     publish_culture_to_public_library,
 )
+
 
 from ..serializers import (
     CultureSerializer,
     PublicCultureSerializer,
 )
+
+
+def _request_boolean(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return False
 
 
 class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
@@ -524,6 +535,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 user=request.user,
                 crop_species_id=crop_species_id,
                 original_language_code=request.data.get('original_language_code'),
+                publish_as_general=_request_boolean(request.data.get('publish_as_general')),
             )
         except PublicCulturePublishingValidationError as error:
             return Response(
@@ -570,6 +582,26 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             ],
         }, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'], url_path='link-public-culture')
+    def link_public_culture(self, request: Request, pk: str | None = None) -> Response:
+        culture = self.get_object()
+        public_culture_id = request.data.get('public_culture_id')
+        try:
+            public_culture_id = int(public_culture_id)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'A valid public culture ID is required.', 'code': 'public_culture_required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        public_culture = get_object_or_404(
+            PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED),
+            pk=public_culture_id,
+        )
+        linked = link_project_culture_to_public_reference(culture=culture, public_culture=public_culture)
+        serializer = self.get_serializer(linked)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['get'], url_path='publish-public/preview')
     def publish_public_preview(self, request, pk=None):
         culture = self.get_object()
@@ -582,6 +614,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             culture=culture,
             crop_species_id=crop_species_id,
             original_language_code=request.query_params.get('original_language_code'),
+            user=request.user,
+            publish_as_general=_request_boolean(request.query_params.get('publish_as_general')),
         )
         return Response(self._serialize_publishing_check_result(result))
 

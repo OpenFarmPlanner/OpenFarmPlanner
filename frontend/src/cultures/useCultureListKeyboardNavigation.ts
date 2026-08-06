@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, type KeyboardEvent } from 'react';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 
 type CultureListItemId = number | string;
 
@@ -7,6 +7,7 @@ interface CultureListKeyboardNavigationOptions<TItem> {
   selectedId: CultureListItemId | null | undefined;
   getId: (item: TItem) => CultureListItemId | null | undefined;
   onSelect: (item: TItem) => void;
+  autoFocusSelected?: boolean;
 }
 
 interface CultureListItemProps {
@@ -15,6 +16,10 @@ interface CultureListItemProps {
   role: 'option';
   'aria-selected': boolean;
   tabIndex: number;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
+}
+
+interface CultureListProps {
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }
 
@@ -27,6 +32,7 @@ export function useCultureListKeyboardNavigation<TItem>({
   selectedId,
   getId,
   onSelect,
+  autoFocusSelected = false,
 }: CultureListKeyboardNavigationOptions<TItem>) {
   const listDomId = useId().replace(/[^a-zA-Z0-9_-]/g, '-');
   const itemRefs = useRef<Map<CultureListItemId, HTMLElement>>(new Map());
@@ -45,13 +51,38 @@ export function useCultureListKeyboardNavigation<TItem>({
     element?.focus?.({ preventScroll: true });
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedId === null || selectedId === undefined) {
       return;
     }
-    const element = itemRefs.current.get(selectedId);
-    element?.scrollIntoView?.({ block: 'nearest' });
-  }, [selectedId]);
+    if (autoFocusSelected) {
+      if (itemRefs.current.has(selectedId)) {
+        focusItem(selectedId);
+        return;
+      }
+      // The selected row's own element isn't mounted yet — it may still be
+      // hidden behind a collapsed parent that another effect is about to
+      // expand in this same commit. Retry once the resulting re-render (and
+      // any expansion it triggers) has painted, instead of silently giving
+      // up on the initial focus.
+      const raf = requestAnimationFrame(() => focusItem(selectedId));
+      return () => cancelAnimationFrame(raf);
+    }
+    itemRefs.current.get(selectedId)?.scrollIntoView?.({ block: 'nearest' });
+  }, [autoFocusSelected, focusItem, selectedId]);
+
+  const getFocusedItemId = useCallback((target: EventTarget | null): CultureListItemId | null => {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+
+    for (const [id, element] of itemRefs.current.entries()) {
+      if (element === target || element.contains(target)) {
+        return id;
+      }
+    }
+    return null;
+  }, []);
 
   const selectItem = useCallback((item: TItem, focusAfterSelect = true): void => {
     const id = getId(item);
@@ -62,10 +93,25 @@ export function useCultureListKeyboardNavigation<TItem>({
     const schedule = window.requestAnimationFrame ?? ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0));
     schedule(() => {
       const element = itemRefs.current.get(id);
-      element?.scrollIntoView?.({ block: 'nearest' });
-      if (focusAfterSelect) {
-        element?.focus?.({ preventScroll: true });
+      if (element) {
+        element.scrollIntoView?.({ block: 'nearest' });
+        if (focusAfterSelect) {
+          element.focus?.({ preventScroll: true });
+        }
+        return;
       }
+      // The newly selected row may still be hidden behind a collapsed parent
+      // that an effect (triggered by onSelect above) is about to expand in a
+      // later commit — retry once that expansion has painted instead of
+      // silently dropping focus (see the mount-focus effect for the same
+      // pattern).
+      schedule(() => {
+        const retryElement = itemRefs.current.get(id);
+        retryElement?.scrollIntoView?.({ block: 'nearest' });
+        if (focusAfterSelect) {
+          retryElement?.focus?.({ preventScroll: true });
+        }
+      });
     });
   }, [getId, onSelect]);
 
@@ -136,7 +182,15 @@ export function useCultureListKeyboardNavigation<TItem>({
     };
   }, [fallbackFocusId, getId, handleKeyDown, listDomId, selectedId]);
 
+  const getListProps = useCallback((): CultureListProps => ({
+    onKeyDown: (event) => {
+      handleKeyDown(event, getFocusedItemId(event.target));
+    },
+  }), [getFocusedItemId, handleKeyDown]);
+
   return {
+    focusItem,
+    getListProps,
     getItemProps,
     selectItem,
   };

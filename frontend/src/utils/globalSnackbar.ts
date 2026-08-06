@@ -1,6 +1,6 @@
 export const GLOBAL_SNACKBAR_EVENT = 'ofp:show-snackbar';
 
-export type GlobalSnackbarSeverity = 'success' | 'error';
+export type GlobalSnackbarSeverity = 'success' | 'error' | 'info';
 
 export interface GlobalSnackbarDetail {
   message: string;

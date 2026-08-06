@@ -99,6 +99,22 @@ def get_active_project_or_400(request: Request) -> Project:
     return membership.project
 
 
+def get_active_project_optional(request: Request) -> Project | None:
+    """Resolve active project from the request header, or None if unset/invalid.
+
+    Same resolution as get_active_project_or_400, for read paths (like
+    enriching a response with project-specific context) where a missing or
+    invalid header should silently mean "no project context" rather than
+    fail the whole request.
+    """
+    if not request.user.is_authenticated:
+        return None
+    try:
+        return get_active_project_or_400(request)
+    except (exceptions.ValidationError, exceptions.PermissionDenied, exceptions.NotFound):
+        return None
+
+
 def require_project_admin(user, project_id: int, request: Request | None = None) -> None:
     """Raise permission denied when user lacks project admin permissions."""
     if request is not None and bool(request.session.get('agent_mode')):

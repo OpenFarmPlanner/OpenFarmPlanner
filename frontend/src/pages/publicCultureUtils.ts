@@ -4,8 +4,6 @@ const normalizeIdentityValue = (value: string | undefined | null): string => (
   (value || '').trim().toLowerCase().replace(/\s+/g, ' ')
 );
 
-const getSupplierLabel = (culture: PublicCulture): string => culture.supplier_name || culture.seed_supplier || '';
-
 const getPublishedTimestamp = (publishedAt: string | null | undefined): number => (
   publishedAt ? new Date(publishedAt).getTime() : 0
 );
@@ -14,7 +12,6 @@ const buildCultureIdentity = (culture: PublicCulture): string => (
   [
     normalizeIdentityValue(culture.name),
     normalizeIdentityValue(culture.variety),
-    normalizeIdentityValue(getSupplierLabel(culture)),
   ].join('||')
 );
 

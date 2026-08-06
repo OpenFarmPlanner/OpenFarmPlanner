@@ -21,6 +21,11 @@ class Command(BaseCommand):
         parser.add_argument('--username', default=DEMO_USERNAME)
         parser.add_argument('--password', default=DEMO_PASSWORD)
         parser.add_argument('--language', choices=['de', 'en'], default='de')
+        parser.add_argument(
+            '--skip-public-library',
+            action='store_true',
+            help='Only seed the project demo data and leave public crop library demo rows unchanged.',
+        )
 
     def handle(self, *args: object, **options: object) -> None:
         result = create_or_reset_demo_project(
@@ -30,6 +35,7 @@ class Command(BaseCommand):
             username=str(options['username']),
             password=str(options['password']),
             language_code=str(options['language']),
+            seed_public_library=not bool(options['skip_public_library']),
         )
         project_state = 'created' if result.created_project else 'reset'
         user_state = 'created' if result.created_user else 'updated'

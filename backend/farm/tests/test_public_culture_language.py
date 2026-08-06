@@ -105,12 +105,18 @@ class CrossLanguageDuplicateDetectionTest(ProjectApiTestCase):
 
         self.assertEqual(detect_public_culture_duplicates(candidate), [])
 
-    def test_a_supplier_difference_still_separates_entries(self):
+    def test_a_supplier_difference_no_longer_separates_entries(self):
+        # Supplier is private, farm-specific data and is not part of the
+        # public identity, so a differing supplier alone must not prevent
+        # this from being flagged as a duplicate of the same species+variety.
         candidate = self._culture(
             name='Tomato', crop_species=self.species, seed_supplier='Anderer Lieferant',
         )
 
-        self.assertEqual(detect_public_culture_duplicates(candidate), [])
+        self.assertEqual(
+            [item.id for item in detect_public_culture_duplicates(candidate)],
+            [self.published.id],
+        )
 
     def test_legacy_entries_without_a_species_are_still_matched_by_name(self):
         legacy = PublicCulture.objects.create(

@@ -12,6 +12,7 @@ import type {
   NoteAttachment,
   CultureHistoryEntry,
   CultureDuplicateCheckResponse,
+  ImportPublicCultureResponse,
   MediaFileRef,
   PublicCulture,
   PublicCultureChangeProposal,
@@ -129,14 +130,16 @@ export const cultureAPI = {
     skipped_count: number;
     errors: Array<{ index: number; error: unknown }>;
   }>('/cultures/import/apply/', data),
-  publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string }) =>
+  publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
     http.get<PublishPublicCulturePreview>(`/cultures/${id}/publish-public/preview/`, { params }),
-  publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string }) =>
+  publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
     http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
+  linkPublicCulture: (id: number, publicCultureId: number) =>
+    http.post<Culture>(`/cultures/${id}/link-public-culture/`, { public_culture_id: publicCultureId }),
 };
 
 export const cropSpeciesAPI = {
-  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status'] }) =>
+  list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status']; page_size?: number }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
   propose: (name: string) => http.post<CropSpecies>('/crop-species/', { name }),
   approve: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/approve/`, { review_note: reviewNote }),
@@ -156,17 +159,23 @@ export const publicLibraryModeratorRequestAPI = {
 
 
 export const publicCultureAPI = {
-  list: (params?: { q?: string; name?: string; variety?: string }) => http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params }),
+  list: (params?: { q?: string; name?: string; variety?: string; status?: 'removed' }, signal?: AbortSignal) =>
+    http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params, signal }),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
   update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
     http.patch<PublicCulture>(`/public-cultures/${id}/`, data),
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
     http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
-  importToProject: (id: number) => http.post<Culture>(`/public-cultures/${id}/import/`, {}),
+  importToProject: (id: number, mode?: 'update' | 'new') =>
+    http.post<ImportPublicCultureResponse>(`/public-cultures/${id}/import/`, mode ? { mode } : {}),
   // Contributors remove their own entry without a reason; moderators removing
   // somebody else's entry must supply a structured moderation reason.
   remove: (id: number, reason?: PublicCultureRemovalReason) =>
     http.post<PublicCulture>(`/public-cultures/${id}/remove/`, reason ? { reason } : {}),
+  // Moderator-only undo for a moderator removal; no time limit (see
+  // reinstate_removed_public_culture on the backend for why a contributor
+  // can't just republish their way past a moderation decision).
+  restore: (id: number) => http.post<PublicCulture>(`/public-cultures/${id}/restore/`, {}),
   hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
   discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
   createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>

@@ -13,27 +13,14 @@ import { useLocation, useNavigate, useOutletContext } from 'react-router';
 import { useTranslation } from '../i18n';
 import PageContainer from '../components/layout/PageContainer';
 import { bedAPI, cultureAPI, fieldAPI, type Culture } from '../api/api';
-import type {
-  CultureHistoryEntry,
-  PublicCultureRemovalReason,
-} from '../api/types';
+import type { CultureHistoryEntry } from '../api/types';
 import { CultureDetail } from '../cultures/CultureDetail';
 import { CultureForm } from '../cultures/CultureForm';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import {
   Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   type SxProps,
   type Theme,
-  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -96,12 +83,12 @@ function Cultures() {
   const [isCulturesLoading, setIsCulturesLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCulture, setEditingCulture] = useState<Culture | undefined>(undefined);
+  const [cultureFormKind, setCultureFormKind] = useState<'crop' | 'variety'>('crop');
+  const [initialFormDraft, setInitialFormDraft] = useState<Partial<Culture> | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: '', severity: 'success' });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<CultureHistoryEntry[]>([]);
   const [historyScope, setHistoryScope] = useState<HistoryScope>('culture');
-  const [removeDialogCulture, setRemoveDialogCulture] = useState<Culture | null>(null);
-  const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus();
@@ -226,10 +213,8 @@ function Cultures() {
     isUpdatingOwnPublicCulture,
     fetchPublicCultures,
     handleOpenPublicLibrary,
-    handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleRemovePublicCulture,
   } = usePublicCultureLibrary({
     shouldShowProjectRequiredState,
     selectedCulture,
@@ -247,37 +232,17 @@ function Cultures() {
 
   const handlePublishingWizardPublish = useCallback((data: {
     acceptedPublicLibraryTerms: boolean;
-    cropSpeciesId: number;
+    cropSpeciesId?: number;
     originalLanguageCode: string;
+    publicCultureId?: number | null;
   }) => {
     setPublishWizardOpen(false);
     void handlePublishCurrentCulture(data.acceptedPublicLibraryTerms, {
       cropSpeciesId: data.cropSpeciesId,
       originalLanguageCode: data.originalLanguageCode,
+      publicCultureId: data.publicCultureId,
     });
   }, [handlePublishCurrentCulture]);
-
-  // Moderators removing an entry they did not publish must state a reason;
-  // contributors withdrawing their own entry do not.
-  const removeRequiresModerationReason = removeDialogCulture?.owned_public_culture_role === 'moderator';
-
-  const closeRemovePublicCultureDialog = useCallback(() => {
-    setRemoveDialogCulture(null);
-    setRemoveReason('');
-  }, []);
-
-  const handleConfirmRemovePublicCulture = useCallback(async () => {
-    if (!removeDialogCulture || (removeRequiresModerationReason && !removeReason)) {
-      return;
-    }
-    const success = await handleRemovePublicCulture(
-      removeDialogCulture,
-      removeRequiresModerationReason ? removeReason || undefined : undefined,
-    );
-    if (success) {
-      closeRemovePublicCultureDialog();
-    }
-  }, [closeRemovePublicCultureDialog, handleRemovePublicCulture, removeDialogCulture, removeReason, removeRequiresModerationReason]);
 
   // Fetch cultures on mount
   useEffect(() => {
@@ -336,6 +301,19 @@ function Cultures() {
 
   const handleAddNew = useCallback(() => {
     setEditingCulture(undefined);
+    setCultureFormKind('crop');
+    setInitialFormDraft(undefined);
+    setShowForm(true);
+  }, []);
+
+  const handleAddVariety = useCallback((speciesCulture: Culture) => {
+    setEditingCulture(undefined);
+    setCultureFormKind('variety');
+    setInitialFormDraft({
+      crop_species: speciesCulture.crop_species ?? null,
+      name: speciesCulture.name,
+      variety: '',
+    });
     setShowForm(true);
   }, []);
 
@@ -362,6 +340,8 @@ function Cultures() {
 
   const handleEdit = useCallback((culture: Culture) => {
     setEditingCulture(culture);
+    setCultureFormKind((culture.variety || '').trim() ? 'variety' : 'crop');
+    setInitialFormDraft(undefined);
     setShowForm(true);
   }, []);
 
@@ -419,7 +399,7 @@ function Cultures() {
   };
 
 
-  const handleSave = async (culture: Culture) => {
+  const handleSave = async (culture: Culture, firstVarietyName?: string) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
 
@@ -431,13 +411,31 @@ function Cultures() {
       } else {
         const response = await cultureAPI.create(savePayload as Culture);
         savedCulture = response.data;
-        showSnackbar(t('messages.createSuccess'), 'success');
         // Auto-select the newly created culture
         updateSelectedCultureId(savedCulture.id, 'internal');
+
+        if (firstVarietyName) {
+          try {
+            const varietyPayload = buildCultureSavePayload({
+              ...culture,
+              id: undefined,
+              crop_species: savedCulture.crop_species ?? culture.crop_species,
+              variety: firstVarietyName,
+            });
+            await cultureAPI.create(varietyPayload as Culture);
+            showSnackbar(t('messages.createWithVarietySuccess'), 'success');
+          } catch (varietyError) {
+            console.error('Error creating initial variety:', varietyError);
+            showSnackbar(t('messages.createVarietyPartialError'), 'error');
+          }
+        } else {
+          showSnackbar(t('messages.createSuccess'), 'success');
+        }
       }
       replaceSavedCulture(savedCulture);
       setShowForm(false);
       setEditingCulture(undefined);
+      setInitialFormDraft(undefined);
       void fetchCultures(savedCulture);
     } catch (error) {
       console.error('Error saving culture:', error);
@@ -448,6 +446,7 @@ function Cultures() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingCulture(undefined);
+    setInitialFormDraft(undefined);
   };
 
   const handleCloseSnackbar = () => {
@@ -591,13 +590,10 @@ function Cultures() {
             void handleOpenPublicLibrary();
           }}
           onEditCulture={handleEdit}
+          onAddVariety={handleAddVariety}
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
           onPublishCulture={handleRequestPublishCulture}
-          onRemovePublicCulture={(culture) => {
-            setRemoveReason('');
-            setRemoveDialogCulture(culture);
-          }}
           onDeleteCulture={handleDelete}
           canCreatePlan={canCreatePlantingPlan}
           isPublishingCulture={Boolean(selectedCulture && publishingCultureId === selectedCulture.id)}
@@ -656,62 +652,6 @@ function Cultures() {
         confirmButtonProps={{ color: 'error', variant: 'contained' }}
       />
 
-      <Dialog
-        open={Boolean(removeDialogCulture)}
-        onClose={closeRemovePublicCultureDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t('library.removeDialog.title')}</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {t(
-              removeRequiresModerationReason ? 'library.removeDialog.moderationMessage' : 'library.removeDialog.message',
-              { name: removeDialogCulture ? getCultureDisplayName(removeDialogCulture) : '' },
-            )}
-          </Typography>
-          {removeRequiresModerationReason ? (
-            <FormControl fullWidth size="small">
-              <InputLabel id="public-culture-removal-reason-label">
-                {t('library.removeDialog.reasonLabel')}
-              </InputLabel>
-              <Select
-                labelId="public-culture-removal-reason-label"
-                value={removeReason}
-                label={t('library.removeDialog.reasonLabel')}
-                onChange={(event) => setRemoveReason(event.target.value as PublicCultureRemovalReason)}
-              >
-                {([
-                  'accidental_publication',
-                  'test_data',
-                  'duplicate',
-                  'wrong_mapping',
-                  'unlawful_content',
-                  'other',
-                ] as PublicCultureRemovalReason[]).map((reason) => (
-                  <MenuItem key={reason} value={reason}>
-                    {t(`library.removeReasons.${reason}`)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          ) : null}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button variant="outlined" onClick={closeRemovePublicCultureDialog}>
-            {t('common:actions.cancel')}
-          </Button>
-          <Button
-            color={removeRequiresModerationReason ? 'error' : 'warning'}
-            variant="contained"
-            disabled={removeRequiresModerationReason && !removeReason}
-            onClick={() => void handleConfirmRemovePublicCulture()}
-          >
-            {t('library.removeAction')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       <CulturesPublishingWizardDialog
         open={publishWizardOpen}
         culture={selectedCulture}
@@ -724,9 +664,11 @@ function Cultures() {
       {showForm ? (
         <CultureForm
           culture={editingCulture}
+          cultures={cultures}
           onSave={handleSave}
           onCancel={handleCancel}
-          onViewPublicLibraryMatch={(match) => void handleViewPublicLibraryMatch(match)}
+          formKind={cultureFormKind}
+          initialDraft={initialFormDraft}
         />
       ) : null}
 

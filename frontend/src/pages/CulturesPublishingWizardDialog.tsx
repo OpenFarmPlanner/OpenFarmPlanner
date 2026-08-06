@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -12,20 +12,24 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormLabel,
   InputLabel,
   Link,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router';
-import { cropSpeciesAPI, cultureAPI, type Culture } from '../api/api';
-import type { CropSpecies, PublishPublicCulturePreview } from '../api/types';
+import { cropSpeciesAPI, cultureAPI, publicCultureAPI, type Culture } from '../api/api';
+import type { CropSpecies, PublicCulture, PublishPublicCulturePreview } from '../api/types';
 import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
+import { buildPublicCultureComparison } from './publicCultureComparison';
 
 interface CulturesPublishingWizardDialogProps {
   open: boolean;
@@ -33,12 +37,13 @@ interface CulturesPublishingWizardDialogProps {
   termsAlreadyAccepted: boolean;
   publishing: boolean;
   onClose: () => void;
-  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId: number; originalLanguageCode: string }) => void;
+  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null; publishAsGeneral?: boolean }) => void;
 }
 
 const LANGUAGE_CODES = ['de', 'en'] as const;
 const EMPTY_REQUIRED_FIELDS: PublishPublicCulturePreview['missing_required_fields'] = [];
 const EMPTY_DUPLICATES: PublishPublicCulturePreview['duplicates'] = [];
+type PublishTarget = 'species' | 'variety';
 
 const getDefaultLanguageCode = (): string => {
   const language = (i18n.language || 'de').split('-')[0];
@@ -62,6 +67,11 @@ const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined):
   return items.find((item) => normalizeSpeciesName(item.name) === normalizedCultureName) ?? null;
 };
 
+const getPublicCultureOptionLabel = (option: PublicCulture): string => {
+  const name = option.display_name || option.crop_species_name || option.name;
+  return option.variety ? `${name} · ${option.variety}` : name;
+};
+
 export function CulturesPublishingWizardDialog({
   open,
   culture,
@@ -74,6 +84,11 @@ export function CulturesPublishingWizardDialog({
   const [species, setSpecies] = useState<CropSpecies[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<CropSpecies | null>(null);
+  const [publicCultureOptions, setPublicCultureOptions] = useState<PublicCulture[]>([]);
+  const [publicCultureLoading, setPublicCultureLoading] = useState(false);
+  const [selectedPublicCulture, setSelectedPublicCulture] = useState<PublicCulture | null>(null);
+  const [publicCultureInput, setPublicCultureInput] = useState('');
+  const [publishTarget, setPublishTarget] = useState<PublishTarget>('variety');
   const [originalLanguageCode, setOriginalLanguageCode] = useState(getDefaultLanguageCode());
   const [acceptedLicense, setAcceptedLicense] = useState(false);
   const [validationResult, setValidationResult] = useState<PublishPublicCulturePreview | null>(null);
@@ -84,6 +99,8 @@ export function CulturesPublishingWizardDialog({
   const [proposalSent, setProposalSent] = useState(false);
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
+  const ownedPublicCultureId = culture?.owned_public_culture_id ?? null;
+  const isOwnedPublicCultureUpdate = Boolean(ownedPublicCultureId);
 
   useEffect(() => {
     if (!open) return;
@@ -95,16 +112,79 @@ export function CulturesPublishingWizardDialog({
       setProposalSent(false);
       setValidationResult(null);
       setOriginalLanguageCode(getDefaultLanguageCode());
+      setPublicCultureInput(culture?.name ?? '');
+      setSelectedPublicCulture(null);
+      setPublishTarget(culture?.variety?.trim() ? 'variety' : 'species');
     });
-  }, [open]);
+  }, [culture?.name, culture?.variety, open]);
 
   useEffect(() => {
+    const publicCultureId = ownedPublicCultureId ?? culture?.source_public_culture;
+    if (!open || !publicCultureId) return;
+    let cancelled = false;
+    publicCultureAPI.get(publicCultureId)
+      .then((response) => {
+        if (cancelled) return;
+        setSelectedPublicCulture(response.data);
+        setPublicCultureInput(getPublicCultureOptionLabel(response.data));
+        if (ownedPublicCultureId) {
+          setOriginalLanguageCode(response.data.original_language_code || getDefaultLanguageCode());
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [culture?.source_public_culture, open, ownedPublicCultureId]);
+
+  useEffect(() => {
+    if (isOwnedPublicCultureUpdate) return undefined;
+    if (!open) return undefined;
+    const searchTerm = selectedSpecies?.name.trim() || '';
+    if (!searchTerm) {
+      queueMicrotask(() => setPublicCultureOptions([]));
+      return undefined;
+    }
+
+    let cancelled = false;
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      setPublicCultureLoading(true);
+      publicCultureAPI.list({ q: searchTerm }, abortController.signal)
+        .then((response) => {
+          if (!cancelled) {
+            setPublicCultureOptions(response.data.results.filter((entry) => (
+              !selectedSpecies || entry.crop_species === selectedSpecies.id
+            )));
+          }
+        })
+        .catch(() => {
+          if (!cancelled && !abortController.signal.aborted) setPublicCultureOptions([]);
+        })
+        .finally(() => {
+          if (!cancelled) setPublicCultureLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      abortController.abort();
+    };
+  }, [isOwnedPublicCultureUpdate, open, selectedSpecies]);
+
+  useEffect(() => {
+    if (isOwnedPublicCultureUpdate) return;
     if (!open) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled) setSpeciesLoading(true);
     });
-    cropSpeciesAPI.list()
+    // The species picker is a client-side-filtered Autocomplete over the full
+    // reference list, not a server-searched one — it needs every published
+    // species in one page, not just the API's default page_size (100), or
+    // species sorted past that cutoff silently become unselectable.
+    cropSpeciesAPI.list({ page_size: 1000 })
       .then((response) => {
         if (cancelled) return;
         setSpecies(response.data.results);
@@ -119,12 +199,27 @@ export function CulturesPublishingWizardDialog({
     return () => {
       cancelled = true;
     };
-  }, [culture, open]);
+  }, [culture, isOwnedPublicCultureUpdate, open]);
 
   const missingRequiredFields = validationResult?.missing_required_fields ?? EMPTY_REQUIRED_FIELDS;
   const duplicates = validationResult?.duplicates ?? EMPTY_DUPLICATES;
   const licenseAccepted = termsAlreadyAccepted || acceptedLicense;
   const hasVisibleValidationIssues = missingRequiredFields.length > 0 || duplicates.length > 0;
+  const isUpdatingOwnedPublicCulture = Boolean(
+    selectedPublicCulture && selectedPublicCulture.id === ownedPublicCultureId,
+  );
+  const comparison = useMemo(
+    () => (isUpdatingOwnedPublicCulture && culture && selectedPublicCulture
+      ? buildPublicCultureComparison(culture, selectedPublicCulture, t)
+      : null),
+    [isUpdatingOwnedPublicCulture, culture, selectedPublicCulture, t],
+  );
+  const isBlockedByValidation = !isUpdatingOwnedPublicCulture
+    && !selectedPublicCulture
+    && validationResult !== null
+    && !validationResult.can_publish;
+  const existingGeneralPublicCulture = publicCultureOptions.find((option) => !(option.variety || '').trim()) ?? null;
+  const existingVarietyOptions = publicCultureOptions.filter((option) => (option.variety || '').trim());
 
   const handleProposeSpecies = useCallback(async () => {
     const trimmedName = proposalName.trim();
@@ -140,7 +235,19 @@ export function CulturesPublishingWizardDialog({
 
   const handlePublish = useCallback(async () => {
     if (!culture?.id) return;
-    if (!selectedSpecies) {
+    const publicCultureToLink = publishTarget === 'species' ? existingGeneralPublicCulture : selectedPublicCulture;
+    if (publicCultureToLink && !isUpdatingOwnedPublicCulture) {
+      onPublish({
+        acceptedPublicLibraryTerms: false,
+        originalLanguageCode,
+        publicCultureId: publicCultureToLink.id,
+      });
+      return;
+    }
+    const cropSpeciesId = isUpdatingOwnedPublicCulture
+      ? selectedPublicCulture?.crop_species
+      : selectedSpecies?.id;
+    if (!cropSpeciesId) {
       speciesInputRef.current?.focus();
       return;
     }
@@ -151,8 +258,9 @@ export function CulturesPublishingWizardDialog({
     setValidationLoading(true);
     try {
       const response = await cultureAPI.publishPreview(culture.id, {
-        crop_species_id: selectedSpecies.id,
+        crop_species_id: cropSpeciesId,
         original_language_code: originalLanguageCode,
+        publish_as_general: publishTarget === 'species',
       });
       setValidationResult(response.data);
       if (!response.data.can_publish) return;
@@ -174,18 +282,23 @@ export function CulturesPublishingWizardDialog({
 
     onPublish({
       acceptedPublicLibraryTerms: !termsAlreadyAccepted && acceptedLicense,
-      cropSpeciesId: selectedSpecies.id,
+      cropSpeciesId,
       originalLanguageCode,
+      ...(publishTarget === 'species' ? { publishAsGeneral: true } : {}),
     });
   }, [
     acceptedLicense,
-    culture?.id,
+    culture,
     licenseAccepted,
     onPublish,
     originalLanguageCode,
+    selectedPublicCulture,
     selectedSpecies,
     showLicenseConfirmation,
     termsAlreadyAccepted,
+    isUpdatingOwnedPublicCulture,
+    publishTarget,
+    existingGeneralPublicCulture,
   ]);
 
   return (
@@ -194,58 +307,196 @@ export function CulturesPublishingWizardDialog({
       <DialogContent dividers>
         <Stack spacing={2.25} sx={{ pt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
-            {t('library.publishWizard.intro', { name: culture?.name ?? '' })}
+            {t(isOwnedPublicCultureUpdate ? 'library.publishWizard.updateIntro' : 'library.publishWizard.intro', {
+              name: culture?.name ?? '',
+            })}
           </Typography>
 
           <Stack spacing={2}>
-            <Autocomplete
-              options={species}
-              value={selectedSpecies}
-              loading={speciesLoading}
-              getOptionLabel={(option) => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              onChange={(_, value) => {
-                setSelectedSpecies(value);
-                resetValidationResult();
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  inputRef={speciesInputRef}
-                  label={t('library.publishWizard.speciesLabel')}
-                  required
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {speciesLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
+            {isOwnedPublicCultureUpdate ? (
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('library.publishWizard.publicEntryLabel')}
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {t('library.publishWizard.publicCultureUpdateHelp')}
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <Autocomplete
+                  options={species}
+                  value={selectedSpecies}
+                  loading={speciesLoading}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  onChange={(_, value) => {
+                    setSelectedSpecies(value);
+                    setSelectedPublicCulture(null);
+                    resetValidationResult();
                   }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      inputRef={speciesInputRef}
+                      label={t('library.publishWizard.speciesLabel')}
+                      required
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {speciesLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
 
-            <FormControl fullWidth>
-              <InputLabel id="publishing-original-language-label">{t('library.publishWizard.originalLanguageLabel')}</InputLabel>
-              <Select
-                labelId="publishing-original-language-label"
-                label={t('library.publishWizard.originalLanguageLabel')}
-                value={originalLanguageCode}
-                inputRef={languageInputRef}
-                onChange={(event) => {
-                  setOriginalLanguageCode(event.target.value);
-                  resetValidationResult();
-                }}
+                <FormControl>
+                  <FormLabel>{t('library.publishWizard.publishAsLabel')}</FormLabel>
+                  <RadioGroup
+                    value={publishTarget}
+                    onChange={(event) => {
+                      setPublishTarget(event.target.value as PublishTarget);
+                      setSelectedPublicCulture(null);
+                      resetValidationResult();
+                    }}
+                  >
+                    <FormControlLabel value="species" control={<Radio />} label={t('library.publishWizard.publishAsSpecies')} />
+                    <FormControlLabel value="variety" control={<Radio />} label={t('library.publishWizard.publishAsVariety')} />
+                  </RadioGroup>
+                </FormControl>
+
+                {publishTarget === 'species' ? (
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('library.publishWizard.publicEntryLabel')}
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {existingGeneralPublicCulture
+                        ? getPublicCultureOptionLabel(existingGeneralPublicCulture)
+                        : t('library.publishWizard.newGeneralEntry')}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Autocomplete
+                    options={existingVarietyOptions}
+                    value={selectedPublicCulture}
+                    loading={publicCultureLoading}
+                    getOptionLabel={getPublicCultureOptionLabel}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    filterOptions={(options) => options}
+                    onChange={(_, value) => {
+                      setSelectedPublicCulture(value);
+                      resetValidationResult();
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t('library.publishWizard.existingVarietyLabel')}
+                        helperText={culture?.variety?.trim()
+                          ? t('library.publishWizard.existingVarietyHelp')
+                          : t('library.publishWizard.publicCultureHelp')}
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                )}
+              </>
+            )}
+
+            {comparison ? (
+              <Box
+                aria-label={t('library.publishWizard.comparison.ariaLabel')}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
               >
-                {LANGUAGE_CODES.map((code) => (
-                  <MenuItem key={code} value={code}>{getLanguageDisplayName(code, i18n.resolvedLanguage ?? i18n.language)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
+                  <Typography variant="subtitle2">{t('library.publishWizard.comparison.title')}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('library.publishWizard.comparison.description')}
+                  </Typography>
+                </Box>
+                {comparison.length ? (
+                  <Box component="dl" sx={{ m: 0 }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'minmax(8rem, 0.8fr) 1fr 1fr' },
+                        gap: { xs: 0.5, sm: 1.5 },
+                        px: 2,
+                        py: 1,
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }} />
+                      <Typography variant="caption" color="text.secondary">{t('library.publishWizard.comparison.publicValue')}</Typography>
+                      <Typography variant="caption" color="text.secondary">{t('library.publishWizard.comparison.privateValue')}</Typography>
+                    </Box>
+                    {comparison.map((change) => (
+                      <Box
+                        key={change.field}
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: 'minmax(8rem, 0.8fr) 1fr 1fr' },
+                          gap: { xs: 0.5, sm: 1.5 },
+                          px: 2,
+                          py: 1,
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Typography component="dt" variant="body2" fontWeight={600}>{change.label}</Typography>
+                        <Typography component="dd" variant="body2" sx={{ m: 0, color: 'text.secondary' }}>{change.publicValue}</Typography>
+                        <Typography component="dd" variant="body2" sx={{ m: 0 }}>{change.privateValue}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Alert severity="info" sx={{ borderRadius: 0 }}>
+                    {t('library.publishWizard.comparison.noChanges')}
+                  </Alert>
+                )}
+              </Box>
+            ) : null}
+
+            {!isOwnedPublicCultureUpdate ? (
+              <>
+                <FormControl fullWidth>
+                  <InputLabel id="publishing-original-language-label">{t('library.publishWizard.originalLanguageLabel')}</InputLabel>
+                  <Select
+                    labelId="publishing-original-language-label"
+                    label={t('library.publishWizard.originalLanguageLabel')}
+                    value={originalLanguageCode}
+                    inputRef={languageInputRef}
+                    onChange={(event) => {
+                      setOriginalLanguageCode(event.target.value);
+                      resetValidationResult();
+                    }}
+                  >
+                    {LANGUAGE_CODES.map((code) => (
+                      <MenuItem key={code} value={code}>{getLanguageDisplayName(code, i18n.resolvedLanguage ?? i18n.language)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            ) : null}
           </Stack>
 
+          {!selectedPublicCulture ? (
           <Box>
             <Button size="small" variant="text" onClick={() => setShowProposalForm((value) => !value)}>
               {t('library.publishWizard.proposeSpeciesToggle')}
@@ -266,6 +517,7 @@ export function CulturesPublishingWizardDialog({
             ) : null}
             {proposalSent ? <Typography sx={{ mt: 1 }} variant="body2" color="success.main">{t('library.publishWizard.proposalSent')}</Typography> : null}
           </Box>
+          ) : null}
 
           {hasVisibleValidationIssues ? (
             <Stack spacing={1}>
@@ -308,9 +560,25 @@ export function CulturesPublishingWizardDialog({
         <Button
           onClick={() => void handlePublish()}
           variant="contained"
-          disabled={!selectedSpecies || !originalLanguageCode || publishing || validationLoading || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)}
+          disabled={
+            (isUpdatingOwnedPublicCulture ? !selectedPublicCulture?.crop_species : !selectedSpecies)
+            || !originalLanguageCode
+            || publishing
+            || validationLoading
+            || isBlockedByValidation
+            || (isUpdatingOwnedPublicCulture && comparison?.length === 0)
+            || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)
+          }
         >
-          {publishing || validationLoading ? t('library.publishing') : t('library.publishWizard.publishNow')}
+          {publishing || validationLoading
+            ? t('library.publishing')
+            : isBlockedByValidation
+              ? t('library.publishWizard.resolveBlockingIssues')
+              : isUpdatingOwnedPublicCulture
+                ? t('library.publishWizard.updateExisting')
+                : (publishTarget === 'species' ? existingGeneralPublicCulture : selectedPublicCulture)
+                  ? t('library.publishWizard.linkExisting')
+                  : t('library.publishWizard.publishNow')}
         </Button>
       </DialogActions>
     </Dialog>

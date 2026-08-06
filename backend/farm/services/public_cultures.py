@@ -36,7 +36,6 @@ CULTURE_COPY_FIELDS = [
     'name',
     'variety',
     'notes',
-    'seed_supplier',
     'crop_family',
     'nutrient_demand',
     'cultivation_types',
@@ -62,8 +61,6 @@ CULTURE_COPY_FIELDS = [
 
 PUBLIC_CULTURE_EDITABLE_FIELDS = [
     'notes',
-    'seed_supplier',
-    'supplier_name',
     'crop_family',
     'nutrient_demand',
     'cultivation_types',
@@ -370,19 +367,10 @@ def normalize_identity_value(value: str | None) -> str:
     return compacted.lower()
 
 
-def get_culture_supplier_label(culture: Culture) -> str:
-    if culture.supplier:
-        return culture.supplier.name or ''
-    return culture.seed_supplier or ''
-
-
-def get_public_supplier_label(public_culture: PublicCulture) -> str:
-    return public_culture.supplier_name or public_culture.seed_supplier or ''
-
-
-def build_public_culture_payload(culture: Culture) -> dict[str, Any]:
+def build_public_culture_payload(culture: Culture, *, public_variety: str | None = None) -> dict[str, Any]:
     payload = _copy_fields(culture)
-    payload['supplier_name'] = culture.supplier.name if culture.supplier else (culture.seed_supplier or '')
+    if public_variety is not None:
+        payload['variety'] = public_variety
     payload['seed_packages'] = _seed_packages_payload_from_culture(culture)
     payload['source_project_culture'] = culture
     payload['source_project'] = culture.project
@@ -502,9 +490,11 @@ def detect_available_language_codes(culture: Culture) -> list[str]:
     return sorted(public_culture.descriptions_by_language())
 
 
-def get_public_required_field_gaps(culture: Culture) -> list[MissingRequiredField]:
+def get_public_required_field_gaps(culture: Culture, *, require_variety: bool = True) -> list[MissingRequiredField]:
     gaps: list[MissingRequiredField] = []
     for field in PUBLIC_REQUIRED_FIELDS:
+        if field == 'variety' and not require_variety:
+            continue
         value = getattr(culture, field)
         if value is None or (isinstance(value, str) and not value.strip()):
             gaps.append(MissingRequiredField(field=field, label_key=f'library.publishWizard.fields.{field}'))
@@ -520,7 +510,6 @@ def resolve_publishing_crop_species(*, culture: Culture, crop_species_id: int | 
 def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, Any]:
     payload = _copy_fields(public_culture)
     payload['crop_species'] = public_culture.crop_species
-    payload['seed_supplier'] = public_culture.supplier_name or public_culture.seed_supplier or ''
     payload['source_public_culture'] = public_culture
     payload['source_public_version'] = public_culture.version
     payload['origin_type'] = Culture.ORIGIN_IMPORTED
@@ -528,13 +517,52 @@ def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, An
     return payload
 
 
-def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpecies | None = None) -> list[DuplicateCandidate]:
+def link_project_culture_to_public_reference(*, culture: Culture, public_culture: PublicCulture) -> Culture:
+    """Link a private culture to a published public culture without publishing a duplicate.
+
+    This is a one-time baseline comparison (culture-as-linked vs. public
+    source), not the same check as ``Culture._flag_source_divergence``, which
+    compares a culture's *own* previous vs. current row on every save to
+    detect edits made after an import. There is no "previous row" yet here.
+    """
+    source_payload = build_project_culture_payload(public_culture)
+    tracked_fields = Culture._SOURCE_DIVERGENCE_TRACKED_FIELDS
+    if not (public_culture.variety or '').strip():
+        # A general (species-level) public entry has no variety of its own, so
+        # the private culture naming a specific cultivar is an inherent
+        # granularity difference between the two, not a sign the user edited
+        # anything relative to the source it's being linked to.
+        tracked_fields = tracked_fields - {'variety'}
+    is_modified = any(getattr(culture, field) != source_payload.get(field) for field in tracked_fields)
+
+    culture.crop_species = public_culture.crop_species
+    culture.source_public_culture = public_culture
+    culture.source_public_version = public_culture.version
+    culture.origin_type = Culture.ORIGIN_IMPORTED
+    culture.is_modified_from_source = is_modified
+    culture.save(update_fields=[
+        'crop_species',
+        'source_public_culture',
+        'source_public_version',
+        'origin_type',
+        'is_modified_from_source',
+        'updated_at',
+    ])
+    return culture
+
+
+def detect_public_culture_duplicates(
+    culture: Culture,
+    *,
+    crop_species: CropSpecies | None = None,
+    public_variety: str | None = None,
+) -> list[DuplicateCandidate]:
     """Published entries that would be duplicates of this culture.
 
     Identity is the *language-independent* species plus a normalized variety
-    name plus the supplier — never a localized name plus variety. Otherwise
-    "Tomate + Moneymaker" and "Tomato + Moneymaker" would look like two
-    different crops when they are one.
+    name — never a localized name plus variety. Otherwise "Tomate +
+    Moneymaker" and "Tomato + Moneymaker" would look like two different crops
+    when they are one.
 
     When the caller did not pass a species, the culture's own name is resolved
     against every species translation first, so publishing an English-named
@@ -545,9 +573,13 @@ def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpec
     Normalization is intentionally shallow — trim, collapse whitespace,
     case-fold — and never touches the stored or displayed original name.
     """
-    normalized_supplier = normalize_identity_value(get_culture_supplier_label(culture))
+    normalized_variety = (
+        normalize_identity_value(public_variety)
+        if public_variety is not None
+        else culture.variety_normalized
+    )
     queryset = PublicCulture.objects.filter(
-        variety_normalized=culture.variety_normalized,
+        variety_normalized=normalized_variety,
         status=PublicCulture.STATUS_PUBLISHED,
     )
     species = crop_species or culture.crop_species or find_species_by_common_name(culture.name)
@@ -563,8 +595,6 @@ def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpec
 
     candidates: list[DuplicateCandidate] = []
     for item in queryset:
-        if normalize_identity_value(get_public_supplier_label(item)) != normalized_supplier:
-            continue
         candidates.append(DuplicateCandidate(
             id=item.id,
             name=item.name,
@@ -578,19 +608,40 @@ def detect_public_culture_duplicates(culture: Culture, *, crop_species: CropSpec
     return candidates
 
 
+def _resolve_public_variety(publish_as_general: bool) -> str | None:
+    """The ``public_variety`` sentinel for :func:`build_public_culture_payload`.
+
+    ``''`` forces a species-level (variety-less) entry; ``None`` means "keep
+    the culture's own variety verbatim". Every publish/update call site needs
+    this same mapping, so it lives in one place instead of being re-derived
+    (and risking one call site falling out of sync with the others).
+    """
+    return '' if publish_as_general else None
+
+
 def build_publishing_check_result(
     *,
     culture: Culture,
     crop_species_id: int | None,
     original_language_code: str | None,
+    user: User | None = None,
+    publish_as_general: bool = False,
 ) -> PublishingCheckResult:
     crop_species = resolve_publishing_crop_species(culture=culture, crop_species_id=crop_species_id)
     language_code = normalize_language_code(original_language_code)
     available_language_codes = detect_available_language_codes(culture)
     if language_code and language_code not in available_language_codes:
         available_language_codes = [language_code, *available_language_codes]
-    duplicates = detect_public_culture_duplicates(culture, crop_species=crop_species) if crop_species else []
-    missing_required_fields = get_public_required_field_gaps(culture)
+    public_variety = _resolve_public_variety(publish_as_general)
+    duplicates = detect_public_culture_duplicates(
+        culture,
+        crop_species=crop_species,
+        public_variety=public_variety,
+    ) if crop_species else []
+    update_target = find_owned_public_culture_for_update(culture=culture, user=user)
+    if update_target:
+        duplicates = [item for item in duplicates if item.id != update_target.id]
+    missing_required_fields = get_public_required_field_gaps(culture, require_variety=not publish_as_general)
     can_publish = bool(crop_species and language_code and not missing_required_fields and not duplicates)
     return PublishingCheckResult(
         crop_species=crop_species,
@@ -614,8 +665,10 @@ def find_owned_public_culture_for_update(*, culture: Culture, user: User | None)
         ).first()
         if source_public and source_public.created_by_id == user.id:
             return source_public
-        if source_public and source_public.created_by_id != user.id:
-            return None
+        # source_public_culture points at an entry owned by someone else (e.g. a
+        # collaborator imported/linked it): that doesn't rule out the user having
+        # already published their own copy of this same project culture, so fall
+        # through to the source_project_culture lookup below instead of bailing.
 
     return PublicCulture.objects.filter(
         source_project_culture=culture,
@@ -683,10 +736,15 @@ def _is_public_library_moderator(user: User | None) -> bool:
     return is_public_library_moderator(user)
 
 
-def _update_public_culture_from_project_culture(*, public_culture: PublicCulture, culture: Culture) -> PublicCulture:
+def _update_public_culture_from_project_culture(
+    *,
+    public_culture: PublicCulture,
+    culture: Culture,
+    public_variety: str | None = None,
+) -> PublicCulture:
     ensure_public_culture_revision(public_culture)
     previous_snapshot = build_public_culture_snapshot(public_culture)
-    payload = build_public_culture_payload(culture)
+    payload = build_public_culture_payload(culture, public_variety=public_variety)
     payload.pop('published_at', None)
     for field, value in payload.items():
         setattr(public_culture, field, value)
@@ -711,22 +769,30 @@ def publish_culture_to_public_library(
     user: User | None,
     crop_species_id: int | None = None,
     original_language_code: str | None = None,
+    publish_as_general: bool = False,
 ) -> tuple[PublicCulture, list[DuplicateCandidate], str]:
     check_result = build_publishing_check_result(
         culture=culture,
         crop_species_id=crop_species_id,
         original_language_code=original_language_code,
+        user=user,
+        publish_as_general=publish_as_general,
     )
     if not check_result.crop_species or not check_result.original_language_code or check_result.missing_required_fields:
         raise PublicCulturePublishingValidationError(check_result=check_result)
 
+    public_variety = _resolve_public_variety(publish_as_general)
     update_target = find_owned_public_culture_for_update(culture=culture, user=user)
     duplicates = check_result.duplicates
     if update_target:
         previous_status = update_target.status
         culture.crop_species = check_result.crop_species
         culture.save(update_fields=['crop_species', 'updated_at'])
-        updated_public_culture = _update_public_culture_from_project_culture(public_culture=update_target, culture=culture)
+        updated_public_culture = _update_public_culture_from_project_culture(
+            public_culture=update_target,
+            culture=culture,
+            public_variety=public_variety,
+        )
         updated_public_culture.crop_species = check_result.crop_species
         updated_public_culture.original_language_code = check_result.original_language_code
         updated_public_culture.status_changed_by = user if previous_status != PublicCulture.STATUS_PUBLISHED else updated_public_culture.status_changed_by
@@ -747,8 +813,7 @@ def publish_culture_to_public_library(
             duplicates=duplicates,
             normalized_identity={
                 'name': culture.name_normalized,
-                'variety': culture.variety_normalized,
-                'seed_supplier': normalize_identity_value(get_culture_supplier_label(culture)),
+                'variety': '' if publish_as_general else culture.variety_normalized,
                 'crop_species': str(check_result.crop_species.id),
             },
         )
@@ -760,7 +825,7 @@ def publish_culture_to_public_library(
         version=1,
         crop_species=check_result.crop_species,
         original_language_code=check_result.original_language_code,
-        **build_public_culture_payload(culture),
+        **build_public_culture_payload(culture, public_variety=public_variety),
     )
     sync_original_language_translation(public_culture)
     _record_public_culture_status_event(
@@ -825,6 +890,28 @@ def remove_public_culture(
     )
 
 
+def reinstate_removed_public_culture(*, public_culture: PublicCulture, user: User | None) -> PublicCulture:
+    """Moderator-only undo for `remove_public_culture`'s moderator path.
+
+    Unlike a contributor's own withdrawal (self-service, reversible by simply
+    publishing again), a moderator-removed entry has no self-service way
+    back — `find_owned_public_culture_for_update` deliberately excludes
+    `removed` so a moderation decision can't be bypassed by republishing.
+    This is the moderator-side counterpart: no time limit, moderator-only.
+    """
+    if not _is_public_library_moderator(user):
+        raise PublicCulturePermissionError('Only a moderator may restore a removed public culture.')
+    if public_culture.status not in {PublicCulture.STATUS_REMOVED, PublicCulture.STATUS_WITHDRAWN}:
+        raise PublicCultureStatusTransitionError(
+            'Only a removed or withdrawn public culture can be restored.',
+        )
+    return _set_public_culture_status(
+        public_culture=public_culture,
+        status=PublicCulture.STATUS_PUBLISHED,
+        user=user,
+    )
+
+
 def hard_delete_public_culture(*, public_culture: PublicCulture, user: User | None) -> None:
     if not _is_public_library_moderator(user):
         raise PublicCulturePermissionError('Only administrators may permanently delete public cultures.')
@@ -841,11 +928,49 @@ def hard_delete_public_culture(*, public_culture: PublicCulture, user: User | No
     public_culture.delete()
 
 
-def import_public_culture_into_project(*, public_culture: PublicCulture, project: Project) -> Culture:
-    culture = Culture.objects.create(
+class PublicCultureImportConfirmationRequiredError(Exception):
+    """Raised when re-importing would silently overwrite local changes.
+
+    The caller already has a culture in this project imported from this same
+    public culture, and that culture has been edited since import
+    (``is_modified_from_source``) — resolving this automatically either way
+    would be a guess, so the API surfaces it as a 409 for the frontend to ask
+    the user instead.
+    """
+
+    def __init__(self, *, existing_culture: Culture) -> None:
+        super().__init__('This public culture was already imported and has local changes.')
+        self.existing_culture = existing_culture
+        self.code = 'import_requires_confirmation'
+
+
+def _unique_project_culture_name(*, name: str, variety: str, project: Project) -> str:
+    """Append " (2)", " (3)", ... to `name` until name+variety no longer collides
+    with an existing culture in this project."""
+    from farm.utils import normalize_text
+
+    variety_normalized = normalize_text(variety)
+    candidate_name = name
+    suffix = 2
+    while Culture.objects.filter(
         project=project,
-        **build_project_culture_payload(public_culture),
-    )
+        name_normalized=normalize_text(candidate_name) or '',
+        variety_normalized=variety_normalized,
+    ).exists():
+        candidate_name = f'{name} ({suffix})'
+        suffix += 1
+    return candidate_name
+
+
+def _create_culture_from_public(*, public_culture: PublicCulture, project: Project, unique_name: bool = False) -> Culture:
+    payload = build_project_culture_payload(public_culture)
+    if unique_name:
+        payload['name'] = _unique_project_culture_name(
+            name=payload['name'],
+            variety=payload.get('variety') or '',
+            project=project,
+        )
+    culture = Culture.objects.create(project=project, **payload)
     for package in public_culture.seed_packages or []:
         culture.seed_packages.create(
             project=project,
@@ -855,3 +980,71 @@ def import_public_culture_into_project(*, public_culture: PublicCulture, project
             last_seen_at=package.get('last_seen_at') or None,
         )
     return culture
+
+
+def _apply_public_culture_update(*, culture: Culture, public_culture: PublicCulture) -> Culture:
+    """Overwrite `culture`'s library-sourced fields with the current public culture."""
+    payload = build_project_culture_payload(public_culture)
+    for field, value in payload.items():
+        setattr(culture, field, value)
+    culture.save()
+    # Culture._flag_source_divergence() runs inside save() and, seeing the tracked
+    # fields differ from the pre-update row, may have just flipped this back to True —
+    # wrong here, since syncing to a newer library version isn't a local edit. A
+    # queryset .update() (not .save()) bypasses Culture.save() entirely, so this
+    # doesn't trigger another divergence pass or a second EntityRevision.
+    Culture.objects.filter(pk=culture.pk).update(is_modified_from_source=False)
+    culture.is_modified_from_source = False
+    return culture
+
+
+def import_public_culture_into_project(
+    *,
+    public_culture: PublicCulture,
+    project: Project,
+    mode: str = 'auto',
+) -> tuple[Culture, str]:
+    """Import a public culture into a project, or resolve a re-import.
+
+    `mode`:
+    - 'auto' (default): look for an existing culture in this project imported
+      from this same public culture. None found -> create. Found and
+      unmodified -> sync if the library version changed, or no-op if already
+      identical. Found and locally modified -> raise
+      PublicCultureImportConfirmationRequiredError instead of guessing.
+    - 'update': overwrite the existing linked culture with the current
+      library version regardless of local changes (the confirmed "yes,
+      overwrite" choice from the conflict dialog).
+    - 'new': always create a fresh culture, uniquifying the name if it
+      collides with an existing one in the project.
+
+    Returns (culture, operation) where operation is one of
+    'created' | 'unchanged' | 'updated'.
+    """
+    if mode == 'new':
+        culture = _create_culture_from_public(public_culture=public_culture, project=project, unique_name=True)
+        return culture, 'created'
+
+    # Duplicates can already exist from before this check existed; picking the
+    # most recent is a defensive choice, not a guarantee only one exists.
+    existing = Culture.objects.filter(
+        project=project,
+        source_public_culture=public_culture,
+    ).order_by('-id').first()
+
+    if existing is None:
+        culture = _create_culture_from_public(public_culture=public_culture, project=project)
+        return culture, 'created'
+
+    if mode == 'update':
+        culture = _apply_public_culture_update(culture=existing, public_culture=public_culture)
+        return culture, 'updated'
+
+    if existing.is_modified_from_source:
+        raise PublicCultureImportConfirmationRequiredError(existing_culture=existing)
+
+    if existing.source_public_version == public_culture.version:
+        return existing, 'unchanged'
+
+    culture = _apply_public_culture_update(culture=existing, public_culture=public_culture)
+    return culture, 'updated'

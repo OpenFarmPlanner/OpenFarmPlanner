@@ -191,8 +191,6 @@ export interface PublicCulture {
   name: string;
   variety?: string;
   notes?: string;
-  seed_supplier?: string;
-  supplier_name?: string;
   crop_species?: number | null;
   /** Species common name already resolved into the request language. */
   crop_species_name?: string;
@@ -246,6 +244,14 @@ export interface PublicCulture {
   created_by_label?: string;
   source_project_culture?: number | null;
   source_project?: number | null;
+  /** Set when the active project already imported this entry; null otherwise. */
+  project_import_status?: PublicCultureProjectImportStatus | null;
+}
+
+export interface PublicCultureProjectImportStatus {
+  culture_id: number;
+  culture_name: string;
+  is_modified_from_source: boolean;
 }
 
 export interface PublicCultureTranslations {
@@ -357,13 +363,29 @@ export interface PublishPublicCultureDuplicateError {
   normalized_identity?: {
     name: string;
     variety: string;
-    seed_supplier: string;
   };
+}
+
+export type ImportPublicCultureOperation = 'created' | 'unchanged' | 'updated';
+
+export interface ImportPublicCultureResponse {
+  culture: Culture;
+  operation: ImportPublicCultureOperation;
+}
+
+export interface ImportPublicCultureConfirmationRequiredError {
+  code: 'import_requires_confirmation';
+  detail: string;
+  existing_culture_id: number;
+  existing_culture_name: string;
 }
 
 export interface CropSpecies {
   id: number;
   name: string;
+  display_name?: string;
+  display_language_code?: string;
+  translations?: Array<{ language_code: string; common_name: string }>;
   status: 'published' | 'proposed' | 'rejected';
   proposed_by_label?: string;
   reviewed_by_label?: string;

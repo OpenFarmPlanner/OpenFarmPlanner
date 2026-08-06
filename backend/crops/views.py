@@ -56,7 +56,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=CropSpecies.STATUS_PUBLISHED)
         query = (self.request.query_params.get('q') or '').strip()
         if query:
-            queryset = queryset.filter(name__icontains=query)
+            queryset = queryset.filter(services.build_species_search_query(query)).distinct()
         return queryset
 
     def create(self, request, *args, **kwargs):

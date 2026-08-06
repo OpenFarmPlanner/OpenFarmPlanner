@@ -5,12 +5,15 @@ import type { TFunction } from 'i18next';
 import { compactFieldSx, fieldRowSx, mediumFieldSx, smallFieldSx } from './styles.tsx';
 import { DropdownAwareTooltip } from '../../components/DropdownAwareTooltip';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
+import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
+import { mergeVarietyFieldSx } from '../varietyValueAccent';
 
 interface SeedingSectionProps {
   formData: Partial<Culture>;
   errors: Record<string, string>;
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
+  getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
 
 const seedRateUnitOptions: Array<{ value: SeedRateUnit; labelKey: string }> = [
@@ -37,6 +40,7 @@ function SeedRateBlock({
   errors,
   onChange,
   t,
+  getFieldTooltipProps,
 }: {
   title: string;
   valueField: 'seed_rate_direct_value' | 'seed_rate_pre_cultivation_value';
@@ -46,16 +50,19 @@ function SeedRateBlock({
   errors: Record<string, string>;
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
+  getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }) {
   const [unitSelectOpen, setUnitSelectOpen] = useState(false);
+  const rateVariety = getFieldTooltipProps?.([valueField, unitField], t('form.seedRateHelp'));
+  const safetyVariety = getFieldTooltipProps?.(safetyField, t('form.sowingCalculationSafetyPercentHelp'));
 
   return (
     <>
       <Typography variant="subtitle1" sx={{ mt: 2 }}>{title}</Typography>
       <Box sx={fieldRowSx}>
-        <DropdownAwareTooltip title={t('form.seedRateHelp')} arrow>
+        <DropdownAwareTooltip title={rateVariety?.tooltipTitle ?? t('form.seedRateHelp')} arrow>
           <TextField
-            sx={compactFieldSx}
+            sx={mergeVarietyFieldSx(compactFieldSx, rateVariety?.sx)}
             type="number"
             label={t('form.seedAmountLabel')}
             value={formData[valueField] ?? ''}
@@ -66,8 +73,8 @@ function SeedRateBlock({
           />
         </DropdownAwareTooltip>
 
-        <DropdownAwareTooltip title={unitSelectOpen ? '' : t('form.seedRateHelp')} arrow>
-          <FormControl sx={smallFieldSx} error={Boolean(errors[unitField])}>
+        <DropdownAwareTooltip title={unitSelectOpen ? '' : (rateVariety?.tooltipTitle ?? t('form.seedRateHelp'))} arrow>
+          <FormControl sx={mergeVarietyFieldSx(smallFieldSx, rateVariety?.sx)} error={Boolean(errors[unitField])}>
             <InputLabel shrink>{t('form.seedUnitLabel')}</InputLabel>
             <Select
               fullWidth
@@ -99,9 +106,9 @@ function SeedRateBlock({
           </FormControl>
         </DropdownAwareTooltip>
 
-        <DropdownAwareTooltip title={t('form.sowingCalculationSafetyPercentHelp')} arrow>
+        <DropdownAwareTooltip title={safetyVariety?.tooltipTitle ?? t('form.sowingCalculationSafetyPercentHelp')} arrow>
           <TextField
-            sx={mediumFieldSx}
+            sx={mergeVarietyFieldSx(mediumFieldSx, safetyVariety?.sx)}
             type="number"
             label={t('form.sowingCalculationSafetyPercentLabel')}
             value={formData[safetyField] ?? ''}
@@ -116,10 +123,11 @@ function SeedRateBlock({
   );
 }
 
-export function SeedingSection({ formData, errors, onChange, t }: SeedingSectionProps) {
+export function SeedingSection({ formData, errors, onChange, t, getFieldTooltipProps }: SeedingSectionProps) {
   const cultivationTypes = formData.cultivation_types ?? (formData.cultivation_type ? [formData.cultivation_type] : []);
   const showsDirect = cultivationTypes.includes('direct_sowing');
   const showsPreCultivation = cultivationTypes.includes('pre_cultivation');
+  const thousandKernelWeightVariety = getFieldTooltipProps?.('thousand_kernel_weight_g', t('form.thousandKernelWeightHelp'));
   const handleThousandKernelWeightChange = (rawValue: string): void => {
     const normalized = rawValue.trim().replace(',', '.');
     if (!normalized) {
@@ -148,6 +156,7 @@ export function SeedingSection({ formData, errors, onChange, t }: SeedingSection
           errors={errors}
           onChange={onChange}
           t={t}
+          getFieldTooltipProps={getFieldTooltipProps}
         />
       )}
 
@@ -161,13 +170,14 @@ export function SeedingSection({ formData, errors, onChange, t }: SeedingSection
           errors={errors}
           onChange={onChange}
           t={t}
+          getFieldTooltipProps={getFieldTooltipProps}
         />
       )}
 
       <Box sx={fieldRowSx}>
-        <DropdownAwareTooltip title={t('form.thousandKernelWeightHelp')} arrow>
+        <DropdownAwareTooltip title={thousandKernelWeightVariety?.tooltipTitle ?? t('form.thousandKernelWeightHelp')} arrow>
           <TextField
-            sx={smallFieldSx}
+            sx={mergeVarietyFieldSx(smallFieldSx, thousandKernelWeightVariety?.sx)}
             type="text"
             inputMode="decimal"
             label={t('form.thousandKernelWeightLabel')}

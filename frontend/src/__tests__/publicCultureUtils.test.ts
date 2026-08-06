@@ -14,9 +14,9 @@ const buildPublicCulture = (overrides: Partial<PublicCulture>): PublicCulture =>
 describe('publicCultureUtils', () => {
   it('keeps newest publication per normalized identity', () => {
     const entries = [
-      buildPublicCulture({ id: 3, name: ' MöHre ', variety: 'Nantaise', seed_supplier: 'Bingenheimer', published_at: '2026-01-10T00:00:00.000Z' }),
-      buildPublicCulture({ id: 4, name: 'möhre', variety: 'Nantaise', supplier_name: ' Bingenheimer ', published_at: '2026-01-20T00:00:00.000Z' }),
-      buildPublicCulture({ id: 5, name: 'Möhre', variety: 'Nantaise', seed_supplier: 'Other', published_at: '2026-01-15T00:00:00.000Z' }),
+      buildPublicCulture({ id: 3, name: ' MöHre ', variety: 'Nantaise', published_at: '2026-01-10T00:00:00.000Z' }),
+      buildPublicCulture({ id: 4, name: 'möhre', variety: 'Nantaise', published_at: '2026-01-20T00:00:00.000Z' }),
+      buildPublicCulture({ id: 5, name: 'Möhre', variety: 'Other Variety', published_at: '2026-01-15T00:00:00.000Z' }),
     ];
 
     const deduped = dedupePublicCultures(entries);
@@ -28,13 +28,25 @@ describe('publicCultureUtils', () => {
 
   it('uses id as tie-breaker when publication timestamp is identical', () => {
     const entries = [
-      buildPublicCulture({ id: 8, name: 'Salat', variety: 'Batavia', seed_supplier: 'Sativa', published_at: '2026-02-01T00:00:00.000Z' }),
-      buildPublicCulture({ id: 12, name: 'Salat', variety: 'Batavia', supplier_name: 'Sativa', published_at: '2026-02-01T00:00:00.000Z' }),
+      buildPublicCulture({ id: 8, name: 'Salat', variety: 'Batavia', published_at: '2026-02-01T00:00:00.000Z' }),
+      buildPublicCulture({ id: 12, name: 'Salat', variety: 'Batavia', published_at: '2026-02-01T00:00:00.000Z' }),
     ];
 
     const deduped = dedupePublicCultures(entries);
 
     expect(deduped).toHaveLength(1);
     expect(deduped[0].id).toBe(12);
+  });
+
+  it('deduplicates entries that only differ by supplier, since supplier is not part of public identity', () => {
+    const entries = [
+      buildPublicCulture({ id: 20, name: 'Möhre', variety: 'Nantaise', published_at: '2026-01-10T00:00:00.000Z' }),
+      buildPublicCulture({ id: 21, name: 'Möhre', variety: 'Nantaise', published_at: '2026-01-20T00:00:00.000Z' }),
+    ];
+
+    const deduped = dedupePublicCultures(entries);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].id).toBe(21);
   });
 });

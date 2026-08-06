@@ -99,6 +99,30 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+Private project cultures are intentionally independent from that public master
+data. The project culture form may suggest published public cultures while the
+user types `Kulturart`, and selecting one copies available baseline values plus
+`source_public_culture`/`source_public_version` into the private draft. Free
+text remains valid at all times and never creates or proposes a public entry.
+Only the publishing wizard requires a public-library decision: users either
+link the private culture to an existing published `PublicCulture`, or continue
+the existing new-public-entry flow after choosing an official `CropSpecies`.
+When the user owns the linked public entry, the publishing wizard loads that
+entry before submission and shows a field-by-field comparison of changed
+public values against the private culture. An unchanged private culture cannot
+create a redundant public version; confirmation explicitly updates the linked
+public entry rather than merely linking it again.
+
+The project Crop Library and the full public Crop Library now render the same
+species → variety hierarchy. A public or private row with a selected
+`crop_species` and an empty `variety` is the current "general crop" entry for
+that species. Rows with a variety are rendered below that species. The UI uses
+plain user-facing wording and a subtle visual cue for variety-specific values;
+it does not expose implementation terms from the target data model. Until the
+future `CropVariety` entity and persisted nullable override chain exist,
+value-source cues are resolved from the current row plus the matching
+no-variety general crop row.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational
@@ -293,7 +317,8 @@ for no functional benefit right now. German UI text (`"Kultur"`,
 Publishing a project-owned `Culture` is no longer a direct copy action from
 the project Crop Library page. The frontend opens `CulturesPublishingWizardDialog`,
 which keeps the normal path intentionally small: the user selects the
-official `CropSpecies`, confirms the original language, and clicks publish.
+official `CropSpecies`, chooses whether the entry belongs to the general crop
+or to a variety, confirms the original language, and clicks publish.
 The dialog calls `/api/cultures/<id>/publish-public/preview/` only as a
 background validation step when the user attempts publication, then shows
 only actionable problems:
@@ -303,6 +328,12 @@ only actionable problems:
 - public-library required fields complete; and
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
+
+For the general-crop path, the frontend sends `publish_as_general=true`.
+Preview and publish validation then check duplicates with an empty public
+variety and do not require the private culture's variety field. This allows a
+project crop that has private variety text to publish a species-level public
+entry intentionally instead of accidentally creating another variety entry.
 
 Missing translations remain optional and are not shown as a normal blocking
 step. The existing CC BY-SA public-library contribution consent is also not
@@ -319,6 +350,13 @@ species dropdown is seeded from `crops.seed_data.CROP_SPECIES_SEED_DATA`, a
 central starter catalogue for common German and Austrian crop species whose
 entries already carry stable keys and translation maps for the future
 multilingual species library.
+
+When a project culture already points to an owned public entry, the wizard is
+an update flow instead of a mapping flow. The owned public culture is shown as
+a read-only information block, and the official species plus original language
+are taken from that public entry. The user reviews only the field-level
+differences before applying them to the existing public version, preventing
+accidental relinking to a different public crop from the update dialog.
 
 ## 8. Withdrawal, removal, and hard delete
 

@@ -110,6 +110,7 @@ class CropSpeciesApiTest(DRFAPITestCase):
         self.species = create_tomato_species()
 
     def _get_species(self, **params):
+        params.setdefault('q', 'tom')
         response = self.client.get('/openfarmplanner/api/crop-species/', params)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data['results'] if isinstance(response.data, dict) else response.data
@@ -135,7 +136,7 @@ class CropSpeciesApiTest(DRFAPITestCase):
             species=only_english, language_code='en', common_name='Salsify',
         )
 
-        response = self.client.get('/openfarmplanner/api/crop-species/', {'language': 'de'})
+        response = self.client.get('/openfarmplanner/api/crop-species/', {'language': 'de', 'q': 'Salsify'})
         results = response.data['results'] if isinstance(response.data, dict) else response.data
         payload = next(item for item in results if item['id'] == only_english.id)
 
@@ -149,7 +150,9 @@ class CropSpeciesApiTest(DRFAPITestCase):
 
     def test_honours_the_accept_language_header_when_no_parameter_is_given(self):
         response = self.client.get(
-            '/openfarmplanner/api/crop-species/', HTTP_ACCEPT_LANGUAGE='de-AT,de;q=0.9',
+            '/openfarmplanner/api/crop-species/',
+            {'q': 'tom'},
+            HTTP_ACCEPT_LANGUAGE='de-AT,de;q=0.9',
         )
         results = response.data['results'] if isinstance(response.data, dict) else response.data
         payload = next(item for item in results if item['id'] == self.species.id)
@@ -240,6 +243,22 @@ class CropSearchTest(DRFAPITestCase):
         results = response.data['results'] if isinstance(response.data, dict) else response.data
 
         self.assertIn(self.crop.id, [item['id'] for item in results])
+
+    def test_public_culture_endpoint_uses_fuzzy_species_terms(self):
+        for query in ('Tomaten', 'Paradeiser'):
+            with self.subTest(query=query):
+                response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': query})
+                results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+                self.assertIn(self.crop.id, [item['id'] for item in results])
+
+    def test_species_endpoint_uses_fuzzy_species_terms(self):
+        for query in ('Tomaten', 'Paradeiser'):
+            with self.subTest(query=query):
+                response = self.client.get('/openfarmplanner/api/crop-species/', {'q': query})
+                results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+                self.assertIn(self.species.id, [item['id'] for item in results])
 
     def test_search_does_not_scale_queries_with_the_number_of_results(self):
         """Cross-language search must stay O(1) in queries, not O(rows).

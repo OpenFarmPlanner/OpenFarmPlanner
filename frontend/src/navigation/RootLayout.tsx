@@ -57,6 +57,8 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
+import GavelIcon from '@mui/icons-material/Gavel';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
@@ -122,7 +124,7 @@ function FileExportIcon(props: SvgIconProps) {
 interface SnackbarState {
   open: boolean;
   message: string;
-  severity: 'success' | 'error';
+  severity: 'success' | 'error' | 'info';
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
 }
@@ -203,6 +205,7 @@ function RootLayout() {
   const [cultureActionsMenuAnchor, setCultureActionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileActionsOverflowAnchor, setMobileActionsOverflowAnchor] = useState<null | HTMLElement>(null);
   const [topbarPrimaryActionMenuAnchor, setTopbarPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [publicLibraryModerationMenuAnchor, setPublicLibraryModerationMenuAnchor] = useState<null | HTMLElement>(null);
   currentPathnameRef.current = location.pathname;
 
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
@@ -306,7 +309,7 @@ function RootLayout() {
     message: '',
     severity: 'success',
   });
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error', actionLabel?: string, onAction?: () => void | Promise<void>) => {
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info', actionLabel?: string, onAction?: () => void | Promise<void>) => {
     setSnackbar({ open: true, message, severity, actionLabel, onAction });
   }, []);
 
@@ -484,8 +487,14 @@ function RootLayout() {
 
   const applyProjectContextChange = useCallback(async (projectId: number): Promise<void> => {
     await switchActiveProject(projectId);
-    window.location.href = appRouteUrl('/app/dashboard');
-  }, [switchActiveProject]);
+    const currentPath = `${location.pathname}${location.search}${location.hash}`;
+    const targetUrl = appRouteUrl(currentPath);
+    if (targetUrl === `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.location.reload();
+    } else {
+      window.location.href = targetUrl;
+    }
+  }, [switchActiveProject, location.pathname, location.search, location.hash]);
 
   const closeCreateProjectDialog = (): void => {
     setIsCreateProjectOpen(false);
@@ -512,8 +521,13 @@ function RootLayout() {
   const isCulturesPage = location.pathname.startsWith('/app/cultures');
   const isFieldsBedsPage = location.pathname.startsWith('/app/fields-beds');
   const isCalendarPage = location.pathname.startsWith('/app/gantt-chart');
+  const isPublicCropLibraryPage = location.pathname.startsWith('/app/crop-library');
   const cultureLibraryAction = useMemo(
     () => topbarContextActions.find((action) => action.id === 'cultures-open-library'),
+    [topbarContextActions],
+  );
+  const publicLibraryModerationAction = useMemo(
+    () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
     [topbarContextActions],
   );
   const cultureImportExportActions = useMemo(
@@ -529,7 +543,13 @@ function RootLayout() {
     [topbarTitleActions],
   );
   const genericTopbarContextActions = useMemo(
-    () => (isCulturesPage ? [] : topbarContextActions.filter((action) => action.id !== 'fields-global-add-field')),
+    () => (isCulturesPage
+      ? []
+      : topbarContextActions.filter((action) => (
+        action.id !== 'fields-global-add-field'
+        && action.id !== 'public-crop-library-moderation'
+        && action.id !== 'public-crop-library-remove'
+      ))),
     [isCulturesPage, topbarContextActions],
   );
   const topbarModeControls = useMemo(
@@ -570,11 +590,12 @@ function RootLayout() {
       !isFieldsBedsPage
       && !isCalendarPage
       && !isCulturesPage
+      && !isPublicCropLibraryPage
       && (
         hasVisibleMobileContextActions
       )
     ),
-    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage],
+    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage, isPublicCropLibraryPage],
   );
   const handleCreateProject = async (): Promise<void> => {
     if (!newProjectName.trim()) {
@@ -1125,6 +1146,46 @@ function RootLayout() {
               </Menu>
             </>
           ) : null}
+          {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+            <>
+              <Button
+                size="medium"
+                variant="outlined"
+                onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                disabled={publicLibraryModerationAction.disabled}
+                endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                sx={{
+                  ...getStandardActionButtonSx(false),
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {publicLibraryModerationAction.label}
+              </Button>
+              <Menu
+                anchorEl={publicLibraryModerationMenuAnchor}
+                open={Boolean(publicLibraryModerationMenuAnchor)}
+                onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {publicLibraryModerationAction.menuActions?.map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                    disabled={action.disabled}
+                    sx={action.destructive ? { color: 'error.main' } : undefined}
+                  >
+                    {action.destructive ? (
+                      <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                    ) : null}
+                    {action.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          ) : null}
           {(() => {
             const groups: TopbarContextAction[][] = [];
             [...topbarModeControls, ...topbarOverflowActions].forEach((action) => {
@@ -1407,6 +1468,50 @@ function RootLayout() {
                         disabled={action.disabled}
                       >
                         <ListItemText primary={action.label} secondary={action.shortcutHint} />
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </>
+              ) : null}
+              {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+                <>
+                  <AppTooltip title={publicLibraryModerationAction.label} enterTouchDelay={0}>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <IconButton
+                        size="small"
+                        onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                        aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                        sx={{
+                          width: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          height: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          flexShrink: 0,
+                          color: 'text.primary',
+                          '& .MuiSvgIcon-root': { fontSize: 24 },
+                        }}
+                        disabled={publicLibraryModerationAction.disabled}
+                      >
+                        <GavelIcon />
+                      </IconButton>
+                    </Box>
+                  </AppTooltip>
+                  <Menu
+                    anchorEl={publicLibraryModerationMenuAnchor}
+                    open={Boolean(publicLibraryModerationMenuAnchor)}
+                    onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  >
+                    {publicLibraryModerationAction.menuActions?.map((action) => (
+                      <MenuItem
+                        key={action.id}
+                        onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                        disabled={action.disabled}
+                        sx={action.destructive ? { color: 'error.main' } : undefined}
+                      >
+                        {action.destructive ? (
+                          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                        ) : null}
+                        {action.label}
                       </MenuItem>
                     ))}
                   </Menu>

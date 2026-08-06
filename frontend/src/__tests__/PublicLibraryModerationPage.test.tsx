@@ -16,6 +16,8 @@ const apiMocks = vi.hoisted(() => ({
   moderatorRequestList: vi.fn(),
   moderatorRequestApprove: vi.fn(),
   moderatorRequestReject: vi.fn(),
+  publicCultureList: vi.fn(),
+  publicCultureRestore: vi.fn(),
 }));
 
 vi.mock('../auth/useAuth', () => ({
@@ -32,6 +34,10 @@ vi.mock('../api/api', () => ({
     list: apiMocks.moderatorRequestList,
     approve: apiMocks.moderatorRequestApprove,
     reject: apiMocks.moderatorRequestReject,
+  },
+  publicCultureAPI: {
+    list: apiMocks.publicCultureList,
+    restore: apiMocks.publicCultureRestore,
   },
 }));
 
@@ -72,6 +78,8 @@ describe('PublicLibraryModerationPage', () => {
     });
     apiMocks.moderatorRequestApprove.mockResolvedValue({ data: { id: 3, status: 'approved' } });
     apiMocks.moderatorRequestReject.mockResolvedValue({ data: { id: 3, status: 'rejected' } });
+    apiMocks.publicCultureList.mockResolvedValue({ data: { results: [] } });
+    apiMocks.publicCultureRestore.mockResolvedValue({ data: { id: 9, status: 'published' } });
   });
 
   it('reviews crop species proposals and admin moderator requests', async () => {
@@ -87,6 +95,41 @@ describe('PublicLibraryModerationPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'Annehmen' })[0]);
 
     await waitFor(() => expect(apiMocks.cropSpeciesApprove).toHaveBeenCalledWith(7));
+  });
+
+  it('lists removed public cultures and restores one', async () => {
+    const user = userEvent.setup();
+    apiMocks.publicCultureList.mockResolvedValue({
+      data: {
+        results: [
+          {
+            id: 9,
+            name: 'Tomate',
+            variety: 'Roma',
+            status: 'removed',
+            removal_reason: 'duplicate',
+            updated_at: '2026-07-27T08:00:00Z',
+          },
+        ],
+      },
+    });
+    render(<PublicLibraryModerationPage />);
+
+    expect(await screen.findByText('Entfernte Kulturen')).toBeInTheDocument();
+    expect(apiMocks.publicCultureList).toHaveBeenCalledWith({ status: 'removed' });
+    expect(screen.getByText('Tomate · Roma')).toBeInTheDocument();
+    expect(screen.getByText('Duplikat')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
+
+    await waitFor(() => expect(apiMocks.publicCultureRestore).toHaveBeenCalledWith(9));
+  });
+
+  it('shows an empty state when there are no removed public cultures', async () => {
+    render(<PublicLibraryModerationPage />);
+
+    expect(await screen.findByText('Entfernte Kulturen')).toBeInTheDocument();
+    expect(screen.getByText('Keine entfernten Kulturen.')).toBeInTheDocument();
   });
 
   it('hides moderator request management from non-admin moderators', async () => {
