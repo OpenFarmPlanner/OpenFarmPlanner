@@ -1053,14 +1053,20 @@ export default function PublicCropLibraryPage() {
           ariaLabel: t('library.page.moderation.open'),
           onClick: openModeration,
           appearance: 'standard' as const,
+          menuActions: [
+            {
+              id: 'public-crop-library-moderation-queue',
+              label: t('library.moderation.title'),
+              onClick: openModeration,
+            },
+            ...(selectedCulture ? [{
+              id: 'public-crop-library-remove',
+              label: t('library.removeAction'),
+              onClick: openRemoveDialog,
+              destructive: true,
+            }] : []),
+          ],
         },
-        ...(selectedCulture ? [{
-          id: 'public-crop-library-remove',
-          label: t('library.removeAction'),
-          ariaLabel: t('library.removeAction'),
-          onClick: openRemoveDialog,
-          appearance: 'standard' as const,
-        }] : []),
       ]
       : []
   ), [canModeratePublicLibrary, openModeration, openRemoveDialog, selectedCulture, t]);

@@ -205,6 +205,7 @@ function RootLayout() {
   const [cultureActionsMenuAnchor, setCultureActionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileActionsOverflowAnchor, setMobileActionsOverflowAnchor] = useState<null | HTMLElement>(null);
   const [topbarPrimaryActionMenuAnchor, setTopbarPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [publicLibraryModerationMenuAnchor, setPublicLibraryModerationMenuAnchor] = useState<null | HTMLElement>(null);
   currentPathnameRef.current = location.pathname;
 
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
@@ -527,10 +528,6 @@ function RootLayout() {
   );
   const publicLibraryModerationAction = useMemo(
     () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
-    [topbarContextActions],
-  );
-  const publicLibraryRemoveAction = useMemo(
-    () => topbarContextActions.find((action) => action.id === 'public-crop-library-remove'),
     [topbarContextActions],
   );
   const cultureImportExportActions = useMemo(
@@ -1150,41 +1147,44 @@ function RootLayout() {
             </>
           ) : null}
           {isPublicCropLibraryPage && publicLibraryModerationAction ? (
-            <Button
-              size="medium"
-              variant="outlined"
-              onClick={() => publicLibraryModerationAction.onClick()}
-              aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
-              disabled={publicLibraryModerationAction.disabled}
-              sx={{
-                ...getStandardActionButtonSx(false),
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {publicLibraryModerationAction.label}
-            </Button>
-          ) : null}
-          {isPublicCropLibraryPage && publicLibraryRemoveAction ? (
-            <AppTooltip title={publicLibraryRemoveAction.label}>
-              <Box component="span" sx={{ display: 'inline-flex' }}>
-                <IconButton
-                  size="medium"
-                  onClick={() => publicLibraryRemoveAction.onClick()}
-                  aria-label={publicLibraryRemoveAction.ariaLabel ?? publicLibraryRemoveAction.label}
-                  disabled={publicLibraryRemoveAction.disabled}
-                  sx={{
-                    flexShrink: 0,
-                    color: 'error.main',
-                    border: '1px solid',
-                    borderColor: 'error.main',
-                    borderRadius: 1,
-                  }}
-                >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </AppTooltip>
+            <>
+              <Button
+                size="medium"
+                variant="outlined"
+                onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                disabled={publicLibraryModerationAction.disabled}
+                endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                sx={{
+                  ...getStandardActionButtonSx(false),
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {publicLibraryModerationAction.label}
+              </Button>
+              <Menu
+                anchorEl={publicLibraryModerationMenuAnchor}
+                open={Boolean(publicLibraryModerationMenuAnchor)}
+                onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {publicLibraryModerationAction.menuActions?.map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                    disabled={action.disabled}
+                    sx={action.destructive ? { color: 'error.main' } : undefined}
+                  >
+                    {action.destructive ? (
+                      <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                    ) : null}
+                    {action.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
           ) : null}
           {(() => {
             const groups: TopbarContextAction[][] = [];
@@ -1474,46 +1474,48 @@ function RootLayout() {
                 </>
               ) : null}
               {isPublicCropLibraryPage && publicLibraryModerationAction ? (
-                <AppTooltip title={publicLibraryModerationAction.label} enterTouchDelay={0}>
-                  <Box component="span" sx={{ display: 'inline-flex' }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => publicLibraryModerationAction.onClick()}
-                      aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
-                      sx={{
-                        width: COMPACT_TOPBAR_TOGGLE_SIZE,
-                        height: COMPACT_TOPBAR_TOGGLE_SIZE,
-                        flexShrink: 0,
-                        color: 'text.primary',
-                        '& .MuiSvgIcon-root': { fontSize: 24 },
-                      }}
-                      disabled={publicLibraryModerationAction.disabled}
-                    >
-                      <GavelIcon />
-                    </IconButton>
-                  </Box>
-                </AppTooltip>
-              ) : null}
-              {isPublicCropLibraryPage && publicLibraryRemoveAction ? (
-                <AppTooltip title={publicLibraryRemoveAction.label} enterTouchDelay={0}>
-                  <Box component="span" sx={{ display: 'inline-flex' }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => publicLibraryRemoveAction.onClick()}
-                      aria-label={publicLibraryRemoveAction.ariaLabel ?? publicLibraryRemoveAction.label}
-                      sx={{
-                        width: COMPACT_TOPBAR_TOGGLE_SIZE,
-                        height: COMPACT_TOPBAR_TOGGLE_SIZE,
-                        flexShrink: 0,
-                        color: 'error.main',
-                        '& .MuiSvgIcon-root': { fontSize: 24 },
-                      }}
-                      disabled={publicLibraryRemoveAction.disabled}
-                    >
-                      <DeleteOutlineIcon />
-                    </IconButton>
-                  </Box>
-                </AppTooltip>
+                <>
+                  <AppTooltip title={publicLibraryModerationAction.label} enterTouchDelay={0}>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <IconButton
+                        size="small"
+                        onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                        aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                        sx={{
+                          width: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          height: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          flexShrink: 0,
+                          color: 'text.primary',
+                          '& .MuiSvgIcon-root': { fontSize: 24 },
+                        }}
+                        disabled={publicLibraryModerationAction.disabled}
+                      >
+                        <GavelIcon />
+                      </IconButton>
+                    </Box>
+                  </AppTooltip>
+                  <Menu
+                    anchorEl={publicLibraryModerationMenuAnchor}
+                    open={Boolean(publicLibraryModerationMenuAnchor)}
+                    onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  >
+                    {publicLibraryModerationAction.menuActions?.map((action) => (
+                      <MenuItem
+                        key={action.id}
+                        onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                        disabled={action.disabled}
+                        sx={action.destructive ? { color: 'error.main' } : undefined}
+                      >
+                        {action.destructive ? (
+                          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                        ) : null}
+                        {action.label}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </>
               ) : null}
               {showMobileTopbarViewActions ? (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>

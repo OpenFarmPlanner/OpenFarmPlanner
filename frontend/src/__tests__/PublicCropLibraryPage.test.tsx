@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
@@ -188,21 +188,44 @@ function LocationProbe() {
 function TestAppShell() {
   const [topbarContextActions, setTopbarContextActions] = useState<TopbarContextAction[]>([]);
   const [, setTopbarTitleActions] = useState<TopbarContextAction[]>([]);
+  const [openMenuActionId, setOpenMenuActionId] = useState<string | null>(null);
   return (
     <>
       <LocationProbe />
       <header>
         <h1>Öffentliche Kulturbibliothek</h1>
         {topbarContextActions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            aria-label={action.ariaLabel ?? action.label}
-            onClick={action.onClick}
-            disabled={action.disabled}
-          >
-            {action.label}
-          </button>
+          <Fragment key={action.id}>
+            <button
+              type="button"
+              aria-label={action.ariaLabel ?? action.label}
+              onClick={() => {
+                if (action.menuActions && action.menuActions.length > 0) {
+                  setOpenMenuActionId((current) => (current === action.id ? null : action.id));
+                } else {
+                  action.onClick();
+                }
+              }}
+              disabled={action.disabled}
+            >
+              {action.label}
+            </button>
+            {action.menuActions && openMenuActionId === action.id ? (
+              <div role="menu">
+                {action.menuActions.map((menuAction) => (
+                  <button
+                    key={menuAction.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setOpenMenuActionId(null); menuAction.onClick(); }}
+                    disabled={menuAction.disabled}
+                  >
+                    {menuAction.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </Fragment>
         ))}
       </header>
       <Outlet context={{ setTopbarContextActions, setTopbarTitleActions }} />
@@ -306,11 +329,13 @@ describe('PublicCropLibraryPage', () => {
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
 
-    // The remove trigger lives in the topbar (next to "Moderation"), not in
-    // the crop detail header alongside Edit/Import — it's a moderator-only
+    // The remove action lives inside the "Moderation" menu in the topbar, not
+    // in the crop detail header alongside Edit/Import — it's a moderator-only
     // destructive action, kept visually and positionally separate.
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
+    expect(screen.queryByRole('menuitem', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Moderation' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Aus Bibliothek entfernen' }));
 
     const removeDialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
     const confirmButton = within(removeDialog).getByRole('button', { name: 'Aus Bibliothek entfernen' });
@@ -344,6 +369,7 @@ describe('PublicCropLibraryPage', () => {
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Moderation' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Kulturbibliothek moderieren' }));
 
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/public-library-moderation');
     expect(screen.getByRole('heading', { name: 'Moderation' })).toBeInTheDocument();

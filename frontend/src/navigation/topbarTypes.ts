@@ -25,7 +25,7 @@ export interface TopbarContextAction {
    * standalone actions that should read as a normal secondary action, not a pill.
    */
   appearance?: 'segmented' | 'standard';
-  menuActions?: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean }>;
+  menuActions?: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean; destructive?: boolean }>;
 }
 
 export interface RootLayoutOutletContext {
