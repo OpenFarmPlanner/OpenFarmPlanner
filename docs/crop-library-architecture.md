@@ -354,6 +354,30 @@ separate always-visible link — clicking it calls
 `crops.services`' `CropSpecies.propose()` endpoint directly from the
 dropdown.
 
+A user does not have to wait for moderation to publish once they've proposed
+a species: `resolve_publishing_crop_species()` (`farm.services.public_cultures`)
+accepts a `CropSpecies` in either `PUBLISHED` or `PROPOSED` status as a
+publish target (`PUBLISHABLE_CROP_SPECIES_STATUSES`) — `REJECTED` species
+remain excluded. `PROPOSED` already is the "pending moderation" state
+(`CropSpecies.STATUS_PROPOSED`); no separate status was introduced for this.
+On the frontend, a successful proposal immediately appends the new species to
+the wizard's local options and selects it, so "Publish now" becomes usable
+right away instead of staying blocked; a dismissible success `Alert`
+(`library.publishWizard.proposedSpeciesNotice`) explains that the variety
+will appear provisionally under the not-yet-approved species name. This is
+safe because `CropSpeciesViewSet.approve()`/`reject()`
+(`backend/crops/views.py`) mutate the same `CropSpecies` row in place — the
+id never changes — so once a moderator approves the species, everything
+already published under it (including the general entry auto-created below)
+keeps working with no relinking; nothing else in the publish path
+(`detect_public_culture_duplicates()`, `ensure_general_public_culture()`,
+`PublicCultureViewSet`'s list queryset) filters on `crop_species.status` at
+all, so this was already the only gate. `CropSpeciesViewSet.get_queryset()`
+still hides non-`PUBLISHED` species from every other user/surface (including
+the wizard's own initial species list) until a moderator approves or rejects
+them, so a pending species is not otherwise discoverable/searchable in the
+meantime.
+
 When publishing a variety and the species has no species-level ("general",
 empty-`variety`) published entry yet, the backend
 (`ensure_general_public_culture()` in `farm.services.public_cultures`)

@@ -92,7 +92,7 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 
-  it('offers an inline crop species proposal when the search has no matches', async () => {
+  it('offers an inline crop species proposal when the search has no matches, and lets the variety publish right away', async () => {
     cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
     renderWizard();
@@ -105,7 +105,21 @@ describe('CulturesPublishingWizardDialog', () => {
     fireEvent.click(proposeButton);
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
-    expect(await screen.findByText('Der Vorschlag wurde gespeichert und kann später geprüft werden.')).toBeInTheDocument();
+
+    // The freshly proposed (pending) species is immediately usable: it
+    // becomes the selected value, a notice explains the provisional state,
+    // and "Publish now" is enabled rather than staying blocked on moderation.
+    expect(await screen.findByDisplayValue('Kürbis')).toBeInTheDocument();
+    expect(screen.getByText(/Dein Vorschlag für die neue Kulturart „Kürbis“ wurde zur Prüfung eingereicht/)).toBeInTheDocument();
+
+    const publishButton = screen.getByRole('button', { name: 'Jetzt veröffentlichen' });
+    expect(publishButton).toBeEnabled();
+    fireEvent.click(publishButton);
+
+    await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
+      CULTURE.id,
+      expect.objectContaining({ crop_species_id: 2 }),
+    ));
   });
 
   it('matches an existing species by its localized display name, not just the canonical name', async () => {
@@ -155,7 +169,7 @@ describe('CulturesPublishingWizardDialog', () => {
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
     expect(await screen.findByText(/existiert bereits oder wurde schon vorgeschlagen/)).toBeInTheDocument();
-    expect(screen.queryByText('Der Vorschlag wurde gespeichert und kann später geprüft werden.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/wurde zur Prüfung eingereicht/)).not.toBeInTheDocument();
   });
 
   it('shows a link to view foreign duplicates instead of blocking on plain text', async () => {

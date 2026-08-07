@@ -98,7 +98,7 @@ export function CulturesPublishingWizardDialog({
   const [validationLoading, setValidationLoading] = useState(false);
   const [showLicenseConfirmation, setShowLicenseConfirmation] = useState(false);
   const [speciesInputValue, setSpeciesInputValue] = useState('');
-  const [proposalSent, setProposalSent] = useState(false);
+  const [proposedSpeciesName, setProposedSpeciesName] = useState<string | null>(null);
   const [proposingSpecies, setProposingSpecies] = useState(false);
   const [proposeSpeciesError, setProposeSpeciesError] = useState('');
   const [generalNoticeDismissed, setGeneralNoticeDismissed] = useState(false);
@@ -113,7 +113,7 @@ export function CulturesPublishingWizardDialog({
       setAcceptedLicense(false);
       setShowLicenseConfirmation(false);
       setSpeciesInputValue('');
-      setProposalSent(false);
+      setProposedSpeciesName(null);
       setProposeSpeciesError('');
       setGeneralNoticeDismissed(false);
       setValidationResult(null);
@@ -225,24 +225,35 @@ export function CulturesPublishingWizardDialog({
     && !validationResult.can_publish;
   const existingVarietyOptions = publicCultureOptions.filter((option) => (option.variety || '').trim());
 
+  const resetValidationResult = useCallback(() => {
+    setValidationResult(null);
+  }, []);
+
   const handleProposeSpecies = useCallback(async (name: string) => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
     setProposingSpecies(true);
     setProposeSpeciesError('');
     try {
-      await cropSpeciesAPI.propose(trimmedName);
-      setProposalSent(true);
+      const response = await cropSpeciesAPI.propose(trimmedName);
+      const created = response.data;
+      // Make the pending species immediately usable for this publish attempt
+      // instead of leaving the user stuck until a moderator reviews it — the
+      // backend accepts `proposed` species as a publish target (see
+      // resolve_publishing_crop_species), and the variety becomes fully
+      // official automatically once the species is approved.
+      setSpecies((prev) => [...prev, created]);
+      setSelectedSpecies(created);
+      setSpeciesInputValue(getCropSpeciesOptionLabel(created));
+      setSelectedPublicCulture(null);
+      resetValidationResult();
+      setProposedSpeciesName(getCropSpeciesOptionLabel(created));
     } catch (error) {
       setProposeSpeciesError(extractApiErrorMessage(error, t, t('library.publishWizard.proposeSpeciesError')));
     } finally {
       setProposingSpecies(false);
     }
-  }, [t]);
-
-  const resetValidationResult = useCallback(() => {
-    setValidationResult(null);
-  }, []);
+  }, [resetValidationResult, t]);
 
   const handlePublish = useCallback(async () => {
     if (!culture?.id) return;
@@ -343,37 +354,33 @@ export function CulturesPublishingWizardDialog({
                   onChange={(_, value) => {
                     setSelectedSpecies(value);
                     setSelectedPublicCulture(null);
+                    setProposedSpeciesName(null);
                     resetValidationResult();
                   }}
                   onInputChange={(_, value) => {
                     setSpeciesInputValue(value);
-                    setProposalSent(false);
                     setProposeSpeciesError('');
                   }}
                   noOptionsText={speciesLoading ? (
                     <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
                   ) : speciesInputValue.trim() ? (
-                    proposalSent ? (
-                      <Typography variant="body2" color="success.main">{t('library.publishWizard.proposalSent')}</Typography>
-                    ) : (
-                      <Stack spacing={0.5} alignItems="flex-start">
-                        <Button
-                          size="small"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => void handleProposeSpecies(speciesInputValue)}
-                          disabled={proposingSpecies}
-                        >
-                          {proposingSpecies
-                            ? t('library.publishWizard.proposeSpeciesButton')
-                            : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
-                        </Button>
-                        {proposeSpeciesError ? (
-                          <Typography variant="body2" color="error.main" sx={{ px: 1 }}>
-                            {proposeSpeciesError}
-                          </Typography>
-                        ) : null}
-                      </Stack>
-                    )
+                    <Stack spacing={0.5} alignItems="flex-start">
+                      <Button
+                        size="small"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => void handleProposeSpecies(speciesInputValue)}
+                        disabled={proposingSpecies}
+                      >
+                        {proposingSpecies
+                          ? t('library.publishWizard.proposeSpeciesButton')
+                          : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
+                      </Button>
+                      {proposeSpeciesError ? (
+                        <Typography variant="body2" color="error.main" sx={{ px: 1 }}>
+                          {proposeSpeciesError}
+                        </Typography>
+                      ) : null}
+                    </Stack>
                   ) : (
                     t('library.publishWizard.speciesNoOptions')
                   )}
@@ -506,6 +513,12 @@ export function CulturesPublishingWizardDialog({
               </>
             ) : null}
           </Stack>
+
+          {proposedSpeciesName ? (
+            <Alert severity="success" onClose={() => setProposedSpeciesName(null)}>
+              {t('library.publishWizard.proposedSpeciesNotice', { name: proposedSpeciesName })}
+            </Alert>
+          ) : null}
 
           {validationResult?.general_crop_notice && !generalNoticeDismissed ? (
             <Alert severity="info" onClose={() => setGeneralNoticeDismissed(true)}>

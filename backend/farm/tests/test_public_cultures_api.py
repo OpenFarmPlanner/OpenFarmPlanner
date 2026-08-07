@@ -119,6 +119,62 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['original_language_code'], 'en')
         self.assertEqual(response.data['missing_required_fields'], [])
 
+    def test_publish_allows_a_freshly_proposed_crop_species(self):
+        proposed_species = CropSpecies.objects.create(
+            name='Zzz Testonly Kohlrabusch', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+
+        preview = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': proposed_species.id, 'original_language_code': 'en'},
+        )
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertTrue(preview.data['can_publish'])
+        self.assertEqual(preview.data['crop_species']['name'], 'Zzz Testonly Kohlrabusch')
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': proposed_species.id,
+                'original_language_code': 'en',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        public_culture = PublicCulture.objects.get(variety='Bijella')
+        self.assertEqual(public_culture.crop_species_id, proposed_species.id)
+        proposed_species.refresh_from_db()
+        self.assertEqual(proposed_species.status, CropSpecies.STATUS_PROPOSED)
+
+    def test_publish_still_rejects_a_rejected_crop_species(self):
+        rejected_species = CropSpecies.objects.create(
+            name='Zzz Testonly Rutabusch', status=CropSpecies.STATUS_REJECTED, proposed_by=self.user,
+        )
+
+        preview = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': rejected_species.id, 'original_language_code': 'en'},
+        )
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertFalse(preview.data['can_publish'])
+        self.assertIsNone(preview.data['crop_species'])
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': rejected_species.id,
+                'original_language_code': 'en',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['code'], 'public_culture_publishing_checks_failed')
+        self.assertEqual(PublicCulture.objects.count(), 0)
+
     def test_publish_preview_blocks_missing_required_public_fields(self):
         self.culture.variety = ''
         self.culture.save()
