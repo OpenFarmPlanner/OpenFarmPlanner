@@ -53,6 +53,7 @@ import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '.
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
+import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -1017,6 +1018,7 @@ const detailSectionGridSx = {
                   {varietySiblings.map((variety) => (
                     <ListItemButton
                       key={variety.id}
+                      className="variety-row"
                       selected={!isSpeciesView && variety.culture?.id === selectedCulture.id}
                       onClick={() => {
                         if (variety.culture) {
@@ -1026,25 +1028,32 @@ const detailSectionGridSx = {
                       }}
                       sx={{ borderRadius: 1, mb: 0.5 }}
                     >
-                      <ListItemText primary={variety.label} />
-                      <Stack direction="row" spacing={0.5} onClick={(event) => event.stopPropagation()}>
-                        <IconButton
-                          size="small"
-                          aria-label={t('buttons.edit')}
-                          disabled={!onEditCulture || !variety.culture}
-                          onClick={() => variety.culture && onEditCulture?.(variety.culture)}
+                      <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: 'fit-content', maxWidth: '100%' }}>
+                        <ListItemText primary={variety.label} sx={{ flex: 'none', pr: 1 }} />
+                        <Box
+                          sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}
+                          onClick={(event) => event.stopPropagation()}
                         >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          aria-label={t('buttons.delete')}
-                          disabled={!onDeleteCulture || !variety.culture}
-                          onClick={() => variety.culture && onDeleteCulture?.(variety.culture)}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Stack>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            aria-label={t('buttons.edit')}
+                            disabled={!onEditCulture || !variety.culture}
+                            onClick={() => variety.culture && onEditCulture?.(variety.culture)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={t('buttons.delete')}
+                            disabled={!onDeleteCulture || !variety.culture}
+                            onClick={() => variety.culture && onDeleteCulture?.(variety.culture)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
                     </ListItemButton>
                   ))}
                 </List>
