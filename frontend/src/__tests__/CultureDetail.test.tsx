@@ -338,7 +338,6 @@ describe('CultureDetail Component', () => {
 
     const sectionTitles = screen.getAllByRole('heading', { level: 6 }).map((node) => node.textContent?.trim());
     expect(sectionTitles).toEqual([
-      'Sorten',
       'Allgemeine Informationen',
       'Zeitplanung',
       'Abstände',
@@ -887,29 +886,23 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
-    it('also lists sibling varieties from a variety\'s own detail view, and edit/delete act on the clicked row', async () => {
-      const user = userEvent.setup();
-      const onEditCulture = vi.fn();
-      const onDeleteCulture = vi.fn();
+    it('does not render on a variety\'s own detail view (only on the crop/species overview)', () => {
       renderCultureDetail(
         <CultureDetail
           cultures={carrotCultures}
           selectedCultureId={11}
           onCultureSelect={vi.fn()}
-          onEditCulture={onEditCulture}
-          onDeleteCulture={onDeleteCulture}
+          onEditCulture={vi.fn()}
+          onDeleteCulture={vi.fn()}
         />
       );
 
-      expect(screen.getByText('Sorten')).toBeInTheDocument();
-      expect(screen.getByText('Bolero')).toBeInTheDocument();
-
-      const boleroRow = screen.getByText('Bolero').closest('[role="button"]') as HTMLElement;
-      await user.click(within(boleroRow).getByRole('button', { name: 'Bearbeiten' }));
-      expect(onEditCulture).toHaveBeenCalledWith(carrotBolero);
-
-      await user.click(within(boleroRow).getByRole('button', { name: 'Löschen' }));
-      expect(onDeleteCulture).toHaveBeenCalledWith(carrotBolero);
+      expect(screen.getByText('Carrot')).toBeInTheDocument();
+      expect(screen.getByText('Nantes')).toBeInTheDocument();
+      expect(screen.queryByText('Sorten')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Sorte hinzufügen' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Bolero')).not.toBeInTheDocument();
+      expect(screen.queryByText('Für diese Kultur sind noch keine Sorten angelegt.')).not.toBeInTheDocument();
     });
 
     it('shows an empty state when a crop has no varieties yet', () => {
