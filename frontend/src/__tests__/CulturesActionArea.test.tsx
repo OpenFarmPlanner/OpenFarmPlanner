@@ -309,7 +309,11 @@ describe('Cultures action area', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Kultur veröffentlichen')).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Offizielle Kulturart/)).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Originalsprache')).toBeInTheDocument();
+    // "Original language" is collapsed to a summary + change link by
+    // default (it's pre-set to the app's current language), not an
+    // always-visible required field.
+    expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/Originalsprache: /)).toBeInTheDocument();
     expect(within(dialog).queryByText('Zusammenfassung')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Pflichtfelder')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Dublettenprüfung')).not.toBeInTheDocument();

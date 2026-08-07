@@ -35,7 +35,7 @@ interface CulturesPublishingWizardDialogProps {
   termsAlreadyAccepted: boolean;
   publishing: boolean;
   onClose: () => void;
-  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null }) => void;
+  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null; publishAsGeneral?: boolean }) => void;
 }
 
 const LANGUAGE_CODES = ['de', 'en'] as const;
@@ -51,6 +51,13 @@ const normalizeSpeciesName = (value: string | undefined | null): string => (
   (value || '').split(/\s+/).filter(Boolean).join(' ').toLocaleLowerCase('de')
 );
 
+// The picker must match on the name the user actually sees and types, not
+// the (possibly differently-languaged) canonical `name` — otherwise a
+// species that already exists only under a translation (e.g. "Kürbis" for
+// canonical "Pumpkin") looks missing, and proposing it as new fails
+// server-side because that translation already exists.
+const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+
 const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined): CropSpecies | null => {
   const cultureSpeciesId = culture?.crop_species ?? null;
   if (cultureSpeciesId) {
@@ -61,7 +68,10 @@ const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined):
   if (!normalizedCultureName) {
     return null;
   }
-  return items.find((item) => normalizeSpeciesName(item.name) === normalizedCultureName) ?? null;
+  return items.find((item) => (
+    normalizeSpeciesName(item.name) === normalizedCultureName
+    || normalizeSpeciesName(getCropSpeciesOptionLabel(item)) === normalizedCultureName
+  )) ?? null;
 };
 
 const getPublicCultureOptionLabel = (option: PublicCulture): string => {
@@ -69,12 +79,10 @@ const getPublicCultureOptionLabel = (option: PublicCulture): string => {
   return option.variety ? `${name} · ${option.variety}` : name;
 };
 
-// The picker must match on the name the user actually sees and types, not
-// the (possibly differently-languaged) canonical `name` — otherwise a
-// species that already exists only under a translation (e.g. "Kürbis" for
-// canonical "Pumpkin") looks missing, and proposing it as new fails
-// server-side because that translation already exists.
-const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+// The "Existing variety" field is already scoped to the chosen species (it's
+// right below that field), so repeating the species name in every option
+// would just be noise — only the variety name itself is shown/typed there.
+const getExistingVarietyOptionLabel = (option: PublicCulture): string => option.variety || getPublicCultureOptionLabel(option);
 
 export function CulturesPublishingWizardDialog({
   open,
@@ -98,24 +106,36 @@ export function CulturesPublishingWizardDialog({
   const [validationLoading, setValidationLoading] = useState(false);
   const [showLicenseConfirmation, setShowLicenseConfirmation] = useState(false);
   const [speciesInputValue, setSpeciesInputValue] = useState('');
+  const [existingVarietyInputValue, setExistingVarietyInputValue] = useState('');
   const [proposedSpeciesName, setProposedSpeciesName] = useState<string | null>(null);
   const [proposingSpecies, setProposingSpecies] = useState(false);
   const [proposeSpeciesError, setProposeSpeciesError] = useState('');
   const [generalNoticeDismissed, setGeneralNoticeDismissed] = useState(false);
+  const [showLanguageOverride, setShowLanguageOverride] = useState(false);
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
   const ownedPublicCultureId = culture?.owned_public_culture_id ?? null;
   const isOwnedPublicCultureUpdate = Boolean(ownedPublicCultureId);
+  const isCropLevelPublish = !isOwnedPublicCultureUpdate && !culture?.variety?.trim();
 
   useEffect(() => {
     if (!open) return;
     queueMicrotask(() => {
       setAcceptedLicense(false);
       setShowLicenseConfirmation(false);
-      setSpeciesInputValue('');
+      // Prefilled with the local culture's own name so the field never starts
+      // empty — the user can still overwrite it if no official species
+      // matches, or if they want to propose a different one.
+      setSpeciesInputValue(culture?.name ?? '');
+      // Same idea for the variety field: pre-fill with the local variety's
+      // own name. If a matching public entry is found once the search
+      // results load (see the publicCultureOptions effect), it's also
+      // auto-selected there.
+      setExistingVarietyInputValue(culture?.variety ?? '');
       setProposedSpeciesName(null);
       setProposeSpeciesError('');
       setGeneralNoticeDismissed(false);
+      setShowLanguageOverride(false);
       setValidationResult(null);
       setOriginalLanguageCode(getDefaultLanguageCode());
       setPublicCultureInput(culture?.name ?? '');
@@ -143,7 +163,7 @@ export function CulturesPublishingWizardDialog({
   }, [culture?.source_public_culture, open, ownedPublicCultureId]);
 
   useEffect(() => {
-    if (isOwnedPublicCultureUpdate) return undefined;
+    if (isOwnedPublicCultureUpdate || isCropLevelPublish) return undefined;
     if (!open) return undefined;
     const searchTerm = selectedSpecies?.name.trim() || '';
     if (!searchTerm) {
@@ -157,10 +177,23 @@ export function CulturesPublishingWizardDialog({
       setPublicCultureLoading(true);
       publicCultureAPI.list({ q: searchTerm }, abortController.signal)
         .then((response) => {
-          if (!cancelled) {
-            setPublicCultureOptions(response.data.results.filter((entry) => (
-              !selectedSpecies || entry.crop_species === selectedSpecies.id
-            )));
+          if (cancelled) return;
+          const filtered = response.data.results.filter((entry) => (
+            !selectedSpecies || entry.crop_species === selectedSpecies.id
+          ));
+          setPublicCultureOptions(filtered);
+          // If the local variety already has a matching public entry,
+          // recognize it immediately instead of leaving the field empty —
+          // mirrors the species field's own-name prefill above.
+          const normalizedLocalVariety = normalizeSpeciesName(culture?.variety);
+          const match = normalizedLocalVariety
+            ? filtered.find((entry) => normalizeSpeciesName(entry.variety) === normalizedLocalVariety)
+            : undefined;
+          if (match) {
+            setSelectedPublicCulture((prevSelected) => prevSelected ?? match);
+            setExistingVarietyInputValue((prevInput) => (
+              prevInput === (culture?.variety ?? '') ? getExistingVarietyOptionLabel(match) : prevInput
+            ));
           }
         })
         .catch(() => {
@@ -176,7 +209,7 @@ export function CulturesPublishingWizardDialog({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [isOwnedPublicCultureUpdate, open, selectedSpecies]);
+  }, [culture?.variety, isOwnedPublicCultureUpdate, isCropLevelPublish, open, selectedSpecies]);
 
   useEffect(() => {
     if (isOwnedPublicCultureUpdate) return;
@@ -281,6 +314,7 @@ export function CulturesPublishingWizardDialog({
       const response = await cultureAPI.publishPreview(culture.id, {
         crop_species_id: cropSpeciesId,
         original_language_code: originalLanguageCode,
+        ...(isCropLevelPublish ? { publish_as_general: true } : {}),
       });
       setValidationResult(response.data);
       if (!response.data.can_publish) return;
@@ -304,10 +338,12 @@ export function CulturesPublishingWizardDialog({
       acceptedPublicLibraryTerms: !termsAlreadyAccepted && acceptedLicense,
       cropSpeciesId,
       originalLanguageCode,
+      ...(isCropLevelPublish ? { publishAsGeneral: true } : {}),
     });
   }, [
     acceptedLicense,
     culture,
+    isCropLevelPublish,
     licenseAccepted,
     onPublish,
     originalLanguageCode,
@@ -324,9 +360,14 @@ export function CulturesPublishingWizardDialog({
       <DialogContent dividers>
         <Stack spacing={2.25} sx={{ pt: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
-            {t(isOwnedPublicCultureUpdate ? 'library.publishWizard.updateIntro' : 'library.publishWizard.intro', {
-              name: culture?.name ?? '',
-            })}
+            {t(
+              isOwnedPublicCultureUpdate
+                ? 'library.publishWizard.updateIntro'
+                : isCropLevelPublish
+                  ? 'library.publishWizard.introGeneral'
+                  : 'library.publishWizard.intro',
+              { name: culture?.name ?? '' },
+            )}
           </Typography>
 
           <Stack spacing={2}>
@@ -403,36 +444,44 @@ export function CulturesPublishingWizardDialog({
                   )}
                 />
 
-                <Autocomplete
-                  options={existingVarietyOptions}
-                  value={selectedPublicCulture}
-                  loading={publicCultureLoading}
-                  getOptionLabel={getPublicCultureOptionLabel}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  filterOptions={(options) => options}
-                  onChange={(_, value) => {
-                    setSelectedPublicCulture(value);
-                    resetValidationResult();
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('library.publishWizard.existingVarietyLabel')}
-                      helperText={culture?.variety?.trim()
-                        ? t('library.publishWizard.existingVarietyHelp')
-                        : t('library.publishWizard.publicCultureHelp')}
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                />
+                {isCropLevelPublish ? null : (
+                  <Autocomplete
+                    options={existingVarietyOptions}
+                    value={selectedPublicCulture}
+                    inputValue={existingVarietyInputValue}
+                    loading={publicCultureLoading}
+                    getOptionLabel={getExistingVarietyOptionLabel}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    filterOptions={(options) => options}
+                    onChange={(_, value) => {
+                      setSelectedPublicCulture(value);
+                      setExistingVarietyInputValue(value ? getExistingVarietyOptionLabel(value) : '');
+                      resetValidationResult();
+                    }}
+                    onInputChange={(_, value, reason) => {
+                      if (reason === 'reset') return;
+                      setExistingVarietyInputValue(value);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t('library.publishWizard.existingVarietyLabel')}
+                        helperText={culture?.variety?.trim()
+                          ? t('library.publishWizard.existingVarietyHelp')
+                          : t('library.publishWizard.publicCultureHelp')}
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                )}
               </>
             )}
 
@@ -492,7 +541,7 @@ export function CulturesPublishingWizardDialog({
             ) : null}
 
             {!isOwnedPublicCultureUpdate ? (
-              <>
+              showLanguageOverride ? (
                 <FormControl fullWidth>
                   <InputLabel id="publishing-original-language-label">{t('library.publishWizard.originalLanguageLabel')}</InputLabel>
                   <Select
@@ -510,7 +559,18 @@ export function CulturesPublishingWizardDialog({
                     ))}
                   </Select>
                 </FormControl>
-              </>
+              ) : (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" color="text.secondary">
+                    {t('library.publishWizard.originalLanguageSummary', {
+                      language: getLanguageDisplayName(originalLanguageCode, i18n.resolvedLanguage ?? i18n.language),
+                    })}
+                  </Typography>
+                  <Button size="small" onClick={() => setShowLanguageOverride(true)}>
+                    {t('library.publishWizard.changeLanguageLink')}
+                  </Button>
+                </Stack>
+              )
             ) : null}
           </Stack>
 

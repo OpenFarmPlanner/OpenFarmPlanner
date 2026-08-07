@@ -895,6 +895,7 @@
     "publishWizard": {
       "title": "Kultur veröffentlichen",
       "intro": "Wähle zuerst die passende öffentliche Kulturart. Deine Sorte wird darunter veröffentlicht; falls es zu dieser Kulturart noch keinen allgemeinen Eintrag gibt, wird er automatisch aus deinen aktuellen Werten angelegt.",
+      "introGeneral": "Wähle die passende öffentliche Kulturart. Es werden die allgemeinen Daten dieser Kulturart veröffentlicht, keine Sorte.",
       "updateIntro": "Prüfe die Änderungen gegenüber deiner öffentlichen Version. Die bestehende öffentliche Kultur wird aktualisiert.",
       "publishNow": "Jetzt veröffentlichen",
       "linkExisting": "Mit öffentlicher Kultur verknüpfen",
@@ -969,6 +970,8 @@
       "proposeSpeciesError": "Der Vorschlag konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "speciesAlreadyExists": "Diese Kulturart existiert bereits oder wurde schon vorgeschlagen — möglicherweise unter einem anderen Namen. Bitte in der Liste danach suchen.",
       "originalLanguageLabel": "Originalsprache",
+      "originalLanguageSummary": "Originalsprache: {{language}}",
+      "changeLanguageLink": "Ändern",
       "translationsOptional": "Fehlende Übersetzungen können später ergänzt werden.",
       "translationAvailable": "Vorhanden",
       "translationMissingOptional": "Fehlt, optional",

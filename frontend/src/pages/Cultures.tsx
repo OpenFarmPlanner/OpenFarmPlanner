@@ -235,12 +235,14 @@ function Cultures() {
     cropSpeciesId?: number;
     originalLanguageCode: string;
     publicCultureId?: number | null;
+    publishAsGeneral?: boolean;
   }) => {
     setPublishWizardOpen(false);
     void handlePublishCurrentCulture(data.acceptedPublicLibraryTerms, {
       cropSpeciesId: data.cropSpeciesId,
       originalLanguageCode: data.originalLanguageCode,
       publicCultureId: data.publicCultureId,
+      publishAsGeneral: data.publishAsGeneral,
     });
   }, [handlePublishCurrentCulture]);
 
