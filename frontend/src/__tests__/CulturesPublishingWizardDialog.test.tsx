@@ -172,6 +172,24 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(screen.queryByText(/wurde zur Prüfung eingereicht/)).not.toBeInTheDocument();
   });
 
+  it('pre-selects the existing public variety that already matches the local variety name', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: {
+        results: [
+          { id: 40, status: 'published', name: 'Tomate', display_name: 'Tomate', variety: 'Roma', crop_species: 1, version: 2 },
+          { id: 41, status: 'published', name: 'Tomate', display_name: 'Tomate', variety: 'Ochsenherz', crop_species: 1, version: 1 },
+        ],
+      },
+    });
+
+    renderWizard();
+
+    await screen.findByLabelText(/Offizielle Kulturart/i);
+    // The species is already selected in the field above, so this field
+    // shows only the variety name — not a redundant "Species · Variety".
+    await waitFor(() => expect(screen.getByDisplayValue('Roma')).toBeInTheDocument());
+  });
+
   it('shows a link to view foreign duplicates instead of blocking on plain text', async () => {
     publishPreviewMock.mockResolvedValue({
       data: {
@@ -192,6 +210,37 @@ describe('CulturesPublishingWizardDialog', () => {
 
     const viewLink = await screen.findByRole('link', { name: 'Eintrag ansehen' });
     expect(viewLink).toHaveAttribute('href', '/app/crop-library?cultureId=55');
+  });
+
+  it('hides the "Existing variety" field and publishes as general for a crop-level culture (no variety)', async () => {
+    const cropLevelCulture: Culture = { ...CULTURE, variety: '' };
+    renderWizard(cropLevelCulture);
+
+    await screen.findByLabelText(/Offizielle Kulturart/i);
+    expect(screen.queryByLabelText('Vorhandene Sorte')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+
+    await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
+      cropLevelCulture.id,
+      expect.objectContaining({ crop_species_id: 1, original_language_code: 'de', publish_as_general: true }),
+    ));
+  });
+
+  it('prefills the species field with the local culture name on open, for crop-level and variety cultures', async () => {
+    renderWizard();
+    expect(await screen.findByDisplayValue('Tomate')).toBeInTheDocument();
+  });
+
+  it('keeps "Original language" collapsed to a summary with a change link by default', async () => {
+    renderWizard();
+    await screen.findByLabelText(/Offizielle Kulturart/i);
+
+    expect(screen.queryByLabelText('Originalsprache')).not.toBeInTheDocument();
+    expect(screen.getByText(/Originalsprache: /)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ändern' }));
+    expect(screen.getByLabelText('Originalsprache')).toBeInTheDocument();
   });
 
   it('shows a dismissible notice when the general crop data looks stale', async () => {

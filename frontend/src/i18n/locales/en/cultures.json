@@ -895,6 +895,7 @@
     "publishWizard": {
       "title": "Publish culture",
       "intro": "First choose the matching public crop species. Your variety is published under it; if the species has no general entry yet, one is created automatically from your current values.",
+      "introGeneral": "Choose the matching public crop species. Only its general data is published, not a variety.",
       "updateIntro": "Review the changes compared with your public version. The existing public crop will be updated.",
       "publishNow": "Publish now",
       "linkExisting": "Link public crop",
@@ -969,6 +970,8 @@
       "proposeSpeciesError": "The suggestion could not be saved. Please try again.",
       "speciesAlreadyExists": "This crop species already exists or has already been suggested — possibly under a different name. Please search for it in the list.",
       "originalLanguageLabel": "Original language",
+      "originalLanguageSummary": "Original language: {{language}}",
+      "changeLanguageLink": "Change",
       "translationsOptional": "Missing translations can be added later.",
       "translationAvailable": "Available",
       "translationMissingOptional": "Missing, optional",
