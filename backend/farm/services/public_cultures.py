@@ -108,8 +108,9 @@ class PublishingCheckResult:
     original_language_code: str
     available_language_codes: list[str]
     missing_required_fields: list[MissingRequiredField]
-    duplicates: list['DuplicateCandidate']
+    duplicates: list[DuplicateCandidate]
     can_publish: bool
+    general_crop_notice: GeneralCropNotice | None = None
 
 
 @dataclass(frozen=True)
@@ -120,6 +121,15 @@ class DuplicateCandidate:
     version: int
     published_at: Any
     created_by_label: str
+    is_mine: bool
+
+
+@dataclass(frozen=True)
+class GeneralCropNotice:
+    public_culture_id: int
+    updated_at: Any
+    is_stale: bool
+    is_incomplete: bool
 
 
 class DuplicatePublicCultureError(Exception):
@@ -556,6 +566,7 @@ def detect_public_culture_duplicates(
     *,
     crop_species: CropSpecies | None = None,
     public_variety: str | None = None,
+    user: User | None = None,
 ) -> list[DuplicateCandidate]:
     """Published entries that would be duplicates of this culture.
 
@@ -602,6 +613,7 @@ def detect_public_culture_duplicates(
             version=item.version,
             published_at=item.published_at,
             created_by_label=item.created_by_label,
+            is_mine=bool(user and user.is_authenticated and item.created_by_id == user.id),
         ))
         if len(candidates) >= 5:
             break
@@ -637,12 +649,16 @@ def build_publishing_check_result(
         culture,
         crop_species=crop_species,
         public_variety=public_variety,
+        user=user,
     ) if crop_species else []
     update_target = find_owned_public_culture_for_update(culture=culture, user=user)
     if update_target:
         duplicates = [item for item in duplicates if item.id != update_target.id]
     missing_required_fields = get_public_required_field_gaps(culture, require_variety=not publish_as_general)
     can_publish = bool(crop_species and language_code and not missing_required_fields and not duplicates)
+    general_crop_notice = (
+        build_general_crop_notice(crop_species) if crop_species and not publish_as_general else None
+    )
     return PublishingCheckResult(
         crop_species=crop_species,
         original_language_code=language_code,
@@ -650,7 +666,81 @@ def build_publishing_check_result(
         missing_required_fields=missing_required_fields,
         duplicates=duplicates,
         can_publish=can_publish,
+        general_crop_notice=general_crop_notice,
     )
+
+
+GENERAL_CROP_STALE_THRESHOLD_DAYS = 730  # ~24 months
+
+
+def find_general_public_culture(crop_species: CropSpecies) -> PublicCulture | None:
+    """The species-level (variety-less) published entry for `crop_species`, if any."""
+    return PublicCulture.objects.filter(
+        crop_species=crop_species,
+        variety_normalized='',
+        status=PublicCulture.STATUS_PUBLISHED,
+    ).order_by('-updated_at', '-id').first()
+
+
+def build_general_crop_notice(crop_species: CropSpecies) -> GeneralCropNotice | None:
+    """Surface a dismissible hint when the species-level public data looks neglected.
+
+    Only reports on an *existing* general entry — a missing one is handled by
+    `ensure_general_public_culture` creating it automatically on publish, not
+    by warning about it here.
+    """
+    general = find_general_public_culture(crop_species)
+    if general is None:
+        return None
+    is_stale = (timezone.now() - general.updated_at).days > GENERAL_CROP_STALE_THRESHOLD_DAYS
+    is_incomplete = bool(get_public_required_field_gaps(general, require_variety=False))
+    if not is_stale and not is_incomplete:
+        return None
+    return GeneralCropNotice(
+        public_culture_id=general.id,
+        updated_at=general.updated_at,
+        is_stale=is_stale,
+        is_incomplete=is_incomplete,
+    )
+
+
+def ensure_general_public_culture(
+    *,
+    crop_species: CropSpecies,
+    culture: Culture,
+    original_language_code: str,
+    user: User | None,
+) -> PublicCulture | None:
+    """Create the species-level public entry from `culture`'s values if it doesn't exist yet.
+
+    Publishing a variety must never touch an *existing* general entry — other
+    contributors may already have curated it — so this is a no-op whenever one
+    is found, regardless of how different `culture`'s own values are.
+    """
+    if find_general_public_culture(crop_species) is not None:
+        return None
+
+    public_culture = PublicCulture.objects.create(
+        created_by=user,
+        status=PublicCulture.STATUS_PUBLISHED,
+        version=1,
+        crop_species=crop_species,
+        original_language_code=original_language_code,
+        **build_public_culture_payload(culture, public_variety=''),
+    )
+    sync_original_language_translation(public_culture)
+    _record_public_culture_status_event(
+        public_culture=public_culture,
+        from_status='',
+        to_status=PublicCulture.STATUS_PUBLISHED,
+        user=user,
+    )
+    create_public_culture_revision(
+        public_culture=public_culture,
+        user=user,
+        action=PublicCultureRevision.ACTION_CREATED,
+    )
+    return public_culture
 
 
 def find_owned_public_culture_for_update(*, culture: Culture, user: User | None) -> PublicCulture | None:
@@ -819,6 +909,17 @@ def publish_culture_to_public_library(
         )
     culture.crop_species = check_result.crop_species
     culture.save(update_fields=['crop_species', 'updated_at'])
+    if not publish_as_general:
+        # Publishing a variety always needs a species-level entry for the crop
+        # to hang off; create it from this culture's own values if the
+        # species doesn't have one yet. An existing general entry is never
+        # touched here (see ensure_general_public_culture's docstring).
+        ensure_general_public_culture(
+            crop_species=check_result.crop_species,
+            culture=culture,
+            original_language_code=check_result.original_language_code,
+            user=user,
+        )
     public_culture = PublicCulture.objects.create(
         created_by=user,
         status=PublicCulture.STATUS_PUBLISHED,

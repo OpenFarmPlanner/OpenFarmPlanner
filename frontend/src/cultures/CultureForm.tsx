@@ -53,6 +53,11 @@ import { hasSupplierDataRowMissingSupplier, hasSupplierInformation } from './sup
 import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
 import { findSpeciesCulture } from './cropHierarchy';
+import {
+  dedupePublicCulturesBySpecies,
+  dedupePublicCultureVarieties,
+  normalizeIdentityValue,
+} from './publicCultureNameSuggestions';
 import { getVarietyOwnValueSource } from './varietyValueSource';
 import { varietySpecificFieldHighlightSx } from './varietyValueAccent';
 import { buildVarietyFieldTooltipTitle, type GetVarietyFieldTooltipProps } from './varietyFieldTooltipHelpers';
@@ -301,6 +306,9 @@ export function CultureForm({
   const [publicCultureOptions, setPublicCultureOptions] = useState<PublicCulture[]>([]);
   const [publicCultureOptionsLoading, setPublicCultureOptionsLoading] = useState(false);
   const [publicCultureSearchTerm, setPublicCultureSearchTerm] = useState('');
+  const [matchedCropSpeciesId, setMatchedCropSpeciesId] = useState<number | null>(null);
+  const [varietyPublicCultures, setVarietyPublicCultures] = useState<PublicCulture[]>([]);
+  const [varietyOptionsLoading, setVarietyOptionsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -387,6 +395,9 @@ export function CultureForm({
     setPublicCultureOptions([]);
     setPublicCultureOptionsLoading(false);
     setPublicCultureSearchTerm('');
+    setMatchedCropSpeciesId(null);
+    setVarietyPublicCultures([]);
+    setVarietyOptionsLoading(false);
     setIsDirty(false);
     setIsValid(true);
     setHasSubmitted(false);
@@ -539,6 +550,55 @@ export function CultureForm({
     };
   }, [isProjectForm, publicCultureSearchTerm]);
 
+  // "Name" suggestions must be unique crop species, never "Species · Variety"
+  // combinations — the Variety field below covers the sorte-specific part.
+  const nameOptions = useMemo(() => dedupePublicCulturesBySpecies(publicCultureOptions), [publicCultureOptions]);
+
+  // The Variety field only gets suggestions once the Name field's text
+  // exactly matches an existing public crop species; free text otherwise.
+  useEffect(() => {
+    if (!isProjectForm) {
+      queueMicrotask(() => setMatchedCropSpeciesId(null));
+      return;
+    }
+    const normalizedName = normalizeIdentityValue(formData.name);
+    const match = normalizedName
+      ? nameOptions.find((option) => normalizeIdentityValue(option.name) === normalizedName)
+      : undefined;
+    queueMicrotask(() => setMatchedCropSpeciesId(match?.cropSpeciesId ?? null));
+  }, [formData.name, isProjectForm, nameOptions]);
+
+  useEffect(() => {
+    if (!isProjectForm || matchedCropSpeciesId === null) {
+      queueMicrotask(() => {
+        setVarietyPublicCultures([]);
+        setVarietyOptionsLoading(false);
+      });
+      return undefined;
+    }
+
+    let cancelled = false;
+    const abortController = new AbortController();
+    queueMicrotask(() => setVarietyOptionsLoading(true));
+    publicCultureAPI.list({ crop_species: matchedCropSpeciesId }, abortController.signal)
+      .then((response) => {
+        if (!cancelled) setVarietyPublicCultures(response.data.results);
+      })
+      .catch(() => {
+        if (!cancelled && !abortController.signal.aborted) setVarietyPublicCultures([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVarietyOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [isProjectForm, matchedCropSpeciesId]);
+
+  const varietyOptions = useMemo(() => dedupePublicCultureVarieties(varietyPublicCultures), [varietyPublicCultures]);
+
   // Handle field changes
   // Strongly typed change handler
   const handleChange = <K extends keyof Culture>(name: K, value: Culture[K]) => {
@@ -599,6 +659,39 @@ export function CultureForm({
       return updated;
     });
   }, [validateAndSet]);
+
+  // Selecting a species-only Name suggestion links `crop_species` without
+  // guessing which variety's values to prefill — only a concrete Variety
+  // selection (below) has an actual PublicCulture row to copy from.
+  const handleNameOptionSelect = useCallback((option: { cropSpeciesId: number | null } | null) => {
+    setFormData((prev) => {
+      const updated = { ...prev, crop_species: option?.cropSpeciesId ?? null };
+      setIsDirty(true);
+      setUserInteracted(true);
+      setSaveError('');
+      validateAndSet(updated);
+      return updated;
+    });
+  }, [validateAndSet]);
+
+  const handleVarietyCommit = useCallback((variety: string) => {
+    const matchedCulture = variety.trim()
+      ? varietyPublicCultures.find((item) => normalizeIdentityValue(item.variety || '') === normalizeIdentityValue(variety))
+      : undefined;
+    if (matchedCulture) {
+      handlePublicCultureSelect(matchedCulture);
+      return;
+    }
+    setFormData((prev) => {
+      const updated = { ...prev, variety };
+      setIsDirty(true);
+      setUserInteracted(true);
+      setSaveError('');
+      setDuplicateErrorKey('');
+      validateAndSet(updated);
+      return updated;
+    });
+  }, [handlePublicCultureSelect, validateAndSet, varietyPublicCultures]);
 
   // Tab/Shift+Tab inside this dialog is MUI's `Dialog` focus trap's job; Tab
   // out of an open Select dropdown belongs to `TypeaheadSelect`. Do not add a
@@ -837,10 +930,13 @@ export function CultureForm({
               showFirstVarietyField={showFirstVarietyField}
               firstVarietyName={firstVarietyName}
               onFirstVarietyNameChange={handleFirstVarietyNameChange}
-              publicCultureOptions={isProjectForm ? publicCultureOptions : undefined}
-              publicCultureOptionsLoading={publicCultureOptionsLoading}
-              onPublicCultureSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}
-              onPublicCultureSelect={isProjectForm ? handlePublicCultureSelect : undefined}
+              nameOptions={isProjectForm ? nameOptions : undefined}
+              nameOptionsLoading={publicCultureOptionsLoading}
+              onNameSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}
+              onNameOptionSelect={isProjectForm ? handleNameOptionSelect : undefined}
+              varietyOptions={isProjectForm ? varietyOptions : undefined}
+              varietyOptionsLoading={varietyOptionsLoading}
+              onVarietyCommit={isProjectForm ? handleVarietyCommit : undefined}
               identityHint={isProjectForm && formData.source_public_culture ? (
                 <Box
                   sx={(theme) => ({

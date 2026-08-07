@@ -550,17 +550,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             return Response({
                 'code': 'duplicate_public_culture',
                 'detail': 'A similar public culture already exists.',
-                'duplicates': [
-                    {
-                        'id': item.id,
-                        'name': item.name,
-                        'variety': item.variety,
-                        'version': item.version,
-                        'published_at': item.published_at,
-                        'created_by_label': item.created_by_label,
-                    }
-                    for item in error.duplicates
-                ],
+                'duplicates': self._serialize_duplicates(error.duplicates),
                 'normalized_identity': error.normalized_identity,
             }, status=status.HTTP_409_CONFLICT)
         if not has_library_consent:
@@ -569,17 +559,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         return Response({
             'operation': operation,
             'public_culture': serializer.data,
-            'duplicates': [
-                {
-                    'id': item.id,
-                    'name': item.name,
-                    'variety': item.variety,
-                    'version': item.version,
-                    'published_at': item.published_at,
-                    'created_by_label': item.created_by_label,
-                }
-                for item in duplicates
-            ],
+            'duplicates': self._serialize_duplicates(duplicates),
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='link-public-culture')
@@ -619,6 +599,20 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         )
         return Response(self._serialize_publishing_check_result(result))
 
+    def _serialize_duplicates(self, duplicates):
+        return [
+            {
+                'id': item.id,
+                'name': item.name,
+                'variety': item.variety,
+                'version': item.version,
+                'published_at': item.published_at,
+                'created_by_label': item.created_by_label,
+                'is_mine': item.is_mine,
+            }
+            for item in duplicates
+        ]
+
     def _serialize_publishing_check_result(self, result):
         return {
             'crop_species': (
@@ -632,18 +626,18 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 {'field': item.field, 'label_key': item.label_key}
                 for item in result.missing_required_fields
             ],
-            'duplicates': [
-                {
-                    'id': item.id,
-                    'name': item.name,
-                    'variety': item.variety,
-                    'version': item.version,
-                    'published_at': item.published_at,
-                    'created_by_label': item.created_by_label,
-                }
-                for item in result.duplicates
-            ],
+            'duplicates': self._serialize_duplicates(result.duplicates),
             'can_publish': result.can_publish,
+            'general_crop_notice': (
+                {
+                    'public_culture_id': result.general_crop_notice.public_culture_id,
+                    'updated_at': result.general_crop_notice.updated_at,
+                    'is_stale': result.general_crop_notice.is_stale,
+                    'is_incomplete': result.general_crop_notice.is_incomplete,
+                }
+                if result.general_crop_notice
+                else None
+            ),
         }
 
 

@@ -108,6 +108,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         query = (self.request.query_params.get('q') or '').strip()
         name = (self.request.query_params.get('name') or '').strip()
         variety = (self.request.query_params.get('variety') or '').strip()
+        crop_species_param = (self.request.query_params.get('crop_species') or '').strip()
 
         if query:
             queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
@@ -116,6 +117,11 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         if variety:
             # Variety names are proper names — matched verbatim, not translated.
             queryset = queryset.filter(variety__icontains=variety)
+        if crop_species_param:
+            try:
+                queryset = queryset.filter(crop_species_id=int(crop_species_param))
+            except ValueError:
+                queryset = queryset.none()
         return queryset
 
     def get_serializer_class(self):

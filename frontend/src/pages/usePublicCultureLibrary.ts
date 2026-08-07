@@ -117,7 +117,7 @@ export function usePublicCultureLibrary({
 
   const handlePublishCurrentCulture = async (
     acceptedPublicLibraryTerms = false,
-    publishingData?: { cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null; publishAsGeneral?: boolean },
+    publishingData?: { cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null },
   ): Promise<boolean> => {
     if (!selectedCulture?.id) {
       return false;
@@ -136,7 +136,6 @@ export function usePublicCultureLibrary({
         ...(publishingData ? {
           crop_species_id: publishingData.cropSpeciesId,
           original_language_code: publishingData.originalLanguageCode,
-          ...(publishingData.publishAsGeneral !== undefined ? { publish_as_general: publishingData.publishAsGeneral } : {}),
         } : {}),
       });
       if (response.data.operation === 'updated') {
