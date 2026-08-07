@@ -985,7 +985,10 @@ const detailSectionGridSx = {
 
             <Divider sx={{ mb: 2.5 }} />
 
-            {/* Varieties Section */}
+            {/* Varieties Section — only relevant when viewing the crop/species
+                overview, not a single variety's own detail page. */}
+            {isSpeciesView ? (
+            <>
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
                 <Typography variant="h6">
@@ -1049,6 +1052,8 @@ const detailSectionGridSx = {
             </Box>
 
             <Divider sx={{ mb: 2.5 }} />
+            </>
+            ) : null}
 
             {/* General Information Section */}
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
