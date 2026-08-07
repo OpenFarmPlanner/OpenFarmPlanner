@@ -511,10 +511,28 @@ def get_public_required_field_gaps(culture: Culture, *, require_variety: bool = 
     return gaps
 
 
+PUBLISHABLE_CROP_SPECIES_STATUSES = (CropSpecies.STATUS_PUBLISHED, CropSpecies.STATUS_PROPOSED)
+
+
 def resolve_publishing_crop_species(*, culture: Culture, crop_species_id: int | None) -> CropSpecies | None:
+    """A species usable as the publish target: published, or still pending moderation.
+
+    A `proposed` species is intentionally allowed here so a user who just
+    suggested a missing species inline doesn't have to wait for moderator
+    approval before publishing their variety under it — the variety publishes
+    right away and becomes fully official once the species is approved (the
+    `CropSpecies` row is updated in place, so nothing needs to be relinked).
+    `rejected` species are excluded.
+    """
     if crop_species_id:
-        return CropSpecies.objects.filter(id=crop_species_id, status=CropSpecies.STATUS_PUBLISHED).first()
-    return culture.crop_species if culture.crop_species and culture.crop_species.status == CropSpecies.STATUS_PUBLISHED else None
+        return CropSpecies.objects.filter(
+            id=crop_species_id, status__in=PUBLISHABLE_CROP_SPECIES_STATUSES,
+        ).first()
+    return (
+        culture.crop_species
+        if culture.crop_species and culture.crop_species.status in PUBLISHABLE_CROP_SPECIES_STATUSES
+        else None
+    )
 
 
 def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, Any]:
