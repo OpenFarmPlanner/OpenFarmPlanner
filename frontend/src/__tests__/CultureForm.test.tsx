@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CultureForm } from '../cultures/CultureForm';
 import type { Culture, PublicCulture } from '../api/types';
+import type { PublicCultureSpeciesOption } from '../cultures/publicCultureNameSuggestions';
 
 vi.mock('../i18n', () => ({
   useTranslation: () => ({
@@ -46,9 +47,11 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     showFirstVarietyField = false,
     firstVarietyName = '',
     onFirstVarietyNameChange,
-    publicCultureOptions = [],
-    onPublicCultureSearchChange,
-    onPublicCultureSelect,
+    nameOptions = [],
+    onNameSearchChange,
+    onNameOptionSelect,
+    varietyOptions = [],
+    onVarietyCommit,
   }: {
     formData: Partial<Culture>;
     errors: Record<string, string>;
@@ -58,23 +61,31 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     showFirstVarietyField?: boolean;
     firstVarietyName?: string;
     onFirstVarietyNameChange?: (value: string) => void;
-    publicCultureOptions?: PublicCulture[];
-    onPublicCultureSearchChange?: (value: string) => void;
-    onPublicCultureSelect?: (culture: PublicCulture | null) => void;
+    nameOptions?: PublicCultureSpeciesOption[];
+    onNameSearchChange?: (value: string) => void;
+    onNameOptionSelect?: (option: PublicCultureSpeciesOption | null) => void;
+    varietyOptions?: string[];
+    onVarietyCommit?: (variety: string) => void;
   }) => (
     <div>
       <input
         aria-label="name-input"
         value={formData.name ?? ''}
         onChange={(event) => {
-          onPublicCultureSearchChange?.(event.target.value);
+          onNameSearchChange?.(event.target.value);
           onChange('name', event.target.value);
-          onPublicCultureSelect?.(null);
+          onNameOptionSelect?.(null);
         }}
       />
-      {publicCultureOptions[0] ? (
-        <button type="button" onClick={() => onPublicCultureSelect?.(publicCultureOptions[0])}>
-          select-public-culture
+      {nameOptions[0] ? (
+        <button
+          type="button"
+          onClick={() => {
+            onChange('name', nameOptions[0].name);
+            onNameOptionSelect?.(nameOptions[0]);
+          }}
+        >
+          select-name-option
         </button>
       ) : null}
       {errors.name ? <span>{errors.name}</span> : null}
@@ -84,6 +95,11 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
           value={formData.variety ?? ''}
           onChange={(event) => onChange('variety', event.target.value)}
         />
+      ) : null}
+      {showVarietyField && varietyOptions[0] ? (
+        <button type="button" onClick={() => onVarietyCommit?.(varietyOptions[0])}>
+          select-variety-option
+        </button>
       ) : null}
       {errors.variety ? <span>{errors.variety}</span> : null}
       {showFirstVarietyField ? (
@@ -583,6 +599,37 @@ describe('CultureForm', () => {
     expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
   });
 
+  it('offers no variety suggestions until the name matches an existing public crop species', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        version: 3,
+      } as PublicCulture] },
+    });
+
+    render(
+      <CultureForm
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    // Typed text ("Tomaten") does not exactly match the suggested species
+    // ("Tomate") yet, so the variety field must stay free text.
+    expect(screen.queryByRole('button', { name: 'select-variety-option' })).not.toBeInTheDocument();
+    expect(publicCultureListMock).not.toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    );
+  });
+
   it('copies public culture base values when a suggestion is selected', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
     publicCultureListMock.mockResolvedValue({
@@ -609,8 +656,10 @@ describe('CultureForm', () => {
     );
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
-    await screen.findByRole('button', { name: 'select-public-culture' });
-    fireEvent.click(screen.getByRole('button', { name: 'select-public-culture' }));
+    await screen.findByRole('button', { name: 'select-name-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
+    await screen.findByRole('button', { name: 'select-variety-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-variety-option' }));
     await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
       { name: 'Tomate', variety: 'Moneymaker', exclude_id: undefined },
       expect.any(AbortSignal),

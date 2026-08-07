@@ -63,8 +63,10 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['operation'], 'created')
-        self.assertEqual(PublicCulture.objects.count(), 1)
-        public_culture = PublicCulture.objects.get()
+        # Publishing a variety also auto-creates the species-level general
+        # entry, since none existed yet for this species.
+        self.assertEqual(PublicCulture.objects.count(), 2)
+        public_culture = PublicCulture.objects.get(variety='Bijella')
         self.assertEqual(public_culture.name, self.culture.name)
         self.assertEqual(public_culture.variety, self.culture.variety)
         self.assertEqual(public_culture.source_project_culture, self.culture)
@@ -72,6 +74,9 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(public_culture.original_language_code, 'en')
         self.assertEqual(public_culture.seed_packages[0]['size_value'], 25.0)
         self.assertEqual(response.data['duplicates'], [])
+        general_public_culture = PublicCulture.objects.get(variety='')
+        self.assertEqual(general_public_culture.crop_species, self.species)
+        self.assertEqual(general_public_culture.growth_duration_days, 50)
         self.assertTrue(
             DocumentConsent.objects.filter(
                 user=self.user,
@@ -205,9 +210,34 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['detail'], 'A similar public culture already exists.')
         self.assertEqual(len(response.data['duplicates']), 1)
         self.assertEqual(response.data['duplicates'][0]['name'], 'Lettuce')
+        self.assertTrue(response.data['duplicates'][0]['is_mine'])
         self.assertEqual(response.data['normalized_identity']['name'], 'lettuce')
         self.assertEqual(response.data['normalized_identity']['variety'], 'bijella')
         self.assertEqual(PublicCulture.objects.count(), 1)
+
+    def test_publish_conflict_response_flags_foreign_duplicates_as_not_mine(self):
+        other_user = User.objects.create_user(username='foreign-owner', email='foreign@example.com', password='testpass', is_active=True)
+        other_culture = Culture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            crop_species=self.species,
+            project=self.project,
+        )
+        PublicCulture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            status='published',
+            crop_species=self.species,
+            created_by=other_user,
+            source_project=self.project,
+            source_project_culture=other_culture,
+        )
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(len(response.data['duplicates']), 1)
+        self.assertFalse(response.data['duplicates'][0]['is_mine'])
 
     def test_second_publish_updates_own_linked_public_culture_and_increments_version(self):
         first_publish = self.publish_current_culture()
@@ -222,7 +252,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(second_publish.status_code, status.HTTP_201_CREATED)
         self.assertEqual(second_publish.data['operation'], 'updated')
         self.assertEqual(second_publish.data['public_culture']['id'], public_culture_id)
-        self.assertEqual(PublicCulture.objects.count(), 1)
+        # variety entry (updated in place) + the general entry auto-created on first publish
+        self.assertEqual(PublicCulture.objects.count(), 2)
 
         updated_public = PublicCulture.objects.get(id=public_culture_id)
         self.assertEqual(updated_public.version, 2)
@@ -320,7 +351,119 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         response = self.publish_current_culture()
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(PublicCulture.objects.count(), 2)
+        # existing 'Bijella' duplicate + new 'Other Variety' + auto-created general entry
+        self.assertEqual(PublicCulture.objects.count(), 3)
+
+    def test_publish_does_not_touch_an_existing_general_public_culture(self):
+        existing_general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+        )
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.growth_duration_days, 99)
+        self.assertEqual(existing_general.version, 1)
+
+    def test_publish_preview_reports_stale_general_crop_notice(self):
+        general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            growth_duration_days=10,
+            harvest_duration_days=10,
+        )
+        PublicCulture.objects.filter(pk=general.pk).update(updated_at=timezone.now() - timedelta(days=800))
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notice = response.data['general_crop_notice']
+        self.assertIsNotNone(notice)
+        self.assertEqual(notice['public_culture_id'], general.id)
+        self.assertTrue(notice['is_stale'])
+        self.assertFalse(notice['is_incomplete'])
+
+    def test_publish_preview_reports_incomplete_general_crop_notice(self):
+        general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            growth_duration_days=None,
+            harvest_duration_days=None,
+        )
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notice = response.data['general_crop_notice']
+        self.assertIsNotNone(notice)
+        self.assertEqual(notice['public_culture_id'], general.id)
+        self.assertTrue(notice['is_incomplete'])
+        self.assertFalse(notice['is_stale'])
+
+    def test_publish_preview_reports_no_general_crop_notice_when_up_to_date(self):
+        PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            growth_duration_days=50,
+            harvest_duration_days=20,
+        )
+
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data['general_crop_notice'])
+
+    def test_publish_preview_reports_no_general_crop_notice_when_no_general_entry_exists(self):
+        response = self.client.get(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data['general_crop_notice'])
+
+    def test_public_culture_list_filters_by_crop_species(self):
+        other_species = CropSpecies.objects.create(name='Carrot')
+        PublicCulture.objects.create(
+            name='Lettuce', variety='Bijella', status='published',
+            crop_species=self.species, created_by=self.user,
+        )
+        PublicCulture.objects.create(
+            name='Carrot', variety='Mokum', status='published',
+            crop_species=other_species, created_by=self.user,
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/', {'crop_species': self.species.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [item['variety'] for item in response.data['results']]
+        self.assertEqual(names, ['Bijella'])
 
     def test_import_public_culture_creates_project_local_copy(self):
         public_culture = PublicCulture.objects.create(

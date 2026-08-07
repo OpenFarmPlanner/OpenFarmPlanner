@@ -345,6 +345,14 @@ export interface PublicCultureDuplicateCandidate {
   version: number;
   published_at?: string | null;
   created_by_label?: string;
+  is_mine: boolean;
+}
+
+export interface GeneralCropNotice {
+  public_culture_id: number;
+  updated_at: string;
+  is_stale: boolean;
+  is_incomplete: boolean;
 }
 
 export interface CultureDuplicateCheckResponse {
@@ -425,6 +433,7 @@ export interface PublishPublicCulturePreview {
   missing_required_fields: Array<{ field: string; label_key: string }>;
   duplicates: PublicCultureDuplicateCandidate[];
   can_publish: boolean;
+  general_crop_notice: GeneralCropNotice | null;
 }
 
 export interface PublishPublicCultureResponse {

@@ -100,10 +100,28 @@ Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
 Private project cultures are intentionally independent from that public master
-data. The project culture form may suggest published public cultures while the
-user types `Kulturart`, and selecting one copies available baseline values plus
-`source_public_culture`/`source_public_version` into the private draft. Free
-text remains valid at all times and never creates or proposes a public entry.
+data. `Culture.crop_species` stays nullable and the "Add crop" dialog never
+requires linking to a public entry — free text remains valid at all times and
+never creates or proposes a public entry.
+
+The "Add crop" dialog's `Kulturart` ("Name") and `Sorte` ("Variety") fields
+are two separate suggestion sources
+(`frontend/src/cultures/publicCultureNameSuggestions.ts`,
+wired up in `CultureForm.tsx`/`BasicInfoSection.tsx`): the Name field
+suggests deduplicated public crop species names only (one option per
+`crop_species`, never a "Species · Variety" combination), and the Variety
+field only offers suggestions — fetched via
+`GET /api/public-cultures/?crop_species=<id>` — once the typed name exactly
+matches one of those species suggestions; otherwise it stays free text.
+Selecting a Name suggestion links `crop_species` immediately (a lightweight
+match, no other field is guessed yet); selecting a concrete Variety
+suggestion is what actually copies baseline values plus
+`source_public_culture`/`source_public_version` into the private draft, since
+only at that point does a single `PublicCulture` row exist to copy from. Both
+suggestion sources filter out entries whose name or variety looks like
+manual-QA test data (`isLikelyTestPublicCultureEntry`) — a display-only
+filter; no public-library rows are deleted for this.
+
 Only the publishing wizard requires a public-library decision: users either
 link the private culture to an existing published `PublicCulture`, or continue
 the existing new-public-entry flow after choosing an official `CropSpecies`.
@@ -317,23 +335,50 @@ for no functional benefit right now. German UI text (`"Kultur"`,
 Publishing a project-owned `Culture` is no longer a direct copy action from
 the project Crop Library page. The frontend opens `CulturesPublishingWizardDialog`,
 which keeps the normal path intentionally small: the user selects the
-official `CropSpecies`, chooses whether the entry belongs to the general crop
-or to a variety, confirms the original language, and clicks publish.
-The dialog calls `/api/cultures/<id>/publish-public/preview/` only as a
-background validation step when the user attempts publication, then shows
-only actionable problems:
+official `CropSpecies`, confirms the original language, and clicks publish.
+The wizard always publishes the culture's variety — there is no separate
+"general crop or variety" choice in the UI. The dialog calls
+`/api/cultures/<id>/publish-public/preview/` only as a background validation
+step when the user attempts publication, then shows only actionable problems:
 
 - official `CropSpecies` selected;
 - exactly one original language selected (defaulted from the UI language);
-- public-library required fields complete; and
+- public-library required fields complete (including `variety`, since a
+  culture without a variety cannot be published from this dialog); and
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
 
-For the general-crop path, the frontend sends `publish_as_general=true`.
-Preview and publish validation then check duplicates with an empty public
-variety and do not require the private culture's variety field. This allows a
-project crop that has private variety text to publish a species-level public
-entry intentionally instead of accidentally creating another variety entry.
+The species `Autocomplete` renders an inline proposal prompt as its
+`noOptionsText` when a typed name matches no official species, instead of a
+separate always-visible link — clicking it calls
+`crops.services`' `CropSpecies.propose()` endpoint directly from the
+dropdown.
+
+When publishing a variety and the species has no species-level ("general",
+empty-`variety`) published entry yet, the backend
+(`ensure_general_public_culture()` in `farm.services.public_cultures`)
+creates one automatically from the culture's own current values, in the same
+transaction as the variety publish. If a general entry already exists for
+that species, it is left untouched — publishing a variety never overwrites
+another contributor's general data. `publish_as_general=True` remains
+supported by the backend (and by `publishPreview`/`publishPublic` in
+`api/api.ts`) for backward compatibility, but the wizard no longer sends it.
+
+`build_publishing_check_result()` also returns an optional
+`general_crop_notice` (`public_culture_id`, `updated_at`, `is_stale`,
+`is_incomplete`) whenever the species' general entry hasn't been updated in
+over 24 months (`GENERAL_CROP_STALE_THRESHOLD_DAYS`) or is missing one of the
+public-required fields. The wizard shows this as a dismissible info `Alert`
+linking to `/app/crop-library?cultureId=<id>` — it never blocks publishing.
+
+Duplicate candidates (`DuplicateCandidate`/`PublicCultureDuplicateCandidate`)
+now carry an `is_mine` flag (`created_by_id == user.id`). Since a user's own
+matching entry for the same source culture is already resolved as an update
+target rather than surfaced as a duplicate, `is_mine: false` is the common
+case in the blocking-duplicates list; the wizard renders each duplicate with
+a "View entry" link to `/app/crop-library?cultureId=<id>` so a name collision
+with someone else's entry points at a concrete place to look, rather than
+only naming it in text.
 
 Missing translations remain optional and are not shown as a normal blocking
 step. The existing CC BY-SA public-library contribution consent is also not

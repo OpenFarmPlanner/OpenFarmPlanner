@@ -4,12 +4,13 @@
 import type { ReactNode } from 'react';
 import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
 import { fieldRowSx, mediumFieldSx, smallFieldSx, wideFieldSx } from './styles.tsx';
-import type { Culture, PublicCulture } from '../../api/types';
+import type { Culture } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { VarietyFieldTooltip } from '../VarietyFieldTooltip';
 import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
 import { mergeVarietyFieldSx } from '../varietyValueAccent';
+import type { PublicCultureSpeciesOption } from '../publicCultureNameSuggestions';
 
 interface BasicInfoSectionProps {
   formData: Partial<Culture>;
@@ -22,20 +23,17 @@ interface BasicInfoSectionProps {
   showFirstVarietyField?: boolean;
   firstVarietyName?: string;
   onFirstVarietyNameChange?: (value: string) => void;
-  publicCultureOptions?: PublicCulture[];
-  publicCultureOptionsLoading?: boolean;
-  onPublicCultureSearchChange?: (value: string) => void;
-  onPublicCultureSelect?: (culture: PublicCulture | null) => void;
+  /** Deduplicated crop-species-level name suggestions (never "Species · Variety" combinations). */
+  nameOptions?: PublicCultureSpeciesOption[];
+  nameOptionsLoading?: boolean;
+  onNameSearchChange?: (value: string) => void;
+  onNameOptionSelect?: (option: PublicCultureSpeciesOption | null) => void;
+  /** Variety suggestions for the crop species currently matched in the Name field; empty otherwise. */
+  varietyOptions?: string[];
+  varietyOptionsLoading?: boolean;
+  onVarietyCommit?: (variety: string) => void;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
-
-const getPublicCultureOptionLabel = (option: PublicCulture | string): string => {
-  if (typeof option === 'string') {
-    return option;
-  }
-  const name = option.display_name || option.crop_species_name || option.name;
-  return option.variety ? `${name} · ${option.variety}` : name;
-};
 
 export function BasicInfoSection({
   formData,
@@ -48,18 +46,24 @@ export function BasicInfoSection({
   showFirstVarietyField = false,
   firstVarietyName,
   onFirstVarietyNameChange,
-  publicCultureOptions,
-  publicCultureOptionsLoading = false,
-  onPublicCultureSearchChange,
-  onPublicCultureSelect,
+  nameOptions,
+  nameOptionsLoading = false,
+  onNameSearchChange,
+  onNameOptionSelect,
+  varietyOptions,
+  varietyOptionsLoading = false,
+  onVarietyCommit,
   getFieldTooltipProps,
 }: BasicInfoSectionProps) {
-  const publicCultureAutocomplete = publicCultureOptions && onPublicCultureSearchChange && onPublicCultureSelect
+  const nameAutocomplete = nameOptions && onNameSearchChange && onNameOptionSelect
     ? {
-      options: publicCultureOptions,
-      onSearchChange: onPublicCultureSearchChange,
-      onSelect: onPublicCultureSelect,
+      options: nameOptions,
+      onSearchChange: onNameSearchChange,
+      onSelect: onNameOptionSelect,
     }
+    : null;
+  const varietyAutocomplete = varietyOptions && onVarietyCommit
+    ? { options: varietyOptions, onCommit: onVarietyCommit }
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
@@ -68,37 +72,38 @@ export function BasicInfoSection({
     <>
       {showIdentityFields ? (
         <Box sx={fieldRowSx}>
-          {publicCultureAutocomplete ? (
-            <Autocomplete<PublicCulture, false, false, true>
+          {nameAutocomplete ? (
+            <Autocomplete<PublicCultureSpeciesOption, false, false, true>
               freeSolo
               clearOnBlur={false}
-              options={publicCultureAutocomplete.options}
+              options={nameAutocomplete.options}
               value={formData.name ?? ''}
               inputValue={formData.name ?? ''}
-              loading={publicCultureOptionsLoading}
-              getOptionLabel={getPublicCultureOptionLabel}
-              isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.id === value.id}
+              loading={nameOptionsLoading}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.key === value.key}
               filterOptions={(options) => options}
               onInputChange={(_, value, reason) => {
                 if (reason === 'reset') {
                   return;
                 }
-                publicCultureAutocomplete.onSearchChange(value);
+                nameAutocomplete.onSearchChange(value);
                 onChange('name', value);
-                publicCultureAutocomplete.onSelect(null);
+                nameAutocomplete.onSelect(null);
               }}
               onChange={(_, value) => {
                 if (typeof value === 'string') {
                   onChange('name', value);
-                  publicCultureAutocomplete.onSelect(null);
+                  nameAutocomplete.onSelect(null);
                   return;
                 }
                 if (value) {
-                  publicCultureAutocomplete.onSelect(value);
+                  onChange('name', value.name);
+                  nameAutocomplete.onSelect(value);
                   return;
                 }
                 onChange('name', '');
-                publicCultureAutocomplete.onSelect(null);
+                nameAutocomplete.onSelect(null);
               }}
               renderInput={(params) => (
                 <TextField
@@ -114,7 +119,7 @@ export function BasicInfoSection({
                     ...params.InputProps,
                     endAdornment: (
                       <>
-                        {publicCultureOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
                         {params.InputProps.endAdornment}
                       </>
                     ),
@@ -136,17 +141,58 @@ export function BasicInfoSection({
             />
           )}
           {showVarietyField ? (
-            <TextField
-              sx={wideFieldSx}
-              required
-              label={t('form.variety')}
-              placeholder={t('form.varietyPlaceholder')}
-              value={formData.variety}
-              onChange={e => onChange('variety', e.target.value)}
-              error={Boolean(errors.variety)}
-              helperText={errors.variety}
-              slotProps={{ htmlInput: { maxLength: 200 } }}
-            />
+            varietyAutocomplete ? (
+              <Autocomplete<string, false, false, true>
+                freeSolo
+                clearOnBlur={false}
+                options={varietyAutocomplete.options}
+                value={formData.variety ?? ''}
+                inputValue={formData.variety ?? ''}
+                loading={varietyOptionsLoading}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') {
+                    return;
+                  }
+                  onChange('variety', value);
+                }}
+                onChange={(_, value) => {
+                  varietyAutocomplete.onCommit(value ?? '');
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    sx={wideFieldSx}
+                    required
+                    label={t('form.variety')}
+                    placeholder={t('form.varietyPlaceholder')}
+                    error={Boolean(errors.variety)}
+                    helperText={errors.variety}
+                    slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {varietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            ) : (
+              <TextField
+                sx={wideFieldSx}
+                required
+                label={t('form.variety')}
+                placeholder={t('form.varietyPlaceholder')}
+                value={formData.variety}
+                onChange={e => onChange('variety', e.target.value)}
+                error={Boolean(errors.variety)}
+                helperText={errors.variety}
+                slotProps={{ htmlInput: { maxLength: 200 } }}
+              />
+            )
           ) : null}
         </Box>
       ) : null}
