@@ -886,6 +886,39 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
+    it('hides edit/delete actions until hover, positioned next to the variety name', () => {
+      const onEditCulture = vi.fn();
+      const onDeleteCulture = vi.fn();
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+          onEditCulture={onEditCulture}
+          onDeleteCulture={onDeleteCulture}
+        />
+      );
+
+      const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
+      expect(nantesRow).toBeInTheDocument();
+      const editButton = within(nantesRow).getByRole('button', { name: 'Bearbeiten' });
+      const deleteButton = within(nantesRow).getByRole('button', { name: 'Löschen' });
+
+      // The action icons live in the same inline box as the name (not a
+      // separate right-aligned block spanning the full row width), reusing
+      // the shared hover-reveal overlay pattern from Fields/Suppliers — hidden
+      // (not clickable) until the row is hovered/focused.
+      expect(nantesRow.querySelector('.MuiListItemText-root')?.nextElementSibling).toContainElement(editButton);
+      expect(editButton).toHaveStyle({ pointerEvents: 'none' });
+      expect(deleteButton).toHaveStyle({ pointerEvents: 'none' });
+
+      fireEvent.click(editButton);
+      expect(onEditCulture).toHaveBeenCalledWith(carrotNantes);
+
+      fireEvent.click(deleteButton);
+      expect(onDeleteCulture).toHaveBeenCalledWith(carrotNantes);
+    });
+
     it('does not render on a variety\'s own detail view (only on the crop/species overview)', () => {
       renderCultureDetail(
         <CultureDetail
