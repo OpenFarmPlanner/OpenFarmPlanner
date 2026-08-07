@@ -966,6 +966,8 @@
       "proposeSpeciesInline": "„{{name}}“ als neue Kulturart vorschlagen",
       "proposeSpeciesButton": "Vorschlagen",
       "proposalSent": "Der Vorschlag wurde gespeichert und kann später geprüft werden.",
+      "proposeSpeciesError": "Der Vorschlag konnte nicht gespeichert werden. Bitte versuche es erneut.",
+      "speciesAlreadyExists": "Diese Kulturart existiert bereits oder wurde schon vorgeschlagen — möglicherweise unter einem anderen Namen. Bitte in der Liste danach suchen.",
       "originalLanguageLabel": "Originalsprache",
       "translationsOptional": "Fehlende Übersetzungen können später ergänzt werden.",
       "translationAvailable": "Vorhanden",

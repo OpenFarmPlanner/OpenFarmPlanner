@@ -108,6 +108,56 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(await screen.findByText('Der Vorschlag wurde gespeichert und kann später geprüft werden.')).toBeInTheDocument();
   });
 
+  it('matches an existing species by its localized display name, not just the canonical name', async () => {
+    // Regression test: canonical `name` may be in a different language than
+    // what the user types/sees (e.g. canonical "Pumpkin", German
+    // display_name "Kürbis"). The picker must match on display_name, or a
+    // species that already exists looks missing and users are wrongly
+    // steered into proposing a duplicate that the backend then rejects.
+    cropSpeciesListMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [{ id: 9, name: 'Pumpkin', display_name: 'Kürbis', status: 'published' }],
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Kürbis');
+
+    expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
+  });
+
+  it('shows an inline error when proposing a species fails', async () => {
+    cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+    cropSpeciesProposeMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { name: ['This crop species already exists or has already been proposed.'] },
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.type(speciesInput, 'Kürbis');
+
+    const proposeButton = await screen.findByRole('button', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeButton);
+
+    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
+    expect(await screen.findByText(/existiert bereits oder wurde schon vorgeschlagen/)).toBeInTheDocument();
+    expect(screen.queryByText('Der Vorschlag wurde gespeichert und kann später geprüft werden.')).not.toBeInTheDocument();
+  });
+
   it('shows a link to view foreign duplicates instead of blocking on plain text', async () => {
     publishPreviewMock.mockResolvedValue({
       data: {

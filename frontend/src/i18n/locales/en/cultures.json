@@ -966,6 +966,8 @@
       "proposeSpeciesInline": "Suggest \"{{name}}\" as a new crop species",
       "proposeSpeciesButton": "Suggest",
       "proposalSent": "The suggestion was saved and can be reviewed later.",
+      "proposeSpeciesError": "The suggestion could not be saved. Please try again.",
+      "speciesAlreadyExists": "This crop species already exists or has already been suggested — possibly under a different name. Please search for it in the list.",
       "originalLanguageLabel": "Original language",
       "translationsOptional": "Missing translations can be added later.",
       "translationAvailable": "Available",

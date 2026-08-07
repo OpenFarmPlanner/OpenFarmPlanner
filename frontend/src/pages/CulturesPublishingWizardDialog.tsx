@@ -23,6 +23,7 @@ import {
 import { Link as RouterLink } from 'react-router';
 import { cropSpeciesAPI, cultureAPI, publicCultureAPI, type Culture } from '../api/api';
 import type { CropSpecies, PublicCulture, PublishPublicCulturePreview } from '../api/types';
+import { extractApiErrorMessage } from '../api/errors';
 import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
@@ -68,6 +69,13 @@ const getPublicCultureOptionLabel = (option: PublicCulture): string => {
   return option.variety ? `${name} · ${option.variety}` : name;
 };
 
+// The picker must match on the name the user actually sees and types, not
+// the (possibly differently-languaged) canonical `name` — otherwise a
+// species that already exists only under a translation (e.g. "Kürbis" for
+// canonical "Pumpkin") looks missing, and proposing it as new fails
+// server-side because that translation already exists.
+const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+
 export function CulturesPublishingWizardDialog({
   open,
   culture,
@@ -92,6 +100,7 @@ export function CulturesPublishingWizardDialog({
   const [speciesInputValue, setSpeciesInputValue] = useState('');
   const [proposalSent, setProposalSent] = useState(false);
   const [proposingSpecies, setProposingSpecies] = useState(false);
+  const [proposeSpeciesError, setProposeSpeciesError] = useState('');
   const [generalNoticeDismissed, setGeneralNoticeDismissed] = useState(false);
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
@@ -105,6 +114,7 @@ export function CulturesPublishingWizardDialog({
       setShowLicenseConfirmation(false);
       setSpeciesInputValue('');
       setProposalSent(false);
+      setProposeSpeciesError('');
       setGeneralNoticeDismissed(false);
       setValidationResult(null);
       setOriginalLanguageCode(getDefaultLanguageCode());
@@ -219,13 +229,16 @@ export function CulturesPublishingWizardDialog({
     const trimmedName = name.trim();
     if (!trimmedName) return;
     setProposingSpecies(true);
+    setProposeSpeciesError('');
     try {
       await cropSpeciesAPI.propose(trimmedName);
       setProposalSent(true);
+    } catch (error) {
+      setProposeSpeciesError(extractApiErrorMessage(error, t, t('library.publishWizard.proposeSpeciesError')));
     } finally {
       setProposingSpecies(false);
     }
-  }, []);
+  }, [t]);
 
   const resetValidationResult = useCallback(() => {
     setValidationResult(null);
@@ -325,7 +338,7 @@ export function CulturesPublishingWizardDialog({
                   value={selectedSpecies}
                   inputValue={speciesInputValue}
                   loading={speciesLoading}
-                  getOptionLabel={(option) => option.name}
+                  getOptionLabel={getCropSpeciesOptionLabel}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                   onChange={(_, value) => {
                     setSelectedSpecies(value);
@@ -335,6 +348,7 @@ export function CulturesPublishingWizardDialog({
                   onInputChange={(_, value) => {
                     setSpeciesInputValue(value);
                     setProposalSent(false);
+                    setProposeSpeciesError('');
                   }}
                   noOptionsText={speciesLoading ? (
                     <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
@@ -342,16 +356,23 @@ export function CulturesPublishingWizardDialog({
                     proposalSent ? (
                       <Typography variant="body2" color="success.main">{t('library.publishWizard.proposalSent')}</Typography>
                     ) : (
-                      <Button
-                        size="small"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => void handleProposeSpecies(speciesInputValue)}
-                        disabled={proposingSpecies}
-                      >
-                        {proposingSpecies
-                          ? t('library.publishWizard.proposeSpeciesButton')
-                          : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
-                      </Button>
+                      <Stack spacing={0.5} alignItems="flex-start">
+                        <Button
+                          size="small"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => void handleProposeSpecies(speciesInputValue)}
+                          disabled={proposingSpecies}
+                        >
+                          {proposingSpecies
+                            ? t('library.publishWizard.proposeSpeciesButton')
+                            : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
+                        </Button>
+                        {proposeSpeciesError ? (
+                          <Typography variant="body2" color="error.main" sx={{ px: 1 }}>
+                            {proposeSpeciesError}
+                          </Typography>
+                        ) : null}
+                      </Stack>
                     )
                   ) : (
                     t('library.publishWizard.speciesNoOptions')
