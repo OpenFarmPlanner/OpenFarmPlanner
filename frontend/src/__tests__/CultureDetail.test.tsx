@@ -1030,6 +1030,24 @@ describe('CultureDetail Component', () => {
       expect(within(boleroRow).getByText('—')).toBeInTheDocument();
     });
 
+    it('shows the inherited crop value (not an em-dash) for a variety with no own value in a shown column', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', row_spacing_cm: 25 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+      const bolero: Culture = { id: 22, name: 'Carrot', variety: 'Bolero' };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes, bolero]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      const boleroRow = screen.getByText('Bolero').closest('.variety-row') as HTMLElement;
+      expect(within(boleroRow).queryByText('—')).not.toBeInTheDocument();
+      expect(within(boleroRow).getByText('25 cm')).toBeInTheDocument();
+    });
+
     it('shows only the variety-name column with fewer than two varieties (no columns can differ)', () => {
       const species: Culture = { id: 20, name: 'Carrot', variety: '' };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };

@@ -173,16 +173,34 @@ export function getVaryingComparisonFields(varieties: Culture[]): CultureCompari
 }
 
 /**
- * Formats one table cell for a given variety/field pair, falling back to a
- * plain em-dash (matching the rest of the app's empty-value convention)
- * instead of a formatter-specific "not specified" string.
+ * Formats one table cell for a given variety/field pair. A variety with no
+ * own value for a field still effectively has the general crop's value (the
+ * same inherit fallback used everywhere else in the detail view), so that's
+ * what's shown here — a plain em-dash (matching the rest of the app's
+ * empty-value convention) only appears when neither the variety nor the
+ * crop has a value for this field at all.
  */
 export function getComparisonCellValue(
-  culture: Culture,
+  variety: Culture,
+  cropCulture: Culture,
   field: CultureComparisonField,
   t: TranslateFn,
   locale: string,
 ): string {
-  const isEmpty = field.keys.every((key) => isEmptyCropValue(culture[key]));
-  return isEmpty ? EMPTY_CELL_VALUE : field.format(culture, t, locale);
+  const effective: Record<string, unknown> = {};
+  let hasAnyValue = false;
+  for (const key of field.keys) {
+    const ownValue = variety[key];
+    const value = isEmptyCropValue(ownValue) ? cropCulture[key] : ownValue;
+    effective[key] = value;
+    if (!isEmptyCropValue(value)) {
+      hasAnyValue = true;
+    }
+  }
+
+  if (!hasAnyValue) {
+    return EMPTY_CELL_VALUE;
+  }
+
+  return field.format({ ...variety, ...effective } as Culture, t, locale);
 }

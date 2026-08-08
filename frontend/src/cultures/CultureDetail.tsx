@@ -1000,6 +1000,7 @@ const detailSectionGridSx = {
                   varieties={varietySiblings
                     .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
                     .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+                  cropCulture={selectedCulture}
                   onSelect={(culture) => {
                     setSelectedSpeciesViewKey(null);
                     onCultureSelect(culture);

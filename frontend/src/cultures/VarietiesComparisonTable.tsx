@@ -25,6 +25,7 @@ interface VarietyRow {
 
 interface VarietiesComparisonTableProps {
   varieties: VarietyRow[];
+  cropCulture: Culture;
   onSelect: (culture: Culture) => void;
   onEdit?: (culture: Culture) => void;
   onDelete?: (culture: Culture) => void;
@@ -41,6 +42,7 @@ const stickyNameCellSx = {
 
 export function VarietiesComparisonTable({
   varieties,
+  cropCulture,
   onSelect,
   onEdit,
   onDelete,
@@ -114,7 +116,7 @@ export function VarietiesComparisonTable({
                 </TableCell>
                 {varyingFields.map((field) => (
                   <TableCell key={field.id}>
-                    {getComparisonCellValue(culture, field, t, locale)}
+                    {getComparisonCellValue(culture, cropCulture, field, t, locale)}
                   </TableCell>
                 ))}
               </TableRow>

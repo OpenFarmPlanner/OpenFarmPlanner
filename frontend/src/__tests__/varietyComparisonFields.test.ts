@@ -46,18 +46,25 @@ describe('getVaryingComparisonFields', () => {
 });
 
 describe('getComparisonCellValue', () => {
+  const cropCulture: Culture = { id: 99, name: 'Carrot', variety: '' };
   const [rowSpacingField] = getVaryingComparisonFields([
     { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 },
     { id: 2, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 40 },
   ]);
 
-  it('renders an em-dash when the field is empty for that variety', () => {
+  it('renders an em-dash when the field is empty for that variety and the crop has no value either', () => {
     const variety: Culture = { id: 3, name: 'Carrot', variety: 'Rodelika' };
-    expect(getComparisonCellValue(variety, rowSpacingField, t, 'de-DE')).toBe('—');
+    expect(getComparisonCellValue(variety, cropCulture, rowSpacingField, t, 'de-DE')).toBe('—');
   });
 
-  it('renders the formatted value when the field is set', () => {
+  it('renders the formatted value when the field is set on the variety itself', () => {
     const variety: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
-    expect(getComparisonCellValue(variety, rowSpacingField, t, 'de-DE')).toBe('30 detail.units.centimeters');
+    expect(getComparisonCellValue(variety, cropCulture, rowSpacingField, t, 'de-DE')).toBe('30 detail.units.centimeters');
+  });
+
+  it('falls back to the inherited crop value when the variety has no own value', () => {
+    const variety: Culture = { id: 3, name: 'Carrot', variety: 'Rodelika' };
+    const cropWithSpacing: Culture = { ...cropCulture, row_spacing_cm: 25 };
+    expect(getComparisonCellValue(variety, cropWithSpacing, rowSpacingField, t, 'de-DE')).toBe('25 detail.units.centimeters');
   });
 });
