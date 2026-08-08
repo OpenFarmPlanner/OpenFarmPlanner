@@ -350,6 +350,7 @@ function RootLayout() {
       window.location.reload();
     } catch (error) {
       console.error('Error restoring project version:', error);
+      setPendingRestoreEntry(null);
       showSnackbar(t('commandPalette.feedback.versionRestoreError'), 'error');
     }
   };

@@ -12,6 +12,7 @@ from accounts.models import UserProjectSettings
 from farm.models import (
     Bed,
     Culture,
+    Field,
     Location,
     PlantingPlan,
     Project,
@@ -118,6 +119,46 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
         self.assertTrue(Location.objects.filter(project=self.project, name='P1 before restore').exists())
         self.assertTrue(Location.objects.filter(project=self.project2, name='P2 untouched').exists())
+
+    def test_project_history_restore_after_cascade_deleted_location_does_not_500(self) -> None:
+        """Deleting a Location DB-cascades its Fields/Beds without recording an
+        EntityRevision for them, so their last snapshot can still look "active".
+        Restoring must drop such orphans instead of recreating rows that
+        reference a parent that was correctly not recreated."""
+        headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
+        location_response = self.client.post(
+            '/openfarmplanner/api/locations/', {'name': 'L1', 'address': '', 'notes': ''}, format='json', **headers,
+        )
+        self.assertEqual(location_response.status_code, status.HTTP_201_CREATED)
+        field_response = self.client.post(
+            '/openfarmplanner/api/fields/', {'name': 'F1', 'location': location_response.data['id']}, format='json', **headers,
+        )
+        self.assertEqual(field_response.status_code, status.HTTP_201_CREATED)
+        bed_response = self.client.post(
+            '/openfarmplanner/api/beds/', {'name': 'B1', 'field': field_response.data['id']}, format='json', **headers,
+        )
+        self.assertEqual(bed_response.status_code, status.HTTP_201_CREATED)
+
+        delete_response = self.client.delete(f'/openfarmplanner/api/locations/{location_response.data["id"]}/', **headers)
+        self.assertIn(delete_response.status_code, (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT))
+
+        # A history point after the cascade delete, so restoring to it must
+        # not try to recreate the orphaned Field/Bed.
+        Location.objects.create(name='L2', project=self.project)
+
+        history_response = self.client.get('/openfarmplanner/api/history/project/', **headers)
+        self.assertEqual(history_response.status_code, status.HTTP_200_OK)
+        history_id = history_response.data[0]['history_id']
+
+        restore_response = self.client.post(
+            '/openfarmplanner/api/history/project/restore/',
+            {'history_id': history_id},
+            format='json',
+            **headers,
+        )
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK, restore_response.data)
+        self.assertFalse(Field.objects.filter(project=self.project).exists())
+        self.assertFalse(Bed.objects.filter(project=self.project).exists())
 
     def test_create_project_without_slug_succeeds(self) -> None:
         response = self.client.post('/openfarmplanner/api/projects/', {'name': 'Neues Projekt', 'description': ''}, format='json')
