@@ -9,6 +9,7 @@ import { useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../i18n';
+import { AppTooltip } from '../components/AppTooltip';
 import { CultureFiltersPopover } from './CultureFiltersPopover';
 import { CultureMobileSelectorDialog } from './CultureMobileSelectorDialog';
 import { CultureHeaderActionsMenu } from './CultureHeaderActionsMenu';
@@ -17,7 +18,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import {
   Badge,
@@ -30,8 +31,6 @@ import {
   Divider,
   Link,
   List,
-  ListItemButton,
-  ListItemText,
   Stack,
   Button,
   IconButton,
@@ -51,15 +50,22 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
+import { VarietiesComparisonTable } from './VarietiesComparisonTable';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 
 interface CultureDetailProps {
   cultures: Culture[];
   isLoading?: boolean;
   selectedCultureId?: number;
   onCultureSelect: (culture: Culture | null) => void;
+  /**
+   * Selecting a variety by clicking its row in the Varieties comparison
+   * table — a deliberate "go to this variety" navigation, so (unlike
+   * `onCultureSelect`, used for sidebar browsing) it should push a new
+   * history entry. Falls back to `onCultureSelect` if not provided.
+   */
+  onNavigateToVariety?: (culture: Culture) => void;
   onCreateCulture?: () => void;
   onOpenPublicLibrary?: () => void;
   onEditCulture?: (culture: Culture) => void;
@@ -89,6 +95,7 @@ export function CultureDetail({
   isLoading = false,
   selectedCultureId,
   onCultureSelect,
+  onNavigateToVariety,
   onCreateCulture,
   onOpenPublicLibrary,
   onEditCulture,
@@ -404,21 +411,6 @@ const detailSectionGridSx = {
     [cropHierarchyItems],
   );
 
-  useEffect(() => {
-    if (isLoading || cultures.length === 0) {
-      return;
-    }
-
-    const selectedCultureExists = selectedCultureId !== undefined
-      && cultures.some((culture) => culture.id === selectedCultureId);
-    if (selectedCultureExists) {
-      return;
-    }
-
-    const [firstFilteredCulture] = filteredCultures;
-    onCultureSelect(firstFilteredCulture ?? null);
-  }, [cultures, filteredCultures, isLoading, onCultureSelect, selectedCultureId]);
-
   const cultureOptions: SearchableSelectOption<Culture>[] = useMemo(
     () => {
       const optionCultures = [...filteredCultures];
@@ -517,6 +509,21 @@ const detailSectionGridSx = {
     [cropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
   );
   const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
+  const addVarietyButton = (
+    <Button
+      size="small"
+      variant="outlined"
+      startIcon={<AddIcon fontSize="small" />}
+      disabled={!onAddVariety || !varietyAddContext}
+      onClick={() => {
+        if (varietyAddContext) {
+          onAddVariety?.(varietyAddContext);
+        }
+      }}
+    >
+      {t('hierarchy.addVariety')}
+    </Button>
+  );
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
@@ -992,71 +999,33 @@ const detailSectionGridSx = {
             <>
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
-                <Typography variant="h6">
-                  {t('hierarchy.varietiesTitle')}
-                </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon fontSize="small" />}
-                  disabled={!onAddVariety || !varietyAddContext}
-                  onClick={() => {
-                    if (varietyAddContext) {
-                      onAddVariety?.(varietyAddContext);
-                    }
-                  }}
-                >
-                  {t('hierarchy.addVariety')}
-                </Button>
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <Typography variant="h6">
+                    {t('hierarchy.varietiesTitle')}
+                  </Typography>
+                  <AppTooltip title={t('hierarchy.varietiesColumnsTooltip')}>
+                    <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', color: 'text.secondary', cursor: 'default' }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </Box>
+                  </AppTooltip>
+                </Stack>
+                {addVarietyButton}
               </Stack>
               {varietySiblings.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   {t('hierarchy.varietiesEmpty')}
                 </Typography>
               ) : (
-                <List dense disablePadding>
-                  {varietySiblings.map((variety) => (
-                    <ListItemButton
-                      key={variety.id}
-                      className="variety-row"
-                      selected={!isSpeciesView && variety.culture?.id === selectedCulture.id}
-                      onClick={() => {
-                        if (variety.culture) {
-                          setSelectedSpeciesViewKey(null);
-                          onCultureSelect(variety.culture);
-                        }
-                      }}
-                      sx={{ borderRadius: 1, mb: 0.5 }}
-                    >
-                      <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: 'fit-content', maxWidth: '100%' }}>
-                        <ListItemText primary={variety.label} sx={{ flex: 'none', pr: 1 }} />
-                        <Box
-                          sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            aria-label={t('buttons.edit')}
-                            disabled={!onEditCulture || !variety.culture}
-                            onClick={() => variety.culture && onEditCulture?.(variety.culture)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={t('buttons.delete')}
-                            disabled={!onDeleteCulture || !variety.culture}
-                            onClick={() => variety.culture && onDeleteCulture?.(variety.culture)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                    </ListItemButton>
-                  ))}
-                </List>
+                <VarietiesComparisonTable
+                  varieties={varietySiblings
+                    .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
+                    .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+                  cropCulture={selectedCulture}
+                  onSelect={(culture) => {
+                    setSelectedSpeciesViewKey(null);
+                    (onNavigateToVariety ?? onCultureSelect)(culture);
+                  }}
+                />
               )}
             </Box>
 

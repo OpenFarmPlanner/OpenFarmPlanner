@@ -53,6 +53,7 @@ import {
   DeleteUndoSnackbar,
 } from '../components/data-grid';
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
+import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
 
 const PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX: SxProps<Theme> = {
   backgroundColor: 'rgba(76, 175, 80, 0.06)',
@@ -301,6 +302,17 @@ function Cultures() {
     updateSelectedCultureId(culture?.id, 'internal');
   };
 
+  // Regular culture selection (sidebar browsing, filters, etc.) replaces the
+  // current history entry via useSelectedCultureSync — deliberately, so
+  // clicking through many cultures in the sidebar doesn't turn "back" into
+  // stepping through each one. Clicking a row in the Varieties comparison
+  // table is a more deliberate "go to this variety's page" action, so it
+  // should behave like normal navigation: pushing a new history entry means
+  // the back button returns to the crop page you navigated from.
+  const handleVarietyRowNavigate = useCallback((culture: Culture) => {
+    updateSelectedCultureId(culture.id, 'internal', 'push');
+  }, [updateSelectedCultureId]);
+
   const handleAddNew = useCallback(() => {
     setEditingCulture(undefined);
     setCultureFormKind('crop');
@@ -312,6 +324,7 @@ function Cultures() {
     setEditingCulture(undefined);
     setCultureFormKind('variety');
     setInitialFormDraft({
+      ...buildVarietyInheritanceBaseline(speciesCulture),
       crop_species: speciesCulture.crop_species ?? null,
       name: speciesCulture.name,
       variety: '',
@@ -586,6 +599,7 @@ function Cultures() {
           isLoading={isCulturesLoading}
           selectedCultureId={selectedCultureId}
           onCultureSelect={handleCultureSelect}
+          onNavigateToVariety={handleVarietyRowNavigate}
           searchInputRef={searchInputRef}
           onCreateCulture={handleAddNew}
           onOpenPublicLibrary={() => {

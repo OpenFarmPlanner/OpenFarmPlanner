@@ -785,6 +785,44 @@ describe('CultureForm', () => {
     expect(screen.getByLabelText('variety-input')).toHaveValue('');
   });
 
+  it('clears a variety field left matching its crop-prefilled baseline value on save, so it keeps inheriting from the crop', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '', row_spacing_cm: 30 }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('row-spacing-input')).toHaveValue('30');
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].row_spacing_cm).toBeUndefined();
+  });
+
+  it('keeps a variety field the user changed away from its crop-prefilled baseline value', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '', row_spacing_cm: 30 }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.change(screen.getByLabelText('row-spacing-input'), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].row_spacing_cm).toBe(40);
+  });
+
   it('closes without saving when an edited culture has no effective changes', () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const onCancel = vi.fn();

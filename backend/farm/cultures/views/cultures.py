@@ -443,12 +443,42 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         previous_media_id = instance.image_file_id
-        updated = serializer.save()
-        self._set_latest_revision_actor(updated)
+        old_name = instance.name
+        old_crop_species_id = instance.crop_species_id
+        with transaction.atomic():
+            updated = serializer.save()
+            self._set_latest_revision_actor(updated)
+            if updated.name != old_name:
+                self._rename_sibling_cultures(updated, old_name, old_crop_species_id)
         if previous_media_id and previous_media_id != updated.image_file_id:
             MediaFile.objects.filter(id=previous_media_id, orphaned_at__isnull=True).update(orphaned_at=timezone.now())
         if updated.image_file_id:
             MediaFile.objects.filter(id=updated.image_file_id).update(orphaned_at=None)
+
+    def _rename_sibling_cultures(
+        self, updated: Culture, old_name: str, old_crop_species_id: int | None,
+    ) -> None:
+        """Cascade a Culture's name change to its crop siblings.
+
+        A "crop" has no dedicated table - it's just every Culture row that
+        shares a name (or crop_species), grouped the same way the frontend's
+        `getCropSpeciesKey` does. Without this, renaming one variety's own
+        row leaves its siblings behind under the old name, which visually
+        looks like a brand new crop was created instead of a rename.
+        """
+        from farm.utils import normalize_text
+
+        siblings_qs = Culture.objects.filter(project_id=updated.project_id).exclude(pk=updated.pk)
+        if old_crop_species_id:
+            siblings_qs = siblings_qs.filter(crop_species_id=old_crop_species_id)
+        else:
+            siblings_qs = siblings_qs.filter(
+                crop_species_id__isnull=True, name_normalized=normalize_text(old_name),
+            )
+
+        for sibling in siblings_qs:
+            sibling.name = updated.name
+            sibling.save(update_fields=['name', 'name_normalized', 'updated_at'])
 
     @action(detail=True, methods=['get'], url_path='history')
     def history(self, request, pk=None):

@@ -695,7 +695,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Registrieren' })).toBeInTheDocument();
   });
 
-  it('keeps authenticated users signed in when leaving their personal demo project', async () => {
+  it('does not show "Demo verlassen" for authenticated users on their personal demo project', async () => {
     authState.user = createAuthenticatedUser([
       { project_id: 9, project_name: 'Solawi Sonnenacker', role: 'admin', is_demo_project: true },
       { project_id: 1, project_name: 'Alpha', role: 'admin', is_demo_project: false },
@@ -706,17 +706,8 @@ describe('App', () => {
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     fireEvent.click(await screen.findByLabelText('Mehr'));
-    expect(await screen.findByText('Demo verlassen')).toBeInTheDocument();
-    expect(screen.getByText(/Abmelden/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Demo verlassen'));
-
-    await waitFor(() => {
-      expect(authState.switchActiveProject).toHaveBeenCalledWith(1);
-      expect(authState.endGuestDemo).not.toHaveBeenCalled();
-      expect(authState.logout).not.toHaveBeenCalled();
-      expect(window.location.pathname).toBe('/app/dashboard');
-    });
+    expect(await screen.findByText(/Abmelden/)).toBeInTheDocument();
+    expect(screen.queryByText('Demo verlassen')).not.toBeInTheDocument();
   });
 
   it('only signs out authenticated users through the explicit logout action', async () => {

@@ -58,7 +58,7 @@ import {
   dedupePublicCultureVarieties,
   normalizeIdentityValue,
 } from './publicCultureNameSuggestions';
-import { getVarietyOwnValueSource } from './varietyValueSource';
+import { getVarietyOwnValueSource, stripValuesMatchingBaseline } from './varietyValueSource';
 import { varietySpecificFieldHighlightSx } from './varietyValueAccent';
 import { buildVarietyFieldTooltipTitle, type GetVarietyFieldTooltipProps } from './varietyFieldTooltipHelpers';
 import { VarietyValueLegend } from './VarietyValueLegend';
@@ -715,7 +715,20 @@ export function CultureForm({
     isSavingRef.current = true;
     setIsSaving(true);
     try {
-      await saveCulture(formData);
+      // A new variety's form starts prefilled with its crop's own values
+      // (see Cultures.tsx `handleAddVariety`) purely so the user can see
+      // what they're starting from. Any field left matching that baseline
+      // is stripped back to empty here so the variety keeps inheriting from
+      // the crop (including future crop edits) instead of freezing a
+      // duplicate copy of today's crop values.
+      const dataToSave = !isEdit && initialDraft
+        ? stripValuesMatchingBaseline(
+          formData,
+          initialDraft,
+          (field) => (field in EMPTY_CULTURE ? EMPTY_CULTURE[field as keyof typeof EMPTY_CULTURE] : ''),
+        )
+        : formData;
+      await saveCulture(dataToSave);
       setSaveError('');
       setIsDirty(false);
       setHasSubmitted(false);
