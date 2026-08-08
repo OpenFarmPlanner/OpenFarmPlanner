@@ -57,6 +57,13 @@ interface CultureDetailProps {
   isLoading?: boolean;
   selectedCultureId?: number;
   onCultureSelect: (culture: Culture | null) => void;
+  /**
+   * Selecting a variety by clicking its row in the Varieties comparison
+   * table — a deliberate "go to this variety" navigation, so (unlike
+   * `onCultureSelect`, used for sidebar browsing) it should push a new
+   * history entry. Falls back to `onCultureSelect` if not provided.
+   */
+  onNavigateToVariety?: (culture: Culture) => void;
   onCreateCulture?: () => void;
   onOpenPublicLibrary?: () => void;
   onEditCulture?: (culture: Culture) => void;
@@ -86,6 +93,7 @@ export function CultureDetail({
   isLoading = false,
   selectedCultureId,
   onCultureSelect,
+  onNavigateToVariety,
   onCreateCulture,
   onOpenPublicLibrary,
   onEditCulture,
@@ -1006,7 +1014,7 @@ const detailSectionGridSx = {
                   cropCulture={selectedCulture}
                   onSelect={(culture) => {
                     setSelectedSpeciesViewKey(null);
-                    onCultureSelect(culture);
+                    (onNavigateToVariety ?? onCultureSelect)(culture);
                   }}
                 />
               )}
