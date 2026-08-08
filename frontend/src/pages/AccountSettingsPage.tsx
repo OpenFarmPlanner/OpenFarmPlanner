@@ -40,6 +40,7 @@ import {
   SettingsCard,
 } from './accountSettingsCards';
 import AccountSettingsSocialCard from './accountSettingsSocialCard';
+import AccountSettingsApiTokensCard from './accountSettingsApiTokensCard';
 import { AccountLanguageSelect } from '../i18n/LanguageSwitcher';
 
 export default function AccountSettingsPage() {
@@ -438,6 +439,8 @@ export default function AccountSettingsPage() {
         </SettingsCard>
 
         <AccountSettingsSocialCard />
+
+        <AccountSettingsApiTokensCard />
 
         <SettingsCard title={t('sections.language')} description={t('language.description')}>
           <AccountLanguageSelect />

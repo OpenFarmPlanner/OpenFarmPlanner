@@ -1,0 +1,425 @@
+"""End-to-end tests for the two-step culture import over the API."""
+
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework.test import APIClient, APITestCase
+
+from farm.models import (
+    Culture,
+    CultureImportDraft,
+    Project,
+    ProjectApiToken,
+    ProjectMembership,
+    Supplier,
+)
+
+User = get_user_model()
+
+PREVIEW_URL = '/api/culture-imports/preview/'
+
+
+class CultureImportFlowTestCase(APITestCase):
+    """One project reachable through a write-scoped API token."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='importer', email='importer@example.com', password='pw', is_active=True
+        )
+        self.project = Project.objects.create(name='Import Farm', slug='import-farm')
+        ProjectMembership.objects.create(user=self.user, project=self.project, role='admin')
+        _, self.raw_token = ProjectApiToken.create_token(
+            user=self.user,
+            project=self.project,
+            name='Importer',
+            scope=ProjectApiToken.SCOPE_WRITE,
+        )
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.raw_token}')
+
+    def preview(self, *items, source_label=''):
+        """Run the preview step and return the response."""
+        return self.client.post(
+            PREVIEW_URL,
+            {'items': list(items), 'source_label': source_label},
+            format='json',
+        )
+
+    def apply(self, draft, **overrides):
+        """Run the apply step for a preview response body."""
+        payload = {
+            'confirm': True,
+            'checksum': draft['checksum'],
+            'acknowledge_warnings': True,
+        }
+        payload.update(overrides)
+        return self.client.post(
+            f'/api/culture-imports/{draft["draft_id"]}/apply/', payload, format='json'
+        )
+
+
+class PreviewIsReadOnlyTests(CultureImportFlowTestCase):
+    """The preview step must never touch culture data."""
+
+    def test_preview_creates_no_cultures(self):
+        response = self.preview({'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+    def test_preview_does_not_modify_a_matched_culture(self):
+        existing = Culture.objects.create(
+            name='Brokkoli', variety='Calabrese', project=self.project, row_spacing_m=0.4
+        )
+        self.preview({'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50})
+
+        existing.refresh_from_db()
+        self.assertEqual(existing.row_spacing_m, 0.4)
+
+    def test_preview_returns_draft_metadata_and_requires_confirmation(self):
+        response = self.preview({'name': 'Brokkoli'}, source_label='order-2026.csv')
+
+        self.assertIn('draft_id', response.data)
+        self.assertIn('checksum', response.data)
+        self.assertTrue(response.data['requires_confirmation'])
+        self.assertEqual(response.data['source_label'], 'order-2026.csv')
+        self.assertEqual(response.data['status'], 'pending')
+
+    def test_preview_stores_the_draft_for_the_bound_project(self):
+        response = self.preview({'name': 'Brokkoli'})
+        draft = CultureImportDraft.objects.get(pk=response.data['draft_id'])
+
+        self.assertEqual(draft.project_id, self.project.id)
+        self.assertEqual(draft.created_by_id, self.user.id)
+
+    def test_preview_shows_source_and_api_values_per_field(self):
+        response = self.preview({'name': 'Brokkoli', 'row_spacing_cm': 50})
+        entry = next(
+            item for item in response.data['items'][0]['fields'] if item['field'] == 'row_spacing_m'
+        )
+
+        self.assertEqual(entry['source_value'], 50)
+        self.assertEqual(entry['source_unit'], 'cm')
+        self.assertEqual(entry['api_value'], 0.5)
+        self.assertEqual(entry['api_unit'], 'm')
+        self.assertEqual(entry['confidence'], 'converted')
+
+    def test_empty_payload_is_rejected(self):
+        response = self.client.post(PREVIEW_URL, {'items': []}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+
+class ApplyRequiresConfirmationTests(CultureImportFlowTestCase):
+    """Nothing is written without an explicit, checksum-bound confirmation."""
+
+    def test_apply_without_confirm_writes_nothing(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        response = self.apply(draft, confirm=False)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'confirmation_required')
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+    def test_apply_with_a_wrong_checksum_is_refused(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        response = self.apply(draft, checksum='0' * 64)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'checksum_mismatch')
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+    def test_apply_of_an_expired_draft_is_refused(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        CultureImportDraft.objects.filter(pk=draft['draft_id']).update(
+            expires_at=timezone.now() - timedelta(minutes=1)
+        )
+
+        response = self.apply(draft)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'draft_expired')
+
+    def test_confirmed_apply_creates_the_culture(self):
+        draft = self.preview({
+            'name': 'Brokkoli',
+            'variety': 'Calabrese',
+            'row_spacing_cm': 50,
+            'distance_within_row_cm': 40,
+        }).data
+        response = self.apply(draft)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['created_count'], 1)
+
+        culture = Culture.objects.get(project=self.project, name='Brokkoli')
+        self.assertAlmostEqual(culture.row_spacing_m, 0.5)
+        self.assertAlmostEqual(culture.distance_within_row_m, 0.4)
+
+    def test_apply_updates_a_matched_culture(self):
+        existing = Culture.objects.create(
+            name='Brokkoli', variety='Calabrese', project=self.project, row_spacing_m=0.4
+        )
+        draft = self.preview(
+            {'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50}
+        ).data
+        response = self.apply(draft)
+
+        self.assertEqual(response.data['updated_count'], 1)
+        existing.refresh_from_db()
+        self.assertAlmostEqual(existing.row_spacing_m, 0.5)
+
+
+class ApplyBlocksErroneousDraftsTests(CultureImportFlowTestCase):
+    """A draft with any error row is refused as a whole."""
+
+    def test_draft_with_errors_cannot_be_applied(self):
+        draft = self.preview({'name': 'Karotte', 'row_spacing': 30}).data
+        response = self.apply(draft)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'draft_has_errors')
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+    def test_a_single_bad_row_blocks_the_valid_rows_too(self):
+        draft = self.preview(
+            {'name': 'Brokkoli', 'row_spacing_cm': 50},
+            {'name': 'Karotte', 'row_spacing_m': 30},
+        ).data
+        response = self.apply(draft)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+
+class WarningAcknowledgementTests(CultureImportFlowTestCase):
+    """Warnings must be visible in the preview and consciously accepted."""
+
+    def test_warnings_are_visible_before_execution(self):
+        response = self.preview({'name': 'Kuerbis', 'row_spacing_m': 2.5})
+
+        self.assertTrue(response.data['has_warnings'])
+        self.assertGreaterEqual(len(response.data['items'][0]['warnings']), 1)
+
+    def test_apply_without_acknowledging_warnings_is_refused(self):
+        draft = self.preview({'name': 'Kuerbis', 'row_spacing_m': 2.5}).data
+        response = self.apply(draft, acknowledge_warnings=False)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'warnings_not_acknowledged')
+        self.assertEqual(Culture.objects.filter(project=self.project).count(), 0)
+
+    def test_apply_with_acknowledged_warnings_succeeds(self):
+        draft = self.preview({'name': 'Kuerbis', 'row_spacing_m': 2.5}).data
+        response = self.apply(draft, acknowledge_warnings=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['created_count'], 1)
+
+    def test_a_draft_without_warnings_needs_no_acknowledgement(self):
+        draft = self.preview({'name': 'Brokkoli', 'row_spacing_cm': 50}).data
+        response = self.apply(draft, acknowledge_warnings=False)
+
+        self.assertEqual(response.status_code, 200)
+
+
+class IdempotencyTests(CultureImportFlowTestCase):
+    """Re-running an import must converge, never duplicate."""
+
+    def test_applying_the_same_draft_twice_creates_one_culture(self):
+        draft = self.preview(
+            {'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50}
+        ).data
+
+        first = self.apply(draft)
+        second = self.apply(draft)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertFalse(first.data['already_applied'])
+        self.assertTrue(second.data['already_applied'])
+        self.assertEqual(Culture.objects.filter(project=self.project, name='Brokkoli').count(), 1)
+
+    def test_re_previewing_the_same_payload_yields_a_skip(self):
+        payload = {'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50}
+        self.apply(self.preview(payload).data)
+
+        second_preview = self.preview(payload)
+
+        self.assertEqual(second_preview.data['items'][0]['action'], 'skip')
+        self.assertEqual(second_preview.data['summary']['create'], 0)
+
+    def test_running_the_whole_flow_twice_creates_one_culture(self):
+        payload = {'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50}
+        self.apply(self.preview(payload).data)
+        second = self.apply(self.preview(payload).data)
+
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.data['created_count'], 0)
+        self.assertEqual(second.data['skipped_count'], 1)
+        self.assertEqual(Culture.objects.filter(project=self.project, name='Brokkoli').count(), 1)
+
+    def test_applied_draft_reports_its_result_on_retrieval(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        self.apply(draft)
+
+        response = self.client.get(f'/api/culture-imports/{draft["draft_id"]}/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'applied')
+        self.assertFalse(response.data['requires_confirmation'])
+        self.assertEqual(response.data['result']['created_count'], 1)
+
+
+class TransactionalExecutionTests(CultureImportFlowTestCase):
+    """A rejection anywhere in the batch rolls the whole batch back."""
+
+    def test_a_serializer_rejection_rolls_back_earlier_rows(self):
+        draft = self.preview(
+            {'name': 'Guter Datensatz', 'row_spacing_cm': 50},
+            {'name': 'Schlechter Datensatz', 'supplier_name': 'Neuer Lieferant'},
+        ).data
+
+        # Make the second row fail at write time only: the culture the draft
+        # would create now collides with one created after the preview.
+        supplier = Supplier.objects.create(
+            name='Neuer Lieferant',
+            homepage_url='https://neuer-lieferant.example',
+            project=self.project,
+        )
+        Culture.objects.create(
+            name='Schlechter Datensatz', variety='', project=self.project, supplier=supplier
+        )
+
+        response = self.apply(draft)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'execution_failed')
+        self.assertFalse(Culture.objects.filter(name='Guter Datensatz').exists())
+
+    def test_a_disappeared_match_is_reported_instead_of_creating_a_row(self):
+        existing = Culture.objects.create(
+            name='Brokkoli', variety='Calabrese', project=self.project, row_spacing_m=0.4
+        )
+        draft = self.preview(
+            {'name': 'Brokkoli', 'variety': 'Calabrese', 'row_spacing_cm': 50}
+        ).data
+        existing.delete()
+
+        response = self.apply(draft)
+        self.assertEqual(response.status_code, 400)
+
+
+class ImportProjectIsolationTests(CultureImportFlowTestCase):
+    """Drafts belong to a project and cannot be reached from another one."""
+
+    def setUp(self):
+        super().setUp()
+        self.other_user = User.objects.create_user(
+            username='other-importer', email='other@example.com', password='pw', is_active=True
+        )
+        self.other_project = Project.objects.create(name='Other Farm', slug='other-farm')
+        ProjectMembership.objects.create(
+            user=self.other_user, project=self.other_project, role='admin'
+        )
+        _, self.other_raw_token = ProjectApiToken.create_token(
+            user=self.other_user,
+            project=self.other_project,
+            name='Other importer',
+            scope=ProjectApiToken.SCOPE_WRITE,
+        )
+        self.other_client = APIClient()
+        self.other_client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.other_raw_token}')
+
+    def test_a_foreign_draft_is_not_retrievable(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        response = self.other_client.get(f'/api/culture-imports/{draft["draft_id"]}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_a_foreign_draft_cannot_be_applied(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        response = self.other_client.post(
+            f'/api/culture-imports/{draft["draft_id"]}/apply/',
+            {'confirm': True, 'checksum': draft['checksum'], 'acknowledge_warnings': True},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Culture.objects.filter(name='Brokkoli').count(), 0)
+
+    def test_import_writes_into_the_bound_project_only(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        self.apply(draft)
+
+        culture = Culture.objects.get(name='Brokkoli')
+        self.assertEqual(culture.project_id, self.project.id)
+
+    def test_a_read_token_cannot_preview_or_apply(self):
+        _, read_token = ProjectApiToken.create_token(
+            user=self.user,
+            project=self.project,
+            name='Read only',
+            scope=ProjectApiToken.SCOPE_READ,
+        )
+        read_client = APIClient()
+        read_client.credentials(HTTP_AUTHORIZATION=f'Bearer {read_token}')
+
+        response = read_client.post(PREVIEW_URL, {'items': [{'name': 'X'}]}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_a_read_token_may_retrieve_an_existing_draft(self):
+        draft = self.preview({'name': 'Brokkoli'}).data
+        _, read_token = ProjectApiToken.create_token(
+            user=self.user, project=self.project, name='Read only', scope=ProjectApiToken.SCOPE_READ
+        )
+        read_client = APIClient()
+        read_client.credentials(HTTP_AUTHORIZATION=f'Bearer {read_token}')
+
+        response = read_client.get(f'/api/culture-imports/{draft["draft_id"]}/')
+        self.assertEqual(response.status_code, 200)
+
+
+class ImportSessionAccessTests(CultureImportFlowTestCase):
+    """The same flow works for a signed-in browser user."""
+
+    def test_session_user_can_run_the_flow_with_the_project_header(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        preview = client.post(
+            PREVIEW_URL,
+            {'items': [{'name': 'Brokkoli', 'row_spacing_cm': 50}]},
+            format='json',
+            HTTP_X_PROJECT_ID=str(self.project.id),
+        )
+        self.assertEqual(preview.status_code, 200)
+
+        applied = client.post(
+            f'/api/culture-imports/{preview.data["draft_id"]}/apply/',
+            {'confirm': True, 'checksum': preview.data['checksum']},
+            format='json',
+            HTTP_X_PROJECT_ID=str(self.project.id),
+        )
+        self.assertEqual(applied.status_code, 200)
+        self.assertEqual(applied.data['created_count'], 1)
+
+
+class OrderDataImportTests(CultureImportFlowTestCase):
+    """An order export must contribute only what it actually states."""
+
+    def test_only_recognized_fields_are_imported_from_an_order_row(self):
+        order_row = {
+            'name': 'Brokkoli',
+            'product_name': 'Brokkoli Calabrese Bio 25 g',
+            'article_no': 'BR-1234',
+            'package_size': '25 g',
+            'order_quantity': 2,
+            'price_eur': 4.9,
+        }
+        draft = self.preview(order_row).data
+        self.apply(draft)
+
+        culture = Culture.objects.get(project=self.project, name='Brokkoli')
+        self.assertEqual(culture.variety, '')
+        self.assertIsNone(culture.seed_rate_direct_value)
+        self.assertIsNone(culture.row_spacing_m)
+        self.assertEqual(culture.seed_packages.count(), 0)

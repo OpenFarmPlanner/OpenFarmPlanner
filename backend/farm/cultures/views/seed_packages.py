@@ -19,6 +19,11 @@ from ..serializers import (
 
 
 class SeedPackageViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):
+
+    # Read-only for project-bound API tokens: agents may look these up to
+    # resolve references, but changing them stays session-only in this
+    # version (see farm/agent_api/permissions.py).
+    api_token_actions = {'list', 'retrieve'}
     queryset = SeedPackage.objects.select_related('culture').all().order_by('size_unit', 'size_value')
     serializer_class = SeedPackageSerializer
 

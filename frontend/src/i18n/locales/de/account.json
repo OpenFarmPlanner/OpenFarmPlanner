@@ -96,5 +96,55 @@
   },
   "language": {
     "description": "Die Sprache der Oberfläche gehört zu deinem Konto, nicht zum Projekt. Andere Mitglieder desselben Projekts können OpenFarmPlanner gleichzeitig in einer anderen Sprache verwenden. Frei eingegebene Inhalte wie Projekt-, Standort- und Beetnamen werden nie übersetzt."
+  },
+  "apiTokens": {
+    "title": "API-Tokens für Coding-Agenten",
+    "description": "Mit persönlichen Tokens können externe Werkzeuge wie Codex oder Claude Code die OpenFarmPlanner-API in deinem Namen nutzen. Jedes Token ist fest an genau ein Projekt gebunden und kommt an kein anderes heran – auch nicht an Projekte, in denen du Mitglied bist. Tokens können keine Daten löschen und weder Projektmitglieder, Einladungen noch Kontoeinstellungen ändern.",
+    "loading": "Tokens werden geladen…",
+    "empty": "Du hast noch keine API-Tokens erstellt.",
+    "noProjects": "Du musst Mitglied in einem Projekt sein, um ein API-Token erstellen zu können.",
+    "revoked": "Das Token „{{name}}“ wurde widerrufen und funktioniert nicht mehr.",
+    "status": {
+      "active": "Aktiv",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen"
+    },
+    "scopes": {
+      "read": "Lesen",
+      "write": "Lesen und schreiben"
+    },
+    "scopeHelp": {
+      "read": "Darf die Daten des Projekts lesen. Kann nichts ändern.",
+      "write": "Darf die Daten des Projekts lesen sowie Kulturen anlegen und aktualisieren. Kann nichts löschen."
+    },
+    "meta": {
+      "project": "Projekt",
+      "prefix": "Token",
+      "created": "Erstellt",
+      "expires": "Läuft ab",
+      "lastUsed": "Zuletzt verwendet",
+      "never": "kein Ablaufdatum",
+      "neverUsed": "nie"
+    },
+    "actions": {
+      "create": "Token erstellen",
+      "revoke": "Widerrufen"
+    },
+    "form": {
+      "name": "Name",
+      "project": "Projekt",
+      "projectHelper": "Das Token kann ausschließlich auf dieses Projekt zugreifen. Das lässt sich später nicht ändern.",
+      "scope": "Berechtigungen",
+      "expiresAt": "Ablaufdatum (optional)",
+      "expiresAtHelper": "Leer lassen für ein Token ohne Ablaufdatum. Höchstens ein Jahr in der Zukunft."
+    },
+    "created": {
+      "title": "Dein neues API-Token",
+      "warning": "Kopiere das Token jetzt. Es wird nur dieses eine Mal angezeigt und kann danach nicht erneut abgerufen werden.",
+      "description": "Bewahre das Token wie ein Passwort auf, zum Beispiel in der Secret-Verwaltung deines Agenten. Lege es niemals in einem Repository ab. Wenn du es verlierst, widerrufe es hier und erstelle ein neues.",
+      "tokenLabel": "Token",
+      "usageHint": "Verwendung als HTTP-Header: Authorization: Bearer <token>",
+      "confirm": "Ich habe das Token gespeichert"
+    }
   }
 }
