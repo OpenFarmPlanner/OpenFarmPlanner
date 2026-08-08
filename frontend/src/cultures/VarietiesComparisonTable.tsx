@@ -51,7 +51,7 @@ export function VarietiesComparisonTable({
 }: VarietiesComparisonTableProps) {
   const { t, i18n } = useTranslation('cultures');
   const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const varyingFields = getVaryingComparisonFields(varieties.map((variety) => variety.culture));
+  const varyingFields = getVaryingComparisonFields(varieties.map((variety) => variety.culture), cropCulture);
 
   const handleRowClick = (event: ReactMouseEvent<HTMLTableRowElement>, culture: Culture): void => {
     if ((event.target as HTMLElement).closest('button')) {

@@ -155,20 +155,34 @@ export const CULTURE_COMPARISON_FIELDS: CultureComparisonField[] = [
 const EMPTY_CELL_VALUE = '—';
 
 /**
- * Fields where at least two of the given varieties have a genuinely
- * different value — i.e. the columns worth showing in the comparison table.
- * A field with fewer than two varieties, or where every variety agrees
- * (including all being empty), is left out entirely rather than shown with
- * identical values in every row.
+ * The value a variety effectively has for one Culture field: its own value
+ * if it has one, otherwise the general crop's value — the same inherit
+ * fallback used everywhere else in the detail view.
  */
-export function getVaryingComparisonFields(varieties: Culture[]): CultureComparisonField[] {
+function getEffectiveValue(variety: Culture, cropCulture: Culture, key: keyof Culture): unknown {
+  const ownValue = variety[key];
+  return isEmptyCropValue(ownValue) ? cropCulture[key] : ownValue;
+}
+
+/**
+ * Fields where at least two of the given varieties end up with a genuinely
+ * different *effective* value (own value, or the inherited crop value when
+ * the variety has none) — i.e. the columns worth showing in the comparison
+ * table. A field with fewer than two varieties, or where every variety
+ * agrees (including two varieties inheriting the same crop value, or all
+ * being empty on both variety and crop), is left out entirely rather than
+ * shown with identical values in every row.
+ */
+export function getVaryingComparisonFields(varieties: Culture[], cropCulture: Culture): CultureComparisonField[] {
   if (varieties.length < 2) {
     return [];
   }
 
   const [reference, ...rest] = varieties;
   return CULTURE_COMPARISON_FIELDS.filter((field) => (
-    rest.some((variety) => field.keys.some((key) => !areCropValuesEqual(reference[key], variety[key])))
+    rest.some((variety) => field.keys.some((key) => (
+      !areCropValuesEqual(getEffectiveValue(reference, cropCulture, key), getEffectiveValue(variety, cropCulture, key))
+    )))
   ));
 }
 
@@ -190,8 +204,7 @@ export function getComparisonCellValue(
   const effective: Record<string, unknown> = {};
   let hasAnyValue = false;
   for (const key of field.keys) {
-    const ownValue = variety[key];
-    const value = isEmptyCropValue(ownValue) ? cropCulture[key] : ownValue;
+    const value = getEffectiveValue(variety, cropCulture, key);
     effective[key] = value;
     if (!isEmptyCropValue(value)) {
       hasAnyValue = true;

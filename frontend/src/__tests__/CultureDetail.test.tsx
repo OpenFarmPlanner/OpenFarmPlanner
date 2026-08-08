@@ -1048,6 +1048,24 @@ describe('CultureDetail Component', () => {
       expect(within(boleroRow).getByText('25 cm')).toBeInTheDocument();
     });
 
+    it('hides a column when varieties resolve to the same effective value, even though only one has an explicit own value', () => {
+      const species: Culture = { id: 20, name: 'Zucchini', variety: '', row_spacing_cm: 120 };
+      const costata: Culture = { id: 21, name: 'Zucchini', variety: 'Costata Romanesco', row_spacing_cm: 120 };
+      const testVariety: Culture = { id: 22, name: 'Zucchini', variety: 'test' };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, costata, testVariety]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      // Costata's own row_spacing_cm (120) equals what "test" inherits from
+      // the crop (also 120) — not an actual difference, so no column.
+      expect(within(screen.getByRole('table')).queryByText('Reihenabstand')).not.toBeInTheDocument();
+    });
+
     it('shows only the variety-name column with fewer than two varieties (no columns can differ)', () => {
       const species: Culture = { id: 20, name: 'Carrot', variety: '' };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
