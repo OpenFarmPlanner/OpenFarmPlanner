@@ -49,7 +49,6 @@ import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { VarietiesComparisonTable } from './VarietiesComparisonTable';
-import { SoleVarietyDifferenceSummary } from './SoleVarietyDifferenceSummary';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 
@@ -999,14 +998,6 @@ const detailSectionGridSx = {
                 <Typography variant="body2" color="text.secondary">
                   {t('hierarchy.varietiesEmpty')}
                 </Typography>
-              ) : varietySiblings.length === 1 && varietySiblings[0].culture ? (
-                // A single variety has no other variety to compare against
-                // for the full table, so diff it directly against the crop
-                // instead (see SoleVarietyDifferenceSummary).
-                <SoleVarietyDifferenceSummary
-                  variety={varietySiblings[0].culture}
-                  cropCulture={selectedCulture}
-                />
               ) : (
                 <VarietiesComparisonTable
                   varieties={varietySiblings

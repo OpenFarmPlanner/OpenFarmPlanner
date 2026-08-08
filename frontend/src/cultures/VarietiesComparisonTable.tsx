@@ -55,7 +55,20 @@ export function VarietiesComparisonTable({
 }: VarietiesComparisonTableProps) {
   const { t, i18n } = useTranslation('cultures');
   const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const varyingFields = getVaryingComparisonFields(varieties.map((variety) => variety.culture), cropCulture);
+
+  // With exactly one variety there's no other variety to compare against,
+  // so the columns are driven by "variety vs. general crop" instead of
+  // "variety vs. variety" — reusing the same comparison functions by
+  // treating the crop as a second, virtual "variety" to diff against (its
+  // effective value against itself is just its own raw value, so it acts
+  // as the crop baseline with zero special-casing in the comparison logic
+  // itself). With 2+ varieties, this is unchanged: purely variety-vs-variety.
+  const isSoleVarietyMode = varieties.length === 1;
+  const comparisonCultures = isSoleVarietyMode
+    ? [varieties[0].culture, cropCulture]
+    : varieties.map((variety) => variety.culture);
+  const varyingFields = getVaryingComparisonFields(comparisonCultures, cropCulture);
+  const showNoDifferencesNotice = isSoleVarietyMode && varyingFields.length === 0;
 
   return (
     <TableSurface sizingMode="fullWorkspace">
@@ -64,9 +77,13 @@ export function VarietiesComparisonTable({
           <TableHead>
             <TableRow>
               <TableCell sx={stickyNameCellSx}>{t('hierarchy.varietyLabel')}</TableCell>
-              {varyingFields.map((field) => (
-                <TableCell key={field.id}>{t(field.labelKey)}</TableCell>
-              ))}
+              {showNoDifferencesNotice ? (
+                <TableCell />
+              ) : (
+                varyingFields.map((field) => (
+                  <TableCell key={field.id}>{t(field.labelKey)}</TableCell>
+                ))
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -108,11 +125,17 @@ export function VarietiesComparisonTable({
                     {label}
                   </Box>
                 </TableCell>
-                {varyingFields.map((field) => (
-                  <TableCell key={field.id}>
-                    {getComparisonCellValue(culture, cropCulture, field, t, locale)}
+                {showNoDifferencesNotice ? (
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    {t('hierarchy.soleVarietyNoDifferences')}
                   </TableCell>
-                ))}
+                ) : (
+                  varyingFields.map((field) => (
+                    <TableCell key={field.id}>
+                      {getComparisonCellValue(culture, cropCulture, field, t, locale)}
+                    </TableCell>
+                  ))
+                )}
               </TableRow>
             ))}
           </TableBody>

@@ -1090,7 +1090,7 @@ describe('CultureDetail Component', () => {
       expect(within(screen.getByRole('table')).queryByText('Sicherheitszuschlag Saatgut')).not.toBeInTheDocument();
     });
 
-    it('keeps the Varieties title visible for exactly one variety, with a compact crop-diff summary instead of the table', async () => {
+    it('uses the same comparison table for exactly one variety, diffed against the general crop', async () => {
       const user = userEvent.setup();
       const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 40, crop_species: 5 };
@@ -1105,13 +1105,14 @@ describe('CultureDetail Component', () => {
         />
       );
 
-      // No second variety to build a comparison table against, so the sole
-      // variety is diffed directly against the crop instead — no <table>.
+      // Same table component/structure as the 2+ varieties case, just with
+      // a single row and columns driven by variety-vs-crop instead of
+      // variety-vs-variety.
       expect(screen.getByText('Sorten')).toBeInTheDocument();
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
-      const summary = screen.getByTestId('sole-variety-difference-summary');
-      expect(within(summary).getByText('Reihenabstand')).toBeInTheDocument();
-      expect(within(summary).getByText('40 cm')).toBeInTheDocument();
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('Nantes')).toBeInTheDocument();
+      expect(within(table).getByText('Reihenabstand')).toBeInTheDocument();
+      expect(within(table).getByText('40 cm')).toBeInTheDocument();
 
       const addButton = screen.getByRole('button', { name: 'Sorte hinzufügen' });
       expect(addButton).toBeInTheDocument();
@@ -1119,7 +1120,7 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(species);
     });
 
-    it('shows a "no differences" message when the sole variety matches the crop exactly', () => {
+    it('shows a "no differences" message in the table row when the sole variety matches the crop exactly', () => {
       const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', crop_species: 5 };
 
@@ -1131,11 +1132,13 @@ describe('CultureDetail Component', () => {
         />
       );
 
-      const summary = screen.getByTestId('sole-variety-difference-summary');
-      expect(summary).toHaveTextContent('Keine Abweichungen von den allgemeinen Kulturdaten');
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('Nantes')).toBeInTheDocument();
+      expect(within(table).getByText('Keine Abweichungen von den allgemeinen Kulturdaten')).toBeInTheDocument();
+      expect(within(table).queryByText('Reihenabstand')).not.toBeInTheDocument();
     });
 
-    it('shows the full comparison table (not the summary) once a second variety exists', () => {
+    it('shows the full variety-vs-variety comparison table once a second variety exists', () => {
       const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30, crop_species: 5 };
       const bolero: Culture = { id: 22, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 40, crop_species: 5 };
