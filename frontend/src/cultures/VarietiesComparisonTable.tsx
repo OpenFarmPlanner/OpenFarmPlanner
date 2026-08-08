@@ -30,6 +30,19 @@ interface VarietiesComparisonTableProps {
   editActionLabel: string;
 }
 
+// Reveals hover-only affordances (the edit icon, the name's link styling)
+// for *genuine* keyboard navigation onto the row or the edit button, without
+// re-triggering after the edit dialog closes. Opening the dialog focuses it;
+// MUI's default Dialog behavior then restores focus to whichever element
+// triggered it (the edit button) once it closes — with a plain
+// `:focus-within` condition (as used for e.g. Suppliers/SeedDemand's own
+// inline actions) that restored focus keeps satisfying the same selector
+// forever, so the icon/link styling never turns back off until something
+// else is hovered or focused. `:focus-visible` heuristically does not match
+// a focus restored programmatically after a mouse click (only after actual
+// keyboard interaction), which is exactly the distinction needed here.
+const VARIETY_ROW_KEYBOARD_FOCUS_SELECTOR = '.variety-row:focus-visible &, .variety-row:has(:focus-visible) &';
+
 // Matches the name column of the Fields/Beds hierarchy table: a capped
 // width so the column doesn't grow to fit the longest name, with the name
 // itself truncating (ellipsis) under a gradient-masked hover overlay
@@ -44,7 +57,7 @@ const stickyNameCellSx = {
   // The sticky cell's own opaque background sits on top of the row, so the
   // row's :hover background (set on the <tr>) wouldn't otherwise show
   // through it — mirror it here so the whole row highlights consistently.
-  '.variety-row:hover &, .variety-row:focus-within &': {
+  [`.variety-row:hover &, ${VARIETY_ROW_KEYBOARD_FOCUS_SELECTOR}`]: {
     backgroundColor: 'action.selected',
   },
 } as const;
@@ -112,7 +125,7 @@ export function VarietiesComparisonTable({
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
-                        '.variety-row:hover &, .variety-row:focus-within &': {
+                        [`.variety-row:hover &, ${VARIETY_ROW_KEYBOARD_FOCUS_SELECTOR}`]: {
                           color: 'primary.main',
                           textDecoration: 'underline',
                         },
@@ -120,7 +133,7 @@ export function VarietiesComparisonTable({
                     >
                       {label}
                     </Box>
-                    <Box sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}>
+                    <Box sx={contextMenuActionsOverlaySx('.variety-row:hover &', VARIETY_ROW_KEYBOARD_FOCUS_SELECTOR)}>
                       <IconButton
                         size="small"
                         color="primary"
