@@ -899,36 +899,7 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
-    it('hides the edit action until hover, right-aligned in the variety column, without triggering row navigation', () => {
-      const onEditCulture = vi.fn();
-      const onCultureSelect = vi.fn();
-      renderCultureDetail(
-        <CultureDetail
-          cultures={carrotCultures}
-          selectedCultureId={10}
-          onCultureSelect={onCultureSelect}
-          onEditCulture={onEditCulture}
-        />
-      );
-
-      const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
-      expect(nantesRow).toBeInTheDocument();
-      const editButton = within(nantesRow).getByRole('button', { name: 'Bearbeiten' });
-
-      // The edit action's slot is always laid out in the row (not absolutely
-      // overlaid on top of the name), so it never overlaps the variety name
-      // and never shifts the row when it appears — just hidden (not
-      // clickable) until the row is hovered/focused.
-      expect(editButton).toHaveStyle({ pointerEvents: 'none' });
-
-      fireEvent.click(editButton);
-      expect(onEditCulture).toHaveBeenCalledWith(carrotNantes);
-
-      // Clicking the icon must not also select/navigate to the row.
-      expect(onCultureSelect).not.toHaveBeenCalled();
-    });
-
-    it('does not offer a delete action in the variety table row', () => {
+    it('does not offer edit/delete action buttons in the variety table row (row click is the only interaction)', () => {
       renderCultureDetail(
         <CultureDetail
           cultures={carrotCultures}
@@ -940,7 +911,7 @@ describe('CultureDetail Component', () => {
       );
 
       const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
-      expect(within(nantesRow).queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument();
+      expect(within(nantesRow).queryByRole('button')).not.toBeInTheDocument();
     });
 
     it('navigates to the variety on row click', () => {

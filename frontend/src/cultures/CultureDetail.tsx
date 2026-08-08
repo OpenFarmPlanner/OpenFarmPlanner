@@ -1016,8 +1016,6 @@ const detailSectionGridSx = {
                       setSelectedSpeciesViewKey(null);
                       onCultureSelect(culture);
                     }}
-                    onEdit={onEditCulture}
-                    editActionLabel={t('buttons.edit')}
                   />
                 )}
               </Box>
