@@ -51,6 +51,7 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
+import { VarietyDifferenceList } from './VarietyDifferenceList';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
@@ -1011,7 +1012,7 @@ const detailSectionGridSx = {
                           onCultureSelect(variety.culture);
                         }
                       }}
-                      sx={{ borderRadius: 1, mb: 0.5 }}
+                      sx={{ borderRadius: 1, mb: 0.5, flexDirection: 'column', alignItems: 'stretch' }}
                     >
                       <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: 'fit-content', maxWidth: '100%' }}>
                         <ListItemText primary={variety.label} sx={{ flex: 'none', pr: 1 }} />
@@ -1039,6 +1040,9 @@ const detailSectionGridSx = {
                           </IconButton>
                         </Box>
                       </Box>
+                      {variety.culture && (
+                        <VarietyDifferenceList variety={variety.culture} cropCulture={selectedCulture} />
+                      )}
                     </ListItemButton>
                   ))}
                 </List>

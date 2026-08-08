@@ -962,5 +962,33 @@ describe('CultureDetail Component', () => {
 
       expect(screen.getByText('Für diese Kultur sind noch keine Sorten angelegt.')).toBeInTheDocument();
     });
+
+    it('shows only the fields that differ from the general crop data for each variety', () => {
+      const speciesWithSpacing: Culture = {
+        id: 20, name: 'Carrot', variety: '', crop_family: 'Apiaceae', row_spacing_cm: 25, growth_duration_days: 100,
+      };
+      const varietyWithOverride: Culture = {
+        id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30,
+      };
+      const varietyIdentical: Culture = {
+        id: 22, name: 'Carrot', variety: 'Bolero',
+      };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[speciesWithSpacing, varietyWithOverride, varietyIdentical]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
+      expect(within(nantesRow).getByText('Reihenabstand')).toBeInTheDocument();
+      expect(within(nantesRow).getByText('30 cm')).toBeInTheDocument();
+      expect(within(nantesRow).queryByText('Wachstumszeit (Tage)')).not.toBeInTheDocument();
+
+      const boleroRow = screen.getByText('Bolero').closest('.variety-row') as HTMLElement;
+      expect(within(boleroRow).getByText('Keine Abweichungen von den allgemeinen Kulturdaten')).toBeInTheDocument();
+    });
   });
 });

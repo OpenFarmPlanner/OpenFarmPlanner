@@ -64,7 +64,10 @@
     "varietyCount_other": "{{count}} Sorten",
     "varietiesTitle": "Sorten",
     "varietiesEmpty": "Für diese Kultur sind noch keine Sorten angelegt.",
-    "addVariety": "Sorte hinzufügen"
+    "addVariety": "Sorte hinzufügen",
+    "varietyComparison": {
+      "noDifferences": "Keine Abweichungen von den allgemeinen Kulturdaten"
+    }
   },
   "supplier_id": "Lieferant",
   "noData": "Keine Angabe",
