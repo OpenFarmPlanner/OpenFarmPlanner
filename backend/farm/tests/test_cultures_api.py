@@ -293,6 +293,61 @@ class CultureApiTest(ProjectApiTestCase):
         self.culture.refresh_from_db()
         self.assertEqual(float(self.culture.thousand_kernel_weight_g), 4.2)
 
+    def test_culture_rename_cascades_to_sibling_varieties_grouped_by_name(self):
+        """Renaming one row of a crop (grouped by name, no crop_species link)
+        must rename its siblings too, so the variety stays in the same crop
+        group instead of splitting off into what looks like a new crop."""
+        variety_a = Culture.objects.create(
+            name=self.culture.name, variety='Variety A', project=self.project,
+        )
+        variety_b = Culture.objects.create(
+            name=self.culture.name, variety='Variety B', project=self.project,
+        )
+        unrelated = Culture.objects.create(
+            name='Unrelated Culture', variety='', project=self.project,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{variety_a.id}/',
+            {'name': 'Renamed Culture'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.culture.refresh_from_db()
+        variety_b.refresh_from_db()
+        unrelated.refresh_from_db()
+        self.assertEqual(self.culture.name, 'Renamed Culture')
+        self.assertEqual(variety_b.name, 'Renamed Culture')
+        self.assertEqual(unrelated.name, 'Unrelated Culture')
+
+    def test_culture_rename_cascades_to_siblings_grouped_by_crop_species(self):
+        """When rows are linked via crop_species, renaming groups by that
+        link instead of the (possibly stale) name, matching the frontend's
+        own grouping logic."""
+        species = CropSpecies.objects.create(name='Rename Species Test')
+        self.culture.crop_species = species
+        self.culture.save(update_fields=['crop_species'])
+        linked_variety = Culture.objects.create(
+            name=self.culture.name, variety='Linked Variety', crop_species=species,
+            project=self.project,
+        )
+        same_name_unlinked = Culture.objects.create(
+            name=self.culture.name, variety='Unlinked Same Name', project=self.project,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{self.culture.id}/',
+            {'name': 'Renamed Species Culture'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        linked_variety.refresh_from_db()
+        same_name_unlinked.refresh_from_db()
+        self.assertEqual(linked_variety.name, 'Renamed Species Culture')
+        self.assertEqual(same_name_unlinked.name, 'API Test Culture')
+
     def test_culture_partial_update_persists_thousand_kernel_weight_on_culture(self):
         response = self.client.patch(
             f'/openfarmplanner/api/cultures/{self.culture.id}/',
