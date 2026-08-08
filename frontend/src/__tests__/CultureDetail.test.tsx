@@ -957,6 +957,20 @@ describe('CultureDetail Component', () => {
       expect(onCultureSelect).toHaveBeenCalledWith(carrotNantes);
     });
 
+    it('signals the row is clickable with a pointer cursor and a keyboard focus target', () => {
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
+      expect(nantesRow).toHaveStyle({ cursor: 'pointer' });
+      expect(nantesRow).toHaveAttribute('tabindex', '0');
+    });
+
     it('does not render on a variety\'s own detail view (only on the crop/species overview)', () => {
       renderCultureDetail(
         <CultureDetail

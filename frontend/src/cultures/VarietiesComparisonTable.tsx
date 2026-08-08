@@ -41,6 +41,12 @@ const stickyNameCellSx = {
   zIndex: 2,
   backgroundColor: 'background.paper',
   maxWidth: { xs: 180, sm: 240 },
+  // The sticky cell's own opaque background sits on top of the row, so the
+  // row's :hover background (set on the <tr>) wouldn't otherwise show
+  // through it — mirror it here so the whole row highlights consistently.
+  '.variety-row:hover &, .variety-row:focus-within &': {
+    backgroundColor: 'action.selected',
+  },
 } as const;
 
 export function VarietiesComparisonTable({
@@ -86,7 +92,14 @@ export function VarietiesComparisonTable({
                     onSelect(culture);
                   }
                 }}
-                sx={{ cursor: 'pointer' }}
+                sx={(theme) => ({
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: theme.palette.action.selected },
+                  '&:focus-visible': {
+                    outline: `2px solid ${theme.palette.primary.main}`,
+                    outlineOffset: -2,
+                  },
+                })}
               >
                 <TableCell sx={stickyNameCellSx}>
                   <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0, width: '100%', overflow: 'hidden' }}>
@@ -99,6 +112,10 @@ export function VarietiesComparisonTable({
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        '.variety-row:hover &, .variety-row:focus-within &': {
+                          color: 'primary.main',
+                          textDecoration: 'underline',
+                        },
                       }}
                     >
                       {label}
