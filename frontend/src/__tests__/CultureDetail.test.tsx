@@ -101,6 +101,19 @@ describe('CultureDetail Component', () => {
     expect(screen.getByText(translations.cultures.selectPrompt)).toBeInTheDocument();
   });
 
+  it('does not auto-select a fallback culture when the selection is momentarily missing from the list (regression: selection flip-flop after creating a culture)', () => {
+    const onCultureSelect = vi.fn();
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={999}
+        onCultureSelect={onCultureSelect}
+      />
+    );
+
+    expect(onCultureSelect).not.toHaveBeenCalled();
+  });
+
   it('shows loading state without empty-state flicker', () => {
     const mockOnSelect = vi.fn();
     renderCultureDetail(

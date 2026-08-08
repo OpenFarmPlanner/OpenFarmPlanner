@@ -404,21 +404,6 @@ const detailSectionGridSx = {
     [cropHierarchyItems],
   );
 
-  useEffect(() => {
-    if (isLoading || cultures.length === 0) {
-      return;
-    }
-
-    const selectedCultureExists = selectedCultureId !== undefined
-      && cultures.some((culture) => culture.id === selectedCultureId);
-    if (selectedCultureExists) {
-      return;
-    }
-
-    const [firstFilteredCulture] = filteredCultures;
-    onCultureSelect(firstFilteredCulture ?? null);
-  }, [cultures, filteredCultures, isLoading, onCultureSelect, selectedCultureId]);
-
   const cultureOptions: SearchableSelectOption<Culture>[] = useMemo(
     () => {
       const optionCultures = [...filteredCultures];
