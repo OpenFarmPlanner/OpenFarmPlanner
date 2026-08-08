@@ -50,7 +50,7 @@ import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '.
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { VarietiesComparisonTable } from './VarietiesComparisonTable';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
-import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
+import { VARIETY_INHERITABLE_FIELDS, isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -499,6 +499,20 @@ const detailSectionGridSx = {
     [cropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
   );
   const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
+
+  // With exactly one variety, there's no meaningful "General crop" view
+  // distinct from that variety — showing the crop's raw values would hide
+  // whether the variety actually deviates from them at all. In that case,
+  // the crop page's General/Timing/Spacing/Seed/Yield sections resolve
+  // values as if this one variety were selected (its own value, falling
+  // back to the crop's), reusing the exact same override/inherit primitive
+  // (getVarietyOwnValueSource) the variety detail view already uses below.
+  const soleVariety = isSpeciesView && varietySiblings.length === 1 ? varietySiblings[0].culture : null;
+  const isSoleVarietyView = Boolean(soleVariety);
+  const soleVarietyHasOwnValues = Boolean(
+    soleVariety && VARIETY_INHERITABLE_FIELDS.some((field) => getVarietyOwnValueSource(soleVariety, selectedCulture, field) === 'ownValue')
+  );
+
   const addVarietyButton = (
     <Button
       size="small"
@@ -517,14 +531,21 @@ const detailSectionGridSx = {
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
-  ): ValueSource | null => (
-    isSpeciesView ? null : getVarietyOwnValueSource(selectedCulture, selectedSpeciesCulture, field)
-  ), [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  ): ValueSource | null => {
+    if (isSoleVarietyView && soleVariety) {
+      return getVarietyOwnValueSource(soleVariety, selectedCulture, field);
+    }
+    return isSpeciesView ? null : getVarietyOwnValueSource(selectedCulture, selectedSpeciesCulture, field);
+  }, [isSoleVarietyView, soleVariety, isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
   const getCropValue = useCallback(<TValue,>(
     field: keyof Culture,
     value: TValue,
   ): TValue => {
+    if (isSoleVarietyView && soleVariety) {
+      const ownValue = soleVariety[field] as TValue;
+      return isEmptyCropValue(ownValue) ? (selectedCulture?.[field] as TValue) : ownValue;
+    }
     if (
       selectedCulture?.variety
       && !isSpeciesView
@@ -534,7 +555,7 @@ const detailSectionGridSx = {
       return selectedSpeciesCulture[field] as TValue;
     }
     return value;
-  }, [isSpeciesView, selectedCulture?.variety, selectedSpeciesCulture]);
+  }, [isSoleVarietyView, soleVariety, isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
   const getOwnValueSx = (...fields: (keyof Culture)[]) => (
     fields.some((field) => getCropValueSource(field) === 'ownValue')
@@ -542,7 +563,10 @@ const detailSectionGridSx = {
       : undefined
   );
 
-  const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
+  const showVarietyValueLegend = Boolean(
+    (!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture)
+    || (isSoleVarietyView && soleVarietyHasOwnValues)
+  );
   
   const supplierRows = useMemo(
     () => selectedCulture?.supplier_data ?? [],
@@ -934,6 +958,13 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
+                        {isSoleVarietyView && soleVariety ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={t('hierarchy.soleVarietyValuesNotice', { variety: soleVariety.variety })}
+                          />
+                        ) : null}
                       </Box>
                     </Box>
                   </Box>
@@ -979,6 +1010,10 @@ const detailSectionGridSx = {
                   description={t('hierarchy.ownValueLegendDescription')}
                 />
               </Box>
+            ) : isSoleVarietyView && !soleVarietyHasOwnValues ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
+                {t('hierarchy.soleVarietyNoOwnValues')}
+              </Typography>
             ) : null}
 
             <Divider sx={{ mb: 2.5 }} />

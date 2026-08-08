@@ -1136,5 +1136,67 @@ describe('CultureDetail Component', () => {
       expect(screen.getByText('Nantes')).toBeInTheDocument();
       expect(screen.getByText('Bolero')).toBeInTheDocument();
     });
+
+    it('shows the sole variety\'s own values (highlighted) in the crop sections, with a notice and the value legend', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', crop_species: 5, row_spacing_cm: 40 };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Zeigt Werte für: Nantes')).toBeInTheDocument();
+      expect(screen.getByText('40 cm')).toBeInTheDocument();
+      expect(screen.queryByText('25 cm')).not.toBeInTheDocument();
+      expect(screen.getByText('Markierte Werte')).toBeInTheDocument();
+      expect(screen.queryByText('Keine sortenspezifischen Werte — zeigt allgemeine Kulturdaten.')).not.toBeInTheDocument();
+    });
+
+    it('shows the crop\'s inherited values and a "no variety-specific values" message when the sole variety has no overrides', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', crop_species: 5 };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Zeigt Werte für: Nantes')).toBeInTheDocument();
+      expect(screen.getByText('25 cm')).toBeInTheDocument();
+      expect(screen.getByText('Keine sortenspezifischen Werte — zeigt allgemeine Kulturdaten.')).toBeInTheDocument();
+      expect(screen.queryByText('Markierte Werte')).not.toBeInTheDocument();
+    });
+
+    it('does not show the sole-variety notice or apply its values when there are two or more varieties', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5, row_spacing_cm: 25 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', crop_species: 5, row_spacing_cm: 40 };
+      const bolero: Culture = { id: 22, name: 'Carrot', variety: 'Bolero', crop_species: 5 };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes, bolero]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByText(/Zeigt Werte für:/)).not.toBeInTheDocument();
+      // The crop's own Spacing section shows its raw value (25), not any
+      // one variety's — "40 cm" (Nantes' override) must not leak into it.
+      // The comparison table below separately renders variety-level values
+      // in its own cells, so these checks are scoped outside the table.
+      const table = screen.getByRole('table');
+      const cropSpacingValue = screen.getAllByText('25 cm').find((element) => !table.contains(element));
+      expect(cropSpacingValue).toBeTruthy();
+      const leakedVarietyValue = screen.queryAllByText('40 cm').find((element) => !table.contains(element));
+      expect(leakedVarietyValue).toBeUndefined();
+    });
   });
 });
