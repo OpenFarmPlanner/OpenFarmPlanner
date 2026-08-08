@@ -7,13 +7,14 @@ import { buildCultureSavePayload } from '../pages/culturesSaveUtils';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import type { Culture } from '../api/types';
+import type { FirstVarietyDraft } from '../cultures/CultureForm';
 
-const { listMock, updateMock, createMock, saveCultureMock, saveFirstVarietyNameMock } = vi.hoisted(() => ({
+const { listMock, updateMock, createMock, saveCultureMock, saveFirstVarietyMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   updateMock: vi.fn(),
   createMock: vi.fn(),
   saveCultureMock: vi.fn(),
-  saveFirstVarietyNameMock: vi.fn<() => string | undefined>(() => undefined),
+  saveFirstVarietyMock: vi.fn<() => FirstVarietyDraft | undefined>(() => undefined),
 }));
 
 vi.mock('../api/api', async () => {
@@ -66,10 +67,10 @@ vi.mock('../cultures/CultureDetail', () => ({
 }));
 
 vi.mock('../cultures/CultureForm', () => ({
-  CultureForm: ({ onSave }: { onSave: (culture: Culture, firstVarietyName?: string) => Promise<void> }): ReactElement => (
+  CultureForm: ({ onSave }: { onSave: (culture: Culture, firstVariety?: FirstVarietyDraft) => Promise<void> }): ReactElement => (
     <button
       type="button"
-      onClick={() => void onSave(saveCultureMock(), saveFirstVarietyNameMock())}
+      onClick={() => void onSave(saveCultureMock(), saveFirstVarietyMock())}
     >
       submit-edit
     </button>
@@ -471,7 +472,7 @@ describe('Cultures save payload', () => {
       row_spacing_cm: 30,
       crop_family: 'Doldenblütler',
     } as Culture);
-    saveFirstVarietyNameMock.mockReturnValueOnce('Nova');
+    saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova' });
 
     render(
       <MemoryRouter>
@@ -496,6 +497,66 @@ describe('Cultures save payload', () => {
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
   });
 
+  it('applies the library draft to the first variety when one was picked from the suggestions', async () => {
+    listMock
+      .mockResolvedValueOnce({
+        data: { count: 0, next: null, previous: null, results: [] },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          count: 2,
+          next: null,
+          previous: null,
+          results: [
+            { id: 2, name: 'Tomate', variety: '' },
+            { id: 3, name: 'Tomate', variety: 'Moneymaker' },
+          ],
+        },
+      });
+    createMock
+      .mockResolvedValueOnce({ data: { id: 2, name: 'Tomate', variety: '', crop_species: 7 } })
+      .mockResolvedValueOnce({ data: { id: 3, name: 'Tomate', variety: 'Moneymaker' } });
+    saveCultureMock.mockReturnValue({
+      name: 'Tomate',
+      variety: '',
+      crop_species: 7,
+      growth_duration_days: 80,
+    } as Culture);
+    saveFirstVarietyMock.mockReturnValueOnce({
+      name: 'Moneymaker',
+      draft: {
+        variety: 'Moneymaker',
+        growth_duration_days: 95,
+        source_public_culture: 42,
+        source_public_version: 3,
+        origin_type: 'imported',
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <Cultures />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kultur hinzufügen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'submit-edit' }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(2));
+    const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
+    const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
+    // The crop itself keeps its own values; only the variety takes the draft.
+    expect(cropPayload.growth_duration_days).toBe(80);
+    expect(varietyPayload.name).toBe('Tomate');
+    expect(varietyPayload.variety).toBe('Moneymaker');
+    expect(varietyPayload.growth_duration_days).toBe(95);
+    expect(varietyPayload.source_public_culture).toBe(42);
+    expect(varietyPayload.source_public_version).toBe(3);
+    expect(varietyPayload.origin_type).toBe('imported');
+  });
+
   it('does not create a second culture when saving an existing crop even if a variety name mock resolves', async () => {
     saveCultureMock.mockReturnValue({
       id: 1,
@@ -503,7 +564,7 @@ describe('Cultures save payload', () => {
       variety: 'Nantaise',
       supplier: { id: 10, name: 'Bingenheimer' },
     } as Culture);
-    saveFirstVarietyNameMock.mockReturnValueOnce('Nova');
+    saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova' });
 
     render(
       <MemoryRouter>

@@ -109,18 +109,47 @@ are two separate suggestion sources
 (`frontend/src/cultures/publicCultureNameSuggestions.ts`,
 wired up in `CultureForm.tsx`/`BasicInfoSection.tsx`): the Name field
 suggests deduplicated public crop species names only (one option per
-`crop_species`, never a "Species · Variety" combination), and the Variety
-field only offers suggestions — fetched via
+`crop_species`, never a "Species · Variety" combination), and the variety
+fields only offer suggestions — fetched via
 `GET /api/public-cultures/?crop_species=<id>` — once the typed name exactly
-matches one of those species suggestions; otherwise it stays free text.
-Selecting a Name suggestion links `crop_species` immediately (a lightweight
-match, no other field is guessed yet); selecting a concrete Variety
-suggestion is what actually copies baseline values plus
-`source_public_culture`/`source_public_version` into the private draft, since
-only at that point does a single `PublicCulture` row exist to copy from. Both
-suggestion sources filter out entries whose name or variety looks like
+matches one of those species suggestions; otherwise they stay free text.
+Both suggestion sources filter out entries whose name or variety looks like
 manual-QA test data (`isLikelyTestPublicCultureEntry`) — a display-only
 filter; no public-library rows are deleted for this.
+
+Selecting a Name suggestion links `crop_species` immediately and then copies
+the species' general ("no variety") public entry into the draft — baseline
+values plus `source_public_culture`/`source_public_version` and
+`origin_type: 'imported'`, i.e. exactly the shape the "Import from library"
+button produces, so the re-import/update model in
+`import_public_culture_into_project()` applies to these cultures unchanged.
+The copy reuses the species rows the Variety field fetches anyway (guarded by
+`loadedVarietySpeciesId`, since an empty list is otherwise ambiguous between
+"still loading" and "no entries"), so no extra request is made. A species with
+no general entry — mostly legacy data, since `ensure_general_public_culture()`
+creates one on publish — stays linked by `crop_species` alone rather than
+copying an arbitrary variety's values. Species-level prefill never overwrites
+a variety the user already typed (`preserveVariety`).
+
+Which variety field is shown depends on `formKind`. The Add-**variety** dialog
+renders the real `variety` field, and selecting a suggestion there copies that
+concrete `PublicCulture` row. The Add-**crop** dialog has no `variety` field at
+all; its optional "Sorte (optional)" field names a *second* culture created
+after the crop, so picking a suggestion there only records which library entry
+it came from and the linked draft is built at save time
+(`FirstVarietyDraft.draft`, applied in `Cultures.tsx`'s `handleSave`). Leaving
+it as free text keeps the pre-existing behavior of inheriting the crop's own
+values. This split is why the Add-crop dialog must prefill from the Name field:
+regression `#444`-era code put prefill exclusively on the `variety` field,
+which that dialog never renders, leaving the public library unreachable from
+"Kultur hinzufügen" while suggestions still appeared to work.
+
+When the typed crop name already matches a private culture in the project, the
+dialog shows a non-blocking info hint offering the existing "+ Add variety"
+flow for that crop (`onSwitchToAddVariety`, resolved to the species-level row).
+The match is computed against the already-loaded `cultures` prop — the
+`duplicate_check` endpoint cannot serve this, since it returns `exists: false`
+whenever `variety` is empty. Creating a free-text duplicate stays possible.
 
 Only the publishing wizard requires a public-library decision: users either
 link the private culture to an existing published `PublicCulture`, or continue
