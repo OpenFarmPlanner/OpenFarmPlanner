@@ -899,14 +899,15 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
-    it('hides edit/delete actions until hover, positioned next to the variety name', () => {
+    it('hides edit/delete actions until hover, positioned next to the variety name, without triggering row navigation', () => {
       const onEditCulture = vi.fn();
       const onDeleteCulture = vi.fn();
+      const onCultureSelect = vi.fn();
       renderCultureDetail(
         <CultureDetail
           cultures={carrotCultures}
           selectedCultureId={10}
-          onCultureSelect={vi.fn()}
+          onCultureSelect={onCultureSelect}
           onEditCulture={onEditCulture}
           onDeleteCulture={onDeleteCulture}
         />
@@ -921,7 +922,6 @@ describe('CultureDetail Component', () => {
       // separate right-aligned block spanning the full row width), reusing
       // the shared hover-reveal overlay pattern from Fields/Suppliers — hidden
       // (not clickable) until the row is hovered/focused.
-      expect(nantesRow.querySelector('.MuiListItemText-root')?.nextElementSibling).toContainElement(editButton);
       expect(editButton).toHaveStyle({ pointerEvents: 'none' });
       expect(deleteButton).toHaveStyle({ pointerEvents: 'none' });
 
@@ -930,6 +930,23 @@ describe('CultureDetail Component', () => {
 
       fireEvent.click(deleteButton);
       expect(onDeleteCulture).toHaveBeenCalledWith(carrotNantes);
+
+      // Clicking the icons must not also select/navigate to the row.
+      expect(onCultureSelect).not.toHaveBeenCalled();
+    });
+
+    it('navigates to the variety on row click', () => {
+      const onCultureSelect = vi.fn();
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={onCultureSelect}
+        />
+      );
+
+      fireEvent.click(screen.getByText('Nantes').closest('.variety-row') as HTMLElement);
+      expect(onCultureSelect).toHaveBeenCalledWith(carrotNantes);
     });
 
     it('does not render on a variety\'s own detail view (only on the crop/species overview)', () => {
@@ -963,32 +980,70 @@ describe('CultureDetail Component', () => {
       expect(screen.getByText('Für diese Kultur sind noch keine Sorten angelegt.')).toBeInTheDocument();
     });
 
-    it('shows only the fields that differ from the general crop data for each variety', () => {
-      const speciesWithSpacing: Culture = {
+    it('shows a table with only the columns where varieties actually differ from each other', () => {
+      const species: Culture = {
         id: 20, name: 'Carrot', variety: '', crop_family: 'Apiaceae', row_spacing_cm: 25, growth_duration_days: 100,
       };
-      const varietyWithOverride: Culture = {
-        id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30,
+      const nantes: Culture = {
+        id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30, growth_duration_days: 95,
       };
-      const varietyIdentical: Culture = {
-        id: 22, name: 'Carrot', variety: 'Bolero',
+      const bolero: Culture = {
+        id: 22, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 30, growth_duration_days: 90,
       };
 
       renderCultureDetail(
         <CultureDetail
-          cultures={[speciesWithSpacing, varietyWithOverride, varietyIdentical]}
+          cultures={[species, nantes, bolero]}
           selectedCultureId={20}
           onCultureSelect={vi.fn()}
         />
       );
 
+      const table = screen.getByRole('table');
+      // row_spacing_cm is the same (30) for both varieties -> no column
+      // (it may still appear elsewhere on the page, e.g. the crop's own
+      // Spacing section, so this must be scoped to the table).
+      expect(within(table).queryByText('Reihenabstand')).not.toBeInTheDocument();
+      // growth_duration_days differs between the two varieties -> column shown.
+      expect(within(table).getByText('Wachstumszeit (Tage)')).toBeInTheDocument();
+
       const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
-      expect(within(nantesRow).getByText('Reihenabstand')).toBeInTheDocument();
-      expect(within(nantesRow).getByText('30 cm')).toBeInTheDocument();
-      expect(within(nantesRow).queryByText('Wachstumszeit (Tage)')).not.toBeInTheDocument();
+      expect(within(nantesRow).getByText('95 Tage')).toBeInTheDocument();
+      const boleroRow = screen.getByText('Bolero').closest('.variety-row') as HTMLElement;
+      expect(within(boleroRow).getByText('90 Tage')).toBeInTheDocument();
+    });
+
+    it('shows an em-dash for a variety missing a value in a shown column', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '' };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+      const bolero: Culture = { id: 22, name: 'Carrot', variety: 'Bolero' };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes, bolero]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
 
       const boleroRow = screen.getByText('Bolero').closest('.variety-row') as HTMLElement;
-      expect(within(boleroRow).getByText('Keine Abweichungen von den allgemeinen Kulturdaten')).toBeInTheDocument();
+      expect(within(boleroRow).getByText('—')).toBeInTheDocument();
+    });
+
+    it('shows only the variety-name column with fewer than two varieties (no columns can differ)', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '' };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Nantes')).toBeInTheDocument();
+      expect(within(screen.getByRole('table')).queryByText('Reihenabstand')).not.toBeInTheDocument();
     });
   });
 });

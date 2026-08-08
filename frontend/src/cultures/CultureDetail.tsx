@@ -17,7 +17,6 @@ import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import {
   Badge,
@@ -30,8 +29,6 @@ import {
   Divider,
   Link,
   List,
-  ListItemButton,
-  ListItemText,
   Stack,
   Button,
   IconButton,
@@ -51,10 +48,9 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
-import { VarietyDifferenceList } from './VarietyDifferenceList';
+import { VarietiesComparisonTable } from './VarietiesComparisonTable';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -1000,52 +996,19 @@ const detailSectionGridSx = {
                   {t('hierarchy.varietiesEmpty')}
                 </Typography>
               ) : (
-                <List dense disablePadding>
-                  {varietySiblings.map((variety) => (
-                    <ListItemButton
-                      key={variety.id}
-                      className="variety-row"
-                      selected={!isSpeciesView && variety.culture?.id === selectedCulture.id}
-                      onClick={() => {
-                        if (variety.culture) {
-                          setSelectedSpeciesViewKey(null);
-                          onCultureSelect(variety.culture);
-                        }
-                      }}
-                      sx={{ borderRadius: 1, mb: 0.5, flexDirection: 'column', alignItems: 'stretch' }}
-                    >
-                      <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: 'fit-content', maxWidth: '100%' }}>
-                        <ListItemText primary={variety.label} sx={{ flex: 'none', pr: 1 }} />
-                        <Box
-                          sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            aria-label={t('buttons.edit')}
-                            disabled={!onEditCulture || !variety.culture}
-                            onClick={() => variety.culture && onEditCulture?.(variety.culture)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={t('buttons.delete')}
-                            disabled={!onDeleteCulture || !variety.culture}
-                            onClick={() => variety.culture && onDeleteCulture?.(variety.culture)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                      {variety.culture && (
-                        <VarietyDifferenceList variety={variety.culture} cropCulture={selectedCulture} />
-                      )}
-                    </ListItemButton>
-                  ))}
-                </List>
+                <VarietiesComparisonTable
+                  varieties={varietySiblings
+                    .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
+                    .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+                  onSelect={(culture) => {
+                    setSelectedSpeciesViewKey(null);
+                    onCultureSelect(culture);
+                  }}
+                  onEdit={onEditCulture}
+                  onDelete={onDeleteCulture}
+                  editActionLabel={t('buttons.edit')}
+                  deleteActionLabel={t('buttons.delete')}
+                />
               )}
             </Box>
 

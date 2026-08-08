@@ -64,10 +64,7 @@
     "varietyCount_other": "{{count}} varieties",
     "varietiesTitle": "Varieties",
     "varietiesEmpty": "No varieties have been added to this crop yet.",
-    "addVariety": "Add variety",
-    "varietyComparison": {
-      "noDifferences": "No differences from general crop data"
-    }
+    "addVariety": "Add variety"
   },
   "supplier_id": "Supplier",
   "noData": "Not specified",

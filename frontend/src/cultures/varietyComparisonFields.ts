@@ -1,9 +1,8 @@
 /**
- * Registry driving the "differences from general crop data" list shown per
- * variety in the Crop detail view's Varieties section. Each entry describes
- * one displayed value (backed by one or more Culture fields), its label, and
- * how to format it — so new fields can be added here without touching the
- * diff/rendering logic.
+ * Registry driving the Varieties comparison table in the Crop detail view.
+ * Each entry describes one displayed value (backed by one or more Culture
+ * fields), its label, and how to format it — so new fields can be added
+ * here without touching the column-selection/rendering logic.
  */
 
 import type { Culture, CultivationType } from '../api/types';
@@ -11,7 +10,7 @@ import {
   formatDistance,
   formatNumber,
 } from './cultureDetailFormatters';
-import { getVarietyOwnValueSource } from './varietyValueSource';
+import { areCropValuesEqual, isEmptyCropValue } from './varietyValueSource';
 
 type TranslateFn = (key: string) => string;
 
@@ -153,29 +152,37 @@ export const CULTURE_COMPARISON_FIELDS: CultureComparisonField[] = [
   },
 ];
 
-export interface CultureComparisonRow {
-  id: string;
-  label: string;
-  value: string;
+const EMPTY_CELL_VALUE = '—';
+
+/**
+ * Fields where at least two of the given varieties have a genuinely
+ * different value — i.e. the columns worth showing in the comparison table.
+ * A field with fewer than two varieties, or where every variety agrees
+ * (including all being empty), is left out entirely rather than shown with
+ * identical values in every row.
+ */
+export function getVaryingComparisonFields(varieties: Culture[]): CultureComparisonField[] {
+  if (varieties.length < 2) {
+    return [];
+  }
+
+  const [reference, ...rest] = varieties;
+  return CULTURE_COMPARISON_FIELDS.filter((field) => (
+    rest.some((variety) => field.keys.some((key) => !areCropValuesEqual(reference[key], variety[key])))
+  ));
 }
 
 /**
- * Fields where the variety's own value differs from the general crop's
- * value, formatted for display. Reuses `getVarietyOwnValueSource` — the same
- * override/inherited primitive already used by the form and the single-value
- * detail view — so "differs" always means the same thing across the app.
+ * Formats one table cell for a given variety/field pair, falling back to a
+ * plain em-dash (matching the rest of the app's empty-value convention)
+ * instead of a formatter-specific "not specified" string.
  */
-export function getVarietyDifferences(
-  variety: Culture,
-  cropCulture: Culture,
+export function getComparisonCellValue(
+  culture: Culture,
+  field: CultureComparisonField,
   t: TranslateFn,
   locale: string,
-): CultureComparisonRow[] {
-  return CULTURE_COMPARISON_FIELDS
-    .filter((field) => field.keys.some((key) => getVarietyOwnValueSource(variety, cropCulture, key) === 'ownValue'))
-    .map((field) => ({
-      id: field.id,
-      label: t(field.labelKey),
-      value: field.format(variety, t, locale),
-    }));
+): string {
+  const isEmpty = field.keys.every((key) => isEmptyCropValue(culture[key]));
+  return isEmpty ? EMPTY_CELL_VALUE : field.format(culture, t, locale);
 }

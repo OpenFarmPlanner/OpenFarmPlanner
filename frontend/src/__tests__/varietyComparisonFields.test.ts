@@ -1,60 +1,63 @@
 import { describe, it, expect } from 'vitest';
-import { getVarietyDifferences } from '../cultures/varietyComparisonFields';
+import { getComparisonCellValue, getVaryingComparisonFields } from '../cultures/varietyComparisonFields';
 import type { Culture } from '../api/types';
 
 const t = (key: string): string => key;
 
-describe('getVarietyDifferences', () => {
-  const cropCulture: Culture = {
-    id: 1,
-    name: 'Carrot',
-    variety: '',
-    crop_family: 'Apiaceae',
-    row_spacing_cm: 30,
-    growth_duration_days: 100,
-  };
-
-  it('returns no rows when the variety matches the crop on every field', () => {
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes' };
-    expect(getVarietyDifferences(variety, cropCulture, t, 'de-DE')).toEqual([]);
+describe('getVaryingComparisonFields', () => {
+  it('returns no columns for fewer than two varieties', () => {
+    const single: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+    expect(getVaryingComparisonFields([single])).toEqual([]);
+    expect(getVaryingComparisonFields([])).toEqual([]);
   });
 
-  it('returns a row only for fields the variety explicitly overrides', () => {
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 40 };
-    const differences = getVarietyDifferences(variety, cropCulture, t, 'de-DE');
+  it('excludes a field when every variety agrees, including when all are empty', () => {
+    const nantes: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+    const bolero: Culture = { id: 2, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 30 };
+    const rodelika: Culture = { id: 3, name: 'Carrot', variety: 'Rodelika' };
 
-    expect(differences).toHaveLength(1);
-    expect(differences[0]).toMatchObject({ id: 'rowSpacing' });
+    const fieldIds = getVaryingComparisonFields([nantes, bolero]).map((field) => field.id);
+    expect(fieldIds).not.toContain('rowSpacing');
+    expect(getVaryingComparisonFields([nantes, rodelika]).map((field) => field.id)).not.toContain('growthDurationDays');
   });
 
-  it('flags a field as different when the variety sets a value the crop leaves empty', () => {
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes', expected_yield: 5 };
-    const differences = getVarietyDifferences(variety, cropCulture, t, 'de-DE');
+  it('includes a field when at least two varieties disagree, even if others are empty', () => {
+    const nantes: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+    const bolero: Culture = { id: 2, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 40 };
+    const rodelika: Culture = { id: 3, name: 'Carrot', variety: 'Rodelika' };
 
-    expect(differences.map((diff) => diff.id)).toContain('expectedYield');
-  });
-
-  it('does not flag a field as different when the variety leaves it empty and inherits the crop value', () => {
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes' };
-    const differences = getVarietyDifferences(variety, cropCulture, t, 'de-DE');
-
-    expect(differences.map((diff) => diff.id)).not.toContain('rowSpacing');
-    expect(differences.map((diff) => diff.id)).not.toContain('growthDurationDays');
+    const fieldIds = getVaryingComparisonFields([nantes, bolero, rodelika]).map((field) => field.id);
+    expect(fieldIds).toContain('rowSpacing');
   });
 
   it('diffs array-valued fields (cultivation types) structurally', () => {
-    const cropWithTypes: Culture = { ...cropCulture, cultivation_types: ['pre_cultivation'] };
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes', cultivation_types: ['direct_sowing'] };
-    const differences = getVarietyDifferences(variety, cropWithTypes, t, 'de-DE');
+    const nantes: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', cultivation_types: ['pre_cultivation'] };
+    const bolero: Culture = { id: 2, name: 'Carrot', variety: 'Bolero', cultivation_types: ['direct_sowing'] };
 
-    expect(differences.map((diff) => diff.id)).toContain('cultivationType');
+    expect(getVaryingComparisonFields([nantes, bolero]).map((field) => field.id)).toContain('cultivationType');
   });
 
-  it('diffs boolean fields, including a false variety value overriding a true crop value', () => {
-    const cropWithDeviation: Culture = { ...cropCulture, allow_deviation_delivery_weeks: true };
-    const variety: Culture = { id: 2, name: 'Carrot', variety: 'Nantes', allow_deviation_delivery_weeks: false };
-    const differences = getVarietyDifferences(variety, cropWithDeviation, t, 'de-DE');
+  it('diffs boolean fields, including false vs. true', () => {
+    const nantes: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', allow_deviation_delivery_weeks: true };
+    const bolero: Culture = { id: 2, name: 'Carrot', variety: 'Bolero', allow_deviation_delivery_weeks: false };
 
-    expect(differences.map((diff) => diff.id)).toContain('allowDeviationDeliveryWeeks');
+    expect(getVaryingComparisonFields([nantes, bolero]).map((field) => field.id)).toContain('allowDeviationDeliveryWeeks');
+  });
+});
+
+describe('getComparisonCellValue', () => {
+  const [rowSpacingField] = getVaryingComparisonFields([
+    { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 },
+    { id: 2, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 40 },
+  ]);
+
+  it('renders an em-dash when the field is empty for that variety', () => {
+    const variety: Culture = { id: 3, name: 'Carrot', variety: 'Rodelika' };
+    expect(getComparisonCellValue(variety, rowSpacingField, t, 'de-DE')).toBe('—');
+  });
+
+  it('renders the formatted value when the field is set', () => {
+    const variety: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+    expect(getComparisonCellValue(variety, rowSpacingField, t, 'de-DE')).toBe('30 detail.units.centimeters');
   });
 });
