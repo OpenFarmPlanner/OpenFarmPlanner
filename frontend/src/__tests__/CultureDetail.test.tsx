@@ -899,9 +899,8 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
-    it('hides edit/delete actions until hover, positioned next to the variety name, without triggering row navigation', () => {
+    it('hides the edit action until hover, right-aligned in the variety column, without triggering row navigation', () => {
       const onEditCulture = vi.fn();
-      const onDeleteCulture = vi.fn();
       const onCultureSelect = vi.fn();
       renderCultureDetail(
         <CultureDetail
@@ -909,30 +908,39 @@ describe('CultureDetail Component', () => {
           selectedCultureId={10}
           onCultureSelect={onCultureSelect}
           onEditCulture={onEditCulture}
-          onDeleteCulture={onDeleteCulture}
         />
       );
 
       const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
       expect(nantesRow).toBeInTheDocument();
       const editButton = within(nantesRow).getByRole('button', { name: 'Bearbeiten' });
-      const deleteButton = within(nantesRow).getByRole('button', { name: 'Löschen' });
 
-      // The action icons live in the same inline box as the name (not a
-      // separate right-aligned block spanning the full row width), reusing
-      // the shared hover-reveal overlay pattern from Fields/Suppliers — hidden
-      // (not clickable) until the row is hovered/focused.
+      // The edit action's slot is always laid out in the row (not absolutely
+      // overlaid on top of the name), so it never overlaps the variety name
+      // and never shifts the row when it appears — just hidden (not
+      // clickable) until the row is hovered/focused.
       expect(editButton).toHaveStyle({ pointerEvents: 'none' });
-      expect(deleteButton).toHaveStyle({ pointerEvents: 'none' });
 
       fireEvent.click(editButton);
       expect(onEditCulture).toHaveBeenCalledWith(carrotNantes);
 
-      fireEvent.click(deleteButton);
-      expect(onDeleteCulture).toHaveBeenCalledWith(carrotNantes);
-
-      // Clicking the icons must not also select/navigate to the row.
+      // Clicking the icon must not also select/navigate to the row.
       expect(onCultureSelect).not.toHaveBeenCalled();
+    });
+
+    it('does not offer a delete action in the variety table row', () => {
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+          onEditCulture={vi.fn()}
+          onDeleteCulture={vi.fn()}
+        />
+      );
+
+      const nantesRow = screen.getByText('Nantes').closest('.variety-row') as HTMLElement;
+      expect(within(nantesRow).queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument();
     });
 
     it('navigates to the variety on row click', () => {

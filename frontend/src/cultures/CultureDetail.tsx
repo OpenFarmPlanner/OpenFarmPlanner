@@ -1006,9 +1006,7 @@ const detailSectionGridSx = {
                     onCultureSelect(culture);
                   }}
                   onEdit={onEditCulture}
-                  onDelete={onDeleteCulture}
                   editActionLabel={t('buttons.edit')}
-                  deleteActionLabel={t('buttons.delete')}
                 />
               )}
             </Box>

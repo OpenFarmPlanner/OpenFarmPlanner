@@ -9,12 +9,10 @@ import {
   TableRow,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { Culture } from '../api/types';
 import { useTranslation } from '../i18n';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import TableSurface from '../components/layout/TableSurface';
 import { getComparisonCellValue, getVaryingComparisonFields } from './varietyComparisonFields';
 
@@ -28,9 +26,7 @@ interface VarietiesComparisonTableProps {
   cropCulture: Culture;
   onSelect: (culture: Culture) => void;
   onEdit?: (culture: Culture) => void;
-  onDelete?: (culture: Culture) => void;
   editActionLabel: string;
-  deleteActionLabel: string;
 }
 
 const stickyNameCellSx = {
@@ -40,14 +36,26 @@ const stickyNameCellSx = {
   backgroundColor: 'background.paper',
 } as const;
 
+// The edit icon's slot is always laid out (just invisible until hover/focus)
+// rather than absolutely overlaid on top of the name, so it never overlaps a
+// long variety name and never shifts the row's layout when it appears.
+const editActionSlotSx = {
+  display: 'inline-flex',
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 120ms ease-in-out',
+  '.variety-row:hover &, .variety-row:focus-within &': {
+    opacity: 1,
+    pointerEvents: 'auto',
+  },
+} as const;
+
 export function VarietiesComparisonTable({
   varieties,
   cropCulture,
   onSelect,
   onEdit,
-  onDelete,
   editActionLabel,
-  deleteActionLabel,
 }: VarietiesComparisonTableProps) {
   const { t, i18n } = useTranslation('cultures');
   const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
@@ -88,11 +96,9 @@ export function VarietiesComparisonTable({
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell sx={stickyNameCellSx}>
-                  <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: 'fit-content', maxWidth: '100%' }}>
-                    <Box component="span" sx={{ pr: 1 }}>{label}</Box>
-                    <Box
-                      sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}
-                    >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{label}</Box>
+                    <Box sx={editActionSlotSx}>
                       <IconButton
                         size="small"
                         color="primary"
@@ -101,15 +107,6 @@ export function VarietiesComparisonTable({
                         onClick={() => onEdit?.(culture)}
                       >
                         <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        aria-label={deleteActionLabel}
-                        disabled={!onDelete}
-                        onClick={() => onDelete?.(culture)}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
                       </IconButton>
                     </Box>
                   </Box>
