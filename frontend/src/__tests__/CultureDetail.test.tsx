@@ -899,6 +899,25 @@ describe('CultureDetail Component', () => {
       expect(onAddVariety).toHaveBeenCalledWith(carrotSpecies);
     });
 
+    it('shows a tooltip next to the Varieties title explaining the dynamic columns', async () => {
+      const user = userEvent.setup();
+      renderCultureDetail(
+        <CultureDetail
+          cultures={carrotCultures}
+          selectedCultureId={10}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      const infoIcon = screen.getByTestId('InfoOutlinedIcon');
+      await user.hover(infoIcon);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+        'Nur Merkmale werden angezeigt, die vom allgemeinen Kultur-Wert abweichen.'
+      );
+      await user.unhover(infoIcon);
+      await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    });
+
     it('does not offer edit/delete action buttons in the variety table row (row click is the only interaction)', () => {
       renderCultureDetail(
         <CultureDetail

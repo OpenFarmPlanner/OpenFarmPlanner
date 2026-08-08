@@ -9,6 +9,7 @@ import { useSearchParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../i18n';
+import { AppTooltip } from '../components/AppTooltip';
 import { CultureFiltersPopover } from './CultureFiltersPopover';
 import { CultureMobileSelectorDialog } from './CultureMobileSelectorDialog';
 import { CultureHeaderActionsMenu } from './CultureHeaderActionsMenu';
@@ -17,6 +18,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import {
   Badge,
@@ -997,9 +999,16 @@ const detailSectionGridSx = {
             <>
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
               <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
-                <Typography variant="h6">
-                  {t('hierarchy.varietiesTitle')}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <Typography variant="h6">
+                    {t('hierarchy.varietiesTitle')}
+                  </Typography>
+                  <AppTooltip title={t('hierarchy.varietiesColumnsTooltip')}>
+                    <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', color: 'text.secondary', cursor: 'default' }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </Box>
+                  </AppTooltip>
+                </Stack>
                 {addVarietyButton}
               </Stack>
               {varietySiblings.length === 0 ? (

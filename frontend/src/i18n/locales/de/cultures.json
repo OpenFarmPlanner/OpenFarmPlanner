@@ -63,6 +63,7 @@
     "varietyCount_one": "{{count}} Sorte",
     "varietyCount_other": "{{count}} Sorten",
     "varietiesTitle": "Sorten",
+    "varietiesColumnsTooltip": "Nur Merkmale werden angezeigt, die vom allgemeinen Kultur-Wert abweichen.",
     "varietiesEmpty": "Für diese Kultur sind noch keine Sorten angelegt.",
     "addVariety": "Sorte hinzufügen",
     "soleVarietyNoDifferences": "Keine Abweichungen von den allgemeinen Kulturdaten"
