@@ -49,8 +49,9 @@ import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { VarietiesComparisonTable } from './VarietiesComparisonTable';
+import { SoleVarietyDifferenceSummary } from './SoleVarietyDifferenceSummary';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
-import { VARIETY_INHERITABLE_FIELDS, isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
+import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 
 interface CultureDetailProps {
   cultures: Culture[];
@@ -499,20 +500,6 @@ const detailSectionGridSx = {
     [cropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
   );
   const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
-
-  // With exactly one variety, there's no meaningful "General crop" view
-  // distinct from that variety — showing the crop's raw values would hide
-  // whether the variety actually deviates from them at all. In that case,
-  // the crop page's General/Timing/Spacing/Seed/Yield sections resolve
-  // values as if this one variety were selected (its own value, falling
-  // back to the crop's), reusing the exact same override/inherit primitive
-  // (getVarietyOwnValueSource) the variety detail view already uses below.
-  const soleVariety = isSpeciesView && varietySiblings.length === 1 ? varietySiblings[0].culture : null;
-  const isSoleVarietyView = Boolean(soleVariety);
-  const soleVarietyHasOwnValues = Boolean(
-    soleVariety && VARIETY_INHERITABLE_FIELDS.some((field) => getVarietyOwnValueSource(soleVariety, selectedCulture, field) === 'ownValue')
-  );
-
   const addVarietyButton = (
     <Button
       size="small"
@@ -531,21 +518,14 @@ const detailSectionGridSx = {
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
-  ): ValueSource | null => {
-    if (isSoleVarietyView && soleVariety) {
-      return getVarietyOwnValueSource(soleVariety, selectedCulture, field);
-    }
-    return isSpeciesView ? null : getVarietyOwnValueSource(selectedCulture, selectedSpeciesCulture, field);
-  }, [isSoleVarietyView, soleVariety, isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  ): ValueSource | null => (
+    isSpeciesView ? null : getVarietyOwnValueSource(selectedCulture, selectedSpeciesCulture, field)
+  ), [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
 
   const getCropValue = useCallback(<TValue,>(
     field: keyof Culture,
     value: TValue,
   ): TValue => {
-    if (isSoleVarietyView && soleVariety) {
-      const ownValue = soleVariety[field] as TValue;
-      return isEmptyCropValue(ownValue) ? (selectedCulture?.[field] as TValue) : ownValue;
-    }
     if (
       selectedCulture?.variety
       && !isSpeciesView
@@ -555,7 +535,7 @@ const detailSectionGridSx = {
       return selectedSpeciesCulture[field] as TValue;
     }
     return value;
-  }, [isSoleVarietyView, soleVariety, isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  }, [isSpeciesView, selectedCulture?.variety, selectedSpeciesCulture]);
 
   const getOwnValueSx = (...fields: (keyof Culture)[]) => (
     fields.some((field) => getCropValueSource(field) === 'ownValue')
@@ -563,10 +543,7 @@ const detailSectionGridSx = {
       : undefined
   );
 
-  const showVarietyValueLegend = Boolean(
-    (!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture)
-    || (isSoleVarietyView && soleVarietyHasOwnValues)
-  );
+  const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
   
   const supplierRows = useMemo(
     () => selectedCulture?.supplier_data ?? [],
@@ -958,13 +935,6 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
-                        {isSoleVarietyView && soleVariety ? (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={t('hierarchy.soleVarietyValuesNotice', { variety: soleVariety.variety })}
-                          />
-                        ) : null}
                       </Box>
                     </Box>
                   </Box>
@@ -1010,10 +980,6 @@ const detailSectionGridSx = {
                   description={t('hierarchy.ownValueLegendDescription')}
                 />
               </Box>
-            ) : isSoleVarietyView && !soleVarietyHasOwnValues ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
-                {t('hierarchy.soleVarietyNoOwnValues')}
-              </Typography>
             ) : null}
 
             <Divider sx={{ mb: 2.5 }} />
@@ -1022,39 +988,38 @@ const detailSectionGridSx = {
                 overview, not a single variety's own detail page. */}
             {isSpeciesView ? (
             <>
-            {varietySiblings.length === 1 ? (
-              // Exactly one variety means there's no comparison partner for
-              // the diff table, so the title/table are skipped entirely —
-              // just the entry point to add a second variety remains.
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
+                <Typography variant="h6">
+                  {t('hierarchy.varietiesTitle')}
+                </Typography>
                 {addVarietyButton}
-              </Box>
-            ) : (
-              <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
-                  <Typography variant="h6">
-                    {t('hierarchy.varietiesTitle')}
-                  </Typography>
-                  {addVarietyButton}
-                </Stack>
-                {varietySiblings.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {t('hierarchy.varietiesEmpty')}
-                  </Typography>
-                ) : (
-                  <VarietiesComparisonTable
-                    varieties={varietySiblings
-                      .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
-                      .map((variety) => ({ culture: variety.culture, label: variety.label }))}
-                    cropCulture={selectedCulture}
-                    onSelect={(culture) => {
-                      setSelectedSpeciesViewKey(null);
-                      onCultureSelect(culture);
-                    }}
-                  />
-                )}
-              </Box>
-            )}
+              </Stack>
+              {varietySiblings.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t('hierarchy.varietiesEmpty')}
+                </Typography>
+              ) : varietySiblings.length === 1 && varietySiblings[0].culture ? (
+                // A single variety has no other variety to compare against
+                // for the full table, so diff it directly against the crop
+                // instead (see SoleVarietyDifferenceSummary).
+                <SoleVarietyDifferenceSummary
+                  variety={varietySiblings[0].culture}
+                  cropCulture={selectedCulture}
+                />
+              ) : (
+                <VarietiesComparisonTable
+                  varieties={varietySiblings
+                    .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
+                    .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+                  cropCulture={selectedCulture}
+                  onSelect={(culture) => {
+                    setSelectedSpeciesViewKey(null);
+                    onCultureSelect(culture);
+                  }}
+                />
+              )}
+            </Box>
 
             <Divider sx={{ mb: 2.5 }} />
             </>

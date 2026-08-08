@@ -65,8 +65,7 @@
     "varietiesTitle": "Sorten",
     "varietiesEmpty": "Für diese Kultur sind noch keine Sorten angelegt.",
     "addVariety": "Sorte hinzufügen",
-    "soleVarietyValuesNotice": "Zeigt Werte für: {{variety}}",
-    "soleVarietyNoOwnValues": "Keine sortenspezifischen Werte — zeigt allgemeine Kulturdaten."
+    "soleVarietyNoDifferences": "Keine Abweichungen von den allgemeinen Kulturdaten"
   },
   "supplier_id": "Lieferant",
   "noData": "Keine Angabe",
