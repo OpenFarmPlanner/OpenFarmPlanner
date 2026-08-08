@@ -23,6 +23,16 @@ interface BasicInfoSectionProps {
   showFirstVarietyField?: boolean;
   firstVarietyName?: string;
   onFirstVarietyNameChange?: (value: string) => void;
+  /**
+   * Variety suggestions for the optional first variety of a brand-new crop.
+   * Same source as `varietyOptions`; empty until the Name field matches a
+   * public crop species, which keeps the field free text otherwise.
+   */
+  firstVarietyOptions?: string[];
+  firstVarietyOptionsLoading?: boolean;
+  onFirstVarietyCommit?: (variety: string) => void;
+  /** Shown when the typed crop name already exists as a private culture. */
+  existingCropHint?: ReactNode;
   /** Deduplicated crop-species-level name suggestions (never "Species · Variety" combinations). */
   nameOptions?: PublicCultureSpeciesOption[];
   nameOptionsLoading?: boolean;
@@ -46,6 +56,10 @@ export function BasicInfoSection({
   showFirstVarietyField = false,
   firstVarietyName,
   onFirstVarietyNameChange,
+  firstVarietyOptions,
+  firstVarietyOptionsLoading = false,
+  onFirstVarietyCommit,
+  existingCropHint,
   nameOptions,
   nameOptionsLoading = false,
   onNameSearchChange,
@@ -64,6 +78,9 @@ export function BasicInfoSection({
     : null;
   const varietyAutocomplete = varietyOptions && onVarietyCommit
     ? { options: varietyOptions, onCommit: onVarietyCommit }
+    : null;
+  const firstVarietyAutocomplete = firstVarietyOptions && onFirstVarietyCommit
+    ? { options: firstVarietyOptions, onCommit: onFirstVarietyCommit }
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
@@ -196,17 +213,59 @@ export function BasicInfoSection({
           ) : null}
         </Box>
       ) : null}
+      {showFirstVarietyField && existingCropHint ? (
+        <Box sx={fieldRowSx}>{existingCropHint}</Box>
+      ) : null}
       {showFirstVarietyField ? (
         <Box sx={fieldRowSx}>
-          <TextField
-            sx={wideFieldSx}
-            label={t('form.firstVarietyLabel')}
-            placeholder={t('form.firstVarietyPlaceholder')}
-            value={firstVarietyName ?? ''}
-            onChange={e => onFirstVarietyNameChange?.(e.target.value)}
-            helperText={t('form.firstVarietyHelperText')}
-            slotProps={{ htmlInput: { maxLength: 200 } }}
-          />
+          {firstVarietyAutocomplete ? (
+            <Autocomplete<string, false, false, true>
+              freeSolo
+              clearOnBlur={false}
+              options={firstVarietyAutocomplete.options}
+              value={firstVarietyName ?? ''}
+              inputValue={firstVarietyName ?? ''}
+              loading={firstVarietyOptionsLoading}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'reset') {
+                  return;
+                }
+                onFirstVarietyNameChange?.(value);
+              }}
+              onChange={(_, value) => {
+                firstVarietyAutocomplete.onCommit(value ?? '');
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  sx={wideFieldSx}
+                  label={t('form.firstVarietyLabel')}
+                  placeholder={t('form.firstVarietyPlaceholder')}
+                  helperText={t('form.firstVarietyHelperText')}
+                  slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+          ) : (
+            <TextField
+              sx={wideFieldSx}
+              label={t('form.firstVarietyLabel')}
+              placeholder={t('form.firstVarietyPlaceholder')}
+              value={firstVarietyName ?? ''}
+              onChange={e => onFirstVarietyNameChange?.(e.target.value)}
+              helperText={t('form.firstVarietyHelperText')}
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
+          )}
         </Box>
       ) : null}
       {identityHint}

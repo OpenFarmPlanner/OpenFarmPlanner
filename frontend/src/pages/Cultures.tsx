@@ -15,7 +15,7 @@ import PageContainer from '../components/layout/PageContainer';
 import { bedAPI, cultureAPI, fieldAPI, type Culture } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
 import { CultureDetail } from '../cultures/CultureDetail';
-import { CultureForm } from '../cultures/CultureForm';
+import { CultureForm, type FirstVarietyDraft } from '../cultures/CultureForm';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import {
   Box,
@@ -414,7 +414,7 @@ function Cultures() {
   };
 
 
-  const handleSave = async (culture: Culture, firstVarietyName?: string) => {
+  const handleSave = async (culture: Culture, firstVariety?: FirstVarietyDraft) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
 
@@ -429,13 +429,18 @@ function Cultures() {
         // Auto-select the newly created culture
         updateSelectedCultureId(savedCulture.id, 'internal');
 
-        if (firstVarietyName) {
+        if (firstVariety) {
           try {
+            // Without a library draft the variety inherits the crop's own
+            // values; with one it carries the library values and the same
+            // source linking an import would produce.
             const varietyPayload = buildCultureSavePayload({
               ...culture,
+              ...(firstVariety.draft ?? {}),
               id: undefined,
+              name: culture.name,
               crop_species: savedCulture.crop_species ?? culture.crop_species,
-              variety: firstVarietyName,
+              variety: firstVariety.name,
             });
             await cultureAPI.create(varietyPayload as Culture);
             showSnackbar(t('messages.createWithVarietySuccess'), 'success');
@@ -683,6 +688,7 @@ function Cultures() {
           cultures={cultures}
           onSave={handleSave}
           onCancel={handleCancel}
+          onSwitchToAddVariety={handleAddVariety}
           formKind={cultureFormKind}
           initialDraft={initialFormDraft}
         />
