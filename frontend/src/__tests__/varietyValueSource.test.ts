@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { areCropValuesEqual, getVarietyOwnValueSource, isEmptyCropValue } from '../cultures/varietyValueSource';
+import {
+  areCropValuesEqual,
+  buildVarietyInheritanceBaseline,
+  getVarietyOwnValueSource,
+  isEmptyCropValue,
+  stripValuesMatchingBaseline,
+} from '../cultures/varietyValueSource';
 import type { Culture } from '../api/types';
 
 describe('isEmptyCropValue', () => {
@@ -72,5 +78,62 @@ describe('getVarietyOwnValueSource', () => {
   it('returns "ownValue" when the variety overrides the crop value', () => {
     const culture: Partial<Culture> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
     expect(getVarietyOwnValueSource(culture, speciesCulture, 'row_spacing_cm')).toBe('ownValue');
+  });
+});
+
+describe('buildVarietyInheritanceBaseline', () => {
+  it('copies only inheritable fields the crop actually has a value for', () => {
+    const cropCulture: Culture = {
+      id: 1,
+      name: 'Karotte',
+      variety: '',
+      row_spacing_cm: 30,
+      crop_family: 'Doldenblütler',
+      notes: 'internal crop notes',
+      display_color: '#ff0000',
+    };
+
+    const baseline = buildVarietyInheritanceBaseline(cropCulture);
+
+    expect(baseline).toEqual({ row_spacing_cm: 30, crop_family: 'Doldenblütler' });
+    // Identity/free-text/per-variety fields are never copied, even though set.
+    expect(baseline).not.toHaveProperty('notes');
+    expect(baseline).not.toHaveProperty('display_color');
+    expect(baseline).not.toHaveProperty('name');
+    expect(baseline).not.toHaveProperty('variety');
+  });
+
+  it('omits fields the crop itself leaves empty', () => {
+    const cropCulture: Culture = { id: 1, name: 'Karotte', variety: '' };
+    expect(buildVarietyInheritanceBaseline(cropCulture)).toEqual({});
+  });
+});
+
+describe('stripValuesMatchingBaseline', () => {
+  const emptyValueFor = (): undefined => undefined;
+
+  it('clears a field that still matches the baseline', () => {
+    const draft = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 30 };
+    const baseline = { row_spacing_cm: 30 };
+
+    const result = stripValuesMatchingBaseline(draft, baseline, emptyValueFor);
+    expect(result.row_spacing_cm).toBeUndefined();
+    expect(result.name).toBe('Karotte');
+  });
+
+  it('keeps a field the user changed away from the baseline', () => {
+    const draft = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
+    const baseline = { row_spacing_cm: 30 };
+
+    const result = stripValuesMatchingBaseline(draft, baseline, emptyValueFor);
+    expect(result.row_spacing_cm).toBe(40);
+  });
+
+  it('leaves fields not present in the baseline untouched', () => {
+    const draft = { name: 'Karotte', variety: 'Nantaise', thousand_kernel_weight_g: 3.2 };
+    const baseline = { row_spacing_cm: 30 };
+
+    const result = stripValuesMatchingBaseline(draft, baseline, emptyValueFor);
+    expect(result.thousand_kernel_weight_g).toBe(3.2);
   });
 });

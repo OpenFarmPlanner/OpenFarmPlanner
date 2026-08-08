@@ -53,6 +53,7 @@ import {
   DeleteUndoSnackbar,
 } from '../components/data-grid';
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
+import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
 
 const PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX: SxProps<Theme> = {
   backgroundColor: 'rgba(76, 175, 80, 0.06)',
@@ -312,6 +313,7 @@ function Cultures() {
     setEditingCulture(undefined);
     setCultureFormKind('variety');
     setInitialFormDraft({
+      ...buildVarietyInheritanceBaseline(speciesCulture),
       crop_species: speciesCulture.crop_species ?? null,
       name: speciesCulture.name,
       variety: '',
