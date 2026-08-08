@@ -67,6 +67,58 @@ describe('getVaryingComparisonFields', () => {
   });
 });
 
+describe('seedSafetyMargin (cultivation-type-dependent field)', () => {
+  // Regression: Costata Romanesco has its own pre-cultivation-specific
+  // safety value equal to the crop's; "test" has no own safety value at all
+  // and inherits the crop's pre-cultivation value too — both are effectively
+  // 20%, so the column must not appear, and neither cell may fall back to
+  // the (irrelevant, still-empty/zero) general safety field.
+  const cropWithPreCultivationSafety: Culture = {
+    ...cropCulture,
+    cultivation_types: ['pre_cultivation'],
+    sowing_calculation_safety_percent_pre_cultivation: 20,
+  };
+  const costata: Culture = {
+    id: 1,
+    name: 'Zucchini',
+    variety: 'Costata Romanesco',
+    cultivation_types: ['pre_cultivation'],
+    sowing_calculation_safety_percent_pre_cultivation: 20,
+  };
+  const testVariety: Culture = { id: 2, name: 'Zucchini', variety: 'test' };
+
+  it('does not show a column when both varieties resolve to the same cultivation-type-specific value', () => {
+    const fieldIds = getVaryingComparisonFields([costata, testVariety], cropWithPreCultivationSafety).map((field) => field.id);
+    expect(fieldIds).not.toContain('seedSafetyMargin');
+  });
+
+  it('renders the cultivation-type-specific value for a variety with its own override', () => {
+    const varyingCrop: Culture = { ...cropWithPreCultivationSafety, sowing_calculation_safety_percent_pre_cultivation: 15 };
+    const [field] = getVaryingComparisonFields([costata, testVariety], varyingCrop);
+    expect(getComparisonCellValue(costata, varyingCrop, field, t, 'de-DE')).toBe('20 detail.units.percent');
+  });
+
+  it('falls back to the crop\'s cultivation-type-specific value, not the unrelated general field, for a variety with no own value', () => {
+    const varyingCrop: Culture = { ...cropWithPreCultivationSafety, sowing_calculation_safety_percent_pre_cultivation: 15 };
+    const [field] = getVaryingComparisonFields([costata, testVariety], varyingCrop);
+    expect(getComparisonCellValue(testVariety, varyingCrop, field, t, 'de-DE')).toBe('15 detail.units.percent');
+  });
+
+  it('uses the direct-sowing-specific value when that is the effective cultivation type', () => {
+    const directCrop: Culture = {
+      ...cropCulture,
+      cultivation_types: ['direct_sowing'],
+      sowing_calculation_safety_percent_direct: 12,
+    };
+    const direct: Culture = { id: 3, name: 'Karotte', variety: 'Nantaise', cultivation_types: ['direct_sowing'], sowing_calculation_safety_percent_direct: 8 };
+    const inheriting: Culture = { id: 4, name: 'Karotte', variety: 'Rodelika' };
+
+    const [field] = getVaryingComparisonFields([direct, inheriting], directCrop);
+    expect(getComparisonCellValue(direct, directCrop, field, t, 'de-DE')).toBe('8 detail.units.percent');
+    expect(getComparisonCellValue(inheriting, directCrop, field, t, 'de-DE')).toBe('12 detail.units.percent');
+  });
+});
+
 describe('getComparisonCellValue', () => {
   const [rowSpacingField] = getVaryingComparisonFields([
     { id: 1, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 },

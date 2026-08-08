@@ -19,6 +19,16 @@ export interface CultureComparisonField {
   keys: (keyof Culture)[];
   labelKey: string;
   format: (culture: Culture, t: TranslateFn, locale: string) => string;
+  /**
+   * Overrides the default "effective value per key" resolution (variety's
+   * own value for each of `keys`, falling back to the crop's) for fields
+   * whose displayed value isn't a straight 1:1 mapping to `keys` — e.g.
+   * seed safety margin, which is actually sourced from a cultivation-type
+   * -specific field (direct/pre-cultivation), not the general one, mirroring
+   * the resolution CultureDetail.tsx/CultureSeedDetails already do. Must
+   * return values keyed exactly like `format` expects to read them.
+   */
+  resolveEffectiveValues?: (variety: Culture, cropCulture: Culture) => Partial<Culture>;
 }
 
 function getActiveCultivationTypes(culture: Culture): CultivationType[] {
@@ -27,6 +37,16 @@ function getActiveCultivationTypes(culture: Culture): CultivationType[] {
     return types;
   }
   return culture.cultivation_type ? [culture.cultivation_type] : [];
+}
+
+/**
+ * The cultivation type(s) a culture effectively has: its own, or the crop's
+ * when it has none of its own — same fallback as `activeCultivationTypes` in
+ * CultureDetail.tsx.
+ */
+function getEffectiveCultivationTypes(culture: Culture, cropCulture: Culture): CultivationType[] {
+  const ownTypes = getActiveCultivationTypes(culture);
+  return ownTypes.length > 0 ? ownTypes : getActiveCultivationTypes(cropCulture);
 }
 
 export const CULTURE_COMPARISON_FIELDS: CultureComparisonField[] = [
@@ -102,9 +122,25 @@ export const CULTURE_COMPARISON_FIELDS: CultureComparisonField[] = [
   },
   {
     id: 'seedSafetyMargin',
-    keys: ['sowing_calculation_safety_percent'],
+    // Bookkeeping only (which raw fields feed this value) — the actual
+    // per-variety resolution lives in `resolveEffectiveValues` below, since
+    // which of these three fields is "the" safety margin depends on the
+    // culture's (effective) cultivation type.
+    keys: [
+      'sowing_calculation_safety_percent',
+      'sowing_calculation_safety_percent_direct',
+      'sowing_calculation_safety_percent_pre_cultivation',
+    ],
     labelKey: 'detail.fields.seedSafetyMargin',
     format: (culture, t, locale) => `${formatNumber(culture.sowing_calculation_safety_percent ?? null, t, locale)} ${t('detail.units.percent')}`,
+    resolveEffectiveValues: (variety, cropCulture) => {
+      const effectiveTypes = getEffectiveCultivationTypes(variety, cropCulture);
+      const key = effectiveTypes.length === 1
+        ? (effectiveTypes[0] === 'direct_sowing' ? 'sowing_calculation_safety_percent_direct' : 'sowing_calculation_safety_percent_pre_cultivation')
+        : 'sowing_calculation_safety_percent';
+      const resolvedValue = getEffectiveValue(variety, cropCulture, key) as number | null | undefined;
+      return { sowing_calculation_safety_percent: resolvedValue ?? undefined };
+    },
   },
   {
     id: 'seedingRequirement',
@@ -165,6 +201,33 @@ function getEffectiveValue(variety: Culture, cropCulture: Culture, key: keyof Cu
 }
 
 /**
+ * The effective values for one field/variety pair, keyed exactly like
+ * `field.format` expects to read them — via `field.resolveEffectiveValues`
+ * when the field defines one, otherwise the default per-key fallback.
+ */
+function resolveFieldValues(field: CultureComparisonField, variety: Culture, cropCulture: Culture): Partial<Culture> {
+  if (field.resolveEffectiveValues) {
+    return field.resolveEffectiveValues(variety, cropCulture);
+  }
+
+  const values: Record<string, unknown> = {};
+  for (const key of field.keys) {
+    values[key] = getEffectiveValue(variety, cropCulture, key);
+  }
+  return values as Partial<Culture>;
+}
+
+function fieldValuesDiffer(a: Partial<Culture>, b: Partial<Culture>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof Culture>;
+  for (const key of keys) {
+    if (!areCropValuesEqual(a[key], b[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Fields where at least two of the given varieties end up with a genuinely
  * different *effective* value (own value, or the inherited crop value when
  * the variety has none) — i.e. the columns worth showing in the comparison
@@ -179,11 +242,10 @@ export function getVaryingComparisonFields(varieties: Culture[], cropCulture: Cu
   }
 
   const [reference, ...rest] = varieties;
-  return CULTURE_COMPARISON_FIELDS.filter((field) => (
-    rest.some((variety) => field.keys.some((key) => (
-      !areCropValuesEqual(getEffectiveValue(reference, cropCulture, key), getEffectiveValue(variety, cropCulture, key))
-    )))
-  ));
+  return CULTURE_COMPARISON_FIELDS.filter((field) => {
+    const referenceValues = resolveFieldValues(field, reference, cropCulture);
+    return rest.some((variety) => fieldValuesDiffer(referenceValues, resolveFieldValues(field, variety, cropCulture)));
+  });
 }
 
 /**
@@ -201,15 +263,8 @@ export function getComparisonCellValue(
   t: TranslateFn,
   locale: string,
 ): string {
-  const effective: Record<string, unknown> = {};
-  let hasAnyValue = false;
-  for (const key of field.keys) {
-    const value = getEffectiveValue(variety, cropCulture, key);
-    effective[key] = value;
-    if (!isEmptyCropValue(value)) {
-      hasAnyValue = true;
-    }
-  }
+  const effective = resolveFieldValues(field, variety, cropCulture);
+  const hasAnyValue = Object.values(effective).some((value) => !isEmptyCropValue(value));
 
   if (!hasAnyValue) {
     return EMPTY_CELL_VALUE;

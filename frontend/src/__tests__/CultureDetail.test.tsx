@@ -1074,6 +1074,37 @@ describe('CultureDetail Component', () => {
       expect(within(screen.getByRole('table')).queryByText('Reihenabstand')).not.toBeInTheDocument();
     });
 
+    it('resolves seed safety margin from the cultivation-type-specific field, not the unrelated general one', () => {
+      const species: Culture = {
+        id: 20,
+        name: 'Zucchini',
+        variety: '',
+        cultivation_types: ['pre_cultivation'],
+        sowing_calculation_safety_percent_pre_cultivation: 20,
+      };
+      const costata: Culture = {
+        id: 21,
+        name: 'Zucchini',
+        variety: 'Costata Romanesco',
+        cultivation_types: ['pre_cultivation'],
+        sowing_calculation_safety_percent_pre_cultivation: 20,
+      };
+      const testVariety: Culture = { id: 22, name: 'Zucchini', variety: 'test' };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, costata, testVariety]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      // Both varieties effectively have 20% (Costata's own pre-cultivation
+      // value, "test" inheriting the same from the crop) — same value, so
+      // the column must not appear at all.
+      expect(within(screen.getByRole('table')).queryByText('Sicherheitszuschlag Saatgut')).not.toBeInTheDocument();
+    });
+
     it('shows only the variety-name column with fewer than two varieties (no columns can differ)', () => {
       const species: Culture = { id: 20, name: 'Carrot', variety: '' };
       const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
