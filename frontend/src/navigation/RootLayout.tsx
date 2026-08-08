@@ -374,35 +374,19 @@ function RootLayout() {
   const memberships = useMemo(() => user?.memberships ?? [], [user?.memberships]);
   const activeMembership = memberships.find((membership) => membership.project_id === activeProjectId) ?? null;
   const isGuestDemoSession = Boolean(user?.is_guest_demo);
-  const isPersonalDemoProject = !isGuestDemoSession && activeMembership?.is_demo_project === true;
-  const canLeaveDemoProject = isGuestDemoSession || isPersonalDemoProject;
+  const canLeaveDemoProject = isGuestDemoSession;
   const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
 
   const handleLeaveDemoProject = useCallback(async (): Promise<void> => {
     try {
       handleGlobalMenuClose();
-      if (user?.is_guest_demo) {
-        navigate('/', { replace: true });
-        await endGuestDemo();
-        return;
-      }
-
-      const fallbackProject = memberships.find((membership) => (
-        membership.project_id !== activeProjectId
-        && membership.is_demo_project !== true
-      ));
-      if (fallbackProject) {
-        await switchActiveProject(fallbackProject.project_id);
-        navigate('/app/dashboard', { replace: true });
-        return;
-      }
-
-      navigate('/app/project-selection', { replace: true });
+      navigate('/', { replace: true });
+      await endGuestDemo();
     } catch (error) {
       console.error('Error leaving demo project:', error);
       showSnackbar(t('commandPalette.feedback.leaveDemoError'), 'error');
     }
-  }, [activeProjectId, endGuestDemo, memberships, navigate, showSnackbar, switchActiveProject, t, user?.is_guest_demo]);
+  }, [endGuestDemo, navigate, showSnackbar, t]);
 
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
