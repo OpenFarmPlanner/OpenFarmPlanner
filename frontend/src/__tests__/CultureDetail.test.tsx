@@ -1105,20 +1105,51 @@ describe('CultureDetail Component', () => {
       expect(within(screen.getByRole('table')).queryByText('Sicherheitszuschlag Saatgut')).not.toBeInTheDocument();
     });
 
-    it('shows only the variety-name column with fewer than two varieties (no columns can differ)', () => {
-      const species: Culture = { id: 20, name: 'Carrot', variety: '' };
-      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30 };
+    it('hides the Varieties title and table with exactly one variety, but keeps the Add variety button', async () => {
+      const user = userEvent.setup();
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30, crop_species: 5 };
+      const onAddVariety = vi.fn();
 
       renderCultureDetail(
         <CultureDetail
           cultures={[species, nantes]}
           selectedCultureId={20}
           onCultureSelect={vi.fn()}
+          onAddVariety={onAddVariety}
         />
       );
 
+      // No comparison partner for a diff table with only one variety, so
+      // the whole section (title + table) is skipped — not even a single
+      // variety row is rendered.
+      expect(screen.queryByText('Sorten')).not.toBeInTheDocument();
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.queryByText('Nantes')).not.toBeInTheDocument();
+
+      const addButton = screen.getByRole('button', { name: 'Sorte hinzufügen' });
+      expect(addButton).toBeInTheDocument();
+      await user.click(addButton);
+      expect(onAddVariety).toHaveBeenCalledWith(species);
+    });
+
+    it('shows the Varieties title and table again once a second variety exists', () => {
+      const species: Culture = { id: 20, name: 'Carrot', variety: '', crop_species: 5 };
+      const nantes: Culture = { id: 21, name: 'Carrot', variety: 'Nantes', row_spacing_cm: 30, crop_species: 5 };
+      const bolero: Culture = { id: 22, name: 'Carrot', variety: 'Bolero', row_spacing_cm: 40, crop_species: 5 };
+
+      renderCultureDetail(
+        <CultureDetail
+          cultures={[species, nantes, bolero]}
+          selectedCultureId={20}
+          onCultureSelect={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Sorten')).toBeInTheDocument();
+      expect(screen.getByRole('table')).toBeInTheDocument();
       expect(screen.getByText('Nantes')).toBeInTheDocument();
-      expect(within(screen.getByRole('table')).queryByText('Reihenabstand')).not.toBeInTheDocument();
+      expect(screen.getByText('Bolero')).toBeInTheDocument();
     });
   });
 });

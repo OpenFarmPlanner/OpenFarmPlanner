@@ -499,6 +499,21 @@ const detailSectionGridSx = {
     [cropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
   );
   const varietyAddContext = isSpeciesView ? selectedCulture : (selectedSpeciesCulture ?? selectedCulture);
+  const addVarietyButton = (
+    <Button
+      size="small"
+      variant="outlined"
+      startIcon={<AddIcon fontSize="small" />}
+      disabled={!onAddVariety || !varietyAddContext}
+      onClick={() => {
+        if (varietyAddContext) {
+          onAddVariety?.(varietyAddContext);
+        }
+      }}
+    >
+      {t('hierarchy.addVariety')}
+    </Button>
+  );
 
   const getCropValueSource = useCallback((
     field: keyof Culture,
@@ -972,44 +987,41 @@ const detailSectionGridSx = {
                 overview, not a single variety's own detail page. */}
             {isSpeciesView ? (
             <>
-            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
-                <Typography variant="h6">
-                  {t('hierarchy.varietiesTitle')}
-                </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon fontSize="small" />}
-                  disabled={!onAddVariety || !varietyAddContext}
-                  onClick={() => {
-                    if (varietyAddContext) {
-                      onAddVariety?.(varietyAddContext);
-                    }
-                  }}
-                >
-                  {t('hierarchy.addVariety')}
-                </Button>
-              </Stack>
-              {varietySiblings.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  {t('hierarchy.varietiesEmpty')}
-                </Typography>
-              ) : (
-                <VarietiesComparisonTable
-                  varieties={varietySiblings
-                    .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
-                    .map((variety) => ({ culture: variety.culture, label: variety.label }))}
-                  cropCulture={selectedCulture}
-                  onSelect={(culture) => {
-                    setSelectedSpeciesViewKey(null);
-                    onCultureSelect(culture);
-                  }}
-                  onEdit={onEditCulture}
-                  editActionLabel={t('buttons.edit')}
-                />
-              )}
-            </Box>
+            {varietySiblings.length === 1 ? (
+              // Exactly one variety means there's no comparison partner for
+              // the diff table, so the title/table are skipped entirely —
+              // just the entry point to add a second variety remains.
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                {addVarietyButton}
+              </Box>
+            ) : (
+              <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
+                  <Typography variant="h6">
+                    {t('hierarchy.varietiesTitle')}
+                  </Typography>
+                  {addVarietyButton}
+                </Stack>
+                {varietySiblings.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {t('hierarchy.varietiesEmpty')}
+                  </Typography>
+                ) : (
+                  <VarietiesComparisonTable
+                    varieties={varietySiblings
+                      .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
+                      .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+                    cropCulture={selectedCulture}
+                    onSelect={(culture) => {
+                      setSelectedSpeciesViewKey(null);
+                      onCultureSelect(culture);
+                    }}
+                    onEdit={onEditCulture}
+                    editActionLabel={t('buttons.edit')}
+                  />
+                )}
+              </Box>
+            )}
 
             <Divider sx={{ mb: 2.5 }} />
             </>
