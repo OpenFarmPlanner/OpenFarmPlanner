@@ -13,6 +13,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { Culture } from '../api/types';
 import { useTranslation } from '../i18n';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
+import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import TableSurface from '../components/layout/TableSurface';
 import { getComparisonCellValue, getVaryingComparisonFields } from './varietyComparisonFields';
 
@@ -29,25 +30,17 @@ interface VarietiesComparisonTableProps {
   editActionLabel: string;
 }
 
+// Matches the name column of the Fields/Beds hierarchy table: a capped
+// width so the column doesn't grow to fit the longest name, with the name
+// itself truncating (ellipsis) under a gradient-masked hover overlay
+// (contextMenuActionsOverlaySx) instead of reserving permanent space for
+// the edit icon.
 const stickyNameCellSx = {
   position: 'sticky',
   left: 0,
   zIndex: 2,
   backgroundColor: 'background.paper',
-} as const;
-
-// The edit icon's slot is always laid out (just invisible until hover/focus)
-// rather than absolutely overlaid on top of the name, so it never overlaps a
-// long variety name and never shifts the row's layout when it appears.
-const editActionSlotSx = {
-  display: 'inline-flex',
-  opacity: 0,
-  pointerEvents: 'none',
-  transition: 'opacity 120ms ease-in-out',
-  '.variety-row:hover &, .variety-row:focus-within &': {
-    opacity: 1,
-    pointerEvents: 'auto',
-  },
+  maxWidth: { xs: 180, sm: 240 },
 } as const;
 
 export function VarietiesComparisonTable({
@@ -96,9 +89,21 @@ export function VarietiesComparisonTable({
                 sx={{ cursor: 'pointer' }}
               >
                 <TableCell sx={stickyNameCellSx}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{label}</Box>
-                    <Box sx={editActionSlotSx}>
+                  <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0, width: '100%', overflow: 'hidden' }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'block',
+                        flex: '1 1 auto',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {label}
+                    </Box>
+                    <Box sx={contextMenuActionsOverlaySx('.variety-row:hover &', '.variety-row:focus-within &')}>
                       <IconButton
                         size="small"
                         color="primary"
