@@ -32,6 +32,7 @@ import {
   MenuItem,
   IconButton,
 } from '@mui/material';
+import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { cultureAPI, publicCultureAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
@@ -158,6 +159,33 @@ const EMPTY_CULTURE: Partial<Culture> = {
   seed_rate_pre_cultivation_unit: null,
   seed_packages: [],
 };
+
+// Same visual treatment as the Name field's green "applied from library"
+// hint, reused wherever a public-library entry got linked in.
+const PublicCultureSourceHint = ({ text }: { text: string }) => (
+  <Box
+    sx={(theme) => ({
+      px: 1.5,
+      py: 1,
+      borderLeft: `4px solid ${theme.palette.primary.main}`,
+      borderRadius: 1,
+      bgcolor: 'rgba(76, 135, 86, 0.10)',
+      color: 'text.primary',
+    })}
+  >
+    <Typography variant="body2" sx={{ lineHeight: 1.35 }}>{text}</Typography>
+  </Box>
+);
+
+// Dezent hint offered when typed free text matches a library entry exactly
+// but wasn't picked from the dropdown — applying stays an explicit action
+// rather than a silent background fill.
+const PublicCultureApplyHint = ({ hintText, actionLabel, onApply }: { hintText: string; actionLabel: string; onApply: () => void }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+    <Typography variant="body2" color="text.secondary">{hintText}</Typography>
+    <Button size="small" onClick={onApply}>{actionLabel}</Button>
+  </Box>
+);
 
 const DUPLICATE_CHECK_DEBOUNCE_MS = 400;
 const PUBLIC_CULTURE_SEARCH_DEBOUNCE_MS = 250;
@@ -599,6 +627,17 @@ export function CultureForm({
   // combinations — the Variety field below covers the sorte-specific part.
   const nameOptions = useMemo(() => dedupePublicCulturesBySpecies(publicCultureOptions), [publicCultureOptions]);
 
+  // The library entry the typed Name text matches exactly, regardless of how
+  // it got there (dropdown pick or free text). Used both to fetch Variety
+  // suggestions below and to offer an explicit "apply values" hint when the
+  // match wasn't picked from the dropdown (see nameApplyHintOption).
+  const matchedNameOption = useMemo(() => {
+    const normalizedName = normalizeIdentityValue(formData.name);
+    return normalizedName
+      ? nameOptions.find((option) => normalizeIdentityValue(option.name) === normalizedName)
+      : undefined;
+  }, [formData.name, nameOptions]);
+
   // The Variety field only gets suggestions once the Name field's text
   // exactly matches an existing public crop species; free text otherwise.
   useEffect(() => {
@@ -606,12 +645,8 @@ export function CultureForm({
       queueMicrotask(() => setMatchedCropSpeciesId(null));
       return;
     }
-    const normalizedName = normalizeIdentityValue(formData.name);
-    const match = normalizedName
-      ? nameOptions.find((option) => normalizeIdentityValue(option.name) === normalizedName)
-      : undefined;
-    queueMicrotask(() => setMatchedCropSpeciesId(match?.cropSpeciesId ?? null));
-  }, [formData.name, isProjectForm, nameOptions]);
+    queueMicrotask(() => setMatchedCropSpeciesId(matchedNameOption?.cropSpeciesId ?? null));
+  }, [isProjectForm, matchedNameOption]);
 
   useEffect(() => {
     if (!isProjectForm || matchedCropSpeciesId === null) {
@@ -778,6 +813,15 @@ export function CultureForm({
     });
   }, [validateAndSet]);
 
+  // Explicit apply action for free text that matches a Name suggestion
+  // exactly without having been picked from the dropdown — reuses the exact
+  // same linking logic a dropdown pick triggers.
+  const handleApplyNameSuggestion = useCallback(() => {
+    if (matchedNameOption) {
+      handleNameOptionSelect(matchedNameOption);
+    }
+  }, [handleNameOptionSelect, matchedNameOption]);
+
   useEffect(() => {
     const pendingSpeciesId = pendingSpeciesPrefillRef.current;
     if (pendingSpeciesId === null || pendingSpeciesId !== loadedVarietySpeciesId) {
@@ -792,13 +836,27 @@ export function CultureForm({
     }
   }, [applyPublicCultureDraft, loadedVarietySpeciesId, varietyPublicCultures]);
 
+  // The library entry the typed first-variety text matches exactly. Exposed
+  // separately from `firstVarietyPublicCulture` so free text that happens to
+  // match a suggestion can offer an explicit "apply" action instead of
+  // linking silently (see handleApplyFirstVarietySuggestion).
+  const matchedFirstVarietyOption = useMemo(() => {
+    const normalizedVariety = normalizeIdentityValue(firstVarietyName);
+    return normalizedVariety
+      ? varietyPublicCultures.find((item) => normalizeIdentityValue(item.variety) === normalizedVariety)
+      : undefined;
+  }, [firstVarietyName, varietyPublicCultures]);
+
   // The crop dialog's optional first variety is a separate culture created
   // after the crop, so picking a suggestion only records which library entry
-  // it came from — the draft is built at save time.
-  const handleFirstVarietyCommit = useCallback((variety: string) => {
+  // it came from — the draft is built at save time. Only an explicit dropdown
+  // pick (reason === 'selectOption') links the library entry; free text that
+  // happens to match exactly is offered via handleApplyFirstVarietySuggestion
+  // instead, so nothing is taken over silently.
+  const handleFirstVarietyCommit = useCallback((variety: string, reason?: AutocompleteChangeReason) => {
     setFirstVarietyName(variety);
     setFirstVarietyPublicCulture(
-      variety.trim()
+      reason === 'selectOption' && variety.trim()
         ? varietyPublicCultures.find((item) => (
           normalizeIdentityValue(item.variety) === normalizeIdentityValue(variety)
         )) ?? null
@@ -808,8 +866,27 @@ export function CultureForm({
     setUserInteracted(true);
   }, [varietyPublicCultures]);
 
-  const handleVarietyCommit = useCallback((variety: string) => {
-    const matchedCulture = variety.trim()
+  const handleApplyFirstVarietySuggestion = useCallback(() => {
+    if (!matchedFirstVarietyOption) return;
+    setFirstVarietyPublicCulture(matchedFirstVarietyOption);
+    setIsDirty(true);
+    setUserInteracted(true);
+  }, [matchedFirstVarietyOption]);
+
+  // The library entry the typed variety text matches exactly. Same purpose as
+  // matchedFirstVarietyOption above, for the "add variety to existing crop" form.
+  const matchedVarietyOption = useMemo(() => {
+    const normalizedVariety = normalizeIdentityValue(formData.variety);
+    return normalizedVariety
+      ? varietyPublicCultures.find((item) => normalizeIdentityValue(item.variety || '') === normalizedVariety)
+      : undefined;
+  }, [formData.variety, varietyPublicCultures]);
+
+  // Only an explicit dropdown pick applies library values automatically; free
+  // text that happens to match exactly is offered via
+  // handleApplyVarietySuggestion instead (see matchedVarietyOption above).
+  const handleVarietyCommit = useCallback((variety: string, reason?: AutocompleteChangeReason) => {
+    const matchedCulture = reason === 'selectOption' && variety.trim()
       ? varietyPublicCultures.find((item) => normalizeIdentityValue(item.variety || '') === normalizeIdentityValue(variety))
       : undefined;
     if (matchedCulture) {
@@ -826,6 +903,22 @@ export function CultureForm({
       return updated;
     });
   }, [handlePublicCultureSelect, validateAndSet, varietyPublicCultures]);
+
+  const handleApplyVarietySuggestion = useCallback(() => {
+    if (matchedVarietyOption) {
+      handlePublicCultureSelect(matchedVarietyOption);
+    }
+  }, [handlePublicCultureSelect, matchedVarietyOption]);
+
+  // "Matched, but not linked yet" flags for the explicit apply hints below —
+  // formData.crop_species/source_public_culture and firstVarietyPublicCulture
+  // only get set via an actual dropdown pick, so a match without a link means
+  // the current text was typed rather than chosen from the suggestion list.
+  const showNameApplyHint = isProjectForm && Boolean(matchedNameOption) && !formData.crop_species;
+  const showVarietyApplyHint = isProjectForm && showVarietyField && Boolean(matchedVarietyOption)
+    && formData.source_public_culture !== matchedVarietyOption?.id;
+  const showFirstVarietyApplyHint = isProjectForm && showFirstVarietyField && Boolean(matchedFirstVarietyOption)
+    && firstVarietyPublicCulture?.id !== matchedFirstVarietyOption?.id;
 
   // Tab/Shift+Tab inside this dialog is MUI's `Dialog` focus trap's job; Tab
   // out of an open Select dropdown belongs to `TypeaheadSelect`. Do not add a
@@ -1003,6 +1096,7 @@ export function CultureForm({
     const currentPackages = supplierRows[supplierIndex]?.packaging_sizes ?? [];
     updateSupplierRow(supplierIndex, { packaging_sizes: currentPackages.filter((_pkg, index) => index !== packageIndex) });
   };
+
   return (
     <Dialog
       open
@@ -1080,6 +1174,16 @@ export function CultureForm({
               firstVarietyOptions={isProjectForm ? varietyOptions : undefined}
               firstVarietyOptionsLoading={varietyOptionsLoading}
               onFirstVarietyCommit={isProjectForm ? handleFirstVarietyCommit : undefined}
+              firstVarietyApplyHint={showFirstVarietyApplyHint && matchedFirstVarietyOption ? (
+                <PublicCultureApplyHint
+                  hintText={t('form.publicCultureApplyHint', { name: matchedFirstVarietyOption.variety || firstVarietyName })}
+                  actionLabel={t('form.publicCultureApplyAction')}
+                  onApply={handleApplyFirstVarietySuggestion}
+                />
+              ) : null}
+              firstVarietySourceHint={firstVarietyPublicCulture ? (
+                <PublicCultureSourceHint text={t('form.firstVarietySourceHint')} />
+              ) : null}
               existingCropHint={existingPrivateCrop ? (
                 <Alert
                   severity="info"
@@ -1097,24 +1201,25 @@ export function CultureForm({
               nameOptionsLoading={publicCultureOptionsLoading}
               onNameSearchChange={isProjectForm ? handleManualPublicCultureSearchChange : undefined}
               onNameOptionSelect={isProjectForm ? handleNameOptionSelect : undefined}
+              nameApplyHint={showNameApplyHint && matchedNameOption ? (
+                <PublicCultureApplyHint
+                  hintText={t('form.publicCultureApplyHint', { name: matchedNameOption.name })}
+                  actionLabel={t('form.publicCultureApplyAction')}
+                  onApply={handleApplyNameSuggestion}
+                />
+              ) : null}
               varietyOptions={isProjectForm ? varietyOptions : undefined}
               varietyOptionsLoading={varietyOptionsLoading}
               onVarietyCommit={isProjectForm ? handleVarietyCommit : undefined}
+              varietyApplyHint={showVarietyApplyHint && matchedVarietyOption ? (
+                <PublicCultureApplyHint
+                  hintText={t('form.publicCultureApplyHint', { name: matchedVarietyOption.variety || formData.variety || '' })}
+                  actionLabel={t('form.publicCultureApplyAction')}
+                  onApply={handleApplyVarietySuggestion}
+                />
+              ) : null}
               identityHint={isProjectForm && formData.source_public_culture ? (
-                <Box
-                  sx={(theme) => ({
-                    px: 1.5,
-                    py: 1,
-                    borderLeft: `4px solid ${theme.palette.primary.main}`,
-                    borderRadius: 1,
-                    bgcolor: 'rgba(76, 135, 86, 0.10)',
-                    color: 'text.primary',
-                  })}
-                >
-                  <Typography variant="body2" sx={{ lineHeight: 1.35 }}>
-                    {t('form.publicCultureSourceHint')}
-                  </Typography>
-                </Box>
+                <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />
             <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />

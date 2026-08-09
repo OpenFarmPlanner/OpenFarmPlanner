@@ -68,9 +68,9 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     onNameSearchChange?: (value: string) => void;
     onNameOptionSelect?: (option: PublicCultureSpeciesOption | null) => void;
     varietyOptions?: string[];
-    onVarietyCommit?: (variety: string) => void;
+    onVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
     firstVarietyOptions?: string[];
-    onFirstVarietyCommit?: (variety: string) => void;
+    onFirstVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
     existingCropHint?: ReactNode;
   }) => (
     <div>
@@ -103,7 +103,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
         />
       ) : null}
       {showVarietyField && varietyOptions[0] ? (
-        <button type="button" onClick={() => onVarietyCommit?.(varietyOptions[0])}>
+        <button type="button" onClick={() => onVarietyCommit?.(varietyOptions[0], 'selectOption')}>
           select-variety-option
         </button>
       ) : null}
@@ -116,7 +116,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
         />
       ) : null}
       {showFirstVarietyField && firstVarietyOptions[0] ? (
-        <button type="button" onClick={() => onFirstVarietyCommit?.(firstVarietyOptions[0])}>
+        <button type="button" onClick={() => onFirstVarietyCommit?.(firstVarietyOptions[0], 'selectOption')}>
           select-first-variety-option
         </button>
       ) : null}

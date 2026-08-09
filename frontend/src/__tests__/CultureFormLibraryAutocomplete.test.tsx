@@ -117,6 +117,55 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual(['Moneymaker']);
   });
 
+  it('labels suggestions as coming from the public crop library while typing', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    fireEvent.change(getNameInput(), { target: { value: 'Toma' } });
+    await screen.findByRole('option', { name: 'Tomate' });
+
+    expect(screen.getByText('form.publicCultureSuggestionsGroupLabel')).toBeInTheDocument();
+  });
+
+  it('links the first variety and shows the source hint when its suggestion is picked from the dropdown', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    fireEvent.change(getNameInput(), { target: { value: 'Toma' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
+
+    const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.change(firstVarietyInput, { target: { value: 'Mo' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Moneymaker' }));
+
+    await waitFor(() => expect(screen.getByText('form.firstVarietySourceHint')).toBeInTheDocument());
+  });
+
+  it('offers an explicit apply action instead of silently linking when typed first-variety text matches exactly', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    fireEvent.change(getNameInput(), { target: { value: 'Toma' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
+
+    const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.change(firstVarietyInput, { target: { value: 'Moneymaker' } });
+    fireEvent.keyDown(firstVarietyInput, { key: 'Escape' });
+
+    expect(screen.queryByText('form.firstVarietySourceHint')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByText('form.publicCultureApplyAction'));
+
+    await waitFor(() => expect(screen.getByText('form.firstVarietySourceHint')).toBeInTheDocument());
+  });
+
   it('keeps the first-variety field as plain free text for an unmatched crop name', async () => {
     mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
 
