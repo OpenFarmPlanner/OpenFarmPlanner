@@ -55,6 +55,10 @@ export default defineConfig([
     // Vendored from react-modern-gantt (see src/gantt-chart/README.md), which
     // was linted under its own, more lenient rule set. Keep that leniency
     // scoped to this directory instead of rewriting its switch statements.
+    // The react-hooks entries are here for the same reason: they are the
+    // React Compiler rules that arrived with eslint-plugin-react-hooks 7 and
+    // fire on the library's existing code, which this repository does not
+    // maintain.
     files: ['src/gantt-chart/**/*.{ts,tsx}'],
     rules: {
       'no-case-declarations': 'warn',
@@ -63,6 +67,8 @@ export default defineConfig([
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'react-hooks/purity': 'warn',
+      'react-hooks/refs': 'warn',
     },
   },
 ])
