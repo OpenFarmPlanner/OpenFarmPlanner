@@ -230,7 +230,7 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.getByRole('link', { name: 'Kulturbibliothek öffnen' })).toHaveAttribute('href', '/app/crop-library');
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeDisabled();
 
-    fireEvent.click(screen.getByText('Tomate (Roma)'));
+    fireEvent.click(screen.getByRole('option', { name: 'Tomate' }));
     fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));
 
     expect(onImport).toHaveBeenCalledWith(culture);
@@ -284,7 +284,14 @@ describe('PublicCultureLibraryDialog', () => {
 
     expect(await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
 
-    screen.getByRole('option', { name: /Tomate/ }).focus();
+    // Each fixture culture is its own single-variety group with no general
+    // entry, so the first ArrowDown from the collapsed species row expands
+    // it and selects its own variety before subsequent presses advance to
+    // the next crop group — mirrors the full public crop library page.
+    screen.getByRole('option', { name: 'Tomate' }).focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
+
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 6, name: 'Salat (Maikönig)' })).toBeInTheDocument();
 
@@ -298,7 +305,7 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Tomate/ })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));

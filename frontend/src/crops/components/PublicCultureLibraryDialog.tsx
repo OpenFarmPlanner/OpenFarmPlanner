@@ -5,10 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
 import type { PublicCulture } from '../../api/types';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
+  Badge,
   Box,
   Button,
   Chip,
@@ -18,11 +16,10 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
-  List,
-  ListItemButton,
-  ListItemText,
   MenuItem,
+  Popover,
   TextField,
   Typography,
   useMediaQuery,
@@ -30,7 +27,6 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 // Cross-domain import: a markdown helper that today lives under the
@@ -40,8 +36,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
-import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
-import { getCultivationTypeLabel, getPublicCultureTitle } from '../publicCultureDisplay';
+import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { getPublicCultureTitle } from '../publicCultureDisplay';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -154,9 +150,13 @@ export function PublicCultureLibraryDialog({
   const language = i18n.resolvedLanguage ?? i18n.language;
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isSpeciesView, setIsSpeciesView] = useState(false);
   const [varietyFilter, setVarietyFilter] = useState('');
   const [nutrientFilter, setNutrientFilter] = useState('');
   const [cropFamilyFilter, setCropFamilyFilter] = useState('');
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+  const isFilterPopoverOpen = Boolean(filterAnchorEl);
+  const activeFilterCount = [varietyFilter, nutrientFilter, cropFamilyFilter].filter(Boolean).length;
   const [mobileStep, setMobileStep] = useState<'list' | 'detail'>('list');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -181,9 +181,11 @@ export function PublicCultureLibraryDialog({
         }
         setQuery(initialQuery);
         setSelectedId(initialSelectedId);
+        setIsSpeciesView(false);
         setVarietyFilter('');
         setNutrientFilter('');
         setCropFamilyFilter('');
+        setFilterAnchorEl(null);
         setMobileStep(initialSelectedId && useMobileFilterLayout ? 'detail' : 'list');
       });
       return () => {
@@ -198,9 +200,11 @@ export function PublicCultureLibraryDialog({
       queueMicrotask(() => {
         setQuery('');
         setSelectedId(null);
+        setIsSpeciesView(false);
         setVarietyFilter('');
         setNutrientFilter('');
         setCropFamilyFilter('');
+        setFilterAnchorEl(null);
         setMobileStep('list');
       });
     }
@@ -266,19 +270,13 @@ export function PublicCultureLibraryDialog({
     [filteredCultures, selectedId],
   );
 
-  const selectCultureFromList = useCallback((culture: PublicCulture): void => {
+  const selectCultureFromList = useCallback((culture: PublicCulture, kind: 'species' | 'variety'): void => {
     setSelectedId(culture.id);
+    setIsSpeciesView(kind === 'species');
     if (useMobileFilterLayout) {
       setMobileStep('detail');
     }
   }, [useMobileFilterLayout]);
-
-  const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: filteredCultures,
-    selectedId,
-    getId: (culture) => culture.id,
-    onSelect: selectCultureFromList,
-  });
 
   const hasLibraryEntries = cultures.length > 0;
   const listEmptyTitle = hasLibraryEntries ? t('library.emptyState.noResultsTitle') : t('library.emptyState.emptyLibraryTitle');
@@ -355,9 +353,8 @@ export function PublicCultureLibraryDialog({
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' },
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
         gap: 1,
-        mb: 2,
       }}
     >
       <FormControl size="small">
@@ -428,26 +425,39 @@ export function PublicCultureLibraryDialog({
             setQuery(nextValue);
             onSearch(nextValue);
           }}
-          InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+            endAdornment: (
+              <IconButton
+                size="small"
+                onClick={(event) => setFilterAnchorEl(event.currentTarget)}
+                aria-expanded={isFilterPopoverOpen}
+                aria-haspopup="dialog"
+                aria-controls={isFilterPopoverOpen ? 'public-culture-library-filters-popover' : undefined}
+                aria-label={t('filters.openAdvanced')}
+                sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
+              >
+                <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
+                  <TuneIcon fontSize="small" />
+                </Badge>
+              </IconButton>
+            ),
+          }}
           size="medium"
           sx={{ mb: 2 }}
         />
 
-        {useMobileFilterLayout ? (
-          <Accordion disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 1.25 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40 }}>
-              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                <TuneIcon fontSize="small" />
-                <Typography variant="body2">{t('filters.title', { defaultValue: 'Filter' })}</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0.75, pb: 1 }}>
-              <Box sx={{ '& > *': { mb: 0 } }}>
-                {filterControls}
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-        ) : filterControls}
+        <Popover
+          id="public-culture-library-filters-popover"
+          open={isFilterPopoverOpen}
+          anchorEl={filterAnchorEl}
+          onClose={() => setFilterAnchorEl(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { width: { xs: 'min(92vw, 360px)', sm: 360 }, p: 1.5 } }}
+        >
+          {filterControls}
+        </Popover>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
@@ -458,35 +468,22 @@ export function PublicCultureLibraryDialog({
             </Box>
           ) : null}
           {(!useMobileFilterLayout || mobileStep === 'list') ? (
-            <List
-              role="listbox"
-              aria-label={t('library.dialogTitle')}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}
-            >
-            {filteredCultures.length === 0 ? (
-              useMobileFilterLayout ? (
-                <LibraryEmptyState title={listEmptyTitle} description={listEmptyDescription} compact />
-              ) : (
-                <Typography color="text.secondary" sx={{ p: 2 }}>{t('library.empty')}</Typography>
-              )
-            ) : filteredCultures.map((culture) => (
-                <ListItemButton
-                  key={culture.id}
-                  {...cultureListNavigation.getItemProps(culture)}
-                  selected={culture.id === selectedId}
-                  onClick={() => cultureListNavigation.selectItem(culture)}
-                  alignItems="flex-start"
-                  sx={{ py: 0.75, px: 1.25 }}
-                >
-                  <ListItemText
-                    primary={getPublicCultureTitle(culture, language, t('library.translation.missingName'))}
-                    secondary={culture.crop_family || getCultivationTypeLabel(culture.cultivation_type, t, '') || undefined}
-                    primaryTypographyProps={{ fontSize: '0.92rem', lineHeight: 1.25 }}
-                    secondaryTypographyProps={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.2 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+              <PublicCropHierarchyList
+                cultures={filteredCultures}
+                selectedCultureId={selectedId}
+                isSpeciesView={isSpeciesView}
+                storageKey="publicCultureLibraryDialog"
+                searchQuery={query}
+                ariaLabel={t('library.dialogTitle')}
+                onSelect={(culture, { kind }) => selectCultureFromList(culture, kind)}
+                emptyState={useMobileFilterLayout ? (
+                  <LibraryEmptyState title={listEmptyTitle} description={listEmptyDescription} compact />
+                ) : (
+                  <Typography color="text.secondary" sx={{ p: 2 }}>{t('library.empty')}</Typography>
+                )}
+              />
+            </Box>
           ) : null}
 
           {(!useMobileFilterLayout || mobileStep === 'detail') ? (

@@ -19,7 +19,6 @@ import {
   Divider,
   FormControl,
   InputLabel,
-  List,
   ListItemButton,
   MenuItem,
   Select,
@@ -57,10 +56,7 @@ import { useTranslation } from '../../i18n';
 import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
-import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
-import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, getFirstVarietyItem, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
-import { flattenTreeRows } from '../../components/hierarchy/utils/treeRows';
-import { useExpandedState } from '../../components/hierarchy/hooks/useExpandedState';
+import { findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
 import { CultureForm } from '../../cultures/CultureForm';
 import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
 import {
@@ -72,19 +68,17 @@ import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigat
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
-  getCultivationTypeLabel,
   getDescriptionFallbackNotice,
   getFallbackNotice,
   getPublicCultureDescription,
   getPublicCultureName,
-  getPublicCultureTitle,
 } from '../publicCultureDisplay';
 import { applySavedCultures } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
-import { CropHierarchyRow } from '../../cultures/CropHierarchyRow';
+import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
 import { DetailGrid, DetailRow, DetailSection } from '../components/publicCropLibrary/DetailPrimitives';
 import { VersionCard } from '../components/publicCropLibrary/VersionCard';
 import { CommentForm } from '../components/publicCropLibrary/CommentForm';
@@ -181,11 +175,6 @@ export default function PublicCropLibraryPage() {
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const cultureListRequestIdRef = useRef(0);
   const collaborationLoadRequestIdRef = useRef(0);
-  const {
-    expandedRows: expandedCropRows,
-    toggleExpand: toggleCropRow,
-    ensureExpanded: ensureCropRowExpanded,
-  } = useExpandedState('publicCropLibrary');
   // Cultures this client has saved, kept until a list response catches up with
   // them. Bumping cultureListRequestIdRef on save only discards list requests
   // that are already in flight; one started right after the save (the search
@@ -479,34 +468,6 @@ export default function PublicCropLibraryPage() {
       return [];
     })()
     : []), [getPublicFieldSource, getPublicFieldValue, publicActiveCultivationTypes, selectedCulture]);
-  const cropHierarchyItems = useMemo(
-    () => buildCropHierarchy(cultures),
-    [cultures],
-  );
-  useEffect(() => {
-    if (!selectedCulture?.variety || isSpeciesView || !selectedCultureSpeciesKey) {
-      return;
-    }
-    ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
-  }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
-  useEffect(() => {
-    if (!query.trim()) {
-      return;
-    }
-    cropHierarchyItems.forEach((item) => {
-      if (item.kind === 'variety' && item.parentId) {
-        ensureCropRowExpanded(item.parentId);
-      }
-    });
-  }, [cropHierarchyItems, ensureCropRowExpanded, query]);
-  const visibleCropRows = useMemo(
-    () => flattenTreeRows(cropHierarchyItems, { expandedIds: expandedCropRows }),
-    [cropHierarchyItems, expandedCropRows],
-  );
-  const selectableCropRows = useMemo(
-    () => cropHierarchyItems.filter((item) => item.culture?.id !== undefined),
-    [cropHierarchyItems],
-  );
   // Localized species name for the selected entry, plus the notice shown when
   // only another language's text is available.
   const selectedCultureName = useMemo(
@@ -592,22 +553,6 @@ export default function PublicCropLibraryPage() {
       activeCommentFormInputRef.current?.focus();
     }, 0);
   }, []);
-
-  const selectedCropRowId = selectedCulture
-    ? (isSpeciesView && selectedCultureSpeciesKey ? `species:${selectedCultureSpeciesKey}` : `culture:${selectedCulture.id}`)
-    : null;
-
-  const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: selectableCropRows,
-    selectedId: selectedCropRowId,
-    getId: (item) => item.id,
-    onSelect: (item) => {
-      if (item.culture?.id !== undefined) {
-        updateSelectedCultureId(item.culture.id, { speciesViewKey: item.kind === 'species' ? item.speciesKey : null });
-      }
-    },
-    autoFocusSelected: !useCompactLibraryLayout,
-  });
 
   const goToRelativeCulture = useCallback((direction: 'next' | 'previous') => {
     if (selectedCultureId === null || cultures.length === 0) {
@@ -1450,13 +1395,23 @@ export default function PublicCropLibraryPage() {
                   </Typography>
                 </Box>
               ) : (
-                <List
-                  ref={cultureListRef}
-                  {...cultureListNavigation.getListProps()}
+                <PublicCropHierarchyList
+                  listRef={cultureListRef}
+                  cultures={cultures}
+                  selectedCultureId={selectedCultureId}
+                  isSpeciesView={isSpeciesView}
+                  storageKey="publicCropLibrary"
+                  searchQuery={query}
+                  autoFocusSelected={!useCompactLibraryLayout}
                   dense
-                  role="listbox"
-                  aria-label={t('library.page.title')}
+                  ariaLabel={t('library.page.title')}
                   onScroll={handleCultureListScroll}
+                  onSelect={(culture, { kind, speciesKey }) => {
+                    updateSelectedCultureId(culture.id, {
+                      replace: false,
+                      speciesViewKey: kind === 'species' ? speciesKey : null,
+                    });
+                  }}
                   // MUI breakpoint values cascade upward when not overridden, so the
                   // mobile-only 280px cap must be explicitly cleared at md+ or it
                   // silently caps the list there too, leaving the flex-grown space
@@ -1469,70 +1424,7 @@ export default function PublicCropLibraryPage() {
                     minHeight: 0,
                     overflow: 'auto',
                   }}
-                >
-                  {visibleCropRows.map(({ node, depth, hasChildren }) => {
-                    const culture = node.culture;
-                    // A species row with no dedicated varietyless entry (culture === null)
-                    // has nothing of its own to show — but it always has at least one
-                    // variety underneath it (that's the only way it could exist at all),
-                    // so clicking it selects that first variety instead of leaving the
-                    // row inert. This is what removes the grey/disabled "just a group
-                    // label" rows from the list entirely.
-                    const firstVarietyCulture = !culture
-                      ? getFirstVarietyItem(cropHierarchyItems, node.id)?.culture ?? null
-                      : null;
-                    const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
-                    const itemProps = isClickable ? cultureListNavigation.getItemProps(node) : {};
-                    const isRowSelected = Boolean(
-                      culture?.id !== undefined
-                      && culture.id === selectedCultureId
-                      && (node.kind === 'species' ? isSpeciesView : !isSpeciesView),
-                    );
-                    return (
-                    <CropHierarchyRow
-                      key={node.id}
-                      itemProps={itemProps}
-                      depth={depth}
-                      hasChildren={hasChildren}
-                      isExpanded={expandedCropRows.has(node.id)}
-                      onToggleExpand={() => toggleCropRow(node.id)}
-                      expandLabel={t('hierarchy.expandCrop')}
-                      collapseLabel={t('hierarchy.collapseCrop')}
-                      isSelected={isRowSelected}
-                      isClickable={isClickable}
-                      ariaLabel={node.kind === 'species'
-                        ? node.label
-                        : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
-                      primary={node.label}
-                      isPrimaryEmphasized={node.kind === 'species'}
-                      secondary={node.kind === 'species'
-                        ? undefined
-                        : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
-                      varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
-                      onClick={() => {
-                        if (culture?.id !== undefined) {
-                          updateSelectedCultureId(culture.id, {
-                            replace: false,
-                            speciesViewKey: node.kind === 'species' ? node.speciesKey : null,
-                          });
-                          cultureListNavigation.focusItem(node.id);
-                        } else if (firstVarietyCulture) {
-                          ensureCropRowExpanded(node.id);
-                          updateSelectedCultureId(firstVarietyCulture.id, { replace: false });
-                        }
-                      }}
-                      onDoubleClick={(event) => {
-                        if (!hasChildren) {
-                          return;
-                        }
-                        event.preventDefault();
-                        event.stopPropagation();
-                        toggleCropRow(node.id);
-                      }}
-                    />
-                    );
-                  })}
-                </List>
+                />
               )}
             </Card>
             ) : null}
