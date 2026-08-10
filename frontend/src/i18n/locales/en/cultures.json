@@ -41,7 +41,7 @@
     "title": "No crops yet",
     "description": "Crops are the basis of your planting planning. Create your first crop or import crops from the crop library.",
     "createAction": "Add crop",
-    "openLibraryAction": "Open crops"
+    "openLibraryAction": "Import from library"
   },
   "perennial": "Perennial",
   "annual": "Annual",
