@@ -571,7 +571,8 @@
     "importDialog": {
       "emptyMotivation": "Share your proven crops with others.",
       "emptyInstructionStep": "How it works:",
-      "emptyInstructionContext": "On a crop",
+      "emptyInstructionContext": "Click",
+      "emptyInstructionAction": "on a crop",
       "emptyInstructionAria": "How it works: open the three-dot menu on a crop and choose {{publish}}."
     },
     "page": {

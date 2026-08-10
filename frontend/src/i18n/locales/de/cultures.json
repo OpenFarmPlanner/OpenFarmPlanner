@@ -571,7 +571,8 @@
     "importDialog": {
       "emptyMotivation": "Teile deine bewährten Kulturen mit anderen.",
       "emptyInstructionStep": "So geht’s:",
-      "emptyInstructionContext": "Bei einer Kultur",
+      "emptyInstructionContext": "Bei einer Kultur auf",
+      "emptyInstructionAction": "klicken",
       "emptyInstructionAria": "So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und {{publish}} wählen."
     },
     "page": {

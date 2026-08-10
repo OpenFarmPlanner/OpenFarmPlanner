@@ -205,7 +205,7 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.getByTestId('MoreVertIcon').closest('button')).toBeNull();
     expect(screen.getByText('Veröffentlichen').tagName).toBe('STRONG');
     expect(screen.queryByText(/⋮/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.')).toHaveTextContent('So geht’s:Bei einer Kultur→Veröffentlichen');
+    expect(screen.getByLabelText('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.')).toHaveTextContent('So geht’s:Bei einer Kultur aufklicken→Veröffentlichen');
     expect(screen.queryByText(/Eigene Kulturen können später direkt aus den Kulturdetails veröffentlicht werden/)).not.toBeInTheDocument();
   });
 

@@ -289,6 +289,9 @@ export function PublicCultureLibraryDialog({
         <MoreVertIcon sx={{ fontSize: 18 }} />
       </Box>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+        {t('library.importDialog.emptyInstructionAction')}
+      </Box>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
         <Box component="span" aria-hidden="true">→</Box>
         <Box component="strong" sx={{ fontWeight: 700, color: 'text.primary' }}>
           {t('library.publishButton')}
