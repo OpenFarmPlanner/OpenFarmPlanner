@@ -906,7 +906,6 @@
       "intro": "First choose the matching public crop species. Your variety is published under it; if the species has no general entry yet, one is created automatically from your current values.",
       "introGeneral": "Choose the matching public crop species. Only its general data is published, not a variety.",
       "updateHeading": "Update {{name}}",
-      "updateOnlyChangedValuesHint": "Only differing values are transferred to the public crop library.",
       "publishNow": "Publish now",
       "linkExisting": "Link public crop",
       "updateExisting": "Update public version",

@@ -364,18 +364,13 @@ export function CulturesPublishingWizardDialog({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('library.publishWizard.title')}</DialogTitle>
       <DialogContent dividers>
-        <Stack spacing={2.25} sx={{ pt: 0.5 }}>
+        <Stack spacing={isOwnedPublicCultureUpdate ? 1.5 : 2.25} sx={{ pt: 0.5 }}>
           {isOwnedPublicCultureUpdate ? (
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {t('library.publishWizard.updateHeading', {
-                  name: selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput,
-                })}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {t('library.publishWizard.updateOnlyChangedValuesHint')}
-              </Typography>
-            </Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {t('library.publishWizard.updateHeading', {
+                name: selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput,
+              })}
+            </Typography>
           ) : (
             <Typography variant="body2" color="text.secondary">
               {t(

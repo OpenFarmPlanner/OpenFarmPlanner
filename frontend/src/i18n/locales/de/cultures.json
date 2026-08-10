@@ -906,7 +906,6 @@
       "intro": "Wähle zuerst die passende öffentliche Kulturart. Deine Sorte wird darunter veröffentlicht; falls es zu dieser Kulturart noch keinen allgemeinen Eintrag gibt, wird er automatisch aus deinen aktuellen Werten angelegt.",
       "introGeneral": "Wähle die passende öffentliche Kulturart. Es werden die allgemeinen Daten dieser Kulturart veröffentlicht, keine Sorte.",
       "updateHeading": "{{name}} aktualisieren",
-      "updateOnlyChangedValuesHint": "Nur abweichende Werte werden in die öffentliche Kulturbibliothek übernommen.",
       "publishNow": "Jetzt veröffentlichen",
       "linkExisting": "Mit öffentlicher Kultur verknüpfen",
       "updateExisting": "Öffentliche Version aktualisieren",
