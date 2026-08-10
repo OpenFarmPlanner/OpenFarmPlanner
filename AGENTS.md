@@ -123,6 +123,13 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
   most consistent local implementation.
 - Do not introduce new colors, spacing, icons, typography, border styles, or
   interaction patterns when an equivalent OpenFarmPlanner pattern exists.
+- Styling is split between the MUI theme (component-level decisions), `sx`
+  (single instances and MUI slots), and Tailwind v4 utilities (layout and box
+  model on plain DOM). Read [`docs/design-system.md`](docs/design-system.md)
+  before styling anything. Do not add a new per-component `.css` file, and do
+  not invent one-off values — use the tokens from the `@theme` block in
+  `frontend/src/index.css` (spacing is on MUI's 8px unit, so `p-2` and
+  `sx={{ p: 2 }}` are the same).
 - Keep wording, button order, severity levels, and interaction behavior
   consistent with comparable screens.
 - Empty states should guide users toward the next action. Prefer contextual
