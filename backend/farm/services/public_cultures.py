@@ -1101,6 +1101,34 @@ def _create_culture_from_public(*, public_culture: PublicCulture, project: Proje
     return culture
 
 
+def _ensure_local_general_culture(*, public_culture: PublicCulture, project: Project) -> None:
+    """Companion to importing a variety: also import the species' general entry if missing.
+
+    Importing a variety-specific public culture directly (rather than via the
+    Add Crop dialog's Sorte field, which already does this) used to leave the
+    species with no variety-less local Culture at all — clicking the species
+    group in the culture tree would then silently fall back to its first
+    variety instead of showing real species-level data. Only acts when this
+    import is genuinely introducing the species locally for the first time;
+    an existing general culture (however it got there) is left untouched.
+    """
+    if not public_culture.variety_normalized or public_culture.crop_species_id is None:
+        return
+    # Culture.variety_normalized is left NULL (not '') for an empty variety
+    # (see Culture.save()), unlike PublicCulture's - filter on the raw field.
+    already_local = Culture.objects.filter(
+        project=project,
+        crop_species_id=public_culture.crop_species_id,
+        variety='',
+    ).exists()
+    if already_local:
+        return
+    general_public = find_general_public_culture(public_culture.crop_species)
+    if general_public is None:
+        return
+    _create_culture_from_public(public_culture=general_public, project=project)
+
+
 def _apply_public_culture_update(*, culture: Culture, public_culture: PublicCulture) -> Culture:
     """Overwrite `culture`'s library-sourced fields with the current public culture."""
     payload = build_project_culture_payload(public_culture)
@@ -1142,6 +1170,7 @@ def import_public_culture_into_project(
     """
     if mode == 'new':
         culture = _create_culture_from_public(public_culture=public_culture, project=project, unique_name=True)
+        _ensure_local_general_culture(public_culture=public_culture, project=project)
         return culture, 'created'
 
     # Duplicates can already exist from before this check existed; picking the
@@ -1153,6 +1182,7 @@ def import_public_culture_into_project(
 
     if existing is None:
         culture = _create_culture_from_public(public_culture=public_culture, project=project)
+        _ensure_local_general_culture(public_culture=public_culture, project=project)
         return culture, 'created'
 
     if mode == 'update':

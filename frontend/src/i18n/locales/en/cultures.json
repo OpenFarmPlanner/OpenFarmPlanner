@@ -41,7 +41,7 @@
     "title": "No crops yet",
     "description": "Crops are the basis of your planting planning. Create your first crop or import crops from the crop library.",
     "createAction": "Add crop",
-    "openLibraryAction": "Open crops"
+    "openLibraryAction": "Import from library"
   },
   "perennial": "Perennial",
   "annual": "Annual",
@@ -173,8 +173,14 @@
     "firstVarietyPlaceholder": "e.g. cherry tomato",
     "firstVarietyHelperText": "If you enter a variety name, a first variety is created together with the crop, using the values entered above as its starting values.",
     "duplicateNameVariety": "A crop with this name and variety already exists in this project.",
+    "existingCropHint": "The crop \"{{name}}\" already exists in this project. You can add a new variety to it instead.",
+    "existingCropAddVarietyAction": "Add variety",
     "publicCultureAutocompleteHelp": "Public crops are suggested, free text is always possible.",
     "publicCultureSourceHint": "Base values were copied from the public crop library and can be adjusted in this private crop.",
+    "publicCultureSuggestionsGroupLabel": "From the public crop library",
+    "publicCultureApplyHint": "\"{{name}}\" exists in the public crop library.",
+    "publicCultureApplyAction": "Apply values",
+    "firstVarietySourceHint": "Base values for this variety were copied from the public crop library and will be used for the new variety when you save.",
     "publicIdentityLabel": "Public identity",
     "supplier": "Seed supplier",
     "supplierPlaceholder": "Select supplier",
@@ -565,7 +571,8 @@
     "importDialog": {
       "emptyMotivation": "Share your proven crops with others.",
       "emptyInstructionStep": "How it works:",
-      "emptyInstructionContext": "On a crop",
+      "emptyInstructionContext": "Click",
+      "emptyInstructionAction": "on a crop",
       "emptyInstructionAria": "How it works: open the three-dot menu on a crop and choose {{publish}}."
     },
     "page": {
@@ -898,13 +905,11 @@
       "title": "Publish culture",
       "intro": "First choose the matching public crop species. Your variety is published under it; if the species has no general entry yet, one is created automatically from your current values.",
       "introGeneral": "Choose the matching public crop species. Only its general data is published, not a variety.",
-      "updateIntro": "Review the changes compared with your public version. The existing public crop will be updated.",
+      "updateHeading": "Update {{name}}",
       "publishNow": "Publish now",
       "linkExisting": "Link public crop",
       "updateExisting": "Update public version",
       "resolveBlockingIssues": "Resolve warnings first",
-      "publicEntryLabel": "Public entry",
-      "publicCultureUpdateHelp": "This project crop is already linked to this public entry.",
       "existingVarietyLabel": "Existing variety",
       "existingVarietyHelp": "Choose an existing public variety or publish the variety from your project crop as a new entry.",
       "newVarietyOption": "Publish new variety: {{variety}}",

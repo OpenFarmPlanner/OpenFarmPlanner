@@ -83,8 +83,10 @@ export function usePublicCultureLibrary({
     try {
       setPublicLibraryImportingId(publicCulture.id);
       const response = await publicCultureAPI.importToProject(publicCulture.id);
+      // Deliberately doesn't close the dialog (unlike a plain "select and
+      // done" flow) — staying open lets the user import several cultures
+      // from the library in one sitting instead of reopening it each time.
       await onImportSuccess(response.data.culture.id!);
-      setPublicLibraryOpen(false);
       if (response.data.operation === 'unchanged') {
         showSnackbar(t('library.importUnchanged', { name }), 'info');
       } else if (response.data.operation === 'updated') {

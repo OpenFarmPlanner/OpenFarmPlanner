@@ -46,6 +46,24 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 field for field in model._meta.concrete_fields
                 if field.remote_field is not None and field.remote_field.model in restorable_models
             ]
+            # FKs to non-restorable models (e.g. Culture -> PublicCulture) aren't
+            # touched by this restore, but the referenced row can still have been
+            # hard-deleted since the snapshot was taken. Re-inserting a stale
+            # reference would violate the FK constraint, so — unlike restorable
+            # FKs above, where the whole row is dropped — these are simply nulled
+            # out if the target no longer exists.
+            external_fk_fields = [
+                field for field in model._meta.concrete_fields
+                if field.remote_field is not None
+                and field.remote_field.model not in restorable_models
+                and field.null
+            ]
+            existing_external_ids: dict[type, set[int]] = {
+                field.remote_field.model: set(
+                    field.remote_field.model._base_manager.values_list('pk', flat=True)
+                )
+                for field in external_fk_fields
+            }
             states = _entity_states_at(project, entity_type, target_time)
             rows = []
             ids: set[int] = set()
@@ -62,6 +80,9 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 # (schema changes don't rewrite historical JSON) — drop anything the
                 # current model no longer has instead of crashing on an unknown kwarg.
                 row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
+                for field in external_fk_fields:
+                    if row_data.get(field.attname) is not None and row_data[field.attname] not in existing_external_ids[field.remote_field.model]:
+                        row_data[field.attname] = None
                 row_data['project_id'] = project.id
                 rows.append(model(**row_data))
                 ids.add(object_id)

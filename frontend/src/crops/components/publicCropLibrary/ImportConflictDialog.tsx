@@ -45,7 +45,8 @@ export function ImportConflictDialog({
         </Alert>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, flexWrap: 'wrap', gap: 1 }}>
-        <Button variant="outlined" onClick={onCancel} disabled={busy}>
+        {/* autoFocus on cancel so a reflexive Enter never triggers the destructive "update" action below. */}
+        <Button autoFocus variant="outlined" onClick={onCancel} disabled={busy}>
           {t('common:actions.cancel')}
         </Button>
         <Button variant="outlined" onClick={onImportAsNew} disabled={busy}>

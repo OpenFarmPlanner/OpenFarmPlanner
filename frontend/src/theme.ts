@@ -16,6 +16,20 @@ const surfaceColors = {
   surfaceSoftBorder: '#ece8df',
 } as const;
 
+// Blends a color at the given alpha over a white surface, producing a fully
+// opaque color that still reads as the same tint. Toasts render as overlays
+// on top of arbitrary page content (table rows, alternating stripes, etc.),
+// so a real rgba/alpha background lets that content show through and makes
+// the toast text hard to read — flattening to opaque avoids that.
+const flattenOnWhite = (hex: string, alphaValue: number) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16);
+  const g = parseInt(normalized.substring(2, 4), 16);
+  const b = parseInt(normalized.substring(4, 6), 16);
+  const blend = (channel: number) => Math.round(channel * alphaValue + 255 * (1 - alphaValue));
+  return `rgb(${blend(r)}, ${blend(g)}, ${blend(b)})`;
+};
+
 const createPositiveFilledAlertStyles = (theme: Theme) => ({
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
@@ -384,25 +398,30 @@ const theme = createTheme({
     },
     MuiAlert: {
       styleOverrides: {
+        // Subtle floating shadow to compensate for the backgrounds below no
+        // longer being transparent — keeps the "light" toast look.
+        root: {
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        },
         filledInfo: ({ theme }) => createPositiveFilledAlertStyles(theme),
         filledSuccess: ({ theme }) => createPositiveFilledAlertStyles(theme),
         standardInfo: ({ theme }) => ({
-          backgroundColor: alpha(theme.palette.primary.main, 0.08),
+          backgroundColor: flattenOnWhite(theme.palette.primary.main, 0.08),
           color: theme.palette.primary.dark,
           '& .MuiAlert-icon': {
             color: theme.palette.primary.main,
           },
         }),
         standardSuccess: {
-          backgroundColor: 'rgba(76, 175, 80, 0.10)',
+          backgroundColor: flattenOnWhite('#4caf50', 0.1),
           color: '#2f5a35',
         },
         standardWarning: {
-          backgroundColor: 'rgba(237, 108, 2, 0.10)',
+          backgroundColor: flattenOnWhite('#ed6c02', 0.1),
           color: '#75491e',
         },
         standardError: {
-          backgroundColor: 'rgba(211, 47, 47, 0.09)',
+          backgroundColor: flattenOnWhite('#d32f2f', 0.09),
           color: '#6e2c2c',
         },
       },

@@ -116,7 +116,13 @@ export function CulturesPublishingWizardDialog({
   const languageInputRef = useRef<HTMLInputElement | null>(null);
   const ownedPublicCultureId = culture?.owned_public_culture_id ?? null;
   const isOwnedPublicCultureUpdate = Boolean(ownedPublicCultureId);
-  const isCropLevelPublish = !isOwnedPublicCultureUpdate && !culture?.variety?.trim();
+  // When updating an already-linked public entry, whether the update targets
+  // a general (varietyless) entry depends on the linked entry itself, not on
+  // the local culture — the local culture may have no variety yet the public
+  // entry it's linked to could be variety-specific, or vice versa.
+  const isCropLevelPublish = isOwnedPublicCultureUpdate
+    ? Boolean(selectedPublicCulture) && !selectedPublicCulture?.variety?.trim()
+    : !culture?.variety?.trim();
 
   useEffect(() => {
     if (!open) return;
@@ -358,32 +364,24 @@ export function CulturesPublishingWizardDialog({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{t('library.publishWizard.title')}</DialogTitle>
       <DialogContent dividers>
-        <Stack spacing={2.25} sx={{ pt: 0.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            {t(
-              isOwnedPublicCultureUpdate
-                ? 'library.publishWizard.updateIntro'
-                : isCropLevelPublish
-                  ? 'library.publishWizard.introGeneral'
-                  : 'library.publishWizard.intro',
-              { name: culture?.name ?? '' },
-            )}
-          </Typography>
+        <Stack spacing={isOwnedPublicCultureUpdate ? 1.5 : 2.25} sx={{ pt: 0.5 }}>
+          {isOwnedPublicCultureUpdate ? (
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {t('library.publishWizard.updateHeading', {
+                name: selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput,
+              })}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t(
+                isCropLevelPublish ? 'library.publishWizard.introGeneral' : 'library.publishWizard.intro',
+                { name: culture?.name ?? '' },
+              )}
+            </Typography>
+          )}
 
           <Stack spacing={2}>
-            {isOwnedPublicCultureUpdate ? (
-              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('library.publishWizard.publicEntryLabel')}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {t('library.publishWizard.publicCultureUpdateHelp')}
-                </Typography>
-              </Box>
-            ) : (
+            {isOwnedPublicCultureUpdate ? null : (
               <>
                 <Autocomplete
                   options={species}

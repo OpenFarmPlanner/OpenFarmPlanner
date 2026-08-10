@@ -3,6 +3,7 @@
  */
 import type { ReactNode } from 'react';
 import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
+import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { fieldRowSx, mediumFieldSx, smallFieldSx, wideFieldSx } from './styles.tsx';
 import type { Culture } from '../../api/types';
 import type { TFunction } from 'i18next';
@@ -23,15 +24,33 @@ interface BasicInfoSectionProps {
   showFirstVarietyField?: boolean;
   firstVarietyName?: string;
   onFirstVarietyNameChange?: (value: string) => void;
+  /**
+   * Variety suggestions for the optional first variety of a brand-new crop.
+   * Same source as `varietyOptions`; empty until the Name field matches a
+   * public crop species, which keeps the field free text otherwise.
+   */
+  firstVarietyOptions?: string[];
+  firstVarietyOptionsLoading?: boolean;
+  onFirstVarietyCommit?: (variety: string, reason?: AutocompleteChangeReason) => void;
+  /** Explicit "apply library values" offer for first-variety free text matching a suggestion exactly. */
+  firstVarietyApplyHint?: ReactNode;
+  /** Shown once a library entry got linked to the first variety (dropdown pick or explicit apply). */
+  firstVarietySourceHint?: ReactNode;
+  /** Shown when the typed crop name already exists as a private culture. */
+  existingCropHint?: ReactNode;
   /** Deduplicated crop-species-level name suggestions (never "Species · Variety" combinations). */
   nameOptions?: PublicCultureSpeciesOption[];
   nameOptionsLoading?: boolean;
   onNameSearchChange?: (value: string) => void;
   onNameOptionSelect?: (option: PublicCultureSpeciesOption | null) => void;
+  /** Explicit "apply library values" offer for Name free text matching a suggestion exactly. */
+  nameApplyHint?: ReactNode;
   /** Variety suggestions for the crop species currently matched in the Name field; empty otherwise. */
   varietyOptions?: string[];
   varietyOptionsLoading?: boolean;
-  onVarietyCommit?: (variety: string) => void;
+  onVarietyCommit?: (variety: string, reason?: AutocompleteChangeReason) => void;
+  /** Explicit "apply library values" offer for Variety free text matching a suggestion exactly. */
+  varietyApplyHint?: ReactNode;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
 
@@ -46,13 +65,21 @@ export function BasicInfoSection({
   showFirstVarietyField = false,
   firstVarietyName,
   onFirstVarietyNameChange,
+  firstVarietyOptions,
+  firstVarietyOptionsLoading = false,
+  onFirstVarietyCommit,
+  firstVarietyApplyHint,
+  firstVarietySourceHint,
+  existingCropHint,
   nameOptions,
   nameOptionsLoading = false,
   onNameSearchChange,
   onNameOptionSelect,
+  nameApplyHint,
   varietyOptions,
   varietyOptionsLoading = false,
   onVarietyCommit,
+  varietyApplyHint,
   getFieldTooltipProps,
 }: BasicInfoSectionProps) {
   const nameAutocomplete = nameOptions && onNameSearchChange && onNameOptionSelect
@@ -64,6 +91,9 @@ export function BasicInfoSection({
     : null;
   const varietyAutocomplete = varietyOptions && onVarietyCommit
     ? { options: varietyOptions, onCommit: onVarietyCommit }
+    : null;
+  const firstVarietyAutocomplete = firstVarietyOptions && onFirstVarietyCommit
+    ? { options: firstVarietyOptions, onCommit: onFirstVarietyCommit }
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
@@ -83,6 +113,7 @@ export function BasicInfoSection({
               getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
               isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.key === value.key}
               filterOptions={(options) => options}
+              groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
               onInputChange={(_, value, reason) => {
                 if (reason === 'reset') {
                   return;
@@ -149,14 +180,15 @@ export function BasicInfoSection({
                 value={formData.variety ?? ''}
                 inputValue={formData.variety ?? ''}
                 loading={varietyOptionsLoading}
+                groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
                 onInputChange={(_, value, reason) => {
                   if (reason === 'reset') {
                     return;
                   }
                   onChange('variety', value);
                 }}
-                onChange={(_, value) => {
-                  varietyAutocomplete.onCommit(value ?? '');
+                onChange={(_, value, reason) => {
+                  varietyAutocomplete.onCommit(value ?? '', reason);
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -196,18 +228,73 @@ export function BasicInfoSection({
           ) : null}
         </Box>
       ) : null}
+      {nameApplyHint || varietyApplyHint ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          {nameApplyHint}
+          {varietyApplyHint}
+        </Box>
+      ) : null}
+      {showFirstVarietyField && existingCropHint ? (
+        <Box sx={fieldRowSx}>{existingCropHint}</Box>
+      ) : null}
       {showFirstVarietyField ? (
         <Box sx={fieldRowSx}>
-          <TextField
-            sx={wideFieldSx}
-            label={t('form.firstVarietyLabel')}
-            placeholder={t('form.firstVarietyPlaceholder')}
-            value={firstVarietyName ?? ''}
-            onChange={e => onFirstVarietyNameChange?.(e.target.value)}
-            helperText={t('form.firstVarietyHelperText')}
-            slotProps={{ htmlInput: { maxLength: 200 } }}
-          />
+          {firstVarietyAutocomplete ? (
+            <Autocomplete<string, false, false, true>
+              freeSolo
+              clearOnBlur={false}
+              options={firstVarietyAutocomplete.options}
+              value={firstVarietyName ?? ''}
+              inputValue={firstVarietyName ?? ''}
+              loading={firstVarietyOptionsLoading}
+              groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'reset') {
+                  return;
+                }
+                onFirstVarietyNameChange?.(value);
+              }}
+              onChange={(_, value, reason) => {
+                firstVarietyAutocomplete.onCommit(value ?? '', reason);
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  sx={wideFieldSx}
+                  label={t('form.firstVarietyLabel')}
+                  placeholder={t('form.firstVarietyPlaceholder')}
+                  helperText={t('form.firstVarietyHelperText')}
+                  slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+          ) : (
+            <TextField
+              sx={wideFieldSx}
+              label={t('form.firstVarietyLabel')}
+              placeholder={t('form.firstVarietyPlaceholder')}
+              value={firstVarietyName ?? ''}
+              onChange={e => onFirstVarietyNameChange?.(e.target.value)}
+              helperText={t('form.firstVarietyHelperText')}
+              slotProps={{ htmlInput: { maxLength: 200 } }}
+            />
+          )}
         </Box>
+      ) : null}
+      {showFirstVarietyField && firstVarietyApplyHint ? (
+        <Box sx={fieldRowSx}>{firstVarietyApplyHint}</Box>
+      ) : null}
+      {showFirstVarietyField && firstVarietySourceHint ? (
+        <Box sx={fieldRowSx}>{firstVarietySourceHint}</Box>
       ) : null}
       {identityHint}
       <Box sx={fieldRowSx}>

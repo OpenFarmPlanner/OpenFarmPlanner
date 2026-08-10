@@ -490,9 +490,8 @@ describe('Cultures action area', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(await within(dialog).findByText('Öffentlicher Eintrag')).toBeInTheDocument();
-    expect(within(dialog).getByText('Tomate · Roma')).toBeInTheDocument();
-    expect(within(dialog).getByText('Diese Projektkultur ist bereits mit diesem öffentlichen Eintrag verknüpft.')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Tomate · Roma aktualisieren')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nur die folgenden abweichenden Werte werden in die öffentliche Kulturbibliothek übernommen.')).toBeInTheDocument();
     expect(within(dialog).queryByRole('combobox', { name: 'Passende öffentliche Kultur' })).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Offizielle Kulturart/)).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();

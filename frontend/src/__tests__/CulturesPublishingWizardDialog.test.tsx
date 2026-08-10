@@ -3,17 +3,19 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { CulturesPublishingWizardDialog } from '../pages/CulturesPublishingWizardDialog';
-import type { Culture } from '../api/types';
+import type { Culture, PublicCulture } from '../api/types';
 
 const {
   cropSpeciesListMock,
   cropSpeciesProposeMock,
   publicCultureListMock,
+  publicCultureGetMock,
   publishPreviewMock,
 } = vi.hoisted(() => ({
   cropSpeciesListMock: vi.fn(),
   cropSpeciesProposeMock: vi.fn(),
   publicCultureListMock: vi.fn(),
+  publicCultureGetMock: vi.fn(),
   publishPreviewMock: vi.fn(),
 }));
 
@@ -29,6 +31,7 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
+      get: publicCultureGetMock,
     },
     cultureAPI: {
       ...actual.cultureAPI,
@@ -68,6 +71,7 @@ describe('CulturesPublishingWizardDialog', () => {
     cropSpeciesProposeMock.mockResolvedValue({ data: { id: 2, name: 'Kürbis', status: 'proposed' } });
     publicCultureListMock.mockReset();
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });
+    publicCultureGetMock.mockReset();
     publishPreviewMock.mockReset();
     publishPreviewMock.mockResolvedValue({
       data: {
@@ -224,6 +228,38 @@ describe('CulturesPublishingWizardDialog', () => {
     await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
       cropLevelCulture.id,
       expect.objectContaining({ crop_species_id: 1, original_language_code: 'de', publish_as_general: true }),
+    ));
+  });
+
+  it('publishes as general when updating an already-linked public entry that has no variety', async () => {
+    const linkedPublicCulture: PublicCulture = {
+      id: 55,
+      status: 'published',
+      name: 'Bohne',
+      variety: '',
+      crop_species: 1,
+      thousand_kernel_weight_g: 400,
+      version: 1,
+    };
+    publicCultureGetMock.mockResolvedValue({ data: linkedPublicCulture });
+    const ownedGeneralCulture: Culture = {
+      ...CULTURE,
+      variety: '',
+      owned_public_culture_id: 55,
+      thousand_kernel_weight_g: 472,
+    };
+
+    renderWizard(ownedGeneralCulture);
+
+    await waitFor(() => expect(publicCultureGetMock).toHaveBeenCalledWith(55));
+    const updateButton = await screen.findByRole('button', { name: 'Öffentliche Version aktualisieren' });
+    await waitFor(() => expect(updateButton).toBeEnabled());
+
+    fireEvent.click(updateButton);
+
+    await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
+      ownedGeneralCulture.id,
+      expect.objectContaining({ publish_as_general: true }),
     ));
   });
 

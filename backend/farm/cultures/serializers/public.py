@@ -11,6 +11,7 @@ from config.languages import (
     resolve_request_language,
 )
 from crops.permissions import is_public_library_moderator
+from farm.common.serializer_fields import LocalizedDecimalField
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
@@ -80,6 +81,12 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     description_language_code = serializers.SerializerMethodField()
     translations = serializers.SerializerMethodField()
     project_import_status = serializers.SerializerMethodField()
+    thousand_kernel_weight_g = LocalizedDecimalField(
+        max_digits=6,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
+    )
 
     class Meta:
         model = PublicCulture

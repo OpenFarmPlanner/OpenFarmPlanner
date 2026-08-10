@@ -100,7 +100,8 @@ test('public crop library supports quick import, direct edit, versions, discussi
     await page.getByRole('button', { name: 'In Projekt importieren' }).click();
     await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Aus Bibliothek importieren' }).click();
+    // The dialog now stays open after a successful import (so multiple
+    // cultures can be imported in one sitting) instead of closing itself.
     await expect(importDialog).toBeVisible();
     await importDialog.getByRole('link', { name: 'Kulturbibliothek öffnen' }).click();
     await expect(page).toHaveURL(/\/app\/crop-library/);
