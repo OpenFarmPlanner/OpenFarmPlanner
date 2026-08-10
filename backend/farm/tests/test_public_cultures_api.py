@@ -2,6 +2,7 @@
 
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework import status
@@ -1006,6 +1007,21 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['name'], 'Tomato')
+
+    def test_public_culture_serializes_thousand_kernel_weight_as_number_not_string(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Neckargold',
+            status='published',
+            created_by=self.user,
+            thousand_kernel_weight_g=Decimal('472.00'),
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['thousand_kernel_weight_g'], 472.0)
+        self.assertNotIsInstance(response.data['thousand_kernel_weight_g'], str)
 
     def test_authenticated_user_can_create_topic_and_reply_on_public_culture(self):
         public_culture = PublicCulture.objects.create(name='Tomato', variety='Roma', status='published', created_by=self.user)

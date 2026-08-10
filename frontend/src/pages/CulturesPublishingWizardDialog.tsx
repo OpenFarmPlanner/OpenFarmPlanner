@@ -116,7 +116,13 @@ export function CulturesPublishingWizardDialog({
   const languageInputRef = useRef<HTMLInputElement | null>(null);
   const ownedPublicCultureId = culture?.owned_public_culture_id ?? null;
   const isOwnedPublicCultureUpdate = Boolean(ownedPublicCultureId);
-  const isCropLevelPublish = !isOwnedPublicCultureUpdate && !culture?.variety?.trim();
+  // When updating an already-linked public entry, whether the update targets
+  // a general (varietyless) entry depends on the linked entry itself, not on
+  // the local culture — the local culture may have no variety yet the public
+  // entry it's linked to could be variety-specific, or vice versa.
+  const isCropLevelPublish = isOwnedPublicCultureUpdate
+    ? Boolean(selectedPublicCulture) && !selectedPublicCulture?.variety?.trim()
+    : !culture?.variety?.trim();
 
   useEffect(() => {
     if (!open) return;
