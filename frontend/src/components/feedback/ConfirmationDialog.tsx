@@ -60,10 +60,18 @@ export function ConfirmationDialog({
         </Typography>
       </DialogContent>
       <DialogActions sx={actionsSx}>
-        <Button {...cancelButtonProps} onClick={onCancel}>
+        {/*
+          This dialog is used exclusively for destructive/irreversible confirmations
+          (delete, remove, discard). Cancel must always be the button that receives
+          default focus, so a reflexive Enter press never triggers the destructive
+          action — only an explicit click, or Tab+Enter/Space onto the confirm
+          button, may do that. `autoFocus` on the confirm button is intentionally
+          stripped even if a caller passes it in confirmButtonProps.
+        */}
+        <Button autoFocus {...cancelButtonProps} onClick={onCancel}>
           {cancelLabel}
         </Button>
-        <Button {...confirmButtonProps} onClick={onConfirm}>
+        <Button {...confirmButtonProps} autoFocus={false} onClick={onConfirm}>
           {confirmLabel}
         </Button>
       </DialogActions>
