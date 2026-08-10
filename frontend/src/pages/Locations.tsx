@@ -163,7 +163,9 @@ function Locations() {
     setFormError('');
     setFormErrorField(null);
     setDialogOpen(true);
-  }, []);
+    // `setFormState` is listed because the compiler infers it as a dependency.
+    // useState setters are stable, so this does not change the callback identity.
+  }, [setFormState]);
 
   const createActions = useMemo(() => [
     {

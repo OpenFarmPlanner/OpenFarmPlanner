@@ -554,6 +554,11 @@ function Cultures() {
 
   useRegisterCreateActions('cultures-page', createActions);
 
+  // `focusSearch` reads searchInputRef.current in its body, and the rule cannot
+  // see into the imported spec factory to know the callback is only stored, not
+  // invoked, so it assumes the ref could be read during render. The ref is only
+  // ever touched when the command runs.
+  // eslint-disable-next-line react-hooks/refs
   const commandSpecs = useMemo(() => createCulturesCommandSpecs({
     t,
     cultures,

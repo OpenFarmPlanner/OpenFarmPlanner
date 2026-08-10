@@ -317,7 +317,9 @@ function RootLayout() {
   });
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info', actionLabel?: string, onAction?: () => void | Promise<void>) => {
     setSnackbar({ open: true, message, severity, actionLabel, onAction });
-  }, []);
+    // `setSnackbar` is listed because the compiler infers it as a dependency.
+    // useState setters are stable, so this does not change the callback identity.
+  }, [setSnackbar]);
 
   useEffect(() => {
     const handleGlobalSnackbar = (event: Event): void => {
