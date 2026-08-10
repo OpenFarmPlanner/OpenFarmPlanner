@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import { seoPlugin } from './build/seoPlugin'
 
@@ -57,7 +56,7 @@ function manualChunks(id: string): string | undefined {
 // https://vite.dev/config/
 export default defineConfig({
   base: basePath,
-  plugins: [react(), tailwindcss(), seoPlugin(process.env)],
+  plugins: [react(), seoPlugin(process.env)],
   optimizeDeps: {
     include: ['tiptap-markdown'],
   },

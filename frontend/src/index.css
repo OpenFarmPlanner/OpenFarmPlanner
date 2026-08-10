@@ -1,229 +1,69 @@
 /*
- * Tailwind CSS v4 entry point and the single source of truth for the app's
- * design tokens.
- *
- * Layer order matters and is declared before anything else:
- *   theme < base < mui < components < utilities
- * Material UI emits its Emotion styles into `@layer mui` (enabled via
- * `<StyledEngineProvider enableCssLayer>` in main.tsx). Putting `mui` after
- * `base` keeps MUI's <CssBaseline /> in charge of the element reset, and
- * putting `utilities` after `mui` lets a Tailwind utility override a MUI
- * component style without `!important`.
- *
- * Tailwind's Preflight is deliberately NOT imported: <CssBaseline /> already
- * owns the global reset, and layering a second, differently-opinionated reset
- * on top of it would change the rendering of every heading, list and link in
- * the app.
+ * Global base styles. Everything beyond this file is styled through the MUI
+ * theme (src/theme.ts) and `sx` — see docs/design-system.md. Do not add
+ * per-component stylesheets here or anywhere else.
  */
-@layer theme, base, mui, components, utilities;
 
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
 
-@source "../index.html";
-@source "./**/*.{ts,tsx}";
+  color-scheme: light;
+  color: #213547;
+  background-color: #f7f6f1;
 
-/*
- * The token set below is derived from the existing design, not from Tailwind's
- * defaults: the palette comes from src/theme.ts, the breakpoints from the MUI
- * breakpoints the app already queries, and the spacing unit from MUI's 8px
- * spacing unit so that `className="p-2"` and `sx={{ p: 2 }}` mean the same
- * thing. See docs/design-system.md.
- *
- * `static` keeps every token as a real CSS variable on `:root` instead of only
- * the ones a generated utility happens to reference. The palette is small and
- * hand-picked, and it makes the tokens usable from stylesheets Tailwind does
- * not compile — src/pages/GanttChart.css feeds them to the vendored Gantt
- * library's own `--rmg-*` variables.
- */
-@theme static {
-  /* --- Spacing -----------------------------------------------------------
-   * 1 unit = 8px = one MUI spacing unit. Half steps (p-0.5 = 4px) exist for
-   * the same reason they do in `sx`.
-   */
-  --spacing: 0.5rem;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  /* --- Breakpoints -------------------------------------------------------
-   * Mirrors MUI's default breakpoints so `max-sm:` and
-   * `theme.breakpoints.down('sm')` describe the same viewport.
-   */
-  --breakpoint-*: initial;
-  --breakpoint-sm: 600px;
-  --breakpoint-md: 900px;
-  --breakpoint-lg: 1200px;
-  --breakpoint-xl: 1536px;
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
 
-  /* --- Page widths -------------------------------------------------------
-   * Max widths of the page shells (see components/layout/pageContainerStyles).
-   */
-  --container-page: 1360px;
-  --container-page-wide: 1800px;
-  --container-page-xwide: 1900px;
-
-  /* --- Colors ------------------------------------------------------------
-   * The default Tailwind palette is dropped on purpose. Every color below is
-   * one the app already uses, so there is exactly one named token per design
-   * decision instead of 250 generic shades to pick from.
-   */
-  --color-*: initial;
-  --color-white: #ffffff;
-  --color-black: #000000;
-
-  /* Brand green (MUI palette.primary / palette.secondary). */
-  --color-brand: #256f2a;
-  --color-brand-dark: #1b5e20;
-  --color-brand-light: #4f9853;
-  --color-brand-strong: #2e7d32;
-  --color-brand-accent: #1f6224;
-
-  /* Surfaces (MUI palette.surface). */
-  --color-app: #ffffff;
-  --color-page: #f7f6f1;
-  --color-content: #faf9f5;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f8faf6;
-  --color-surface-hover: #f3f7f0;
-  --color-surface-border: #e7e1d6;
-  --color-surface-soft-border: #ece8df;
-
-  /* Dark navigation chrome and tooltips. */
-  --color-nav-from: #111315;
-  --color-nav-to: #1a1d21;
-  --color-nav-active: #2f353b;
-  --color-tooltip: #1f2a24;
-
-  /* Semantic states (MUI palette.error / info / warning / success). */
-  --color-danger: #d32f2f;
-  --color-danger-dark: #b71c1c;
-  --color-danger-surface: #ffebee;
-  --color-info: #1976d2;
-  --color-info-dark: #1565c0;
-  --color-info-surface: #e3f2fd;
-  --color-info-surface-strong: #bbdefb;
-  --color-warning: #ed6c02;
-  --color-success: #4caf50;
-
-  /* Task bars in the Gantt calendar (the vendored library's `--rmg-task-color`). */
-  --color-gantt-task: #3b82f6;
-
-  /* Neutrals, ordered light to dark; `neutral-900` is the body text color. */
-  --color-neutral-50: #fafafa;
-  --color-neutral-100: #f5f5f5;
-  --color-neutral-200: #eeeeee;
-  --color-neutral-300: #e0e0e0;
-  --color-neutral-400: #cccccc;
-  --color-neutral-500: #999999;
-  --color-neutral-600: #666666;
-  --color-neutral-700: #616161;
-  --color-neutral-800: #424242;
-  --color-neutral-900: #213547;
-
-  /* --- Typography --------------------------------------------------------
-   * Tailwind's `text-xs/sm/base` already line up with MUI's caption / body2 /
-   * body1 (0.75 / 0.875 / 1rem), so those are kept and only the two sizes the
-   * app defines itself are added.
-   */
-  --font-sans: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --font-mui: "Roboto", "Helvetica", "Arial", sans-serif;
-  --text-tooltip: 0.8125rem;
-  --text-tooltip--line-height: 1.45;
-  --text-control: 0.95rem;
-  --text-control--line-height: 1.3;
-
-  /* --- Radii -------------------------------------------------------------
-   * `rounded-md` is MUI's shape.borderRadius, `rounded-lg` is `sx={{
-   * borderRadius: 2 }}`.
-   */
-  --radius-*: initial;
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-
-  /* --- Shadows ----------------------------------------------------------- */
-  --shadow-*: initial;
-  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.1);
-  --shadow-toast: 0 2px 8px rgb(0 0 0 / 0.15);
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
 }
 
 /*
- * Hides the scrollbar without removing scrollability. Not expressible as a
- * plain utility because of the ::-webkit-scrollbar pseudo-element.
+ * Horizontal overflow is clamped on <body> and #root, deliberately NOT on
+ * <html>. The viewport takes its overflow from the root element and only falls
+ * back to <body> when the root's own overflow is `visible`. With `overflow-x`
+ * set on <html>, <html> becomes the scrolling box, so MUI's modal scroll lock
+ * — which sets `overflow: hidden` on <body> — can no longer remove the page
+ * scrollbar, while it still adds its scrollbar-width compensation padding to
+ * <body>. Every menu, popover and dialog then shrank the page by the scrollbar
+ * width and exposed a bare strip along the right edge.
+ * Leaving the clamp on <body> keeps the same "no horizontal page scrollbar"
+ * guarantee (the value propagates to the viewport) and restores the
+ * shift-free scroll lock MUI is built around.
  */
-@utility scrollbar-none {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+body,
+#root {
+  overflow-x: hidden;
 }
 
-@layer base {
-  :root {
-    font-family: var(--font-sans);
-    line-height: 1.5;
-    font-weight: 400;
+a {
+  font-weight: 500;
+  color: #256f2a;
+  text-decoration: inherit;
+}
 
-    color-scheme: light;
-    color: var(--color-neutral-900);
-    background-color: var(--color-page);
+a:hover,
+a:focus-visible,
+a:active,
+a:visited {
+  color: #1b5e20;
+}
 
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-  }
-
-  html,
-  body,
-  #root {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  /*
-   * Horizontal overflow is clamped on <body> and #root, deliberately NOT on
-   * <html>. The viewport takes its overflow from the root element and only
-   * falls back to <body> when the root's own overflow is `visible`. With
-   * `overflow-x` set on <html>, <html> becomes the scrolling box, so MUI's
-   * modal scroll lock — which sets `overflow: hidden` on <body> — can no
-   * longer remove the page scrollbar, while it still adds its scrollbar-width
-   * compensation padding to <body>. Every menu, popover and dialog then shrank
-   * the page by the scrollbar width and exposed a bare strip along the right
-   * edge.
-   * Leaving the clamp on <body> keeps the same "no horizontal page scrollbar"
-   * guarantee (the value propagates to the viewport) and restores the
-   * shift-free scroll lock MUI is built around.
-   */
-  body,
-  #root {
-    overflow-x: hidden;
-  }
-
-  a {
-    font-weight: 500;
-    color: var(--color-brand);
-    text-decoration: inherit;
-  }
-
-  a:hover,
-  a:focus-visible,
-  a:active,
-  a:visited {
-    color: var(--color-brand-dark);
-  }
-
-  h1 {
-    font-size: 2.5em;
-    line-height: 1.1;
-  }
+h1 {
+  font-size: 2.5em;
+  line-height: 1.1;
 }
