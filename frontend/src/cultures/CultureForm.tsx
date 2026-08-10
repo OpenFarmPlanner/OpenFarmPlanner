@@ -797,21 +797,60 @@ export function CultureForm({
     applyPublicCultureDraft(publicCulture);
   }, [applyPublicCultureDraft, validateAndSet]);
 
-  // Selecting a Name suggestion links `crop_species` right away, and queues a
-  // prefill from that species' general ("no variety") library entry once its
-  // rows load. A species without a general entry stays linked by
-  // `crop_species` alone rather than copying an arbitrary variety's values.
-  const handleNameOptionSelect = useCallback((option: { cropSpeciesId: number | null } | null) => {
-    pendingSpeciesPrefillRef.current = option?.cropSpeciesId ?? null;
+  // The one place that links a crop draft to a library species and carries
+  // over its general ("no variety") fields (crop_family, spacing, seed
+  // rate, ...). Every entry point that can identify a species - picking or
+  // applying a Name suggestion, picking or applying a Sorte suggestion -
+  // must route through this, or the crop draft silently misses the
+  // species' general data (see git history: two separate Sorte entry
+  // points each needed their own fix before this got unified).
+  //
+  // `varietyPublicCultures` only holds rows for the *currently* matched
+  // species (see the fetch effect above), so if it's not that species yet,
+  // the actual application is deferred: link `crop_species` immediately,
+  // queue `pendingSpeciesPrefillRef`, and let the effect below finish the
+  // job once the fetch for this species lands. A species without a general
+  // entry stays linked by `crop_species` alone rather than copying an
+  // arbitrary variety's values.
+  const applySpeciesGeneralPrefill = useCallback((cropSpeciesId: number) => {
+    if (formData.crop_species === cropSpeciesId) {
+      return;
+    }
+    if (loadedVarietySpeciesId === cropSpeciesId) {
+      const generalEntry = varietyPublicCultures.find((item) => (
+        !(item.variety || '').trim() && !isLikelyTestPublicCultureEntry(item)
+      ));
+      if (generalEntry) {
+        applyPublicCultureDraft(generalEntry, { preserveVariety: true });
+        return;
+      }
+    }
+    pendingSpeciesPrefillRef.current = cropSpeciesId;
     setFormData((prev) => {
-      const updated = { ...prev, crop_species: option?.cropSpeciesId ?? null };
+      const updated = { ...prev, crop_species: cropSpeciesId };
       setIsDirty(true);
       setUserInteracted(true);
       setSaveError('');
       validateAndSet(updated);
       return updated;
     });
-  }, [validateAndSet]);
+  }, [applyPublicCultureDraft, formData.crop_species, loadedVarietySpeciesId, validateAndSet, varietyPublicCultures]);
+
+  const handleNameOptionSelect = useCallback((option: { cropSpeciesId: number | null } | null) => {
+    if (option?.cropSpeciesId == null) {
+      pendingSpeciesPrefillRef.current = null;
+      setFormData((prev) => {
+        const updated = { ...prev, crop_species: null };
+        setIsDirty(true);
+        setUserInteracted(true);
+        setSaveError('');
+        validateAndSet(updated);
+        return updated;
+      });
+      return;
+    }
+    applySpeciesGeneralPrefill(option.cropSpeciesId);
+  }, [applySpeciesGeneralPrefill, validateAndSet]);
 
   // Explicit apply action for free text that matches a Name suggestion
   // exactly without having been picked from the dropdown — reuses the exact
@@ -852,36 +891,9 @@ export function CultureForm({
   // it came from — the draft is built at save time. Only an explicit dropdown
   // pick (reason === 'selectOption') links the library entry; free text that
   // happens to match exactly is offered via handleApplyFirstVarietySuggestion
-  // instead, so nothing is taken over silently.
-  // Picking (or applying) a Sorte before the crop's own Name field ever
-  // matched a library species would otherwise leave the parent Culture
-  // without any general library fields (crop_family, spacing, seed rate,
-  // ...) — only the variety row (built at save time, see saveCulture) would
-  // carry them. Apply the species' general ("no variety") entry to the crop
-  // draft too, the same way an explicit Name pick does via the prefill
-  // effect above.
-  const applyFirstVarietySpeciesPrefill = useCallback((matched: PublicCulture) => {
-    if (matched.crop_species == null || formData.crop_species === matched.crop_species) {
-      return;
-    }
-    const generalEntry = varietyPublicCultures.find((item) => (
-      !(item.variety || '').trim() && !isLikelyTestPublicCultureEntry(item)
-    ));
-    if (generalEntry) {
-      applyPublicCultureDraft(generalEntry, { preserveVariety: true });
-    } else {
-      setFormData((prev) => {
-        const updated = { ...prev, crop_species: matched.crop_species };
-        validateAndSet(updated);
-        return updated;
-      });
-    }
-  }, [applyPublicCultureDraft, formData.crop_species, validateAndSet, varietyPublicCultures]);
-
-  // Only an explicit dropdown pick (reason === 'selectOption') links the
-  // library entry; free text that happens to match exactly is offered via
-  // handleApplyFirstVarietySuggestion instead, so nothing is taken over
-  // silently.
+  // instead, so nothing is taken over silently. Either way, route the match
+  // through applySpeciesGeneralPrefill so the parent crop draft also gets the
+  // species' general fields, not just the variety row built at save time.
   const handleFirstVarietyCommit = useCallback((variety: string, reason?: AutocompleteChangeReason) => {
     setFirstVarietyName(variety);
     const matched = reason === 'selectOption' && variety.trim()
@@ -890,20 +902,22 @@ export function CultureForm({
       )) ?? null
       : null;
     setFirstVarietyPublicCulture(matched);
-    if (matched) {
-      applyFirstVarietySpeciesPrefill(matched);
+    if (matched?.crop_species != null) {
+      applySpeciesGeneralPrefill(matched.crop_species);
     }
     setIsDirty(true);
     setUserInteracted(true);
-  }, [applyFirstVarietySpeciesPrefill, varietyPublicCultures]);
+  }, [applySpeciesGeneralPrefill, varietyPublicCultures]);
 
   const handleApplyFirstVarietySuggestion = useCallback(() => {
     if (!matchedFirstVarietyOption) return;
     setFirstVarietyPublicCulture(matchedFirstVarietyOption);
-    applyFirstVarietySpeciesPrefill(matchedFirstVarietyOption);
+    if (matchedFirstVarietyOption.crop_species != null) {
+      applySpeciesGeneralPrefill(matchedFirstVarietyOption.crop_species);
+    }
     setIsDirty(true);
     setUserInteracted(true);
-  }, [applyFirstVarietySpeciesPrefill, matchedFirstVarietyOption]);
+  }, [applySpeciesGeneralPrefill, matchedFirstVarietyOption]);
 
   // The library entry the typed variety text matches exactly. Same purpose as
   // matchedFirstVarietyOption above, for the "add variety to existing crop" form.

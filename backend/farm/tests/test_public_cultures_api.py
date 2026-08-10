@@ -545,6 +545,56 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(imported.seed_packages.count(), 1)
         self.assertEqual(float(imported.seed_packages.first().size_value), 15.0)
 
+    def test_import_variety_public_culture_also_creates_missing_local_general_culture(self):
+        bean_species = CropSpecies.objects.create(name='Bean')
+        PublicCulture.objects.create(
+            name='Bean',
+            variety='',
+            status='published',
+            created_by=self.user,
+            crop_species=bean_species,
+            crop_family='Fabaceae',
+            growth_duration_days=110,
+        )
+        variety_public_culture = PublicCulture.objects.create(
+            name='Bean',
+            variety='Canadian Wonder',
+            status='published',
+            created_by=self.user,
+            crop_species=bean_species,
+            crop_family='Fabaceae',
+            growth_duration_days=110,
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{variety_public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(project=self.project, crop_species=bean_species, variety='')
+        self.assertEqual(general.crop_family, 'Fabaceae')
+        self.assertEqual(general.growth_duration_days, 110)
+        self.assertEqual(general.origin_type, Culture.ORIGIN_IMPORTED)
+
+    def test_import_variety_public_culture_does_not_touch_existing_local_general_culture(self):
+        bean_species = CropSpecies.objects.create(name='Bean')
+        PublicCulture.objects.create(
+            name='Bean', variety='', status='published', created_by=self.user,
+            crop_species=bean_species, crop_family='Fabaceae',
+        )
+        variety_public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+            crop_species=bean_species, crop_family='Fabaceae',
+        )
+        existing_general = Culture.objects.create(
+            name='Bean', variety='', crop_species=bean_species, crop_family='Custom', project=self.project,
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{variety_public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Culture.objects.filter(project=self.project, crop_species=bean_species, variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.crop_family, 'Custom')
+
     def test_public_culture_list_shows_no_import_status_when_not_yet_imported(self):
         PublicCulture.objects.create(
             name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
