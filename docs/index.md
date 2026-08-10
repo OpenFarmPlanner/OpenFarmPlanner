@@ -26,9 +26,9 @@ For rules AI agents must follow when changing code, see [`AGENTS.md`](../AGENTS.
   related manual QA paths.
 - **[Keyboard Navigation Architecture](./keyboard-architecture.md)** — the
   focus-region model and the shortcut/command system.
-- **[Design System](./design-system.md)** — how the MUI theme and Tailwind
-  CSS v4 divide the work, the cascade-layer setup that makes them coexist,
-  the design tokens, and the RTL-safe utility rules.
+- **[Design System](./design-system.md)** — where a style belongs (theme vs.
+  `sx` vs. shared style module), the spacing/colour/breakpoint conventions,
+  the two remaining stylesheets, and the RTL rules.
 - **[Form Layout](./form-layout.md)** — responsive field-width roles and the
   exceptions for grid editors, narrow popovers, and search controls.
 - **[Occupancy Tree / Gantt Hierarchy](./occupancy-tree-hierarchy.md)** —

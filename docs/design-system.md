@@ -1,143 +1,119 @@
-# Design System: MUI + Tailwind CSS v4
+# Design System
 
-OpenFarmPlanner styles its UI with two systems that have clearly separated
-jobs. Getting the split right matters more than either tool on its own.
+OpenFarmPlanner styles its UI through **one system: the MUI theme**. There is
+no utility-class framework, no CSS modules, and no per-component stylesheet.
+This page says where a given style belongs so the question does not have to be
+re-decided per change.
 
-| Layer | Owner | Use it for |
-| --- | --- | --- |
-| **MUI theme** (`frontend/src/theme.ts`) | components | anything a MUI component renders: buttons, dialogs, alerts, DataGrid, tooltips, focus rings |
-| **MUI `sx`** | component instances | one-off adjustments to a MUI component, and any style that has to reach a MUI slot |
-| **Tailwind utilities** | plain DOM | layout and box model on elements *we* render (`div`, `span`, `Box`), and anything that would otherwise become a new `.css` file |
-
-**Do not add a new `.css` file for a component.** That is the pattern this
-setup exists to remove. If a utility cannot express it, it almost always
-belongs in `theme.ts` (because it is a component-wide decision) or in `sx`
-(because it is one instance).
-
----
-
-## 1. Cascade layers
-
-The layer order is declared once, at the very top of
-`frontend/src/index.css`:
-
-```css
-@layer theme, base, mui, components, utilities;
-```
-
-- MUI emits its Emotion styles into `@layer mui`, enabled by
-  `<StyledEngineProvider enableCssLayer>` in `main.tsx`.
-- `mui` sits **after** `base`, so `<CssBaseline />` stays in charge of the
-  element reset.
-- `utilities` sits **after** `mui`, so a Tailwind utility overrides a MUI
-  component style without `!important`.
-
-Tailwind's **Preflight is deliberately not imported**. `<CssBaseline />`
-already owns the global reset; layering a second, differently-opinionated one
-on top would change how every heading, list and link renders. `index.css`
-imports only `tailwindcss/theme.css` and `tailwindcss/utilities.css`.
-
-### The one trap to know about
-
-Unlayered CSS outranks *every* layer, including `utilities`. Now that MUI
-lives in `@layer mui`, any leftover unlayered stylesheet silently wins over
-`sx` — the reverse of how it behaved before, when Emotion's late injection
-decided the tie. Two real cases were found and fixed during the migration
-(a hover colour and a Gantt `margin-top`).
-
-The only unlayered stylesheet left is `frontend/src/pages/GanttChart.css`,
-and it stays unlayered on purpose: it overrides the vendored Gantt library in
-`src/gantt-chart/`, whose own `gantt.css` is unlayered too. Layering the
-overrides would let the library's defaults win.
-
----
-
-## 2. Tokens
-
-All tokens live in the `@theme static` block in `frontend/src/index.css`.
-They are derived from the existing design — Tailwind's own defaults for
-colours, radii and shadows are switched off with `--color-*: initial` and
-friends so there is exactly one named token per design decision instead of
-250 generic shades.
-
-`static` means every token is emitted as a CSS variable on `:root` whether or
-not a utility uses it, so stylesheets Tailwind does not compile (again:
-`GanttChart.css`) can reference them.
-
-### Spacing
-
-```
---spacing: 0.5rem   /* 1 unit = 8px = one MUI spacing unit */
-```
-
-This is the single most useful thing in the file: **`className="p-2"` and
-`sx={{ p: 2 }}` mean the same 16px.** Half steps work in both (`p-0.5` /
-`sx={{ p: 0.5 }}` = 4px). Never reach for `p-[10px]`.
-
-### Breakpoints
-
-```
-sm 600px · md 900px · lg 1200px · xl 1536px
-```
-
-These mirror MUI's defaults, so `max-sm:` and
-`theme.breakpoints.down('sm')` describe the same viewport. (`max-sm:` is
-`< 600px` where MUI's `down('sm')` is `<= 599.95px` — the same thing for any
-real viewport.)
-
-### Colours
-
-| Group | Tokens |
+| Where | What belongs there |
 | --- | --- |
-| Brand | `brand`, `brand-dark`, `brand-light`, `brand-strong`, `brand-accent` |
-| Surfaces | `app`, `page`, `content`, `surface`, `surface-subtle`, `surface-hover`, `surface-border`, `surface-soft-border` |
-| Navigation chrome | `nav-from`, `nav-to`, `nav-active`, `tooltip` |
-| Semantic | `danger`, `danger-dark`, `danger-surface`, `info`, `info-dark`, `info-surface`, `info-surface-strong`, `warning`, `success` |
-| Neutrals | `neutral-50` … `neutral-900` (`neutral-900` is the body text colour) |
-| Feature | `gantt-task` |
+| **`frontend/src/theme.ts`** | decisions that apply to a component *type*: palette, radii, typography weights, and the `components` overrides for Button, Dialog, Alert, Tooltip, DataGrid, focus rings |
+| **`sx` on a component** | one instance: spacing, layout, a local colour pulled from the theme |
+| **a `*Styles.ts` module** | an `sx` object reused by more than one component |
+| **`frontend/src/index.css`** | global element base styles only — currently 69 lines |
 
-The brand, surface and semantic values come straight from `theme.ts`, so
-`bg-surface-hover` and `sx={{ bgcolor: 'surface.surfaceHoverBackground' }}`
-paint the same pixel.
-
-### Radii, shadows, typography
-
-- `rounded-md` is MUI's `shape.borderRadius` (4px); `rounded-lg` is
-  `sx={{ borderRadius: 2 }}` (8px).
-- `shadow-card` and `shadow-toast` are the two shadows the app actually uses.
-- Tailwind's `text-xs` / `text-sm` / `text-base` already line up with MUI's
-  `caption` / `body2` / `body1`, so the scale is kept and only `text-tooltip`
-  (0.8125rem) and `text-control` (0.95rem) are added.
-- `font-sans` is the global stack from `:root`; `font-mui` is MUI's own.
+**Do not add a `.css` file for a component.** If a style feels like it needs
+one, it almost always belongs in `theme.ts` (because it is a decision about a
+component type) or in a `*Styles.ts` module (because it is shared).
 
 ---
 
-## 3. i18n and writing direction
+## 1. Why a single system
 
-The UI ships German and English today (see [i18n.md](./i18n.md)), both
-left-to-right, but the utility choices are made so an RTL locale does not
-require a rewrite:
+The app renders essentially all of its UI through MUI components, and
+`theme.ts` already carries the component-level design decisions. A second
+styling system — utility classes, CSS modules, another framework — would not
+remove any of that; it would sit next to it. Every styling change would then
+start with a choice between two valid answers, and the answer would drift
+depending on which file was read first.
 
-- **Prefer the logical utilities.** `px-*`, `mx-*`, `ps-*`, `pe-*`, `ms-*`,
-  `me-*`, `start-*`, `end-*` and `text-start` / `text-end` all follow the
-  document direction. Tailwind v4 compiles `px-2` to `padding-inline`, so the
-  common cases are direction-safe by default.
-- **Use the physical utilities only for physically-defined values.** The page
-  gutter in `components/layout/pageContainerStyles.ts` applies
-  `env(safe-area-inset-left)` with `pl-*`, not `ps-*`: the inset describes the
-  physical left edge of the device, so a logical utility would move it to the
-  wrong side in RTL.
-- Nothing in the token set encodes a direction, and no class name is
-  translated, so switching `dir` stays a layout concern rather than a
-  styling one.
+This was evaluated explicitly, including a working Tailwind CSS v4
+integration, and rejected for that reason. What the evaluation *did* surface
+is what this page and the cleanup around it fix: the problem was never the
+absence of a framework, it was **dead CSS and undocumented conventions**.
 
----
+## 2. The shared style modules
 
-## 4. What was intentionally left alone
+`sx` objects that more than one component needs live in a `*Styles.ts` module
+next to their owner, typed as `SxProps<Theme>`:
 
-`frontend/src/gantt-chart/` is a vendored copy of a third-party Gantt library,
-with its own README, LICENSE and 1160-line stylesheet whose class names are
-part of its public API (`getComponentClassName`, `themes.ts`) and are used as
-selectors by the e2e specs. Its CSS is not migrated. The app's own overrides
-sit in `pages/GanttChart.css` and feed the library's `--rmg-*` variables from
-the tokens above.
+- `components/layout/pageContainerStyles.ts` — the page shells
+- `navigation/navigationStyles.ts`, `navigation/topbarMenuStyles.ts`
+- `components/data-grid/styles.ts`
+- `components/buttons/segmentedControlStyles.ts`
+- `components/contextMenu/contextMenuIndicatorStyles.ts`
+- `pages/fieldsBedsHierarchyStyles.ts`
+- `pages/auth/authPageStyles.ts`
+
+Reach for an existing one before adding another.
+
+## 3. Values
+
+**Spacing** is MUI's 8px unit. `sx={{ p: 2 }}` is 16px, `sx={{ p: 0.5 }}` is
+4px. Do not write `sx={{ padding: '10px' }}` — pick the nearest step.
+
+**Colours** come from the theme, never as literals:
+
+```tsx
+sx={{ bgcolor: 'surface.surfaceHoverBackground', color: 'primary.dark' }}
+```
+
+`theme.ts` defines, beyond MUI's own palette, a `surface` group (app, sidebar,
+topbar, content and surface backgrounds, borders) and a `navigation` group
+(inactive/hover/active text, icon, background and border for nav items). Read
+it before introducing a colour — there is very likely already a token for what
+you need.
+
+**Breakpoints** are MUI's defaults: `sm` 600, `md` 900, `lg` 1200, `xl` 1536.
+Use the responsive object form (`px: { xs: 0, sm: 2 }`) or
+`theme.breakpoints.down('sm')`, not a hand-written media query.
+
+**Radii** come from `shape.borderRadius` (4px). `sx={{ borderRadius: 2 }}` is
+8px.
+
+## 4. The two remaining stylesheets
+
+Only two `.css` files are left in the app, and both are deliberate:
+
+**`src/index.css`** — global element base styles: the root font stack and
+colours, the body reset, the `overflow-x` clamp (whose comment explains a
+non-obvious interaction with MUI's modal scroll lock — read it before touching
+it), link colours and `h1`.
+
+**`src/pages/GanttChart.css`** — overrides for the vendored Gantt library in
+`src/gantt-chart/`. Every rule targets `.rmg-*` DOM that this app does not
+render itself, so it cannot be expressed as `sx`; the wrapper's own box model
+lives on `<Box>` in `GanttChart.tsx`. `.gantt-container-wrapper` survives
+purely as the scoping hook for these rules and as the selector the Gantt e2e
+specs use.
+
+This file also sets the library's `--rmg-primary-color`, `--rmg-task-color`
+and `--rmg-hover-color`. Those three are **the only colour literals outside
+`theme.ts`** — the library consumes them as CSS custom properties and plain
+CSS has no access to the MUI theme. Keep them in sync by hand.
+
+## 5. i18n and writing direction
+
+The UI ships German and English (see [i18n.md](./i18n.md)), both
+left-to-right. Nothing in the styling encodes a direction today, and a future
+RTL locale should stay a layout concern rather than a styling one:
+
+- **Prefer the logical properties** where a style follows the reading
+  direction: `paddingInline`, `marginInline`, `insetInlineStart`,
+  `textAlign: 'start'`. MUI's `px`/`mx` shorthands already compile to the
+  logical `padding-inline`/`margin-inline`, so the common cases are
+  direction-safe by default.
+- **Use physical properties only for physically-defined values.** The page
+  gutter in `pageContainerStyles.ts` applies `env(safe-area-inset-left)` with
+  `paddingLeft`, not `paddingInlineStart`: the inset describes the physical
+  left edge of the device, so a logical property would move it to the wrong
+  side in RTL.
+
+## 6. Verifying a visual change
+
+`frontend/e2e/responsive-layouts.spec.ts` captures 32 screenshot baselines —
+8 main routes × 4 viewports (375 / 768 / 1024 / 1440). They run on every pull
+request and are the real check that a refactor did not move anything.
+
+Per [`AGENTS.md`](../AGENTS.md), baselines are never updated automatically. If
+one fails, first decide whether the change was intended.
