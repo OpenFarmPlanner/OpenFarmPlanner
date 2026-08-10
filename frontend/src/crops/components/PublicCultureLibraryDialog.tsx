@@ -15,11 +15,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Popover,
   TextField,
   Typography,
   useMediaQuery,
@@ -35,9 +31,16 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 // future cleanup candidate rather than fixed now.
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
-import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
 import { getPublicCultureTitle } from '../publicCultureDisplay';
+import { PublicCultureFiltersPopover } from './PublicCultureFiltersPopover';
+import {
+  EMPTY_PUBLIC_CULTURE_FILTERS,
+  countActivePublicCultureFilters,
+  getPublicCultureFilterOptions,
+  matchesPublicCultureFilters,
+  type PublicCultureFilterState,
+} from '../publicCultureFilters';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -151,12 +154,10 @@ export function PublicCultureLibraryDialog({
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isSpeciesView, setIsSpeciesView] = useState(false);
-  const [varietyFilter, setVarietyFilter] = useState('');
-  const [nutrientFilter, setNutrientFilter] = useState('');
-  const [cropFamilyFilter, setCropFamilyFilter] = useState('');
+  const [filters, setFilters] = useState<PublicCultureFilterState>(EMPTY_PUBLIC_CULTURE_FILTERS);
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
   const isFilterPopoverOpen = Boolean(filterAnchorEl);
-  const activeFilterCount = [varietyFilter, nutrientFilter, cropFamilyFilter].filter(Boolean).length;
+  const activeFilterCount = countActivePublicCultureFilters(filters);
   const [mobileStep, setMobileStep] = useState<'list' | 'detail'>('list');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -182,9 +183,7 @@ export function PublicCultureLibraryDialog({
         setQuery(initialQuery);
         setSelectedId(initialSelectedId);
         setIsSpeciesView(false);
-        setVarietyFilter('');
-        setNutrientFilter('');
-        setCropFamilyFilter('');
+        setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
         setFilterAnchorEl(null);
         setMobileStep(initialSelectedId && useMobileFilterLayout ? 'detail' : 'list');
       });
@@ -201,9 +200,7 @@ export function PublicCultureLibraryDialog({
         setQuery('');
         setSelectedId(null);
         setIsSpeciesView(false);
-        setVarietyFilter('');
-        setNutrientFilter('');
-        setCropFamilyFilter('');
+        setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
         setFilterAnchorEl(null);
         setMobileStep('list');
       });
@@ -211,24 +208,7 @@ export function PublicCultureLibraryDialog({
   }, [open]);
 
   const normalizedQuery = query.trim().toLowerCase();
-  const varietyOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.variety?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
-  const nutrientOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.nutrient_demand || '').filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
-  const nutrientLabel = (value: string): string => {
-    if (value === 'low') return t('form.nutrientDemandLow');
-    if (value === 'medium') return t('form.nutrientDemandMedium');
-    if (value === 'high') return t('form.nutrientDemandHigh');
-    return value;
-  };
-  const cropFamilyOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.crop_family?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
+  const filterOptions = useMemo(() => getPublicCultureFilterOptions(cultures), [cultures]);
 
   const filteredCultures = useMemo(() => cultures.filter((entry) => {
     const label = [
@@ -239,11 +219,8 @@ export function PublicCultureLibraryDialog({
       entry.crop_family || '',
     ].join(' ').toLowerCase();
     const matchesQuery = normalizedQuery.length === 0 || label.includes(normalizedQuery);
-    const matchesVariety = !varietyFilter || (entry.variety || '') === varietyFilter;
-    const matchesNutrient = !nutrientFilter || (entry.nutrient_demand || '') === nutrientFilter;
-    const matchesCropFamily = !cropFamilyFilter || (entry.crop_family || '') === cropFamilyFilter;
-    return matchesQuery && matchesVariety && matchesNutrient && matchesCropFamily;
-  }), [cropFamilyFilter, cultures, language, normalizedQuery, nutrientFilter, t, varietyFilter]);
+    return matchesQuery && matchesPublicCultureFilters(entry, filters);
+  }), [cultures, filters, language, normalizedQuery, t]);
 
   useEffect(() => {
     if (loading || (initialSelectedId && selectedId === initialSelectedId && cultures.length === 0)) {
@@ -349,44 +326,6 @@ export function PublicCultureLibraryDialog({
     }
     : undefined;
 
-  const filterControls = (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
-        gap: 1,
-      }}
-    >
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.variety')}</InputLabel>
-        <Select fullWidth value={varietyFilter} label={t('library.filters.variety')} onChange={(event) => setVarietyFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {varietyOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.nutrientDemand')}</InputLabel>
-        <Select fullWidth value={nutrientFilter} label={t('library.filters.nutrientDemand')} onChange={(event) => setNutrientFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {nutrientOptions.map((option) => (
-            <MenuItem key={option} value={option}>{nutrientLabel(option)}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.cropFamily')}</InputLabel>
-        <Select fullWidth value={cropFamilyFilter} label={t('library.filters.cropFamily')} onChange={(event) => setCropFamilyFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {cropFamilyOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </Box>
-  );
-
   return (
       <Dialog
       open={open}
@@ -433,7 +372,7 @@ export function PublicCultureLibraryDialog({
                 onClick={(event) => setFilterAnchorEl(event.currentTarget)}
                 aria-expanded={isFilterPopoverOpen}
                 aria-haspopup="dialog"
-                aria-controls={isFilterPopoverOpen ? 'public-culture-library-filters-popover' : undefined}
+                aria-controls={isFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
                 aria-label={t('filters.openAdvanced')}
                 sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
               >
@@ -447,17 +386,17 @@ export function PublicCultureLibraryDialog({
           sx={{ mb: 2 }}
         />
 
-        <Popover
-          id="public-culture-library-filters-popover"
-          open={isFilterPopoverOpen}
+        <PublicCultureFiltersPopover
           anchorEl={filterAnchorEl}
           onClose={() => setFilterAnchorEl(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          PaperProps={{ sx: { width: { xs: 'min(92vw, 360px)', sm: 360 }, p: 1.5 } }}
-        >
-          {filterControls}
-        </Popover>
+          filters={filters}
+          onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+          options={filterOptions}
+          onReset={() => {
+            setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+            setFilterAnchorEl(null);
+          }}
+        />
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 

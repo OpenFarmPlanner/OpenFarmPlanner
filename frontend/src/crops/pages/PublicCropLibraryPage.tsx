@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Card,
@@ -18,6 +19,7 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  IconButton,
   InputLabel,
   ListItemButton,
   MenuItem,
@@ -38,6 +40,7 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
+import TuneIcon from '@mui/icons-material/Tune';
 import { publicCultureAPI } from '../../api/api';
 import type {
   CultivationType,
@@ -79,6 +82,14 @@ import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { PublicCultureFiltersPopover } from '../components/PublicCultureFiltersPopover';
+import {
+  EMPTY_PUBLIC_CULTURE_FILTERS,
+  countActivePublicCultureFilters,
+  getPublicCultureFilterOptions,
+  matchesPublicCultureFilters,
+  type PublicCultureFilterState,
+} from '../publicCultureFilters';
 import { DetailGrid, DetailRow, DetailSection } from '../components/publicCropLibrary/DetailPrimitives';
 import { VersionCard } from '../components/publicCropLibrary/VersionCard';
 import { CommentForm } from '../components/publicCropLibrary/CommentForm';
@@ -162,6 +173,10 @@ export default function PublicCropLibraryPage() {
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
   const [selectedSpeciesViewKey, setSelectedSpeciesViewKey] = useState<string | null>(null);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
+  const [libraryFilters, setLibraryFilters] = useState<PublicCultureFilterState>(EMPTY_PUBLIC_CULTURE_FILTERS);
+  const [libraryFilterAnchorEl, setLibraryFilterAnchorEl] = useState<HTMLElement | null>(null);
+  const isLibraryFilterPopoverOpen = Boolean(libraryFilterAnchorEl);
+  const activeLibraryFilterCount = countActivePublicCultureFilters(libraryFilters);
   const isMobile = useMediaQuery('(max-width:600px)');
   const useCompactLibraryLayout = useMediaQuery('(max-width:899.95px)');
   const libraryAreaRef = useRef<HTMLDivElement>(null);
@@ -331,6 +346,11 @@ export default function PublicCropLibraryPage() {
   const selectedCulture = useMemo(
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
+  );
+  const libraryFilterOptions = useMemo(() => getPublicCultureFilterOptions(cultures), [cultures]);
+  const filteredLibraryCultures = useMemo(
+    () => cultures.filter((culture) => matchesPublicCultureFilters(culture, libraryFilters)),
+    [cultures, libraryFilters],
   );
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
@@ -1372,8 +1392,36 @@ export default function PublicCropLibraryPage() {
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
+                  InputProps={{
+                    endAdornment: (
+                      <IconButton
+                        size="small"
+                        onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
+                        aria-expanded={isLibraryFilterPopoverOpen}
+                        aria-haspopup="dialog"
+                        aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                        aria-label={t('filters.openAdvanced')}
+                        sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                      >
+                        <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
+                          <TuneIcon fontSize="small" />
+                        </Badge>
+                      </IconButton>
+                    ),
+                  }}
                 />
               </Box>
+              <PublicCultureFiltersPopover
+                anchorEl={libraryFilterAnchorEl}
+                onClose={() => setLibraryFilterAnchorEl(null)}
+                filters={libraryFilters}
+                onFilterChange={(key, value) => setLibraryFilters((prev) => ({ ...prev, [key]: value }))}
+                options={libraryFilterOptions}
+                onReset={() => {
+                  setLibraryFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+                  setLibraryFilterAnchorEl(null);
+                }}
+              />
               {isCultureLoading ? (
                 <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Stack spacing={1} alignItems="center">
@@ -1385,7 +1433,7 @@ export default function PublicCropLibraryPage() {
                 <Box sx={{ p: 2 }}>
                   <Alert severity="error">{loadError}</Alert>
                 </Box>
-              ) : cultures.length === 0 ? (
+              ) : filteredLibraryCultures.length === 0 ? (
                 <Box sx={{ p: 3, textAlign: 'center' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                     {t('library.emptyState.noResultsTitle')}
@@ -1397,7 +1445,7 @@ export default function PublicCropLibraryPage() {
               ) : (
                 <PublicCropHierarchyList
                   listRef={cultureListRef}
-                  cultures={cultures}
+                  cultures={filteredLibraryCultures}
                   selectedCultureId={selectedCultureId}
                   isSpeciesView={isSpeciesView}
                   storageKey="publicCropLibrary"
