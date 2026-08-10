@@ -1337,7 +1337,14 @@ function RootLayout() {
             startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
-            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {/* The class name carries no styling — it is the selector
+                e2e/onboarding-demo-project.spec.ts uses to read the active
+                project name out of the topbar. */}
+            <Box
+              component="span"
+              className="project-switcher-label"
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
               {activeProjectLabel}
             </Box>
           </Button>
