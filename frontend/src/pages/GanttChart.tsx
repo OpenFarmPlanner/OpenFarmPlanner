@@ -1906,7 +1906,7 @@ function GanttChartPage() {
 
         {!hasCalendarRequirements ? (
           <PageSurface variant="fullWorkspace" sx={{ mt: 0.5 }}>
-          <Box className="gantt-container-wrapper w-full min-w-0 overflow-hidden mt-2" sx={{ border: '1px solid', borderColor: 'surface.surfaceSoftBorder', borderRadius: 2, bgcolor: 'surface.surfaceBackground' }}>
+          <Box className="gantt-container-wrapper" sx={{ width: '100%', minWidth: 0, overflow: 'hidden', mt: 2, border: '1px solid', borderColor: 'surface.surfaceSoftBorder', borderRadius: 2, bgcolor: 'surface.surfaceBackground' }}>
             <Box sx={{ p: 2 }}>
               <EmptyStateCard
                 title={t(requirementEmptyStateTitleKey)}
@@ -1994,8 +1994,11 @@ function GanttChartPage() {
             />
           )}
           <Box
-            className={`gantt-container-wrapper gantt-container-wrapper--${calendarMode} w-full min-w-0 overflow-hidden`}
+            className={`gantt-container-wrapper gantt-container-wrapper--${calendarMode}`}
             sx={{
+              width: '100%',
+              minWidth: 0,
+              overflow: 'hidden',
               mt: { xs: 0.75, md: 2 },
               border: '1px solid',
               borderColor: 'surface.surfaceSoftBorder',

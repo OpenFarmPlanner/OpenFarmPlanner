@@ -6,11 +6,6 @@
  * wrapper's own box model lives on <Box> in GanttChart.tsx. `.gantt-container-
  * wrapper` survives purely as the scoping hook for these rules (and as the
  * selector the Gantt e2e specs use).
- *
- * This file stays outside the cascade layers on purpose: the library's own
- * src/gantt-chart/src/styles/gantt.css is unlayered too, and unlayered CSS
- * always outranks layered CSS, so moving these overrides into `@layer
- * components` would let the library's defaults win.
  */
 
 .gantt-container-wrapper .rmg-gantt-chart {
@@ -87,11 +82,16 @@
   word-break: normal;
 }
 
-/* Feed the library's theming variables from the app's design tokens. */
+/*
+ * Override the library's theming variables. These three are the one place in
+ * the app where colours are not read from src/theme.ts — the library consumes
+ * them as CSS custom properties, and this file is plain CSS with no access to
+ * the MUI theme. Keep them in sync with the palette by hand.
+ */
 :root {
-  --rmg-primary-color: var(--color-brand-strong);
-  --rmg-task-color: var(--color-gantt-task);
-  --rmg-hover-color: var(--color-info-surface);
+  --rmg-primary-color: #2e7d32;
+  --rmg-task-color: #3b82f6;
+  --rmg-hover-color: #e3f2fd;
 }
 
 /* Style harvest period tasks with darker/semi-transparent appearance */

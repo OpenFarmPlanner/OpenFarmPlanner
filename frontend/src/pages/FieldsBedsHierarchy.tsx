@@ -41,7 +41,7 @@ import { ContextMenuActionItem } from "../components/contextMenu/ContextMenuActi
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
 import { HierarchyAddIcon } from "../components/hierarchy/HierarchyAddIcon";
 import EmptyStateCard from '../components/project/EmptyStateCard';
-import { PAGE_CONTAINER_CLASSES } from '../components/layout/pageContainerStyles';
+import { PAGE_CONTAINER_SX } from '../components/layout/pageContainerStyles';
 import {
   HIERARCHY_AUTO_EXPAND_ALL_THRESHOLD,
   HIERARCHY_DATA_GRID_SX,
@@ -1492,7 +1492,7 @@ function FieldsBedsHierarchy({
   ], [getHierarchyRowClipboardValues, rows, t]);
 
   return (
-    <div className={showTitle ? PAGE_CONTAINER_CLASSES.standardCenteredPage : undefined}>
+    <Box sx={showTitle ? PAGE_CONTAINER_SX.standardCenteredPage : undefined}>
       <Box ref={pageContentRef} sx={{ width: "100%", minWidth: 0 }}>
         {showTitle && <h1>{t("title")}</h1>}
 
@@ -1695,7 +1695,7 @@ function FieldsBedsHierarchy({
           }}
         />
       ))}
-    </div>
+    </Box>
   );
 }
 

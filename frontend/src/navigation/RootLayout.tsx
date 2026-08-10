@@ -801,7 +801,7 @@ function RootLayout() {
   }
 
   return (
-    <Box className="w-full max-w-full overflow-x-hidden" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
+    <Box sx={{ display: 'flex', width: '100%', maxWidth: '100%', overflowX: 'hidden', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
         <Box
           component="aside"
@@ -1337,7 +1337,9 @@ function RootLayout() {
             startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
-            <span className="truncate">{activeProjectLabel}</span>
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeProjectLabel}
+            </Box>
           </Button>
           <ProjectMenu
             anchorEl={projectMenuAnchor}
@@ -1701,7 +1703,16 @@ function RootLayout() {
           )}
         </Toolbar>
         {isCompactTopbar && hasMobileSecondaryRow ? (
-          <Box className="overflow-x-hidden overflow-y-visible whitespace-normal scrollbar-none" sx={{ px: 0, pb: 0.5 }}>
+          <Box
+            sx={{
+              px: 0,
+              pb: 0.5,
+              overflowX: 'hidden',
+              overflowY: 'visible',
+              whiteSpace: 'normal',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
               {isCulturesPage ? (
                 <>
