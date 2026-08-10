@@ -195,6 +195,34 @@ class CultureHistoryTests(TestCase):
         restored_location = Location.objects.get(project=self.project, name='Hauptstandort Alt')
         self.assertEqual(restored_location.id, location.id)
 
+    def test_project_restore_nulls_out_stale_non_restorable_fk_reference(self):
+        """A culture snapshot can reference a PublicCulture that was later hard-deleted
+        (not soft-withdrawn). Restoring to that snapshot must null the dangling FK
+        instead of crashing with an IntegrityError."""
+        from crops.models import CropSpecies
+        from farm.models import PublicCulture
+
+        crop_species = CropSpecies.objects.create(name='Ghost Carrot Species', name_normalized='ghost-carrot-species')
+        public_culture = PublicCulture.objects.create(name='Ghost Carrot', crop_species=crop_species)
+        self.culture.source_public_culture = public_culture
+        self.culture.save()
+
+        before = self.client.get('/openfarmplanner/api/history/project/')
+        target_revision_id = before.json()[0]['history_id']
+
+        # Simulate the referenced PublicCulture being hard-deleted later (e.g. a
+        # data reset), which is not something the whole-project restore tracks.
+        PublicCulture.objects.filter(pk=public_culture.pk).delete()
+
+        restore_response = self.client.post(
+            '/openfarmplanner/api/history/project/restore/',
+            data={'history_id': target_revision_id},
+            content_type='application/json',
+        )
+        self.assertEqual(restore_response.status_code, 200)
+        self.culture.refresh_from_db()
+        self.assertIsNone(self.culture.source_public_culture_id)
+
     def test_cleanup_history_command_prunes_legacy_culture_revisions(self):
         old = CultureRevision.objects.create(culture=self.culture, snapshot={}, changed_fields=[])
         old.created_at = timezone.now() - timedelta(days=40)
