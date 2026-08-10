@@ -188,6 +188,29 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     await waitFor(() => expect(screen.getByLabelText(/form\.cropFamily/)).toHaveValue('Nachtschattengewächse'));
   });
 
+  it('prefills the general crop fields when a matched Sorte is applied via the explicit apply hint', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    fireEvent.change(getNameInput(), { target: { value: 'Tomate' } });
+    await screen.findByRole('option', { name: 'Tomate' });
+
+    const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.change(firstVarietyInput, { target: { value: 'Moneymaker' } });
+    fireEvent.keyDown(firstVarietyInput, { key: 'Escape' });
+    // The untouched Name field's own "apply" hint (offered because its typed
+    // text also matches "Tomate" exactly) renders with the same label - the
+    // Sorte field's hint is the one that appears last.
+    const applyButtons = await screen.findAllByText('form.publicCultureApplyAction');
+    fireEvent.click(applyButtons[applyButtons.length - 1]);
+
+    await waitFor(() => expect(screen.getByLabelText(/form\.cropFamily/)).toHaveValue('Nachtschattengewächse'));
+  });
+
   it('keeps the first-variety field as plain free text for an unmatched crop name', async () => {
     mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
 
