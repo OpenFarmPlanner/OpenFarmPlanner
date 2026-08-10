@@ -1337,7 +1337,7 @@ function RootLayout() {
             startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
-            <span className="project-switcher-label">{activeProjectLabel}</span>
+            <span className="truncate">{activeProjectLabel}</span>
           </Button>
           <ProjectMenu
             anchorEl={projectMenuAnchor}
@@ -1701,7 +1701,7 @@ function RootLayout() {
           )}
         </Toolbar>
         {isCompactTopbar && hasMobileSecondaryRow ? (
-          <Box className="mobile-action-scroll" sx={{ px: 0, pb: 0.5 }}>
+          <Box className="overflow-x-hidden overflow-y-visible whitespace-normal scrollbar-none" sx={{ px: 0, pb: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
               {isCulturesPage ? (
                 <>

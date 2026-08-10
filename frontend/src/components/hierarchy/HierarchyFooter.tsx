@@ -28,7 +28,6 @@ export function HierarchyFooter({ locations, onAddField }: HierarchyFooterProps)
           color="primary"
           size="small"
           aria-label={t('addField')}
-          className="clickable"
         >
           <span style={{ fontSize: '0.875rem', marginRight: '4px' }}>{t('addField')}</span>
         </IconButton>
