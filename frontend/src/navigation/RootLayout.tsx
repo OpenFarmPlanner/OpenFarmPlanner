@@ -108,7 +108,6 @@ import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
 import { AppTooltip } from '../components/AppTooltip';
 
-const CONTENT_ALIGNMENT_MODE = 'centered';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
@@ -802,7 +801,7 @@ function RootLayout() {
   }
 
   return (
-    <Box className={`app app--${CONTENT_ALIGNMENT_MODE}`} sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
+    <Box className="w-full max-w-full overflow-x-hidden" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
         <Box
           component="aside"
