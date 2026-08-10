@@ -365,31 +365,28 @@ export function CulturesPublishingWizardDialog({
       <DialogTitle>{t('library.publishWizard.title')}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.25} sx={{ pt: 0.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            {t(
-              isOwnedPublicCultureUpdate
-                ? 'library.publishWizard.updateIntro'
-                : isCropLevelPublish
-                  ? 'library.publishWizard.introGeneral'
-                  : 'library.publishWizard.intro',
-              { name: culture?.name ?? '' },
-            )}
-          </Typography>
+          {isOwnedPublicCultureUpdate ? (
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {t('library.publishWizard.updateHeading', {
+                  name: selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput,
+                })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {t('library.publishWizard.updateOnlyChangedValuesHint')}
+              </Typography>
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t(
+                isCropLevelPublish ? 'library.publishWizard.introGeneral' : 'library.publishWizard.intro',
+                { name: culture?.name ?? '' },
+              )}
+            </Typography>
+          )}
 
           <Stack spacing={2}>
-            {isOwnedPublicCultureUpdate ? (
-              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('library.publishWizard.publicEntryLabel')}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {selectedPublicCulture ? getPublicCultureOptionLabel(selectedPublicCulture) : publicCultureInput}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {t('library.publishWizard.publicCultureUpdateHelp')}
-                </Typography>
-              </Box>
-            ) : (
+            {isOwnedPublicCultureUpdate ? null : (
               <>
                 <Autocomplete
                   options={species}
