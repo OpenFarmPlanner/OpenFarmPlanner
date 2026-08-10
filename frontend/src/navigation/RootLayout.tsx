@@ -162,7 +162,15 @@ function RootLayout() {
   );
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPathnameRef = React.useRef(location.pathname);
+  // The route the keyboard navigation and the command palette consider
+  // "current". Derived from the location rather than kept in a ref: the ref
+  // version made the value unreadable during render and, because its reader
+  // was a `useCallback([])`, left the command palette's `currentPath` frozen
+  // at whatever route the shell first mounted on.
+  const currentKeyboardRoute = useMemo(
+    () => getKeyboardNavigationRouteFromPathname(location.pathname) ?? normalizeMainRoutePath(location.pathname),
+    [location.pathname],
+  );
   const expandSidebarBtnRef = React.useRef<HTMLButtonElement>(null);
   const collapseSidebarBtnRef = React.useRef<HTMLButtonElement>(null);
   // The three primary F6-reachable focus regions of the app shell — see
@@ -206,8 +214,6 @@ function RootLayout() {
   const [mobileActionsOverflowAnchor, setMobileActionsOverflowAnchor] = useState<null | HTMLElement>(null);
   const [topbarPrimaryActionMenuAnchor, setTopbarPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [publicLibraryModerationMenuAnchor, setPublicLibraryModerationMenuAnchor] = useState<null | HTMLElement>(null);
-  currentPathnameRef.current = location.pathname;
-
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
 
   const { hasActiveProject } = useProjectRequirement();
@@ -646,24 +652,18 @@ function RootLayout() {
     }
   }, [activeProjectId, applyProjectContextChange, handleProjectMenuClose, showSnackbar, t]);
 
-  const getCurrentRouteFromLocation = useCallback((): string => {
-    const pathname = currentPathnameRef.current;
-    return getKeyboardNavigationRouteFromPathname(pathname) ?? normalizeMainRoutePath(pathname);
-  }, []);
-
   const navigateRelativePage = useCallback((direction: 1 | -1): void => {
-    const currentRoute = getCurrentRouteFromLocation();
-    const currentIndex = KEYBOARD_NAV_ROUTES.indexOf(currentRoute);
+    const currentIndex = KEYBOARD_NAV_ROUTES.indexOf(currentKeyboardRoute);
 
     if (currentIndex === -1) {
-      console.warn(`[keyboard-nav] Unknown route "${currentRoute}" (pathname: "${currentPathnameRef.current}"). Falling back to dashboard.`);
+      console.warn(`[keyboard-nav] Unknown route "${currentKeyboardRoute}" (pathname: "${location.pathname}"). Falling back to dashboard.`);
       navigate('/app/dashboard');
       return;
     }
 
     const nextIndex = (currentIndex + direction + KEYBOARD_NAV_ROUTES.length) % KEYBOARD_NAV_ROUTES.length;
     navigate(KEYBOARD_NAV_ROUTES[nextIndex]);
-  }, [getCurrentRouteFromLocation, navigate]);
+  }, [currentKeyboardRoute, location.pathname, navigate]);
 
   const goToNextPage = useCallback((): void => {
     navigateRelativePage(1);
@@ -674,7 +674,7 @@ function RootLayout() {
   }, [navigateRelativePage]);
 
   const globalCommands = useMemo(() => createRootCommands({
-    currentPath: getCurrentRouteFromLocation(),
+    currentPath: currentKeyboardRoute,
     activeProjectId,
     memberships,
     onNextPage: goToNextPage,
@@ -708,7 +708,7 @@ function RootLayout() {
     },
   }), [
     activeProjectId,
-    getCurrentRouteFromLocation,
+    currentKeyboardRoute,
     goToNextPage,
     goToPreviousPage,
     handleLeaveDemoProject,
