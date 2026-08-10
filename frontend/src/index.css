@@ -29,8 +29,14 @@
  * breakpoints the app already queries, and the spacing unit from MUI's 8px
  * spacing unit so that `className="p-2"` and `sx={{ p: 2 }}` mean the same
  * thing. See docs/design-system.md.
+ *
+ * `static` keeps every token as a real CSS variable on `:root` instead of only
+ * the ones a generated utility happens to reference. The palette is small and
+ * hand-picked, and it makes the tokens usable from stylesheets Tailwind does
+ * not compile — src/pages/GanttChart.css feeds them to the vendored Gantt
+ * library's own `--rmg-*` variables.
  */
-@theme {
+@theme static {
   /* --- Spacing -----------------------------------------------------------
    * 1 unit = 8px = one MUI spacing unit. Half steps (p-0.5 = 4px) exist for
    * the same reason they do in `sx`.
@@ -96,6 +102,9 @@
   --color-info-surface-strong: #bbdefb;
   --color-warning: #ed6c02;
   --color-success: #4caf50;
+
+  /* Task bars in the Gantt calendar (the vendored library's `--rmg-task-color`). */
+  --color-gantt-task: #3b82f6;
 
   /* Neutrals, ordered light to dark; `neutral-900` is the body text color. */
   --color-neutral-50: #fafafa;

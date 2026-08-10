@@ -1,13 +1,17 @@
-/**
- * Styles for the Gantt Chart component using React-Modern-Gantt
+/*
+ * Overrides for the vendored Gantt library in src/gantt-chart/.
+ *
+ * Everything here targets `.rmg-*` DOM that this app does not render itself,
+ * so it cannot be expressed as utility classes on our own elements — the
+ * wrapper's own box model lives on <Box> in GanttChart.tsx. `.gantt-container-
+ * wrapper` survives purely as the scoping hook for these rules (and as the
+ * selector the Gantt e2e specs use).
+ *
+ * This file stays outside the cascade layers on purpose: the library's own
+ * src/gantt-chart/src/styles/gantt.css is unlayered too, and unlayered CSS
+ * always outranks layered CSS, so moving these overrides into `@layer
+ * components` would let the library's defaults win.
  */
-
-.gantt-container-wrapper {
-  overflow: hidden;
-  width: 100%;
-  margin-top: 1rem;
-  min-width: 0;
-}
 
 .gantt-container-wrapper .rmg-gantt-chart {
   min-width: 0;
@@ -56,12 +60,6 @@
   }
 }
 
-.gantt-no-data {
-  padding: 2rem;
-  text-align: center;
-  color: #999;
-}
-
 .gantt-container-wrapper--seedlings .rmg-task-group,
 .gantt-container-wrapper--seedlings .rmg-task-row {
   box-sizing: border-box;
@@ -89,12 +87,11 @@
   word-break: normal;
 }
 
-/* Override React-Modern-Gantt default styles if needed */
-/* Keep the green theme consistent with the app */
+/* Feed the library's theming variables from the app's design tokens. */
 :root {
-  --rmg-primary-color: #2e7d32;
-  --rmg-task-color: #3b82f6;
-  --rmg-hover-color: #e3f2fd;
+  --rmg-primary-color: var(--color-brand-strong);
+  --rmg-task-color: var(--color-gantt-task);
+  --rmg-hover-color: var(--color-info-surface);
 }
 
 /* Style harvest period tasks with darker/semi-transparent appearance */
