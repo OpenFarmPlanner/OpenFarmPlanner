@@ -855,16 +855,35 @@ export function CultureForm({
   // instead, so nothing is taken over silently.
   const handleFirstVarietyCommit = useCallback((variety: string, reason?: AutocompleteChangeReason) => {
     setFirstVarietyName(variety);
-    setFirstVarietyPublicCulture(
-      reason === 'selectOption' && variety.trim()
-        ? varietyPublicCultures.find((item) => (
-          normalizeIdentityValue(item.variety) === normalizeIdentityValue(variety)
-        )) ?? null
-        : null,
-    );
+    const matched = reason === 'selectOption' && variety.trim()
+      ? varietyPublicCultures.find((item) => (
+        normalizeIdentityValue(item.variety) === normalizeIdentityValue(variety)
+      )) ?? null
+      : null;
+    setFirstVarietyPublicCulture(matched);
+    // Picking a Sorte before the crop's own Name field ever matched a library
+    // species would otherwise leave the parent Culture without any general
+    // library fields (crop_family, spacing, seed rate, ...) — only the
+    // variety row (built at save time, see saveCulture) would carry them.
+    // Apply the species' general ("no variety") entry to the crop draft too,
+    // the same way an explicit Name pick does via the prefill effect above.
+    if (matched?.crop_species != null && formData.crop_species !== matched.crop_species) {
+      const generalEntry = varietyPublicCultures.find((item) => (
+        !(item.variety || '').trim() && !isLikelyTestPublicCultureEntry(item)
+      ));
+      if (generalEntry) {
+        applyPublicCultureDraft(generalEntry, { preserveVariety: true });
+      } else {
+        setFormData((prev) => {
+          const updated = { ...prev, crop_species: matched.crop_species };
+          validateAndSet(updated);
+          return updated;
+        });
+      }
+    }
     setIsDirty(true);
     setUserInteracted(true);
-  }, [varietyPublicCultures]);
+  }, [applyPublicCultureDraft, formData.crop_species, validateAndSet, varietyPublicCultures]);
 
   const handleApplyFirstVarietySuggestion = useCallback(() => {
     if (!matchedFirstVarietyOption) return;

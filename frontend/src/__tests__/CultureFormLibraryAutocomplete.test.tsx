@@ -166,6 +166,28 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     await waitFor(() => expect(screen.getByText('form.firstVarietySourceHint')).toBeInTheDocument());
   });
 
+  it('prefills the general crop fields when a Sorte is picked without ever explicitly linking the Name', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    // Exact-matching text alone (no dropdown pick) is enough to unlock the
+    // Sorte suggestions, but it does not link crop_species on the draft.
+    fireEvent.change(getNameInput(), { target: { value: 'Tomate' } });
+    await screen.findByRole('option', { name: 'Tomate' });
+
+    const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.change(firstVarietyInput, { target: { value: 'Mo' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Moneymaker' }));
+
+    // The parent crop draft must also carry the species' general fields now,
+    // not just the (separately saved) variety row.
+    await waitFor(() => expect(screen.getByLabelText(/form\.cropFamily/)).toHaveValue('Nachtschattengewächse'));
+  });
+
   it('keeps the first-variety field as plain free text for an unmatched crop name', async () => {
     mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
 
