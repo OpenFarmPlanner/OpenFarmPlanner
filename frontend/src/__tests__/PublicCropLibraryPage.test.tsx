@@ -1149,15 +1149,17 @@ describe('PublicCropLibraryPage', () => {
     // that selects it (set via a router navigation in the same handler).
     // Under normal load both land in one render; under heavy CI load
     // (running alongside ~2000 other tests) the router's state update can
-    // lag a tick behind, so this needs real wall-clock slack rather than the
-    // default 1000ms findByRole timeout - hence the explicit timeout,
-    // matching the one already used for the comment body below.
-    expect(await screen.findByRole('heading', { name: 'Neue Frage' }, { timeout: 15000 })).toBeInTheDocument();
+    // lag more than one tick behind, so this needs real wall-clock slack
+    // rather than the default 1000ms findByRole timeout - hence the
+    // explicit timeout, matching the one already used for the comment body
+    // below. Bumped from 15s/45s after it still occasionally timed out at
+    // that ceiling under full-suite CI load (2026-08-10).
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' }, { timeout: 25000 })).toBeInTheDocument();
     // The heading only needs the reloaded topic list, the comment body needs
     // the separate discussionComments request on top of it - so this has to
     // wait for one more round trip rather than read the DOM synchronously.
-    expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 15000 })).toBeInTheDocument();
-  }, 45000);
+    expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 25000 })).toBeInTheDocument();
+  }, 60000);
 
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
     const user = userEvent.setup();
