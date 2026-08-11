@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
 from accounts.guest_demo import create_guest_demo_session
-from crops.models import CropSpecies, PublicLibraryModeratorRequest
+from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
 
@@ -258,3 +258,74 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(moderator_request.status, PublicLibraryModeratorRequest.STATUS_APPROVED)
         self.assertTrue(self.user.has_perm('crops.moderate_crop_species'))
         self.assertFalse(self.user.is_staff)
+
+
+class CropLibraryQueryCountTest(DRFAPITestCase):
+    """Query-count regressions for the crop-library list endpoints.
+
+    Both lists resolve a localized species name per row, so a missing prefetch
+    turns into one query per result. The counts below must stay constant no
+    matter how many rows the page holds — see
+    `farm/tests/test_api_query_counts.py` for the same guard on the project
+    API.
+    """
+
+    ROW_COUNT = 4
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='crop-query-user', email='crop-query@example.com',
+            password='testpass', is_active=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        for index in range(self.ROW_COUNT):
+            species = CropSpecies.objects.create(name=f'Query count species {index}')
+            CropSpeciesTranslation.objects.create(
+                species=species, language_code='de', common_name=f'Art {index}',
+            )
+            CropSpeciesTranslation.objects.create(
+                species=species, language_code='en', common_name=f'Species {index}',
+            )
+            PublicCulture.objects.create(
+                name=f'Query count crop {index}', variety='Sorte', crop_species=species,
+                status=PublicCulture.STATUS_PUBLISHED, version=1, created_by=self.user,
+            )
+
+    def test_crop_species_list_query_count(self):
+        """`translations`, `display_name` and `display_language_code` all read
+        the same prefetched translation rows."""
+        with self.assertNumQueries(8):
+            response = self.client.get('/openfarmplanner/api/crop-species/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data['results']), self.ROW_COUNT)
+
+    def test_crops_list_query_count(self):
+        """Published crops resolve a species name, a description and a
+        contributor label per row."""
+        with self.assertNumQueries(7):
+            response = self.client.get('/openfarmplanner/api/crops/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data['results']), self.ROW_COUNT)
+
+    def test_moderator_requests_list_query_count(self):
+        moderator = User.objects.create_user(
+            username='crop-query-admin', email='crop-query-admin@example.com',
+            password='testpass', is_active=True, is_staff=True,
+        )
+        for index in range(self.ROW_COUNT):
+            requester = User.objects.create_user(
+                username=f'crop-query-requester-{index}',
+                email=f'crop-query-requester-{index}@example.com',
+                password='testpass',
+                is_active=True,
+            )
+            PublicLibraryModeratorRequest.objects.create(user=requester, motivation='I can help.')
+        self.client.force_authenticate(user=moderator)
+
+        with self.assertNumQueries(4):
+            response = self.client.get('/openfarmplanner/api/public-library/moderator-requests/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), self.ROW_COUNT)

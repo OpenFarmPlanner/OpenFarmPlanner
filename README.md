@@ -254,7 +254,7 @@ Safety behavior:
 - `frontend/README.md` – frontend-specific development details
 - `frontend/e2e/README.md` – E2E testing notes
 - `CONTRIBUTING.md` – commit conventions and contribution expectations
-- `AGENTS.md` – rules AI coding agents must follow in this repository
+- `CLAUDE.md` – rules AI coding agents must follow in this repository (`AGENTS.md` is a stub pointing here)
 - **[`docs/index.md`](docs/index.md)** – technical documentation index: architecture overview, data model, and deep dives into complex features (DataGrid, keyboard navigation, Gantt/occupancy hierarchy, Crop Library, seed demand calculation, versioning/history)
 
 ## Deployment / Operations

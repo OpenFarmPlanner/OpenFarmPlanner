@@ -4,7 +4,7 @@ This is the technical documentation for OpenFarmPlanner, aimed at
 developers and AI coding agents working in this repository. For setup
 instructions and quick start, see the root [`README.md`](../README.md).
 For contribution/commit conventions, see [`CONTRIBUTING.md`](../CONTRIBUTING.md).
-For rules AI agents must follow when changing code, see [`AGENTS.md`](../AGENTS.md).
+For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.md).
 
 ## Start here
 

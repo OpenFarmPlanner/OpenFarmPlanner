@@ -15,4 +15,4 @@ This directory contains the source of **React Modern Gantt**, vendored directly 
 
 ## Making changes
 
-Treat this as regular OpenFarmPlanner frontend code — follow the conventions in the repository root [AGENTS.md](../../../../AGENTS.md), not the original project's separate guidelines (those no longer apply here).
+Treat this as regular OpenFarmPlanner frontend code — follow the conventions in the repository root [CLAUDE.md](../../../../CLAUDE.md), not the original project's separate guidelines (those no longer apply here).

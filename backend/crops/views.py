@@ -42,7 +42,11 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         queryset = CropSpecies.objects.select_related(
             'proposed_by__public_profile',
             'reviewed_by__public_profile',
-        ).order_by('name')
+        # Every serialized row renders the full `translations` list and
+        # resolves `display_name`/`display_language_code` through
+        # `localized_name`; without the prefetch that is three queries per
+        # species on a page that holds up to PAGE_SIZE of them.
+        ).prefetch_related('translations').order_by('name')
         include_proposed = (
             self.request.query_params.get('include_proposed') in {'1', 'true', 'True'}
         )

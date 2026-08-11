@@ -59,8 +59,8 @@ if getattr(settings, 'DEBUG', False) and getattr(settings, 'E2E_TEST_TOKEN', '')
     if getattr(settings, 'URL_PREFIX', '').strip('/') != legacy_prefix:
         urlpatterns.append(path(f'{legacy_prefix}/api/', include('farm.e2e_urls')))
 
-# Debug Toolbar URLs nur in Entwicklung
-if getattr(settings, 'DEBUG', False):
+# Debug Toolbar URLs nur in lokaler Entwicklung (siehe DEBUG_TOOLBAR_ENABLED).
+if getattr(settings, 'DEBUG_TOOLBAR_ENABLED', False):
     import debug_toolbar
     urlpatterns = [
         path('__debug__/', include(debug_toolbar.urls)),
