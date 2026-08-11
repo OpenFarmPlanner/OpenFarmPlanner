@@ -30,7 +30,8 @@ export function VersionCard({
 
   return (
     <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' },
+        justifyContent: "space-between", }}  >
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             {t('library.page.versions.versionTitle', { version: revision.version })}
@@ -42,7 +43,7 @@ export function VersionCard({
             })}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
           {revision.action === 'restored' && revision.restored_from_version ? (
             <Chip size="small" label={t('library.page.versions.restoredFrom', { version: revision.restored_from_version })} variant="outlined" />
           ) : null}

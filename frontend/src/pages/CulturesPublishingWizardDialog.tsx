@@ -403,7 +403,7 @@ export function CulturesPublishingWizardDialog({
                   noOptionsText={speciesLoading ? (
                     <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
                   ) : speciesInputValue.trim() ? (
-                    <Stack spacing={0.5} alignItems="flex-start">
+                    <Stack spacing={0.5} sx={{ alignItems: "flex-start", }} >
                       <Button
                         size="small"
                         onMouseDown={(event) => event.preventDefault()}
@@ -429,14 +429,18 @@ export function CulturesPublishingWizardDialog({
                       inputRef={speciesInputRef}
                       label={t('library.publishWizard.speciesLabel')}
                       required
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {speciesLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
+                      slotProps={{
+                        ...params.slotProps,
+
+                        input: {
+                          ...params.slotProps.input,
+                          endAdornment: (
+                            <>
+                              {speciesLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.slotProps.input.endAdornment}
+                            </>
+                          ),
+                        }
                       }}
                     />
                   )}
@@ -467,14 +471,18 @@ export function CulturesPublishingWizardDialog({
                         helperText={culture?.variety?.trim()
                           ? t('library.publishWizard.existingVarietyHelp')
                           : t('library.publishWizard.publicCultureHelp')}
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
+                        slotProps={{
+                          ...params.slotProps,
+
+                          input: {
+                            ...params.slotProps.input,
+                            endAdornment: (
+                              <>
+                                {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                {params.slotProps.input.endAdornment}
+                              </>
+                            ),
+                          }
                         }}
                       />
                     )}
@@ -524,7 +532,7 @@ export function CulturesPublishingWizardDialog({
                           borderColor: 'divider',
                         }}
                       >
-                        <Typography component="dt" variant="body2" fontWeight={600}>{change.label}</Typography>
+                        <Typography component="dt" variant="body2" sx={{ fontWeight: 600, }} >{change.label}</Typography>
                         <Typography component="dd" variant="body2" sx={{ m: 0, color: 'text.secondary' }}>{change.publicValue}</Typography>
                         <Typography component="dd" variant="body2" sx={{ m: 0 }}>{change.privateValue}</Typography>
                       </Box>
@@ -558,7 +566,7 @@ export function CulturesPublishingWizardDialog({
                   </Select>
                 </FormControl>
               ) : (
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
                   <Typography variant="body2" color="text.secondary">
                     {t('library.publishWizard.originalLanguageSummary', {
                       language: getLanguageDisplayName(originalLanguageCode, i18n.resolvedLanguage ?? i18n.language),

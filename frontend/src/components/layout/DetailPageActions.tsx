@@ -31,9 +31,9 @@ export const DetailPageActions = memo(function DetailPageActions({
       direction="row"
       spacing={1}
       useFlexGap
-      flexWrap={compact ? 'nowrap' : { xs: 'nowrap', sm: 'wrap' }}
-      justifyContent={compact ? 'flex-start' : { xs: 'flex-start', sm: 'flex-end' }}
-      sx={{ flexShrink: 0, minWidth: 'auto' }}
+      sx={{ flexShrink: 0, minWidth: 'auto',
+            flexWrap: compact ? 'nowrap' : { xs: 'nowrap', sm: 'wrap' },
+            justifyContent: compact ? 'flex-start' : { xs: 'flex-start', sm: 'flex-end' }, }}
     >
       {primaryActions.map((action) => {
         const button = (

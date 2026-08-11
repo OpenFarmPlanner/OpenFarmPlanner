@@ -115,13 +115,13 @@ export function CommandPalette({ open, commands, onClose }: CommandPaletteProps)
       onClose={onClose}
       fullWidth
       maxWidth="sm"
-      TransitionProps={{ onEntered: () => { inputRef.current?.focus(); } }}
       slotProps={{
         backdrop: {
           sx: { backgroundColor: 'rgba(10, 18, 30, 0.22)' },
         },
-      }}
-    >
+
+        transition: { onEntered: () => { inputRef.current?.focus(); } }
+      }}>
       <DialogContent>
         <TextField
           autoFocus

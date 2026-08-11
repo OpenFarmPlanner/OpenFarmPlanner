@@ -136,9 +136,10 @@ export function CultureMobileSelectorDialog({
                       node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
                     ].filter(Boolean).join(' • ') || undefined
                     : undefined}
-                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 }}
-                  secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
-                />
+                  slotProps={{
+                    primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 } },
+                    secondary: { sx: { fontSize: '0.8rem', color: 'text.secondary' } }
+                  }} />
               </ListItemButton>
             );
           })}

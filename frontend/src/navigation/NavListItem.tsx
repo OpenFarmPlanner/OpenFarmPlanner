@@ -22,7 +22,7 @@ import type { ComponentProps } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { AppTooltip } from '../components/AppTooltip';
 
-type ListItemTextPrimaryProps = ComponentProps<typeof ListItemText>['primaryTypographyProps'];
+type ListItemTextPrimaryProps = NonNullable<ComponentProps<typeof ListItemText>['slotProps']>['primary'];
 
 export interface NavListItemProps {
   to: string;
@@ -65,7 +65,9 @@ export default function NavListItem({
       sx={itemSx}
     >
       <ListItemIcon sx={iconSx}>{icon}</ListItemIcon>
-      {textProps ? <ListItemText primary={label} primaryTypographyProps={textProps} /> : null}
+      {textProps ? <ListItemText primary={label} slotProps={{
+        primary: textProps
+      }} /> : null}
     </ListItemButton>
   );
 

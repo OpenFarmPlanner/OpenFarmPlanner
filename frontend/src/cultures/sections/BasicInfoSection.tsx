@@ -145,17 +145,20 @@ export function BasicInfoSection({
                   placeholder={t('form.namePlaceholder')}
                   error={Boolean(errors.name)}
                   helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
-                  slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
+                  slotProps={{
+                    ...params.slotProps,
+                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
+                  }} />
               )}
             />
           ) : (
@@ -199,17 +202,20 @@ export function BasicInfoSection({
                     placeholder={t('form.varietyPlaceholder')}
                     error={Boolean(errors.variety)}
                     helperText={errors.variety}
-                    slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {varietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
+                    slotProps={{
+                      ...params.slotProps,
+                      htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
+
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {varietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
+                    }} />
                 )}
               />
             ) : (
@@ -264,17 +270,20 @@ export function BasicInfoSection({
                   label={t('form.firstVarietyLabel')}
                   placeholder={t('form.firstVarietyPlaceholder')}
                   helperText={t('form.firstVarietyHelperText')}
-                  slotProps={{ htmlInput: { ...params.inputProps, maxLength: 200 } }}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
+                  slotProps={{
+                    ...params.slotProps,
+                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
+
+                    input: {
+                      ...params.slotProps.input,
+                      endAdornment: (
+                        <>
+                          {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.slotProps.input.endAdornment}
+                        </>
+                      ),
+                    }
+                  }} />
               )}
             />
           ) : (

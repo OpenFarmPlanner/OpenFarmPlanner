@@ -199,6 +199,16 @@ export function useClosedSelectTypeahead<Value = unknown>({
       return;
     }
 
+    // MUI v9's Select added its own built-in closed-select typeahead
+    // (SelectInput's `handleClosedTypeahead`), which keeps a separate
+    // buffer with its own 750ms reset timer. Claim every eligible
+    // keystroke unconditionally — not just matched ones — so that
+    // competing implementation never sees it (it bails out whenever
+    // `event.defaultPrevented` is already true) and this hook stays the
+    // single source of truth for the search buffer.
+    event.preventDefault();
+    event.stopPropagation();
+
     bufferRef.current = `${bufferRef.current}${event.key}`;
     scheduleBufferReset();
 
@@ -214,8 +224,6 @@ export function useClosedSelectTypeahead<Value = unknown>({
     }
 
     const nextValue = resolveNextValue(value, match.value, multiple);
-    event.preventDefault();
-    event.stopPropagation();
 
     if (!isSameSelection(value, nextValue, multiple)) {
       onSelect(nextValue, event, match);

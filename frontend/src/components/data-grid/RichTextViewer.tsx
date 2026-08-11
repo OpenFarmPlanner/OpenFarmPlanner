@@ -50,7 +50,7 @@ export function RichTextViewer({ value, emptyLabel }: RichTextViewerProps) {
 
   if (!text) {
     return (
-      <Typography variant="body2" color="text.secondary" fontStyle="italic">
+      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic", }} >
         {emptyLabel ?? t('notes.empty')}
       </Typography>
     );

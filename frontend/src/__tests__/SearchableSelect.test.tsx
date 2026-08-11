@@ -107,7 +107,9 @@ describe('SearchableSelect', () => {
       );
 
       const input = screen.getByRole('combobox');
-      expect(input).toHaveClass('MuiInputBase-inputSizeSmall');
+      // MUI v9 moved the size class from the <input> itself to the
+      // MuiInputBase-root wrapper (there is no more `inputSizeSmall`).
+      expect(input.closest('.MuiInputBase-root')).toHaveClass('MuiInputBase-sizeSmall');
     });
 
     it('should render with size="medium"', () => {

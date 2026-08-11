@@ -1456,7 +1456,7 @@ function PlantingPlans() {
               bgcolor: "surface.surfaceBackground",
             }}
           >
-            <Stack spacing={1.25} alignItems="center">
+            <Stack spacing={1.25} sx={{ alignItems: "center", }} >
               <CircularProgress size={24} />
               <Typography variant="body2" color="text.secondary">
                 Anbaupläne werden geladen…
@@ -1515,7 +1515,7 @@ function PlantingPlans() {
                 </Stack>
               )}
               renderActions={(item) => (
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", }} >
                   <Button
                     variant="outlined"
                     startIcon={<PhotoCameraOutlinedIcon />}
@@ -1804,8 +1804,8 @@ function PlantingPlans() {
           deleteErrorMessage={t("plantingPlans:errors.delete")}
           deleteConfirmMessage={t("plantingPlans:confirmDelete")}
           deleteUndoOptions={{
-            message: t("plantingPlans:messages.deleted"),
-            snackbarTestId: "planting-plan-delete-snackbar",
+                  message: t("plantingPlans:messages.deleted"),
+                  snackbarTestId: "planting-plan-delete-snackbar",
           }}
           clipboardColumns={clipboardColumns}
           addButtonLabel={`${t("plantingPlans:addButton")} (Alt+Shift+N)`}
@@ -1849,8 +1849,8 @@ function PlantingPlans() {
           ]}
           duplicateRow={(row) => ({
             ...row,
-            id: -Date.now(),
-            isNew: true,
+                  id: -Date.now(),
+                  isNew: true,
             __draft: true,
             note_attachment_count: 0,
           })}

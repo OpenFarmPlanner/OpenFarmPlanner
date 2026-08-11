@@ -2804,8 +2804,18 @@ export function EditableDataGrid<T extends EditableRow>({
                       '& .MuiDataGrid-virtualScrollerContent': {
                         height: `${currentWindowRowCount * CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX}px !important`,
                       },
+                      // MUI's render-zone transform now bakes the header height into
+                      // its vertical offset (translate3d(0, topContainerHeight +
+                      // scrollOffset, 0)) rather than just carrying scroll offset like
+                      // pre-v9. Pinning it to `none` here (to drop any leftover
+                      // scroll-position offset once every row already fits without
+                      // scrolling) used to be harmless; in v9 it also zeroes the header
+                      // offset, so rows render underneath the sticky column headers
+                      // instead of below them. Pin to the header-height translate
+                      // instead of `none` so the collapse still drops scroll offset but
+                      // keeps rows positioned below the header.
                       '& .MuiDataGrid-virtualScrollerRenderZone': {
-                        transform: 'none !important',
+                        transform: 'translate3d(0, var(--DataGrid-topContainerHeight, 0px), 0) !important',
                       },
                     } : {}),
                     '& .MuiDataGrid-scrollbar--vertical': {

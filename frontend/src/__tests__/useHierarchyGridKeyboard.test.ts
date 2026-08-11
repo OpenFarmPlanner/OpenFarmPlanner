@@ -51,14 +51,14 @@ const makeCellParams = (
   id: GridRowId,
   field: string,
   row = rowsById.get(String(id))!,
-): GridCellParams<HierarchyRow> => ({
+): GridCellParams<HierarchyRow> => (({
   id,
   field,
   row,
-  isEditable: field === 'name' || field === 'length_m' || field === 'width_m',
-}) as GridCellParams<HierarchyRow>;
+  isEditable: field === 'name' || field === 'length_m' || field === 'width_m'
+}) as GridCellParams<HierarchyRow>);
 
-const makeKeyboardEvent = (key: string, overrides: Partial<KeyboardEventStub> = {}): KeyboardEventStub => ({
+const makeKeyboardEvent = (key: string, overrides: Partial<KeyboardEventStub> = {}): KeyboardEventStub => (({
   key,
   altKey: false,
   ctrlKey: false,
@@ -68,8 +68,8 @@ const makeKeyboardEvent = (key: string, overrides: Partial<KeyboardEventStub> = 
   preventDefault: vi.fn(),
   stopPropagation: vi.fn(),
   currentTarget: document.createElement('div'),
-  ...overrides,
-}) as KeyboardEventStub;
+  ...overrides
+}) as KeyboardEventStub);
 
 const makeMouseEvent = (): MouseEventStub => ({
   defaultMuiPrevented: false,

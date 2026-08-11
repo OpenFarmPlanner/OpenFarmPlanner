@@ -93,7 +93,8 @@ export default function Dashboard() {
         <PageSurface variant="contentFit" sx={{ mb: 2, minWidth: { md: 480 } }}>
         <Card variant="outlined" sx={{ width: 'fit-content', maxWidth: '100%' }}>
           <CardContent>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+            <Stack direction="row" spacing={1} sx={{ mb: 0.75,
+              alignItems: "center", }}  >
               <SproutOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               <Typography variant="h6">{t('dashboard:checklist.title')}</Typography>
             </Stack>

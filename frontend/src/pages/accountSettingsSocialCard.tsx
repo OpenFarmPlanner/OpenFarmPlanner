@@ -97,7 +97,7 @@ export default function AccountSettingsSocialCard() {
         {connections.map((connection) => {
           const ProviderIcon = providerIcons[connection.provider];
           return (
-            <Stack key={connection.id} direction="row" spacing={1.25} alignItems="center">
+            <Stack key={connection.id} direction="row" spacing={1.25} sx={{ alignItems: "center", }} >
               {ProviderIcon ? <ProviderIcon fontSize="small" /> : null}
               <Typography>
                 {t('loginMethods.connectedSince', {

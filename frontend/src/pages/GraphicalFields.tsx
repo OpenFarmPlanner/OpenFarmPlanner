@@ -22,7 +22,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
 import { Group, Layer, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -1016,10 +1016,11 @@ export default function GraphicalFields({
     >
       <Stack
         direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
+        sx={{ mb: 2,
+        justifyContent: "space-between",
+        alignItems: { xs: "stretch", sm: "center" }, }}
+
         spacing={2}
-        sx={{ mb: 2 }}
       >
         <Box>
           {showTitle ? (
@@ -1284,7 +1285,7 @@ export default function GraphicalFields({
                       bgcolor: "background.paper",
                     }}
                   >
-                    <Stack spacing={0} alignItems="stretch">
+                    <Stack spacing={0} sx={{ alignItems: "stretch", }} >
                       <Box sx={{ display: { xs: "none", sm: "block" } }}>
                         <Box sx={{ display: "flex", justifyContent: "center" }}>
                           <AppTooltip title={t("fields:graphical.panUp")} placement="left">

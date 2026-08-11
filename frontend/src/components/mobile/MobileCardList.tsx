@@ -44,7 +44,7 @@ export function MobileCardList<T extends MobileCardListItem>({
           <Card key={item.id} variant="outlined" data-mobile-card-id={item.id}>
             <CardContent sx={{ px: 1.5, py: 1.25, '&:last-child': { pb: 1.25 } }}>
               <Stack spacing={1}>
-                <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: "flex-start", }} >
                   <CardActionArea
                     component="button"
                     type="button"
@@ -69,7 +69,8 @@ export function MobileCardList<T extends MobileCardListItem>({
                       },
                     }}
                   >
-                    <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start",
+                      justifyContent: "space-between", }}  >
                       <Stack spacing={0.25} sx={{ minWidth: 0 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3, pr: 0.5 }}>
                           {renderPrimary(item)}

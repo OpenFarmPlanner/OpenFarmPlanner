@@ -19,7 +19,11 @@ export default function LegalLinks({ sx, linkSx: linkSxOverride, dense = false }
   const mergedLinkSx = [linkSx, ...(Array.isArray(linkSxOverride) ? linkSxOverride : [linkSxOverride])];
 
   return (
-    <Stack direction="row" spacing={dense ? 1.5 : 2} alignItems="center" flexWrap="wrap" sx={sx}>
+    <Stack
+      direction="row"
+      spacing={dense ? 1.5 : 2}
+      sx={[{ alignItems: 'center', flexWrap: 'wrap' }, ...(Array.isArray(sx) ? sx : [sx])]}
+    >
       <Link component={RouterLink} to="/impressum" underline="hover" color="text.secondary" sx={mergedLinkSx}>
         {t('footer.imprint')}
       </Link>
