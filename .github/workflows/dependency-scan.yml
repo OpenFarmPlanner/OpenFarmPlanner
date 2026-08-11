@@ -39,7 +39,7 @@ jobs:
 
       # Audits the actual locked/installed backend environment (pdm.lock)
       # rather than a hand-maintained requirements.txt, which this project
-      # doesn't use (see AGENTS.md — backend deps are managed with PDM).
+      # doesn't use (see CLAUDE.md — backend deps are managed with PDM).
       - name: Run pip-audit
         run: |
           cd backend
