@@ -55,6 +55,10 @@ import {
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
 import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
 
+// Stable identity so the memos downstream do not see a new array on every
+// render while no project is selected.
+const EMPTY_CULTURES: Culture[] = [];
+
 const PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX: SxProps<Theme> = {
   backgroundColor: 'rgba(76, 175, 80, 0.06)',
   borderLeft: '3px solid',
@@ -80,8 +84,8 @@ function Cultures() {
   const { selectedCultureId, updateSelectedCultureId } = useSelectedCultureSync();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
 
-  const [cultures, setCultures] = useState<Culture[]>([]);
-  const [isCulturesLoading, setIsCulturesLoading] = useState(true);
+  const [loadedCultures, setCultures] = useState<Culture[]>([]);
+  const [isFetchingCultures, setIsCulturesLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCulture, setEditingCulture] = useState<Culture | undefined>(undefined);
   const [cultureFormKind, setCultureFormKind] = useState<'crop' | 'variety'>('crop');
@@ -95,8 +99,18 @@ function Cultures() {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
   }, []);
-  const [hasFields, setHasFields] = useState(false);
-  const [hasBeds, setHasBeds] = useState(false);
+  const [hasFieldsLoaded, setHasFields] = useState(false);
+  const [hasBedsLoaded, setHasBeds] = useState(false);
+
+  // Without a project nothing is fetched, so the page reports an empty,
+  // settled state. Derived during render rather than pushed into state from
+  // the load effect below — that reset is what react-hooks/set-state-in-effect
+  // flags, and deriving also avoids the extra render pass it caused.
+  const cultures = shouldShowProjectRequiredState ? EMPTY_CULTURES : loadedCultures;
+  const isCulturesLoading = shouldShowProjectRequiredState ? false : isFetchingCultures;
+  const hasFields = shouldShowProjectRequiredState ? false : hasFieldsLoaded;
+  const hasBeds = shouldShowProjectRequiredState ? false : hasBedsLoaded;
+
   const selectedCulture = cultures.find((culture) => culture.id === selectedCultureId);
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info') => {
@@ -250,10 +264,6 @@ function Cultures() {
   // Fetch cultures on mount
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setCultures([]);
-      setIsCulturesLoading(false);
-      setHasFields(false);
-      setHasBeds(false);
       return;
     }
     fetchCultures();
@@ -554,6 +564,11 @@ function Cultures() {
 
   useRegisterCreateActions('cultures-page', createActions);
 
+  // `focusSearch` reads searchInputRef.current in its body, and the rule cannot
+  // see into the imported spec factory to know the callback is only stored, not
+  // invoked, so it assumes the ref could be read during render. The ref is only
+  // ever touched when the command runs.
+  // eslint-disable-next-line react-hooks/refs
   const commandSpecs = useMemo(() => createCulturesCommandSpecs({
     t,
     cultures,

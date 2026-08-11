@@ -93,7 +93,11 @@ fi
 # Frontend reports
 if [[ -d "$ROOT_DIR/frontend" ]]; then
   if [[ -d "$ROOT_DIR/frontend/node_modules" ]]; then
-    run_tool "Frontend ESLint" "frontend-eslint.txt" "0,1" npm --prefix "$ROOT_DIR/frontend" run lint -- --max-warnings=-1
+    # Exit code 0 only: any ESLint *error* fails the quality gate. Warnings are
+    # still reported but do not fail the run (--max-warnings=-1), which is what
+    # keeps the known react-hooks/set-state-in-effect findings visible without
+    # blocking. See frontend/eslint.config.js for why that rule is a warning.
+    run_tool "Frontend ESLint" "frontend-eslint.txt" "0" npm --prefix "$ROOT_DIR/frontend" run lint -- --max-warnings=-1
 
     if [[ -x "$ROOT_DIR/frontend/node_modules/.bin/madge" ]]; then
       run_tool "Frontend Madge Circular" "frontend-madge-circular.txt" "0,1" "$ROOT_DIR/frontend/node_modules/.bin/madge" --circular --extensions ts,tsx "$ROOT_DIR/frontend/src"

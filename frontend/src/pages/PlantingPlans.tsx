@@ -794,6 +794,15 @@ function PlantingPlans() {
     return fallback?.label ?? "—";
   };
 
+  const getPlantsPerSqmForCulture = (cultureId: string): number | null => {
+    const numericCultureId = Number(cultureId);
+    const culture = cultures.find((item) => item.id === numericCultureId);
+    if (!culture || !culture.plants_per_m2 || culture.plants_per_m2 <= 0) {
+      return null;
+    }
+    return culture.plants_per_m2;
+  };
+
   const getDisplayArea = (row: PlantingPlanRow): string => {
     const explicitArea = toNumericValue(row.area_m2);
     if (explicitArea !== null) {
@@ -1014,15 +1023,6 @@ function PlantingPlans() {
     } finally {
       setIsMobileNotesSaving(false);
     }
-  };
-
-  const getPlantsPerSqmForCulture = (cultureId: string): number | null => {
-    const numericCultureId = Number(cultureId);
-    const culture = cultures.find((item) => item.id === numericCultureId);
-    if (!culture || !culture.plants_per_m2 || culture.plants_per_m2 <= 0) {
-      return null;
-    }
-    return culture.plants_per_m2;
   };
 
   const getDerivedAreaFromRow = (row: PlantingPlanRow): number | null => {
@@ -1251,7 +1251,12 @@ function PlantingPlans() {
     setMobileLastEditedField(null);
     setIsMobileCreateOpen(true);
   };
-  openMobileEditDialogRef.current = openMobileEditDialog;
+  // Assigned from an effect rather than during render. The effect is declared
+  // before the deep-link effect below, which is the one that reads the ref, so
+  // effect ordering still guarantees the callback is in place on first mount.
+  useEffect(() => {
+    openMobileEditDialogRef.current = openMobileEditDialog;
+  });
 
   // Consumes a `?planId=<id>` deep link (e.g. "Anbauplan öffnen"/"bearbeiten"
   // or a double-click from the Gantt calendar's context menu): opens the

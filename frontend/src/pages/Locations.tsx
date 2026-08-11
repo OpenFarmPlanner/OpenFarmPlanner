@@ -127,8 +127,15 @@ function Locations() {
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
   const numberLocale = resolveLocaleFromLanguage(i18n.language);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  const [isFetching, setLoading] = useState<boolean>(true);
+  const [fetchError, setError] = useState<string>('');
+
+  // Without a project there is nothing to fetch, so the page is neither
+  // loading nor in error. Derived rather than pushed into state from an
+  // effect: the effect version cost an extra render pass and left the page
+  // stuck on "loading" whenever the reset was missed.
+  const loading = shouldShowProjectRequiredState ? false : isFetching;
+  const error = shouldShowProjectRequiredState ? '' : fetchError;
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [formState, setFormState] = useState<LocationFormState>(emptyForm);
@@ -150,8 +157,6 @@ function Locations() {
 
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setLoading(false);
-      setError('');
       return;
     }
     void loadData();
@@ -163,7 +168,9 @@ function Locations() {
     setFormError('');
     setFormErrorField(null);
     setDialogOpen(true);
-  }, []);
+    // `setFormState` is listed because the compiler infers it as a dependency.
+    // useState setters are stable, so this does not change the callback identity.
+  }, [setFormState]);
 
   const createActions = useMemo(() => [
     {

@@ -26,6 +26,25 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // Kept at `warn` deliberately, so that `quality.sh` can treat every
+      // remaining ESLint error as a build failure (see scripts/quality.sh).
+      //
+      // This rule arrived with eslint-plugin-react-hooks 7 and fires on
+      // patterns this app cannot express any other way: loading data on
+      // mount, consuming a `?create=1` / `?planId=` deep link and then
+      // rewriting the URL, and restoring sidebar or column state from
+      // localStorage. All three legitimately need an effect — none of them
+      // can run during render — so promoting this to an error would mean
+      // roughly twenty inline `eslint-disable` comments, which trains
+      // everyone (people and coding agents alike) to reach for a suppression
+      // instead of thinking.
+      //
+      // The genuine findings behind it — derived state that was being pushed
+      // into state from an effect — were fixed rather than silenced. Revisit
+      // this if the project adopts a data-fetching library, which would
+      // remove most of what is left.
+      'react-hooks/set-state-in-effect': 'warn',
+
       // Tooltips must go through AppTooltip so they hide themselves while a
       // context menu is open (see components/contextMenu/contextMenuOpenState.ts).
       // MUI's Tooltip has no idea about app context menus and would cover them.
@@ -55,6 +74,10 @@ export default defineConfig([
     // Vendored from react-modern-gantt (see src/gantt-chart/README.md), which
     // was linted under its own, more lenient rule set. Keep that leniency
     // scoped to this directory instead of rewriting its switch statements.
+    // The react-hooks entries are here for the same reason: they are the
+    // React Compiler rules that arrived with eslint-plugin-react-hooks 7 and
+    // fire on the library's existing code, which this repository does not
+    // maintain.
     files: ['src/gantt-chart/**/*.{ts,tsx}'],
     rules: {
       'no-case-declarations': 'warn',
@@ -63,6 +86,8 @@ export default defineConfig([
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'react-hooks/purity': 'warn',
+      'react-hooks/refs': 'warn',
     },
   },
 ])
