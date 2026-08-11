@@ -93,18 +93,27 @@ function TypeaheadSelectInner<Value = unknown>(
   }), [MenuProps, handleMenuKeyDown, listSlotProps]);
 
   return (
-    <MuiSelect<Value>
-      {...props}
-      ref={ref}
-      name={name}
-      multiple={multiple}
-      value={value}
-      onChange={onChange}
-      onKeyDown={handleKeyDown}
-      MenuProps={menuProps}
-    >
-      {children}
-    </MuiSelect>
+    // MUI v9's Select gained its own built-in closed-select typeahead with a
+    // 750ms reset timer, which otherwise races the app's own (differently
+    // timed, i18n- and hidden-option-aware) search in `handleKeyDown` below.
+    // Wiring `handleKeyDown` through `onKeyDownCapture` on this wrapper lets
+    // it run — and call `preventDefault()` — *before* MUI's own bubble-phase
+    // handler, so MUI's competing implementation always bails out instead of
+    // racing this one. `display: contents` keeps the wrapper out of the box
+    // model entirely, so it doesn't affect layout inside a FormControl.
+    <div style={{ display: 'contents' }} onKeyDownCapture={handleKeyDown}>
+      <MuiSelect<Value>
+        {...props}
+        ref={ref}
+        name={name}
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        MenuProps={menuProps}
+      >
+        {children}
+      </MuiSelect>
+    </div>
   );
 }
 
