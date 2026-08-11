@@ -51,6 +51,15 @@ exactly one section below; don't restate rules here.
 - New features should include tests for expected behavior.
 - Bug fixes should include regression tests where possible.
 - Behavior changes must update affected frontend, backend, or end-to-end tests where the repository already has coverage patterns.
+- New or changed API endpoints, ViewSets, or serializers with relational fields
+  (FK/M2M, reverse relations, nested serializers, or a `SerializerMethodField`
+  that reads a relation) must come with an `assertNumQueries` test for the
+  affected list endpoint. Extend `backend/farm/tests/test_api_query_counts.py`
+  (or the app's existing query-count test class) rather than starting a new
+  structure. The fixture must create several rows so an N+1 changes the count,
+  and the asserted number must stay constant when the row count grows — if it
+  grows per row, fix the queryset with `select_related`/`prefetch_related`
+  instead of raising the expected number.
 - Prefer extending existing test files before creating new test structures.
 - Follow existing test patterns used in the repository.
 - Run targeted tests when appropriate unless the user explicitly says not to run tests.
@@ -201,6 +210,10 @@ tests, screenshots, or manual checks were performed.
 
 ## Backend Rules
 - Backend packages are managed with PDM. Use `pdm` commands and do not introduce `pip install`, `requirements.txt`, or `setup.py`.
+- For local query profiling, install the dev group (`pdm install -dG dev`) and
+  run with `DEBUG=True DJANGO_ENV=development`; django-debug-toolbar is
+  deliberately absent from production and CI installs, so never import it
+  unconditionally in settings, URLs, or application code.
 - Follow PEP 8.
 - Use Python type hints everywhere.
 - New or changed Python functions and methods should include complete parameter and return type hints.

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 import socket
+from importlib.util import find_spec
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -183,13 +184,22 @@ INSTALLED_APPS = [
     'accounts',
 ]
 
-# Debug Toolbar nur in Entwicklung aktivieren
-if DEBUG:
+# django-debug-toolbar is a local-development-only dependency (PDM group
+# `dev`, see backend/pyproject.toml): production and CI install without it, so
+# the package presence is part of the condition rather than assumed. DJANGO_ENV
+# keeps it out of the test settings too, which switch DEBUG on but must not
+# measure or serialize requests through the toolbar's SQL instrumentation.
+DEBUG_TOOLBAR_ENABLED = (
+    DEBUG
+    and DJANGO_ENV == 'development'
+    and find_spec('debug_toolbar') is not None
+)
+
+if DEBUG_TOOLBAR_ENABLED:
     INSTALLED_APPS.append('debug_toolbar')
 
 MIDDLEWARE = [
-    # Debug Toolbar Middleware nur in Entwicklung aktivieren
-    *(['debug_toolbar.middleware.DebugToolbarMiddleware'] if DEBUG else []),
+    *(['debug_toolbar.middleware.DebugToolbarMiddleware'] if DEBUG_TOOLBAR_ENABLED else []),
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -202,9 +212,16 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
-# Debug Toolbar Einstellungen nur in Entwicklung
-if DEBUG:
+if DEBUG_TOOLBAR_ENABLED:
     INTERNAL_IPS = ['127.0.0.1']
+    DEBUG_TOOLBAR_CONFIG = {
+        # The SPA calls the API cross-origin from the Vite dev server and every
+        # response is JSON, so the toolbar is never injected into a response
+        # body. Panels are read through the History panel at /__debug__/
+        # instead, which needs a cache large enough to still hold the request
+        # being investigated.
+        'RESULTS_CACHE_SIZE': 100,
+    }
 
 ROOT_URLCONF = 'config.urls'
 

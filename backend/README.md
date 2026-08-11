@@ -64,6 +64,29 @@ pdm run compilemessages
    ```
 3. Visit `http://localhost:8000/admin/`
 
+### Query profiling with django-debug-toolbar
+
+django-debug-toolbar is a local-development-only dependency in the PDM `dev`
+group. It is not part of the default install, so production and CI environments
+never ship it:
+
+```bash
+pdm install -dG dev
+DEBUG=True DJANGO_ENV=development pdm run runserver
+```
+
+The toolbar is wired up only when all three conditions hold — `DEBUG=True`,
+`DJANGO_ENV=development`, and the package importable — via
+`DEBUG_TOOLBAR_ENABLED` in `config/settings.py`. Because API responses are JSON,
+the toolbar is never injected into a response body; open
+`http://localhost:8000/__debug__/` and use the History panel to inspect the SQL
+of the request you just made.
+
+For the SQL count of an endpoint in an automated form, use the
+`assertNumQueries` tests in `farm/tests/test_api_query_counts.py` and
+`crops/tests/test_views.py` instead — every list endpoint with relational
+fields is pinned there.
+
 ## Environment Variables
 
 For production, configure these environment variables:

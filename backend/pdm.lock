@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "quality", "test"]
+groups = ["default", "dev", "quality", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:eec49f0da01c398e62097f6b41a42799ca3fd93c89b2ad219a3fef994adcbe59"
+content_hash = "sha256:1b6f5f081845fb5136563b6227b87c646a125b50ca456dd24711ba1fd65b351e"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -15,7 +15,7 @@ name = "asgiref"
 version = "3.11.1"
 requires_python = ">=3.9"
 summary = "ASGI specs, helper code, and adapters"
-groups = ["default"]
+groups = ["default", "dev"]
 dependencies = [
     "typing-extensions>=4; python_version < \"3.11\"",
 ]
@@ -429,7 +429,7 @@ name = "django"
 version = "5.2.9"
 requires_python = ">=3.10"
 summary = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
-groups = ["default"]
+groups = ["default", "dev"]
 dependencies = [
     "asgiref>=3.8.1",
     "sqlparse>=0.3.1",
@@ -493,7 +493,7 @@ name = "django-debug-toolbar"
 version = "6.2.0"
 requires_python = ">=3.10"
 summary = "A configurable set of panels that display various debug information about the current request/response."
-groups = ["default"]
+groups = ["dev"]
 dependencies = [
     "django>=4.2.9",
     "sqlparse>=0.2",
@@ -901,7 +901,7 @@ name = "sqlparse"
 version = "0.5.5"
 requires_python = ">=3.8"
 summary = "A non-validating SQL parser."
-groups = ["default"]
+groups = ["default", "dev"]
 files = [
     {file = "sqlparse-0.5.5-py3-none-any.whl", hash = "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba"},
     {file = "sqlparse-0.5.5.tar.gz", hash = "sha256:e20d4a9b0b8585fdf63b10d30066c7c94c5d7a7ec47c889a2d83a3caa93ff28e"},
@@ -912,7 +912,7 @@ name = "tzdata"
 version = "2025.3"
 requires_python = ">=2"
 summary = "Provider of IANA time zone data"
-groups = ["default"]
+groups = ["default", "dev"]
 marker = "sys_platform == \"win32\""
 files = [
     {file = "tzdata-2025.3-py2.py3-none-any.whl", hash = "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1"},
