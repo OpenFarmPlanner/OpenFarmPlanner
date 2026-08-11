@@ -140,7 +140,7 @@ export function BasicInfoSection({
                 onChange('name', '');
                 nameAutocomplete.onSelect(null);
               }}
-              renderInput={({ InputProps, inputProps, ...params }) => (
+              renderInput={(params) => (
                 <TextField
                   {...params}
                   sx={wideFieldSx}
@@ -150,14 +150,15 @@ export function BasicInfoSection({
                   error={Boolean(errors.name)}
                   helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
                   slotProps={{
-                    htmlInput: { ...inputProps, maxLength: 200 },
+                    ...params.slotProps,
+                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                     input: {
-                      ...InputProps,
+                      ...params.slotProps.input,
                       endAdornment: (
                         <>
                           {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {InputProps.endAdornment}
+                          {params.slotProps.input.endAdornment}
                         </>
                       ),
                     }
@@ -197,7 +198,7 @@ export function BasicInfoSection({
                 onChange={(_, value, reason) => {
                   varietyAutocomplete.onCommit(value ?? '', reason);
                 }}
-                renderInput={({ InputProps, inputProps, ...params }) => (
+                renderInput={(params) => (
                   <TextField
                     {...params}
                     sx={wideFieldSx}
@@ -207,14 +208,15 @@ export function BasicInfoSection({
                     error={Boolean(errors.variety)}
                     helperText={errors.variety}
                     slotProps={{
-                      htmlInput: { ...inputProps, maxLength: 200 },
+                      ...params.slotProps,
+                      htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                       input: {
-                        ...InputProps,
+                        ...params.slotProps.input,
                         endAdornment: (
                           <>
                             {varietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                            {InputProps.endAdornment}
+                            {params.slotProps.input.endAdornment}
                           </>
                         ),
                       }
@@ -266,7 +268,7 @@ export function BasicInfoSection({
               onChange={(_, value, reason) => {
                 firstVarietyAutocomplete.onCommit(value ?? '', reason);
               }}
-              renderInput={({ InputProps, inputProps, ...params }) => (
+              renderInput={(params) => (
                 <TextField
                   {...params}
                   sx={wideFieldSx}
@@ -274,14 +276,15 @@ export function BasicInfoSection({
                   placeholder={t('form.firstVarietyPlaceholder')}
                   helperText={t('form.firstVarietyHelperText')}
                   slotProps={{
-                    htmlInput: { ...inputProps, maxLength: 200 },
+                    ...params.slotProps,
+                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                     input: {
-                      ...InputProps,
+                      ...params.slotProps.input,
                       endAdornment: (
                         <>
                           {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {InputProps.endAdornment}
+                          {params.slotProps.input.endAdornment}
                         </>
                       ),
                     }

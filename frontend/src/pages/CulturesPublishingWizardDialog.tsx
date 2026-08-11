@@ -423,19 +423,21 @@ export function CulturesPublishingWizardDialog({
                   ) : (
                     t('library.publishWizard.speciesNoOptions')
                   )}
-                  renderInput={({ InputProps, ...params }) => (
+                  renderInput={(params) => (
                     <TextField
                       {...params}
                       inputRef={speciesInputRef}
                       label={t('library.publishWizard.speciesLabel')}
                       required
                       slotProps={{
+                        ...params.slotProps,
+
                         input: {
-                          ...InputProps,
+                          ...params.slotProps.input,
                           endAdornment: (
                             <>
                               {speciesLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                              {InputProps.endAdornment}
+                              {params.slotProps.input.endAdornment}
                             </>
                           ),
                         }
@@ -462,7 +464,7 @@ export function CulturesPublishingWizardDialog({
                       if (reason === 'reset') return;
                       setExistingVarietyInputValue(value);
                     }}
-                    renderInput={({ InputProps, ...params }) => (
+                    renderInput={(params) => (
                       <TextField
                         {...params}
                         label={t('library.publishWizard.existingVarietyLabel')}
@@ -470,12 +472,14 @@ export function CulturesPublishingWizardDialog({
                           ? t('library.publishWizard.existingVarietyHelp')
                           : t('library.publishWizard.publicCultureHelp')}
                         slotProps={{
+                          ...params.slotProps,
+
                           input: {
-                            ...InputProps,
+                            ...params.slotProps.input,
                             endAdornment: (
                               <>
                                 {publicCultureLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                                {InputProps.endAdornment}
+                                {params.slotProps.input.endAdornment}
                               </>
                             ),
                           }
