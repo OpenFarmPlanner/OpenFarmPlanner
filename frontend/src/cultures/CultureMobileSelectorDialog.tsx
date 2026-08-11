@@ -137,8 +137,8 @@ export function CultureMobileSelectorDialog({
                     ].filter(Boolean).join(' • ') || undefined
                     : undefined}
                   slotProps={{
-                    primary: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 },
-                    secondary: { fontSize: '0.8rem', color: 'text.secondary' }
+                    primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 } },
+                    secondary: { sx: { fontSize: '0.8rem', color: 'text.secondary' } }
                   }} />
               </ListItemButton>
             );

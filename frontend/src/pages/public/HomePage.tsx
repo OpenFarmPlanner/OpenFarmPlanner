@@ -154,8 +154,8 @@ export default function HomePage() {
             <Stack
               direction="row"
               spacing={{ xs: 0.75, sm: 1.4 }}
-              alignItems="center"
-              sx={{ gridColumn: 2, minWidth: 0 }}
+              sx={{ gridColumn: 2, minWidth: 0,
+          alignItems: "center", }}
             >
               <AppIcon decorative size={{ xs: 32, sm: 40, md: 48 }} sx={{ opacity: 0.95 }} />
               <Typography variant="h2" component="h1" sx={TITLE_SX}>
@@ -171,21 +171,21 @@ export default function HomePage() {
         <Box
           component="section"
           sx={{
-            position: 'relative',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            px: 2,
-            py: { xs: 4, md: 5 },
-            overflow: 'hidden',
-            bgcolor: '#0d1f12',
+              position: 'relative',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              px: 2,
+              py: { xs: 4, md: 5 },
+              overflow: 'hidden',
+              bgcolor: '#0d1f12',
           }}
         >
           <HeroImage alt={t('landing.heroImageAlt')} />
           <Box sx={HERO_CARD_SX}>
-            <Stack spacing={{ xs: 2, md: 2.2 }} alignItems="center">
+            <Stack spacing={{ xs: 2, md: 2.2 }} sx={{ alignItems: "center", }} >
               <Typography
                 variant="h6"
                 sx={{
@@ -209,13 +209,14 @@ export default function HomePage() {
                 {t('landing.description')}
               </Typography>
 
-              <Stack spacing={1.15} alignItems="center" sx={{ width: '100%', pt: 0.3 }}>
+              <Stack spacing={1.15} sx={{ width: '100%', pt: 0.3,
+                alignItems: "center", }}  >
                 <Stack
                   direction="row"
                   spacing={{ xs: 1, sm: 1.2 }}
-                  alignItems="center"
-                  justifyContent="center"
-                  sx={{ width: '100%', flexWrap: 'nowrap' }}
+                  sx={{ width: '100%', flexWrap: 'nowrap',
+                alignItems: "center",
+                justifyContent: "center", }}
                 >
                   <Button
                     component={RouterLink}
@@ -293,7 +294,7 @@ export default function HomePage() {
                   }}
                 >
                   {isStartingDemo ? (
-                    <Stack component="span" direction="row" spacing={0.8} alignItems="center">
+                    <Stack component="span" direction="row" spacing={0.8} sx={{ alignItems: "center", }} >
                       <CircularProgress color="inherit" size={14} />
                       <span>{t('landing.actions.startingDemo')}</span>
                     </Stack>
@@ -327,7 +328,9 @@ export default function HomePage() {
                 </Alert>
               ) : null}
 
-              <Stack spacing={0.7} alignItems="center" textAlign="center" sx={{ pt: { xs: 0.3, md: 0.5 } }}>
+              <Stack spacing={0.7} sx={{ pt: { xs: 0.3, md: 0.5 },
+                alignItems: "center",
+                textAlign: "center", }}   >
                 <Typography sx={{ lineHeight: 1.45, color: '#fff', textShadow: HERO_TEXT_SHADOW }}>
                   {t('statusNote')}
                 </Typography>
@@ -381,14 +384,15 @@ export default function HomePage() {
         </Box>
 
         <Container maxWidth="xl" sx={{ width: '100%', py: { xs: 5, md: 7 } }}>
-          <Stack spacing={{ xs: 5.5, md: 7 }} alignItems="center">
+          <Stack spacing={{ xs: 5.5, md: 7 }} sx={{ alignItems: "center", }} >
             <Box
               component="section"
               aria-labelledby="product-tour-title"
               sx={{ width: '100%' }}
             >
               <Stack spacing={{ xs: 2.5, md: 3.5 }}>
-                <Stack spacing={1.25} alignItems="center" textAlign="center">
+                <Stack spacing={1.25} sx={{ alignItems: "center",
+                  textAlign: "center", }}  >
                   <Typography
                     id="product-tour-title"
                     variant="h4"
@@ -505,8 +509,8 @@ export default function HomePage() {
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1.25, sm: 3 }}
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            justifyContent="space-between"
+            sx={{ alignItems: { xs: 'flex-start', sm: 'center' },
+        justifyContent: "space-between", }}
           >
             <LegalLinks />
             <Link href={`mailto:${t('footer.contactEmail')}`} underline="hover" color="text.secondary" sx={{ fontSize: '0.92rem' }}>

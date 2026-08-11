@@ -84,7 +84,7 @@ function UpdateCandidatesSection({
             {result.diff && result.diff.length > 0 && (
               <Box sx={{ ml: 2, fontSize: '0.875rem' }}>
                 {result.diff.map((change, index) => (
-                  <Typography key={index} variant="caption" display="block">
+                  <Typography key={index} variant="caption" sx={{ display: "block", }} >
                     {change.field}: {JSON.stringify(change.current)} → {JSON.stringify(change.new)}
                   </Typography>
                 ))}

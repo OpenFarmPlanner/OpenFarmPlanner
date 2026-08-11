@@ -1,4 +1,4 @@
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import { IconButton } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useState, type ReactElement } from 'react';

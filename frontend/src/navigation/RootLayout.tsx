@@ -58,11 +58,11 @@ import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
 import GavelIcon from '@mui/icons-material/Gavel';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
 import { MobileProjectSwitcherDialog } from './MobileProjectSwitcherDialog';
@@ -735,7 +735,7 @@ function RootLayout() {
   useEffect(() => {
     setSidebarCollapsed(!isLargeDesktop);
   }, [isLargeDesktop]);
-  
+
   const sidebarWidth = sidebarCollapsed ? 64 : 240;
   const currentPageTitle = useMemo(() => {
     const activeItem = navItems.find((item) => location.pathname === item.to || item.activeAliases.includes(location.pathname));
@@ -813,7 +813,9 @@ function RootLayout() {
         >
           <Stack sx={{ height: '100%', minHeight: 0, width: '100%' }}>
             {!sidebarCollapsed ? (
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1.5, py: 1, gap: 1 }}>
+              <Stack direction="row" sx={{ px: 1.5, py: 1, gap: 1,
+                alignItems: "center",
+                justifyContent: "space-between", }}   >
                 <Box
                   component={RouterLink}
                   to="/app/dashboard"
@@ -848,7 +850,9 @@ function RootLayout() {
                 </AppTooltip>
               </Stack>
             ) : (
-              <Stack direction="row" alignItems="center" justifyContent="center" sx={{ py: 1, mb: 0.75 }}>
+              <Stack direction="row" sx={{ py: 1, mb: 0.75,
+                alignItems: "center",
+                justifyContent: "center", }}   >
                 <AppTooltip
                   title={t('globalMenu.openSidebar')}
                   placement="right"
@@ -924,7 +928,7 @@ function RootLayout() {
             flex: { xs: '0 1 max-content', md: '0 0 max-content' },
             flexWrap: 'nowrap',
             overflow: 'hidden',
-          }}>
+ }}>
             {!isDesktopUp ? (
               <Typography
                 component="h1"
@@ -1904,7 +1908,7 @@ function RootLayout() {
 
       <Drawer anchor="left" open={mobileNavOpen} onClose={closeMobileNav} slotProps={{
         paper: { sx: mobileNavigationDrawerPaperSx }
-      }}>
+ }}>
         <List sx={{ width: 280, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <ListItem sx={{ py: 1.5, px: 2 }}>
             <AppLogo size={26} showText to="/app/dashboard" />
@@ -2038,7 +2042,8 @@ function RootLayout() {
                       </Stack>
                     </Paper>
                   ) : (
-                    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ width: '100%' }}>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%',
+                      alignItems: "flex-start", }}  >
                       <ListItemText
                         sx={{ mr: 1 }}
                         primary={(

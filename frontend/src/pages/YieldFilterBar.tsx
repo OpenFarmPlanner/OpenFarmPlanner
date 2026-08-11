@@ -48,8 +48,8 @@ export function YieldFilterBar({
     <Stack
       direction={{ xs: "column", sm: "row" }}
       spacing={1.5}
-      alignItems={{ xs: "stretch", sm: "flex-start" }}
-      sx={{ width: "100%", flexWrap: "wrap" }}
+      sx={{ width: "100%", flexWrap: "wrap",
+            alignItems: { xs: "stretch", sm: "flex-start" }, }}
     >
       <Stack spacing={0.5} sx={{ minWidth: { sm: 220 } }}>
         <Typography

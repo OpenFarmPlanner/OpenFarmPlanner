@@ -46,7 +46,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
           py: { xs: 3, sm: 5, md: 7 },
         }}
       >
-        <Stack spacing={{ xs: 2.5, md: 3.5 }} alignItems="center">
+        <Stack spacing={{ xs: 2.5, md: 3.5 }} sx={{ alignItems: "center", }} >
           <Box
             sx={{
               width: '100%',
@@ -59,7 +59,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
               columnGap: 2,
             }}
           >
-            <Stack direction="row" spacing={1.4} alignItems="center">
+            <Stack direction="row" spacing={1.4} sx={{ alignItems: "center", }} >
               <AppIcon decorative size={{ xs: 40, md: 48 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"

@@ -1,8 +1,8 @@
 import { Divider, ListItemIcon, Menu, MenuItem, Stack } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutlineOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';
@@ -61,7 +61,8 @@ export function ProjectMenu(props: ProjectMenuProps) {
             selected={membership.project_id === activeProjectId}
             disabled={isSwitchingProject}
           >
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+            <Stack direction="row" sx={{ width: '100%',
+              alignItems: "center", }}  spacing={1} >
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{membership.project_name}</span>
               {membership.project_id === activeProjectId ? <CheckIcon fontSize="small" /> : null}
             </Stack>

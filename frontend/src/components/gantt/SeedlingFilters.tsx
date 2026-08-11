@@ -50,7 +50,7 @@ export function SeedlingFilters({
       {useMobileLayout ? (
         <Stack spacing={0}>
           {searchExpanded ? (
-            <Stack direction="row" spacing={0.75} alignItems="center">
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
               <TextField
                 size="small"
                 placeholder={t('ganttChart:treeFilters.searchPlaceholderSeedlings')}
@@ -95,10 +95,10 @@ export function SeedlingFilters({
       ) : (
         <Box
           sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 1.5,
-            alignItems: 'center',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              alignItems: 'center',
           }}
         >
           <TextField

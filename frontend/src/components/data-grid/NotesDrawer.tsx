@@ -481,7 +481,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
                     await noteAttachmentAPI.delete(attachment.id);
                     if (noteId) invalidateNoteAttachmentsCache(noteId);
                     await loadAttachments();
-                  }}>
+ }}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </ImageListItem>
@@ -495,7 +495,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
             <RichTextEditor value={value} onChange={onChange} minHeight={260} />
           ) : (
             <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, minHeight: '300px' }}>
-              {value ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown> : <Typography color="text.secondary" fontStyle="italic">{t('notes.empty')}</Typography>}
+              {value ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown> : <Typography color="text.secondary" sx={{ fontStyle: "italic", }} >{t('notes.empty')}</Typography>}
             </Box>
           )}
         </Box>

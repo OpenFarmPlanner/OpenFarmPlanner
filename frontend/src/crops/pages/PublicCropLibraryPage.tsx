@@ -1431,7 +1431,7 @@ export default function PublicCropLibraryPage() {
               />
               {isCultureLoading ? (
                 <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Stack spacing={1} alignItems="center">
+                  <Stack spacing={1} sx={{ alignItems: "center", }} >
                     <CircularProgress size={28} />
                     <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
                   </Stack>
@@ -1510,7 +1510,7 @@ export default function PublicCropLibraryPage() {
               >
                 {isCultureLoading && !selectedCulture ? (
                   <Box sx={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                    <Stack spacing={1} alignItems="center">
+                    <Stack spacing={1} sx={{ alignItems: "center", }} >
                       <CircularProgress size={28} />
                       <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
                     </Stack>
@@ -1521,7 +1521,8 @@ export default function PublicCropLibraryPage() {
                   </Box>
                 ) : !selectedCulture ? (
                 <Box sx={{ p: { xs: 3, sm: 4 }, display: 'flex', flexDirection: 'column', gap: { xs: 3, sm: 3.5 } }}>
-                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto' }}>
+                  <Stack spacing={1} sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto',
+                    alignItems: "center", }}  >
                     <Box
                       sx={{
                         width: 56,
@@ -1549,7 +1550,8 @@ export default function PublicCropLibraryPage() {
                     ) : null}
                   </Stack>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2.5, sm: 3 } }}>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <SearchOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.discoverTitle')}
@@ -1558,7 +1560,8 @@ export default function PublicCropLibraryPage() {
                         {t('library.emptyState.discoverDescription')}
                       </Typography>
                     </Stack>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <DownloadOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.importTitle')}
@@ -1567,7 +1570,8 @@ export default function PublicCropLibraryPage() {
                         {t('library.emptyState.importDescription')}
                       </Typography>
                     </Stack>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <HistoryOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.improveTitle')}
@@ -1586,9 +1590,9 @@ export default function PublicCropLibraryPage() {
                       direction="row"
                       spacing={1.5}
                       useFlexGap
-                      flexWrap="wrap"
-                      alignItems="flex-start"
-                      justifyContent="space-between"
+                      sx={{ flexWrap: "wrap",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between", }}
                     >
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
@@ -1631,7 +1635,8 @@ export default function PublicCropLibraryPage() {
                               </Stack>
                             ) : null
                           ) : null}
-                          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                          <Stack direction="row" spacing={0.75} sx={{ mt: 1,
+                            flexWrap: "wrap", }}  useFlexGap >
                             {/* Say plainly that this is another language's text
                                 rather than letting an English name read as a
                                 German translation. */}
@@ -1783,8 +1788,8 @@ export default function PublicCropLibraryPage() {
                           <Stack
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
-                            alignItems={{ xs: 'flex-start', sm: 'center' }}
-                            sx={{ mb: 1 }}
+                            sx={{ mb: 1,
+                      alignItems: { xs: 'flex-start', sm: 'center' }, }}
                           >
                             <AppTooltip title={descriptionFallbackNotice.tooltip}>
                               <Chip
@@ -1879,7 +1884,7 @@ export default function PublicCropLibraryPage() {
                               <TextField inputRef={newTopicTitleInputRef} label={t('library.page.discussion.titleLabel')} value={topicTitle} onChange={(event) => setTopicTitle(event.target.value)} />
                               <TextField label={t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={2} maxRows={8} />
                               {topicRevision ? (
-                                <Stack direction="row" spacing={1} alignItems="center">
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
                                   <Typography variant="caption" color="text.secondary">{t('library.page.discussion.versionReference')}</Typography>
                                   <Chip size="small" label={t('library.page.versions.versionTitle', { version: versions.find((version) => version.id === topicRevision)?.version })} />
                                 </Stack>

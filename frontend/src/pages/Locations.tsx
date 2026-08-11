@@ -16,7 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { locationAPI, type Location } from '../api/api';
 import PageContainer from '../components/layout/PageContainer';
@@ -343,7 +343,7 @@ function Locations() {
                     sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography variant="h6" mb={1}>{location.name}</Typography>
+                      <Typography variant="h6" sx={{ mb: 1, }} >{location.name}</Typography>
 
                       <Stack spacing={1}>
                         <Typography variant="body2">

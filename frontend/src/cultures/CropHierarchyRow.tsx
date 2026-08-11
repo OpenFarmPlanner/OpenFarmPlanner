@@ -88,12 +88,20 @@ export function CropHierarchyRow({
         sx={{ my: 0 }}
         slotProps={{
           primary: {
-            fontSize: { xs: '0.9rem', lg: '0.95rem' },
-            fontWeight: isPrimaryEmphasized ? 700 : 500,
-            lineHeight: 1.2,
+            sx: {
+              fontSize: { xs: '0.9rem', lg: '0.95rem' },
+              fontWeight: isPrimaryEmphasized ? 700 : 500,
+              lineHeight: 1.2,
+            },
           },
 
-          secondary: { fontSize: { xs: '0.74rem', lg: '0.78rem' }, color: 'text.secondary', lineHeight: 1.1 }
+          secondary: {
+            sx: {
+              fontSize: { xs: '0.74rem', lg: '0.78rem' },
+              color: 'text.secondary',
+              lineHeight: 1.1,
+            },
+          }
         }} />
       {typeof varietyCount === 'number' && varietyCount > 0 ? (
         <Typography

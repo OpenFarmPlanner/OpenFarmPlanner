@@ -48,7 +48,8 @@ function ModeToggle({
 }: ModeToggleProps): ReactElement {
   return (
     <Stack spacing={0.5} sx={{ width: fullWidth ? '100%' : 'auto' }}>
-      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent={{ xs: 'space-between', sm: 'flex-start' }}>
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center",
+        justifyContent: { xs: 'space-between', sm: 'flex-start' }, }}  >
         <Typography variant="subtitle2">{label}</Typography>
       </Stack>
       <ToggleButtonGroup

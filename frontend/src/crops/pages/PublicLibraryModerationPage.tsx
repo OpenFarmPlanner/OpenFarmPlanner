@@ -145,7 +145,8 @@ export default function PublicLibraryModerationPage() {
         ) : (
           <>
             <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              <Stack direction="row" spacing={1} sx={{ mb: 1.5,
+                alignItems: "center", }}  >
                 <GavelOutlinedIcon color="primary" />
                 <Typography variant="h6">{t('library.moderation.species.title')}</Typography>
               </Stack>
@@ -173,7 +174,7 @@ export default function PublicLibraryModerationPage() {
                               : t('library.moderation.none')}
                           </TableCell>
                           <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", }} >
                               <Button
                                 size="small"
                                 variant="contained"
@@ -226,7 +227,7 @@ export default function PublicLibraryModerationPage() {
                             <TableCell sx={{ maxWidth: 420, whiteSpace: 'pre-wrap' }}>{request.motivation}</TableCell>
                             <TableCell>{formatDate(request.created_at)}</TableCell>
                             <TableCell align="right">
-                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                              <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", }} >
                                 <Button
                                   size="small"
                                   variant="contained"
@@ -281,7 +282,7 @@ export default function PublicLibraryModerationPage() {
                           </TableCell>
                           <TableCell>{formatDate(culture.updated_at)}</TableCell>
                           <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", }} >
                               <Button
                                 size="small"
                                 variant="contained"

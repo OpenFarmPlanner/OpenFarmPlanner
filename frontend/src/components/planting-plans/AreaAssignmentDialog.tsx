@@ -67,13 +67,15 @@ const selectFieldSx = {
 } as const;
 
 const selectMenuProps = {
-  PaperProps: {
-    sx: {
-      maxWidth: { xs: 'calc(100vw - 32px)', sm: 420 },
-      '& .MuiMenuItem-root': {
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+  slotProps: {
+    paper: {
+      sx: {
+        maxWidth: { xs: 'calc(100vw - 32px)', sm: 420 },
+        '& .MuiMenuItem-root': {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        },
       },
     },
   },

@@ -39,9 +39,9 @@ export default function DemoPage() {
             component="header"
             direction="row"
             spacing={{ xs: 0.75, sm: 2 }}
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ minHeight: 48 }}
+            sx={{ minHeight: 48,
+          alignItems: "center",
+          justifyContent: "space-between", }}
           >
             <Button
               component={RouterLink}
@@ -64,17 +64,17 @@ export default function DemoPage() {
         <Box
           component="section"
           sx={{
-            position: 'relative',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            px: 2,
-            py: { xs: 5, md: 7 },
-            overflow: 'hidden',
-            bgcolor: '#0d1f12',
-            minHeight: { xs: 'calc(100vh - 180px)', md: 'calc(100vh - 190px)' },
+          position: 'relative',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          px: 2,
+          py: { xs: 5, md: 7 },
+          overflow: 'hidden',
+          bgcolor: '#0d1f12',
+          minHeight: { xs: 'calc(100vh - 180px)', md: 'calc(100vh - 190px)' },
             '@media (max-height: 480px)': {
               py: 2,
               minHeight: 'auto',
@@ -102,7 +102,7 @@ export default function DemoPage() {
               },
             }}
           >
-            <Stack spacing={{ xs: 2.1, md: 2.4 }} alignItems="center">
+            <Stack spacing={{ xs: 2.1, md: 2.4 }} sx={{ alignItems: "center", }} >
               <AppIcon decorative size={{ xs: 44, md: 52 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"

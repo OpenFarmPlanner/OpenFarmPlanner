@@ -81,7 +81,7 @@ function TypeaheadSelectInner<Value = unknown>(
     options,
     multiple,
     onSelect: handleSelect,
-    onKeyDown: listSlotProps.onKeyDown ?? MenuProps?.MenuListProps?.onKeyDown,
+    onKeyDown: listSlotProps.onKeyDown,
   });
 
   const menuProps = useMemo((): SelectMenuProps<Value> => ({

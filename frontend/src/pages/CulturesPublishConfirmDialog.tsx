@@ -11,7 +11,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
@@ -70,8 +70,8 @@ export function CulturesPublishConfirmDialog({
                 key={item.key}
                 direction="row"
                 spacing={1.25}
-                alignItems="flex-start"
-                sx={{ color: 'text.secondary' }}
+                sx={{ color: 'text.secondary',
+        alignItems: "flex-start", }}
               >
                 <Box sx={{ color: 'success.main', display: 'flex', pt: 0.25 }}>
                   {item.icon}

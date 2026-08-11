@@ -48,7 +48,7 @@ export function OccupancyMobileFilterBar({
   const { t } = useTranslation(['ganttChart', 'common']);
 
   return searchExpanded ? (
-    <Stack direction="row" spacing={0.75} alignItems="center">
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
       <TextField
         size="small"
         placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
@@ -57,7 +57,7 @@ export function OccupancyMobileFilterBar({
         inputRef={searchInputRef}
         slotProps={{
           input: {
-            startAdornment: (
+      startAdornment: (
               <InputAdornment position="start">
                 <SearchIcon fontSize="small" />
               </InputAdornment>
@@ -100,7 +100,7 @@ export function OccupancyMobileFilterBar({
       </Button>
     </Stack>
   ) : (
-    <Stack direction="row" spacing={0.75} alignItems="center">
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
       <AppTooltip title={t('common:actions.search')}>
         <IconButton
           size="small"

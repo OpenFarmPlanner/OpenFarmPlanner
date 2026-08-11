@@ -110,7 +110,7 @@ export function PublicCultureMobileSelectorDialog({
         </Box>
         {loading ? (
           <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Stack spacing={1} alignItems="center">
+            <Stack spacing={1} sx={{ alignItems: "center", }} >
               <CircularProgress size={28} />
               <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
             </Stack>
@@ -204,9 +204,9 @@ export function PublicCultureMobileSelectorDialog({
                       ].filter(Boolean).join(' • ') || undefined
                       : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
                     slotProps={{
-                      primary: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 },
-                      secondary: { fontSize: '0.8rem', color: 'text.secondary' }
-                    }} />
+                      primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 } },
+                      secondary: { sx: { fontSize: '0.8rem', color: 'text.secondary' } }
+ }} />
                 </ListItemButton>
               );
             })}

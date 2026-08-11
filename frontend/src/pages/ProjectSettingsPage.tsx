@@ -1,5 +1,5 @@
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -293,7 +293,7 @@ export default function ProjectSettingsPage() {
       <Typography variant="h4" sx={{ mb: 1 }}>{t('title')}</Typography>
       <Box sx={{ mb: 3 }}>
         {!isEditingProjectName ? (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
             <Typography variant="h6">{activeMembership.project_name}</Typography>
             {isProjectAdmin ? (
               <IconButton aria-label={t('projectRename.label')} onClick={handleProjectNameEditStart}>
@@ -302,7 +302,7 @@ export default function ProjectSettingsPage() {
             ) : null}
           </Stack>
         ) : (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'flex-start' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' }, }} >
             <TextField
               label={t('projectRename.label')}
               value={projectNameDraft}
@@ -393,15 +393,17 @@ export default function ProjectSettingsPage() {
 
           return (
             <Box key={member.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-              <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: "space-between",
+                alignItems: { xs: 'flex-start', md: 'center' }, }}   spacing={2}>
                 <Box>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                  <Stack direction="row" spacing={1} sx={{ mb: 0.5,
+                    alignItems: "center", }}  >
                     <Typography sx={{ fontWeight: 600 }}>{displayName}</Typography>
                     {isCurrentUser ? <Chip label={t('memberYou')} size="small" /> : null}
                   </Stack>
                   <Typography variant="body2" color="text.secondary">{member.user_email}</Typography>
                 </Box>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
                   <FormControl
                     size="small"
                     disabled={!canManageMembers || isCurrentUser}
@@ -441,14 +443,15 @@ export default function ProjectSettingsPage() {
       <Stack spacing={1.5}>
         {canManageMembers && !invitationLoadError ? sortedInvitations.map((invitation) => (
           <Box key={invitation.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+            <Stack direction="row" sx={{ justifyContent: "space-between",
+              alignItems: "center", }}   spacing={2}>
               <Box>
                 <Typography sx={{ fontWeight: 600 }}>{invitation.email}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {t('expiresAt', { date: new Date(invitation.expires_at).toLocaleString('de-DE') })}
                 </Typography>
               </Box>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
                 <Chip label={t(`status.${invitation.resolved_status}`)} size="small" />
                 {invitation.resolved_status === 'pending' ? (
                   <Button size="small" variant="outlined" color="error" onClick={() => void handleRevoke(invitation.id)}>

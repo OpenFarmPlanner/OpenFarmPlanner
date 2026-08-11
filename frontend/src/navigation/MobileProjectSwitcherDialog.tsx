@@ -54,7 +54,7 @@ export function MobileProjectSwitcherDialog({
           {t('projectSwitcher.activeProject')}
         </Typography>
         <Paper variant="outlined" sx={{ p: 1.25, mb: 2 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" sx={{ alignItems: "center", }}  spacing={1}>
             <CheckIcon fontSize="small" color="success" />
             <Typography variant="body2" sx={{ fontWeight: 600 }}>{activeProjectLabel}</Typography>
           </Stack>

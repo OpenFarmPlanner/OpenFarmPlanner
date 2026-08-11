@@ -3,13 +3,13 @@ import AgricultureIcon from '@mui/icons-material/Agriculture';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
@@ -89,7 +89,7 @@ const PAGE_SYMBOL_DEFINITIONS: Partial<Record<HelpPageKey, SymbolDefinition[]>> 
     {
       key: 'expandToggle',
       icon: (
-        <Stack direction="row" spacing={0.1} alignItems="center">
+        <Stack direction="row" spacing={0.1} sx={{ alignItems: "center", }} >
           <ChevronRightIcon fontSize="small" />
           <ExpandMoreIcon fontSize="small" />
         </Stack>
@@ -98,7 +98,7 @@ const PAGE_SYMBOL_DEFINITIONS: Partial<Record<HelpPageKey, SymbolDefinition[]>> 
     {
       key: 'dimensions',
       icon: (
-        <Stack direction="row" spacing={0.25} alignItems="center">
+        <Stack direction="row" spacing={0.25} sx={{ alignItems: "center", }} >
           <SwapVertIcon fontSize="small" />
           <SwapHorizIcon fontSize="small" />
         </Stack>
@@ -136,7 +136,7 @@ const PAGE_SYMBOL_DEFINITIONS: Partial<Record<HelpPageKey, SymbolDefinition[]>> 
     {
       key: 'panArrows',
       icon: (
-        <Stack direction="row" spacing={0.25} alignItems="center">
+        <Stack direction="row" spacing={0.25} sx={{ alignItems: "center", }} >
           <KeyboardArrowUpIcon fontSize="small" />
           <KeyboardArrowLeftIcon fontSize="small" />
           <KeyboardArrowRightIcon fontSize="small" />
@@ -456,7 +456,7 @@ export default function PageHelp({ pageKey, ariaLabel, tooltip }: PageHelpProps)
         maxWidth="md"
         slotProps={{
           paper: {
-            sx: {
+              sx: {
               m: 0,
               mt: 'auto',
               borderRadius: '16px 16px 0 0',

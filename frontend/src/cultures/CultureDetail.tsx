@@ -148,7 +148,7 @@ export function CultureDetail({
     };
   }, [useUnifiedMobileLayout, isLoading, cultures.length]);
   const supplierIdFromQuery = searchParams.get('supplierId') ?? '';
-  
+
   // Initialize filters from sessionStorage
   const initializeFilters = (): PersistedCultureFilters => {
     const raw = window.sessionStorage.getItem(CULTURE_FILTERS_STORAGE_KEY);
@@ -553,7 +553,7 @@ const detailSectionGridSx = {
   );
 
   const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
-  
+
   const supplierRows = useMemo(
     () => selectedCulture?.supplier_data ?? [],
     [selectedCulture?.supplier_data],
@@ -683,7 +683,7 @@ const detailSectionGridSx = {
 
   const selectorControl = cultures.length > 0 ? (
       <Box sx={{ width: '100%', p: 1.25, borderBottom: '1px solid #e5e7eb', bgcolor: '#fcfdfc' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <SearchableSelect
               options={cultureOptions}
@@ -755,10 +755,10 @@ const detailSectionGridSx = {
         <Box
           ref={detailAreaRef}
           sx={{
-            display: 'flex',
-            flexDirection: useUnifiedMobileLayout ? 'column' : { xs: 'column', md: 'row' },
-            gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
-            height: {
+      display: 'flex',
+      flexDirection: useUnifiedMobileLayout ? 'column' : { xs: 'column', md: 'row' },
+      gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
+      height: {
               md: detailAreaMaxHeight !== null ? `${detailAreaMaxHeight}px` : 'calc(100vh - 210px)',
             },
           }}
@@ -998,8 +998,10 @@ const detailSectionGridSx = {
             {isSpeciesView ? (
             <>
             <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0 }}>
-                <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0,
+                alignItems: "center",
+                justifyContent: "space-between", }}   >
+                <Stack direction="row" sx={{ alignItems: "center", }}  spacing={0.5}>
                   <Typography variant="h6">
                     {t('hierarchy.varietiesTitle')}
                   </Typography>

@@ -80,7 +80,7 @@ export function CulturesImportStartDialog({
             >
               {t('import.selectFileButton')}
             </Button>
-            <Typography variant="body2" color="text.secondary" textAlign="center">
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", }} >
               {t('import.supportedFormats')}
             </Typography>
           </Box>

@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useContext, useRef, useLayoutEffect } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useTranslation } from '../i18n';
@@ -1008,12 +1008,12 @@ function GanttChartPage() {
       >
         <Box
           sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: { xs: 1.5, md: 2.5 },
-            minWidth: 0,
-            flex: '0 1 auto',
-            overflow: 'hidden',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: { xs: 1.5, md: 2.5 },
+          minWidth: 0,
+          flex: '0 1 auto',
+          overflow: 'hidden',
           }}
         >
           <Typography
