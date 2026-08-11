@@ -1,5 +1,7 @@
 name: Dependency Scan
 
+# Temporary marker for a push-access test; safe to remove.
+
 on:
   push:
     branches: [main, master]
