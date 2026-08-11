@@ -11,7 +11,6 @@
 import { createBrowserRouter, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import './App.css';
 import ProtectedRoute from './auth/ProtectedRoute';
 import RootLayout from './navigation/RootLayout';
 export type { RootLayoutOutletContext, TopbarContextAction } from './navigation/topbarTypes';

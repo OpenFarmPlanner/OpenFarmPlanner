@@ -108,7 +108,6 @@ import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
 import { AppTooltip } from '../components/AppTooltip';
 
-const CONTENT_ALIGNMENT_MODE = 'centered';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
@@ -802,7 +801,7 @@ function RootLayout() {
   }
 
   return (
-    <Box className={`app app--${CONTENT_ALIGNMENT_MODE}`} sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
+    <Box sx={{ display: 'flex', width: '100%', maxWidth: '100%', overflowX: 'hidden', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
         <Box
           component="aside"
@@ -1338,7 +1337,16 @@ function RootLayout() {
             startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
-            <span className="project-switcher-label">{activeProjectLabel}</span>
+            {/* The class name carries no styling — it is the selector
+                e2e/onboarding-demo-project.spec.ts uses to read the active
+                project name out of the topbar. */}
+            <Box
+              component="span"
+              className="project-switcher-label"
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {activeProjectLabel}
+            </Box>
           </Button>
           <ProjectMenu
             anchorEl={projectMenuAnchor}
@@ -1702,7 +1710,16 @@ function RootLayout() {
           )}
         </Toolbar>
         {isCompactTopbar && hasMobileSecondaryRow ? (
-          <Box className="mobile-action-scroll" sx={{ px: 0, pb: 0.5 }}>
+          <Box
+            sx={{
+              px: 0,
+              pb: 0.5,
+              overflowX: 'hidden',
+              overflowY: 'visible',
+              whiteSpace: 'normal',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
               {isCulturesPage ? (
                 <>

@@ -27,7 +27,11 @@ test('returns guest demo sessions to the public landing page when leaving the de
   await expect(page).toHaveURL(/\/app\/fields-beds/);
   await expect(page.getByRole('heading', { name: 'Anbauflächen' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Mehr' }).click();
+  // `exact` matters here: role-name matching is substring-based, and the
+  // hierarchy toolbar's "Eine Hierarchieebene mehr anzeigen" button also
+  // contains "mehr". Without it the locator resolves to two elements as soon
+  // as that toolbar has rendered, which is a race rather than a stable pass.
+  await page.getByRole('button', { name: 'Mehr', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Demo verlassen' }).click();
 
   await expect(page).toHaveURL(/\/$/);

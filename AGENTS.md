@@ -123,6 +123,12 @@ Deploy scripts, cron/scheduling config, and infra are **not** in this repo — t
   most consistent local implementation.
 - Do not introduce new colors, spacing, icons, typography, border styles, or
   interaction patterns when an equivalent OpenFarmPlanner pattern exists.
+- The MUI theme is the only styling system. Component-level decisions go in
+  `frontend/src/theme.ts`, single instances in `sx`, and anything shared in a
+  `*Styles.ts` module next to its owner. Never add a per-component `.css`
+  file, and never hardcode a colour or an off-grid spacing value — use the
+  theme palette and MUI's 8px spacing unit. Read
+  [`docs/design-system.md`](docs/design-system.md) before styling anything.
 - Keep wording, button order, severity levels, and interaction behavior
   consistent with comparable screens.
 - Empty states should guide users toward the next action. Prefer contextual
