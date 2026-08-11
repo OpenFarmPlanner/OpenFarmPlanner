@@ -49,6 +49,22 @@ The public Crop Library follows an open-data model:
   edits (the 409 response there also flags `variety_changed` so the frontend
   can call the identity change out explicitly instead of blending it into a
   generic warning).
+- Nothing about that model is automatic, but it is no longer invisible.
+  `CultureSerializer.public_update_available` compares the copy's
+  `source_public_version` against the linked entry's current `version` — the
+  same comparison `import_public_culture_into_project()` makes — so the private
+  culture view can show a notice that the library moved on.
+  `GET /api/cultures/<id>/public-update/` then returns the field-level diff,
+  derived from `CULTURE_COPY_FIELDS` (exactly what an update overwrites, so a
+  renamed `variety` can never be applied without appearing in the preview).
+  The endpoint is read-only: confirming in the dialog calls the existing
+  `public-cultures/<id>/import/` action with `mode=update`, so the private
+  culture page and the library page share one import/update path.
+- The publishing wizard's comparison covers `variety` too. Before the Sorte
+  became editable it was left out as immutable, which meant publishing an
+  update could rename the public entry without the change ever appearing in
+  the "Änderungen vor der Veröffentlichung" table. It is skipped only for a
+  species-level publish, where the backend forces an empty variety anyway.
 - Reverting a public entry restores an older snapshot by creating another new
   version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future

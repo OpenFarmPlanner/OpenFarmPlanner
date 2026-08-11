@@ -254,9 +254,9 @@ export function CulturesPublishingWizardDialog({
   );
   const comparison = useMemo(
     () => (isUpdatingOwnedPublicCulture && culture && selectedPublicCulture
-      ? buildPublicCultureComparison(culture, selectedPublicCulture, t)
+      ? buildPublicCultureComparison(culture, selectedPublicCulture, t, { publishAsGeneral: isCropLevelPublish })
       : null),
-    [isUpdatingOwnedPublicCulture, culture, selectedPublicCulture, t],
+    [isUpdatingOwnedPublicCulture, culture, isCropLevelPublish, selectedPublicCulture, t],
   );
   const isBlockedByValidation = !isUpdatingOwnedPublicCulture
     && !selectedPublicCulture

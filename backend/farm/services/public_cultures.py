@@ -1196,6 +1196,68 @@ def _apply_public_culture_update(*, culture: Culture, public_culture: PublicCult
     return culture
 
 
+@dataclass(frozen=True)
+class PublicCultureFieldChange:
+    field: str
+    local_value: Any
+    public_value: Any
+
+
+@dataclass(frozen=True)
+class PublicCultureUpdateStatus:
+    """A pending library update for one imported project culture.
+
+    ``changes`` is derived from ``CULTURE_COPY_FIELDS`` — the exact set
+    :func:`_apply_public_culture_update` overwrites — so the preview can never
+    show a field the update leaves alone, nor hide one it rewrites (which is
+    what let a public variety rename reach a project copy unannounced).
+    """
+
+    public_culture: PublicCulture
+    public_version: int
+    local_version: int | None
+    has_local_changes: bool
+    changes: list[PublicCultureFieldChange]
+
+
+def has_pending_public_culture_update(culture: Culture) -> bool:
+    """Whether the linked library entry has a version this copy has not taken yet.
+
+    Version-based, exactly like the 'unchanged' branch of
+    :func:`import_public_culture_into_project`, so the badge the user sees and
+    the decision the import takes can never disagree.
+    """
+    public_culture = culture.source_public_culture
+    if public_culture is None or public_culture.status != PublicCulture.STATUS_PUBLISHED:
+        return False
+    return culture.source_public_version != public_culture.version
+
+
+def build_public_culture_update_status(culture: Culture) -> PublicCultureUpdateStatus | None:
+    """The field-level preview of the pending library update, or None if there is none."""
+    if not has_pending_public_culture_update(culture):
+        return None
+    public_culture = culture.source_public_culture
+    local_payload = _copy_fields(culture)
+    public_payload = _copy_fields(public_culture)
+    changes = [
+        PublicCultureFieldChange(
+            field=field,
+            local_value=_json_safe(local_payload[field]),
+            public_value=_json_safe(public_payload[field]),
+        )
+        for field in CULTURE_COPY_FIELDS
+        if local_payload[field] != public_payload[field]
+    ]
+    return PublicCultureUpdateStatus(
+        public_culture=public_culture,
+        public_version=public_culture.version,
+        local_version=culture.source_public_version,
+        has_local_changes=bool(culture.is_modified_from_source),
+        changes=changes,
+    )
+
+
 def import_public_culture_into_project(
     *,
     public_culture: PublicCulture,

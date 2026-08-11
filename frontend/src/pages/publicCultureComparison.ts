@@ -1,7 +1,11 @@
 import type { TFunction } from 'i18next';
 import type { Culture, PublicCulture } from '../api/types';
 import { buildPublicCultureUpdatePayload } from '../cultures/publicCultureFormAdapter';
-import { arePublicValuesEqual } from '../crops/components/publicCropLibrary/formatters';
+import {
+  arePublicValuesEqual,
+  formatPublicCultureValue,
+  getPublicCultureComparisonFieldLabel,
+} from '../crops/components/publicCropLibrary/formatters';
 
 export interface PublicCultureChange {
   field: string;
@@ -11,6 +15,11 @@ export interface PublicCultureChange {
 }
 
 const COMPARISON_FIELDS = [
+  // `variety` leads the list because it is the entry's identity: since the
+  // Sorte became editable on public entries, publishing an update rewrites it
+  // like any other field, and leaving it out of the comparison made a rename
+  // the one change the user could not see before confirming.
+  'variety',
   'notes',
   'crop_family',
   'nutrient_demand',
@@ -36,50 +45,33 @@ const COMPARISON_FIELDS = [
   'seed_packages',
 ] as const;
 
-type ComparisonField = (typeof COMPARISON_FIELDS)[number];
-
-const normalizeValue = (value: unknown): unknown => {
-  if (value === undefined || value === '') return null;
-  if (Array.isArray(value)) return value.length ? [...value].sort() : null;
-  return value;
-};
-
-const formatValue = (field: ComparisonField, value: unknown, t: TFunction): string => {
-  const normalized = normalizeValue(value);
-  if (normalized === null) return t('library.publishWizard.comparison.empty');
-  if (typeof normalized === 'boolean') {
-    return t(normalized ? 'library.publishWizard.comparison.yes' : 'library.publishWizard.comparison.no');
-  }
-  if (Array.isArray(normalized)) {
-    return normalized.map((item) => {
-      if (typeof item === 'object') return JSON.stringify(item);
-      return t(`library.publishWizard.comparison.values.${String(item)}`, String(item));
-    }).join(', ');
-  }
-  if (typeof normalized === 'object') return JSON.stringify(normalized);
-  if (['nutrient_demand', 'harvest_method', 'seed_rate_unit', 'seeding_requirement_type'].includes(field)) {
-    return t(`library.publishWizard.comparison.values.${String(normalized)}`, String(normalized));
-  }
-  return String(normalized);
-};
+export interface PublicCultureComparisonOptions {
+  /**
+   * A species-level publish always writes an empty variety server-side, so the
+   * entry's Sorte cannot change and must not be offered as a difference.
+   */
+  publishAsGeneral?: boolean;
+}
 
 export function buildPublicCultureComparison(
   culture: Culture,
   publicCulture: PublicCulture,
   t: TFunction,
+  options: PublicCultureComparisonOptions = {},
 ): PublicCultureChange[] {
   const privatePayload = buildPublicCultureUpdatePayload(culture, publicCulture.version);
   const privateValues: Partial<PublicCulture> = privatePayload;
   const publicValues: Partial<PublicCulture> = publicCulture;
   return COMPARISON_FIELDS.flatMap((field) => {
+    if (field === 'variety' && options.publishAsGeneral) return [];
     const privateValue = privateValues[field];
     const publicValue = publicValues[field];
     if (arePublicValuesEqual(privateValue, publicValue)) return [];
     return [{
       field,
-      label: t(`library.publishWizard.comparison.fields.${field}`),
-      publicValue: formatValue(field, publicValue, t),
-      privateValue: formatValue(field, privateValue, t),
+      label: getPublicCultureComparisonFieldLabel(field, t),
+      publicValue: formatPublicCultureValue(field, publicValue, t),
+      privateValue: formatPublicCultureValue(field, privateValue, t),
     }];
   });
 }

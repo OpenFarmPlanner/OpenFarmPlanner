@@ -31,7 +31,10 @@ from farm.seed_units import (
     SEED_RATE_UNITS,
 )
 from farm.services.culture_display import resolve_culture_display_name
-from farm.services.public_cultures import is_public_culture_contributor
+from farm.services.public_cultures import (
+    has_pending_public_culture_update,
+    is_public_culture_contributor,
+)
 
 from .seed_packages import SeedPackageSerializer
 from .seed_rates import (
@@ -170,6 +173,7 @@ class CultureSerializer(serializers.ModelSerializer):
     )
     owned_public_culture_id = serializers.SerializerMethodField()
     owned_public_culture_role = serializers.SerializerMethodField()
+    public_update_available = serializers.SerializerMethodField()
 
     def get_image_file(self, obj):
         if not obj.image_file_id:
@@ -278,6 +282,16 @@ class CultureSerializer(serializers.ModelSerializer):
         if is_public_culture_contributor(public_culture=public_culture, user=user):
             return 'contributor'
         return 'moderator'
+
+    def get_public_update_available(self, obj: Culture) -> bool:
+        """Whether the library entry this culture was imported from moved on.
+
+        Reads the already `select_related`ed `source_public_culture`, so the
+        flag costs no extra query per row. The field-level preview behind it
+        lives on the `public-update` detail endpoint and is only fetched when
+        the user opens it.
+        """
+        return has_pending_public_culture_update(obj)
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')

@@ -42,6 +42,27 @@ describe('buildPublicCultureComparison', () => {
     expect(changes[1]).toMatchObject({ publicValue: '60', privateValue: '70' });
   });
 
+  it('reports a variety rename, which publishing an update would write to the public entry', () => {
+    const changes = buildPublicCultureComparison(
+      { ...privateCulture, variety: 'Roma II' },
+      publicCulture,
+      t,
+    );
+
+    expect(changes[0]).toMatchObject({ field: 'variety', publicValue: 'Roma', privateValue: 'Roma II' });
+  });
+
+  it('omits the variety for a species-level publish, which always writes an empty variety', () => {
+    const changes = buildPublicCultureComparison(
+      { ...privateCulture, variety: 'Roma II' },
+      publicCulture,
+      t,
+      { publishAsGeneral: true },
+    );
+
+    expect(changes.map((change) => change.field)).not.toContain('variety');
+  });
+
   it('does not report equivalent values after unit conversion', () => {
     const unchanged = buildPublicCultureComparison(
       { ...privateCulture, notes: 'Public notes', growth_duration_days: 60 },

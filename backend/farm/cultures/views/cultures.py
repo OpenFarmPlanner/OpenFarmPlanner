@@ -27,11 +27,13 @@ from farm.models import (
     MediaFile,
     PublicCulture,
     Supplier,
+    format_culture_display_name,
 )
 from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
     PublicCulturePublishingValidationError,
+    build_public_culture_update_status,
     build_publishing_check_result,
     link_project_culture_to_public_reference,
     publish_culture_to_public_library,
@@ -611,6 +613,40 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         linked = link_project_culture_to_public_reference(culture=culture, public_culture=public_culture)
         serializer = self.get_serializer(linked)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='public-update')
+    def public_update(self, request: Request, pk: str | None = None) -> Response:
+        """Preview the pending library update for an imported culture.
+
+        Read-only on purpose: nothing is copied into the project until the user
+        confirms, at which point the frontend calls the existing
+        `public-cultures/<id>/import/` action with `mode=update` — the same
+        entry point the library page uses, so both surfaces go through one
+        import/update model.
+        """
+        culture = self.get_object()
+        update_status = build_public_culture_update_status(culture)
+        if update_status is None:
+            return Response({'available': False})
+        public_culture = update_status.public_culture
+        return Response({
+            'available': True,
+            'public_culture_id': public_culture.id,
+            'public_culture_name': format_culture_display_name(
+                public_culture.name, public_culture.variety,
+            ),
+            'public_version': update_status.public_version,
+            'local_version': update_status.local_version,
+            'has_local_changes': update_status.has_local_changes,
+            'changes': [
+                {
+                    'field': change.field,
+                    'local_value': change.local_value,
+                    'public_value': change.public_value,
+                }
+                for change in update_status.changes
+            ],
+        })
 
     @action(detail=True, methods=['get'], url_path='publish-public/preview')
     def publish_public_preview(self, request, pk=None):

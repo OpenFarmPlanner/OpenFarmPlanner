@@ -12,6 +12,7 @@ import type {
   NoteAttachment,
   CultureHistoryEntry,
   CultureDuplicateCheckResponse,
+  CulturePublicUpdate,
   ImportPublicCultureResponse,
   MediaFileRef,
   PublicCulture,
@@ -136,6 +137,9 @@ export const cultureAPI = {
     http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
   linkPublicCulture: (id: number, publicCultureId: number) =>
     http.post<Culture>(`/cultures/${id}/link-public-culture/`, { public_culture_id: publicCultureId }),
+  // Read-only preview of the pending library update; applying it goes through
+  // publicCultureAPI.importToProject(publicCultureId, 'update').
+  publicUpdate: (id: number) => http.get<CulturePublicUpdate>(`/cultures/${id}/public-update/`),
 };
 
 export const cropSpeciesAPI = {

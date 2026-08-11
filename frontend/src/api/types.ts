@@ -86,6 +86,8 @@ export interface Culture {
   owned_public_culture_id?: number | null;
   owned_public_culture_role?: PublicCultureOwnershipRole | null;
   is_modified_from_source?: boolean;
+  /** True when the linked library entry has a newer version this copy has not taken yet. */
+  public_update_available?: boolean;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
   package_size_g?: number; // deprecated, replaced by seed_packages
@@ -248,6 +250,27 @@ export interface PublicCulture {
   project_import_status?: PublicCultureProjectImportStatus | null;
   /** Number of project cultures (across all projects) currently linked to this entry. */
   imported_cultures_count?: number;
+}
+
+export interface PublicCultureUpdateFieldChange {
+  field: string;
+  local_value: unknown;
+  public_value: unknown;
+}
+
+/**
+ * Preview of the pending library update for one imported project culture.
+ * `available: false` means the copy is already on the library's current
+ * version (or is not linked to a published entry at all).
+ */
+export interface CulturePublicUpdate {
+  available: boolean;
+  public_culture_id?: number;
+  public_culture_name?: string;
+  public_version?: number;
+  local_version?: number | null;
+  has_local_changes?: boolean;
+  changes?: PublicCultureUpdateFieldChange[];
 }
 
 export interface PublicCultureProjectImportStatus {

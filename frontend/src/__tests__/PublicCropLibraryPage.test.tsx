@@ -654,7 +654,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Entdecken')).toBeInTheDocument();
     expect(screen.getByText('Übernehmen')).toBeInTheDocument();
     expect(screen.getByText('Verbessern')).toBeInTheDocument();
-    expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus/)).toBeInTheDocument();
+    expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur werden nie automatisch übernommen/)).toBeInTheDocument();
   });
 
   it('shows the public library load error without rendering an empty state', async () => {

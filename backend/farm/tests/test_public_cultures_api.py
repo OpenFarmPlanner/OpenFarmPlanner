@@ -998,6 +998,102 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['existing_variety'], 'Nantes')
         self.assertEqual(response.data['public_variety'], 'Nantes II')
 
+    def _import_and_rename_variety(self, *, variety: str = 'Nantes', renamed_to: str = 'Nantes II'):
+        """Publish `variety`, import it into the project, then rename it publicly."""
+        public_culture = PublicCulture.objects.create(
+            name='Carrot', variety=variety, status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json',
+        )
+        imported = Culture.objects.get(id=import_response.data['culture']['id'])
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': public_culture.version, 'variety': renamed_to},
+            format='json',
+        )
+        public_culture.refresh_from_db()
+        return public_culture, imported
+
+    def test_public_update_preview_reports_variety_rename_for_unmodified_copy(self):
+        """A public variety rename must surface on the private culture as a pending update.
+
+        The rename is only ever applied after the user confirms it, so the
+        preview is what makes it visible at all — without `variety` in the
+        compared field set the copy would keep the old Sorte with no hint.
+        """
+        _, imported = self._import_and_rename_variety()
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/public-update/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['available'])
+        self.assertEqual(response.data['local_version'], 1)
+        self.assertEqual(response.data['public_version'], 2)
+        self.assertFalse(response.data['has_local_changes'])
+        self.assertEqual(
+            [change for change in response.data['changes'] if change['field'] == 'variety'],
+            [{'field': 'variety', 'local_value': 'Nantes', 'public_value': 'Nantes II'}],
+        )
+        imported.refresh_from_db()
+        self.assertEqual(imported.variety, 'Nantes', 'the preview must not apply anything')
+
+    def test_public_update_preview_flags_local_changes_alongside_the_rename(self):
+        _, imported = self._import_and_rename_variety()
+        imported.notes = 'Local edit'
+        imported.save()
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/public-update/')
+
+        self.assertTrue(response.data['available'])
+        self.assertTrue(response.data['has_local_changes'])
+        changed_fields = {change['field'] for change in response.data['changes']}
+        self.assertIn('variety', changed_fields)
+        self.assertIn('notes', changed_fields)
+
+    def test_public_update_preview_reports_nothing_for_a_current_copy(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot', variety='Nantes', status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json',
+        )
+        imported_id = import_response.data['culture']['id']
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported_id}/public-update/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {'available': False})
+
+    def test_culture_list_flags_a_pending_public_update(self):
+        _, imported = self._import_and_rename_variety()
+
+        response = self.client.get('/openfarmplanner/api/cultures/')
+
+        rows = {row['id']: row for row in response.data['results']}
+        self.assertTrue(rows[imported.id]['public_update_available'])
+        self.assertFalse(rows[self.culture.id]['public_update_available'])
+
+    def test_confirming_the_update_applies_the_variety_rename_to_an_unmodified_copy(self):
+        public_culture, imported = self._import_and_rename_variety()
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'update'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['operation'], 'updated')
+        imported.refresh_from_db()
+        self.assertEqual(imported.variety, 'Nantes II')
+        self.assertEqual(imported.source_public_version, 2)
+        self.assertFalse(imported.is_modified_from_source)
+        preview = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/public-update/')
+        self.assertFalse(preview.data['available'])
+
     def test_reimporting_with_mode_update_overwrites_local_changes(self):
         public_culture = PublicCulture.objects.create(
             name='Carrot',
