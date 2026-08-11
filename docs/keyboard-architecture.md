@@ -51,7 +51,7 @@ add more specific regions nested inside `main-content` as needed — see §4.
 ## 2. Shortcut model — `frontend/src/commands/` + `frontend/src/hooks/useKeyboardShortcuts.ts`
 
 This already existed and is the app's shortcut manager; this pass extended
-it rather than building a second one (see AGENTS.md: avoid parallel
+it rather than building a second one (see CLAUDE.md: avoid parallel
 implementations).
 
 - `useKeyboardShortcuts(specs, enabled, { currentContexts })` is the single

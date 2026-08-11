@@ -7,7 +7,7 @@
 #   mkdocs serve
 #
 # Only files under docs/ are included in the nav below. Root-level docs
-# (README.md, AGENTS.md, CONTRIBUTING.md, backend/README.md,
+# (README.md, CLAUDE.md, CONTRIBUTING.md, backend/README.md,
 # frontend/README.md, *_IMPLEMENTATION.md) are intentionally left out of
 # this site config; they remain the canonical, GitHub-browsable entry
 # points and are cross-linked from docs/index.md instead.

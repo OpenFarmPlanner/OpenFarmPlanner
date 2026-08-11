@@ -80,7 +80,7 @@ docs/                  # This documentation
   preparation for a future public Crop Library. It exists *alongside* the
   older `/api/public-cultures/` endpoint, which the frontend still uses
   today. Full reasoning: [crop-library-architecture.md](./crop-library-architecture.md).
-- Views follow a thin-view convention (AGENTS.md): business logic goes into
+- Views follow a thin-view convention (CLAUDE.md): business logic goes into
   `backend/farm/services/*.py` (e.g. `services_area.py` for bed-area
   math, `services/seed_packages.py` for the seed-package optimizer,
   `services/public_cultures.py` for the publish/import bridge) rather than
@@ -185,7 +185,7 @@ docs/                  # This documentation
 
 ## Notable architecture & UX decisions worth knowing before changing things
 
-These are decisions already made deliberately — see AGENTS.md's
+These are decisions already made deliberately — see CLAUDE.md's
 "Architecture Safety Rules": don't change established UX behavior without
 an explicit request, and search for the existing pattern before introducing
 a new one.
