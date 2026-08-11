@@ -246,6 +246,8 @@ export interface PublicCulture {
   source_project?: number | null;
   /** Set when the active project already imported this entry; null otherwise. */
   project_import_status?: PublicCultureProjectImportStatus | null;
+  /** Number of project cultures (across all projects) currently linked to this entry. */
+  imported_cultures_count?: number;
 }
 
 export interface PublicCultureProjectImportStatus {
@@ -386,6 +388,10 @@ export interface ImportPublicCultureConfirmationRequiredError {
   detail: string;
   existing_culture_id: number;
   existing_culture_name: string;
+  /** Whether the library entry's variety name differs from the local copy's current variety. */
+  variety_changed?: boolean;
+  existing_variety?: string;
+  public_variety?: string;
 }
 
 export interface CropSpecies {

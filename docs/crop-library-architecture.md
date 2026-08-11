@@ -30,11 +30,25 @@ The public Crop Library follows an open-data model:
   immediately published as the current public version and records an immutable
   `PublicCultureRevision` snapshot with author, timestamp, changed fields, and
   old/new values where they are displayable.
-- The public entry identity is fixed after publication: `name`/`variety`
-  (`Kulturart` + `Sorte`) define the public-library record and are not part of
-  the wiki-style edit payload. The UI shows that identity as static context in
-  the shared culture form, while the API rejects manipulated direct edit
-  requests that try to change it.
+- The public entry identity is fixed after publication in one direction only:
+  `name` (`Kulturart`) can never be changed through the wiki-style edit
+  payload — the API rejects manipulated direct edit requests that try to
+  change it, and the UI shows it as static, read-only context in the shared
+  culture form. `variety` (`Sorte`) is the one exception: an admin editing a
+  public entry may correct the variety name (typo fixes) through the same
+  edit payload as any other editable field. The identity uniqueness invariant
+  from publish time still applies — `update_public_culture_directly()`
+  rejects a rename that would collide with another published entry for the
+  same species/name (`find_public_culture_identity_conflict()`, 409
+  `public_culture_variety_conflict`). Because imported project cultures are
+  linked by a stable `source_public_culture` foreign key rather than by name,
+  a variety rename propagates through the existing re-import/update model
+  (`import_public_culture_into_project()`) exactly like any other field edit:
+  the linked project culture picks it up on its next explicit
+  update/re-import, or the confirm-required conflict dialog if it has local
+  edits (the 409 response there also flags `variety_changed` so the frontend
+  can call the identity change out explicitly instead of blending it into a
+  generic warning).
 - Reverting a public entry restores an older snapshot by creating another new
   version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future

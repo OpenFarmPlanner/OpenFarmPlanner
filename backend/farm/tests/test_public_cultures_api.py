@@ -653,6 +653,39 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertIsNone(detail_response.data['project_import_status'])
 
+    def test_public_culture_exposes_imported_cultures_count_across_projects(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user,
+        )
+        self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        other_project = Project.objects.create(name='Other Project', slug='other-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        self.client.defaults['HTTP_X_PROJECT_ID'] = str(other_project.id)
+        self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        detail_response = self.client.get(f'/openfarmplanner/api/public-cultures/{public_culture.id}/')
+        self.assertEqual(detail_response.data['imported_cultures_count'], 2)
+
+        list_response = self.client.get('/openfarmplanner/api/public-cultures/')
+        entry = next(row for row in list_response.data['results'] if row['id'] == public_culture.id)
+        self.assertEqual(entry['imported_cultures_count'], 2)
+
+    def test_public_culture_edit_response_reports_imported_cultures_count(self):
+        public_culture = PublicCulture.objects.create(
+            name='Bean', variety='Canadian Wonder', status='published', created_by=self.user, version=1,
+        )
+        self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'variety': 'Canadian Wonder II'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['imported_cultures_count'], 1)
+
     def test_import_public_culture_keeps_species_translation_link_and_serves_english_name(self):
         species = CropSpecies.objects.create(name='Localized Import Species 1')
         CropSpeciesTranslation.objects.create(species=species, language_code='de', common_name='Ackerbohne')
@@ -932,6 +965,38 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['code'], 'import_requires_confirmation')
         self.assertEqual(response.data['existing_culture_id'], imported_id)
         self.assertEqual(Culture.objects.filter(source_public_culture=public_culture).count(), 1)
+
+    def test_reimporting_after_variety_rename_flags_variety_changed_in_confirmation_response(self):
+        """A public variety rename propagates through the existing 4-case import model.
+
+        Renaming the linked public entry's variety and then re-importing into a
+        locally-modified copy should raise the same confirmation-required
+        conflict as any other field change, with `variety_changed` set so the
+        frontend can call the identity rename out explicitly.
+        """
+        public_culture = PublicCulture.objects.create(
+            name='Carrot', variety='Nantes', status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+        imported_id = first_response.data['culture']['id']
+        imported = Culture.objects.get(id=imported_id)
+        imported.notes = 'Local edit'
+        imported.save()
+
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': public_culture.version, 'variety': 'Nantes II'},
+            format='json',
+        )
+
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'import_requires_confirmation')
+        self.assertTrue(response.data['variety_changed'])
+        self.assertEqual(response.data['existing_variety'], 'Nantes')
+        self.assertEqual(response.data['public_variety'], 'Nantes II')
 
     def test_reimporting_with_mode_update_overwrites_local_changes(self):
         public_culture = PublicCulture.objects.create(
@@ -1335,7 +1400,8 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             revisions[1].changed_fields,
         )
 
-    def test_public_culture_direct_edit_rejects_identity_changes(self):
+    def test_public_culture_direct_edit_rejects_name_changes(self):
+        """`name` (the crop) stays fixed after publication; only `variety` may be corrected."""
         public_culture = PublicCulture.objects.create(
             name='Tomato',
             variety='Roma',
@@ -1350,7 +1416,6 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             {
                 'base_version': 1,
                 'name': 'Cherry tomato',
-                'variety': 'Black Cherry',
                 'notes': 'Edited notes',
             },
             format='json',
@@ -1361,6 +1426,56 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(public_culture.name, 'Tomato')
         self.assertEqual(public_culture.variety, 'Roma')
         self.assertEqual(public_culture.notes, 'Original notes')
+
+    def test_public_culture_direct_edit_allows_variety_rename(self):
+        public_culture = PublicCulture.objects.create(
+            name='Tomato',
+            variety='Roma',
+            status='published',
+            created_by=self.user,
+            version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'variety': 'Roma VF'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['variety'], 'Roma VF')
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.variety, 'Roma VF')
+        self.assertEqual(public_culture.variety_normalized, 'roma vf')
+        self.assertEqual(public_culture.version, 2)
+        revision = PublicCultureRevision.objects.get(public_culture=public_culture, version=2)
+        self.assertIn(
+            {'field': 'variety', 'old_value': 'Roma', 'new_value': 'Roma VF'},
+            revision.changed_fields,
+        )
+
+    def test_public_culture_direct_edit_rejects_variety_rename_that_collides_with_existing_entry(self):
+        tomato_species = CropSpecies.objects.create(name='Tomato')
+        PublicCulture.objects.create(
+            name='Tomato', variety='San Marzano', status='published', created_by=self.user,
+            crop_species=tomato_species,
+        )
+        public_culture = PublicCulture.objects.create(
+            name='Tomato', variety='Roma', status='published', created_by=self.user,
+            crop_species=tomato_species, version=1,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': 1, 'variety': 'San Marzano'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'public_culture_variety_conflict')
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.variety, 'Roma')
+        self.assertEqual(public_culture.version, 1)
 
     def test_public_culture_versions_endpoint_returns_author_time_and_diff(self):
         public_culture = PublicCulture.objects.create(

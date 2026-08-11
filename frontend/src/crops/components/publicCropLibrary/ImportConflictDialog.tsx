@@ -16,6 +16,8 @@ export interface ImportConflictDialogProps {
   onCancel: () => void;
   onUpdate: () => void;
   onImportAsNew: () => void;
+  /** Set when the library variety name differs from the local copy's current variety, so the rename is called out explicitly instead of blending into the generic warning. */
+  varietyChange?: { from: string; to: string } | null;
 }
 
 /**
@@ -32,6 +34,7 @@ export function ImportConflictDialog({
   onCancel,
   onUpdate,
   onImportAsNew,
+  varietyChange,
 }: ImportConflictDialogProps) {
   return (
     <Dialog open={open} onClose={busy ? undefined : onCancel} maxWidth="sm" fullWidth>
@@ -40,6 +43,14 @@ export function ImportConflictDialog({
         <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           {t('library.importConflictDialog.message', { name: cultureName })}
         </Typography>
+        {varietyChange ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {t('library.importConflictDialog.varietyRenamed', {
+              from: varietyChange.from || t('library.page.notSpecified'),
+              to: varietyChange.to || t('library.page.notSpecified'),
+            })}
+          </Alert>
+        ) : null}
         <Alert severity="warning">
           {t('library.importConflictDialog.updateWarning')}
         </Alert>

@@ -118,6 +118,12 @@ interface CultureFormProps {
    * crop's `crop_species`/`name` so the new row groups correctly.
    */
   initialDraft?: Partial<Culture>;
+  /**
+   * Number of project cultures currently linked to this public-library entry
+   * (`variant="publicLibrary"` only). Shown so an admin can see the blast
+   * radius of an edit — especially a variety rename — before saving.
+   */
+  importedCopiesCount?: number;
 }
 
 // Default color for display color picker
@@ -300,6 +306,7 @@ export function CultureForm({
   hasExternalChanges = false,
   formKind = 'variety',
   initialDraft,
+  importedCopiesCount,
 }: CultureFormProps) {
   const { t } = useTranslation('cultures');
   const isEdit = Boolean(culture);
@@ -336,7 +343,7 @@ export function CultureForm({
 
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture, initialDraft));
-  const identityLabel = [formData.name, formData.variety].filter(Boolean).join(' · ');
+  const cropIdentityLabel = formData.name ?? '';
 
   const selectedSpeciesCulture = useMemo(
     () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
@@ -1193,11 +1200,16 @@ export function CultureForm({
                 }}
               >
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-                  {t('form.publicIdentityLabel')}
+                  {t('form.publicCropIdentityLabel')}
                 </Typography>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
-                  {identityLabel || t('noData')}
+                  {cropIdentityLabel || t('noData')}
                 </Typography>
+                {typeof importedCopiesCount === 'number' ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    {t('form.publicCultureImportedCopiesCount', { count: importedCopiesCount })}
+                  </Typography>
+                ) : null}
               </Box>
             ) : null}
             {showVarietyValueLegend ? (
@@ -1214,6 +1226,7 @@ export function CultureForm({
               getFieldTooltipProps={getFieldTooltipProps}
               showIdentityFields={isProjectForm}
               showVarietyField={showVarietyField}
+              varietyRequired={isProjectForm}
               showFirstVarietyField={showFirstVarietyField}
               firstVarietyName={firstVarietyName}
               onFirstVarietyNameChange={handleFirstVarietyNameChange}

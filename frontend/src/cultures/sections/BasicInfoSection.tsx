@@ -21,6 +21,8 @@ interface BasicInfoSectionProps {
   identityHint?: ReactNode;
   showIdentityFields?: boolean;
   showVarietyField?: boolean;
+  /** Whether the variety field is a required input. False for the public-library admin edit form, where a blank variety marks the species-level ("general crop") entry. */
+  varietyRequired?: boolean;
   showFirstVarietyField?: boolean;
   firstVarietyName?: string;
   onFirstVarietyNameChange?: (value: string) => void;
@@ -62,6 +64,7 @@ export function BasicInfoSection({
   identityHint,
   showIdentityFields = true,
   showVarietyField = true,
+  varietyRequired = true,
   showFirstVarietyField = false,
   firstVarietyName,
   onFirstVarietyNameChange,
@@ -100,9 +103,10 @@ export function BasicInfoSection({
 
   return (
     <>
-      {showIdentityFields ? (
+      {showIdentityFields || showVarietyField ? (
         <Box sx={fieldRowSx}>
-          {nameAutocomplete ? (
+          {showIdentityFields ? (
+            nameAutocomplete ? (
             <Autocomplete<PublicCultureSpeciesOption, false, false, true>
               freeSolo
               clearOnBlur={false}
@@ -173,7 +177,8 @@ export function BasicInfoSection({
               helperText={errors.name}
               slotProps={{ htmlInput: { maxLength: 200 } }}
             />
-          )}
+          )
+          ) : null}
           {showVarietyField ? (
             varietyAutocomplete ? (
               <Autocomplete<string, false, false, true>
@@ -197,7 +202,7 @@ export function BasicInfoSection({
                   <TextField
                     {...params}
                     sx={wideFieldSx}
-                    required
+                    required={varietyRequired}
                     label={t('form.variety')}
                     placeholder={t('form.varietyPlaceholder')}
                     error={Boolean(errors.variety)}
@@ -221,7 +226,7 @@ export function BasicInfoSection({
             ) : (
               <TextField
                 sx={wideFieldSx}
-                required
+                required={varietyRequired}
                 label={t('form.variety')}
                 placeholder={t('form.varietyPlaceholder')}
                 value={formData.variety}

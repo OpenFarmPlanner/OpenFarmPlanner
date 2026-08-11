@@ -122,6 +122,7 @@ const publicCultures: PublicCulture[] = [
     published_at: '2026-07-23T10:00:00Z',
     created_at: '2026-07-20T08:00:00Z',
     updated_at: '2026-07-27T12:00:00Z',
+    imported_cultures_count: 3,
   },
   {
     id: 2,
@@ -1707,16 +1708,19 @@ describe('PublicCropLibraryPage', () => {
 
     const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
     expect(editDialog).toHaveTextContent('Allgemeine Informationen');
-    expect(editDialog).toHaveTextContent('Öffentliche Identität');
-    expect(editDialog).toHaveTextContent('Tomate · Roma');
+    expect(editDialog).toHaveTextContent('Kultur (öffentliche Identität, nicht änderbar)');
+    expect(editDialog).toHaveTextContent('Tomate');
+    expect(editDialog).toHaveTextContent('Diese Änderung betrifft 3 lokale Kopien');
     expect(editDialog).toHaveTextContent('#7CB342');
     expect(within(editDialog).getByText('Originalsprache: Deutsch')).toBeInTheDocument();
     expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Sorte')).not.toBeInTheDocument();
 
+    const varietyInput = within(editDialog).getByLabelText('Sorte');
+    expect(varietyInput).toHaveValue('Roma');
     const notesInput = within(editDialog).getByLabelText('Notizen');
     const colorInput = within(editDialog).getByLabelText('Anzeigefarbe');
+    fireEvent.change(varietyInput, { target: { value: 'Roma VF' } });
     fireEvent.change(notesInput, { target: { value: 'Aktualisierte Notizen.' } });
     fireEvent.change(colorInput, { target: { value: '#123456' } });
     colorInput.focus();
@@ -1730,12 +1734,12 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
     expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
+      variety: 'Roma VF',
       notes: 'Aktualisierte Notizen.',
       display_color: '#123456',
       row_spacing_m: null,
     }));
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
-    expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
 
