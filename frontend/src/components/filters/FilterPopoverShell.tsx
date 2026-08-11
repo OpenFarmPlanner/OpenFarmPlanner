@@ -32,7 +32,9 @@ export function FilterPopoverShell({
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      PaperProps={{ sx: { width: { xs: 'min(92vw, 360px)', sm: 360 }, p: 1.5 } }}
+      slotProps={{
+        paper: { sx: { width: { xs: 'min(92vw, 360px)', sm: 360 }, p: 1.5 } }
+      }}
     >
       <Box
         sx={{

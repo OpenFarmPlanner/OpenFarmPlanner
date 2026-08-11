@@ -454,13 +454,15 @@ export default function PageHelp({ pageKey, ariaLabel, tooltip }: PageHelpProps)
         onClose={handleClose}
         fullWidth
         maxWidth="md"
-        PaperProps={{
-          sx: {
-            m: 0,
-            mt: 'auto',
-            borderRadius: '16px 16px 0 0',
-            maxHeight: '85vh',
-          },
+        slotProps={{
+          paper: {
+            sx: {
+              m: 0,
+              mt: 'auto',
+              borderRadius: '16px 16px 0 0',
+              maxHeight: '85vh',
+            },
+          }
         }}
       >
         <DialogTitle>{title}</DialogTitle>

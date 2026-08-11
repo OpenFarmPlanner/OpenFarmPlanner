@@ -330,18 +330,18 @@ export function PublicCultureLibraryDialog({
     : undefined;
 
   return (
-      <Dialog
-      open={open}
-      onClose={handleDialogClose}
-      maxWidth={useMobileFilterLayout ? false : 'md'}
-      fullWidth
-      fullScreen={useMobileFilterLayout}
-      slotProps={{
-        paper: {
-          sx: mobilePaperSx,
-        },
-      }}
-    >
+    <Dialog
+    open={open}
+    onClose={handleDialogClose}
+    maxWidth={useMobileFilterLayout ? false : 'md'}
+    fullWidth
+    fullScreen={useMobileFilterLayout}
+    slotProps={{
+      paper: {
+        sx: mobilePaperSx,
+      },
+    }}
+  >
       <DialogTitle sx={{ py: 2, px: useMobileFilterLayout ? 1.5 : 3, flexShrink: 0, bgcolor: 'background.paper' }}>
         {t('library.dialogTitle')}
       </DialogTitle>
@@ -367,26 +367,28 @@ export function PublicCultureLibraryDialog({
             setQuery(nextValue);
             onSearch(nextValue);
           }}
-          InputProps={{
-            startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-            endAdornment: (
-              <IconButton
-                size="small"
-                onClick={(event) => setFilterAnchorEl(event.currentTarget)}
-                aria-expanded={isFilterPopoverOpen}
-                aria-haspopup="dialog"
-                aria-controls={isFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
-                aria-label={t('filters.openAdvanced')}
-                sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
-              >
-                <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
-                  <TuneIcon fontSize="small" />
-                </Badge>
-              </IconButton>
-            ),
-          }}
           size="medium"
           sx={{ mb: 2 }}
+          slotProps={{
+            input: {
+              startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              endAdornment: (
+                <IconButton
+                  size="small"
+                  onClick={(event) => setFilterAnchorEl(event.currentTarget)}
+                  aria-expanded={isFilterPopoverOpen}
+                  aria-haspopup="dialog"
+                  aria-controls={isFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                  aria-label={t('filters.openAdvanced')}
+                  sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                >
+                  <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
+                    <TuneIcon fontSize="small" />
+                  </Badge>
+                </IconButton>
+              ),
+            }
+          }}
         />
 
         <PublicCultureFiltersPopover

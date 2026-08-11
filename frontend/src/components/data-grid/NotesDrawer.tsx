@@ -420,7 +420,9 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
       anchor="right"
       open={open}
       onClose={requestClose}
-      PaperProps={{ sx: { width: { xs: '100%', sm: '680px' }, maxWidth: '95vw' } }}
+      slotProps={{
+        paper: { sx: { width: { xs: '100%', sm: '680px' }, maxWidth: '95vw' } }
+      }}
     >
       <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }} onKeyDown={handleKeyDown}>
         <Typography variant="h6" gutterBottom>{title}</Typography>

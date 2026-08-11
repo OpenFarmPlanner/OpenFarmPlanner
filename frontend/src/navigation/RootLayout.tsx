@@ -1902,7 +1902,9 @@ function RootLayout() {
         ) : null}
       </AppBar>
 
-      <Drawer anchor="left" open={mobileNavOpen} onClose={closeMobileNav} PaperProps={{ sx: mobileNavigationDrawerPaperSx }}>
+      <Drawer anchor="left" open={mobileNavOpen} onClose={closeMobileNav} slotProps={{
+        paper: { sx: mobileNavigationDrawerPaperSx }
+      }}>
         <List sx={{ width: 280, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <ListItem sx={{ py: 1.5, px: 2 }}>
             <AppLogo size={26} showText to="/app/dashboard" />

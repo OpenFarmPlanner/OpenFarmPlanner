@@ -18,10 +18,21 @@ const makeCallbacks = (): GanttContextMenuCallbacks => ({
 });
 
 const task = (overrides: Partial<GanttTask> = {}): GanttTask =>
-  ({ id: 't1', name: 'Task', startDate: new Date(), endDate: new Date(), ...overrides }) as GanttTask;
+  (({
+    id: 't1',
+    name: 'Task',
+    startDate: new Date(),
+    endDate: new Date(),
+    ...overrides
+  }) as GanttTask);
 
 const group = (overrides: Partial<GanttTaskGroup> = {}): GanttTaskGroup =>
-  ({ id: 'g1', name: 'Group', tasks: [], ...overrides }) as GanttTaskGroup;
+  (({
+    id: 'g1',
+    name: 'Group',
+    tasks: [],
+    ...overrides
+  }) as GanttTaskGroup);
 
 describe('buildGanttContextMenuActions - task target', () => {
   it('always offers open-plan, edit, copy, and delete', () => {

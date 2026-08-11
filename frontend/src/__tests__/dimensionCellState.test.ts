@@ -7,7 +7,12 @@ import {
 } from '../components/hierarchy/utils/dimensionCellState';
 
 const row = (overrides: Partial<HierarchyRow>): HierarchyRow =>
-  ({ id: 1, level: 0, type: 'bed', ...overrides }) as HierarchyRow;
+  (({
+    id: 1,
+    level: 0,
+    type: 'bed',
+    ...overrides
+  }) as HierarchyRow);
 
 describe('calculateAreaValue', () => {
   it('returns undefined for location rows', () => {

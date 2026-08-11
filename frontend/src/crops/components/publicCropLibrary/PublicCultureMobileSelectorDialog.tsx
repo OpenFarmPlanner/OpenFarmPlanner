@@ -154,59 +154,60 @@ export function PublicCultureMobileSelectorDialog({
                   : selectedSpeciesViewKey !== node.speciesKey),
               );
               return (
-              <ListItemButton
-                key={`mobile-public-${node.id}`}
-                role={isClickable ? 'option' : 'presentation'}
-                aria-label={node.kind === 'species'
-                  ? node.label
-                  : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
-                aria-selected={isClickable ? isRowSelected : undefined}
-                selected={isRowSelected}
-                disabled={!isClickable}
-                onClick={() => {
-                  if (culture) {
-                    onSelect(culture, node.kind, node.speciesKey);
-                  } else if (firstVarietyCulture) {
-                    ensureExpanded(node.id);
-                    onSelect(firstVarietyCulture, 'variety', node.speciesKey);
-                  }
-                }}
-                onDoubleClick={(event) => {
-                  if (!hasChildren) {
-                    return;
-                  }
-                  event.preventDefault();
-                  event.stopPropagation();
-                  toggleExpand(node.id);
-                }}
-                sx={{
-                  borderRadius: 1.25,
-                  mb: 0.375,
-                  ml: `calc(${depth * 1.75}rem)`,
-                  pl: 0.75,
-                }}
-              >
-                <CropHierarchyExpandToggle
-                  hasChildren={hasChildren}
-                  isExpanded={expandedRows.has(node.id)}
-                  onToggle={() => toggleExpand(node.id)}
-                  expandLabel={t('hierarchy.expandCrop')}
-                  collapseLabel={t('hierarchy.collapseCrop')}
-                />
-                <ListItemText
-                  primary={node.kind === 'species'
+                <ListItemButton
+                  key={`mobile-public-${node.id}`}
+                  role={isClickable ? 'option' : 'presentation'}
+                  aria-label={node.kind === 'species'
                     ? node.label
-                    : node.label || (culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : '')}
-                  secondary={node.kind === 'species'
-                    ? [
-                      culture?.crop_family,
-                      node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
-                    ].filter(Boolean).join(' • ') || undefined
-                    : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
-                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 }}
-                  secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
-                />
-              </ListItemButton>
+                    : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
+                  aria-selected={isClickable ? isRowSelected : undefined}
+                  selected={isRowSelected}
+                  disabled={!isClickable}
+                  onClick={() => {
+                    if (culture) {
+                      onSelect(culture, node.kind, node.speciesKey);
+                    } else if (firstVarietyCulture) {
+                      ensureExpanded(node.id);
+                      onSelect(firstVarietyCulture, 'variety', node.speciesKey);
+                    }
+                  }}
+                  onDoubleClick={(event) => {
+                    if (!hasChildren) {
+                      return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleExpand(node.id);
+                  }}
+                  sx={{
+                    borderRadius: 1.25,
+                    mb: 0.375,
+                    ml: `calc(${depth * 1.75}rem)`,
+                    pl: 0.75,
+                  }}
+                >
+                  <CropHierarchyExpandToggle
+                    hasChildren={hasChildren}
+                    isExpanded={expandedRows.has(node.id)}
+                    onToggle={() => toggleExpand(node.id)}
+                    expandLabel={t('hierarchy.expandCrop')}
+                    collapseLabel={t('hierarchy.collapseCrop')}
+                  />
+                  <ListItemText
+                    primary={node.kind === 'species'
+                      ? node.label
+                      : node.label || (culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : '')}
+                    secondary={node.kind === 'species'
+                      ? [
+                        culture?.crop_family,
+                        node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
+                      ].filter(Boolean).join(' • ') || undefined
+                      : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
+                    slotProps={{
+                      primary: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 },
+                      secondary: { fontSize: '0.8rem', color: 'text.secondary' }
+                    }} />
+                </ListItemButton>
               );
             })}
           </List>

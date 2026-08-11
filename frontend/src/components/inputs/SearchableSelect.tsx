@@ -131,22 +131,24 @@ export function SearchableSelect<T = unknown>({
           autoFocus={autoFocus}
           sx={textFieldSx}
           slotProps={{
+            ...params.slotProps,
+
             htmlInput: {
-              ...params.inputProps,
-              ref: mergeRefs(params.inputProps.ref, inputRef),
+              ...params.slotProps.htmlInput,
+              ref: mergeRefs(params.slotProps.htmlInput.ref, inputRef),
               tabIndex: inputTabIndex,
             },
-          }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                {params.InputProps.endAdornment}
-                {endAdornment}
-              </span>
-            ),
-          }}
-        />
+
+            input: {
+              ...params.slotProps.input,
+              endAdornment: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  {params.slotProps.input.endAdornment}
+                  {endAdornment}
+                </span>
+              ),
+            }
+          }} />
       )}
     />
   );

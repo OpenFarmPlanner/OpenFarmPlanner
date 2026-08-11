@@ -99,7 +99,9 @@ export function PublicLanguageSwitcher({ dense = false, sx }: { dense?: boolean;
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={closeMenu}
-        MenuListProps={{ 'aria-labelledby': buttonId, role: 'menu' }}
+        slotProps={{
+          list: { 'aria-labelledby': buttonId, role: 'menu' }
+        }}
       >
         {SUPPORTED_LANGUAGES.map((entry) => (
           <MenuItem

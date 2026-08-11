@@ -1397,22 +1397,24 @@ export default function PublicCropLibraryPage() {
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
-                  InputProps={{
-                    endAdornment: (
-                      <IconButton
-                        size="small"
-                        onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
-                        aria-expanded={isLibraryFilterPopoverOpen}
-                        aria-haspopup="dialog"
-                        aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
-                        aria-label={t('filters.openAdvanced')}
-                        sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
-                      >
-                        <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
-                          <TuneIcon fontSize="small" />
-                        </Badge>
-                      </IconButton>
-                    ),
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <IconButton
+                          size="small"
+                          onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
+                          aria-expanded={isLibraryFilterPopoverOpen}
+                          aria-haspopup="dialog"
+                          aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                          aria-label={t('filters.openAdvanced')}
+                          sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                        >
+                          <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
+                            <TuneIcon fontSize="small" />
+                          </Badge>
+                        </IconButton>
+                      ),
+                    }
                   }}
                 />
               </Box>

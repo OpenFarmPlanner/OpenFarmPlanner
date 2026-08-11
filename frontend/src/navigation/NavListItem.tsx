@@ -65,7 +65,9 @@ export default function NavListItem({
       sx={itemSx}
     >
       <ListItemIcon sx={iconSx}>{icon}</ListItemIcon>
-      {textProps ? <ListItemText primary={label} primaryTypographyProps={textProps} /> : null}
+      {textProps ? <ListItemText primary={label} slotProps={{
+        primary: textProps
+      }} /> : null}
     </ListItemButton>
   );
 

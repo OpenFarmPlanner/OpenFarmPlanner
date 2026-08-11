@@ -68,11 +68,13 @@ export function HelpDialog({ open, onClose }: HelpDialogProps): ReactElement {
       fullWidth
       maxWidth="md"
       fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 3,
-          width: isMobile ? '100%' : 880,
-        },
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            width: isMobile ? '100%' : 880,
+          },
+        }
       }}
     >
       <DialogTitle sx={{ pr: 6 }}>
