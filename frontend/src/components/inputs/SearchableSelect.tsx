@@ -123,7 +123,7 @@ export function SearchableSelect<T = unknown>({
         </li>
       )}
       noOptionsText={noOptionsText}
-      renderInput={({ InputProps, inputProps, ...params }) => (
+      renderInput={(params) => (
         <TextField
           {...params}
           label={label}
@@ -131,17 +131,19 @@ export function SearchableSelect<T = unknown>({
           autoFocus={autoFocus}
           sx={textFieldSx}
           slotProps={{
+            ...params.slotProps,
+
             htmlInput: {
-              ...inputProps,
-              ref: mergeRefs(inputProps.ref, inputRef),
+              ...params.slotProps.htmlInput,
+              ref: mergeRefs(params.slotProps.htmlInput.ref, inputRef),
               tabIndex: inputTabIndex,
             },
 
             input: {
-              ...InputProps,
+              ...params.slotProps.input,
               endAdornment: (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                  {InputProps.endAdornment}
+                  {params.slotProps.input.endAdornment}
                   {endAdornment}
                 </span>
               ),
