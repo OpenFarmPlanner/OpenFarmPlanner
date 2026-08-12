@@ -107,6 +107,29 @@ describe('AccountSettingsApiTokensCard', () => {
     });
   });
 
+  it('creates a delete-scoped token when explicitly selected', async () => {
+    const user = userEvent.setup();
+    listMock.mockResolvedValue({ data: [] });
+    createMock.mockResolvedValue({ data: createdToken({ scope: 'delete' }) });
+
+    render(<AccountSettingsApiTokensCard />);
+    await screen.findByText('Du hast noch keine API-Tokens erstellt.');
+
+    await user.click(screen.getByRole('button', { name: 'Token erstellen' }));
+    await user.type(screen.getByLabelText('Name'), 'Delete Agent');
+    await user.click(screen.getByRole('combobox', { name: 'Berechtigungen' }));
+    await user.click(await screen.findByRole('option', { name: 'Lesen, schreiben und löschen' }));
+    await user.click(screen.getAllByRole('button', { name: 'Token erstellen' })[0]);
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    expect(createMock).toHaveBeenCalledWith({
+      name: 'Delete Agent',
+      project: 1,
+      scope: 'delete',
+      expires_at: null,
+    });
+  });
+
   it('shows the plaintext token once, with an explicit one-time warning', async () => {
     const user = userEvent.setup();
     listMock.mockResolvedValue({ data: [] });

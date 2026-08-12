@@ -152,7 +152,7 @@ class ApiTokenLifecycleTests(ApiTokenTestBase):
 
 
 class ApiTokenScopeTests(ApiTokenTestBase):
-    """`read` must not mutate; `write` must not delete or administrate."""
+    """`read` must not mutate; destructive actions require the delete scope."""
 
     def test_read_token_can_list_and_retrieve(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
@@ -200,9 +200,44 @@ class ApiTokenScopeTests(ApiTokenTestBase):
         self.assertIsNone(self.culture.deleted_at)
 
     def test_write_token_cannot_undelete(self):
+        self.culture.deleted_at = timezone.now()
+        self.culture.save(update_fields=['deleted_at'])
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         response = self.bearer_client(raw_token).post(f'/api/cultures/{self.culture.id}/undelete/')
+
         self.assertEqual(response.status_code, 403)
+        self.culture.refresh_from_db()
+        self.assertIsNotNone(self.culture.deleted_at)
+
+    def test_delete_token_can_soft_delete_and_undelete_cultures(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_DELETE)
+        client = self.bearer_client(raw_token)
+
+        deleted = client.delete(f'/api/cultures/{self.culture.id}/')
+        self.assertEqual(deleted.status_code, 204)
+        self.culture.refresh_from_db()
+        self.assertIsNotNone(self.culture.deleted_at)
+
+        restored = client.post(f'/api/cultures/{self.culture.id}/undelete/')
+        self.assertEqual(restored.status_code, 200)
+        self.culture.refresh_from_db()
+        self.assertIsNone(self.culture.deleted_at)
+
+    def test_delete_token_can_still_create_and_patch(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_DELETE)
+        client = self.bearer_client(raw_token)
+
+        created = client.post(
+            '/api/cultures/',
+            {'name': 'Delete Scope', 'variety': 'X'},
+            format='json',
+        )
+        self.assertEqual(created.status_code, 201)
+
+        patched = client.patch(
+            f'/api/cultures/{created.data["id"]}/', {'notes': 'via delete token'}, format='json'
+        )
+        self.assertEqual(patched.status_code, 200)
 
     def test_supporting_collections_are_read_only(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
@@ -214,6 +249,14 @@ class ApiTokenScopeTests(ApiTokenTestBase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Supplier.objects.filter(name='X').exists())
+
+    def test_delete_token_cannot_delete_supporting_collections(self):
+        supplier = Supplier.objects.create(project=self.project, name='Keep Me')
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_DELETE)
+        response = self.bearer_client(raw_token).delete(f'/api/suppliers/{supplier.id}/')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Supplier.objects.filter(pk=supplier.id).exists())
 
 
 class ApiTokenHeaderCasingTests(ApiTokenTestBase):

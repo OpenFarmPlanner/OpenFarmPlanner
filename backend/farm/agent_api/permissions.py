@@ -8,8 +8,8 @@ than being exposed by the mere act of existing.
 Three independent checks apply to every token-authenticated request:
 
 1. **Surface** — the view/action must be on the allowlist.
-2. **Verb** — ``DELETE`` is refused everywhere in this version, regardless of
-   scope, so a compromised token can never destroy data.
+2. **Delete actions** — destructive or restorative actions require a dedicated
+   delete scope and an allowlist marker, so write tokens cannot destroy data.
 3. **Scope** — ``read`` tokens may only use safe (non-mutating) HTTP methods.
 """
 
@@ -20,12 +20,9 @@ from rest_framework import permissions
 from farm.models import ProjectApiToken
 
 # Verbs that never change data. Anything outside this set requires a `write`
-# token; DELETE is additionally blocked by `BLOCKED_METHODS` below.
+# token; DELETE and marked restorative actions additionally require the
+# dedicated delete scope.
 SAFE_METHODS = frozenset(permissions.SAFE_METHODS)
-
-# Destructive verbs withheld from API tokens in this first version. Deleting
-# project data stays a deliberate, session-authenticated action in the UI.
-BLOCKED_METHODS = frozenset({'DELETE'})
 
 
 def get_request_api_token(request) -> ProjectApiToken | None:
@@ -64,12 +61,6 @@ class ApiTokenAccessPermission(permissions.BasePermission):
         if token is None:
             return True
 
-        if request.method in BLOCKED_METHODS:
-            self.message = (
-                'API tokens cannot delete data. Use the web application for deletions.'
-            )
-            return False
-
         allowed_actions = getattr(view, 'api_token_actions', None)
         if not allowed_actions:
             self.message = 'This endpoint is not available for API tokens.'
@@ -78,6 +69,11 @@ class ApiTokenAccessPermission(permissions.BasePermission):
         action = _resolve_action(request, view)
         if action not in allowed_actions:
             self.message = f"The action '{action}' is not available for API tokens."
+            return False
+
+        delete_actions = getattr(view, 'api_token_delete_actions', set())
+        if (request.method == 'DELETE' or action in delete_actions) and not token.can_delete():
+            self.message = "This API token cannot delete data; 'delete' scope is required."
             return False
 
         if request.method not in SAFE_METHODS and not token.can_write():

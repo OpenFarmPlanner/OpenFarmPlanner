@@ -275,6 +275,32 @@ def _culture_paths() -> dict[str, Any]:
                 'tags': ['cultures'],
                 'responses': {'200': {'description': 'Updated culture.'}},
             },
+            'delete': {
+                'summary': 'Soft-delete one culture',
+                'description': (
+                    'Requires scope `delete`. This marks the culture as deleted '
+                    'inside the bound project; it does not hard-delete history.'
+                ),
+                'tags': ['cultures'],
+                'responses': {
+                    '204': {'description': 'Culture soft-deleted.'},
+                    '404': {'description': 'Not found.'},
+                },
+            },
+        },
+        '/cultures/{id}/undelete/': {
+            'parameters': [
+                {'name': 'id', 'in': 'path', 'required': True, 'schema': {'type': 'integer'}},
+            ],
+            'post': {
+                'summary': 'Restore a soft-deleted culture',
+                'description': 'Requires scope `delete`.',
+                'tags': ['cultures'],
+                'responses': {
+                    '200': {'description': 'Restored culture.'},
+                    '404': {'description': 'Not found.'},
+                },
+            },
         },
     }
 
@@ -450,10 +476,10 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
                 'Authenticate with `Authorization: Bearer <token>`. A token is '
                 'permanently bound to one project; the server derives the project '
                 'from the token, so no header or parameter can widen its reach. '
-                'Tokens carry either `read` (safe methods only) or `write` scope. '
-                'DELETE and all administrative endpoints — project members, '
-                'invitations, account settings, Django admin — are unavailable to '
-                'tokens in this version.\n\n'
+                'Tokens carry `read` (safe methods only), `write` (create and '
+                'update), or `delete` (write plus culture soft-delete and restore) '
+                'scope. Administrative endpoints — project members, invitations, '
+                'account settings, Django admin — are unavailable to tokens.\n\n'
                 'Distances are stored in SI metres. Field names state their unit '
                 '(`row_spacing_m`, `sowing_depth_m`), and the import endpoints also '
                 'accept the `_cm` and `_mm` spellings, converting them. A bare '

@@ -99,7 +99,7 @@
   },
   "apiTokens": {
     "title": "API tokens for coding agents",
-    "description": "Personal tokens let external tools such as Codex or Claude Code use the OpenFarmPlanner API on your behalf. Every token is permanently bound to one project and cannot reach any other — not even projects you are a member of. Tokens cannot delete data or change project members, invitations, or account settings.",
+    "description": "Personal tokens let external tools such as Codex or Claude Code use the OpenFarmPlanner API on your behalf. Every token is permanently bound to one project and cannot reach any other — not even projects you are a member of. Tokens can never change project members, invitations, or account settings.",
     "loading": "Loading tokens…",
     "empty": "You have not created any API tokens yet.",
     "noProjects": "You need to be a member of a project before you can create an API token.",
@@ -111,11 +111,13 @@
     },
     "scopes": {
       "read": "Read",
-      "write": "Read and write"
+      "write": "Read and write",
+      "delete": "Read, write, and delete"
     },
     "scopeHelp": {
       "read": "May read the project's data. Cannot change anything.",
-      "write": "May read the project's data and create or update cultures. Cannot delete."
+      "write": "May read the project's data and create or update cultures. Cannot delete.",
+      "delete": "May additionally delete and restore cultures. Project members, invitations, account settings, and other administrative areas stay blocked."
     },
     "meta": {
       "project": "Project",

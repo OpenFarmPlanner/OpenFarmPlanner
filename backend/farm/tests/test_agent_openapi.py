@@ -34,12 +34,25 @@ class OpenApiDocumentTests(APITestCase):
             '/culture-imports/{draft_id}/apply/',
             '/cultures/',
             '/cultures/{id}/',
+            '/cultures/{id}/undelete/',
         ):
             self.assertIn(path, self.document['paths'])
 
-    def test_delete_is_not_documented_anywhere(self):
-        for path_item in self.document['paths'].values():
-            self.assertNotIn('delete', path_item)
+    def test_only_culture_soft_delete_is_documented_as_delete(self):
+        delete_paths = [
+            path
+            for path, path_item in self.document['paths'].items()
+            if 'delete' in path_item
+        ]
+        self.assertEqual(delete_paths, ['/cultures/{id}/'])
+        self.assertIn(
+            'scope `delete`',
+            self.document['paths']['/cultures/{id}/']['delete']['description'],
+        )
+
+    def test_culture_undelete_requires_delete_scope(self):
+        operation = self.document['paths']['/cultures/{id}/undelete/']['post']
+        self.assertIn('scope `delete`', operation['description'])
 
     def test_only_the_name_field_is_required(self):
         self.assertEqual(self.culture_schema['required'], ['name'])

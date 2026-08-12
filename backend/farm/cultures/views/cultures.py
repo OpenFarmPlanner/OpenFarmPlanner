@@ -74,17 +74,20 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     serializer_class = CultureSerializer
 
     # Actions reachable with a project-bound API token (see
-    # farm/agent_api/permissions.py). `destroy` and `undelete` are deliberately
-    # absent: deletion and restoration stay session-only in this version.
+    # farm/agent_api/permissions.py). `destroy` and `undelete` additionally
+    # require the dedicated delete scope.
     api_token_actions = {
         'list',
         'retrieve',
         'create',
         'update',
         'partial_update',
+        'destroy',
         'duplicate_check',
         'history',
+        'undelete',
     }
+    api_token_delete_actions = {'destroy', 'undelete'}
 
     def _set_latest_revision_actor(self, culture: Culture) -> None:
         actor_label = _current_actor_label(self.request)
@@ -760,6 +763,9 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
 class CultureUndeleteView(APIView):
     """Undelete a soft-deleted culture by ID."""
+
+    api_token_actions = {'post'}
+    api_token_delete_actions = {'post'}
 
     def post(self, request, pk: int):
         active_project = get_active_project_or_400(request)

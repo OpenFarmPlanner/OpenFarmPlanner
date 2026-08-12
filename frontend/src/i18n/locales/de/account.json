@@ -99,7 +99,7 @@
   },
   "apiTokens": {
     "title": "API-Tokens für Coding-Agenten",
-    "description": "Mit persönlichen Tokens können externe Werkzeuge wie Codex oder Claude Code die OpenFarmPlanner-API in deinem Namen nutzen. Jedes Token ist fest an genau ein Projekt gebunden und kommt an kein anderes heran – auch nicht an Projekte, in denen du Mitglied bist. Tokens können keine Daten löschen und weder Projektmitglieder, Einladungen noch Kontoeinstellungen ändern.",
+    "description": "Mit persönlichen Tokens können externe Werkzeuge wie Codex oder Claude Code die OpenFarmPlanner-API in deinem Namen nutzen. Jedes Token ist fest an genau ein Projekt gebunden und kommt an kein anderes heran – auch nicht an Projekte, in denen du Mitglied bist. Tokens können nie Projektmitglieder, Einladungen oder Kontoeinstellungen ändern.",
     "loading": "Tokens werden geladen…",
     "empty": "Du hast noch keine API-Tokens erstellt.",
     "noProjects": "Du musst Mitglied in einem Projekt sein, um ein API-Token erstellen zu können.",
@@ -111,11 +111,13 @@
     },
     "scopes": {
       "read": "Lesen",
-      "write": "Lesen und schreiben"
+      "write": "Lesen und schreiben",
+      "delete": "Lesen, schreiben und löschen"
     },
     "scopeHelp": {
       "read": "Darf die Daten des Projekts lesen. Kann nichts ändern.",
-      "write": "Darf die Daten des Projekts lesen sowie Kulturen anlegen und aktualisieren. Kann nichts löschen."
+      "write": "Darf die Daten des Projekts lesen sowie Kulturen anlegen und aktualisieren. Kann nichts löschen.",
+      "delete": "Darf Kulturen zusätzlich löschen und wiederherstellen. Projektmitglieder, Einladungen, Kontoeinstellungen und andere Verwaltungsbereiche bleiben gesperrt."
     },
     "meta": {
       "project": "Projekt",

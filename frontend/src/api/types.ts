@@ -712,10 +712,10 @@ export interface CultureHistoryChange {
  * Scope of a project-bound API token.
  *
  * `read` permits safe requests only; `write` additionally permits creating and
- * updating project data. Neither scope can delete anything or reach
- * administrative endpoints — see docs/agent-api.md.
+ * updating project data; `delete` also permits culture soft-delete and restore.
+ * No scope can reach administrative endpoints — see docs/agent-api.md.
  */
-export type ApiTokenScope = 'read' | 'write';
+export type ApiTokenScope = 'read' | 'write' | 'delete';
 
 /** Lifecycle status derived server-side from expiry and revocation. */
 export type ApiTokenStatus = 'active' | 'expired' | 'revoked';

@@ -54,11 +54,13 @@ class ProjectApiToken(TimestampedModel):
 
     SCOPE_READ = 'read'
     SCOPE_WRITE = 'write'
+    SCOPE_DELETE = 'delete'
     SCOPE_CHOICES = [
         (SCOPE_READ, 'Read only'),
         (SCOPE_WRITE, 'Read and write'),
+        (SCOPE_DELETE, 'Read, write, and delete'),
     ]
-    SCOPE_VALUES = {SCOPE_READ, SCOPE_WRITE}
+    SCOPE_VALUES = {SCOPE_READ, SCOPE_WRITE, SCOPE_DELETE}
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -120,7 +122,7 @@ class ProjectApiToken(TimestampedModel):
         :param user: Owner of the token.
         :param project: Project the token is permanently bound to.
         :param name: Human-readable label.
-        :param scope: Either ``read`` or ``write``.
+        :param scope: Either ``read``, ``write``, or ``delete``.
         :param expires_at: Optional expiry timestamp.
         :return: Tuple of persisted token and its plaintext value.
         """
@@ -166,7 +168,11 @@ class ProjectApiToken(TimestampedModel):
 
     def can_write(self) -> bool:
         """Return True when the token's scope permits mutating requests."""
-        return self.scope == self.SCOPE_WRITE
+        return self.scope in {self.SCOPE_WRITE, self.SCOPE_DELETE}
+
+    def can_delete(self) -> bool:
+        """Return True when the token's scope permits destructive requests."""
+        return self.scope == self.SCOPE_DELETE
 
     def revoke(self) -> None:
         """Mark the token as revoked; a revoked token is never reactivated."""

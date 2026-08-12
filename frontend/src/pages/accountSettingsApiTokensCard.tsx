@@ -32,7 +32,7 @@ import { mediumStackedFieldSx, wideSingleColumnFieldSx } from '../components/for
 import { actionButtonSx } from './accountSettingsForm';
 import { InlineEditor, SectionAlerts, SettingsCard } from './accountSettingsCards';
 
-const SCOPES: ApiTokenScope[] = ['read', 'write'];
+const SCOPES: ApiTokenScope[] = ['read', 'write', 'delete'];
 
 const STATUS_COLOR: Record<ApiToken['status'], 'success' | 'default' | 'error'> = {
   active: 'success',

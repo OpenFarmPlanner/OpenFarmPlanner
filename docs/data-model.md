@@ -54,10 +54,11 @@ erDiagram
 - **`ProjectApiToken`** is the credential external coding agents use. It is
   bound to one user *and* one project at creation time and stores only a
   SHA-256 digest of the token plus a short display prefix; the plaintext is
-  returned once and never again. Its `scope` (`read` / `write`) is a second,
-  narrower permission axis on top of `ProjectMembership.role` — it can only
-  ever *reduce* what the owning member may do, never widen it, and it grants
-  no delete and no administrative access at all. **`CultureImportDraft`**
+  returned once and never again. Its `scope` (`read` / `write` / `delete`) is a
+  second, narrower permission axis on top of `ProjectMembership.role` — it can
+  only ever *reduce* what the owning member may do, never widen it, and it
+  grants no administrative access at all. The `delete` scope is limited to
+  culture soft-delete/restore. **`CultureImportDraft`**
   stores a validated import awaiting confirmation, which is what makes the
   preview/apply split tamper-evident. See [agent-api.md](./agent-api.md).
 - Every API request that touches project-scoped data must send an

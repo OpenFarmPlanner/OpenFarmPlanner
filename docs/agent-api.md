@@ -34,7 +34,7 @@ different problem and is not a substitute:
 | Effect | logs in and starts a **browser session** | authenticates a **single request** |
 | Reuse | one-time | reusable until expiry or revocation |
 | CSRF | required (it is a session) | not required |
-| Scopes | none | `read` / `write` |
+| Scopes | none | `read` / `write` / `delete` |
 | Surface | everything the session user may do | an explicit allowlist |
 
 `agent-login` remains what it was: a superuser convenience for opening the app
@@ -76,7 +76,8 @@ itself in, and neither can Django admin or any non-DRF view.
 
 **4. Scope and action check (DRF permission).**
 `ApiTokenAccessPermission` additionally verifies the specific action, refuses
-`DELETE` unconditionally, and refuses unsafe methods for `read` tokens.
+`DELETE` unless the token carries the dedicated `delete` scope, and refuses
+unsafe methods for `read` tokens.
 
 **5. Queryset scoping.** `ProjectScopedMixin` filters every queryset by the
 active project, so a guessed object id from another project returns 404 on read
@@ -98,30 +99,32 @@ exactly as before.
 
 ## Permissions
 
-Two scopes:
+Three scopes:
 
 | Scope | HTTP methods | May do |
 |---|---|---|
 | `read` | `GET`, `HEAD`, `OPTIONS` | read the bound project's data |
 | `write` | `read` + `POST`, `PUT`, `PATCH` | additionally create and update cultures, and run imports |
+| `delete` | `write` + allowlisted `DELETE` | additionally soft-delete and restore cultures |
 
 Reachable endpoints (everything else returns 403 for tokens):
 
-| Endpoint | `read` | `write` |
-|---|---|---|
-| `GET /api/cultures/`, `GET /api/cultures/{id}/` | ✅ | ✅ |
-| `POST /api/cultures/`, `PATCH`/`PUT /api/cultures/{id}/` | ❌ | ✅ |
-| `GET /api/cultures/duplicate-check/`, `GET /api/cultures/{id}/history/` | ✅ | ✅ |
-| `POST /api/culture-imports/preview/` | ❌ | ✅ |
-| `GET /api/culture-imports/{draft_id}/` | ✅ | ✅ |
-| `POST /api/culture-imports/{draft_id}/apply/` | ❌ | ✅ |
-| `GET /api/suppliers/`, `/seed-packages/`, `/culture-supplier-data/` | ✅ | ✅ |
-| `GET /api/locations/`, `/fields/`, `/beds/`, `/planting-plans/`, `/tasks/` | ✅ | ✅ |
-| `GET /api/agent/openapi.json` | ✅ | ✅ |
+| Endpoint | `read` | `write` | `delete` |
+|---|---|---|---|
+| `GET /api/cultures/`, `GET /api/cultures/{id}/` | ✅ | ✅ | ✅ |
+| `POST /api/cultures/`, `PATCH`/`PUT /api/cultures/{id}/` | ❌ | ✅ | ✅ |
+| `DELETE /api/cultures/{id}/`, `POST /api/cultures/{id}/undelete/` | ❌ | ❌ | ✅ |
+| `GET /api/cultures/duplicate-check/`, `GET /api/cultures/{id}/history/` | ✅ | ✅ | ✅ |
+| `POST /api/culture-imports/preview/` | ❌ | ✅ | ✅ |
+| `GET /api/culture-imports/{draft_id}/` | ✅ | ✅ | ✅ |
+| `POST /api/culture-imports/{draft_id}/apply/` | ❌ | ✅ | ✅ |
+| `GET /api/suppliers/`, `/seed-packages/`, `/culture-supplier-data/` | ✅ | ✅ | ✅ |
+| `GET /api/locations/`, `/fields/`, `/beds/`, `/planting-plans/`, `/tasks/` | ✅ | ✅ | ✅ |
+| `GET /api/agent/openapi.json` | ✅ | ✅ | ✅ |
 
 Explicitly **not** reachable with any token, in this version:
 
-- every `DELETE`, including soft-deleting a culture and `undelete`
+- every `DELETE` except culture soft-delete with a `delete` token
 - project members, invitations, project switching, project create/delete
 - account settings, `/api/auth/*`, data export, consent
 - API-token management itself — a token cannot mint another token
@@ -135,10 +138,10 @@ Opting a new endpoint in is a deliberate one-line change: add
 ## Getting a token
 
 In the app: **Account settings → API tokens for coding agents**. Choose a name,
-the project, `read` or `write`, and optionally an expiry date (at most one year
-out). The plaintext is shown once, in a dialog, with an explicit note that it
-cannot be retrieved again. Afterwards the list shows only the display prefix
-(`abcd1234…`), the status, and `last_used_at`.
+the project, `read`, `write`, or `delete`, and optionally an expiry date (at
+most one year out). The plaintext is shown once, in a dialog, with an explicit
+note that it cannot be retrieved again. Afterwards the list shows only the
+display prefix (`abcd1234…`), the status, and `last_used_at`.
 
 Revoking is immediate and permanent; a revoked token is never reactivated.
 
@@ -391,14 +394,16 @@ naming the same culture is blocked with `duplicate_in_payload`.
 
 ## Known limitations
 
-- **No deletion.** Removing a culture stays a session-authenticated action in
-  the UI. Also no `undelete`, no history restore.
+- **Deletion is culture-only.** Only `delete` tokens may soft-delete or restore
+  cultures. Suppliers, locations, fields, beds, planting plans, tasks, projects,
+  members, invitations, and account areas still cannot be deleted or restored
+  with any token. Global history restore remains session-only.
 - **Read-only supporting data.** Suppliers, locations, fields, beds, planting
   plans, and tasks can be read but not changed with a token. An import can
   create a supplier indirectly via `supplier_name`, but there is no supplier
   write endpoint.
-- **Two scopes only.** No per-resource scopes; `write` covers all writable
-  culture data of the bound project.
+- **Three coarse scopes only.** There is no separate per-field or per-resource
+  grant beyond the dedicated culture delete/restore scope.
 - **One project per token.** Working across two projects means two tokens. This
   is the point, not an oversight.
 - **Drafts expire after two hours** and are not garbage-collected on a schedule;
