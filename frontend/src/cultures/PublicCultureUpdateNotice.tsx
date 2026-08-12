@@ -7,9 +7,12 @@
  * copied it. This notice is the missing trigger: the culture list already
  * reports `public_update_available`, the field-level diff is fetched on demand,
  * and nothing is copied until the user confirms it in the dialog.
+ *
+ * The dialog offers three distinct outcomes: applying the update, declining it
+ * for exactly this public version ("Ablehnen", which hides the notice but
+ * changes nothing locally), and closing without deciding.
  */
 
-import { useCallback, useState } from 'react';
 import {
   Alert,
   Box,
@@ -23,18 +26,16 @@ import {
 } from '@mui/material';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import { useTranslation } from '../i18n';
-import { cultureAPI, publicCultureAPI } from '../api/api';
-import type { Culture, CulturePublicUpdate, PublicCultureUpdateFieldChange } from '../api/types';
+import type { Culture, PublicCultureUpdateFieldChange } from '../api/types';
 import {
   formatPublicCultureValue,
   getPublicCultureComparisonFieldLabel,
 } from '../crops/components/publicCropLibrary/formatters';
-import { showGlobalSnackbar } from '../utils/globalSnackbar';
+import type { PublicCultureUpdateController } from './usePublicCultureUpdate';
 
 interface PublicCultureUpdateNoticeProps {
   culture: Culture;
-  /** Called after the update was applied, so the page can reload its cultures. */
-  onUpdated?: () => void;
+  controller: PublicCultureUpdateController;
 }
 
 const DIFF_ROW_SX = {
@@ -47,90 +48,49 @@ const DIFF_ROW_SX = {
   borderColor: 'divider',
 } as const;
 
-export function PublicCultureUpdateNotice({ culture, onUpdated }: PublicCultureUpdateNoticeProps) {
+export function PublicCultureUpdateNotice({ culture, controller }: PublicCultureUpdateNoticeProps) {
   const { t } = useTranslation(['cultures', 'common']);
-  const [update, setUpdate] = useState<CulturePublicUpdate | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [applying, setApplying] = useState(false);
-
-  const handleOpen = useCallback(async (): Promise<void> => {
-    if (!culture.id) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await cultureAPI.publicUpdate(culture.id);
-      if (!response.data.available) {
-        // The entry moved on (or back) between the list load and this click.
-        showGlobalSnackbar({ message: t('library.publicUpdate.gone'), severity: 'info' });
-        onUpdated?.();
-        return;
-      }
-      setUpdate(response.data);
-    } catch {
-      showGlobalSnackbar({ message: t('library.publicUpdate.loadError'), severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }, [culture.id, onUpdated, t]);
-
-  const handleClose = useCallback((): void => {
-    if (applying) {
-      return;
-    }
-    setUpdate(null);
-  }, [applying]);
-
-  const handleApply = useCallback(async (): Promise<void> => {
-    if (!update?.public_culture_id) {
-      return;
-    }
-    setApplying(true);
-    try {
-      await publicCultureAPI.importToProject(update.public_culture_id, 'update');
-      showGlobalSnackbar({
-        message: t('library.publicUpdate.applied', { name: update.public_culture_name ?? culture.name }),
-        severity: 'success',
-      });
-      setUpdate(null);
-      onUpdated?.();
-    } catch {
-      showGlobalSnackbar({ message: t('library.publicUpdate.applyError'), severity: 'error' });
-    } finally {
-      setApplying(false);
-    }
-  }, [culture.name, onUpdated, t, update]);
-
-  if (!culture.public_update_available) {
-    return null;
-  }
+  const {
+    update,
+    hasOpenUpdate,
+    isLoading,
+    isApplying,
+    isRejecting,
+    openDiff,
+    closeDiff,
+    applyUpdate,
+    rejectUpdate,
+  } = controller;
 
   const changes: PublicCultureUpdateFieldChange[] = update?.changes ?? [];
   const varietyChange = changes.find((change) => change.field === 'variety');
   const otherChanges = changes.filter((change) => change.field !== 'variety');
+  const isBusy = isApplying || isRejecting;
 
   return (
     <>
-      <Alert
-        severity="info"
-        icon={<SyncOutlinedIcon fontSize="small" />}
-        data-testid="culture-public-update-notice"
-        sx={{ mt: 1.5 }}
-        action={(
-          <Button
-            color="inherit"
-            size="small"
-            onClick={() => void handleOpen()}
-            disabled={loading}
-          >
-            {loading ? t('library.publicUpdate.loading') : t('library.publicUpdate.review')}
-          </Button>
-        )}
-      >
-        {t('library.publicUpdate.notice')}
-      </Alert>
+      {hasOpenUpdate ? (
+        <Alert
+          severity="info"
+          icon={<SyncOutlinedIcon fontSize="small" />}
+          data-testid="culture-public-update-notice"
+          sx={{ mt: 1.5 }}
+          action={(
+            <Button
+              color="inherit"
+              size="small"
+              onClick={openDiff}
+              disabled={isLoading}
+            >
+              {isLoading ? t('library.publicUpdate.loading') : t('library.publicUpdate.review')}
+            </Button>
+          )}
+        >
+          {t('library.publicUpdate.notice')}
+        </Alert>
+      ) : null}
 
-      <Dialog open={update !== null} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={update !== null} onClose={closeDiff} maxWidth="sm" fullWidth>
         <DialogTitle>{t('library.publicUpdate.dialogTitle')}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
@@ -138,6 +98,12 @@ export function PublicCultureUpdateNotice({ culture, onUpdated }: PublicCultureU
               name: update?.public_culture_name ?? culture.name,
             })}
           </Typography>
+
+          {update?.is_rejected ? (
+            <Alert severity="info" sx={{ mb: 2 }} data-testid="culture-public-update-rejected-hint">
+              {t('library.publicUpdate.rejectedHint')}
+            </Alert>
+          ) : null}
 
           {varietyChange ? (
             <Alert severity="info" sx={{ mb: 2 }} data-testid="culture-public-update-variety-change">
@@ -188,17 +154,26 @@ export function PublicCultureUpdateNotice({ culture, onUpdated }: PublicCultureU
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, flexWrap: 'wrap', gap: 1 }}>
           {/* autoFocus on cancel so a reflexive Enter never overwrites the local copy. */}
-          <Button autoFocus variant="outlined" onClick={handleClose} disabled={applying}>
+          <Button autoFocus variant="outlined" onClick={closeDiff} disabled={isBusy}>
             {t('common:actions.cancel')}
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={rejectUpdate}
+            disabled={isBusy || update?.is_rejected}
+            startIcon={isRejecting ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            {isRejecting ? t('library.publicUpdate.rejecting') : t('library.publicUpdate.reject')}
           </Button>
           <Button
             variant="contained"
             color={update?.has_local_changes ? 'error' : 'primary'}
-            onClick={() => void handleApply()}
-            disabled={applying}
-            startIcon={applying ? <CircularProgress size={16} color="inherit" /> : undefined}
+            onClick={applyUpdate}
+            disabled={isBusy}
+            startIcon={isApplying ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            {applying ? t('library.publicUpdate.applying') : t('library.publicUpdate.apply')}
+            {isApplying ? t('library.publicUpdate.applying') : t('library.publicUpdate.apply')}
           </Button>
         </DialogActions>
       </Dialog>

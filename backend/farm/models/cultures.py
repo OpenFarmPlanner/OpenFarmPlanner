@@ -266,6 +266,15 @@ class Culture(TimestampedModel):
     )
     source_public_culture = models.ForeignKey('PublicCulture', null=True, blank=True, on_delete=models.SET_NULL, related_name='imported_cultures')
     source_public_version = models.IntegerField(null=True, blank=True)
+    rejected_public_version = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            'Public-library version the user explicitly declined to take over. '
+            'Only silences the update notice for exactly that version; a newer '
+            'public version surfaces the notice again.'
+        ),
+    )
     origin_type = models.CharField(max_length=50, choices=ORIGIN_TYPE_CHOICES, default=ORIGIN_MANUAL)
     is_modified_from_source = models.BooleanField(default=False)
     

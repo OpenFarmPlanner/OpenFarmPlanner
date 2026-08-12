@@ -150,6 +150,19 @@ class PublicCulturePublishingValidationError(Exception):
         self.check_result = check_result
 
 
+class PublicCultureUpdateBlockedError(Exception):
+    """Raised when a copy may not overwrite its public entry yet.
+
+    Guards the case the diff dialog's "Ablehnen" makes reachable: a user who
+    declined a public version must not be able to push their older local values
+    over exactly that change from the publish/update flow.
+    """
+
+    def __init__(self, *, reason: str) -> None:
+        super().__init__('Publishing this culture would overwrite an unreviewed public version.')
+        self.reason = reason
+
+
 class PublicCultureStatusTransitionError(Exception):
     """Raised when a public culture status transition is not allowed."""
 
@@ -593,6 +606,8 @@ def build_project_culture_payload(public_culture: PublicCulture) -> dict[str, An
     payload['source_public_version'] = public_culture.version
     payload['origin_type'] = Culture.ORIGIN_IMPORTED
     payload['is_modified_from_source'] = False
+    # Taking a version over ends any earlier rejection: the copy is aligned again.
+    payload['rejected_public_version'] = None
     return payload
 
 
@@ -930,6 +945,15 @@ def publish_culture_to_public_library(
     original_language_code: str | None = None,
     publish_as_general: bool = False,
 ) -> tuple[PublicCulture, list[DuplicateCandidate], str]:
+    # Checked before the quality gate: a copy that has not taken over the current
+    # public version must not overwrite it, however complete its own fields are.
+    update_target_for_guard = find_owned_public_culture_for_update(culture=culture, user=user)
+    if update_target_for_guard and has_pending_public_culture_update(culture):
+        rejected = is_public_culture_update_rejected(culture)
+        raise PublicCultureUpdateBlockedError(
+            reason='update_rejected' if rejected else 'update_pending',
+        )
+
     check_result = build_publishing_check_result(
         culture=culture,
         crop_species_id=crop_species_id,
@@ -1217,6 +1241,7 @@ class PublicCultureUpdateStatus:
     public_version: int
     local_version: int | None
     has_local_changes: bool
+    is_rejected: bool
     changes: list[PublicCultureFieldChange]
 
 
@@ -1233,8 +1258,73 @@ def has_pending_public_culture_update(culture: Culture) -> bool:
     return culture.source_public_version != public_culture.version
 
 
+def is_public_culture_update_rejected(culture: Culture) -> bool:
+    """Whether the user explicitly declined exactly the version that is pending.
+
+    The rejection is stored as a version number rather than a flag, so a later
+    public edit produces a new version the user never decided on and the notice
+    comes back on its own.
+    """
+    if not has_pending_public_culture_update(culture):
+        return False
+    return culture.rejected_public_version == culture.source_public_culture.version
+
+
+def has_open_public_culture_update(culture: Culture) -> bool:
+    """A pending library update the user has not decided on yet (drives the notice)."""
+    if not has_pending_public_culture_update(culture):
+        return False
+    return not is_public_culture_update_rejected(culture)
+
+
+def resolve_public_publish_block(culture: Culture) -> str | None:
+    """Why pushing this culture into the public library is currently blocked, if it is.
+
+    Only linked copies can be blocked — a culture that was never imported has no
+    public version to diverge from. The reasons are ordered by how the versions
+    relate, so the UI can explain the exact situation instead of a generic hint:
+
+    - ``update_pending``: the library moved on and the user has not decided yet;
+      pushing now would overwrite an unreviewed public change.
+    - ``update_rejected``: the user deliberately declined that public version;
+      pushing would silently undo the very change they declined.
+    - ``no_local_changes``: the copy matches the current public version and
+      carries no local edits, so there is nothing to contribute.
+    """
+    if culture.source_public_culture_id is None:
+        return None
+    public_culture = culture.source_public_culture
+    if public_culture is None or public_culture.status != PublicCulture.STATUS_PUBLISHED:
+        return None
+    if has_pending_public_culture_update(culture):
+        return 'update_rejected' if is_public_culture_update_rejected(culture) else 'update_pending'
+    if not culture.is_modified_from_source:
+        return 'no_local_changes'
+    return None
+
+
+def reject_public_culture_update(culture: Culture) -> Culture:
+    """Record that the user declined the pending public version for this copy.
+
+    Deliberately does not touch a single library-sourced field: rejecting is a
+    decision about the *notice*, not an edit of the local copy. The write uses a
+    queryset update so it never runs :meth:`Culture.save`'s divergence pass or
+    records a revision for what is not a content change.
+    """
+    public_culture = culture.source_public_culture
+    if public_culture is None:
+        return culture
+    Culture.objects.filter(pk=culture.pk).update(rejected_public_version=public_culture.version)
+    culture.rejected_public_version = public_culture.version
+    return culture
+
+
 def build_public_culture_update_status(culture: Culture) -> PublicCultureUpdateStatus | None:
-    """The field-level preview of the pending library update, or None if there is none."""
+    """The field-level preview of the pending library update, or None if there is none.
+
+    Still built after a rejection: the user must be able to reopen the diff and
+    change their mind without waiting for another public edit.
+    """
     if not has_pending_public_culture_update(culture):
         return None
     public_culture = culture.source_public_culture
@@ -1254,6 +1344,7 @@ def build_public_culture_update_status(culture: Culture) -> PublicCultureUpdateS
         public_version=public_culture.version,
         local_version=culture.source_public_version,
         has_local_changes=bool(culture.is_modified_from_source),
+        is_rejected=is_public_culture_update_rejected(culture),
         changes=changes,
     )
 

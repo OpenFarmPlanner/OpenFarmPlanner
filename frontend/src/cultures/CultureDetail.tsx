@@ -21,6 +21,8 @@ import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
+import { PublicCultureUpdateMarker } from './PublicCultureUpdateMarker';
+import { usePublicCultureUpdate } from './usePublicCultureUpdate';
 import {
   Badge,
   Box,
@@ -434,6 +436,10 @@ const detailSectionGridSx = {
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
   );
+  const publicUpdate = usePublicCultureUpdate(selectedCulture, onPublicUpdateApplied);
+  const publishBlockedTooltip = selectedCulture?.public_publish_blocked_reason
+    ? t(`library.publicUpdate.publishBlocked.${selectedCulture.public_publish_blocked_reason}`)
+    : undefined;
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
   const isSpeciesView = Boolean(
@@ -948,6 +954,7 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
+                        <PublicCultureUpdateMarker controller={publicUpdate} />
                       </Box>
                     </Box>
                   </Box>
@@ -981,12 +988,13 @@ const detailSectionGridSx = {
                 onPublish={() => onPublishCulture?.()}
                 isPublishing={isPublishingCulture}
                 publishLabel={publishActionLabel ?? t('library.publishButton')}
+                publishBlockedTooltip={publishBlockedTooltip}
                 onDelete={() => onDeleteCulture?.(selectedCulture)}
                 t={t}
               />
             </Box>
 
-            <PublicCultureUpdateNotice culture={selectedCulture} onUpdated={onPublicUpdateApplied} />
+            <PublicCultureUpdateNotice culture={selectedCulture} controller={publicUpdate} />
 
             {showVarietyValueLegend ? (
               <Box sx={{ mt: 1.25 }}>

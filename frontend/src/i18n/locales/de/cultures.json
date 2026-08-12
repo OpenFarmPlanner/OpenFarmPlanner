@@ -821,7 +821,21 @@
       "apply": "Übernehmen",
       "applying": "Übernehme…",
       "applied": "Die Änderungen an „{{name}}“ wurden übernommen.",
-      "applyError": "Die Änderungen konnten nicht übernommen werden."
+      "applyError": "Die Änderungen konnten nicht übernommen werden.",
+      "reject": "Ablehnen",
+      "rejecting": "Lehne ab…",
+      "rejected": "Die Änderungen an „{{name}}“ wurden abgelehnt. Deine lokale Kopie bleibt unverändert.",
+      "rejectError": "Die Änderungen konnten nicht abgelehnt werden.",
+      "rejectedHint": "Du hast diese Version bereits abgelehnt. Du kannst sie hier jederzeit doch noch übernehmen.",
+      "markerLabel": "Update verfügbar",
+      "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
+      "markerRejectedLabel": "Update abgelehnt",
+      "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
+      "publishBlocked": {
+        "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die öffentliche Kulturbibliothek aktualisierst.",
+        "update_rejected": "Du hast eine neuere Version aus der Bibliothek abgelehnt. Bitte zuerst die öffentliche Kultur direkt bearbeiten, um die Versionen anzugleichen.",
+        "no_local_changes": "Deine lokale Kopie entspricht der aktuellen öffentlichen Version. Bearbeite sie zuerst lokal, um eine Aktualisierung zu veröffentlichen."
+      }
     },
     "publishButton": "Veröffentlichen",
     "publishTooltip": "Veröffentlicht die ausgewählte Kultur dauerhaft in der gemeinschaftlichen Kulturbibliothek.",

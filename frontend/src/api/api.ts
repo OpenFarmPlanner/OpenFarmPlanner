@@ -140,6 +140,9 @@ export const cultureAPI = {
   // Read-only preview of the pending library update; applying it goes through
   // publicCultureAPI.importToProject(publicCultureId, 'update').
   publicUpdate: (id: number) => http.get<CulturePublicUpdate>(`/cultures/${id}/public-update/`),
+  // Records the explicit "do not take this version" decision. Nothing is copied;
+  // only the notice for exactly this public version disappears.
+  rejectPublicUpdate: (id: number) => http.post<Culture>(`/cultures/${id}/public-update/reject/`),
 };
 
 export const cropSpeciesAPI = {
