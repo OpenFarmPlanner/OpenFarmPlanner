@@ -23,6 +23,8 @@ Explicitly **not** indexable (disallowed in `robots.txt` and served with a
 - `/app/*` — the authenticated application
 - `/login`, `/register`, `/activate`, `/forgot-password`, `/reset-password`,
   `/confirm-email-change`
+- `/demo` — shareable guest-demo entry page; direct links are supported, but
+  the route is not intended for search indexing
 - `/invite/*`, `/invitation`
 
 The single source of truth for both lists is
@@ -87,20 +89,36 @@ Every other route (`/app/*`, `/login`, `/register`, password reset,
 invitations, ...) is untouched — only the four files above are written. The
 browser then boots the exact same SPA bundle as before
 (`createRoot(...).render(...)`, no hydration) and takes over normal
-client-side routing/i18n immediately; there is nothing route- or
-language-specific baked into the JS bundle itself, only the initial markup.
+client-side routing/i18n immediately; there is no route-specific content baked
+into the JS bundle itself, only the initial markup.
 
-Because the app hardcodes German (`SITE_LANGUAGE = 'de'` in `seoConfig.ts`,
-`i18next`'s `lng`/`fallbackLng` both `'de'`, no client-side language
-detection), the prerendered HTML and the first client render are always in
-the same language — there is no content-language flash to guard against
-today. If language detection is ever added, prerendering must be revisited
-together with it.
+The prerendered public HTML uses the site's canonical SEO language
+(`SITE_LANGUAGE = 'de'` in `seoConfig.ts`). Runtime UI language is still
+user-specific, so an English visitor must not see the German prerendered body
+while the production bundle is loading. `frontend/index.html` therefore runs a
+tiny synchronous language preboot before first paint: it reads
+`localStorage["ui.language"]`, then `navigator.languages`/`navigator.language`,
+falls back to English, sets `<html lang>`, and hides the prerendered root when
+the initial UI language is not German. React removes that guard in a
+`useLayoutEffect` after the first committed app render, so the first visible
+client-rendered frame is already in the resolved language.
 
 `PRERENDER_OUT_DIR` (default `dist`) tells the script which build output
 directory to prerender into, mirroring `vite build --outDir`; ops sets this
 alongside `VITE_BASE_PATH` when building into `dist-production`/`dist-staging`
 (see `OpenFarmPlanner-ops/deploy/deploy_frontend.sh`).
+
+Production must serve the generated files with distinct cache policies:
+
+- HTML documents (`index.html`, `app-shell.html`, prerendered route
+  `index.html` files) are revalidated (`Cache-Control: no-cache`) so each
+  deploy immediately delivers the current hashed asset references.
+- Vite content-hashed JavaScript/CSS/assets under `assets/` may be long-lived
+  and immutable because a content change creates a new filename.
+- Non-hashed JSON resources, including legacy public locale files under
+  `public/locales/`, are revalidated rather than cached immutably.
+- There is no service worker in the frontend build, so stale startup behavior
+  should be debugged through the browser/proxy/static-host cache layers.
 
 **Local verification caveat:** `vite preview`'s static file server only
 resolves a route's prerendered `index.html` for a *trailing-slash* request
@@ -158,6 +176,7 @@ npm run build   # postbuild runs prerender.ts automatically
 grep -E '<title>|rel="canonical"|name="description"' dist/impressum/index.html
 grep -E '<title>|rel="canonical"|name="description"' dist/datenschutz/index.html
 grep -E '<title>|rel="canonical"|name="description"' dist/nutzungsbedingungen/index.html
+! grep -R -E 'https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|::1)' dist --include='*.html'
 ```
 
 Or over HTTP against `vite preview` — note the trailing slash (see the caveat

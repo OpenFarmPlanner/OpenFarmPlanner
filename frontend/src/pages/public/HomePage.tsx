@@ -11,17 +11,16 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
-import type { TFunction } from 'i18next';
-import { Link as RouterLink, useNavigate } from 'react-router';
-import { AuthApiError } from '../../auth/authApi';
-import { useAuth } from '../../auth/useAuth';
+import { Link as RouterLink } from 'react-router';
 import { useTranslation } from '../../i18n';
 import LegalLinks from '../../components/legal/LegalLinks';
 import HeroImage from '../../components/HeroImage';
 import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
+import { useGuestDemoStart } from './useGuestDemoStart';
+import AppIcon from '../../components/layout/AppIcon';
 
 const PRODUCT_TOUR_ITEMS = [
   {
@@ -71,7 +70,6 @@ const PRODUCT_TOUR_ITEMS = [
 type ProductTourKey = (typeof PRODUCT_TOUR_ITEMS)[number]['key'];
 
 const HERO_TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5)';
-const RETRY_DETAIL_PATTERN = /available in (\d+(?:\.\d+)?) seconds/i;
 
 // Single glassmorphism card behind all hero content (heading, description,
 // buttons, beta note, GitHub link) - one clearly-bounded, semi-transparent
@@ -93,68 +91,36 @@ const HERO_CARD_SX = {
   boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
 };
 
-function parsePositiveSeconds(value: unknown): number | null {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return Math.ceil(parsed);
-}
+// Three-column grid so the logo stays centred in the header: the empty first
+// column and the language-selector column are both `1fr`, so they always claim
+// the same width and the middle column stays centred no matter how long the
+// current language label is ("Deutsch", "English", future languages). The side
+// columns use `minmax(0, ...)` so a wide selector never pushes the row past the
+// container width on small screens.
+const HEADER_SX = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+  alignItems: 'center',
+  columnGap: { xs: 0.5, sm: 1 },
+  minHeight: 48,
+};
 
-function getRetrySeconds(error: AuthApiError): number | null {
-  const explicitRetry = parsePositiveSeconds(error.retryAfterSeconds);
-  if (explicitRetry !== null) {
-    return explicitRetry;
-  }
-
-  const payloadRetry = parsePositiveSeconds(error.payload?.retry_after);
-  if (payloadRetry !== null) {
-    return payloadRetry;
-  }
-
-  if (typeof error.payload?.detail !== 'string') {
-    return null;
-  }
-
-  const match = RETRY_DETAIL_PATTERN.exec(error.payload.detail);
-  return match ? parsePositiveSeconds(match[1]) : null;
-}
-
-function formatRetryTime(seconds: number, t: TFunction<'home'>): string {
-  if (seconds < 60) {
-    return t('landing.retryTime.lessThanMinute');
-  }
-
-  const totalMinutes = Math.ceil(seconds / 60);
-  if (totalMinutes < 60) {
-    return t('landing.retryTime.minutes', { count: totalMinutes });
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (minutes === 0) {
-    return t('landing.retryTime.hours', { count: hours });
-  }
-  return t('landing.retryTime.hoursAndMinutes', { hours, minutes });
-}
-
-function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
-  if (seconds < 60) {
-    return t('landing.retryTime.compact.lessThanMinute');
-  }
-
-  const totalMinutes = Math.ceil(seconds / 60);
-  if (totalMinutes < 60) {
-    return t('landing.retryTime.compact.minutes', { count: totalMinutes });
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (minutes === 0) {
-    return t('landing.retryTime.compact.hours', { count: hours });
-  }
-  return t('landing.retryTime.compact.hoursAndMinutes', { hours, minutes });
-}
+// Centring costs the wordmark the width of the language selector twice (once
+// for the selector itself, once for the mirroring spacer column), so the title
+// only has room for its full size once the viewport is wide enough. The clamps
+// keep the regular size from ~360px (phones) and ~690px (tablets) upwards and
+// scale the heading down below that, so it can never run into the selector.
+const TITLE_SX = {
+  minWidth: 0,
+  fontSize: {
+    xs: 'clamp(0.75rem, calc(11.5vw - 25px), 1rem)',
+    sm: 'clamp(1.6rem, 4.4vw, 1.9rem)',
+    md: '2.5rem',
+  },
+  fontWeight: 600,
+  lineHeight: 1.1,
+  overflowWrap: 'normal',
+};
 
 /**
  * Public landing page with refined spacing and modern visual hierarchy.
@@ -163,153 +129,63 @@ function formatCompactRetryTime(seconds: number, t: TFunction<'home'>): string {
  */
 export default function HomePage() {
   const { t, i18n } = useTranslation('home');
-  const navigate = useNavigate();
-  const { startGuestDemo } = useAuth();
-  const [isStartingDemo, setIsStartingDemo] = useState(false);
-  const [demoStartError, setDemoStartError] = useState<string | null>(null);
-  const [retryAvailableAt, setRetryAvailableAt] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const {
+    isStartingDemo,
+    demoStartError,
+    isDemoRetryBlocked,
+    isDemoButtonDisabled,
+    compactRetryTime,
+    startDemo,
+  } = useGuestDemoStart();
   const [activeTourKey, setActiveTourKey] = useState<ProductTourKey>('areas');
   const activeTourItem = PRODUCT_TOUR_ITEMS.find((item) => item.key === activeTourKey) ?? PRODUCT_TOUR_ITEMS[0];
   const screenshotLanguage = (i18n.resolvedLanguage ?? i18n.language ?? 'de').split('-')[0] === 'en' ? 'en' : 'de';
   const activeTourImage = activeTourItem.images[screenshotLanguage];
-  const retryRemainingSeconds = retryAvailableAt === null
-    ? 0
-    : Math.max(0, Math.ceil((retryAvailableAt - currentTime) / 1000));
-  const isDemoRetryBlocked = retryRemainingSeconds > 0;
-  const isDemoButtonDisabled = isStartingDemo || isDemoRetryBlocked;
-
-  useEffect(() => {
-    if (retryAvailableAt === null) {
-      return undefined;
-    }
-
-    if (retryAvailableAt <= Date.now()) {
-      setRetryAvailableAt(null);
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      const nextTime = Date.now();
-      setCurrentTime(nextTime);
-      if (retryAvailableAt <= nextTime) {
-        setRetryAvailableAt(null);
-      }
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [retryAvailableAt]);
 
   const handleTourChange = (_event: SyntheticEvent, value: ProductTourKey): void => {
     setActiveTourKey(value);
-  };
-
-  const handleStartDemo = async (): Promise<void> => {
-    if (isDemoButtonDisabled) {
-      return;
-    }
-
-    setIsStartingDemo(true);
-    setDemoStartError(null);
-    try {
-      await startGuestDemo();
-      navigate('/app/fields-beds');
-    } catch (error) {
-      if (error instanceof AuthApiError && error.status === 429) {
-        const retrySeconds = getRetrySeconds(error);
-        if (retrySeconds !== null) {
-          const retryUntil = Date.now() + retrySeconds * 1000;
-          setCurrentTime(Date.now());
-          setRetryAvailableAt(retryUntil);
-          setDemoStartError(t('landing.actions.demoRateLimitedWithTime', {
-            time: formatRetryTime(retrySeconds, t),
-          }));
-        } else {
-          setDemoStartError(t('landing.actions.demoRateLimited'));
-        }
-      } else if (error instanceof AuthApiError && error.isNetworkError) {
-        setDemoStartError(t('landing.actions.demoNetworkError'));
-      } else if (error instanceof AuthApiError && error.status !== undefined && error.status >= 500) {
-        setDemoStartError(t('landing.actions.demoServerError'));
-      } else if (error instanceof AuthApiError && error.code === 'unexpected_response') {
-        setDemoStartError(t('landing.actions.demoUnexpectedResponse'));
-      } else {
-        console.error('Error starting guest demo:', error);
-        setDemoStartError(t('landing.actions.demoStartError'));
-      }
-    } finally {
-      setIsStartingDemo(false);
-    }
   };
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Box component="main" sx={{ flex: 1 }}>
         <Container maxWidth="lg" sx={{ width: '100%', pt: { xs: 1.5, md: 2 }, pb: { xs: 2.5, md: 3 } }}>
-          <Stack
-            component="header"
-            direction="row"
-            spacing={{ xs: 0.75, sm: 2 }}
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ minHeight: 48 }}
-          >
+          <Box component="header" sx={HEADER_SX}>
             <Stack
               direction="row"
               spacing={{ xs: 0.75, sm: 1.4 }}
-              alignItems="center"
-              sx={{ minWidth: 0, flex: '1 1 auto' }}
+              sx={{ gridColumn: 2, minWidth: 0,
+          alignItems: "center", }}
             >
-              <Box
-                component="img"
-                src={publicAssetUrl('/favicon.png')}
-                alt=""
-                aria-hidden
-                sx={{
-                  width: { xs: 32, sm: 40, md: 48 },
-                  height: 'auto',
-                  flexShrink: 0,
-                  opacity: 0.95,
-                }}
-              />
-              <Typography
-                variant="h2"
-                component="h1"
-                sx={{
-                  minWidth: 0,
-                  fontSize: { xs: '1.1rem', sm: '1.9rem', md: '2.5rem' },
-                  fontWeight: 600,
-                  lineHeight: 1.1,
-                  overflowWrap: 'normal',
-                }}
-              >
+              <AppIcon decorative size={{ xs: 32, sm: 40, md: 48 }} sx={{ opacity: 0.95 }} />
+              <Typography variant="h2" component="h1" sx={TITLE_SX}>
                 {t('landing.title')}
               </Typography>
             </Stack>
-            <Box sx={{ flex: '0 0 auto' }}>
+            <Box sx={{ gridColumn: 3, justifySelf: 'end' }}>
               <PublicLanguageSwitcher dense />
             </Box>
-          </Stack>
+          </Box>
         </Container>
 
         <Box
           component="section"
           sx={{
-            position: 'relative',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            px: 2,
-            py: { xs: 4, md: 5 },
-            overflow: 'hidden',
-            bgcolor: '#0d1f12',
+              position: 'relative',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              px: 2,
+              py: { xs: 4, md: 5 },
+              overflow: 'hidden',
+              bgcolor: '#0d1f12',
           }}
         >
           <HeroImage alt={t('landing.heroImageAlt')} />
           <Box sx={HERO_CARD_SX}>
-            <Stack spacing={{ xs: 2, md: 2.2 }} alignItems="center">
+            <Stack spacing={{ xs: 2, md: 2.2 }} sx={{ alignItems: "center", }} >
               <Typography
                 variant="h6"
                 sx={{
@@ -333,13 +209,14 @@ export default function HomePage() {
                 {t('landing.description')}
               </Typography>
 
-              <Stack spacing={1.15} alignItems="center" sx={{ width: '100%', pt: 0.3 }}>
+              <Stack spacing={1.15} sx={{ width: '100%', pt: 0.3,
+                alignItems: "center", }}  >
                 <Stack
                   direction="row"
                   spacing={{ xs: 1, sm: 1.2 }}
-                  alignItems="center"
-                  justifyContent="center"
-                  sx={{ width: '100%', flexWrap: 'nowrap' }}
+                  sx={{ width: '100%', flexWrap: 'nowrap',
+                alignItems: "center",
+                justifyContent: "center", }}
                 >
                   <Button
                     component={RouterLink}
@@ -392,7 +269,7 @@ export default function HomePage() {
                   variant="text"
                   disabled={isDemoButtonDisabled}
                   onClick={() => {
-                    void handleStartDemo();
+                    void startDemo();
                   }}
                   sx={{
                     minHeight: 34,
@@ -417,13 +294,13 @@ export default function HomePage() {
                   }}
                 >
                   {isStartingDemo ? (
-                    <Stack component="span" direction="row" spacing={0.8} alignItems="center">
+                    <Stack component="span" direction="row" spacing={0.8} sx={{ alignItems: "center", }} >
                       <CircularProgress color="inherit" size={14} />
                       <span>{t('landing.actions.startingDemo')}</span>
                     </Stack>
                   ) : isDemoRetryBlocked ? (
                     t('landing.actions.demoAvailableIn', {
-                      time: formatCompactRetryTime(retryRemainingSeconds, t),
+                      time: compactRetryTime,
                     })
                   ) : (
                     t('landing.actions.demoWithoutRegistration')
@@ -451,7 +328,9 @@ export default function HomePage() {
                 </Alert>
               ) : null}
 
-              <Stack spacing={0.7} alignItems="center" textAlign="center" sx={{ pt: { xs: 0.3, md: 0.5 } }}>
+              <Stack spacing={0.7} sx={{ pt: { xs: 0.3, md: 0.5 },
+                alignItems: "center",
+                textAlign: "center", }}   >
                 <Typography sx={{ lineHeight: 1.45, color: '#fff', textShadow: HERO_TEXT_SHADOW }}>
                   {t('statusNote')}
                 </Typography>
@@ -505,14 +384,15 @@ export default function HomePage() {
         </Box>
 
         <Container maxWidth="xl" sx={{ width: '100%', py: { xs: 5, md: 7 } }}>
-          <Stack spacing={{ xs: 5.5, md: 7 }} alignItems="center">
+          <Stack spacing={{ xs: 5.5, md: 7 }} sx={{ alignItems: "center", }} >
             <Box
               component="section"
               aria-labelledby="product-tour-title"
               sx={{ width: '100%' }}
             >
               <Stack spacing={{ xs: 2.5, md: 3.5 }}>
-                <Stack spacing={1.25} alignItems="center" textAlign="center">
+                <Stack spacing={1.25} sx={{ alignItems: "center",
+                  textAlign: "center", }}  >
                   <Typography
                     id="product-tour-title"
                     variant="h4"
@@ -629,8 +509,8 @@ export default function HomePage() {
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1.25, sm: 3 }}
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            justifyContent="space-between"
+            sx={{ alignItems: { xs: 'flex-start', sm: 'center' },
+        justifyContent: "space-between", }}
           >
             <LegalLinks />
             <Link href={`mailto:${t('footer.contactEmail')}`} underline="hover" color="text.secondary" sx={{ fontSize: '0.92rem' }}>

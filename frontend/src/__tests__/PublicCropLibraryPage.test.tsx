@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
 import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
+import i18n from '../i18n/config';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 import type { TopbarContextAction } from '../navigation/topbarTypes';
 
@@ -22,6 +23,8 @@ const publicCultureApiMocks = vi.hoisted(() => ({
   versions: vi.fn(),
   importToProject: vi.fn(),
   update: vi.fn(),
+  updateTranslations: vi.fn(),
+  remove: vi.fn(),
 }));
 
 const authMocks = vi.hoisted(() => ({
@@ -56,6 +59,25 @@ vi.mock('../auth/useAuth', () => ({
   }),
 }));
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel?: string;
+  }) => (
+    <textarea
+      data-testid="rich-text-editor"
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock('../api/api', async () => {
   const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
   return {
@@ -73,6 +95,8 @@ vi.mock('../api/api', async () => {
       versions: publicCultureApiMocks.versions,
       importToProject: publicCultureApiMocks.importToProject,
       update: publicCultureApiMocks.update,
+      updateTranslations: publicCultureApiMocks.updateTranslations,
+      remove: publicCultureApiMocks.remove,
     },
   };
 });
@@ -84,6 +108,12 @@ const publicCultures: PublicCulture[] = [
     name: 'Tomate',
     variety: 'Roma',
     crop_species_name: 'Tomate',
+    description: 'Robuste Sorte.',
+    description_language_code: 'de',
+    notes: 'Robuste Sorte.',
+    translations: {
+      de: 'Robuste Sorte.',
+    },
     growth_duration_days: 70,
     harvest_duration_days: 28,
     display_color: '#7cb342',
@@ -92,6 +122,7 @@ const publicCultures: PublicCulture[] = [
     published_at: '2026-07-23T10:00:00Z',
     created_at: '2026-07-20T08:00:00Z',
     updated_at: '2026-07-27T12:00:00Z',
+    imported_cultures_count: 3,
   },
   {
     id: 2,
@@ -158,21 +189,44 @@ function LocationProbe() {
 function TestAppShell() {
   const [topbarContextActions, setTopbarContextActions] = useState<TopbarContextAction[]>([]);
   const [, setTopbarTitleActions] = useState<TopbarContextAction[]>([]);
+  const [openMenuActionId, setOpenMenuActionId] = useState<string | null>(null);
   return (
     <>
       <LocationProbe />
       <header>
         <h1>Öffentliche Kulturbibliothek</h1>
         {topbarContextActions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            aria-label={action.ariaLabel ?? action.label}
-            onClick={action.onClick}
-            disabled={action.disabled}
-          >
-            {action.label}
-          </button>
+          <Fragment key={action.id}>
+            <button
+              type="button"
+              aria-label={action.ariaLabel ?? action.label}
+              onClick={() => {
+                if (action.menuActions && action.menuActions.length > 0) {
+                  setOpenMenuActionId((current) => (current === action.id ? null : action.id));
+                } else {
+                  action.onClick();
+                }
+              }}
+              disabled={action.disabled}
+            >
+              {action.label}
+            </button>
+            {action.menuActions && openMenuActionId === action.id ? (
+              <div role="menu">
+                {action.menuActions.map((menuAction) => (
+                  <button
+                    key={menuAction.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setOpenMenuActionId(null); menuAction.onClick(); }}
+                    disabled={menuAction.disabled}
+                  >
+                    {menuAction.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </Fragment>
         ))}
       </header>
       <Outlet context={{ setTopbarContextActions, setTopbarTitleActions }} />
@@ -233,6 +287,24 @@ describe('PublicCropLibraryPage', () => {
         version: 2,
       },
     });
+    publicCultureApiMocks.updateTranslations.mockResolvedValue({
+      data: {
+        original_language_code: 'de',
+        translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+      },
+    });
+    publicCultureApiMocks.get.mockResolvedValue({
+      data: {
+        ...publicCultures[0],
+        description: 'A robust variety.',
+        description_language_code: 'en',
+        translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+        version: 2,
+      },
+    });
+    publicCultureApiMocks.remove.mockResolvedValue({
+      data: { ...publicCultures[0], status: 'removed' },
+    });
   });
 
   it('hides the global moderation action completely for users without moderation rights', async () => {
@@ -245,6 +317,43 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+  });
+
+  it('lets a moderator remove a public culture after selecting a reason', async () => {
+    const user = userEvent.setup();
+    authMocks.user.is_public_library_moderator = true;
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+    // The remove action lives inside the "Moderation" menu in the topbar, not
+    // in the crop detail header alongside Edit/Import — it's a moderator-only
+    // destructive action, kept visually and positionally separate.
+    expect(within(cropDetailHeader).queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Moderation' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Aus Bibliothek entfernen' }));
+
+    const removeDialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
+    const confirmButton = within(removeDialog).getByRole('button', { name: 'Aus Bibliothek entfernen' });
+    expect(confirmButton).toBeDisabled();
+
+    await user.click(within(removeDialog).getByLabelText('Grund'));
+    await user.click(await screen.findByRole('option', { name: 'Duplikat' }));
+    expect(confirmButton).toBeEnabled();
+
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(publicCultureApiMocks.remove).toHaveBeenCalledWith(1, 'duplicate');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Aus Bibliothek entfernen?' })).not.toBeInTheDocument();
+    });
   });
 
   it('opens the global moderation interface from the public crop library header for moderators', async () => {
@@ -261,6 +370,7 @@ describe('PublicCropLibraryPage', () => {
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Moderation' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Kulturbibliothek moderieren' }));
 
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/public-library-moderation');
     expect(screen.getByRole('heading', { name: 'Moderation' })).toBeInTheDocument();
@@ -287,6 +397,123 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
   });
 
+  it('uses the project seed layout without package sizes in public crop details', async () => {
+    publicCultureApiMocks.list.mockResolvedValue({
+      data: {
+        results: [{
+          id: 10,
+          status: 'published',
+          name: 'Möhre',
+          variety: 'Nantaise',
+          crop_species_name: 'Möhre',
+          cultivation_types: ['pre_cultivation', 'direct_sowing'],
+          seed_rate_direct_value: 0.014,
+          seed_rate_direct_unit: 'seeds_per_lfm',
+          sowing_calculation_safety_percent_direct: 5,
+          seed_rate_pre_cultivation_value: 1.357,
+          seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+          sowing_calculation_safety_percent_pre_cultivation: 10,
+          thousand_kernel_weight_g: 1.3,
+          seeding_requirement: 4.5,
+          seeding_requirement_type: 'per_sqm',
+          seed_packages: [{ size_value: 250, size_unit: 'g' }],
+          version: 1,
+          original_language_code: 'de',
+          published_at: '2026-07-24T10:00:00Z',
+          created_at: '2026-07-21T08:00:00Z',
+          updated_at: '2026-07-25T12:00:00Z',
+        }],
+      },
+    });
+
+    renderPage(['/app/crop-library?cultureId=10']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Möhre' });
+    expect(screen.getByText('Saatgutmenge nach Anbauart')).toBeInTheDocument();
+    expect(screen.getByText('Methode')).toBeInTheDocument();
+    expect(screen.getByText('Menge')).toBeInTheDocument();
+    expect(screen.getByText('Einheit')).toBeInTheDocument();
+    expect(screen.getByText('Sicherheitszuschlag (%)')).toBeInTheDocument();
+    expect(screen.getByText('Pflanzung')).toBeInTheDocument();
+    expect(screen.getByText('Direktsaat')).toBeInTheDocument();
+    expect(screen.getByText('1,357')).toBeInTheDocument();
+    expect(screen.getByText('0,014')).toBeInTheDocument();
+    expect(screen.getByText('Korn / Pflanze')).toBeInTheDocument();
+    expect(screen.getByText('Korn / lfm')).toBeInTheDocument();
+    expect(screen.getByText('10 %')).toBeInTheDocument();
+    expect(screen.getByText('5 %')).toBeInTheDocument();
+    expect(screen.getByText('1000-Korn-Gewicht (g)')).toBeInTheDocument();
+    expect(screen.getByText('1,3 g')).toBeInTheDocument();
+    expect(screen.getByText('Saatgutbedarf')).toBeInTheDocument();
+    expect(screen.getByText('4,5 / m²')).toBeInTheDocument();
+    expect(screen.queryByText('Packungsgrößen')).not.toBeInTheDocument();
+    expect(screen.queryByText('250 g')).not.toBeInTheDocument();
+  });
+
+  it('marks public variety values as from the crop or own values', async () => {
+    publicCultureApiMocks.list.mockResolvedValue({
+      data: {
+        results: [
+          {
+            id: 20,
+            status: 'published',
+            name: 'Tomate',
+            variety: '',
+            crop_species: 7,
+            crop_species_name: 'Tomate',
+            crop_family: 'Nachtschattengewächse',
+            nutrient_demand: 'high',
+            cultivation_types: ['pre_cultivation'],
+            growth_duration_days: 78,
+            harvest_duration_days: 56,
+            row_spacing_m: 0.80,
+            distance_within_row_m: 0.50,
+            seed_rate_by_cultivation: {
+              pre_cultivation: { value: 1.2, unit: 'seeds_per_plant' },
+            },
+            thousand_kernel_weight_g: 3.1,
+            harvest_method: 'per_plant',
+            expected_yield: 4.5,
+            version: 1,
+            original_language_code: 'de',
+            published_at: '2026-07-24T10:00:00Z',
+            created_at: '2026-07-21T08:00:00Z',
+            updated_at: '2026-07-25T12:00:00Z',
+          },
+          {
+            id: 21,
+            status: 'published',
+            name: 'Tomate',
+            variety: 'Roma',
+            crop_species: 7,
+            crop_species_name: 'Tomate',
+            growth_duration_days: 72,
+            row_spacing_m: 0.70,
+            thousand_kernel_weight_g: 3.2,
+            version: 1,
+            original_language_code: 'de',
+            published_at: '2026-07-24T10:00:00Z',
+            created_at: '2026-07-21T08:00:00Z',
+            updated_at: '2026-07-25T12:00:00Z',
+          },
+        ],
+      },
+    });
+
+    renderPage(['/app/crop-library?cultureId=21']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
+    expect(screen.getByText('72 Tage')).toBeInTheDocument();
+    expect(screen.getByText('56 Tage')).toBeInTheDocument();
+    expect(screen.getByText('1,2 Korn / Pflanze')).toBeInTheDocument();
+    expect(screen.getByText('3,2 g')).toBeInTheDocument();
+    expect(screen.getByText('Markierte Werte')).toBeInTheDocument();
+    expect(screen.getByText('= gelten nur für diese Sorte.')).toBeInTheDocument();
+    expect(screen.queryByText('Eigener Wert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Aus der Kultur')).not.toBeInTheDocument();
+  });
+
   it('uses the selected public culture title as the mobile selector trigger', async () => {
     mockMobileViewport();
     renderPage(['/app/crop-library?cultureId=1']);
@@ -298,7 +525,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
-    expect(screen.getByText('Version 1')).toBeInTheDocument();
+    expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
     expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).not.toBeInTheDocument();
   });
@@ -364,6 +591,11 @@ describe('PublicCropLibraryPage', () => {
     renderPage(['/app/crop-library?cultureId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
+    const salatRow = within(screen.getByRole('option', { name: 'Salat' }));
+    const expandSalat = salatRow.queryByRole('button', { name: 'Kultur aufklappen' });
+    if (expandSalat) {
+      await user.click(expandSalat);
+    }
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
     await waitFor(() => {
@@ -422,7 +654,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Entdecken')).toBeInTheDocument();
     expect(screen.getByText('Übernehmen')).toBeInTheDocument();
     expect(screen.getByText('Verbessern')).toBeInTheDocument();
-    expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur wirken sich nicht auf bereits importierte Projektkulturen aus/)).toBeInTheDocument();
+    expect(screen.getByText(/Spätere Änderungen der öffentlichen Kultur werden nie automatisch übernommen/)).toBeInTheDocument();
   });
 
   it('shows the public library load error without rendering an empty state', async () => {
@@ -830,6 +1062,11 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Thread der Tomate'));
     await screen.findByText('Tomaten-Kommentar');
+    const salatDiscussionRow = within(screen.getByRole('option', { name: 'Salat' }));
+    const expandDiscussionSalat = salatDiscussionRow.queryByRole('button', { name: 'Kultur aufklappen' });
+    if (expandDiscussionSalat) {
+      await user.click(expandDiscussionSalat);
+    }
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2&tab=discussion');
@@ -866,7 +1103,10 @@ describe('PublicCropLibraryPage', () => {
       created_at: '2026-07-28T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-28T10:00:00Z',
-      last_comment_preview: 'Was ist hier gemeint?',
+      // Deliberately not the comment body: the overview list renders this
+      // preview, so reusing the body text let the assertion below pass by
+      // matching the overview instead of the opened discussion.
+      last_comment_preview: 'Vorschau des Kommentars',
     };
     const createdComment: PublicCultureDiscussionComment = {
       id: 21,
@@ -881,9 +1121,14 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     };
     publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    // The default covers every call after the first: the topic reload races
+    // with the `discussionId` navigation that follows it, so under load the
+    // page can refetch the topics once more. With only two queued `Once`
+    // values that extra call resolved `undefined` and blew up the reload,
+    // leaving the heading below to time out instead of failing loudly.
     publicCultureApiMocks.discussionTopics
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [createdTopic] });
+      .mockResolvedValue({ data: [createdTopic] })
+      .mockResolvedValueOnce({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
     renderPage();
@@ -904,9 +1149,23 @@ describe('PublicCropLibraryPage', () => {
       body: 'Was ist hier gemeint?',
       revision: undefined,
     }));
-    expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
-    expect(screen.getByText('Was ist hier gemeint?')).toBeInTheDocument();
-  }, 30000);
+    await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
+    // Rendering the reloaded topic list needs two things to converge: the
+    // `topics` state from the reload fetch, and the `discussionId` URL param
+    // that selects it (set via a router navigation in the same handler).
+    // Under normal load both land in one render; under heavy CI load
+    // (running alongside ~2000 other tests) the router's state update can
+    // lag more than one tick behind, so this needs real wall-clock slack
+    // rather than the default 1000ms findByRole timeout - hence the
+    // explicit timeout, matching the one already used for the comment body
+    // below. Bumped from 15s/45s after it still occasionally timed out at
+    // that ceiling under full-suite CI load (2026-08-10).
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' }, { timeout: 25000 })).toBeInTheDocument();
+    // The heading only needs the reloaded topic list, the comment body needs
+    // the separate discussionComments request on top of it - so this has to
+    // wait for one more round trip rather than read the DOM synchronously.
+    expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 25000 })).toBeInTheDocument();
+  }, 60000);
 
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
     const user = userEvent.setup();
@@ -1376,19 +1635,63 @@ describe('PublicCropLibraryPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const tomatoOption = await screen.findByRole('option', { name: /Tomate/ });
+    const tomatoOption = await screen.findByRole('option', { name: 'Tomate' });
     tomatoOption.focus();
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
 
     await user.keyboard('{ArrowDown}');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Salat/ })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
     });
 
     await user.keyboard('{ArrowUp}');
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+  });
+
+  it('keeps list focus after clicking a public culture so arrow keys choose the next culture', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
+    });
+  });
+
+  it('focuses the selected public culture from the URL so arrow keys do not scroll the page', async () => {
+    const user = userEvent.setup();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
+    });
   });
 
   it('shows public culture primary actions as labeled buttons', async () => {
@@ -1397,30 +1700,35 @@ describe('PublicCropLibraryPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
   });
 
   it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
 
     const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
     expect(editDialog).toHaveTextContent('Allgemeine Informationen');
-    expect(editDialog).toHaveTextContent('Öffentliche Identität');
-    expect(editDialog).toHaveTextContent('Tomate · Roma');
+    expect(editDialog).toHaveTextContent('Kultur (öffentliche Identität, nicht änderbar)');
+    expect(editDialog).toHaveTextContent('Tomate');
+    expect(editDialog).toHaveTextContent('Diese Änderung betrifft 3 lokale Kopien');
     expect(editDialog).toHaveTextContent('#7CB342');
+    expect(within(editDialog).getByText('Originalsprache: Deutsch')).toBeInTheDocument();
     expect(editDialog).not.toHaveTextContent('Kulturspezifische Lieferantendaten');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Sorte')).not.toBeInTheDocument();
 
-    const growthInput = screen.getByLabelText('Wachstumszeit (Tage)');
+    const varietyInput = within(editDialog).getByLabelText('Sorte');
+    expect(varietyInput).toHaveValue('Roma');
+    const notesInput = within(editDialog).getByLabelText('Notizen');
     const colorInput = within(editDialog).getByLabelText('Anzeigefarbe');
-    fireEvent.change(growthInput, { target: { value: '48' } });
+    fireEvent.change(varietyInput, { target: { value: 'Roma VF' } });
+    fireEvent.change(notesInput, { target: { value: 'Aktualisierte Notizen.' } });
     fireEvent.change(colorInput, { target: { value: '#123456' } });
-    growthInput.focus();
+    colorInput.focus();
     fireEvent.keyDown(window, {
       bubbles: true,
       cancelable: true,
@@ -1431,21 +1739,51 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
     expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
-      growth_duration_days: 48,
+      variety: 'Roma VF',
+      notes: 'Aktualisierte Notizen.',
       display_color: '#123456',
       row_spacing_m: null,
     }));
     expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
-    expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('variety');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
+  }, 30000);
+
+  it('adds a missing English notes translation inline from the Notes section', async () => {
+    await i18n.changeLanguage('en');
+    const user = userEvent.setup();
+    renderPage(['/app/crop-library?cultureId=1']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    expect(screen.getAllByText('Only available in German').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Translate' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Add English translation' }));
+
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit public crop' });
+    expect(within(editDialog).getByText('Original language: German')).toBeInTheDocument();
+    expect(within(editDialog).getByText('Showing original German text')).toBeInTheDocument();
+    const englishNotesInput = within(editDialog).getByLabelText('English translation');
+    expect(englishNotesInput).toHaveValue('');
+
+    fireEvent.change(englishNotesInput, { target: { value: 'A robust variety.' } });
+    await user.click(within(editDialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
+      base_version: 1,
+      notes: 'Robuste Sorte.',
+    })));
+    await waitFor(() => expect(publicCultureApiMocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
+    await waitFor(() => expect(publicCultureApiMocks.get).toHaveBeenCalledWith(1));
   }, 30000);
 
   it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
     const user = userEvent.setup();
     const staleList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    const pendingUpdate = createDeferred<{ data: PublicCulture }>();
     publicCultureApiMocks.list
       .mockResolvedValueOnce({ data: { results: publicCultures } })
-      .mockReturnValueOnce(staleList.promise);
+      .mockImplementation(() => staleList.promise);
+    publicCultureApiMocks.update.mockReturnValueOnce(pendingUpdate.promise);
 
     renderPage(['/app/crop-library?cultureId=1']);
 
@@ -1454,28 +1792,205 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Bearbeiten' }));
     const editDialog = await screen.findByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' });
 
-    fireEvent.change(searchInput, { target: { value: 'Tom' } });
-    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
     fireEvent.change(within(editDialog).getByLabelText('Wachstumszeit (Tage)'), { target: { value: '48' } });
     await user.click(within(editDialog).getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
 
+    fireEvent.change(searchInput, { target: { value: 'Roma' } });
+    const searchForm = searchInput.closest('form');
+    expect(searchForm).not.toBeNull();
+    fireEvent.submit(searchForm as HTMLFormElement);
+    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      pendingUpdate.resolve({
+        data: {
+          ...publicCultures[0],
+          growth_duration_days: 48,
+          display_color: '#123456',
+          version: 2,
+        },
+      });
+    });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
-    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+    // Deliberately no assertion on the saved values here. The search above
+    // refreshes the list on a debounce, so a request can still be in flight at
+    // this point, and while it is the page shows "Kulturen werden geladen…"
+    // with no detail pane at all. Whether that request has fired yet is a race,
+    // which is what made this spot flaky — raising the timeout could not fix
+    // it, because nothing arrives until the response below lands.
 
     await act(async () => {
       staleList.resolve({ data: { results: publicCultures } });
     });
 
-    expect(screen.getByText('48 Tage')).toBeInTheDocument();
+    // The actual subject: the stale response carries the pre-save culture, and
+    // must not roll the saved values back.
+    await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
 
+  describe('re-import handling', () => {
+    async function importViaButton(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
+    }
+
+    it('imports a culture for the first time', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 99 }, operation: 'created' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde in dieses Projekt importiert.');
+      expect(event.detail.severity).toBe('success');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('shows a non-blocking info toast when re-importing an unchanged culture', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 42 }, operation: 'unchanged' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ ist bereits identisch in diesem Projekt vorhanden – kein Update erforderlich.');
+      expect(event.detail.severity).toBe('info');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('automatically syncs and reports an update when the library version changed with no local edits', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: { culture: { id: 42 }, operation: 'updated' },
+      });
+      renderPage();
+
+      await importViaButton(user);
+
+      await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
+      const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde aktualisiert (neue Version aus der Bibliothek übernommen).');
+      expect(event.detail.severity).toBe('success');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('opens a conflict dialog when re-importing over local changes, and cancel makes no request', async () => {
+      const user = userEvent.setup();
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject.mockRejectedValue(conflictError);
+      renderPage();
+
+      await importViaButton(user);
+
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      expect(within(dialog).getByText(/wurde bereits in dieses Projekt importiert/)).toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      expect(publicCultureApiMocks.importToProject).toHaveBeenCalledTimes(1);
+    });
+
+    it('resolves the conflict dialog with "Aktualisieren" by re-importing with mode=update', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ data: { culture: { id: 42 }, operation: 'updated' } });
+      renderPage();
+
+      await importViaButton(user);
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      await user.click(within(dialog).getByRole('button', { name: 'Aktualisieren' }));
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'update'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde aktualisiert (lokale Änderungen wurden überschrieben).');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+
+    it('resolves the conflict dialog with "Als neue Kultur importieren" by re-importing with mode=new', async () => {
+      const user = userEvent.setup();
+      const snackbarSpy = vi.fn<(event: Event) => void>();
+      window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+      const conflictError = {
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: {
+            code: 'import_requires_confirmation',
+            detail: 'This public culture was already imported and has local changes.',
+            existing_culture_id: 42,
+            existing_culture_name: 'Tomate (Roma)',
+          },
+        },
+      };
+      publicCultureApiMocks.importToProject
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce({ data: { culture: { id: 100 }, operation: 'created' } });
+      renderPage();
+
+      await importViaButton(user);
+      const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
+      await user.click(within(dialog).getByRole('button', { name: 'Als neue Kultur importieren' }));
+
+      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'new'));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
+      const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
+      expect(event.detail.message).toBe('„Tomate (Roma)“ wurde als neue Kultur importiert.');
+      window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
+    });
+  });
+
   it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
-    publicCultureApiMocks.importToProject.mockResolvedValue({ data: {} });
+    publicCultureApiMocks.importToProject.mockResolvedValue({ data: { culture: {}, operation: 'created' } });
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('option', { name: /Tomate/ }));
+    await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     (document.activeElement as HTMLElement | null)?.blur();
 
@@ -1491,6 +2006,117 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
 
     await user.keyboard('{Alt>}i{/Alt}');
-    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
   }, 30000);
+
+  describe('species groups without a general entry are not greyed out', () => {
+    it('renders the species row as a selectable option instead of a disabled presentation row', async () => {
+      renderPage();
+
+      const tomatoRow = await screen.findByRole('option', { name: 'Tomate' });
+      expect(tomatoRow).not.toHaveAttribute('aria-disabled', 'true');
+      expect(tomatoRow).not.toHaveClass('Mui-disabled');
+    });
+
+    it('selects the first (and only) variety when clicking a single-variety species row', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate' }));
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      expect(within(cropDetailHeader).getByText('Roma')).toBeInTheDocument();
+    });
+
+    it('expands the group and selects the first variety when clicking a multi-variety species row with no general entry', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({
+        data: {
+          results: [
+            ...publicCultures,
+            {
+              id: 3,
+              status: 'published',
+              name: 'Kohl',
+              variety: 'Odysseus',
+              crop_species_name: 'Kohl',
+              version: 1,
+              original_language_code: 'de',
+              published_at: '2026-07-24T10:00:00Z',
+              created_at: '2026-07-21T08:00:00Z',
+              updated_at: '2026-07-25T12:00:00Z',
+            },
+            {
+              id: 4,
+              status: 'published',
+              name: 'Kohl',
+              variety: 'Noriko',
+              crop_species_name: 'Kohl',
+              version: 1,
+              original_language_code: 'de',
+              published_at: '2026-07-24T10:00:00Z',
+              created_at: '2026-07-21T08:00:00Z',
+              updated_at: '2026-07-25T12:00:00Z',
+            },
+          ],
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Kohl' }));
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Kohl' })).toBeInTheDocument();
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      expect(within(cropDetailHeader).getByText('Odysseus')).toBeInTheDocument();
+      expect(await screen.findByRole('option', { name: 'Kohl (Noriko)' })).toBeInTheDocument();
+    });
+  });
+
+  describe('import button reflects project_import_status', () => {
+    it('shows "Im Projekt aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({
+        data: {
+          results: [
+            {
+              ...publicCultures[0],
+              project_import_status: { culture_id: 5, culture_name: 'Tomate (Roma)', is_modified_from_source: false },
+            },
+            publicCultures[1],
+          ],
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+      expect(within(cropDetailHeader).getByRole('button', { name: 'Im Projekt aktualisieren' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).queryByRole('button', { name: 'In Projekt importieren' })).not.toBeInTheDocument();
+
+      (document.activeElement as HTMLElement | null)?.blur();
+      await user.keyboard('{Alt>}{Shift>}{ArrowRight}{/Shift}{/Alt}');
+      expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
+      expect(within(cropDetailHeader).queryByRole('button', { name: 'Im Projekt aktualisieren' })).not.toBeInTheDocument();
+    });
+
+    it('switches the button to "Im Projekt aktualisieren" right after a first-time import succeeds', async () => {
+      publicCultureApiMocks.importToProject.mockResolvedValue({
+        data: {
+          culture: { id: 99, name: 'Tomate', variety: 'Roma', culture_display_name: 'Tomate (Roma)', is_modified_from_source: false },
+          operation: 'created',
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+      await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
+
+      expect(await within(cropDetailHeader).findByRole('button', { name: 'Im Projekt aktualisieren' })).toBeInTheDocument();
+    });
+  });
 });

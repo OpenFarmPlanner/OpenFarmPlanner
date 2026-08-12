@@ -24,6 +24,7 @@ import {
   type ChartPeriod,
   type YieldCultureMeta,
 } from "./yieldOverviewUtils";
+import { getCultureDisplayName } from "../cultures/cultureDisplay";
 
 export default function YieldOverviewPage() {
   const { t, i18n } = useTranslation("yieldOverview");
@@ -33,17 +34,21 @@ export default function YieldOverviewPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedCultureId, setSelectedCultureId] = useState(ALL_CULTURES);
   const [period, setPeriod] = useState<ChartPeriod>("week");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isFetching, setLoading] = useState(true);
+  const [fetchError, setError] = useState<string | null>(null);
   const [plantingPlans, setPlantingPlans] = useState<PlantingPlan[]>([]);
   const [weeklyYield, setWeeklyYield] = useState<YieldCalendarWeek[]>([]);
 
+  // Without a project there is nothing to fetch, so the page is neither
+  // loading nor in error. Derived rather than pushed into state from the
+  // effect below — the fetched collections do not need clearing either,
+  // because the project-required branch renders before they are read and
+  // `loading` is back to true by the time a project appears.
+  const loading = shouldShowProjectRequiredState ? false : isFetching;
+  const error = shouldShowProjectRequiredState ? null : fetchError;
+
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setLoading(false);
-      setError(null);
-      setPlantingPlans([]);
-      setWeeklyYield([]);
       return;
     }
 
@@ -90,7 +95,7 @@ export default function YieldOverviewPage() {
       week.cultures.forEach((culture) => {
         cultureMap.set(culture.culture_id, {
           id: culture.culture_id,
-          name: culture.culture_name,
+          name: getCultureDisplayName(culture),
           color: culture.color,
         });
       });

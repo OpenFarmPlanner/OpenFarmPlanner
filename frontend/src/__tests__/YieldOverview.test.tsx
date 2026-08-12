@@ -191,6 +191,38 @@ describe("YieldOverviewPage", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Kohl · W13 Mär · 0.70 kg"));
   });
 
+  it("uses localized culture display names in the chart and culture filter", async () => {
+    mocks.yieldList.mockResolvedValue({
+      data: [
+        {
+          iso_week: "2026-W13",
+          week_start: "2026-03-23",
+          cultures: [
+            {
+              culture_id: 1,
+              culture_name: "Ackerbohne",
+              culture_display_name: "Broad bean",
+              culture_display_language_code: "en",
+              yield: 0.7,
+              color: "#16a34a",
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <FocusManagerProvider><MemoryRouter>
+        <YieldOverviewPage />
+      </MemoryRouter></FocusManagerProvider>,
+    );
+
+    expect(await screen.findByTestId("yield-bar-2026-W13-1")).toHaveAccessibleName(/Broad bean/);
+    expect(screen.getByRole("button", { name: "Broad bean 0,7 kg" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Kultur")).toHaveTextContent("Alle Kulturen");
+    expect(screen.queryByText("Ackerbohne")).not.toBeInTheDocument();
+  });
+
   describe("keyboard navigation on the chart bars", () => {
     beforeEach(() => {
       mocks.yieldList.mockResolvedValue({

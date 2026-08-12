@@ -1,5 +1,6 @@
-import { Box, Tooltip } from '@mui/material';
+import { Box } from '@mui/material';
 import type { GridColDef, GridValidRowModel } from '@mui/x-data-grid';
+import { AppTooltip } from '../AppTooltip';
 
 export const CALCULATED_COLUMN_CELL_CLASS = 'ofp-cell-calculated';
 export const CALCULATED_COLUMN_HEADER_CLASS = 'ofp-header-calculated';
@@ -23,11 +24,11 @@ export function getCalculatedColumnProps<Row extends GridValidRowModel>({
     headerClassName: CALCULATED_COLUMN_HEADER_CLASS,
     cellClassName: CALCULATED_COLUMN_CELL_CLASS,
     renderHeader: () => (
-      <Tooltip title={tooltip}>
+      <AppTooltip title={tooltip}>
         <Box component="span" sx={CALCULATED_COLUMN_HEADER_LABEL_SX}>
           {headerName}
         </Box>
-      </Tooltip>
+      </AppTooltip>
     ),
   };
 }

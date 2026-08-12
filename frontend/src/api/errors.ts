@@ -70,6 +70,7 @@ const backendMessageMap: Record<string, string> = {
   'selected supplier does not belong to the active project.': 'errors.selectedSupplierProjectMismatch',
   'culture_project_mismatch': 'errors.cultureProjectMismatch',
   'culture does not belong to the active project.': 'errors.cultureProjectMismatch',
+  'this crop species already exists or has already been proposed.': 'library.publishWizard.speciesAlreadyExists',
   'please enter a valid numeric value, e.g. 3.9.': 'validation.invalidNumberExample',
   'area input value must be greater than 0.': 'validation.areaInputPositive',
 };

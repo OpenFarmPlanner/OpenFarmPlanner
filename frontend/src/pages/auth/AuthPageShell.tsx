@@ -2,9 +2,9 @@ import { Box, Container, Paper, Stack, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 import LegalLinks from '../../components/legal/LegalLinks';
 import HeroImage from '../../components/HeroImage';
-import { publicAssetUrl } from '../../utils/publicAssetUrl';
 import { authLegalLinkSx } from './authPageStyles';
 import { PublicLanguageSwitcher } from '../../i18n/LanguageSwitcher';
+import AppIcon from '../../components/layout/AppIcon';
 
 type AuthPageShellProps = {
   title: string;
@@ -27,7 +27,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
     >
       <HeroImage
         alt=""
-        sx={{ position: { xs: 'absolute', md: 'fixed' } }}
+        position={{ xs: 'absolute', md: 'fixed' }}
         overlaySx={{
           backgroundImage:
             'linear-gradient(rgba(245, 247, 241, 0.88), rgba(245, 247, 241, 0.9))',
@@ -46,7 +46,7 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
           py: { xs: 3, sm: 5, md: 7 },
         }}
       >
-        <Stack spacing={{ xs: 2.5, md: 3.5 }} alignItems="center">
+        <Stack spacing={{ xs: 2.5, md: 3.5 }} sx={{ alignItems: "center", }} >
           <Box
             sx={{
               width: '100%',
@@ -59,14 +59,8 @@ export default function AuthPageShell({ title, subtitle, children, legalLinksDen
               columnGap: 2,
             }}
           >
-            <Stack direction="row" spacing={1.4} alignItems="center">
-              <Box
-                component="img"
-                src={publicAssetUrl('/favicon.png')}
-                alt=""
-                aria-hidden
-                sx={{ width: { xs: 40, md: 48 }, height: 'auto', opacity: 0.95 }}
-              />
+            <Stack direction="row" spacing={1.4} sx={{ alignItems: "center", }} >
+              <AppIcon decorative size={{ xs: 40, md: 48 }} sx={{ opacity: 0.95 }} />
               <Typography
                 variant="h2"
                 component="div"

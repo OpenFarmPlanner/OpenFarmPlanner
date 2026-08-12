@@ -28,7 +28,7 @@ frontend/src/components/data-grid/
   hooks/
     useDataGridCommandApi.ts     builds the imperative EditableDataGridCommandApi
     useDataGridRowCommands.ts    addRow/editSelectedRow/openRowById/focusTable
-    useDataGridDelete.ts         delete + optional undo-snackbar flow
+    useDataGridDelete.ts         immediate delete + optional undo-snackbar flow
     useDataGridRowActionMenu.ts  right-click / long-press / keyboard row menu
   StableScrollbarTrack.tsx       shared track/thumb overlay for useStableDataGridScrollbar
   keyboardEditing.ts       "just start typing" / F2 spreadsheet-edit-start behavior
@@ -36,6 +36,7 @@ frontend/src/components/data-grid/
   contextMenuFocus.ts      Arrow/Home/End/Enter/Esc navigation *inside* an open menu
   AreaM2EditCell.tsx, DateEditCell.tsx, PlantsCountEditCell.tsx,
   SearchableSelectEditCell.tsx                            custom edit cells
+  SelectEditCellContext.tsx, selectEditMenuClose.ts        select dropdown open/close bridge
   FullCellTooltip.tsx     full-cell hover/focus target for unavailable values
   GermanDateEditCell.tsx   shared German date parse/format helpers only
                            (its edit-cell component was removed as dead code)
@@ -43,6 +44,7 @@ frontend/src/components/data-grid/
   useNotesEditor.ts, useNotesPreview.ts, markdown.ts,
   noteAttachmentsCache.ts               rich markdown notes + photo attachments
   ../OverflowTooltip.tsx                overflow-only desktop tooltip wrapper
+  ../AppTooltip.tsx                     the app's Tooltip (context-menu aware)
   tableClipboard.ts, TableCopyMenuItems.tsx   copy row/table as TSV
   columns.tsx, calculatedColumns.tsx    column builders (select, computed)
   dataGridUtils.tsx, handlers.ts, styles.ts, localeText.ts   shared helpers
@@ -52,6 +54,7 @@ frontend/src/components/contextMenu/
   useContextMenuPositionState.ts generic open/close/reposition state
   useRowContextMenuState.ts      row-menu state plus focus restoration
   useLongPressTimer.ts           touch long-press helper
+  contextMenuOpenState.ts        global "a context menu is open" signal
 ```
 
 ## Imperative API (`EditableDataGridCommandApi`)
@@ -63,6 +66,7 @@ it on mount (`hooks/useDataGridCommandApi.ts`):
 interface EditableDataGridCommandApi {
   addRow, editSelectedRow, deleteSelectedRow, deleteRow(rowId),
   getSelectedRowId, setDraftValues(rowId, values), commitDraftValues(rowId, values),
+  applyDialogEditValues(rowId, values),
   reload, focusTable, openRowById(rowId, { startEdit? }),
 }
 ```
@@ -105,6 +109,8 @@ scroll out of view as the user scrolls the table horizontally.
 `setDraftValues`/`commitDraftValues` let external code push field values
 into a row that's already mid-edit (e.g. a calculated side-effect from
 another field), either staying in edit mode or committing immediately.
+`applyDialogEditValues` is the entry point for cells that have no edit
+session at all — see "Cells edited in a popover/dialog" below.
 
 ## Custom edit cells
 
@@ -136,7 +142,18 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   through `StandardSingleSelectEditCell`, which reuses the shared closed
   Select typeahead hook from `components/inputs/selectTypeahead.ts` so typing
   on a focused closed editor selects by the localized visible label just like
-  form-level Selects.
+  form-level Selects. A primary click on an inline `singleSelect` cell opens
+  row edit mode and immediately requests the mounted select editor to open its
+  dropdown via `SelectEditCellContext`; keyboard entry into the same cell only
+  focuses the editor, so Tab/F2/type-to-edit behavior stays unchanged. When a
+  controlled select menu closes from a pointer click outside the edited row,
+  `selectEditMenuClose.ts` routes that close back through the grid's normal
+  save-and-exit-row path. Escape closes reuse the row cancel path. If keyboard
+  navigation moves from an inline select editor into a dialog-owned cell on an
+  existing row, the grid commits the select draft into local row state and exits
+  inline row edit mode before the dialog opens; new draft rows keep their row
+  edit session so the final create save can still validate the full row.
+  Closes caused by choosing an option stay inside the current row edit session.
 
 ## Keyboard editing/navigation inside the grid
 
@@ -154,6 +171,24 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   focus helper focuses the target cell's actual editor input instead of only
   the DataGrid cell wrapper; otherwise the cell can look focused while
   printable keystrokes are ignored.
+- Scrolling a navigation target into view goes through
+  `keyboardNavigation.ts`'s `scrollCellIntoView` / `getVisibleColumnIndex`,
+  never through MUI's `getColumnIndexRelativeToVisibleColumns`. That API is
+  misnamed: it resolves the field against *all* columns, hidden ones
+  included, while `scrollToIndexes` indexes into the visible column
+  definitions. Mixing the two is off by however many columns are hidden to
+  the left and throws (`visibleColumns[colIndex].computedWidth` on
+  `undefined`) once the index passes the visible column count — and because
+  the throw escapes the Tab handler, keyboard navigation stops dead. That was
+  the planting plans bug below the `lg` breakpoint, where both harvest-date
+  columns are hidden by default: Tab out of "Pflanzdatum" reached "Fläche"
+  and never arrived at "Pflanzen".
+- While a row is in edit mode, `EditableDataGrid` owns Tab/Shift+Tab
+  navigation even when focus is inside a custom editor input. MUI's own
+  native capture handlers can otherwise move to the next row before React
+  editor handlers run, so the wrapper uses one grid-scoped capture listener
+  that only handles Tab events originating inside the edited grid surface and
+  then routes them through the same pure navigation helpers.
 - **`keyboardEditing.ts`**'s `useSpreadsheetEditStarter` implements
   Excel-like "just start typing" (a printable keydown on a non-editing
   cell immediately opens edit mode and *replaces* the cell's value with the
@@ -170,9 +205,10 @@ that's still true. But cell-level Tab/Arrow/Enter/F2 navigation
   hierarchy's name and dimension editors disable MUI's default input debounce
   because row-level validation across rapidly edited fields can otherwise
   complete out of order and restore an older value after a focus change.
-- Notes cells (see below) are deliberately excluded from both spreadsheet
-  auto-edit-start and the F2 flow — Enter/Space on a notes cell opens the
-  notes drawer instead.
+- Notes cells and `dialogEditFields` cells (both below) are deliberately
+  excluded from spreadsheet auto-edit-start, the F2 flow, and click-to-edit —
+  Enter/Space opens their own editor instead. They remain Tab/arrow stops via
+  the `isActionCell` hook, since `editable: false` alone would skip them.
 
 ## Hover actions / row actions / context menu
 
@@ -191,6 +227,52 @@ shell instead of repeating MUI's `hideBackdrop`, pointer-events, paper class,
 `useContextMenuPositionState.ts` for positioned chart-style menus, and
 `useRowContextMenuState.ts` when the menu should restore focus to the row or
 cell that opened it.
+
+`useContextMenuPositionState.ts` is also the app-wide exclusivity gate: when a
+new app context menu opens, any previously open app context menu is closed
+first. The shared DOM listeners in `utils/contextMenu.ts` guard the event
+sequence around those menus. Secondary-button `pointerdown`/`mousedown`/
+`pointerup`/`mouseup` events on custom-menu targets are stopped before MUI
+DataGrid, chart bars, links, or buttons can treat the right-click as a normal
+activation. While any custom context menu is open, the first primary-button
+click/tap outside the menu is a dismiss-only gesture: it closes the menu and
+suppresses the matching pointer/mouse/click sequence, so the element under the
+cursor does not open a dialog, enter edit mode, navigate, or change selection.
+`EditableDataGrid` also checks the same dismiss-gesture flag before accepting
+a `rowFocusOut` edit stop, so a dismiss-only click cannot commit a row and
+open save-time validation dialogs. The next separate click works normally.
+Clicks inside the menu are excluded so menu items can run their actions.
+
+### Tooltips never cover an open context menu
+
+`components/contextMenu/contextMenuOpenState.ts` is a module-level store
+holding "is any context menu open right now?". `useContextMenuPositionState`
+registers there for as long as its menu is open, so *every* app context menu
+— row menus, the hierarchy menu, the Gantt task/group menu, the yield
+segment menu — reports the same signal without each page wiring anything up.
+
+Tooltip surfaces subscribe to it and suppress themselves while it is set:
+
+- `components/AppTooltip.tsx` is the app's tooltip and the only place allowed
+  to import MUI's `Tooltip` (enforced by `no-restricted-imports` in
+  `eslint.config.js`). `OverflowTooltip`, `FullCellTooltip`,
+  `DropdownAwareTooltip` and `ContextMenuIndicator` all build on it.
+- the Gantt task tooltip (`gantt-chart/src/components/ui/Tooltip.tsx`)
+- the notes preview popover (`useNotesPreview.ts`)
+
+Suppression is real, not a z-index fight: an open tooltip closes, MUI's
+hover/focus/touch listeners are disabled, and a tooltip whose enter delay (or
+the preview's 250ms hover delay) elapses while the menu is open never opens
+at all. `AppTooltip` remembers the `openSequence` it was opened in, so a
+tooltip opened *before* the menu is invalidated for good — closing the menu
+leaves no stale tooltip behind, and the next hover/focus/long press works
+normally. This covers mouse, keyboard (`ContextMenu`/`Shift+F10`) and touch
+long-press alike, because all three go through the same open state.
+
+Truly native browser context menus — the ones the app deliberately does not
+intercept over inputs/`contenteditable` (`shouldOpenCustomContextMenu`) — are
+out of this mechanism's reach by definition; there is no event that says when
+the browser closed its own menu.
 
 A first-run **discovery hint** (`ContextMenuHint.tsx` /
 `useContextMenuHint.ts`) shows a small "right-click a row" banner once,
@@ -223,6 +305,41 @@ first persists the current row draft with the note value, then closes the
 drawer. Users should never need to click outside the grid to make a new row
 exist before saving its notes.
 
+## Delete with undo — app-wide semantics
+
+Every "Löschen" flow that shows a `DeleteUndoSnackbar` follows the same
+contract, and new ones must too:
+
+1. **The delete hits the backend immediately.** The row disappears from the
+   list optimistically, but the DELETE request is sent in the same user
+   action — it is never deferred until the undo window has elapsed. A browser
+   reload right after deleting must never bring the record back.
+2. **"Rückgängig" restores, it never cancels.** By the time the snackbar is
+   visible the record is already gone server-side, so undo means calling a
+   restore/recreate endpoint.
+3. **A failed DELETE rolls the row back** into the list and reports the error;
+   no snackbar is shown, because there is nothing to undo.
+4. **Dismissing the snackbar does nothing** but drop the pending entry — it is
+   not a commit point.
+
+Where this lives:
+
+| Entity | Delete | Undo |
+| --- | --- | --- |
+| Anbaupläne (`useDataGridDelete.ts`, `deleteUndoOptions`) | `api.delete` | `api.create(mapToApiData(row))` + reload |
+| Kulturen (`pages/useCultureDelete.ts`) | `cultureAPI.delete` (soft delete) | `cultureAPI.undelete` |
+| Standorte/Parzellen/Beete (`hooks/useHierarchyDelete.ts`) | `locationAPI`/`fieldAPI`/`bedAPI.delete` | recreate location → field → bed, remapping parent ids |
+| Lieferanten (`pages/Suppliers.tsx`) | `supplierAPI.delete` (409 when still referenced) | `supplierAPI.restoreUnlinkedDelete` with the payload the delete/unlink response returned |
+| Projekte (`projects/projectDeletionFeedback.ts`) | `projectAPI.delete` (soft delete) | `projectAPI.restore` |
+
+Entities that are recreated rather than undeleted come back with a **new id**
+— the grid reloads from the backend after a restore instead of re-inserting
+the old row, so sorting decides the position, not the previous id.
+
+The supplier delete endpoint returns the same `undo_payload` shape as
+`unlink-and-delete` (instead of an empty `204`) so that both supplier delete
+paths share one restore endpoint.
+
 ## Notes / markdown cells
 
 Any column listed in `EditableDataGrid`'s `notes` prop renders through
@@ -239,6 +356,77 @@ upload. `noteAttachmentsCache.ts` caches attachment fetches per note id so
 re-hovering a row doesn't refetch; the drawer explicitly invalidates that
 cache after upload/delete.
 
+## Cells edited in a popover/dialog (`dialogEditFields`)
+
+Some values are never typed into a cell — they are picked in a dialog
+(today: the Anbaupläne "Anbaufläche" column, a Standort → Parzelle → Beet
+picker in `AreaAssignmentDialog.tsx`). Those columns are **`editable:
+false`** and listed in `EditableDataGrid`'s `dialogEditFields` prop. The
+grid then treats them exactly like notes cells:
+
+- **one left click opens the real editor.** The column's `renderCell` —
+  not `renderEditCell` — renders both the value and the dialog, so the
+  click lands directly on the dialog trigger. There is deliberately no
+  intermediate inline edit state and no pencil icon: an edit mode the user
+  can only click *through* is a wasted click, not an affordance.
+- **no inline edit mode is ever started for them**, from the click, from
+  F2, or from "just start typing" (`onCellClick` returns early and
+  `useSpreadsheetEditStarter` gets an `isCellEditable` that rejects them).
+- **they stay keyboard stops.** `editable: false` would normally drop a
+  cell out of Tab/arrow navigation, so `isCellKeyboardNavigable`'s
+  `isActionCell` hook covers notes *and* dialog fields
+  (`dedicatedEditorFieldNames` in `DataGrid.tsx`). Enter/Space is handled by
+  the trigger element itself, which stops propagation so the grid does not
+  also react; after the dialog closes, focus returns to that trigger and
+  ordinary navigation continues.
+- **Tab/Shift+Tab onto the cell opens the dialog** — that is what "entering
+  edit mode" means for a cell whose dialog *is* its edit session. Arrow keys
+  deliberately stay pure movement, so the cell can still be passed by without
+  a modal opening.
+
+That last point is what `DialogEditCellContext.tsx` exists for. The grid has
+no inline edit session to hang the dialog off, so `EditableDataGrid` publishes
+a *request* — `{ cellKey, token }` — every time keyboard navigation enters a
+`dialogEditFields` cell, and the cell's renderer opens on it via
+`useDialogEditCellOpenRequest(rowId, field, open)`. Two properties make
+repeated entries work where a "did I already open?" flag would not:
+
+- the token is bumped per entry, and a cell opens for a given token **exactly
+  once**, so a focus event, a click and the request all landing on the same
+  entry cannot stack up two dialogs (`AreaAssignmentDialog`'s `handleOpen` is
+  additionally idempotent while open, so a duplicate impulse can't reset a
+  draft the user is mid-way through);
+- the cell **consumes** the request as it opens, so nothing is left behind for
+  a later re-render or a re-mount (grid virtualization) to replay.
+
+Requests are issued from the Tab paths only — `handleViewModeCellNavigation`
+for a row in view mode, and `handleEditedCellTabNavigation` (via
+`navigateFromEditedCell` / `saveEditedRowAndFocusTarget` /
+`focusKeyboardNavigableCell`'s `requestDialogEdit` option) for a row in inline
+edit mode. Don't reintroduce a "the dialog was already opened once" flag or a
+timeout-based reopen: both are what made the cell open on the first Tab and
+never again.
+
+For this to hold, a cell renderer that focuses itself on `hasFocus` must
+cancel that pending frame on cleanup (see `CompactAreaCell`) — otherwise the
+frame scheduled by the focus that *caused* the request fires after the dialog
+mounted and pulls focus straight back out of it.
+
+The dialog writes its result back through the command API's
+`applyDialogEditValues(rowId, values)`, **not** `setEditCellValue` (there is
+no edit session to write into) and **not** a column `valueSetter` (which
+only runs in edit mode — any side effects it had must move into the caller;
+see `applyBedSelection` in `PlantingPlans.tsx`). It branches on the row's
+current mode: a row already in inline edit mode — typically a new draft row
+— only gets the values merged into its draft, so its own save cycle
+persists everything at once; a row in view mode is saved immediately
+through the normal `processRowUpdate` path, including the
+`onBeforeSaveRow` gate.
+
+`FieldsBedsHierarchy.tsx` needs no equivalent: its only
+non-inline-edited column is `notes`, whose cell already opens the drawer on
+a single click.
+
 ## Text overflow tooltips
 
 Plain text headers and cells should not use tooltips that simply repeat
@@ -250,7 +438,9 @@ recoverable without adding hover-equivalent popovers or tap targets on
 mobile/touch surfaces. Explanatory tooltips remain separate: icon labels,
 calculated-column explanations, unavailable-value reasons, note previews,
 and package/blocker diagnostics should still use their dedicated tooltip or
-popover components.
+popover components — all of which render through `AppTooltip`, so they hide
+themselves while a context menu is open (see "Tooltips never cover an open
+context menu" above).
 
 `markdown.ts`'s `stripCitationMarkers` strips AI-citation markers of the
 form `【digits†identifier】` from note text. **Unclear/needs check**: trace
@@ -353,3 +543,7 @@ grid," that's new work, not exposing something that already half-exists.
   `useColumnVisibility`/the native panel instead.
 - Notes columns must stay `editable: false` and excluded from the
   spreadsheet auto-edit-start/F2 flow — they have their own editor.
+- A new column whose value is only ever picked in a popover/dialog belongs
+  in `dialogEditFields`, not in a `renderEditCell`. Don't reintroduce a
+  cell-level edit mode whose only purpose is to reveal a button that opens
+  the real editor — that costs the user a click for nothing.

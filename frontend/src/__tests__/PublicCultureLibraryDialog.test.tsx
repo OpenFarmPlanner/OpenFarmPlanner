@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import type { PublicCulture } from '../api/types';
 
@@ -11,7 +11,6 @@ const culture: PublicCulture = {
   status: 'published',
   name: 'Tomate',
   variety: 'Roma',
-  seed_supplier: 'Open Seeds',
   growth_duration_days: 70,
   harvest_duration_days: 28,
   version: 1,
@@ -22,7 +21,6 @@ const lettuceCulture: PublicCulture = {
   status: 'published',
   name: 'Salat',
   variety: 'Maikönig',
-  seed_supplier: 'Open Seeds',
   growth_duration_days: 45,
   harvest_duration_days: 10,
   version: 1,
@@ -33,17 +31,22 @@ const carrotCulture: PublicCulture = {
   status: 'published',
   name: 'Möhre',
   variety: 'Nantaise',
-  seed_supplier: 'Open Seeds',
   growth_duration_days: 90,
   harvest_duration_days: 21,
   version: 1,
 };
 
-function mockMobileViewport(): void {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width:599.95px') || query.includes('max-width:899.95px'),
+const originalMatchMedia = window.matchMedia;
+
+function createMatchMedia(width: number) {
+  return vi.fn().mockImplementation((query: string) => {
+    const minWidth = query.match(/min-width:\s*(\d+(?:\.\d+)?)px/);
+    const maxWidth = query.match(/max-width:\s*(\d+(?:\.\d+)?)px/);
+    const matchesMinWidth = !minWidth || width >= Number(minWidth[1]);
+    const matchesMaxWidth = !maxWidth || width <= Number(maxWidth[1]);
+
+    return {
+      matches: matchesMinWidth && matchesMaxWidth,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -51,23 +54,21 @@ function mockMobileViewport(): void {
       addListener: vi.fn(),
       removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    })),
+    };
+  });
+}
+
+function mockMobileViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: createMatchMedia(390),
   });
 }
 
 function mockDesktopViewport(): void {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('min-width:900px'),
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    value: createMatchMedia(1024),
   });
 }
 
@@ -83,6 +84,13 @@ describe('PublicCultureLibraryDialog', () => {
   beforeEach(() => {
     mockMobileViewport();
     window.history.replaceState({ page: 'cultures' }, '', '/app/cultures');
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
   });
 
   it('closes the mobile dialog when the browser history entry is popped', async () => {
@@ -167,13 +175,9 @@ describe('PublicCultureLibraryDialog', () => {
     const dialog = await screen.findByRole('dialog');
     const paper = dialog.closest('.MuiDialog-paper');
 
-    expect(paper).toHaveStyle({
-      width: '100vw',
-      maxWidth: '100vw',
-      height: '100dvh',
-      maxHeight: '100dvh',
-      margin: '0px',
-    });
+    expect(paper).toHaveClass('MuiDialog-paperFullScreen');
+    expect(paper).toHaveClass('MuiDialog-paperWidthFalse');
+    expect(paper).not.toHaveStyle({ backgroundColor: 'transparent' });
   });
 
   it('shows a community invitation in the desktop detail empty state', async () => {
@@ -201,7 +205,7 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.getByTestId('MoreVertIcon').closest('button')).toBeNull();
     expect(screen.getByText('Veröffentlichen').tagName).toBe('STRONG');
     expect(screen.queryByText(/⋮/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.')).toHaveTextContent('So geht’s:Bei einer Kultur→Veröffentlichen');
+    expect(screen.getByLabelText('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.')).toHaveTextContent('So geht’s:Bei einer Kultur aufklicken→Veröffentlichen');
     expect(screen.queryByText(/Eigene Kulturen können später direkt aus den Kulturdetails veröffentlicht werden/)).not.toBeInTheDocument();
   });
 
@@ -226,10 +230,38 @@ describe('PublicCultureLibraryDialog', () => {
     expect(screen.getByRole('link', { name: 'Kulturbibliothek öffnen' })).toHaveAttribute('href', '/app/crop-library');
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeDisabled();
 
-    fireEvent.click(screen.getByText('Tomate (Roma)'));
+    fireEvent.click(screen.getByRole('option', { name: 'Tomate' }));
     fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));
 
     expect(onImport).toHaveBeenCalledWith(culture);
+  });
+
+  it('uses localized public crop titles in the picker list and detail pane', async () => {
+    mockDesktopViewport();
+    const localizedCulture: PublicCulture = {
+      ...culture,
+      name: 'Ackerbohne',
+      variety: 'Hangdown',
+      display_name: 'Broad bean',
+      display_language_code: 'en',
+    };
+
+    renderDialog(
+      {
+        open: true,
+        loading: false,
+        error: null,
+        cultures: [localizedCulture],
+        importingId: null,
+        onClose: vi.fn(),
+        onSearch: vi.fn(),
+        onImport: vi.fn(),
+      },
+    );
+
+    fireEvent.click(await screen.findByRole('option', { name: /Broad bean/ }));
+    expect(screen.getByRole('heading', { level: 6, name: 'Broad bean (Hangdown)' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Ackerbohne/ })).not.toBeInTheDocument();
   });
 
   it('supports keyboard navigation in the desktop import list', async () => {
@@ -252,21 +284,28 @@ describe('PublicCultureLibraryDialog', () => {
 
     expect(await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
 
-    screen.getByRole('option', { name: /Tomate/ }).focus();
+    // Each fixture culture is its own single-variety group with no general
+    // entry, so the first ArrowDown from the collapsed species row expands
+    // it and selects its own variety before subsequent presses advance to
+    // the next crop group — mirrors the full public crop library page.
+    screen.getByRole('option', { name: 'Tomate' }).focus();
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Salat' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('heading', { level: 6, name: 'Salat (Maikönig)' })).toBeInTheDocument();
 
     await user.keyboard('{End}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{ArrowDown}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Möhre' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{Home}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Tomate/ })).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'In Projekt importieren' }));

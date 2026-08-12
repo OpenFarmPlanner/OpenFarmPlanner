@@ -1,4 +1,4 @@
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import { Box, Button, Portal, Snackbar, Typography } from '@mui/material';
 
 export const DELETE_UNDO_DURATION_MS = 10000;

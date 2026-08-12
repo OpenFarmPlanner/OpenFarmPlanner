@@ -1,6 +1,7 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
+import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
 
 export interface GanttTask {
   id: string;
@@ -46,6 +47,7 @@ export interface GanttTaskGroup {
   depth?: number;
   isExpandable?: boolean;
   isExpanded?: boolean;
+  /** Structural summary rendered in the row's timeline area instead of bars. */
   emptyRowLabel?: string;
   rowHeightOverride?: number;
 }
@@ -149,6 +151,10 @@ export function formatCultureDisplayLabel(cultureName?: string | null, variety?:
   return normalizedCultureName || normalizedVariety || 'Unbekannte Kultur';
 }
 
+function getPlanCultureDisplayName(plan: Pick<PlantingPlan, 'culture_display_name' | 'culture_name'>): string {
+  return getCultureDisplayName(plan);
+}
+
 export function formatSeedlingTooltipTitle(task: Pick<GanttTask, 'cultureName' | 'cultureVariety' | 'name'>): string {
   return formatCultureDisplayLabel(task.cultureName || task.name, task.cultureVariety);
 }
@@ -165,11 +171,15 @@ export function formatPlantCount(value: number): string {
   return formatLocalizedNumber(value, 'de-DE', { maximumFractionDigits: 0 });
 }
 
-function formatCultureLabel(culture?: Culture, fallbackName?: string | null): string {
+function formatCultureLabel(culture?: Culture, fallbackName?: string | null, fallbackVariety?: string | null): string {
   if (!culture) {
     return fallbackName || 'Unbekannte Kultur';
   }
-  return formatCultureDisplayLabel(culture.name, culture.variety);
+  return formatCultureDisplayName({
+    ...culture,
+    culture_display_name: culture.culture_display_name || fallbackName,
+    variety: fallbackVariety || culture.variety,
+  });
 }
 
 export function buildOccupancyTooltipDetails(task: Pick<
@@ -317,9 +327,10 @@ export function buildFieldOccupancyTaskGroups({
           const harvestEndDate = plan.harvest_end_date
             ? parseDateString(plan.harvest_end_date)
             : harvestStartDate;
-          const baseColor = getCultureColor(cultures, plan.culture, plan.culture_name || '', plan.culture_display_color);
+          const cultureDisplayName = getPlanCultureDisplayName(plan);
+          const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
           const cultureLabel = formatCultureDisplayLabel(
-            plan.culture_name || `Culture ${plan.culture}`,
+            cultureDisplayName || `Culture ${plan.culture}`,
             plan.culture_variety,
           );
 
@@ -331,7 +342,7 @@ export function buildFieldOccupancyTaskGroups({
             color: baseColor,
             percent: 100,
             plantingPlanId: plan.id,
-            cultureName: plan.culture_name ?? undefined,
+            cultureName: cultureDisplayName || undefined,
             cultureVariety: plan.culture_variety ?? undefined,
             areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
             notes: plan.notes,
@@ -348,7 +359,7 @@ export function buildFieldOccupancyTaskGroups({
               color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
               percent: 100,
               plantingPlanId: plan.id,
-              cultureName: plan.culture_name ?? undefined,
+              cultureName: cultureDisplayName || undefined,
               cultureVariety: plan.culture_variety ?? undefined,
               areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
               notes: plan.notes,
@@ -482,9 +493,10 @@ export function buildFieldOccupancyHierarchy({
       const harvestEndDate = plan.harvest_end_date
         ? parseDateString(plan.harvest_end_date)
         : harvestStartDate;
-      const baseColor = getCultureColor(cultures, plan.culture, plan.culture_name || '', plan.culture_display_color);
+      const cultureDisplayName = getPlanCultureDisplayName(plan);
+      const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
       const cultureLabel = formatCultureDisplayLabel(
-        plan.culture_name || `Culture ${plan.culture}`,
+        cultureDisplayName || `Culture ${plan.culture}`,
         plan.culture_variety,
       );
 
@@ -496,7 +508,7 @@ export function buildFieldOccupancyHierarchy({
         color: baseColor,
         percent: 100,
         plantingPlanId: plan.id,
-        cultureName: plan.culture_name ?? undefined,
+        cultureName: cultureDisplayName || undefined,
         cultureVariety: plan.culture_variety ?? undefined,
         areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
         notes: plan.notes,
@@ -513,7 +525,7 @@ export function buildFieldOccupancyHierarchy({
           color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
           percent: 100,
           plantingPlanId: plan.id,
-          cultureName: plan.culture_name ?? undefined,
+          cultureName: cultureDisplayName || undefined,
           cultureVariety: plan.culture_variety ?? undefined,
           areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
           notes: plan.notes,
@@ -660,9 +672,10 @@ export function buildSeedlingTaskGroups({
       return;
     }
 
+    const cultureDisplayName = getPlanCultureDisplayName(plan);
     const cultureLabel = culture
-      ? formatCultureLabel(culture, plan.culture_name)
-      : formatCultureDisplayLabel(plan.culture_name || `Kultur ${plan.culture}`, plan.culture_variety);
+      ? formatCultureLabel(culture, cultureDisplayName || null, plan.culture_variety)
+      : formatCultureDisplayLabel(cultureDisplayName || `Kultur ${plan.culture}`, plan.culture_variety);
     const groupId = `culture-${plan.culture}`;
     const group = groupsByCulture.get(groupId) ?? {
       id: groupId,
@@ -693,7 +706,7 @@ export function buildSeedlingTaskGroups({
       color: getCultureColor(cultures, plan.culture, cultureLabel, plan.culture_display_color),
       percent: 100,
       plantingPlanId: plan.id,
-      cultureName: culture?.name || plan.culture_name || cultureLabel,
+      cultureName: cultureDisplayName || culture?.name || cultureLabel,
       cultureVariety: culture?.variety || plan.culture_variety || undefined,
       propagationStartDate,
       propagationDurationDays,

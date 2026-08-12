@@ -12,6 +12,8 @@ from django.utils.text import slugify
 
 from accounts.models import UserProjectSettings
 from config.languages import UI_LANGUAGE_AUTO, normalize_language_tag, parse_accept_language
+from crops.models import CropSpecies
+from crops.services import find_species_by_common_name
 from farm.models import (
     Bed,
     BedLayout,
@@ -23,6 +25,7 @@ from farm.models import (
     PlantingPlan,
     Project,
     ProjectMembership,
+    PublicCulture,
     SeedPackage,
     Supplier,
 )
@@ -161,25 +164,30 @@ class CultureSpec:
     variety: str
     color: str
     cultivation_types: list[str]
-    growth_days: int
-    harvest_days: int
+    growth_days: int | None
+    harvest_days: int | None
     propagation_days: int | None
     crop_family: str
     nutrient_demand: str
-    row_spacing_m: float
-    distance_within_row_m: float
-    expected_yield: Decimal
+    row_spacing_m: float | None
+    distance_within_row_m: float | None
+    expected_yield: Decimal | None
     harvest_method: str
+    sowing_depth_m: float | None = None
     seed_rate_direct_value: float | None = None
     seed_rate_direct_unit: str | None = None
     seed_rate_pre_value: float | None = None
     seed_rate_pre_unit: str | None = None
     safety_direct: float | None = None
     safety_pre: float | None = None
+    safety_general: float | None = None
     tkg: Decimal | None = None
+    seeding_requirement: float | None = None
+    seeding_requirement_type: str = ''
     supplier_key: str = 'bingenheimer'
     packaging_sizes: list[dict[str, float | str]] | None = None
     germination_rate: float | None = None
+    is_species: bool = False
 
 
 @dataclass(frozen=True)
@@ -210,6 +218,23 @@ def reset_project_demo_data(project: Project) -> None:
 def is_demo_project_description(description: str | None) -> bool:
     """Return whether a project description marks one of the demo templates."""
     return (description or '') in DEMO_PROJECT_DESCRIPTIONS
+
+
+def find_demo_culture_species(name: str | None) -> CropSpecies | None:
+    """Resolve a demo crop name through all language variants in the template."""
+    species = find_species_by_common_name(name)
+    if species is not None:
+        return species
+
+    for text in DEMO_TEXT.values():
+        for culture_key, culture_text in text['cultures'].items():
+            if culture_text[0] != name:
+                continue
+            for fallback_text in DEMO_TEXT.values():
+                species = find_species_by_common_name(fallback_text['cultures'][culture_key][0])
+                if species is not None:
+                    return species
+    return None
 
 
 def resolve_demo_language(language_code: str | None) -> str:
@@ -266,6 +291,57 @@ def populate_demo_project(project: Project, *, owner: Any | None = None, languag
         _create_planting_plans(project, cultures, beds, owner, language_code=language)
 
 
+def populate_public_demo_library_from_project(project: Project, *, owner: Any | None = None, language_code: str | None = None) -> None:
+    """Create public-library demo rows from the local demo project without supplier data."""
+    language = resolve_demo_language(language_code)
+    with transaction.atomic():
+        PublicCulture.objects.filter(source_project=project).delete()
+        for culture in Culture.objects.filter(project=project).order_by('name', 'variety'):
+            seed_rate_by_cultivation: dict[str, dict[str, float | str]] = {}
+            if culture.seed_rate_direct_value is not None and culture.seed_rate_direct_unit:
+                seed_rate_by_cultivation['direct_sowing'] = {
+                    'value': culture.seed_rate_direct_value,
+                    'unit': culture.seed_rate_direct_unit,
+                }
+            if culture.seed_rate_pre_cultivation_value is not None and culture.seed_rate_pre_cultivation_unit:
+                seed_rate_by_cultivation['pre_cultivation'] = {
+                    'value': culture.seed_rate_pre_cultivation_value,
+                    'unit': culture.seed_rate_pre_cultivation_unit,
+                }
+
+            PublicCulture.objects.create(
+                status=PublicCulture.STATUS_PUBLISHED,
+                created_by=owner if owner and getattr(owner, 'pk', None) else None,
+                name=culture.name,
+                variety=culture.variety or '',
+                notes=culture.notes or '',
+                crop_species=culture.crop_species,
+                original_language_code=language,
+                source_project_culture=culture,
+                source_project=project,
+                crop_family=culture.crop_family,
+                nutrient_demand=culture.nutrient_demand,
+                cultivation_types=culture.cultivation_types or [],
+                cultivation_type=culture.cultivation_type,
+                growth_duration_days=culture.growth_duration_days,
+                harvest_duration_days=culture.harvest_duration_days,
+                propagation_duration_days=culture.propagation_duration_days,
+                harvest_method=culture.harvest_method,
+                expected_yield=culture.expected_yield,
+                allow_deviation_delivery_weeks=culture.allow_deviation_delivery_weeks,
+                distance_within_row_m=culture.distance_within_row_m,
+                row_spacing_m=culture.row_spacing_m,
+                sowing_depth_m=culture.sowing_depth_m,
+                seed_rate_by_cultivation=seed_rate_by_cultivation or None,
+                sowing_calculation_safety_percent=culture.sowing_calculation_safety_percent,
+                thousand_kernel_weight_g=culture.thousand_kernel_weight_g,
+                seeding_requirement=culture.seeding_requirement,
+                seeding_requirement_type=culture.seeding_requirement_type,
+                display_color=culture.display_color,
+                seed_packages=[],
+            )
+
+
 def create_or_reset_demo_project(
     *,
     user_email: str = DEMO_USER_EMAIL,
@@ -274,6 +350,7 @@ def create_or_reset_demo_project(
     project_name: str | None = None,
     project_slug: str = DEMO_PROJECT_SLUG,
     language_code: str | None = None,
+    seed_public_library: bool = False,
 ) -> DemoProjectResult:
     """Create a local demo user/project and replace the project's demo data."""
     language = resolve_demo_language(language_code)
@@ -323,6 +400,8 @@ def create_or_reset_demo_project(
         settings_obj.save(update_fields=['default_project', 'last_project', 'updated_at'])
 
         populate_demo_project(project, owner=user, language_code=language)
+        if seed_public_library:
+            populate_public_demo_library_from_project(project, owner=user, language_code=language)
 
     return DemoProjectResult(
         project=project,
@@ -530,89 +609,233 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
     culture_text = DEMO_TEXT[language_code]['cultures']
     culture_specs = [
         CultureSpec(
-            key='karotte',
-            name=culture_text['karotte'][0],
-            variety=culture_text['karotte'][1],
-            color='#f97316',
-            cultivation_types=['direct_sowing'],
-            growth_days=92,
-            harvest_days=28,
-            propagation_days=None,
-            crop_family=culture_text['karotte'][2],
-            nutrient_demand='medium',
-            row_spacing_m=0.25,
-            distance_within_row_m=0.04,
-            expected_yield=Decimal('38.00'),
-            harvest_method='per_sqm',
-            seed_rate_direct_value=0.7,
-            seed_rate_direct_unit='g_per_m2',
-            safety_direct=12,
-            tkg=Decimal('1.20'),
-            supplier_key='bingenheimer',
-            packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}, {'size_value': 25, 'size_unit': 'g'}],
-            germination_rate=82,
-        ),
-        CultureSpec(
-            key='salat',
-            name=culture_text['salat'][0],
-            variety=culture_text['salat'][1],
-            color='#65a30d',
-            cultivation_types=['pre_cultivation'],
-            growth_days=42,
-            harvest_days=10,
-            propagation_days=24,
-            crop_family=culture_text['salat'][2],
-            nutrient_demand='medium',
-            row_spacing_m=0.30,
-            distance_within_row_m=0.30,
-            expected_yield=Decimal('22.00'),
-            harvest_method='per_sqm',
-            seed_rate_pre_value=1.2,
-            seed_rate_pre_unit='seeds_per_plant',
-            safety_pre=20,
-            tkg=Decimal('1.10'),
-            supplier_key='sativa',
-            packaging_sizes=[{'size_value': 250, 'size_unit': 'seeds'}, {'size_value': 1000, 'size_unit': 'seeds'}],
-            germination_rate=88,
-        ),
-        CultureSpec(
-            key='tomate',
+            key='tomate-art',
             name=culture_text['tomate'][0],
-            variety=culture_text['tomate'][1],
-            color='#dc2626',
+            variety='',
+            color='#b91c1c',
             cultivation_types=['pre_cultivation'],
-            growth_days=70,
-            harvest_days=60,
+            growth_days=78,
+            harvest_days=56,
             propagation_days=45,
             crop_family=culture_text['tomate'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.50,
-            expected_yield=Decimal('48.00'),
+            expected_yield=Decimal('4.50'),
             harvest_method='per_plant',
+            sowing_depth_m=0.005,
             seed_rate_pre_value=1.2,
             seed_rate_pre_unit='seeds_per_plant',
-            safety_pre=25,
+            safety_pre=20,
+            tkg=Decimal('3.10'),
+            is_species=True,
+        ),
+        CultureSpec(
+            key='tomate',
+            name=culture_text['tomate'][0],
+            variety='Roma',
+            color='#dc2626',
+            cultivation_types=[],
+            growth_days=72,
+            harvest_days=None,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=0.70,
+            distance_within_row_m=0.45,
+            expected_yield=Decimal('4.20'),
+            harvest_method='',
             tkg=Decimal('3.20'),
             supplier_key='reinsaat',
             packaging_sizes=[{'size_value': 25, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
             germination_rate=85,
         ),
         CultureSpec(
-            key='gurke',
+            key='tomate-moneymaker',
+            name=culture_text['tomate'][0],
+            variety='Moneymaker',
+            color='#ef4444',
+            cultivation_types=[],
+            growth_days=None,
+            harvest_days=65,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=None,
+            distance_within_row_m=0.55,
+            expected_yield=Decimal('5.20'),
+            harvest_method='',
+            tkg=None,
+            supplier_key='bingenheimer',
+            packaging_sizes=[{'size_value': 20, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
+            germination_rate=86,
+        ),
+        CultureSpec(
+            key='tomate-san-marzano',
+            name=culture_text['tomate'][0],
+            variety='San Marzano',
+            color='#991b1b',
+            cultivation_types=[],
+            growth_days=84,
+            harvest_days=50,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=0.90,
+            distance_within_row_m=0.60,
+            expected_yield=Decimal('4.80'),
+            harvest_method='',
+            tkg=Decimal('3.40'),
+            supplier_key='sativa',
+            packaging_sizes=[{'size_value': 25, 'size_unit': 'seeds'}, {'size_value': 250, 'size_unit': 'seeds'}],
+            germination_rate=84,
+        ),
+        CultureSpec(
+            key='karotte-art',
+            name=culture_text['karotte'][0],
+            variety='',
+            color='#ea580c',
+            cultivation_types=['direct_sowing'],
+            growth_days=100,
+            harvest_days=28,
+            propagation_days=None,
+            crop_family=culture_text['karotte'][2],
+            nutrient_demand='medium',
+            row_spacing_m=0.25,
+            distance_within_row_m=0.04,
+            expected_yield=Decimal('3.80'),
+            harvest_method='per_sqm',
+            sowing_depth_m=0.015,
+            seed_rate_direct_value=0.7,
+            seed_rate_direct_unit='g_per_m2',
+            safety_direct=12,
+            tkg=Decimal('1.20'),
+            is_species=True,
+        ),
+        CultureSpec(
+            key='karotte',
+            name=culture_text['karotte'][0],
+            variety=culture_text['karotte'][1],
+            color='#f97316',
+            cultivation_types=[],
+            growth_days=95,
+            harvest_days=None,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=None,
+            distance_within_row_m=None,
+            expected_yield=None,
+            harvest_method='',
+            tkg=None,
+            supplier_key='bingenheimer',
+            packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}, {'size_value': 25, 'size_unit': 'g'}],
+            germination_rate=82,
+        ),
+        CultureSpec(
+            key='karotte-rodelika',
+            name=culture_text['karotte'][0],
+            variety='Rodelika',
+            color='#fb923c',
+            cultivation_types=[],
+            growth_days=110,
+            harvest_days=35,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=0.30,
+            distance_within_row_m=0.06,
+            expected_yield=Decimal('4.20'),
+            harvest_method='',
+            seed_rate_direct_value=0.8,
+            seed_rate_direct_unit='g_per_m2',
+            safety_direct=15,
+            tkg=Decimal('1.35'),
+            supplier_key='reinsaat',
+            packaging_sizes=[{'size_value': 10, 'size_unit': 'g'}, {'size_value': 50, 'size_unit': 'g'}],
+            germination_rate=80,
+        ),
+        CultureSpec(
+            key='salat-art',
+            name=culture_text['salat'][0],
+            variety='',
+            color='#4d7c0f',
+            cultivation_types=['pre_cultivation'],
+            growth_days=44,
+            harvest_days=10,
+            propagation_days=24,
+            crop_family=culture_text['salat'][2],
+            nutrient_demand='medium',
+            row_spacing_m=0.30,
+            distance_within_row_m=0.30,
+            expected_yield=Decimal('2.20'),
+            harvest_method='per_sqm',
+            sowing_depth_m=None,
+            seed_rate_pre_value=1.2,
+            seed_rate_pre_unit='seeds_per_plant',
+            safety_pre=20,
+            tkg=None,
+            is_species=True,
+        ),
+        CultureSpec(
+            key='salat',
+            name=culture_text['salat'][0],
+            variety=culture_text['salat'][1],
+            color='#65a30d',
+            cultivation_types=[],
+            growth_days=42,
+            harvest_days=None,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=None,
+            distance_within_row_m=None,
+            expected_yield=None,
+            harvest_method='',
+            tkg=Decimal('1.10'),
+            supplier_key='sativa',
+            packaging_sizes=[{'size_value': 250, 'size_unit': 'seeds'}, {'size_value': 1000, 'size_unit': 'seeds'}],
+            germination_rate=88,
+        ),
+        CultureSpec(
+            key='salat-maikoenig',
+            name=culture_text['salat'][0],
+            variety='Maikönig' if language_code == 'de' else 'May King',
+            color='#84cc16',
+            cultivation_types=['direct_sowing'],
+            growth_days=50,
+            harvest_days=8,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=0.25,
+            distance_within_row_m=0.25,
+            expected_yield=Decimal('1.80'),
+            harvest_method='',
+            seed_rate_direct_value=0.25,
+            seed_rate_direct_unit='g_per_m2',
+            safety_direct=15,
+            tkg=None,
+            supplier_key='bingenheimer',
+            packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}],
+            germination_rate=84,
+        ),
+        CultureSpec(
+            key='gurke-art',
             name=culture_text['gurke'][0],
-            variety=culture_text['gurke'][1],
-            color='#16a34a',
+            variety='',
+            color='#15803d',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
-            growth_days=55,
+            growth_days=58,
             harvest_days=45,
             propagation_days=28,
             crop_family=culture_text['gurke'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.40,
-            expected_yield=Decimal('36.00'),
+            expected_yield=Decimal('5.00'),
             harvest_method='per_plant',
+            sowing_depth_m=0.02,
             seed_rate_pre_value=1.2,
             seed_rate_pre_unit='seeds_per_plant',
             seed_rate_direct_value=2.0,
@@ -620,9 +843,52 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             safety_pre=20,
             safety_direct=10,
             tkg=Decimal('28.00'),
+            is_species=True,
+        ),
+        CultureSpec(
+            key='gurke',
+            name=culture_text['gurke'][0],
+            variety='Arola',
+            color='#16a34a',
+            cultivation_types=['pre_cultivation'],
+            growth_days=55,
+            harvest_days=None,
+            propagation_days=None,
+            crop_family='',
+            nutrient_demand='',
+            row_spacing_m=None,
+            distance_within_row_m=None,
+            expected_yield=Decimal('5.60'),
+            harvest_method='',
+            tkg=Decimal('26.00'),
             supplier_key='bingenheimer',
             packaging_sizes=[{'size_value': 20, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
             germination_rate=86,
+        ),
+        CultureSpec(
+            key='mangold-art',
+            name=culture_text['mangold'][0],
+            variety='',
+            color='#5b21b6',
+            cultivation_types=['pre_cultivation', 'direct_sowing'],
+            growth_days=60,
+            harvest_days=75,
+            propagation_days=32,
+            crop_family=culture_text['mangold'][2],
+            nutrient_demand='medium',
+            row_spacing_m=0.35,
+            distance_within_row_m=0.30,
+            expected_yield=Decimal('16.00'),
+            harvest_method='per_sqm',
+            sowing_depth_m=0.02,
+            seed_rate_pre_value=1.5,
+            seed_rate_pre_unit='seeds_per_plant',
+            seed_rate_direct_value=1.0,
+            seed_rate_direct_unit='g_per_m2',
+            safety_pre=18,
+            safety_direct=12,
+            tkg=Decimal('14.00'),
+            is_species=True,
         ),
         CultureSpec(
             key='mangold',
@@ -651,6 +917,28 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             germination_rate=80,
         ),
         CultureSpec(
+            key='rote-bete-art',
+            name=culture_text['rote-bete'][0],
+            variety='',
+            color='#9f1239',
+            cultivation_types=['direct_sowing'],
+            growth_days=90,
+            harvest_days=40,
+            propagation_days=None,
+            crop_family=culture_text['rote-bete'][2],
+            nutrient_demand='medium',
+            row_spacing_m=0.30,
+            distance_within_row_m=0.08,
+            expected_yield=Decimal('28.00'),
+            harvest_method='per_sqm',
+            sowing_depth_m=0.02,
+            seed_rate_direct_value=1.0,
+            seed_rate_direct_unit='g_per_m2',
+            safety_direct=12,
+            tkg=Decimal('12.50'),
+            is_species=True,
+        ),
+        CultureSpec(
             key='rote-bete',
             name=culture_text['rote-bete'][0],
             variety=culture_text['rote-bete'][1],
@@ -674,6 +962,28 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             germination_rate=84,
         ),
         CultureSpec(
+            key='kohlrabi-art',
+            name=culture_text['kohlrabi'][0],
+            variety='',
+            color='#1d4ed8',
+            cultivation_types=['pre_cultivation'],
+            growth_days=52,
+            harvest_days=16,
+            propagation_days=30,
+            crop_family=culture_text['kohlrabi'][2],
+            nutrient_demand='medium',
+            row_spacing_m=0.30,
+            distance_within_row_m=0.25,
+            expected_yield=Decimal('22.00'),
+            harvest_method='per_sqm',
+            sowing_depth_m=0.01,
+            seed_rate_pre_value=1.2,
+            seed_rate_pre_unit='seeds_per_plant',
+            safety_pre=18,
+            tkg=Decimal('4.00'),
+            is_species=True,
+        ),
+        CultureSpec(
             key='kohlrabi',
             name=culture_text['kohlrabi'][0],
             variety=culture_text['kohlrabi'][1],
@@ -695,6 +1005,28 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             supplier_key='bingenheimer',
             packaging_sizes=[{'size_value': 250, 'size_unit': 'seeds'}, {'size_value': 1000, 'size_unit': 'seeds'}],
             germination_rate=90,
+        ),
+        CultureSpec(
+            key='zucchini-art',
+            name=culture_text['zucchini'][0],
+            variety='',
+            color='#115e59',
+            cultivation_types=['pre_cultivation'],
+            growth_days=48,
+            harvest_days=75,
+            propagation_days=26,
+            crop_family=culture_text['zucchini'][2],
+            nutrient_demand='high',
+            row_spacing_m=1.20,
+            distance_within_row_m=0.80,
+            expected_yield=Decimal('40.00'),
+            harvest_method='per_plant',
+            sowing_depth_m=0.02,
+            seed_rate_pre_value=1.2,
+            seed_rate_pre_unit='seeds_per_plant',
+            safety_pre=20,
+            tkg=Decimal('115.00'),
+            is_species=True,
         ),
         CultureSpec(
             key='zucchini',
@@ -723,14 +1055,15 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
 
     cultures: dict[str, Culture] = {}
     for spec in culture_specs:
-        supplier = suppliers[spec.supplier_key]
+        supplier = None if spec.is_species else suppliers[spec.supplier_key]
         culture = Culture.objects.create(
             name=spec.name,
             variety=spec.variety,
+            crop_species=find_demo_culture_species(spec.name),
             crop_family=spec.crop_family,
             nutrient_demand=spec.nutrient_demand,
             cultivation_types=spec.cultivation_types,
-            cultivation_type=spec.cultivation_types[0],
+            cultivation_type=spec.cultivation_types[0] if spec.cultivation_types else '',
             growth_duration_days=spec.growth_days,
             harvest_duration_days=spec.harvest_days,
             propagation_duration_days=spec.propagation_days,
@@ -738,34 +1071,41 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             expected_yield=spec.expected_yield,
             row_spacing_m=spec.row_spacing_m,
             distance_within_row_m=spec.distance_within_row_m,
+            sowing_depth_m=spec.sowing_depth_m,
+            seed_rate_value=None,
+            seed_rate_unit=None,
             seed_rate_direct_value=spec.seed_rate_direct_value,
             seed_rate_direct_unit=spec.seed_rate_direct_unit,
             seed_rate_pre_cultivation_value=spec.seed_rate_pre_value,
             seed_rate_pre_cultivation_unit=spec.seed_rate_pre_unit,
+            sowing_calculation_safety_percent=spec.safety_general,
             sowing_calculation_safety_percent_direct=spec.safety_direct,
             sowing_calculation_safety_percent_pre_cultivation=spec.safety_pre,
             thousand_kernel_weight_g=spec.tkg,
+            seeding_requirement=spec.seeding_requirement,
+            seeding_requirement_type=spec.seeding_requirement_type,
             supplier=supplier,
             selected_seed_demand_supplier=supplier,
             display_color=spec.color,
             project=project,
         )
-        CultureSupplierData.objects.create(
-            culture=culture,
-            supplier=supplier,
-            supplier_name=supplier.name,
-            packaging_sizes=spec.packaging_sizes or [],
-            thousand_kernel_weight_g=spec.tkg,
-            germination_rate=spec.germination_rate,
-            project=project,
-        )
-        for package in spec.packaging_sizes or []:
-            SeedPackage.objects.create(
+        if supplier is not None:
+            CultureSupplierData.objects.create(
                 culture=culture,
+                supplier=supplier,
+                supplier_name=supplier.name,
+                packaging_sizes=spec.packaging_sizes or [],
+                thousand_kernel_weight_g=spec.tkg,
+                germination_rate=spec.germination_rate,
                 project=project,
-                size_value=Decimal(str(package['size_value'])),
-                size_unit=str(package['size_unit']),
             )
+            for package in spec.packaging_sizes or []:
+                SeedPackage.objects.create(
+                    culture=culture,
+                    project=project,
+                    size_value=Decimal(str(package['size_value'])),
+                    size_unit=str(package['size_unit']),
+                )
         cultures[spec.key] = culture
 
     return cultures

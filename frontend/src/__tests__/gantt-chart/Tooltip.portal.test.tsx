@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GanttChart, type TaskGroup } from "../../gantt-chart/src";
+import { registerOpenContextMenu } from "../../components/contextMenu/contextMenuOpenState";
 
 const tasks: TaskGroup[] = [
   {
@@ -195,6 +196,39 @@ describe("Tooltip portal behavior", () => {
     await waitFor(() => {
       expect(tooltipRoot.style.top).not.toBe(firstTop);
       expect(tooltipRoot.style.left).toBe("160px");
+    });
+  });
+
+  test("hides the task tooltip while a context menu is open", async () => {
+    render(<GanttChart tasks={tasks} />);
+
+    fireEvent.mouseEnter(screen.getByTestId("task-task-1"), {
+      clientX: 120,
+      clientY: 120,
+    });
+
+    await waitFor(() => {
+      expect(
+        document.body.querySelector('[data-rmg-component="tooltip"]'),
+      ).not.toBeNull();
+    });
+
+    const release = registerOpenContextMenu(Symbol("gantt-context-menu"));
+    try {
+      await waitFor(() => {
+        expect(
+          document.body.querySelector('[data-rmg-component="tooltip"]'),
+        ).toBeNull();
+      });
+    } finally {
+      release();
+    }
+
+    // The tooltip comes back once the menu is gone - the pointer never left.
+    await waitFor(() => {
+      expect(
+        document.body.querySelector('[data-rmg-component="tooltip"]'),
+      ).not.toBeNull();
     });
   });
 

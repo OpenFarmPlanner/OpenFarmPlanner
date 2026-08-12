@@ -18,10 +18,11 @@ The public Crop Library follows an open-data model:
 
 - Published crop data becomes part of a shared knowledge base intended to
   persist beyond the contributing user's project or account.
-- Contributors may withdraw their own publications when a publication was
-  accidental or needs correction. Withdrawal is non-destructive: the entry
-  disappears from discovery, but attribution, license evidence, import
-  lineage, and already-imported project copies remain intact.
+- Contributors may take their own publications back out of the library when a
+  publication was accidental or needs correction. Withdrawal is
+  non-destructive: the entry disappears from discovery, but attribution,
+  license evidence, import lineage, and already-imported project copies remain
+  intact. The UI offers this as a single "Aus Bibliothek entfernen" action.
 - Moderator removal is reserved for exceptional cases such as test data,
   duplicates, unlawful content, personal data in a published record, spam,
   obvious abuse, or another moderation decision. It is also non-destructive.
@@ -29,11 +30,68 @@ The public Crop Library follows an open-data model:
   immediately published as the current public version and records an immutable
   `PublicCultureRevision` snapshot with author, timestamp, changed fields, and
   old/new values where they are displayable.
-- The public entry identity is fixed after publication: `name`/`variety`
-  (`Kulturart` + `Sorte`) define the public-library record and are not part of
-  the wiki-style edit payload. The UI shows that identity as static context in
-  the shared culture form, while the API rejects manipulated direct edit
-  requests that try to change it.
+- The public entry identity is fixed after publication in one direction only:
+  `name` (`Kulturart`) can never be changed through the wiki-style edit
+  payload — the API rejects manipulated direct edit requests that try to
+  change it, and the UI shows it as static, read-only context in the shared
+  culture form. `variety` (`Sorte`) is the one exception: an admin editing a
+  public entry may correct the variety name (typo fixes) through the same
+  edit payload as any other editable field. The identity uniqueness invariant
+  from publish time still applies — `update_public_culture_directly()`
+  rejects a rename that would collide with another published entry for the
+  same species/name (`find_public_culture_identity_conflict()`, 409
+  `public_culture_variety_conflict`). Because imported project cultures are
+  linked by a stable `source_public_culture` foreign key rather than by name,
+  a variety rename propagates through the existing re-import/update model
+  (`import_public_culture_into_project()`) exactly like any other field edit:
+  the linked project culture picks it up on its next explicit
+  update/re-import, or the confirm-required conflict dialog if it has local
+  edits (the 409 response there also flags `variety_changed` so the frontend
+  can call the identity change out explicitly instead of blending it into a
+  generic warning).
+- Nothing about that model is automatic, but it is no longer invisible.
+  `CultureSerializer.public_update_available` compares the copy's
+  `source_public_version` against the linked entry's current `version` — the
+  same comparison `import_public_culture_into_project()` makes — so the private
+  culture view can show a notice that the library moved on.
+  `GET /api/cultures/<id>/public-update/` then returns the field-level diff,
+  derived from `CULTURE_COPY_FIELDS` (exactly what an update overwrites, so a
+  renamed `variety` can never be applied without appearing in the preview).
+  The endpoint is read-only: confirming in the dialog calls the existing
+  `public-cultures/<id>/import/` action with `mode=update`, so the private
+  culture page and the library page share one import/update path.
+- Declining a public change is a third, explicit outcome next to applying and
+  cancelling. `POST /api/cultures/<id>/public-update/reject/` stores
+  `Culture.rejected_public_version` and touches no library-sourced field, so the
+  notice disappears for exactly that version while the local copy stays as it
+  was. Because the decision is a *version number* rather than a flag, a later
+  public edit produces a version the user never decided on and the notice comes
+  back on its own; taking an update over (`build_project_culture_payload`)
+  clears the rejection again. Cancelling remains the "no decision" path — the
+  notice returns on the next visit.
+- The diff stays reachable after a decision: `build_public_culture_update_status()`
+  is still built for a rejected version, and the culture detail header carries a
+  permanent, quiet marker next to the "Importiert" badge
+  (`PublicCultureUpdateMarker`) that reopens the dialog whenever the copy and
+  the library version differ. Both entry points share one
+  `usePublicCultureUpdate` controller, so the notice and the marker can never
+  disagree about what is loading, applying, or rejecting.
+- `CultureSerializer.public_publish_blocked_reason` locks the "Öffentliche
+  Kulturbibliothek aktualisieren" action while pushing the local copy would be
+  wrong: `update_pending` (undecided library change), `update_rejected` (the
+  user declined that public version — pushing would silently undo exactly the
+  change they declined), and `no_local_changes` (aligned copy with nothing to
+  contribute). The lock is not only cosmetic:
+  `publish_culture_to_public_library()` raises `PublicCultureUpdateBlockedError`
+  (409 `public_culture_update_blocked`) for the two divergence cases before the
+  quality gate runs. The action becomes available again once the copy is
+  aligned with the current public version *and* carries local edits made after
+  that.
+- The publishing wizard's comparison covers `variety` too. Before the Sorte
+  became editable it was left out as immutable, which meant publishing an
+  update could rename the public entry without the change ever appearing in
+  the "Änderungen vor der Veröffentlichung" table. It is skipped only for a
+  species-level publish, where the backend forces an empty variety anyway.
 - Reverting a public entry restores an older snapshot by creating another new
   version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future
@@ -97,6 +155,77 @@ may propose missing species from the publishing wizard, but proposed species
 stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
+
+Private project cultures are intentionally independent from that public master
+data. `Culture.crop_species` stays nullable and the "Add crop" dialog never
+requires linking to a public entry — free text remains valid at all times and
+never creates or proposes a public entry.
+
+The "Add crop" dialog's `Kulturart` ("Name") and `Sorte` ("Variety") fields
+are two separate suggestion sources
+(`frontend/src/cultures/publicCultureNameSuggestions.ts`,
+wired up in `CultureForm.tsx`/`BasicInfoSection.tsx`): the Name field
+suggests deduplicated public crop species names only (one option per
+`crop_species`, never a "Species · Variety" combination), and the variety
+fields only offer suggestions — fetched via
+`GET /api/public-cultures/?crop_species=<id>` — once the typed name exactly
+matches one of those species suggestions; otherwise they stay free text.
+Both suggestion sources filter out entries whose name or variety looks like
+manual-QA test data (`isLikelyTestPublicCultureEntry`) — a display-only
+filter; no public-library rows are deleted for this.
+
+Selecting a Name suggestion links `crop_species` immediately and then copies
+the species' general ("no variety") public entry into the draft — baseline
+values plus `source_public_culture`/`source_public_version` and
+`origin_type: 'imported'`, i.e. exactly the shape the "Import from library"
+button produces, so the re-import/update model in
+`import_public_culture_into_project()` applies to these cultures unchanged.
+The copy reuses the species rows the Variety field fetches anyway (guarded by
+`loadedVarietySpeciesId`, since an empty list is otherwise ambiguous between
+"still loading" and "no entries"), so no extra request is made. A species with
+no general entry — mostly legacy data, since `ensure_general_public_culture()`
+creates one on publish — stays linked by `crop_species` alone rather than
+copying an arbitrary variety's values. Species-level prefill never overwrites
+a variety the user already typed (`preserveVariety`).
+
+Which variety field is shown depends on `formKind`. The Add-**variety** dialog
+renders the real `variety` field, and selecting a suggestion there copies that
+concrete `PublicCulture` row. The Add-**crop** dialog has no `variety` field at
+all; its optional "Sorte (optional)" field names a *second* culture created
+after the crop, so picking a suggestion there only records which library entry
+it came from and the linked draft is built at save time
+(`FirstVarietyDraft.draft`, applied in `Cultures.tsx`'s `handleSave`). Leaving
+it as free text keeps the pre-existing behavior of inheriting the crop's own
+values. This split is why the Add-crop dialog must prefill from the Name field:
+regression `#444`-era code put prefill exclusively on the `variety` field,
+which that dialog never renders, leaving the public library unreachable from
+"Kultur hinzufügen" while suggestions still appeared to work.
+
+When the typed crop name already matches a private culture in the project, the
+dialog shows a non-blocking info hint offering the existing "+ Add variety"
+flow for that crop (`onSwitchToAddVariety`, resolved to the species-level row).
+The match is computed against the already-loaded `cultures` prop — the
+`duplicate_check` endpoint cannot serve this, since it returns `exists: false`
+whenever `variety` is empty. Creating a free-text duplicate stays possible.
+
+Only the publishing wizard requires a public-library decision: users either
+link the private culture to an existing published `PublicCulture`, or continue
+the existing new-public-entry flow after choosing an official `CropSpecies`.
+When the user owns the linked public entry, the publishing wizard loads that
+entry before submission and shows a field-by-field comparison of changed
+public values against the private culture. An unchanged private culture cannot
+create a redundant public version; confirmation explicitly updates the linked
+public entry rather than merely linking it again.
+
+The project Crop Library and the full public Crop Library now render the same
+species → variety hierarchy. A public or private row with a selected
+`crop_species` and an empty `variety` is the current "general crop" entry for
+that species. Rows with a variety are rendered below that species. The UI uses
+plain user-facing wording and a subtle visual cue for variety-specific values;
+it does not expose implementation terms from the target data model. Until the
+future `CropVariety` entity and persisted nullable override chain exist,
+value-source cues are resolved from the current row plus the matching
+no-variety general crop row.
 
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
@@ -293,15 +422,73 @@ Publishing a project-owned `Culture` is no longer a direct copy action from
 the project Crop Library page. The frontend opens `CulturesPublishingWizardDialog`,
 which keeps the normal path intentionally small: the user selects the
 official `CropSpecies`, confirms the original language, and clicks publish.
-The dialog calls `/api/cultures/<id>/publish-public/preview/` only as a
-background validation step when the user attempts publication, then shows
-only actionable problems:
+The wizard always publishes the culture's variety — there is no separate
+"general crop or variety" choice in the UI. The dialog calls
+`/api/cultures/<id>/publish-public/preview/` only as a background validation
+step when the user attempts publication, then shows only actionable problems:
 
 - official `CropSpecies` selected;
 - exactly one original language selected (defaulted from the UI language);
-- public-library required fields complete; and
+- public-library required fields complete (including `variety`, since a
+  culture without a variety cannot be published from this dialog); and
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
+
+The species `Autocomplete` renders an inline proposal prompt as its
+`noOptionsText` when a typed name matches no official species, instead of a
+separate always-visible link — clicking it calls
+`crops.services`' `CropSpecies.propose()` endpoint directly from the
+dropdown.
+
+A user does not have to wait for moderation to publish once they've proposed
+a species: `resolve_publishing_crop_species()` (`farm.services.public_cultures`)
+accepts a `CropSpecies` in either `PUBLISHED` or `PROPOSED` status as a
+publish target (`PUBLISHABLE_CROP_SPECIES_STATUSES`) — `REJECTED` species
+remain excluded. `PROPOSED` already is the "pending moderation" state
+(`CropSpecies.STATUS_PROPOSED`); no separate status was introduced for this.
+On the frontend, a successful proposal immediately appends the new species to
+the wizard's local options and selects it, so "Publish now" becomes usable
+right away instead of staying blocked; a dismissible success `Alert`
+(`library.publishWizard.proposedSpeciesNotice`) explains that the variety
+will appear provisionally under the not-yet-approved species name. This is
+safe because `CropSpeciesViewSet.approve()`/`reject()`
+(`backend/crops/views.py`) mutate the same `CropSpecies` row in place — the
+id never changes — so once a moderator approves the species, everything
+already published under it (including the general entry auto-created below)
+keeps working with no relinking; nothing else in the publish path
+(`detect_public_culture_duplicates()`, `ensure_general_public_culture()`,
+`PublicCultureViewSet`'s list queryset) filters on `crop_species.status` at
+all, so this was already the only gate. `CropSpeciesViewSet.get_queryset()`
+still hides non-`PUBLISHED` species from every other user/surface (including
+the wizard's own initial species list) until a moderator approves or rejects
+them, so a pending species is not otherwise discoverable/searchable in the
+meantime.
+
+When publishing a variety and the species has no species-level ("general",
+empty-`variety`) published entry yet, the backend
+(`ensure_general_public_culture()` in `farm.services.public_cultures`)
+creates one automatically from the culture's own current values, in the same
+transaction as the variety publish. If a general entry already exists for
+that species, it is left untouched — publishing a variety never overwrites
+another contributor's general data. `publish_as_general=True` remains
+supported by the backend (and by `publishPreview`/`publishPublic` in
+`api/api.ts`) for backward compatibility, but the wizard no longer sends it.
+
+`build_publishing_check_result()` also returns an optional
+`general_crop_notice` (`public_culture_id`, `updated_at`, `is_stale`,
+`is_incomplete`) whenever the species' general entry hasn't been updated in
+over 24 months (`GENERAL_CROP_STALE_THRESHOLD_DAYS`) or is missing one of the
+public-required fields. The wizard shows this as a dismissible info `Alert`
+linking to `/app/crop-library?cultureId=<id>` — it never blocks publishing.
+
+Duplicate candidates (`DuplicateCandidate`/`PublicCultureDuplicateCandidate`)
+now carry an `is_mine` flag (`created_by_id == user.id`). Since a user's own
+matching entry for the same source culture is already resolved as an update
+target rather than surfaced as a duplicate, `is_mine: false` is the common
+case in the blocking-duplicates list; the wizard renders each duplicate with
+a "View entry" link to `/app/crop-library?cultureId=<id>` so a name collision
+with someone else's entry points at a concrete place to look, rather than
+only naming it in text.
 
 Missing translations remain optional and are not shown as a normal blocking
 step. The existing CC BY-SA public-library contribution consent is also not
@@ -319,6 +506,13 @@ central starter catalogue for common German and Austrian crop species whose
 entries already carry stable keys and translation maps for the future
 multilingual species library.
 
+When a project culture already points to an owned public entry, the wizard is
+an update flow instead of a mapping flow. The owned public culture is shown as
+a read-only information block, and the official species plus original language
+are taken from that public entry. The user reviews only the field-level
+differences before applying them to the existing public version, preventing
+accidental relinking to a different public crop from the update dialog.
+
 ## 8. Withdrawal, removal, and hard delete
 
 `PublicCulture.status` models the public-library lifecycle:
@@ -330,10 +524,19 @@ multilingual species library.
 
 The status-change API lives on `/api/public-cultures/<id>/`:
 
-- `withdraw/` lets the contributor withdraw their own published entry.
-- `remove/` lets staff remove an entry with a structured reason
-  (`accidental_publication`, `test_data`, `duplicate`, `wrong_mapping`,
-  `unlawful_content`, `other`).
+- `remove/` is the single entry point for taking an entry out of the library,
+  so the culture overflow menu only needs one "Aus Bibliothek entfernen"
+  action. The actor decides the transition: the contributor of the entry
+  withdraws it (`withdrawn`, no reason required, reversible by publishing the
+  project culture again), while a moderator removing somebody else's entry
+  must pass a structured reason (`accidental_publication`, `test_data`,
+  `duplicate`, `wrong_mapping`, `unlawful_content`, `other`) and produces
+  `removed`. Contributor intent wins for moderators acting on their own
+  entries — a moderator who wants the stronger `removed` state for their own
+  publication uses the admin surface.
+  `CultureSerializer.owned_public_culture_role` (`contributor` / `moderator` /
+  `null`) tells the UI which of the two paths applies, so the confirmation
+  dialog only asks for a moderation reason when one is actually required.
 - `hard-delete/` is staff-only and intentionally narrow. It is blocked when
   the public entry has imported project copies or source-project provenance;
   ordinary cleanup and moderation should use `removed` instead.

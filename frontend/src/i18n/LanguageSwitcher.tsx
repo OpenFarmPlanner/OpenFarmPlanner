@@ -22,6 +22,7 @@ import {
   Select,
   type SelectChangeEvent,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +41,7 @@ const MIN_TOUCH_TARGET_SX = { minHeight: 44 };
  * Compact switcher for the landing page header, auth pages and other public
  * pages: a labelled button that opens a menu of language names.
  */
-export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
+export function PublicLanguageSwitcher({ dense = false, sx }: { dense?: boolean; sx?: SxProps<Theme> }) {
   const { t } = useTranslation('common');
   const { language, setPreference } = useLanguagePreference();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -68,21 +69,28 @@ export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
         // The visible text is the current language; the accessible name adds
         // what the control does, so it is never just "Deutsch".
         aria-label={t('language.switcherLabel', { language: getLanguageLabel(language) })}
-        sx={{
-          minWidth: 0,
-          minHeight: 44,
-          px: dense ? { xs: 0.75, sm: 1 } : undefined,
-          textTransform: 'none',
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          '& .MuiButton-startIcon': {
-            display: { xs: 'none', sm: 'inherit' },
-            mr: 0.75,
+        sx={[
+          {
+            minWidth: 0,
+            minHeight: 44,
+            px: dense ? { xs: 0.75, sm: 1 } : undefined,
+            textTransform: 'none',
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+            // On phones the switcher shares its row with the page's centred logo,
+            // so the dense variant drops both decorative icons and keeps only the
+            // language name - the part that carries the meaning.
+            '& .MuiButton-startIcon': {
+              display: { xs: 'none', sm: 'inherit' },
+              mr: 0.75,
+            },
+            '& .MuiButton-endIcon': {
+              display: dense ? { xs: 'none', sm: 'inherit' } : undefined,
+              ml: 0.35,
+            },
           },
-          '& .MuiButton-endIcon': {
-            ml: 0.35,
-          },
-        }}
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ]}
       >
         {getLanguageLabel(language)}
       </Button>
@@ -91,7 +99,9 @@ export function PublicLanguageSwitcher({ dense = false }: { dense?: boolean }) {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={closeMenu}
-        MenuListProps={{ 'aria-labelledby': buttonId, role: 'menu' }}
+        slotProps={{
+          list: { 'aria-labelledby': buttonId, role: 'menu' }
+        }}
       >
         {SUPPORTED_LANGUAGES.map((entry) => (
           <MenuItem

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type TouchEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type TouchEvent } from 'react';
 import axios from 'axios';
 import {
   Alert,
@@ -26,7 +26,7 @@ import { ContextMenuIndicator } from '../components/contextMenu/ContextMenuIndic
 import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
 import TableSurface from '../components/layout/TableSurface';
-import type { Supplier, SupplierDeleteUndoPayload } from '../api/types';
+import type { Supplier, SupplierDeleteUndoPayload, SupplierDeleteUsage } from '../api/types';
 import {
   SupplierDeleteUsageDialog,
   type SupplierDeleteUsageDialogState,
@@ -37,7 +37,7 @@ import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import ProjectRequiredState from '../components/project/ProjectRequiredState';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { useRegisterCreateActions } from '../commands/useCommandContext';
-import { ContextMenuHint, DELETE_UNDO_DURATION_MS, DeleteUndoSnackbar, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
+import { ContextMenuHint, DeleteUndoSnackbar, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
 import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
 import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
@@ -62,6 +62,37 @@ interface PendingSupplierDeletion {
   undoPayload?: SupplierDeleteUndoPayload;
 }
 
+/**
+ * Fallback restore payload for a supplier that was deleted without any
+ * remaining culture references — the delete endpoint returns the authoritative
+ * payload, this only covers a response without one.
+ */
+function buildSupplierRestorePayload(supplier: Supplier): SupplierDeleteUndoPayload | undefined {
+  if (typeof supplier.id !== 'number') {
+    return undefined;
+  }
+  return {
+    supplier: {
+      id: supplier.id,
+      name: supplier.name,
+      homepage_url: supplier.homepage_url ?? '',
+      slug: supplier.slug ?? '',
+      allowed_domains: supplier.allowed_domains ?? [],
+    },
+    culture_ids: [],
+    seed_demand_culture_ids: [],
+    supplier_data: [],
+  };
+}
+
+function extractDeleteConflictUsage(deleteError: unknown): SupplierDeleteUsage | undefined {
+  if (!axios.isAxiosError(deleteError) || deleteError.response?.status !== 409) {
+    return undefined;
+  }
+  const usage = (deleteError.response.data as { usage?: SupplierDeleteUsage } | undefined)?.usage;
+  return usage && typeof usage.can_delete === 'boolean' ? usage : undefined;
+}
+
 export default function Suppliers() {
   const { t } = useTranslation(['suppliers', 'common']);
   const location = useLocation();
@@ -79,7 +110,6 @@ export default function Suppliers() {
   const isMobileViewport = useMediaQuery('(max-width:900px)');
   const isTouchLikePointer = useMediaQuery('(pointer: coarse)');
   const shouldShowInlineSupplierActions = !(isMobileViewport || isTouchLikePointer);
-  const pendingSupplierDeleteTimersRef = useRef<Map<string, number>>(new Map());
   const {
     showContextMenuHint,
     closeContextMenuHint,
@@ -205,31 +235,11 @@ export default function Suppliers() {
     });
   }, []);
 
-  const finalizeSupplierDeletion = useCallback(async (deletion: PendingSupplierDeletion): Promise<void> => {
-    pendingSupplierDeleteTimersRef.current.delete(deletion.id);
-    removePendingSupplierDeletion(deletion.id);
-    try {
-      setError('');
-      const usageResponse = await supplierAPI.deleteUsage(deletion.supplierId);
-      if (!usageResponse.data.can_delete) {
-        restorePendingSupplierDeletion(deletion);
-        setDeleteUsageDialog({ supplier: deletion.supplier, usage: usageResponse.data });
-        return;
-      }
-      await supplierAPI.delete(deletion.supplierId);
-    } catch (deleteError) {
-      if (axios.isAxiosError(deleteError) && deleteError.response?.status === 404) {
-        await loadSuppliers();
-        return;
-      }
-      console.error('Error deleting supplier', deleteError);
-      restorePendingSupplierDeletion(deletion);
-      showDeleteError(extractApiErrorMessage(deleteError, t, t('deleteError')));
-    }
-  }, [loadSuppliers, removePendingSupplierDeletion, restorePendingSupplierDeletion, showDeleteError, t]);
-
-  const restoreUnlinkedSupplierDeletion = useCallback(async (deletion: PendingSupplierDeletion): Promise<void> => {
+  const restoreSupplierDeletion = useCallback(async (deletion: PendingSupplierDeletion): Promise<void> => {
     if (!deletion.undoPayload) {
+      removePendingSupplierDeletion(deletion.id);
+      showDeleteError(t('restoreDeleteError'));
+      await loadSuppliers();
       return;
     }
     try {
@@ -249,47 +259,24 @@ export default function Suppliers() {
       return;
     }
 
-    if (deletion.undoPayload) {
-      void restoreUnlinkedSupplierDeletion(deletion);
-      return;
-    }
-
-    const timerId = pendingSupplierDeleteTimersRef.current.get(deletionId);
-    if (timerId !== undefined) {
-      window.clearTimeout(timerId);
-      pendingSupplierDeleteTimersRef.current.delete(deletionId);
-    }
-
-    restorePendingSupplierDeletion(deletion);
-    removePendingSupplierDeletion(deletionId);
-  }, [pendingSupplierDeletions, removePendingSupplierDeletion, restorePendingSupplierDeletion, restoreUnlinkedSupplierDeletion]);
+    // The supplier is already deleted in the backend at this point, so undo
+    // always means recreating it — never cancelling a pending delete.
+    void restoreSupplierDeletion(deletion);
+  }, [pendingSupplierDeletions, restoreSupplierDeletion]);
 
   const closeSupplierDeletionSnackbar = useCallback((deletionId: string): void => {
-    setPendingSupplierDeletions((currentDeletions) =>
-      currentDeletions
-        .filter((deletion) => !(deletion.id === deletionId && deletion.undoPayload))
-        .map((deletion) =>
-          deletion.id === deletionId ? { ...deletion, visible: false } : deletion,
-        ),
-    );
-  }, []);
-
-  useEffect(() => {
-    const pendingSupplierDeleteTimers = pendingSupplierDeleteTimersRef.current;
-    return () => {
-      pendingSupplierDeleteTimers.forEach((timerId) => window.clearTimeout(timerId));
-      pendingSupplierDeleteTimers.clear();
-    };
-  }, []);
+    removePendingSupplierDeletion(deletionId);
+  }, [removePendingSupplierDeletion]);
 
   const deleteSupplier = useCallback(async (supplier: Supplier): Promise<void> => {
-    if (!supplier.id || pendingSupplierDeletions.some((deletion) => deletion.supplierId === supplier.id)) {
+    const supplierId = supplier.id;
+    if (!supplierId || pendingSupplierDeletions.some((deletion) => deletion.supplierId === supplierId)) {
       return;
     }
 
     try {
       setError('');
-      const usageResponse = await supplierAPI.deleteUsage(supplier.id);
+      const usageResponse = await supplierAPI.deleteUsage(supplierId);
       if (!usageResponse.data.can_delete) {
         setDeleteUsageDialog({ supplier, usage: usageResponse.data });
         return;
@@ -300,24 +287,40 @@ export default function Suppliers() {
       return;
     }
 
-    const deletionId = createTransientId('supplier', supplier.id);
     const pendingDeletion: PendingSupplierDeletion = {
-      id: deletionId,
-      supplierId: supplier.id,
+      id: createTransientId('supplier', supplierId),
+      supplierId,
       supplier,
       suppliersBeforeDelete: suppliers,
       visible: true,
       message: t('messages.deleted'),
+      undoPayload: buildSupplierRestorePayload(supplier),
     };
 
-    setSuppliers((currentSuppliers) => currentSuppliers.filter((currentSupplier) => currentSupplier.id !== supplier.id));
-    setPendingSupplierDeletions((currentDeletions) => [...currentDeletions, pendingDeletion]);
+    // The row disappears immediately, but the backend delete below runs right
+    // away too: the undo snackbar restores the supplier through the restore
+    // endpoint, so a page reload can never bring it back.
+    setSuppliers((currentSuppliers) => currentSuppliers.filter((currentSupplier) => currentSupplier.id !== supplierId));
 
-    const timerId = window.setTimeout(() => {
-      void finalizeSupplierDeletion(pendingDeletion);
-    }, DELETE_UNDO_DURATION_MS);
-    pendingSupplierDeleteTimersRef.current.set(deletionId, timerId);
-  }, [finalizeSupplierDeletion, pendingSupplierDeletions, showDeleteError, suppliers, t]);
+    try {
+      const deleteResponse = await supplierAPI.delete(supplierId);
+      const undoPayload = deleteResponse?.data?.undo_payload ?? pendingDeletion.undoPayload;
+      setPendingSupplierDeletions((currentDeletions) => [...currentDeletions, { ...pendingDeletion, undoPayload }]);
+    } catch (deleteError) {
+      if (axios.isAxiosError(deleteError) && deleteError.response?.status === 404) {
+        await loadSuppliers();
+        return;
+      }
+      restorePendingSupplierDeletion(pendingDeletion);
+      const conflictUsage = extractDeleteConflictUsage(deleteError);
+      if (conflictUsage) {
+        setDeleteUsageDialog({ supplier, usage: conflictUsage });
+        return;
+      }
+      console.error('Error deleting supplier', deleteError);
+      showDeleteError(extractApiErrorMessage(deleteError, t, t('deleteError')));
+    }
+  }, [loadSuppliers, pendingSupplierDeletions, restorePendingSupplierDeletion, showDeleteError, suppliers, t]);
 
   const openAffectedCultures = useCallback((): void => {
     if (!deleteUsageDialog) {

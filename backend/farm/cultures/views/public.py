@@ -4,7 +4,7 @@
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.db.models import Count, Max, OuterRef, Prefetch, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -12,26 +12,31 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from crops.permissions import is_public_library_moderator
-from crops.services import find_exact_crop_match
+from crops.services import build_public_crop_search_query, find_exact_crop_match
 from farm.models import (
+    Culture,
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
+    format_culture_display_name,
 )
-from farm.project_context import get_active_project_or_400
+from farm.project_context import get_active_project_optional, get_active_project_or_400
 from farm.services.public_cultures import (
     PublicCultureEditConflictError,
+    PublicCultureIdentityConflictError,
+    PublicCultureImportConfirmationRequiredError,
     PublicCulturePermissionError,
     PublicCultureRevisionNotFoundError,
     PublicCultureStatusTransitionError,
     hard_delete_public_culture,
     import_public_culture_into_project,
+    reinstate_removed_public_culture,
     remove_public_culture,
     replace_public_culture_translations,
     restore_public_culture_version,
     update_public_culture_directly,
-    withdraw_public_culture,
 )
 
 from ..serializers import (
@@ -76,31 +81,55 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         description for every row — without this, search would add one query
         per result.
         """
+        status_param = (self.request.query_params.get('status') or '').strip()
+        if status_param == PublicCulture.STATUS_REMOVED and is_public_library_moderator(self.request.user):
+            # Removed entries are hidden from every other list/detail call (the
+            # class-level queryset filters to published-only) so a moderator
+            # can find something to restore without exposing removed content
+            # to everyone else.
+            base_queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_REMOVED)
+        else:
+            base_queryset = super().get_queryset()
         queryset = (
-            super().get_queryset()
+            base_queryset
             .select_related('created_by__public_profile', 'crop_species')
             .prefetch_related('crop_species__translations', 'translations')
+            .annotate(
+                imported_cultures_count=Count(
+                    'imported_cultures',
+                    filter=Q(imported_cultures__deleted_at__isnull=True),
+                    distinct=True,
+                ),
+            )
         )
+        active_project = get_active_project_optional(self.request)
+        if active_project is not None:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'imported_cultures',
+                    queryset=Culture.objects.filter(
+                        project=active_project, deleted_at__isnull=True,
+                    ).order_by('-id'),
+                    to_attr='prefetched_project_cultures',
+                ),
+            )
         query = (self.request.query_params.get('q') or '').strip()
         name = (self.request.query_params.get('name') or '').strip()
         variety = (self.request.query_params.get('variety') or '').strip()
+        crop_species_param = (self.request.query_params.get('crop_species') or '').strip()
 
         if query:
-            queryset = queryset.filter(
-                Q(name__icontains=query)
-                | Q(variety__icontains=query)
-                | Q(crop_species__name__icontains=query)
-                | Q(crop_species__translations__common_name__icontains=query),
-            ).distinct()
+            queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
         if name:
-            queryset = queryset.filter(
-                Q(name__icontains=name)
-                | Q(crop_species__name__icontains=name)
-                | Q(crop_species__translations__common_name__icontains=name),
-            ).distinct()
+            queryset = queryset.filter(build_public_crop_search_query(name, include_variety=False)).distinct()
         if variety:
             # Variety names are proper names — matched verbatim, not translated.
             queryset = queryset.filter(variety__icontains=variety)
+        if crop_species_param:
+            try:
+                queryset = queryset.filter(crop_species_id=int(crop_species_param))
+            except ValueError:
+                queryset = queryset.none()
         return queryset
 
     def get_serializer_class(self):
@@ -124,6 +153,12 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         return is_public_library_moderator(user)
 
     @staticmethod
+    def _guest_demo_write_forbidden(request: Request) -> Response | None:
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
+        return None
+
+    @staticmethod
     def _proposal_status_error() -> Response:
         return Response(
             {'detail': 'Only pending change proposals can be reviewed.', 'code': 'proposal_not_pending'},
@@ -142,6 +177,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         )
 
     def update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         partial = kwargs.pop('partial', False)
         public_culture = self.get_object()
         serializer = PublicCultureUpdateSerializer(public_culture, data=request.data, partial=partial)
@@ -159,6 +196,12 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
         except PublicCultureEditConflictError as error:
             return self._edit_conflict_response(error)
+        except PublicCultureIdentityConflictError as error:
+            return Response({
+                'detail': str(error),
+                'code': error.code,
+                'conflicting_public_culture_id': error.conflicting_public_culture.id,
+            }, status=status.HTTP_409_CONFLICT)
         except ValueError as error:
             return Response({'detail': str(error), 'code': 'unsupported_public_culture_fields'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
@@ -168,6 +211,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         public_culture = self._get_public_culture_for_status_action()
         try:
             hard_delete_public_culture(public_culture=public_culture, user=request.user)
@@ -225,6 +270,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
                 ),
             })
 
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         serializer = PublicCultureTranslationsUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
@@ -246,9 +293,27 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     def import_to_project(self, request, pk=None):
         public_culture = self.get_object()
         request.active_project = get_active_project_or_400(request)
-        imported = import_public_culture_into_project(public_culture=public_culture, project=request.active_project)
-        serializer = CultureSerializer(imported)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        mode = request.data.get('mode') or 'auto'
+        try:
+            imported, operation = import_public_culture_into_project(
+                public_culture=public_culture,
+                project=request.active_project,
+                mode=mode,
+            )
+        except PublicCultureImportConfirmationRequiredError as error:
+            existing = error.existing_culture
+            return Response({
+                'code': error.code,
+                'detail': str(error),
+                'existing_culture_id': existing.id,
+                'existing_culture_name': format_culture_display_name(existing.name, existing.variety),
+                'variety_changed': (existing.variety or '') != (public_culture.variety or ''),
+                'existing_variety': existing.variety,
+                'public_variety': public_culture.variety,
+            }, status=status.HTTP_409_CONFLICT)
+        serializer = CultureSerializer(imported, context={'request': request})
+        response_status = status.HTTP_201_CREATED if operation == 'created' else status.HTTP_200_OK
+        return Response({'culture': serializer.data, 'operation': operation}, status=response_status)
 
     @action(detail=True, methods=['get', 'post'], url_path='discussion-topics')
     def discussion_topics(self, request: Request, pk: int | None = None) -> Response:
@@ -269,6 +334,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         topic_serializer = PublicCultureDiscussionTopicSerializer(data=request.data)
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         topic_serializer.is_valid(raise_exception=True)
         comment_serializer = PublicCultureDiscussionCommentSerializer(data={'body': request.data.get('body', '')})
         comment_serializer.is_valid(raise_exception=True)
@@ -310,6 +377,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
                     'visible_reply_exists': visible_reply_exists,
                 },
             ).data)
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         serializer = PublicCultureDiscussionCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         parent = serializer.validated_data.get('parent')
@@ -320,6 +389,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch', 'delete'], url_path=r'discussion-comments/(?P<comment_id>[^/.]+)')
     def discussion_comment(self, request: Request, pk: int | None = None, comment_id: str | None = None) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         public_culture = self.get_object()
         comment = get_object_or_404(PublicCultureDiscussionComment.objects.select_related('topic'), pk=comment_id, topic__public_culture=public_culture)
         may_moderate = self._is_moderator(request.user)
@@ -359,6 +430,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='revert')
     def revert(self, request: Request, pk: int | None = None) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         public_culture = self.get_object()
         serializer = PublicCultureRevertSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -385,6 +458,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             serializer = PublicCultureChangeProposalSerializer(proposals, many=True)
             return Response(serializer.data)
 
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         serializer = PublicCultureChangeProposalSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         proposal = serializer.save(public_culture=public_culture, proposed_by=request.user)
@@ -392,6 +467,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path=r'change-proposals/(?P<proposal_id>[^/.]+)/approve')
     def approve_change_proposal(self, request: Request, pk: int | None = None, proposal_id: str | None = None) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         if not self._is_moderator(request.user):
             return Response({'detail': 'Moderator privileges are required.', 'code': 'moderator_required'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -420,6 +497,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path=r'change-proposals/(?P<proposal_id>[^/.]+)/reject')
     def reject_change_proposal(self, request: Request, pk: int | None = None, proposal_id: str | None = None) -> Response:
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         if not self._is_moderator(request.user):
             return Response({'detail': 'Moderator privileges are required.', 'code': 'moderator_required'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -438,19 +517,11 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         proposal.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note', 'updated_at'])
         return Response(PublicCultureChangeProposalSerializer(proposal).data)
 
-    @action(detail=True, methods=['post'], url_path='withdraw')
-    def withdraw(self, request, pk=None):
-        public_culture = self._get_public_culture_for_status_action()
-        try:
-            updated = withdraw_public_culture(public_culture=public_culture, user=request.user)
-        except PublicCulturePermissionError as error:
-            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
-        except PublicCultureStatusTransitionError as error:
-            return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
-        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
-
     @action(detail=True, methods=['post'], url_path='remove')
     def remove(self, request, pk=None):
+        """Remove an entry from the public library (contributor withdrawal or moderator removal)."""
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         public_culture = self._get_public_culture_for_status_action()
         try:
             updated = remove_public_culture(
@@ -464,8 +535,24 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
         return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
 
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request: Request, pk: str | None = None) -> Response:
+        """Moderator-only: bring a removed (or withdrawn) entry back to published."""
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
+        public_culture = self._get_public_culture_for_status_action()
+        try:
+            updated = reinstate_removed_public_culture(public_culture=public_culture, user=request.user)
+        except PublicCulturePermissionError as error:
+            return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
+        except PublicCultureStatusTransitionError as error:
+            return self._transition_error_response(error, status.HTTP_400_BAD_REQUEST)
+        return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
+
     @action(detail=True, methods=['post'], url_path='hard-delete')
     def hard_delete(self, request, pk=None):
+        if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
+            return forbidden
         public_culture = self._get_public_culture_for_status_action()
         try:
             hard_delete_public_culture(public_culture=public_culture, user=request.user)

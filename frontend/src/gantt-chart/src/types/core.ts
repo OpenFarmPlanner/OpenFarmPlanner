@@ -35,9 +35,11 @@ export interface TaskGroup {
   isExpanded?: boolean;
   /**
    * Shown in the timeline area instead of bars when `tasks` is empty —
-   * e.g. a parent row summarizing its children ("12 beds, 34 plans").
-   * Purely a caller-provided string; this library has no opinion on its
-   * content.
+   * e.g. a parent row summarizing its children ("2 fields · 6 beds ·
+   * 5 occupied"). Rendered as quiet secondary text pinned to the start of
+   * the row, so it stays clear of the sticky left column and adds no row
+   * height of its own. Purely a caller-provided string; this library has no
+   * opinion on its content.
    */
   emptyRowLabel?: string;
   /**

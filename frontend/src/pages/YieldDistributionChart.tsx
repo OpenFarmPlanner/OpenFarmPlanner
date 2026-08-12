@@ -15,6 +15,7 @@ import { useFocusRegion } from "../focus/useFocusManager";
 import { useTranslation } from "../i18n";
 import { YieldChartSegment } from "./YieldChartSegment";
 import { useYieldChartData } from "./useYieldChartData";
+import { getCultureDisplayName } from "../cultures/cultureDisplay";
 import {
   formatCompactYield,
   getYieldAxisLabelStep,
@@ -480,7 +481,7 @@ export function YieldDistributionChart({
                           columnIndex={columnIndex}
                           cultureIndex={cultureIndex}
                           cultureId={culture.culture_id}
-                          cultureName={culture.culture_name}
+                          cultureName={getCultureDisplayName(culture)}
                           color={culture.color}
                           yieldValue={culture.yield}
                           periodLabel={periodLabel}
@@ -488,7 +489,6 @@ export function YieldDistributionChart({
                           isTabbable={segmentKey === activeSegmentKey}
                           isHovered={hoveredSegmentKey === segmentKey}
                           isKeyboardTooltipOpen={keyboardTooltipKey === segmentKey}
-                          isTooltipSuppressed={contextMenuState !== null}
                           isPressed={pressedSegmentKey === segmentKey && isLongPressing}
                           isDimmed={activeHighlightedCultureId !== null && activeHighlightedCultureId !== culture.culture_id}
                           tooltipPeriodLabel={tooltipPeriodLabel}

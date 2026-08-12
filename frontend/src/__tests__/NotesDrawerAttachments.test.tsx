@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesDrawer } from '../components/data-grid/NotesDrawer';
@@ -9,6 +9,25 @@ vi.mock('../api/api', () => ({
     upload: vi.fn().mockResolvedValue({ data: { id: 1 } }),
     delete: vi.fn().mockResolvedValue({}),
   },
+}));
+
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+    autoFocus = true,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    autoFocus?: boolean;
+  }) => (
+    <textarea
+      aria-label="notes"
+      autoFocus={autoFocus}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
 }));
 
 describe('NotesDrawer attachments', () => {

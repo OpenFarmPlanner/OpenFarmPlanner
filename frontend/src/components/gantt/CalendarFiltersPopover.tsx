@@ -59,7 +59,9 @@ export function CalendarFiltersPopover({
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      PaperProps={{ sx: { width: 'min(92vw, 360px)', p: 1.5 } }}
+      slotProps={{
+        paper: { sx: { width: 'min(92vw, 360px)', p: 1.5 } }
+      }}
     >
       <Stack spacing={1.25}>
         <FormControl size="small" sx={{ minWidth: '100%' }}>

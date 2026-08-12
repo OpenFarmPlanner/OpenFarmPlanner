@@ -8,10 +8,9 @@ import {
   ListItemText,
   Paper,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { projectAPI, type ProjectPayload } from '../api/api';
@@ -23,6 +22,7 @@ import { openProjectCreationFlow } from '../projects/projectCreationFlow';
 import { showProjectDeleteUndoSnackbar } from '../projects/projectDeletionFeedback';
 import { confirmAction } from '../utils/confirmAction';
 import { showGlobalSnackbar } from '../utils/globalSnackbar';
+import { AppTooltip } from '../components/AppTooltip';
 
 const isDevQuickDeleteEnabled = import.meta.env.DEV;
 
@@ -190,7 +190,8 @@ export default function ProjectSelectionPage() {
   return (
     <Box sx={{ p: 3, maxWidth: isOnboardingState ? 780 : 720 }}>
       <Stack spacing={2.5}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: "space-between",
+          alignItems: { xs: 'stretch', sm: 'flex-start' }, }}  >
           <Box>
             <Typography variant="h5">
               {isTrashView
@@ -333,7 +334,7 @@ export default function ProjectSelectionPage() {
                 <ListItem
                   key={membership.project_id}
                   secondaryAction={(
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
                       <Button
                         variant="contained"
                         onClick={() => {
@@ -343,7 +344,7 @@ export default function ProjectSelectionPage() {
                         {t('projectSwitcher.openProjectAction')}
                       </Button>
                       {isDevQuickDeleteEnabled ? (
-                        <Tooltip title={t('projectInvitations:projectDelete.devQuickHint')}>
+                        <AppTooltip title={t('projectInvitations:projectDelete.devQuickHint')}>
                           <span>
                             <Button
                               size="small"
@@ -359,7 +360,7 @@ export default function ProjectSelectionPage() {
                               <DeleteOutlineIcon fontSize="small" />
                             </Button>
                           </span>
-                        </Tooltip>
+                        </AppTooltip>
                       ) : null}
                     </Stack>
                   )}

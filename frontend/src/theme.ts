@@ -16,6 +16,20 @@ const surfaceColors = {
   surfaceSoftBorder: '#ece8df',
 } as const;
 
+// Blends a color at the given alpha over a white surface, producing a fully
+// opaque color that still reads as the same tint. Toasts render as overlays
+// on top of arbitrary page content (table rows, alternating stripes, etc.),
+// so a real rgba/alpha background lets that content show through and makes
+// the toast text hard to read — flattening to opaque avoids that.
+const flattenOnWhite = (hex: string, alphaValue: number) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16);
+  const g = parseInt(normalized.substring(2, 4), 16);
+  const b = parseInt(normalized.substring(4, 6), 16);
+  const blend = (channel: number) => Math.round(channel * alphaValue + 255 * (1 - alphaValue));
+  return `rgb(${blend(r)}, ${blend(g)}, ${blend(b)})`;
+};
+
 const createPositiveFilledAlertStyles = (theme: Theme) => ({
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
@@ -213,30 +227,7 @@ const theme = createTheme({
             textDecoration: 'none',
           },
         },
-        containedPrimary: ({ theme }) => ({
-          color: theme.palette.primary.contrastText,
-          backgroundColor: theme.palette.primary.main,
-          '&:hover': {
-            color: theme.palette.primary.contrastText,
-            backgroundColor: theme.palette.primary.dark,
-          },
-          '&:visited': {
-            color: theme.palette.primary.contrastText,
-          },
-          '&.Mui-focusVisible': {
-            color: theme.palette.primary.contrastText,
-            outline: `2px solid ${theme.palette.primary.light}`,
-            outlineOffset: 2,
-          },
-          '&:active': {
-            color: theme.palette.primary.contrastText,
-            backgroundColor: theme.palette.primary.dark,
-          },
-          '&.Mui-disabled': {
-            color: theme.palette.action.disabled,
-          },
-        }),
-        outlined: ({ theme }) => ({
+        outlined: ({ theme }: { theme: Theme }) => ({
           color: theme.palette.primary.main,
           borderColor: theme.palette.primary.main,
           '&:hover': {
@@ -263,60 +254,6 @@ const theme = createTheme({
             color: theme.palette.action.disabled,
           },
         }),
-        outlinedSecondary: ({ theme }) => ({
-          color: theme.palette.secondary.main,
-          borderColor: theme.palette.secondary.main,
-          '&:hover': {
-            color: theme.palette.secondary.dark,
-            borderColor: theme.palette.secondary.dark,
-            backgroundColor: alpha(theme.palette.secondary.main, 0.08),
-          },
-          '&:visited': {
-            color: theme.palette.secondary.main,
-          },
-          '&.Mui-focusVisible': {
-            color: theme.palette.secondary.dark,
-            borderColor: theme.palette.secondary.dark,
-            outline: `2px solid ${theme.palette.secondary.light}`,
-            outlineOffset: 2,
-          },
-          '&:active': {
-            color: theme.palette.secondary.dark,
-            borderColor: theme.palette.secondary.dark,
-            backgroundColor: alpha(theme.palette.secondary.main, 0.12),
-          },
-          '&.Mui-disabled': {
-            borderColor: theme.palette.action.disabledBackground,
-            color: theme.palette.action.disabled,
-          },
-        }),
-        outlinedError: ({ theme }) => ({
-          color: theme.palette.error.main,
-          borderColor: theme.palette.error.main,
-          '&:hover': {
-            color: theme.palette.error.dark,
-            borderColor: theme.palette.error.dark,
-            backgroundColor: alpha(theme.palette.error.main, 0.08),
-          },
-          '&:visited': {
-            color: theme.palette.error.main,
-          },
-          '&.Mui-focusVisible': {
-            color: theme.palette.error.dark,
-            borderColor: theme.palette.error.dark,
-            outline: `2px solid ${theme.palette.error.light}`,
-            outlineOffset: 2,
-          },
-          '&:active': {
-            color: theme.palette.error.dark,
-            borderColor: theme.palette.error.dark,
-            backgroundColor: alpha(theme.palette.error.main, 0.12),
-          },
-          '&.Mui-disabled': {
-            borderColor: theme.palette.action.disabledBackground,
-            color: theme.palette.action.disabled,
-          },
-        }),
         startIcon: {
           display: 'inline-flex',
           alignItems: 'center',
@@ -326,6 +263,98 @@ const theme = createTheme({
           alignItems: 'center',
         },
       },
+      // MUI v9 no longer generates compound variant+color utility classes
+      // (e.g. `containedPrimary`, `outlinedSecondary`), so overrides that
+      // target a specific variant/color combination must be expressed as
+      // `variants` entries instead of `styleOverrides` keys.
+      variants: [
+        {
+          props: { variant: 'contained', color: 'primary' },
+          style: ({ theme }: { theme: Theme }) => ({
+            color: theme.palette.primary.contrastText,
+            backgroundColor: theme.palette.primary.main,
+            '&:hover': {
+              color: theme.palette.primary.contrastText,
+              backgroundColor: theme.palette.primary.dark,
+            },
+            '&:visited': {
+              color: theme.palette.primary.contrastText,
+            },
+            '&.Mui-focusVisible': {
+              color: theme.palette.primary.contrastText,
+              outline: `2px solid ${theme.palette.primary.light}`,
+              outlineOffset: 2,
+            },
+            '&:active': {
+              color: theme.palette.primary.contrastText,
+              backgroundColor: theme.palette.primary.dark,
+            },
+            '&.Mui-disabled': {
+              color: theme.palette.action.disabled,
+            },
+          }),
+        },
+        {
+          props: { variant: 'outlined', color: 'secondary' },
+          style: ({ theme }: { theme: Theme }) => ({
+            color: theme.palette.secondary.main,
+            borderColor: theme.palette.secondary.main,
+            '&:hover': {
+              color: theme.palette.secondary.dark,
+              borderColor: theme.palette.secondary.dark,
+              backgroundColor: alpha(theme.palette.secondary.main, 0.08),
+            },
+            '&:visited': {
+              color: theme.palette.secondary.main,
+            },
+            '&.Mui-focusVisible': {
+              color: theme.palette.secondary.dark,
+              borderColor: theme.palette.secondary.dark,
+              outline: `2px solid ${theme.palette.secondary.light}`,
+              outlineOffset: 2,
+            },
+            '&:active': {
+              color: theme.palette.secondary.dark,
+              borderColor: theme.palette.secondary.dark,
+              backgroundColor: alpha(theme.palette.secondary.main, 0.12),
+            },
+            '&.Mui-disabled': {
+              borderColor: theme.palette.action.disabledBackground,
+              color: theme.palette.action.disabled,
+            },
+          }),
+        },
+        {
+          props: { variant: 'outlined', color: 'error' },
+          style: ({ theme }: { theme: Theme }) => ({
+            color: theme.palette.error.main,
+            borderColor: theme.palette.error.main,
+            '&:hover': {
+              color: theme.palette.error.dark,
+              borderColor: theme.palette.error.dark,
+              backgroundColor: alpha(theme.palette.error.main, 0.08),
+            },
+            '&:visited': {
+              color: theme.palette.error.main,
+            },
+            '&.Mui-focusVisible': {
+              color: theme.palette.error.dark,
+              borderColor: theme.palette.error.dark,
+              outline: `2px solid ${theme.palette.error.light}`,
+              outlineOffset: 2,
+            },
+            '&:active': {
+              color: theme.palette.error.dark,
+              borderColor: theme.palette.error.dark,
+              backgroundColor: alpha(theme.palette.error.main, 0.12),
+            },
+            '&.Mui-disabled': {
+              borderColor: theme.palette.action.disabledBackground,
+              color: theme.palette.action.disabled,
+            },
+          }),
+        },
+      ],
     },
     MuiTooltip: {
       styleOverrides: {
@@ -384,28 +413,54 @@ const theme = createTheme({
     },
     MuiAlert: {
       styleOverrides: {
-        filledInfo: ({ theme }) => createPositiveFilledAlertStyles(theme),
-        filledSuccess: ({ theme }) => createPositiveFilledAlertStyles(theme),
-        standardInfo: ({ theme }) => ({
-          backgroundColor: alpha(theme.palette.primary.main, 0.08),
-          color: theme.palette.primary.dark,
-          '& .MuiAlert-icon': {
-            color: theme.palette.primary.main,
-          },
-        }),
-        standardSuccess: {
-          backgroundColor: 'rgba(76, 175, 80, 0.10)',
-          color: '#2f5a35',
-        },
-        standardWarning: {
-          backgroundColor: 'rgba(237, 108, 2, 0.10)',
-          color: '#75491e',
-        },
-        standardError: {
-          backgroundColor: 'rgba(211, 47, 47, 0.09)',
-          color: '#6e2c2c',
+        // Subtle floating shadow to compensate for the backgrounds below no
+        // longer being transparent — keeps the "light" toast look.
+        root: {
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
         },
       },
+      // MUI v9 no longer generates compound variant+color utility classes
+      // (e.g. `filledInfo`, `standardSuccess`), so these must be expressed
+      // as `variants` entries instead of `styleOverrides` keys.
+      //
+      // Match on Alert's own `color ?? severity` resolution, not a bare
+      // `color` prop: every caller here only ever passes `severity`, so
+      // `ownerState.color` stays undefined and a `color`-keyed variant
+      // never matches. Matching on `color` here silently broke every
+      // custom Alert color since the v9 migration (all alerts fell back
+      // to MUI's stock palette) because `variants` prop-matching can only
+      // see public `AlertProps` fields, not Alert's internal derived
+      // `colorSeverity` ownerState field.
+      variants: (
+        [
+          ['filled', 'info', ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme)],
+          ['filled', 'success', ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme)],
+          ['standard', 'info', ({ theme }: { theme: Theme }) => ({
+            backgroundColor: flattenOnWhite(theme.palette.primary.main, 0.08),
+            color: theme.palette.primary.dark,
+            '& .MuiAlert-icon': {
+              color: theme.palette.primary.main,
+            },
+          })],
+          ['standard', 'success', {
+            backgroundColor: flattenOnWhite('#4caf50', 0.1),
+            color: '#2f5a35',
+          }],
+          ['standard', 'warning', {
+            backgroundColor: flattenOnWhite('#ed6c02', 0.1),
+            color: '#75491e',
+          }],
+          ['standard', 'error', {
+            backgroundColor: flattenOnWhite('#d32f2f', 0.09),
+            color: '#6e2c2c',
+          }],
+        ] as const
+      ).map(([variant, colorSeverity, style]) => ({
+        props: (props: { variant?: string; color?: string; severity?: string }) => (
+          props.variant === variant && (props.color ?? props.severity) === colorSeverity
+        ),
+        style,
+      })),
     },
     MuiTableCell: {
       styleOverrides: {

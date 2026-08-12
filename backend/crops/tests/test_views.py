@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
-from crops.models import CropSpecies, PublicLibraryModeratorRequest
+from accounts.guest_demo import create_guest_demo_session
+from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
 
@@ -94,6 +95,18 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(names, ['Tomate'])
         self.assertNotIn('Draft species', names)
 
+    def test_species_search_finds_plural_english_bean_query(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/openfarmplanner/api/crop-species/', {'q': 'beans'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = {item['name'] for item in response.data['results']}
+        self.assertIn('Bohne', names)
+        self.assertIn('Ackerbohne', names)
+        self.assertIn('Buschbohne', names)
+        self.assertIn('Stangenbohne', names)
+
     def test_species_create_stores_a_proposal(self):
         self.client.force_authenticate(user=self.user)
 
@@ -103,6 +116,16 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(response.data['status'], CropSpecies.STATUS_PROPOSED)
         proposal = CropSpecies.objects.get(name='Tree onion')
         self.assertEqual(proposal.proposed_by, self.user)
+
+    def test_guest_demo_user_cannot_create_species_proposal(self):
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Demo species'})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(CropSpecies.objects.filter(name='Demo species').exists())
 
     def test_normal_user_cannot_list_or_review_species_proposals(self):
         proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
@@ -198,6 +221,20 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertFalse(mine_response.data['is_moderator'])
         self.assertEqual(mine_response.data['request']['status'], PublicLibraryModeratorRequest.STATUS_PENDING)
 
+    def test_guest_demo_user_cannot_request_moderator_access(self):
+        demo_session = create_guest_demo_session()
+        self.client.force_authenticate(user=demo_session.user)
+
+        response = self.client.post(
+            '/openfarmplanner/api/public-library/moderator-requests/',
+            {'motivation': 'Demo request'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data['code'], 'guest_demo_restricted')
+        self.assertFalse(PublicLibraryModeratorRequest.objects.filter(user=demo_session.user).exists())
+
     def test_admin_can_approve_moderator_request_without_staff_rights_for_user(self):
         admin = User.objects.create_user(
             username='admin',
@@ -221,3 +258,74 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(moderator_request.status, PublicLibraryModeratorRequest.STATUS_APPROVED)
         self.assertTrue(self.user.has_perm('crops.moderate_crop_species'))
         self.assertFalse(self.user.is_staff)
+
+
+class CropLibraryQueryCountTest(DRFAPITestCase):
+    """Query-count regressions for the crop-library list endpoints.
+
+    Both lists resolve a localized species name per row, so a missing prefetch
+    turns into one query per result. The counts below must stay constant no
+    matter how many rows the page holds — see
+    `farm/tests/test_api_query_counts.py` for the same guard on the project
+    API.
+    """
+
+    ROW_COUNT = 4
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='crop-query-user', email='crop-query@example.com',
+            password='testpass', is_active=True,
+        )
+        self.client.force_authenticate(user=self.user)
+        for index in range(self.ROW_COUNT):
+            species = CropSpecies.objects.create(name=f'Query count species {index}')
+            CropSpeciesTranslation.objects.create(
+                species=species, language_code='de', common_name=f'Art {index}',
+            )
+            CropSpeciesTranslation.objects.create(
+                species=species, language_code='en', common_name=f'Species {index}',
+            )
+            PublicCulture.objects.create(
+                name=f'Query count crop {index}', variety='Sorte', crop_species=species,
+                status=PublicCulture.STATUS_PUBLISHED, version=1, created_by=self.user,
+            )
+
+    def test_crop_species_list_query_count(self):
+        """`translations`, `display_name` and `display_language_code` all read
+        the same prefetched translation rows."""
+        with self.assertNumQueries(8):
+            response = self.client.get('/openfarmplanner/api/crop-species/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data['results']), self.ROW_COUNT)
+
+    def test_crops_list_query_count(self):
+        """Published crops resolve a species name, a description and a
+        contributor label per row."""
+        with self.assertNumQueries(7):
+            response = self.client.get('/openfarmplanner/api/crops/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data['results']), self.ROW_COUNT)
+
+    def test_moderator_requests_list_query_count(self):
+        moderator = User.objects.create_user(
+            username='crop-query-admin', email='crop-query-admin@example.com',
+            password='testpass', is_active=True, is_staff=True,
+        )
+        for index in range(self.ROW_COUNT):
+            requester = User.objects.create_user(
+                username=f'crop-query-requester-{index}',
+                email=f'crop-query-requester-{index}@example.com',
+                password='testpass',
+                is_active=True,
+            )
+            PublicLibraryModeratorRequest.objects.create(user=requester, motivation='I can help.')
+        self.client.force_authenticate(user=moderator)
+
+        with self.assertNumQueries(4):
+            response = self.client.get('/openfarmplanner/api/public-library/moderator-requests/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), self.ROW_COUNT)

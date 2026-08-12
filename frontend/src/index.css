@@ -1,3 +1,9 @@
+/*
+ * Global base styles. Everything beyond this file is styled through the MUI
+ * theme (src/theme.ts) and `sx` — see docs/design-system.md. Do not add
+ * per-component stylesheets here or anywhere else.
+ */
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -24,6 +30,23 @@ body,
 #root {
   width: 100%;
   max-width: 100%;
+}
+
+/*
+ * Horizontal overflow is clamped on <body> and #root, deliberately NOT on
+ * <html>. The viewport takes its overflow from the root element and only falls
+ * back to <body> when the root's own overflow is `visible`. With `overflow-x`
+ * set on <html>, <html> becomes the scrolling box, so MUI's modal scroll lock
+ * — which sets `overflow: hidden` on <body> — can no longer remove the page
+ * scrollbar, while it still adds its scrollbar-width compensation padding to
+ * <body>. Every menu, popover and dialog then shrank the page by the scrollbar
+ * width and exposed a bare strip along the right edge.
+ * Leaving the clamp on <body> keeps the same "no horizontal page scrollbar"
+ * guarantee (the value propagates to the viewport) and restores the
+ * shift-free scroll lock MUI is built around.
+ */
+body,
+#root {
   overflow-x: hidden;
 }
 
@@ -43,17 +66,4 @@ a:visited {
 h1 {
   font-size: 2.5em;
   line-height: 1.1;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #f7f6f1;
-  }
-  a:hover,
-  a:focus-visible,
-  a:active,
-  a:visited {
-    color: #1b5e20;
-  }
 }

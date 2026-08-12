@@ -25,6 +25,12 @@ const mergePersistedWithTemporaryEntities = <T extends HierarchyEntity>(
   return [...temporaryEntities, ...persistedEntities];
 };
 
+// Stable identities so consumers' memos do not see new arrays on every
+// render while the hook is disabled.
+const EMPTY_LOCATIONS: Location[] = [];
+const EMPTY_FIELDS: Field[] = [];
+const EMPTY_BEDS: Bed[] = [];
+
 export interface HierarchyDataState {
   loading: boolean;
   hasLoaded: boolean;
@@ -50,12 +56,22 @@ export interface HierarchyDataState {
 
 export function useHierarchyData(enabled = true): HierarchyDataState {
   const { t } = useTranslation('hierarchy');
-  const [loading, setLoading] = useState<boolean>(enabled);
-  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [fields, setFields] = useState<Field[]>([]);
-  const [beds, setBeds] = useState<Bed[]>([]);
+  const [isFetching, setLoading] = useState<boolean>(enabled);
+  const [hasFetched, setHasLoaded] = useState<boolean>(false);
+  const [fetchError, setError] = useState<string>('');
+  const [loadedLocations, setLocations] = useState<Location[]>([]);
+  const [loadedFields, setFields] = useState<Field[]>([]);
+  const [loadedBeds, setBeds] = useState<Bed[]>([]);
+
+  // While disabled the hook fetches nothing, so it reports an empty, settled
+  // result. Derived during render rather than pushed into state from the
+  // effect below, which is what react-hooks/set-state-in-effect flags.
+  const loading = enabled ? isFetching : false;
+  const hasLoaded = enabled ? hasFetched : false;
+  const error = enabled ? fetchError : '';
+  const locations = enabled ? loadedLocations : EMPTY_LOCATIONS;
+  const fields = enabled ? loadedFields : EMPTY_FIELDS;
+  const beds = enabled ? loadedBeds : EMPTY_BEDS;
   const [fetchGeneration, setFetchGeneration] = useState(0);
   const latestFetchRequestRef = useRef(0);
 
@@ -116,12 +132,6 @@ export function useHierarchyData(enabled = true): HierarchyDataState {
 
   useEffect(() => {
     if (!enabled) {
-      setLoading(false);
-      setHasLoaded(false);
-      setError('');
-      setLocations([]);
-      setFields([]);
-      setBeds([]);
       return;
     }
 

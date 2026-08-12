@@ -11,19 +11,19 @@ from config.languages import (
     resolve_request_language,
 )
 from crops.permissions import is_public_library_moderator
+from farm.common.serializer_fields import LocalizedDecimalField
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
     PublicCultureDiscussionComment,
     PublicCultureDiscussionTopic,
     PublicCultureRevision,
+    format_culture_display_name,
 )
 from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
 PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
     'notes',
-    'seed_supplier',
-    'supplier_name',
     'crop_family',
     'nutrient_demand',
     'cultivation_type',
@@ -80,6 +80,14 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     description = serializers.SerializerMethodField()
     description_language_code = serializers.SerializerMethodField()
     translations = serializers.SerializerMethodField()
+    project_import_status = serializers.SerializerMethodField()
+    imported_cultures_count = serializers.SerializerMethodField()
+    thousand_kernel_weight_g = LocalizedDecimalField(
+        max_digits=6,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
+    )
 
     class Meta:
         model = PublicCulture
@@ -90,8 +98,6 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'name',
             'variety',
             'notes',
-            'seed_supplier',
-            'supplier_name',
             'crop_species',
             'crop_species_name',
             'crop_species_canonical_name',
@@ -131,11 +137,31 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'created_by_label',
             'source_project_culture',
             'source_project',
+            'project_import_status',
+            'imported_cultures_count',
         ]
         read_only_fields = fields
 
     def get_created_by_label(self, obj: PublicCulture) -> str:
         return obj.created_by_label
+
+    def get_project_import_status(self, obj: PublicCulture) -> dict[str, Any] | None:
+        """Whether the active project already imported this entry, for the import button state.
+
+        Relies on the view prefetching ``prefetched_project_cultures`` (the
+        active project's Cultures linked to this public entry via
+        ``source_public_culture``) so this stays a single extra query for
+        the whole list rather than one per row.
+        """
+        cultures = getattr(obj, 'prefetched_project_cultures', None)
+        if not cultures:
+            return None
+        culture = cultures[0]
+        return {
+            'culture_id': culture.id,
+            'culture_name': format_culture_display_name(culture.name, culture.variety),
+            'is_modified_from_source': culture.is_modified_from_source,
+        }
 
     def _language(self) -> str:
         request = self.context.get('request')
@@ -166,6 +192,20 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             return {}
         return obj.crop_species.translations_by_language()
 
+    def get_imported_cultures_count(self, obj: PublicCulture) -> int:
+        """How many project cultures (across all projects) are linked to this entry.
+
+        Shown to admins editing a public entry so a rename's blast radius is
+        visible before saving. The list/retrieve queryset annotates this
+        directly (a single JOIN, no per-row query); the fallback count only
+        runs for objects built outside that queryset, such as the instance
+        returned right after a direct edit.
+        """
+        annotated = getattr(obj, 'imported_cultures_count', None)
+        if annotated is not None:
+            return annotated
+        return obj.imported_cultures.filter(deleted_at__isnull=True).count()
+
 
 class PublicCultureUpdateSerializer(serializers.ModelSerializer):
     base_version = serializers.IntegerField(required=False, min_value=1, write_only=True)
@@ -175,8 +215,6 @@ class PublicCultureUpdateSerializer(serializers.ModelSerializer):
         fields = [*PUBLIC_CULTURE_EDITABLE_FIELDS, 'base_version']
         extra_kwargs = {
             'notes': {'required': False, 'allow_blank': True},
-            'seed_supplier': {'required': False, 'allow_blank': True},
-            'supplier_name': {'required': False, 'allow_blank': True},
             'crop_family': {'required': False, 'allow_blank': True},
             'nutrient_demand': {'required': False, 'allow_blank': True},
             'cultivation_type': {'required': False, 'allow_blank': True},

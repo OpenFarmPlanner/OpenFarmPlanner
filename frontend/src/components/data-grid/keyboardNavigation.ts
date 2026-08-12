@@ -17,13 +17,15 @@ interface DataGridNavigationApi<Row extends GridValidRowModel> {
   getAllRowIds?: () => GridRowId[];
   getCellElement?: (id: GridRowId, field: string) => HTMLElement | null;
   getCellParams?: (id: GridRowId, field: string) => GridCellParams<Row>;
-  getColumnIndexRelativeToVisibleColumns?: (field: string) => number;
   getRowIndexRelativeToVisibleRows?: (id: GridRowId) => number;
   getVisibleColumns?: () => GridColDef<Row>[];
-  isCellEditable?: (params: GridCellParams<Row>) => boolean;
   scrollToIndexes?: (indexes: { rowIndex?: number; colIndex?: number }) => void;
   setCellFocus?: (id: GridRowId, field: string) => void;
 }
+
+type KeyboardNavigationColumn<Row extends GridValidRowModel> = GridColDef<Row> & {
+  isCellEditable?: (params: GridCellParams<Row>) => boolean;
+};
 
 interface IsCellKeyboardNavigableOptions<Row extends GridValidRowModel> {
   api: DataGridNavigationApi<Row> | null | undefined;
@@ -73,7 +75,28 @@ const INTERACTIVE_CELL_TARGET_SELECTOR = [
 const getColumns = <Row extends GridValidRowModel>(
   api: DataGridNavigationApi<Row> | null | undefined,
   fallbackColumns: readonly GridColDef<Row>[] = [],
-): readonly GridColDef<Row>[] => api?.getVisibleColumns?.() ?? fallbackColumns;
+): readonly GridColDef<Row>[] => {
+  const visibleColumns = api?.getVisibleColumns?.();
+  if (!visibleColumns || fallbackColumns.length === 0) {
+    return visibleColumns ?? fallbackColumns;
+  }
+
+  const fallbackByField = new Map(fallbackColumns.map((column) => [column.field, column]));
+  return visibleColumns.map((column) => {
+    const fallback = fallbackByField.get(column.field);
+    if (!fallback) {
+      return column;
+    }
+
+    const fallbackNavigationColumn = fallback as KeyboardNavigationColumn<Row>;
+    const visibleNavigationColumn = column as KeyboardNavigationColumn<Row>;
+    return {
+      ...fallback,
+      ...column,
+      isCellEditable: visibleNavigationColumn.isCellEditable ?? fallbackNavigationColumn.isCellEditable,
+    };
+  });
+};
 
 const getRowIds = <Row extends GridValidRowModel>(
   api: DataGridNavigationApi<Row> | null | undefined,
@@ -100,8 +123,18 @@ export function isCellKeyboardNavigable<Row extends GridValidRowModel>({
       field,
       row,
     }) as GridCellParams<Row>;
+    if (!params.row && row) {
+      params = { ...params, row };
+    }
   } catch {
-    return false;
+    if (!row) {
+      return false;
+    }
+    params = {
+      id: rowId,
+      field,
+      row,
+    } as GridCellParams<Row>;
   }
 
   if (!params || !params.row) {
@@ -117,7 +150,7 @@ export function isCellKeyboardNavigable<Row extends GridValidRowModel>({
   }
 
   try {
-    return api?.isCellEditable?.(params) ?? true;
+    return (column as KeyboardNavigationColumn<Row>).isCellEditable?.(params) ?? true;
   } catch {
     return false;
   }
@@ -260,6 +293,64 @@ export function getHorizontalKeyboardNavigationTarget(
   return nextField ? { id: rowId, field: nextField } : null;
 }
 
+/**
+ * Resolves a field's index among the grid's *currently visible* columns, or
+ * undefined when the field is hidden (or the grid API isn't available yet).
+ *
+ * Deliberately not MUI's `getColumnIndexRelativeToVisibleColumns`: despite its
+ * name that one looks the field up in the *full* column list, hidden columns
+ * included, while `scrollToIndexes` indexes into the visible column
+ * definitions. Feeding one into the other is off by however many columns are
+ * hidden to the left, and once the index runs past the visible column count
+ * `scrollToIndexes` throws on `visibleColumns[colIndex].computedWidth`. That
+ * throw propagated out of the Tab handler and aborted keyboard navigation
+ * outright — e.g. on the planting plans grid below the `lg` breakpoint, where
+ * both harvest-date columns are hidden by default, Tab out of "Pflanzdatum"
+ * reached "Fläche" and then stopped short of "Pflanzen".
+ */
+export function getVisibleColumnIndex<Row extends GridValidRowModel>(
+  api: DataGridNavigationApi<Row> | null | undefined,
+  field: string,
+): number | undefined {
+  const visibleColumns = api?.getVisibleColumns?.();
+  if (!visibleColumns) {
+    return undefined;
+  }
+
+  const columnIndex = visibleColumns.findIndex((column) => column.field === field);
+  return columnIndex < 0 ? undefined : columnIndex;
+}
+
+/**
+ * Scrolls a cell into the grid's viewport. Each axis is only passed on when its
+ * index actually resolves, so a hidden column or an unknown row id simply skips
+ * that axis instead of handing `scrollToIndexes` an out-of-range index.
+ */
+export function scrollCellIntoView<Row extends GridValidRowModel>(
+  api: DataGridNavigationApi<Row> | null | undefined,
+  cell: CellLocation,
+): void {
+  if (!api?.scrollToIndexes) {
+    return;
+  }
+
+  const rowIndex = api.getRowIndexRelativeToVisibleRows?.(cell.id);
+  const colIndex = getVisibleColumnIndex(api, cell.field);
+  const indexes: { rowIndex?: number; colIndex?: number } = {};
+  if (typeof rowIndex === 'number' && rowIndex >= 0) {
+    indexes.rowIndex = rowIndex;
+  }
+  if (colIndex !== undefined) {
+    indexes.colIndex = colIndex;
+  }
+
+  if (indexes.rowIndex === undefined && indexes.colIndex === undefined) {
+    return;
+  }
+
+  api.scrollToIndexes(indexes);
+}
+
 export function focusKeyboardNavigableCell<Row extends GridValidRowModel>({
   api,
   cell,
@@ -269,9 +360,7 @@ export function focusKeyboardNavigableCell<Row extends GridValidRowModel>({
     return;
   }
 
-  const rowIndex = api.getRowIndexRelativeToVisibleRows?.(cell.id);
-  const colIndex = api.getColumnIndexRelativeToVisibleColumns?.(cell.field);
-  api.scrollToIndexes?.({ rowIndex, colIndex });
+  scrollCellIntoView(api, cell);
   api.setCellFocus(cell.id, cell.field);
 
   if (!focusEditInput) {

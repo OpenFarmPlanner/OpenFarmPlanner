@@ -15,8 +15,7 @@ const {
   cropSpeciesListMock,
   publishPreviewMock,
   publicCultureListMock,
-  publicCultureWithdrawMock,
-  publicCultureRemoveMock,
+  publicCultureGetMock,
   publishPublicMock,
   deleteMock,
   undeleteMock,
@@ -30,8 +29,7 @@ const {
   cropSpeciesListMock: vi.fn(),
   publishPreviewMock: vi.fn(),
   publicCultureListMock: vi.fn(),
-  publicCultureWithdrawMock: vi.fn(),
-  publicCultureRemoveMock: vi.fn(),
+  publicCultureGetMock: vi.fn(),
   publishPublicMock: vi.fn(),
   deleteMock: vi.fn(),
   undeleteMock: vi.fn(),
@@ -78,11 +76,19 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
-      withdraw: publicCultureWithdrawMock,
-      remove: publicCultureRemoveMock,
+      get: publicCultureGetMock,
     },
   };
 });
+
+interface CultureDetailMockCulture {
+  id?: number;
+  name: string;
+  variety?: string;
+  cultivation_type?: string;
+  owned_public_culture_id?: number | null;
+  owned_public_culture_role?: 'contributor' | 'moderator' | null;
+}
 
 vi.mock('../cultures/CultureDetail', () => ({
   CultureDetail: ({
@@ -91,21 +97,17 @@ vi.mock('../cultures/CultureDetail', () => ({
     onCreateCulture,
     onCreatePlan,
     onPublishCulture,
-    onWithdrawPublicCulture,
-    onRemovePublicCulture,
     onEditCulture,
     onDeleteCulture,
     canCreatePlan,
     publishActionLabel,
     selectedCultureId,
   }: {
-    cultures: Array<{ id?: number; name: string; variety?: string; cultivation_type?: string; owned_public_culture_id?: number | null }>;
+    cultures: Array<CultureDetailMockCulture>;
     onCultureSelect: (culture: { id?: number; name: string } | null) => void;
     onCreateCulture?: () => void;
     onCreatePlan?: () => void;
     onPublishCulture?: () => void;
-    onWithdrawPublicCulture?: (culture: { id?: number; name: string; owned_public_culture_id?: number | null }) => void;
-    onRemovePublicCulture?: (culture: { id?: number; name: string; owned_public_culture_id?: number | null }) => void;
     onEditCulture?: (culture: { id?: number; name: string }) => void;
     onDeleteCulture?: (culture: { id?: number; name: string; variety?: string; cultivation_type?: string }) => void;
     canCreatePlan?: boolean;
@@ -119,8 +121,6 @@ vi.mock('../cultures/CultureDetail', () => ({
       ))}
       <button type="button" onClick={() => onCreateCulture?.()}>Kultur hinzufügen</button>
       <button type="button" onClick={() => onPublishCulture?.()}>{publishActionLabel ?? 'Veröffentlichen'}</button>
-      <button type="button" onClick={() => onWithdrawPublicCulture?.(cultures[0])}>Veröffentlichung zurückziehen</button>
-      <button type="button" onClick={() => onRemovePublicCulture?.(cultures[0])}>Aus Bibliothek entfernen</button>
       <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
       <button type="button" onClick={() => onEditCulture?.(cultures[0])}>Kultur bearbeiten</button>
       <button type="button" onClick={() => onDeleteCulture?.(cultures[0])}>Kultur löschen</button>
@@ -160,7 +160,7 @@ function renderCultures(initialPath = '/cultures'): ReturnType<typeof render> {
 
 const waitForDeleteDialogToClose = async (): Promise<void> => {
   await waitFor(() => {
-    expect(screen.queryByRole('dialog', { name: 'Kultur löschen?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Projektkultur löschen?' })).not.toBeInTheDocument();
   });
 };
 
@@ -193,6 +193,20 @@ describe('Cultures action area', () => {
         results: [],
       },
     });
+    publicCultureGetMock.mockResolvedValue({
+      data: {
+        id: 77,
+        name: 'Tomate',
+        variety: 'Roma',
+        status: 'published',
+        version: 1,
+        crop_species: 1,
+        crop_species_name: 'Tomate',
+        original_language_code: 'de',
+        growth_duration_days: 1,
+        harvest_duration_days: 1,
+      },
+    });
     locationListMock.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
     fieldListMock.mockResolvedValue({ data: { results: [{ id: 1, name: 'Parzelle A', location: 1 }] } });
     bedListMock.mockResolvedValue({ data: { results: [{ id: 1, name: 'Beet A', field: 1 }] } });
@@ -221,8 +235,6 @@ describe('Cultures action area', () => {
         duplicates: [],
       },
     });
-    publicCultureWithdrawMock.mockResolvedValue({ data: { id: 77, name: 'Tomate', version: 1, status: 'withdrawn' } });
-    publicCultureRemoveMock.mockResolvedValue({ data: { id: 77, name: 'Tomate', version: 1, status: 'removed' } });
   });
 
   afterEach(() => {
@@ -297,7 +309,11 @@ describe('Cultures action area', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Kultur veröffentlichen')).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Offizielle Kulturart/)).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Originalsprache')).toBeInTheDocument();
+    // "Original language" is collapsed to a summary + change link by
+    // default (it's pre-set to the app's current language), not an
+    // always-visible required field.
+    expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/Originalsprache: /)).toBeInTheDocument();
     expect(within(dialog).queryByText('Zusammenfassung')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Pflichtfelder')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('Dublettenprüfung')).not.toBeInTheDocument();
@@ -395,8 +411,8 @@ describe('Cultures action area', () => {
         next: null,
         previous: null,
         results: [
-          { id: 11, name: 'Salat', variety: 'Bijella', supplier_name: 'Reinsaat', status: 'published', version: 1, published_at: '2026-03-10T12:00:00Z' },
-          { id: 12, name: ' salat ', variety: ' BIJELLA ', seed_supplier: '  rein saat  ', status: 'published', version: 1, published_at: '2026-03-11T12:00:00Z' },
+          { id: 11, name: 'Salat', variety: 'Bijella', status: 'published', version: 1, published_at: '2026-03-10T12:00:00Z' },
+          { id: 12, name: ' salat ', variety: ' BIJELLA ', status: 'published', version: 1, published_at: '2026-03-11T12:00:00Z' },
         ],
       },
     });
@@ -431,60 +447,92 @@ describe('Cultures action area', () => {
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
   });
 
-  it('withdraws an owned public culture after confirmation', async () => {
+  it('keeps the public target fixed in the owned public culture update dialog', async () => {
+    authUser.public_library_terms_accepted = true;
     listMock.mockResolvedValue({
       data: {
         count: 1,
         next: null,
         previous: null,
         results: [
-          { id: 1, name: 'Tomate', growth_duration_days: 1, harvest_duration_days: 1, owned_public_culture_id: 77 },
+          {
+            id: 1,
+            name: 'Tomate',
+            variety: 'Roma',
+            crop_species: 1,
+            growth_duration_days: 2,
+            harvest_duration_days: 1,
+            owned_public_culture_id: 77,
+          },
         ],
+      },
+    });
+    publicCultureGetMock.mockResolvedValue({
+      data: {
+        id: 77,
+        name: 'Tomate',
+        variety: 'Roma',
+        status: 'published',
+        version: 1,
+        crop_species: 12,
+        crop_species_name: 'Tomate',
+        original_language_code: 'en',
+        growth_duration_days: 1,
+        harvest_duration_days: 1,
       },
     });
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Veröffentlichung zurückziehen' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Veröffentlichung zurückziehen' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Veröffentlichung zurückziehen?' });
-    expect(dialog).toHaveTextContent('Bereits importierte Kulturen in Projekten bleiben vollständig erhalten.');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Veröffentlichung zurückziehen' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Tomate · Roma aktualisieren')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nur die folgenden abweichenden Werte werden in die öffentliche Kulturbibliothek übernommen.')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox', { name: 'Passende öffentliche Kultur' })).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Offizielle Kulturart/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();
+    expect(publicCultureListMock).not.toHaveBeenCalled();
+
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Öffentliche Version aktualisieren' }));
 
     await waitFor(() => {
-      expect(publicCultureWithdrawMock).toHaveBeenCalledWith(77);
+      expect(publishPublicMock).toHaveBeenCalledWith(1, {
+        accepted_public_library_terms: false,
+        crop_species_id: 12,
+        original_language_code: 'en',
+      });
     });
-    expect(listMock).toHaveBeenCalledTimes(2);
   });
 
-  it('removes an owned public culture with a moderation reason', async () => {
-    authUser.is_staff = true;
+  it('does not expose the remove from library action for owned public cultures', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 1,
         next: null,
         previous: null,
         results: [
-          { id: 1, name: 'Tomate', growth_duration_days: 1, harvest_duration_days: 1, owned_public_culture_id: 77 },
+          {
+            id: 1,
+            name: 'Tomate',
+            growth_duration_days: 1,
+            harvest_duration_days: 1,
+            owned_public_culture_id: 77,
+            owned_public_culture_role: 'contributor',
+          },
         ],
       },
     });
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
-    const dialog = await screen.findByRole('dialog', { name: 'Aus Bibliothek entfernen?' });
-    expect(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeDisabled();
-    fireEvent.mouseDown(within(dialog).getByLabelText('Grund'));
-    fireEvent.click(await screen.findByRole('option', { name: 'Duplikat' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Aus Bibliothek entfernen' }));
-
     await waitFor(() => {
-      expect(publicCultureRemoveMock).toHaveBeenCalledWith(77, 'duplicate');
+      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
 
   it('does not expose hard delete from the standard culture action area', async () => {
@@ -502,7 +550,8 @@ describe('Cultures action area', () => {
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Aus Bibliothek entfernen' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
   });
 
@@ -515,8 +564,8 @@ describe('Cultures action area', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Kultur löschen' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Kultur löschen?');
-    expect(dialog).toHaveTextContent('„Tomate“ löschen?');
+    expect(dialog).toHaveTextContent('Projektkultur löschen?');
+    expect(dialog).toHaveTextContent('Möchtest du die Projektkultur „Tomate“ wirklich löschen?');
     expect(dialog).not.toHaveTextContent('Roma');
     expect(dialog).not.toHaveTextContent('Pflanzung');
     expect(dialog).not.toHaveTextContent('8 Sekunden');

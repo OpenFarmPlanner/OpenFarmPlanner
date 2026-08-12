@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from typing import Any
+
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import get_object_or_404
 from rest_framework import exceptions
 from rest_framework.request import Request
@@ -7,8 +10,16 @@ from rest_framework.request import Request
 from .agent_api.permissions import get_request_api_token
 from .models import Project, ProjectMembership
 
-
 PROJECT_HEADER = 'HTTP_X_PROJECT_ID'
+
+
+def _cache_user_project_settings(request_user: Any, membership: ProjectMembership) -> None:
+    """Reuse the membership query's user settings on the authenticated user object."""
+    try:
+        settings_obj = membership.user.project_settings
+    except ObjectDoesNotExist:
+        settings_obj = None
+    request_user._state.fields_cache['project_settings'] = settings_obj
 
 
 def get_user_memberships(user) -> list[ProjectMembership]:
@@ -72,7 +83,12 @@ def get_active_project_or_400(request: Request) -> Project:
         requested_header = request.META.get(PROJECT_HEADER)
         if requested_header and str(requested_header) != str(bound_project_id):
             raise exceptions.PermissionDenied('Agent session is restricted to a single project.')
-        return get_object_or_404(Project, id=bound_project_id, is_active=True, deleted_at__isnull=True)
+        return get_object_or_404(
+            Project,
+            id=bound_project_id,
+            is_active=True,
+            deleted_at__isnull=True,
+        )
 
     raw = request.META.get(PROJECT_HEADER)
     if not raw:
@@ -82,7 +98,10 @@ def get_active_project_or_400(request: Request) -> Project:
     except (TypeError, ValueError) as exc:
         raise exceptions.ValidationError({'project': 'Invalid X-Project-Id header.'}) from exc
 
-    membership = ProjectMembership.objects.select_related('project').filter(
+    membership = ProjectMembership.objects.select_related(
+        'project',
+        'user__project_settings',
+    ).filter(
         user=request.user,
         project_id=project_id,
         project__is_active=True,
@@ -90,7 +109,24 @@ def get_active_project_or_400(request: Request) -> Project:
     ).first()
     if membership is None:
         raise exceptions.PermissionDenied('You are not a member of this project.')
+    _cache_user_project_settings(request.user, membership)
     return membership.project
+
+
+def get_active_project_optional(request: Request) -> Project | None:
+    """Resolve active project from the request header, or None if unset/invalid.
+
+    Same resolution as get_active_project_or_400, for read paths (like
+    enriching a response with project-specific context) where a missing or
+    invalid header should silently mean "no project context" rather than
+    fail the whole request.
+    """
+    if not request.user.is_authenticated:
+        return None
+    try:
+        return get_active_project_or_400(request)
+    except (exceptions.ValidationError, exceptions.PermissionDenied, exceptions.NotFound):
+        return None
 
 
 def require_project_admin(user, project_id: int, request: Request | None = None) -> None:

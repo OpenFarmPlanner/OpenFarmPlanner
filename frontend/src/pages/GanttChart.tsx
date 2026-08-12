@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useContext, useRef, useLayoutEffect } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useTranslation } from '../i18n';
@@ -21,7 +21,6 @@ import {
   Divider,
   MenuItem,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -109,6 +108,10 @@ import {
   type GanttTaskGroup,
   type OccupancyHierarchyNode,
 } from './ganttChartUtils';
+import {
+  buildOccupancyStructureSummaries,
+  formatOccupancyStructureSummary,
+} from './occupancyStructureSummary';
 import { useGanttContextMenu } from './useGanttContextMenu';
 import { useGanttTaskActions } from './useGanttTaskActions';
 import { useOccupancyHierarchyFilter } from './useOccupancyHierarchyFilter';
@@ -124,6 +127,7 @@ import { CalendarFiltersPopover } from '../components/gantt/CalendarFiltersPopov
 import { OccupancyFilterRow } from '../components/gantt/OccupancyFilterRow';
 import { SeedlingFilters } from '../components/gantt/SeedlingFilters';
 import { OccupancyMobileFilterBar } from '../components/gantt/OccupancyMobileFilterBar';
+import { AppTooltip } from '../components/AppTooltip';
 
 const GanttChartWithFocusMode = GanttChart as React.ComponentType<
   React.ComponentProps<typeof GanttChart> & { focusMode?: boolean }
@@ -843,6 +847,16 @@ function GanttChartPage() {
       visibleIds = collectVisibleIdsWithAncestors(prunedNodes, matchedBedIds);
     }
 
+    // Summaries come from the filtered node set (structural "nur belegte
+    // Beete" pruning plus the location/field/search match), so the grey
+    // summary can never claim more beds than the view actually lists.
+    // Expansion state is intentionally not folded in — collapsing a row
+    // hides it, it does not remove it from the structure.
+    const summarizedNodes = visibleIds
+      ? prunedNodes.filter((node) => visibleIds.has(node.id))
+      : prunedNodes;
+    const structureSummaries = buildOccupancyStructureSummaries(summarizedNodes);
+
     const flatRows = flattenTreeRows(prunedNodes, {
       expandedIds: expandedHierarchyIds,
       visibleIds,
@@ -852,15 +866,10 @@ function GanttChartPage() {
       const isExpandable = node.type !== 'bed' && hasChildren;
       const isExpanded = expandedHierarchyIds.has(node.id);
 
-      let emptyRowLabel: string | undefined;
-      if (node.type === 'field') {
-        emptyRowLabel = `${node.bedCount} Beet${node.bedCount === 1 ? '' : 'e'} · ${node.occupiedBedCount} belegt`;
-      } else if (node.type === 'location') {
-        const fieldCount = prunedNodes.filter(
-          (candidate) => candidate.type === 'field' && candidate.parentId === node.id,
-        ).length;
-        emptyRowLabel = `${fieldCount} Parzelle${fieldCount === 1 ? '' : 'n'} · ${node.bedCount} Beet${node.bedCount === 1 ? '' : 'e'} · ${node.occupiedBedCount} belegt`;
-      }
+      const structureSummary = structureSummaries.get(node.id);
+      const emptyRowLabel = structureSummary
+        ? formatOccupancyStructureSummary(structureSummary, t)
+        : undefined;
 
       const group: GanttTaskGroup = {
         id: node.id,
@@ -869,6 +878,9 @@ function GanttChartPage() {
         depth,
         isExpandable,
         isExpanded,
+        // Standort/Parzelle rows carry no bars — their structural summary is
+        // rendered in the timeline area instead (see TaskRow's
+        // `emptyRowLabel` handling), not as a second line in the left column.
         emptyRowLabel,
         // Standort/Parzelle rows have no bars of their own, so they don't
         // need a full task-row height — Beet rows keep the normal,
@@ -888,6 +900,7 @@ function GanttChartPage() {
     occupancyLocationFilter,
     occupancySearchText,
     onlyOccupiedBeds,
+    t,
   ]);
 
   const handleToggleGroupExpand = useCallback((groupId: string) => {
@@ -995,12 +1008,12 @@ function GanttChartPage() {
       >
         <Box
           sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: { xs: 1.5, md: 2.5 },
-            minWidth: 0,
-            flex: '0 1 auto',
-            overflow: 'hidden',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: { xs: 1.5, md: 2.5 },
+          minWidth: 0,
+          flex: '0 1 auto',
+          overflow: 'hidden',
           }}
         >
           <Typography
@@ -1017,7 +1030,7 @@ function GanttChartPage() {
             {title}
           </Typography>
           {calendarMode === 'occupancy' ? (
-            <Tooltip
+            <AppTooltip
               title={(
                 <Box component="span" sx={{ display: 'block' }}>
                   <Box component="span" sx={{ display: 'block', fontWeight: 600 }}>
@@ -1074,7 +1087,7 @@ function GanttChartPage() {
                   {editMode ? t('ganttChart:moveModeActiveOption') : t('ganttChart:moveModeOption')}
                 </Box>
               </Button>
-            </Tooltip>
+            </AppTooltip>
           ) : null}
         </Box>
         {showViewModeSelector ? (
@@ -1893,7 +1906,7 @@ function GanttChartPage() {
 
         {!hasCalendarRequirements ? (
           <PageSurface variant="fullWorkspace" sx={{ mt: 0.5 }}>
-          <Box className="gantt-container-wrapper" sx={{ border: '1px solid', borderColor: 'surface.surfaceSoftBorder', borderRadius: 2, bgcolor: 'surface.surfaceBackground' }}>
+          <Box className="gantt-container-wrapper" sx={{ width: '100%', minWidth: 0, overflow: 'hidden', mt: 2, border: '1px solid', borderColor: 'surface.surfaceSoftBorder', borderRadius: 2, bgcolor: 'surface.surfaceBackground' }}>
             <Box sx={{ p: 2 }}>
               <EmptyStateCard
                 title={t(requirementEmptyStateTitleKey)}
@@ -1983,6 +1996,9 @@ function GanttChartPage() {
           <Box
             className={`gantt-container-wrapper gantt-container-wrapper--${calendarMode}`}
             sx={{
+              width: '100%',
+              minWidth: 0,
+              overflow: 'hidden',
               mt: { xs: 0.75, md: 2 },
               border: '1px solid',
               borderColor: 'surface.surfaceSoftBorder',

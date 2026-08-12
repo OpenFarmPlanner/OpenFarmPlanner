@@ -1,4 +1,4 @@
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
 import type { GridRenderCellParams } from '@mui/x-data-grid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -11,6 +11,7 @@ import {
   type HierarchyColumnOptions,
   type NameCellCallbacks,
 } from './hierarchyColumnShared';
+import { AppTooltip } from '../AppTooltip';
 
 const EXPAND_ICON_SLOT_SIZE = 32;
 
@@ -43,7 +44,7 @@ export function renderNameCell(
         data-testid="expand-icon-slot"
       >
         {hasExpandToggle ? (
-          <Tooltip title={row.expanded ? t('tooltips.collapse') : t('tooltips.expand')} {...NON_BLOCKING_TOOLTIP_PROPS}>
+          <AppTooltip title={row.expanded ? t('tooltips.collapse') : t('tooltips.expand')} {...NON_BLOCKING_TOOLTIP_PROPS}>
             <IconButton
               size="small"
               aria-label={row.expanded ? t('tooltips.collapse') : t('tooltips.expand')}
@@ -55,7 +56,7 @@ export function renderNameCell(
             >
               {row.expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
             </IconButton>
-          </Tooltip>
+          </AppTooltip>
         ) : (
           <Box
             aria-hidden="true"

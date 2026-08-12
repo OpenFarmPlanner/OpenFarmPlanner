@@ -10,9 +10,17 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
 
         self.assertEqual(len(keys), len(set(keys)))
         self.assertEqual(len(german_names), len(set(german_names)))
+        self.assertGreaterEqual(len(keys), 130)
         self.assertIn('Tomate', german_names)
         self.assertIn('Kartoffel', german_names)
         self.assertIn('Zwiebel', german_names)
+        self.assertIn('Bohne', german_names)
+        self.assertIn('Buschbohne', german_names)
+        self.assertIn('Stangenbohne', german_names)
+        self.assertIn('Feuerbohne', german_names)
+        self.assertIn('Sojabohne', german_names)
+        self.assertIn('Raps', german_names)
+        self.assertIn('Dinkel', german_names)
 
         for entry in CROP_SPECIES_SEED_DATA:
             self.assertIn('de', entry.translations)

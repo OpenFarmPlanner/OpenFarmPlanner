@@ -70,6 +70,12 @@ class SupplierViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
         return Response(build_delete_usage(supplier))
 
     def destroy(self, request: Request, *args: object, **kwargs: object) -> Response:
+        """Delete the supplier and return the payload needed to restore it.
+
+        The client offers an undo action after the delete, so the response
+        carries the same undo payload as `unlink-and-delete` instead of an
+        empty 204 body.
+        """
         instance = self.get_object()
         usage = build_delete_usage(instance)
         if not usage['can_delete']:
@@ -80,8 +86,9 @@ class SupplierViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
                 },
                 status=status.HTTP_409_CONFLICT,
             )
+        undo_payload = build_delete_undo_payload(instance)
         self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({'undo_payload': undo_payload}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='unlink-and-delete')
     def unlink_and_delete(self, request: Request, pk: int | None = None) -> Response:

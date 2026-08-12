@@ -9,7 +9,6 @@ from .models import UserProjectSettings
 
 User = get_user_model()
 
-
 try:
     admin.site.unregister(User)
 except NotRegistered:
@@ -17,7 +16,7 @@ except NotRegistered:
 
 
 class OpenFarmPlannerUserAdmin(DjangoUserAdmin):
-    """Admin interface configuration for the built-in Django user model."""
+    """Custom admin interface configuration for the built-in Django user model."""
 
     list_display = [*DjangoUserAdmin.list_display, 'date_joined', 'last_login']
     readonly_fields = [*DjangoUserAdmin.readonly_fields, 'date_joined', 'last_login']
@@ -28,7 +27,7 @@ admin.site.register(User, OpenFarmPlannerUserAdmin)
 
 @admin.register(UserProjectSettings)
 class UserProjectSettingsAdmin(admin.ModelAdmin):
-    """Admin interface configuration for UserProjectSettings model."""
+    """Admin interface configuration for the UserProjectSettings model."""
 
     list_display = ['user', 'default_project', 'last_project', 'updated_at']
     search_fields = ['user__email', 'user__username', 'default_project__name', 'last_project__name']

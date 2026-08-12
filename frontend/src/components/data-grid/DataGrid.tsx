@@ -37,7 +37,7 @@ import {
   isEnterSaveInputTarget,
 } from './domEventTargets';
 import type { GridColDef, GridRowsProp, GridRowModesModel, GridRowId, GridSortModel, GridFilterModel, GridCellParams, GridRenderCellParams, GridRowParams, GridPaginationModel, GridEventListener } from '@mui/x-data-grid';
-import { Box, Alert, IconButton, Chip, Button, Tooltip, useMediaQuery } from '@mui/material';
+import { Box, Alert, IconButton, Chip, Button, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
@@ -47,6 +47,7 @@ import { CustomContextMenu } from '../contextMenu/CustomContextMenu';
 import { ContextMenuActionItem } from '../contextMenu/ContextMenuActionItem';
 import { ContextMenuIndicator } from '../contextMenu/ContextMenuIndicator';
 import { contextMenuActionsOverlaySx } from '../contextMenu/contextMenuIndicatorStyles';
+import { isAnyContextMenuOpen } from '../contextMenu/contextMenuOpenState';
 import { useNavigationBlocker } from '../../hooks/autosave';
 import { usePersistentSortModel } from '../../hooks/usePersistentSortModel';
 import { useTranslation } from '../../i18n';
@@ -73,6 +74,24 @@ import { useDataGridRowCommands } from './hooks/useDataGridRowCommands';
 import { useScrollDrivenRowWindow } from './hooks/useScrollDrivenRowWindow';
 import { useStableDataGridScrollbar } from './hooks/useStableDataGridScrollbar';
 import { StableScrollbarTrack } from './StableScrollbarTrack';
+import { isContextMenuDismissGestureInProgress } from '../../utils/contextMenu';
+import {
+  EditCellNavigationContext,
+  type EditCellKeyboardEvent,
+  type EditCellTabNavigationHandler,
+} from './EditCellNavigationContext';
+import {
+  buildDialogEditCellKey,
+  DialogEditCellContext,
+  type DialogEditCellContextValue,
+  type DialogEditCellRequest,
+} from './DialogEditCellContext';
+import {
+  buildSelectEditCellKey,
+  SelectEditCellContext,
+  type SelectEditCellContextValue,
+  type SelectEditCellOpenRequest,
+} from './SelectEditCellContext';
 import {
   CONTINUOUS_SCROLL_PAGE_SIZE,
   CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
@@ -117,6 +136,7 @@ import {
   isInteractiveCellTarget,
   preventReadOnlyCellMouseFocus,
   resolveFocusedCellFromEvent,
+  scrollCellIntoView,
 } from './keyboardNavigation';
 import { useSpreadsheetEditStarter } from './keyboardEditing';
 import type {
@@ -138,9 +158,37 @@ export type {
   EditableRow,
   NotesFieldConfig,
 } from './types';
+import { AppTooltip } from '../AppTooltip';
+import {
+  isSelectEditMenuCloseOutsideElement,
+  isSelectEditMenuEscapeClose,
+  isSelectEditMenuInternalCloseTarget,
+} from './selectEditMenuClose';
 
-type DataGridKeyboardEvent = KeyboardEvent & {
+type DataGridKeyboardEvent = (KeyboardEvent | EditCellKeyboardEvent) & {
   defaultMuiPrevented?: boolean;
+};
+
+const wrapNativeKeyboardEvent = (event: globalThis.KeyboardEvent): DataGridKeyboardEvent => ({
+  altKey: event.altKey,
+  ctrlKey: event.ctrlKey,
+  key: event.key,
+  metaKey: event.metaKey,
+  nativeEvent: event,
+  preventDefault: () => event.preventDefault(),
+  shiftKey: event.shiftKey,
+  stopPropagation: () => event.stopPropagation(),
+} as DataGridKeyboardEvent);
+
+const rowsHaveSameValues = <T extends EditableRow>(first: T, second: T): boolean => {
+  const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
+  for (const key of keys) {
+    if (!Object.is(first[key], second[key])) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 export function EditableDataGrid<T extends EditableRow>({
@@ -162,6 +210,7 @@ export function EditableDataGrid<T extends EditableRow>({
   defaultSortModel = [],
   persistSortInUrl = true,
   notes,
+  dialogEditFields,
   commandApiRef,
   onSelectedRowChange,
   getRowValidationErrors,
@@ -214,6 +263,8 @@ export function EditableDataGrid<T extends EditableRow>({
   const rowSnapshotRef = useRef<Map<string, T>>(new Map());
   const rowSavePromisesRef = useRef<Map<string, Promise<T>>>(new Map());
   const canceledRowIdsRef = useRef<Set<string>>(new Set());
+  const internalEditNavigationRowIdRef = useRef<string | null>(null);
+  const activeEditCellRef = useRef<{ id: GridRowId; field: string } | null>(null);
   const gridSurfaceRef = useRef<HTMLDivElement | null>(null);
   const pageContentRef = useRef<HTMLDivElement | null>(null);
   const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
@@ -637,6 +688,56 @@ export function EditableDataGrid<T extends EditableRow>({
     () => notes?.fields.map((fieldConfig) => fieldConfig.field) ?? [],
     [notes],
   );
+  // Notes and dialog-edited cells share one rule: they own their editor, so the
+  // grid never starts inline edit mode for them, but they stay keyboard stops.
+  const dedicatedEditorFieldNames = useMemo(
+    () => [...notesFieldNames, ...(dialogEditFields ?? [])],
+    [dialogEditFields, notesFieldNames],
+  );
+  const hasDedicatedEditor = useCallback(
+    (field: string): boolean => dedicatedEditorFieldNames.includes(field),
+    [dedicatedEditorFieldNames],
+  );
+  // A dialog-edited cell has no inline edit session the grid could start, so
+  // "the cell entered edit mode" is expressed as a request its own renderer
+  // reacts to. One request per keyboard entry, consumed by the cell when it
+  // opens — see DialogEditCellContext.
+  const isDialogEditField = useCallback(
+    (field: string): boolean => (dialogEditFields ?? []).includes(field),
+    [dialogEditFields],
+  );
+  const [dialogEditRequest, setDialogEditRequest] = useState<DialogEditCellRequest | null>(null);
+  const dialogEditTokenRef = useRef(0);
+  const requestDialogEditForCell = useCallback((rowId: GridRowId, field: string): void => {
+    if (!isDialogEditField(field)) {
+      return;
+    }
+
+    dialogEditTokenRef.current += 1;
+    setDialogEditRequest({
+      cellKey: buildDialogEditCellKey(rowId, field),
+      token: dialogEditTokenRef.current,
+    });
+  }, [isDialogEditField]);
+  const consumeDialogEditRequest = useCallback((token: number): void => {
+    setDialogEditRequest((current) => (current?.token === token ? null : current));
+  }, []);
+  const dialogEditCellContextValue = useMemo<DialogEditCellContextValue>(() => ({
+    request: dialogEditRequest,
+    consumeRequest: consumeDialogEditRequest,
+  }), [consumeDialogEditRequest, dialogEditRequest]);
+  const [selectEditOpenRequest, setSelectEditOpenRequest] = useState<SelectEditCellOpenRequest | null>(null);
+  const selectEditOpenTokenRef = useRef(0);
+  const requestSelectEditOpenForCell = useCallback((rowId: GridRowId, field: string): void => {
+    selectEditOpenTokenRef.current += 1;
+    setSelectEditOpenRequest({
+      cellKey: buildSelectEditCellKey(rowId, field),
+      token: selectEditOpenTokenRef.current,
+    });
+  }, []);
+  const consumeSelectEditOpenRequest = useCallback((token: number): void => {
+    setSelectEditOpenRequest((current) => (current?.token === token ? null : current));
+  }, []);
 
   // Check if there's a validation error (indicating incomplete/invalid data)
   const hasValidationError = Boolean(error);
@@ -676,9 +777,14 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [isContinuousScroll, refreshStableRowOrder, rows, scrollDrivenRowWindow, setFilterModel]);
 
-  const clearSavedRowInteractionState = useCallback((rowId: GridRowId, savedRowId: GridRowId = rowId): void => {
+  const clearSavedRowInteractionState = useCallback((
+    rowId: GridRowId,
+    savedRowId: GridRowId = rowId,
+    options: { preserveFocus?: boolean } = {},
+  ): void => {
     const rowKey = String(rowId);
     const savedRowKey = String(savedRowId);
+    const preserveFocus = options.preserveFocus ?? true;
 
     setDirtyRowIds((prev) => {
       const next = new Set(prev);
@@ -702,10 +808,17 @@ export function EditableDataGrid<T extends EditableRow>({
       focusedCell &&
       (String(focusedCell.id) === rowKey || String(focusedCell.id) === savedRowKey)
     ) {
-      api.state.focus.cell = null;
+      if (preserveFocus) {
+        api.state.focus.cell = {
+          ...focusedCell,
+          id: String(focusedCell.id) === rowKey ? savedRowId : focusedCell.id,
+        };
+      } else {
+        api.state.focus.cell = null;
+      }
     }
 
-    if (document.activeElement instanceof HTMLElement) {
+    if (!preserveFocus && document.activeElement instanceof HTMLElement) {
       const gridSurface = gridSurfaceRef.current;
       if (!gridSurface || gridSurface.contains(document.activeElement)) {
         document.activeElement.blur();
@@ -718,8 +831,8 @@ export function EditableDataGrid<T extends EditableRow>({
   ), [gridApiRef]);
 
   const isActionCellKeyboardNavigable = useCallback((params: GridCellParams<T>): boolean => (
-    notesFieldNames.includes(params.field)
-  ), [notesFieldNames]);
+    hasDedicatedEditor(params.field)
+  ), [hasDedicatedEditor]);
 
   const getKeyboardNavigableFieldsForRow = useCallback((rowId: GridRowId): string[] => {
     const api = gridApiRef.current;
@@ -728,20 +841,23 @@ export function EditableDataGrid<T extends EditableRow>({
     }
     return api.getVisibleColumns()
       .filter((column) => {
+        const row = rowsById.get(String(rowId)) as T | undefined;
         return isCellKeyboardNavigable<T>({
           api,
+          columns,
           field: column.field,
           isActionCell: isActionCellKeyboardNavigable,
+          row,
           rowId,
         });
       })
       .map((column) => column.field);
-  }, [gridApiRef, isActionCellKeyboardNavigable]);
+  }, [columns, gridApiRef, isActionCellKeyboardNavigable, rowsById]);
 
   const focusKeyboardNavigableCell = useCallback((
     rowId: GridRowId,
     field: string,
-    options: { startEdit: boolean },
+    options: { startEdit: boolean; requestDialogEdit?: boolean },
   ): void => {
     const rowKey = String(rowId);
     const row = rowsById.get(rowKey);
@@ -755,17 +871,19 @@ export function EditableDataGrid<T extends EditableRow>({
         return;
       }
 
-      const rowIndex = api.getRowIndexRelativeToVisibleRows(rowId);
-      const colIndex = api.getColumnIndexRelativeToVisibleColumns(field);
-      api.scrollToIndexes({ rowIndex, colIndex });
+      scrollCellIntoView<T>(api, { id: rowId, field });
       focusDataGridKeyboardNavigableCell<T>({
         api,
         cell: { id: rowId, field },
-        focusEditInput: rowModesModel[rowId]?.mode === GridRowModes.Edit
-          || (options.startEdit && !notesFieldNames.includes(field)),
+        focusEditInput: !hasDedicatedEditor(field)
+          && (rowModesModel[rowId]?.mode === GridRowModes.Edit || options.startEdit),
       });
 
-      if (!options.startEdit || notesFieldNames.includes(field)) {
+      if (options.requestDialogEdit) {
+        requestDialogEditForCell(rowId, field);
+      }
+
+      if (!options.startEdit || hasDedicatedEditor(field)) {
         return;
       }
 
@@ -782,7 +900,14 @@ export function EditableDataGrid<T extends EditableRow>({
         [rowId]: { mode: GridRowModes.Edit, fieldToFocus: field },
       }));
     });
-  }, [gridApiRef, notesFieldNames, rowModesModel, rowsById, runAfterRowVisible]);
+  }, [
+    gridApiRef,
+    hasDedicatedEditor,
+    requestDialogEditForCell,
+    rowModesModel,
+    rowsById,
+    runAfterRowVisible,
+  ]);
 
   const getHorizontalNavigationTarget = useCallback((
     rowId: GridRowId,
@@ -962,7 +1087,7 @@ export function EditableDataGrid<T extends EditableRow>({
       ...oldModel,
       [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
     }));
-    clearSavedRowInteractionState(rowId);
+    clearSavedRowInteractionState(rowId, rowId, { preserveFocus: false });
     window.setTimeout(() => {
       canceledRowIdsRef.current.delete(rowKey);
     }, 0);
@@ -1005,6 +1130,19 @@ export function EditableDataGrid<T extends EditableRow>({
     )
   ), [columns, gridApiRef]);
 
+  /** Whether the grid currently offers an inline editor for this cell. */
+  const isEditableCell = useCallback((rowId: GridRowId, field: string): boolean => {
+    if (!columns.find((column) => column.field === field)?.editable) {
+      return false;
+    }
+    const api = gridApiRef.current;
+    try {
+      return api?.isCellEditable(api.getCellParams(rowId, field)) ?? true;
+    } catch {
+      return true;
+    }
+  }, [columns, gridApiRef]);
+
   const applyDraftValues = useCallback(async (rowId: GridRowId, values: Partial<T>): Promise<void> => {
     const rowKey = String(rowId);
     const isEditing = rowModesModel[rowId]?.mode === GridRowModes.Edit;
@@ -1013,7 +1151,10 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (isEditing && api) {
       const editUpdates = Object.entries(values).flatMap(([fieldKey, fieldValue]) => {
-        if (fieldKey === 'id' || fieldKey === 'isNew') {
+        // MUI throws for a field that has no editor in the open edit session,
+        // so values for read-only or dialog-edited columns are carried by the
+        // `setRows` merge below instead.
+        if (fieldKey === 'id' || fieldKey === 'isNew' || !isEditableCell(rowId, fieldKey)) {
           return [];
         }
         return [
@@ -1041,7 +1182,7 @@ export function EditableDataGrid<T extends EditableRow>({
       }));
     }
     markRowDirty(rowKey);
-  }, [getRowValidationErrors, gridApiRef, markRowDirty, rowModesModel, rowsById]);
+  }, [getRowValidationErrors, gridApiRef, isEditableCell, markRowDirty, rowModesModel, rowsById]);
 
   const runBeforeSaveGate = useCallback(async (row: T): Promise<T | null> => {
     if (!onBeforeSaveRow) {
@@ -1097,27 +1238,6 @@ export function EditableDataGrid<T extends EditableRow>({
     ).some((input) => input.value.trim().length > 0);
   }, [gridApiRef]);
 
-  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
-    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
-      const currentRow = getCurrentEditableRow(params.id);
-      if (
-        currentRow &&
-        isUnsavedDraftRow(currentRow) &&
-        isNewRowEmpty(currentRow) &&
-        !hasVisibleEditInputValue(params.id)
-      ) {
-        event.defaultMuiPrevented = true;
-        handleDiscardRowChanges(params.id);
-        return;
-      }
-    }
-
-    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
-      handleDiscardRowChanges(params.id);
-    }
-    handleRowEditStop(params, event, details);
-  }, [getCurrentEditableRow, handleDiscardRowChanges, hasVisibleEditInputValue, isNewRowEmpty]);
-
   const commitEditedRowDraftForKeyboardNavigation = useCallback((
     rowId: GridRowId,
     options: { syncRows: boolean },
@@ -1141,26 +1261,72 @@ export function EditableDataGrid<T extends EditableRow>({
     return true;
   }, [getDraftRow, markRowDirty]);
 
+  const stopExistingEditedRow = useCallback((rowId: GridRowId): boolean => {
+    const rowKey = String(rowId);
+    const currentRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
+    if (!currentRow || isUnsavedDraftRow(currentRow)) {
+      return false;
+    }
+
+    const snapshot = rowSnapshotRef.current.get(rowKey);
+    const hasActualChanges = snapshot ? !rowsHaveSameValues(snapshot, currentRow) : true;
+
+    setRows((previousRows) =>
+      previousRows.map((row) => (String(row.id) === rowKey ? currentRow : row)),
+    );
+
+    setDirtyRowIds((previous) => {
+      const next = new Set(previous);
+      if (hasActualChanges) {
+        next.add(rowKey);
+      } else {
+        next.delete(rowKey);
+      }
+      return next;
+    });
+    setActiveValidationErrors((previous) => {
+      const next = { ...previous };
+      delete next[rowKey];
+      return next;
+    });
+    setRowModesModel((oldModel) => ({
+      ...oldModel,
+      [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
+    }));
+    return true;
+  }, [getDraftRow, rowsById]);
+
   const navigateFromEditedCell = useCallback((
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
-    options: { startTargetEdit: boolean },
+    options: { startTargetEdit: boolean; requestDialogEdit?: boolean },
   ): void => {
     if (current.id === target.id && current.field === target.field) {
       return;
     }
 
     const isSameRow = String(current.id) === String(target.id);
+    const targetHasDedicatedEditor = hasDedicatedEditor(target.field);
     const canCommitCurrentDraft = commitEditedRowDraftForKeyboardNavigation(current.id, {
-      syncRows: !isSameRow,
+      syncRows: !isSameRow || targetHasDedicatedEditor,
     });
     if (!canCommitCurrentDraft) {
       return;
     }
 
     if (isSameRow) {
+      internalEditNavigationRowIdRef.current = String(current.id);
+      if (targetHasDedicatedEditor) {
+        stopExistingEditedRow(current.id);
+      }
       focusKeyboardNavigableCell(target.id, target.field, {
         startEdit: options.startTargetEdit,
+        requestDialogEdit: options.requestDialogEdit,
+      });
+      window.requestAnimationFrame(() => {
+        if (internalEditNavigationRowIdRef.current === String(current.id)) {
+          internalEditNavigationRowIdRef.current = null;
+        }
       });
       return;
     }
@@ -1172,11 +1338,92 @@ export function EditableDataGrid<T extends EditableRow>({
       }));
     }
 
-    focusKeyboardNavigableCell(target.id, target.field, { startEdit: options.startTargetEdit });
+    focusKeyboardNavigableCell(target.id, target.field, {
+      startEdit: options.startTargetEdit,
+      requestDialogEdit: options.requestDialogEdit,
+    });
   }, [
     commitEditedRowDraftForKeyboardNavigation,
     focusKeyboardNavigableCell,
+    hasDedicatedEditor,
     rowModesModel,
+    stopExistingEditedRow,
+  ]);
+
+  const recoverSameRowNavigationFromTabEvent = useCallback((
+    rowId: GridRowId,
+    event: { key?: string; shiftKey?: boolean },
+  ): boolean => {
+    if (event.key !== 'Tab') {
+      return false;
+    }
+
+    const current = activeEditCellRef.current;
+    if (!current || String(current.id) !== String(rowId)) {
+      return false;
+    }
+
+    const direction = event.shiftKey ? -1 : 1;
+    const sameRowTarget = getHorizontalNavigationTarget(current.id, current.field, direction);
+    if (!sameRowTarget) {
+      return false;
+    }
+
+    navigateFromEditedCell(current, sameRowTarget, {
+      startTargetEdit: !hasDedicatedEditor(sameRowTarget.field),
+      requestDialogEdit: true,
+    });
+    return true;
+  }, [
+    getHorizontalNavigationTarget,
+    hasDedicatedEditor,
+    navigateFromEditedCell,
+  ]);
+
+  const handleEditableRowEditStop: GridEventListener<'rowEditStop'> = useCallback((params, event, details): void => {
+    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      if (isAnyContextMenuOpen() || isContextMenuDismissGestureInProgress()) {
+        event.defaultMuiPrevented = true;
+        return;
+      }
+
+      const rowKey = String(params.id);
+      if (internalEditNavigationRowIdRef.current === rowKey) {
+        internalEditNavigationRowIdRef.current = null;
+        event.defaultMuiPrevented = true;
+        return;
+      }
+      internalEditNavigationRowIdRef.current = null;
+
+      if (recoverSameRowNavigationFromTabEvent(params.id, event as unknown as { key?: string; shiftKey?: boolean })) {
+        event.defaultMuiPrevented = true;
+        return;
+      }
+
+      const currentRow = getCurrentEditableRow(params.id);
+      if (
+        currentRow &&
+        isUnsavedDraftRow(currentRow) &&
+        isNewRowEmpty(currentRow) &&
+        !hasVisibleEditInputValue(params.id)
+      ) {
+        event.defaultMuiPrevented = true;
+        handleDiscardRowChanges(params.id);
+        return;
+      }
+    }
+
+    if (params.reason === GridRowEditStopReasons.escapeKeyDown) {
+      handleDiscardRowChanges(params.id);
+    }
+    activeEditCellRef.current = null;
+    handleRowEditStop(params, event, details);
+  }, [
+    getCurrentEditableRow,
+    handleDiscardRowChanges,
+    hasVisibleEditInputValue,
+    isNewRowEmpty,
+    recoverSameRowNavigationFromTabEvent,
   ]);
 
   const saveResolvedRow = useCallback(async (rowAfterSaveGate: T): Promise<T> => {
@@ -1361,6 +1608,44 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [applyDraftValues, getDraftRow, gridApiRef, handleProcessRowUpdateError, rowsById, saveResolvedRow]);
 
+  const applyDialogEditValues = useCallback(async (
+    rowId: GridRowId,
+    values: Partial<T>,
+  ): Promise<void> => {
+    const rowKey = String(rowId);
+    await applyDraftValues(rowId, values);
+
+    if (rowModesModel[rowId]?.mode === GridRowModes.Edit) {
+      // The row already has an open edit session (typically a new draft row).
+      // Its own save cycle persists the dialog values together with the rest,
+      // so committing here would save a half-filled row.
+      return;
+    }
+
+    const baseRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
+    if (!baseRow) {
+      return;
+    }
+
+    try {
+      const savedRow = await processRowUpdate({ ...baseRow, ...values } as T);
+      setRows((previousRows) =>
+        previousRows.map((currentRow) =>
+          String(currentRow.id) === rowKey ? savedRow : currentRow,
+        ),
+      );
+    } catch (error) {
+      handleProcessRowUpdateError(error);
+    }
+  }, [
+    applyDraftValues,
+    getDraftRow,
+    handleProcessRowUpdateError,
+    processRowUpdate,
+    rowModesModel,
+    rowsById,
+  ]);
+
   const handleSaveRow = useCallback(async (rowId: GridRowId): Promise<void> => {
     const preparedRow = await prepareRowForSave(rowId);
     if (!preparedRow) {
@@ -1389,10 +1674,37 @@ export function EditableDataGrid<T extends EditableRow>({
     processRowUpdate,
   ]);
 
+  const handleSelectEditMenuClose = useCallback((rowId: GridRowId, _field: string, event: unknown): void => {
+    const rowMode = rowModesModel[rowId] ?? rowModesModel[String(rowId)];
+    if (rowMode?.mode !== GridRowModes.Edit || isSelectEditMenuInternalCloseTarget(event)) {
+      return;
+    }
+
+    if (isSelectEditMenuEscapeClose(event)) {
+      handleDiscardRowChanges(rowId);
+      return;
+    }
+
+    const rowElement = gridApiRef.current?.rootElementRef?.current?.querySelector<HTMLElement>(
+      `[role="row"][data-id="${cssEscape(String(rowId))}"]`,
+    );
+    if (!rowElement || !isSelectEditMenuCloseOutsideElement(event, rowElement)) {
+      return;
+    }
+
+    void handleSaveRow(rowId);
+  }, [gridApiRef, handleDiscardRowChanges, handleSaveRow, rowModesModel]);
+
+  const selectEditCellContextValue = useMemo<SelectEditCellContextValue>(() => ({
+    request: selectEditOpenRequest,
+    consumeRequest: consumeSelectEditOpenRequest,
+    onMenuClose: handleSelectEditMenuClose,
+  }), [consumeSelectEditOpenRequest, handleSelectEditMenuClose, selectEditOpenRequest]);
+
   const saveEditedRowAndFocusTarget = useCallback(async (
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
-    options: { startTargetEdit?: boolean } = {},
+    options: { startTargetEdit?: boolean; requestDialogEdit?: boolean } = {},
   ): Promise<void> => {
     const preparedRow = await prepareRowForSave(current.id);
     if (!preparedRow) {
@@ -1409,7 +1721,8 @@ export function EditableDataGrid<T extends EditableRow>({
           : prevRows,
       );
       focusKeyboardNavigableCell(target.id, target.field, {
-        startEdit: options.startTargetEdit ?? !notesFieldNames.includes(target.field),
+        startEdit: options.startTargetEdit ?? !hasDedicatedEditor(target.field),
+        requestDialogEdit: options.requestDialogEdit,
       });
     } catch (error) {
       handleProcessRowUpdateError(error);
@@ -1417,7 +1730,7 @@ export function EditableDataGrid<T extends EditableRow>({
   }, [
     focusKeyboardNavigableCell,
     handleProcessRowUpdateError,
-    notesFieldNames,
+    hasDedicatedEditor,
     prepareRowForSave,
     processRowUpdate,
   ]);
@@ -1445,7 +1758,10 @@ export function EditableDataGrid<T extends EditableRow>({
     saveEditedRowAndFocusTarget,
   ]);
 
-  const handleGridEditNavigation = useCallback((event: KeyboardEvent): void => {
+  const handleEditedCellTabNavigation = useCallback((
+    current: { id: GridRowId; field: string },
+    event: DataGridKeyboardEvent,
+  ): boolean => {
     if (
       event.key !== 'Tab'
       || event.altKey
@@ -1453,19 +1769,16 @@ export function EditableDataGrid<T extends EditableRow>({
       || event.metaKey
       || event.nativeEvent.isComposing
     ) {
-      return;
+      return false;
     }
 
-    const focusedCell = getFocusedCellFromEvent(event);
-    if (!focusedCell || rowModesModel[focusedCell.id]?.mode !== GridRowModes.Edit) {
-      return;
-    }
-
+    activeEditCellRef.current = current;
     const direction = event.shiftKey ? -1 : 1;
-    const sameRowTarget = getHorizontalNavigationTarget(focusedCell.id, focusedCell.field, direction);
+    const sameRowTarget = getHorizontalNavigationTarget(current.id, current.field, direction);
     const target = sameRowTarget ?? getKeyboardNavigationTarget<T>({
       api: gridApiRef.current,
-      current: focusedCell,
+      columns,
+      current,
       direction,
       isActionCell: isActionCellKeyboardNavigable,
       rows: rowsForGrid,
@@ -1474,32 +1787,103 @@ export function EditableDataGrid<T extends EditableRow>({
 
     event.preventDefault();
     event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation?.();
+    event.defaultMuiPrevented = true;
 
     if (!target) {
-      void handleSaveRow(focusedCell.id);
-      return;
+      void handleSaveRow(current.id);
+      return true;
     }
 
-    if (String(target.id) === String(focusedCell.id)) {
-      navigateFromEditedCell(focusedCell, target, {
-        startTargetEdit: !notesFieldNames.includes(target.field),
+    if (String(target.id) === String(current.id)) {
+      navigateFromEditedCell(current, target, {
+        startTargetEdit: !hasDedicatedEditor(target.field),
+        requestDialogEdit: true,
       });
-      return;
+      return true;
     }
 
-    void saveEditedRowAndFocusTarget(focusedCell, target);
+    void saveEditedRowAndFocusTarget(current, target, { requestDialogEdit: true });
+    return true;
   }, [
-    getFocusedCellFromEvent,
+    columns,
     getHorizontalNavigationTarget,
     gridApiRef,
     handleSaveRow,
+    hasDedicatedEditor,
     isActionCellKeyboardNavigable,
     navigateFromEditedCell,
-    notesFieldNames,
-    rowModesModel,
     rowsForGrid,
     saveEditedRowAndFocusTarget,
   ]);
+
+  const handleGridEditNavigation = useCallback((event: KeyboardEvent): void => {
+    const focusedCell = getFocusedCellFromEvent(event);
+    if (!focusedCell || rowModesModel[focusedCell.id]?.mode !== GridRowModes.Edit) {
+      return;
+    }
+
+    handleEditedCellTabNavigation(focusedCell, event as DataGridKeyboardEvent);
+  }, [
+    getFocusedCellFromEvent,
+    handleEditedCellTabNavigation,
+    rowModesModel,
+  ]);
+
+  const handleEditTabNavigationFromEventTarget = useCallback((
+    target: EventTarget | null,
+    event: DataGridKeyboardEvent,
+  ): boolean => {
+    const gridSurface = gridSurfaceRef.current;
+    if (!(target instanceof HTMLElement) || !gridSurface?.contains(target)) {
+      return false;
+    }
+
+    const current = getCellLocationFromDomTarget(target);
+    const isEditingDomTarget = Boolean(
+      target.closest('.MuiDataGrid-cell--editing, .MuiDataGrid-row--editing, .ofp-row-editing'),
+    );
+    if (!current || (!isEditingDomTarget && rowModesModel[current.id]?.mode !== GridRowModes.Edit)) {
+      return false;
+    }
+
+    return handleEditedCellTabNavigation(current, event);
+  }, [handleEditedCellTabNavigation, rowModesModel]);
+
+  useEffect(() => {
+    const handleNativeEditTabNavigation = (event: globalThis.KeyboardEvent): void => {
+      if (
+        event.key !== 'Tab'
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.isComposing
+      ) {
+        return;
+      }
+
+      handleEditTabNavigationFromEventTarget(event.target, wrapNativeKeyboardEvent(event));
+    };
+
+    window.addEventListener('keydown', handleNativeEditTabNavigation, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleNativeEditTabNavigation, { capture: true });
+    };
+  }, [handleEditTabNavigationFromEventTarget]);
+
+  const handleGridSurfaceKeyDownCapture = useCallback((event: KeyboardEvent<HTMLElement>): void => {
+    handleEditTabNavigationFromEventTarget(
+      event.target,
+      event as unknown as DataGridKeyboardEvent,
+    );
+  }, [handleEditTabNavigationFromEventTarget]);
+
+  const handleEditCellTabNavigation = useCallback<EditCellTabNavigationHandler>((request) => {
+    return handleEditedCellTabNavigation(
+      { id: request.id, field: request.field },
+      request.event as DataGridKeyboardEvent,
+    );
+  }, [handleEditedCellTabNavigation]);
 
   const handleSaveAllDirtyRows = useCallback(async (): Promise<void> => {
     // Awaits the real save (including the API call) for every dirty row in
@@ -1598,6 +1982,9 @@ export function EditableDataGrid<T extends EditableRow>({
     apiRef: gridApiRef,
     rowModesModel,
     setRowModesModel,
+    // Notes and dialog cells own their editor, so neither F2 nor "just start
+    // typing" may pull them into the inline edit mode they never leave through.
+    isCellEditable: (params) => !hasDedicatedEditor(params.field),
     onBeforeEdit: rememberRowSnapshotForCellEdit,
     onReplaceValue: (params) => markRowDirty(String(params.id)),
   });
@@ -1690,8 +2077,11 @@ export function EditableDataGrid<T extends EditableRow>({
     api,
     deleteConfirmMessage,
     deleteErrorMessage,
+    saveErrorMessage,
     deleteUndoOptions,
     t,
+    mapToApiData,
+    reloadRows: fetchData,
     setRows,
     setStableRowOrder,
     setRowModesModel,
@@ -1719,6 +2109,7 @@ export function EditableDataGrid<T extends EditableRow>({
     setRowModesModel,
     applyDraftValues,
     commitDraftValues,
+    applyDialogEditValues,
     reload: fetchData,
     focusTable,
     openRowById,
@@ -1857,7 +2248,7 @@ export function EditableDataGrid<T extends EditableRow>({
           }}
         >
           {actions.map((action) => (
-            <Tooltip key={action.id} title={action.label} arrow>
+            <AppTooltip key={action.id} title={action.label} arrow>
               <span>
                 <IconButton
                   size="small"
@@ -1873,7 +2264,7 @@ export function EditableDataGrid<T extends EditableRow>({
                   {action.icon}
                 </IconButton>
               </span>
-            </Tooltip>
+            </AppTooltip>
           ))}
           {hasInlineMenuAction ? (
             <ContextMenuIndicator
@@ -1910,7 +2301,7 @@ export function EditableDataGrid<T extends EditableRow>({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           {showAddAction && (
-            <Tooltip title={addButtonLabel}>
+            <AppTooltip title={addButtonLabel}>
               <Button
                 onClick={handleAddClick}
                 size="small"
@@ -1920,7 +2311,7 @@ export function EditableDataGrid<T extends EditableRow>({
               >
                 {addButtonText ?? addButtonLabel}
               </Button>
-            </Tooltip>
+            </AppTooltip>
           )}
           {showFooterEditControls && hasUnsavedChanges && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: showAddAction ? 1 : 0 }}>
@@ -2042,19 +2433,19 @@ export function EditableDataGrid<T extends EditableRow>({
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, width: '100%', justifyContent: 'flex-end' }}>
                   {(isEditing || hasLocalDraft) && (
                     <>
-                      <Tooltip title={t('actions.saveRow')} arrow>
+                      <AppTooltip title={t('actions.saveRow')} arrow>
                         <IconButton size="small" color="primary" aria-label={t('actions.save')} onClick={() => void handleSaveRow(rowId)}>
                           <CheckIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('actions.cancelRowEdit')} arrow>
+                      </AppTooltip>
+                      <AppTooltip title={t('actions.cancelRowEdit')} arrow>
                         <IconButton size="small" aria-label={t('actions.cancel')} onClick={() => handleDiscardRowChanges(rowId)}>
                           <CloseIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
+                      </AppTooltip>
                     </>
                   )}
-                  <Tooltip title={t('actions.deleteRow')} arrow>
+                  <AppTooltip title={t('actions.deleteRow')} arrow>
                     <IconButton
                       size="small"
                       color="error"
@@ -2063,7 +2454,7 @@ export function EditableDataGrid<T extends EditableRow>({
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
+                  </AppTooltip>
                 </Box>
               );
             },
@@ -2105,6 +2496,16 @@ export function EditableDataGrid<T extends EditableRow>({
     showRowEditActions,
     t,
   ]);
+
+  const isInlineSingleSelectCell = useCallback((params: GridCellParams<T>): boolean => {
+    if (!params.isEditable || hasDedicatedEditor(params.field)) {
+      return false;
+    }
+
+    return columnsWithActions.some((column) => (
+      column.field === params.field && column.type === 'singleSelect'
+    ));
+  }, [columnsWithActions, hasDedicatedEditor]);
 
   const handleViewModeCellNavigation = useCallback((params: GridCellParams<T>, event: DataGridKeyboardEvent): boolean => {
     if (
@@ -2178,12 +2579,18 @@ export function EditableDataGrid<T extends EditableRow>({
         api: gridApiRef.current,
         cell: target,
       });
+      // Tab/Shift+Tab is the "enter the cell to edit it" gesture; arrow keys
+      // stay pure movement so a dialog cell can still be passed by.
+      if (event.key === 'Tab') {
+        requestDialogEditForCell(target.id, target.field);
+      }
     });
     return true;
   }, [
     columnsWithActions,
     gridApiRef,
     isActionCellKeyboardNavigable,
+    requestDialogEditForCell,
     rowModesModel,
     rowsForGrid,
     runAfterRowVisible,
@@ -2309,7 +2716,7 @@ export function EditableDataGrid<T extends EditableRow>({
           >
             <Box
             ref={gridSurfaceRef}
-            onContextMenu={hasContextualRowActions ? (event) => {
+            onContextMenuCapture={hasContextualRowActions ? (event) => {
               if (!isRowActionContextMenuTarget(event.target)) {
                 return;
               }
@@ -2323,6 +2730,7 @@ export function EditableDataGrid<T extends EditableRow>({
             onTouchMove={hasContextualRowActions ? handleGridTouchMove : undefined}
             onTouchEnd={hasContextualRowActions ? handleGridTouchEnd : undefined}
             onTouchCancel={hasContextualRowActions ? handleGridTouchEnd : undefined}
+            onKeyDownCapture={handleGridSurfaceKeyDownCapture}
             onMouseDownCapture={handleReadOnlyCellMouseDown}
             sx={{
               position: 'relative',
@@ -2335,7 +2743,10 @@ export function EditableDataGrid<T extends EditableRow>({
               },
             }}
           >
-            <DataGrid
+            <EditCellNavigationContext.Provider value={handleEditCellTabNavigation}>
+              <SelectEditCellContext.Provider value={selectEditCellContextValue}>
+              <DialogEditCellContext.Provider value={dialogEditCellContextValue}>
+              <DataGrid
           rows={rowsForGrid}
           columns={columnsWithActions}
           columnVisibilityModel={columnVisibilityModel}
@@ -2393,8 +2804,18 @@ export function EditableDataGrid<T extends EditableRow>({
                       '& .MuiDataGrid-virtualScrollerContent': {
                         height: `${currentWindowRowCount * CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX}px !important`,
                       },
+                      // MUI's render-zone transform now bakes the header height into
+                      // its vertical offset (translate3d(0, topContainerHeight +
+                      // scrollOffset, 0)) rather than just carrying scroll offset like
+                      // pre-v9. Pinning it to `none` here (to drop any leftover
+                      // scroll-position offset once every row already fits without
+                      // scrolling) used to be harmless; in v9 it also zeroes the header
+                      // offset, so rows render underneath the sticky column headers
+                      // instead of below them. Pin to the header-height translate
+                      // instead of `none` so the collapse still drops scroll offset but
+                      // keeps rows positioned below the header.
                       '& .MuiDataGrid-virtualScrollerRenderZone': {
-                        transform: 'none !important',
+                        transform: 'translate3d(0, var(--DataGrid-topContainerHeight, 0px), 0) !important',
                       },
                     } : {}),
                     '& .MuiDataGrid-scrollbar--vertical': {
@@ -2447,6 +2868,15 @@ export function EditableDataGrid<T extends EditableRow>({
             return '';
           }}
           onCellClick={(params, event) => {
+            if (isAnyContextMenuOpen() || isContextMenuDismissGestureInProgress()) {
+              event?.preventDefault?.();
+              event?.stopPropagation?.();
+              if (event) {
+                event.defaultMuiPrevented = true;
+              }
+              return;
+            }
+
             if (!isCellKeyboardNavigable<T>({
               api: gridApiRef.current,
               field: params.field,
@@ -2460,6 +2890,7 @@ export function EditableDataGrid<T extends EditableRow>({
             }
 
             const rowKey = String(params.id);
+            activeEditCellRef.current = { id: params.id, field: params.field };
             if (!rowSnapshotRef.current.has(rowKey)) {
               const row = rowsById.get(rowKey);
               if (row) {
@@ -2467,9 +2898,18 @@ export function EditableDataGrid<T extends EditableRow>({
               }
             }
             markRowDirty(rowKey);
+            if (hasDedicatedEditor(params.field)) {
+              // The cell's own popover/dialog is the editor and the click has
+              // already opened it — never layer inline edit mode on top.
+              return;
+            }
+            if (isInlineSingleSelectCell(params)) {
+              requestSelectEditOpenForCell(params.id, params.field);
+            }
             handleEditableCellClick(params, rowModesModel, setRowModesModel);
           }}
           onCellKeyDown={(params: GridCellParams<T>, event) => {
+            activeEditCellRef.current = { id: params.id, field: params.field };
             if (
               hasContextualRowActions &&
               (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) &&
@@ -2479,6 +2919,16 @@ export function EditableDataGrid<T extends EditableRow>({
               event.stopPropagation();
               event.defaultMuiPrevented = true;
               openRowActionKeyboardContextMenu(params.id, event.currentTarget as HTMLElement);
+              return;
+            }
+
+            if (
+              rowModesModel[params.id]?.mode === GridRowModes.Edit &&
+              handleEditedCellTabNavigation(
+                { id: params.id, field: params.field },
+                event as unknown as DataGridKeyboardEvent,
+              )
+            ) {
               return;
             }
 
@@ -2575,7 +3025,10 @@ export function EditableDataGrid<T extends EditableRow>({
           }}
           localeText={getDataGridLocaleText()}
           apiRef={gridApiRef}
-          />
+              />
+              </DialogEditCellContext.Provider>
+              </SelectEditCellContext.Provider>
+            </EditCellNavigationContext.Provider>
           </Box>
           </Box>
         </Box>
@@ -2649,7 +3102,9 @@ export function EditableDataGrid<T extends EditableRow>({
           offsetIndex={index}
           testId={deleteUndoOptions.snackbarTestId ?? 'data-grid-delete-snackbar'}
           onClose={() => closeDeleteWithUndoSnackbar(deletion.id)}
-          onUndo={() => undoDeleteWithUndo(deletion.id)}
+          onUndo={() => {
+            void undoDeleteWithUndo(deletion.id);
+          }}
         />
       )) : null}
 

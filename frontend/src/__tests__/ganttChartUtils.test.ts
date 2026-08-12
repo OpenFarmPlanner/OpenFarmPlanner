@@ -190,6 +190,41 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].startDate.toISOString()).toContain('2026-04-15');
   });
 
+  it('prefers localized planting plan culture names in seedling labels', () => {
+    const groups = buildSeedlingTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [
+        {
+          id: 77,
+          name: 'Karotte',
+          variety: 'Nantaise 2',
+          propagation_duration_days: 21,
+          cultivation_type: 'pre_cultivation',
+        },
+      ],
+      plantingPlans: [
+        {
+          id: 9,
+          culture: 77,
+          culture_name: 'Karotte',
+          culture_display_name: 'Carrot',
+          culture_variety: 'Nantaise 2',
+          bed: 100,
+          planting_date: '2026-05-10',
+          cultivation_type: 'pre_cultivation',
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe('Carrot (Nantaise 2)');
+    expect(groups[0].tasks[0].name).toBe('Carrot (Nantaise 2)');
+    expect(groups[0].tasks[0].cultureName).toBe('Carrot');
+  });
+
   it('ignores direct sowings and incomplete propagation data', () => {
     const groups = buildSeedlingTaskGroups({
       locations,
@@ -257,6 +292,34 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].tasks).toHaveLength(2);
     expect(groups[0].tasks[0].name).toBe('Salat (Bijella)');
+  });
+
+  it('prefers localized planting plan culture names in occupancy labels', () => {
+    const groups = buildFieldOccupancyTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [],
+      plantingPlans: [
+        {
+          id: 21,
+          culture: 42,
+          culture_name: 'Karotte',
+          culture_display_name: 'Carrot',
+          culture_variety: 'Nantaise 2',
+          bed: 100,
+          planting_date: '2026-03-01',
+          harvest_date: '2026-04-15',
+          harvest_end_date: '2026-04-30',
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].tasks[0].name).toBe('Carrot (Nantaise 2)');
+    expect(groups[0].tasks[0].cultureName).toBe('Carrot');
+    expect(groups[0].tasks[1].name).toBe('Carrot (Nantaise 2) (Ernte)');
   });
 
   it('omits location level in occupancy hierarchy when only one used location exists', () => {
@@ -551,6 +614,33 @@ describe('buildFieldOccupancyHierarchy', () => {
     expect(bedNode?.tasks).toHaveLength(2);
     expect(bedNode?.tasks[0].name).toBe('Salat (Bijella)');
     expect(bedNode?.tasks[1].name).toBe('Salat (Bijella) (Ernte)');
+  });
+
+  it('prefers localized planting plan culture names in hierarchy task labels', () => {
+    const nodes = buildFieldOccupancyHierarchy({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [],
+      plantingPlans: [
+        {
+          id: 21,
+          culture: 42,
+          culture_name: 'Karotte',
+          culture_display_name: 'Carrot',
+          culture_variety: 'Nantaise 2',
+          bed: 100,
+          planting_date: '2026-03-01',
+          harvest_date: '2026-04-15',
+          harvest_end_date: '2026-04-30',
+        },
+      ],
+    });
+
+    const bedNode = nodes.find((n) => n.type === 'bed');
+    expect(bedNode?.tasks[0].name).toBe('Carrot (Nantaise 2)');
+    expect(bedNode?.tasks[1].name).toBe('Carrot (Nantaise 2) (Ernte)');
   });
 
   it('returns an empty list when there are no locations', () => {

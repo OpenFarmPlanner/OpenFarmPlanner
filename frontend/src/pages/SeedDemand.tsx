@@ -51,21 +51,36 @@ import {
   formatRequiredSeedAmount,
   formatUnit,
 } from './seedDemandFormat';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+
+// Stable identity so the memos downstream do not see a new array on every
+// render while no project is selected.
+const EMPTY_SEED_DEMAND_ROWS: SeedDemand[] = [];
 
 export default function SeedDemandPage() {
   useCommandContextTag('seedDemand');
   const { t } = useTranslation(['cultures', 'common']);
   const navigate = useNavigate();
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
-  const [rows, setRows] = useState<SeedDemand[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadedRows, setRows] = useState<SeedDemand[]>([]);
+  const [isFetching, setIsLoading] = useState(true);
+  const [fetchError, setError] = useState<string | null>(null);
   const [cultureCount, setCultureCount] = useState(0);
   const [planCount, setPlanCount] = useState(0);
   const [hasCulturesWithSeedData, setHasCulturesWithSeedData] = useState(false);
   const [locationCount, setLocationCount] = useState(0);
-  const [fieldCount, setFieldCount] = useState(0);
+  const [loadedFieldCount, setFieldCount] = useState(0);
   const [bedCount, setBedCount] = useState(0);
+
+  // Without a project nothing is fetched, so the page reports an empty,
+  // settled state. Derived during render rather than pushed into state from
+  // the load effect below, which is what react-hooks/set-state-in-effect
+  // flags — and deriving avoids the extra render pass it caused.
+  const rows = shouldShowProjectRequiredState ? EMPTY_SEED_DEMAND_ROWS : loadedRows;
+  const isLoading = shouldShowProjectRequiredState ? false : isFetching;
+  const error = shouldShowProjectRequiredState ? null : fetchError;
+  const fieldCount = shouldShowProjectRequiredState ? 0 : loadedFieldCount;
+
   const hasPlans = planCount > 0;
   const hasSeedData = hasCulturesWithSeedData;
   const canCalculateSeedDemand = locationCount > 0 && fieldCount > 0 && bedCount > 0 && cultureCount > 0 && hasPlans && hasSeedData;
@@ -179,7 +194,7 @@ export default function SeedDemandPage() {
   };
 
   const getCultureLabel = useCallback((row: SeedDemand): string => (
-    row.variety ? `${row.culture_name} (${row.variety})` : row.culture_name
+    formatCultureDisplayName(row)
   ), []);
 
   const getSupplierLabel = useCallback((row: SeedDemand): string => {
@@ -426,11 +441,6 @@ export default function SeedDemandPage() {
 
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setRows([]);
-      setIsLoading(false);
-      setError(null);
-      setHasCulturesWithSeedData(false);
-      setFieldCount(0);
       return;
     }
     void loadRows();

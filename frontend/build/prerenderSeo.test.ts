@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyHeadTags, PUBLIC_INDEXABLE_ROUTES } from './prerenderSeo';
+import { applyHeadTags, assertNoLoopbackUrls, PUBLIC_INDEXABLE_ROUTES } from './prerenderSeo';
 
 /**
  * Simulates what Playwright's `page.content()` actually captures: the base
@@ -71,6 +71,42 @@ describe('applyHeadTags', () => {
 
     expect(html).toContain('<title>OpenFarmPlanner</title>');
     expect(html).toContain('href="https://openfarmplanner.org/"');
+  });
+
+  it('removes local preview preload hints captured from Vite preview', () => {
+    const html = applyHeadTags(
+      [
+        '<!doctype html>',
+        '<html lang="de"><head>',
+        '  <title>OpenFarmPlanner</title>',
+        '  <link rel="modulepreload" href="/assets/react.js">',
+        '  <link rel="modulepreload" href="http://127.0.0.1:44797/assets/HomePage.js">',
+        '  <link rel="preload" href="http://localhost:44797/assets/HeroImage.js">',
+        '  <link rel="prefetch" href="http://[::1]:44797/assets/useGuestDemoStart.js">',
+        '  <link rel="stylesheet" href="http://127.0.0.1:44797/assets/index.css">',
+        '</head><body><div id="root"><h1>OpenFarmPlanner</h1></div></body></html>',
+      ].join('\n'),
+      PUBLIC_INDEXABLE_ROUTES.find((route) => route.path === '/')!,
+      env,
+    );
+
+    expect(html).toContain('href="/assets/react.js"');
+    expect(html).toContain('rel="stylesheet" href="http://127.0.0.1:44797/assets/index.css"');
+    expect(html).not.toContain('rel="modulepreload" href="http://127.0.0.1:44797');
+    expect(html).not.toContain('rel="preload" href="http://localhost:44797');
+    expect(html).not.toContain('rel="prefetch" href="http://[::1]:44797');
+  });
+});
+
+describe('assertNoLoopbackUrls', () => {
+  it('allows production-local relative asset URLs', () => {
+    expect(() => assertNoLoopbackUrls('<script src="/assets/index.js"></script>', '/')).not.toThrow();
+  });
+
+  it('fails when prerendered HTML still contains an absolute loopback URL', () => {
+    expect(() => assertNoLoopbackUrls('<link href="http://127.0.0.1:44797/assets/index.css">', '/')).toThrow(
+      /contains local preview URL/,
+    );
   });
 });
 

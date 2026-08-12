@@ -1,33 +1,33 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type Ref, type UIEvent } from 'react';
-import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router';
-import type { TFunction } from 'i18next';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type UIEvent } from 'react';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
+import axios from 'axios';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
   CircularProgress,
-  Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControl,
   IconButton,
-  List,
+  InputLabel,
   ListItemButton,
-  ListItemText,
-  Menu,
   MenuItem,
+  Select,
   Stack,
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -37,34 +37,35 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
-import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
-import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
-import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
+import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
+import TuneIcon from '@mui/icons-material/Tune';
 import { publicCultureAPI } from '../../api/api';
 import type {
+  CultivationType,
   Culture,
+  ImportPublicCultureConfirmationRequiredError,
   PublicCulture,
   PublicCultureDiscussionComment,
   PublicCultureDiscussionTopic,
+  PublicCultureRemovalReason,
   PublicCultureRevision,
 } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import PageContainer from '../../components/layout/PageContainer';
 import { DetailPageActions } from '../../components/layout/DetailPageActions';
 import { useTranslation } from '../../i18n';
-import { getLanguageDisplayName } from '../../i18n/languages';
+import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
-import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
+import { findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
 import { CultureForm } from '../../cultures/CultureForm';
 import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
 import {
   buildPublicCultureUpdatePayload,
   publicCultureToCultureFormData,
 } from '../../cultures/publicCultureFormAdapter';
-import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
 import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigation/topbarTypes';
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
@@ -74,955 +75,55 @@ import {
   getFallbackNotice,
   getPublicCultureDescription,
   getPublicCultureName,
-  getPublicCultureTitle,
 } from '../publicCultureDisplay';
-import { PublicCultureTranslationDialog } from '../components/PublicCultureTranslationDialog';
+import { applySavedCultures } from '../publicCultureListMerge';
+import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
+import { AppTooltip } from '../../components/AppTooltip';
+import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
+import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
+import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { PublicCultureFiltersPopover } from '../components/PublicCultureFiltersPopover';
+import {
+  EMPTY_PUBLIC_CULTURE_FILTERS,
+  countActivePublicCultureFilters,
+  getPublicCultureFilterOptions,
+  matchesPublicCultureFilters,
+  type PublicCultureFilterState,
+} from '../publicCultureFilters';
+import { DetailGrid, DetailRow, DetailSection } from '../components/publicCropLibrary/DetailPrimitives';
+import { VersionCard } from '../components/publicCropLibrary/VersionCard';
+import { CommentForm } from '../components/publicCropLibrary/CommentForm';
+import { ThreadCommentBranch } from '../components/publicCropLibrary/DiscussionComment';
+import { PublicCultureMobileSelectorDialog } from '../components/publicCropLibrary/PublicCultureMobileSelectorDialog';
+import { ImportConflictDialog } from '../components/publicCropLibrary/ImportConflictDialog';
+import {
+  PUBLIC_CULTURE_TAB_BY_INDEX,
+  PUBLIC_CULTURE_TAB_INDEX_BY_PARAM,
+  SELECTED_PUBLIC_CULTURE_STORAGE_KEY,
+  arePublicValuesEqual,
+  buildPublicCultureDescriptionDrafts,
+  buildThreadCommentTree,
+  formatDays,
+  formatDiscussionPreview,
+  formatLocalizedNumber,
+  formatMetersAsCentimeters,
+  getCultivationTypesLabel,
+  getCultureTitle,
+  getHarvestMethodLabel,
+  getLanguageLabel,
+  getNutrientDemandLabel,
+  getPublicCultureOriginalLanguageCode,
+  getPublicCultureTabIndex,
+  getStoredPublicCropLibraryViewState,
+  getStoredPublicCultureId,
+  isEmptyPublicValue,
+  parsePublicCultureId,
+  storePublicCropLibraryViewState,
+  type PublicCropLibraryViewState,
+} from '../components/publicCropLibrary/formatters';
 
 type CollaborationLoadStatus = 'idle' | 'loading' | 'success' | 'error';
 type PublicCultureLoadStatus = 'loading' | 'success' | 'error';
-type PublicCultureTab = 'details' | 'versions' | 'discussion';
-
-const SELECTED_PUBLIC_CULTURE_STORAGE_KEY = 'selectedPublicCultureId';
-const PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY = 'publicCropLibraryViewState';
-const MAX_VISIBLE_REPLY_DEPTH = 3;
-const PUBLIC_CULTURE_TAB_BY_INDEX: PublicCultureTab[] = ['details', 'versions', 'discussion'];
-const PUBLIC_CULTURE_TAB_INDEX_BY_PARAM: Record<PublicCultureTab, number> = {
-  details: 0,
-  versions: 1,
-  discussion: 2,
-};
-
-interface ThreadCommentGroup {
-  comment: PublicCultureDiscussionComment;
-  children: ThreadCommentGroup[];
-}
-
-interface PublicCropLibraryViewState {
-  cultureId: number;
-  tab: PublicCultureTab;
-  discussionId: number | null;
-  query: string;
-  listScrollTop: number;
-}
-
-function parsePublicCultureId(value: string | null): number | null {
-  if (!value) {
-    return null;
-  }
-  const parsedId = Number.parseInt(value, 10);
-  return Number.isFinite(parsedId) ? parsedId : null;
-}
-
-function getPublicCultureTabIndex(tabParam: string | null, discussionId: number | null): number {
-  if (discussionId !== null) {
-    return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion;
-  }
-  if (tabParam === 'versions' || tabParam === 'discussion') {
-    return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM[tabParam];
-  }
-  return PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.details;
-}
-
-function getStoredPublicCultureId(): number | null {
-  return parsePublicCultureId(window.localStorage.getItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY));
-}
-
-function isPublicCultureTab(value: unknown): value is PublicCultureTab {
-  return value === 'details' || value === 'versions' || value === 'discussion';
-}
-
-function getStoredPublicCropLibraryViewState(): PublicCropLibraryViewState | null {
-  const rawValue = window.localStorage.getItem(PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY);
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsedValue = JSON.parse(rawValue) as Partial<PublicCropLibraryViewState>;
-    const cultureId = typeof parsedValue.cultureId === 'number' && Number.isFinite(parsedValue.cultureId)
-      ? parsedValue.cultureId
-      : null;
-    if (cultureId === null || !isPublicCultureTab(parsedValue.tab)) {
-      return null;
-    }
-
-    const discussionId = typeof parsedValue.discussionId === 'number' && Number.isFinite(parsedValue.discussionId)
-      ? parsedValue.discussionId
-      : null;
-    const query = typeof parsedValue.query === 'string' ? parsedValue.query : '';
-    const listScrollTop = typeof parsedValue.listScrollTop === 'number' && Number.isFinite(parsedValue.listScrollTop)
-      ? Math.max(0, parsedValue.listScrollTop)
-      : 0;
-
-    return {
-      cultureId,
-      tab: parsedValue.tab,
-      discussionId,
-      query,
-      listScrollTop,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function storePublicCropLibraryViewState(viewState: PublicCropLibraryViewState): void {
-  window.localStorage.setItem(PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY, JSON.stringify(viewState));
-}
-
-/**
- * Entry title in the active UI language.
- *
- * The species name follows the translation fallback chain; the variety name is
- * a proper name and is appended verbatim in every language.
- */
-const getCultureTitle = (culture: PublicCulture, t: TFunction, language: string): string =>
-  getPublicCultureTitle(culture, language, t('library.translation.missingName'));
-
-function getCommentTimestamp(comment: PublicCultureDiscussionComment): number {
-  if (!comment.created_at) {
-    return 0;
-  }
-  const timestamp = new Date(comment.created_at).getTime();
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function compareComments(a: PublicCultureDiscussionComment, b: PublicCultureDiscussionComment): number {
-  const timestampDifference = getCommentTimestamp(a) - getCommentTimestamp(b);
-  return timestampDifference || a.id - b.id;
-}
-
-function buildThreadCommentTree(comments: PublicCultureDiscussionComment[]): ThreadCommentGroup[] {
-  const nodesById = new Map<number, ThreadCommentGroup>();
-  const rootNodes: ThreadCommentGroup[] = [];
-
-  [...comments].sort(compareComments).forEach((comment) => {
-    nodesById.set(comment.id, { comment, children: [] });
-  });
-
-  [...nodesById.values()].forEach((node) => {
-    const parent = node.comment.parent ? nodesById.get(node.comment.parent) : undefined;
-    if (!parent || parent.comment.id === node.comment.id) {
-      rootNodes.push(node);
-      return;
-    }
-    parent.children.push(node);
-  });
-
-  const sortTree = (nodes: ThreadCommentGroup[]): ThreadCommentGroup[] => (
-    nodes.sort((a, b) => compareComments(a.comment, b.comment)).map((node) => ({
-      ...node,
-      children: sortTree(node.children),
-    }))
-  );
-
-  return sortTree(rootNodes);
-}
-
-function getDeletedCommentPlaceholder(
-  comment: PublicCultureDiscussionComment,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  if (comment.deletion_kind === 'author') {
-    return t('library.page.discussion.authorDeleted');
-  }
-  if (comment.deletion_kind === 'moderator') {
-    return t('library.page.discussion.moderatorDeleted');
-  }
-  return t('library.page.discussion.deleted');
-}
-
-function formatDiscussionPreview(value?: string | null): string {
-  return stripCitationMarkers(value ?? '')
-    .replace(/[`*_>#~\-[\]()]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function formatLocalizedNumber(value: number | string | null | undefined, locale: string, fallback: string, options?: Intl.NumberFormatOptions): string {
-  if (value === null || value === undefined || value === '') {
-    return fallback;
-  }
-  const numericValue = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return fallback;
-  }
-  return new Intl.NumberFormat(locale, options).format(numericValue);
-}
-
-function formatDays(value: number | null | undefined, locale: string, fallback: string, dayLabel: string): string {
-  return value === null || value === undefined
-    ? fallback
-    : `${formatLocalizedNumber(value, locale, fallback)} ${dayLabel}`;
-}
-
-function formatMetersAsCentimeters(value: number | null | undefined, locale: string, fallback: string): string {
-  return value === null || value === undefined
-    ? fallback
-    : `${formatLocalizedNumber(value * 100, locale, fallback, { maximumFractionDigits: 1 })} cm`;
-}
-
-function formatPercent(value: number | null | undefined, locale: string, fallback: string): string {
-  return value === null || value === undefined
-    ? fallback
-    : `${formatLocalizedNumber(value, locale, fallback, { maximumFractionDigits: 1 })} %`;
-}
-
-function formatSeedUnit(unit: string | null | undefined, t: (key: string, options?: Record<string, unknown>) => string): string {
-  if (!unit) {
-    return '';
-  }
-  return t(`library.page.seedUnits.${unit}`, { defaultValue: unit });
-}
-
-function formatSeedRate(
-  value: number | null | undefined,
-  unit: string | null | undefined,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  if (value === null || value === undefined || !unit) {
-    return fallback;
-  }
-  return `${formatLocalizedNumber(value, locale, fallback, { maximumFractionDigits: 2 })} ${formatSeedUnit(unit, t)}`;
-}
-
-function getCultivationTypeLabel(
-  value: PublicCulture['cultivation_type'],
-  t: (key: string, options?: Record<string, unknown>) => string,
-  fallback: string,
-): string {
-  if (value === 'direct_sowing') {
-    return t('library.page.fields.cultivationTypes.directSowing');
-  }
-  if (value === 'pre_cultivation') {
-    return t('library.page.fields.cultivationTypes.preCultivation');
-  }
-  return fallback;
-}
-
-function getNutrientDemandLabel(
-  value: PublicCulture['nutrient_demand'],
-  t: (key: string, options?: Record<string, unknown>) => string,
-  fallback: string,
-): string {
-  if (value === 'low' || value === 'medium' || value === 'high') {
-    return t(`library.page.fields.nutrientDemandValues.${value}`);
-  }
-  return fallback;
-}
-
-function getCultivationTypesLabel(
-  culture: PublicCulture,
-  t: (key: string, options?: Record<string, unknown>) => string,
-  fallback: string,
-): string {
-  const values = culture.cultivation_types?.length
-    ? culture.cultivation_types
-    : culture.cultivation_type ? [culture.cultivation_type] : [];
-  const labels = values
-    .map((value) => getCultivationTypeLabel(value, t, ''))
-    .filter(Boolean);
-  return labels.length > 0 ? labels.join(', ') : fallback;
-}
-
-function getHarvestMethodLabel(
-  value: PublicCulture['harvest_method'],
-  t: (key: string, options?: Record<string, unknown>) => string,
-  fallback: string,
-): string {
-  if (value === 'per_plant') {
-    return t('library.page.harvestMethods.perPlant');
-  }
-  if (value === 'per_sqm') {
-    return t('library.page.harvestMethods.perSqm');
-  }
-  return fallback;
-}
-
-function getSeedingRequirementTypeLabel(value: PublicCulture['seeding_requirement_type'], t: (key: string, options?: Record<string, unknown>) => string): string {
-  if (value === 'per_sqm') {
-    return t('library.page.seedingRequirementTypes.perSqm');
-  }
-  if (value === 'per_plant') {
-    return t('library.page.seedingRequirementTypes.perPlant');
-  }
-  return '';
-}
-
-function getLanguageLabel(code: string | null | undefined, displayLanguage: string, fallback: string): string {
-  if (!code) {
-    return fallback;
-  }
-  return getLanguageDisplayName(code, displayLanguage);
-}
-
-function formatSeedPackages(
-  culture: PublicCulture,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const packages = culture.seed_packages ?? [];
-  if (packages.length === 0) {
-    return fallback;
-  }
-  return packages
-    .map((entry) => `${formatLocalizedNumber(entry.size_value, locale, fallback, { maximumFractionDigits: 1 })} ${t(`library.page.packageUnits.${entry.size_unit}`, { defaultValue: entry.size_unit })}`)
-    .join(', ');
-}
-
-function formatSeedRateByCultivation(
-  culture: PublicCulture,
-  locale: string,
-  fallback: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const entries = Object.entries(culture.seed_rate_by_cultivation ?? {});
-  if (entries.length === 0) {
-    return fallback;
-  }
-  return entries
-    .map(([type, rate]) => {
-      const methodLabel = type === 'pre_cultivation'
-        ? t('library.page.fields.cultivationTypes.preCultivation')
-        : t('library.page.fields.cultivationTypes.directSowing');
-      return `${methodLabel}: ${formatSeedRate(rate?.value, rate?.unit, locale, fallback, t)}`;
-    })
-    .join(', ');
-}
-
-function getPublicCultureFieldLabel(field: string, t: (key: string, options?: Record<string, unknown>) => string): string {
-  const fieldLabelKeys: Partial<Record<string, string>> = {
-    name: 'library.page.fields.cropSpecies',
-    variety: 'library.page.fields.variety',
-    notes: 'library.page.fields.notes',
-    growth_duration_days: 'library.page.fields.growthDurationDays',
-    harvest_duration_days: 'library.page.fields.harvestDurationDays',
-    propagation_duration_days: 'library.page.fields.propagationDurationDays',
-  };
-  const key = fieldLabelKeys[field];
-  if (key) {
-    return t(key);
-  }
-  return field;
-}
-
-function getRevisionValueLabel(value: unknown, fallback: string): string {
-  if (value === null || value === undefined || value === '') {
-    return fallback;
-  }
-  if (Array.isArray(value)) {
-    return value.join(', ');
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-interface DetailRowProps {
-  label: string;
-  value: string;
-}
-
-function DetailRow({ label, value }: DetailRowProps) {
-  return (
-    <Box>
-      <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
-        {label}
-      </Typography>
-      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
-        {value}
-      </Typography>
-    </Box>
-  );
-}
-
-interface DetailSectionProps {
-  title: string;
-  children: ReactNode;
-  outlined?: boolean;
-}
-
-function DetailSection({ title, children, outlined = false }: DetailSectionProps) {
-  return (
-    <Box sx={outlined ? { p: { xs: 1.25, sm: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 } : undefined}>
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
-      {children}
-    </Box>
-  );
-}
-
-function DetailGrid({ children }: { children: ReactNode }) {
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
-      {children}
-    </Box>
-  );
-}
-
-interface VersionCardProps {
-  revision: PublicCultureRevision;
-  currentVersion: number;
-  anonymousLabel: string;
-  formatDate: (value?: string | null) => string;
-  onRevert: (version: number) => Promise<void>;
-  revertingVersion: number | null;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onDiscuss: (revision: PublicCultureRevision) => void;
-}
-
-function VersionCard({
-  revision,
-  currentVersion,
-  anonymousLabel,
-  formatDate,
-  onRevert,
-  revertingVersion,
-  t,
-  onDiscuss,
-}: VersionCardProps) {
-  const isCurrentVersion = revision.version === currentVersion;
-  const changedFields = revision.changed_fields ?? [];
-
-  return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {t('library.page.versions.versionTitle', { version: revision.version })}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t('library.page.metaByDate', {
-              author: revision.created_by_label || anonymousLabel,
-              date: formatDate(revision.created_at),
-            })}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          {revision.action === 'restored' && revision.restored_from_version ? (
-            <Chip size="small" label={t('library.page.versions.restoredFrom', { version: revision.restored_from_version })} variant="outlined" />
-          ) : null}
-          <Chip
-            size="small"
-            label={isCurrentVersion ? t('library.page.versions.current') : t(`library.page.versions.actions.${revision.action}`)}
-            color={isCurrentVersion ? 'success' : 'default'}
-          />
-        </Stack>
-      </Stack>
-      {changedFields.length > 0 ? (
-        <Stack spacing={0.75} sx={{ mt: 1.25 }}>
-          {changedFields.map((change) => (
-            <Box key={change.field}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                {getPublicCultureFieldLabel(change.field, t)}
-              </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                {getRevisionValueLabel(change.old_value, t('library.page.notSpecified'))}
-                {' → '}
-                {getRevisionValueLabel(change.new_value, t('library.page.notSpecified'))}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25 }}>
-          {t('library.page.versions.noFieldChanges')}
-        </Typography>
-      )}
-      {!isCurrentVersion ? (
-        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RestoreOutlinedIcon />}
-            disabled={revertingVersion !== null}
-            onClick={() => void onRevert(revision.version)}
-          >
-            {revertingVersion === revision.version ? t('library.page.versions.reverting') : t('library.page.versions.revert')}
-          </Button>
-          <Button size="small" variant="text" startIcon={<ForumOutlinedIcon />} onClick={() => onDiscuss(revision)}>
-            {t('library.page.versions.discuss')}
-          </Button>
-        </Stack>
-      ) : null}
-    </Box>
-  );
-}
-
-interface CommentFormProps {
-  body: string;
-  disabled?: boolean;
-  inputRef?: Ref<HTMLInputElement>;
-  label: string;
-  submitLabel: string;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onBodyChange: (body: string) => void;
-  onCancel?: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}
-
-function CommentForm({
-  body,
-  disabled = false,
-  inputRef,
-  label,
-  submitLabel,
-  t,
-  onBodyChange,
-  onCancel,
-  onSubmit,
-}: CommentFormProps) {
-  return (
-    <Box component="form" onSubmit={onSubmit} sx={{ display: 'grid', gap: 1, maxWidth: 720 }}>
-      <TextField
-        inputRef={inputRef}
-        label={label}
-        value={body}
-        onChange={(event) => onBodyChange(event.target.value)}
-        multiline
-        minRows={2}
-        maxRows={8}
-      />
-      <Stack direction="row" spacing={1}>
-        <Button type="submit" variant="contained" disabled={disabled || !body.trim()}>
-          {submitLabel}
-        </Button>
-        {onCancel ? <Button onClick={onCancel}>{t('library.page.discussion.cancel')}</Button> : null}
-      </Stack>
-    </Box>
-  );
-}
-
-interface DiscussionCommentProps {
-  comment: PublicCultureDiscussionComment;
-  anonymousLabel: string;
-  formatDate: (value?: string | null) => string;
-  isReply: boolean;
-  logicalDepth: number;
-  visualDepth: number;
-  parentAuthorLabel?: string;
-  isEditing: boolean;
-  menuAnchorElement: HTMLElement | null;
-  submittingComment: boolean;
-  commentBody: string;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onReply: (commentId: number) => void;
-  onEdit: (comment: PublicCultureDiscussionComment) => void;
-  onDelete: (commentId: number) => void;
-  onDeleteBlocked: () => void;
-  onOpenMenu: (commentId: number, element: HTMLElement) => void;
-  onCloseMenu: () => void;
-  onCancelEdit: () => void;
-  onCommentSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCommentBodyChange: (body: string) => void;
-  registerReplyActionRef: (commentId: number, element: HTMLButtonElement | null) => void;
-  registerCommentRef: (commentId: number, element: HTMLDivElement | null) => void;
-  activeFormInputRef: Ref<HTMLInputElement>;
-}
-
-function DiscussionComment({
-  comment,
-  anonymousLabel,
-  formatDate,
-  isReply,
-  logicalDepth,
-  visualDepth,
-  parentAuthorLabel,
-  isEditing,
-  menuAnchorElement,
-  submittingComment,
-  commentBody,
-  t,
-  onReply,
-  onEdit,
-  onDelete,
-  onDeleteBlocked,
-  onOpenMenu,
-  onCloseMenu,
-  onCancelEdit,
-  onCommentSubmit,
-  onCommentBodyChange,
-  registerReplyActionRef,
-  registerCommentRef,
-  activeFormInputRef,
-}: DiscussionCommentProps) {
-  const metaText = `${t('library.page.metaByDate', {
-    author: comment.created_by_label || anonymousLabel,
-    date: formatDate(comment.created_at),
-  })}${comment.is_edited ? ` · ${t('library.page.discussion.edited')}` : ''}`;
-  const authorLabel = comment.created_by_label || anonymousLabel;
-  const replyLabel = t('library.page.discussion.replyToAuthor', { author: authorLabel });
-  const deletedPlaceholder = getDeletedCommentPlaceholder(comment, t);
-  const canShowDeleteAction = comment.can_delete || comment.delete_blocked_reason === 'visible_replies';
-
-  return (
-    <Box
-      ref={(element: HTMLDivElement | null) => registerCommentRef(comment.id, element)}
-      tabIndex={-1}
-      data-comment-id={comment.id}
-      data-logical-depth={logicalDepth}
-      data-visual-depth={visualDepth}
-      sx={{
-        display: 'grid',
-        gap: 0.5,
-        outline: 0,
-        py: isReply ? 1 : 0,
-        '&:focus-visible': {
-          borderRadius: 1,
-          boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}`,
-        },
-      }}
-    >
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 1, alignItems: 'start' }}>
-        <Box sx={{ minWidth: 0 }}>
-          {isReply && parentAuthorLabel && logicalDepth > MAX_VISIBLE_REPLY_DEPTH ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-              {t('library.page.discussion.replyContext', { author: parentAuthorLabel })}
-            </Typography>
-          ) : null}
-          <Typography variant="caption" color="text.secondary">
-            {metaText}
-          </Typography>
-          {isEditing ? (
-            <Box sx={{ mt: 1 }}>
-              <CommentForm
-                body={commentBody}
-                disabled={submittingComment}
-                inputRef={activeFormInputRef}
-                label={t('library.page.discussion.commentLabel')}
-                submitLabel={t('library.page.discussion.submit')}
-                t={t}
-                onBodyChange={onCommentBodyChange}
-                onCancel={onCancelEdit}
-                onSubmit={onCommentSubmit}
-              />
-            </Box>
-          ) : (
-            <Typography
-              variant="body2"
-              color={comment.deleted_at ? 'text.secondary' : 'text.primary'}
-              aria-label={comment.deleted_at ? deletedPlaceholder : undefined}
-              sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5, fontStyle: comment.deleted_at ? 'italic' : 'normal' }}
-            >
-              {comment.deleted_at ? deletedPlaceholder : comment.body}
-            </Typography>
-          )}
-        </Box>
-        {!comment.deleted_at && !isEditing ? (
-          <Stack direction="row" spacing={0.25} sx={{ mt: -0.5 }}>
-            <Tooltip title={replyLabel}>
-              <IconButton
-                ref={(element: HTMLButtonElement | null) => registerReplyActionRef(comment.id, element)}
-                size="small"
-                aria-label={replyLabel}
-                onClick={() => onReply(comment.id)}
-              >
-                <ReplyOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {comment.can_edit || canShowDeleteAction ? (
-              <>
-                <Tooltip title={t('library.page.discussion.moreActions')}>
-                  <IconButton
-                    size="small"
-                    aria-label={t('library.page.discussion.moreActions')}
-                    aria-haspopup="menu"
-                    aria-expanded={Boolean(menuAnchorElement)}
-                    onClick={(event) => onOpenMenu(comment.id, event.currentTarget)}
-                  >
-                    <MoreVertOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Menu
-                  anchorEl={menuAnchorElement}
-                  open={Boolean(menuAnchorElement)}
-                  onClose={onCloseMenu}
-                >
-                  {comment.can_edit ? (
-                    <MenuItem onClick={() => { onCloseMenu(); onEdit(comment); }}>{t('library.page.discussion.edit')}</MenuItem>
-                  ) : null}
-                  {canShowDeleteAction ? (
-                    <MenuItem
-                      onClick={() => {
-                        onCloseMenu();
-                        if (comment.delete_blocked_reason === 'visible_replies') {
-                          onDeleteBlocked();
-                          return;
-                        }
-                        onDelete(comment.id);
-                      }}
-                      sx={{ color: comment.can_delete ? 'error.main' : 'text.primary' }}
-                    >
-                      {t('library.page.discussion.delete')}
-                    </MenuItem>
-                  ) : null}
-                </Menu>
-              </>
-            ) : null}
-          </Stack>
-        ) : null}
-      </Box>
-    </Box>
-  );
-}
-
-interface ThreadCommentBranchProps {
-  node: ThreadCommentGroup;
-  depth: number;
-  parentAuthorLabel?: string;
-  anonymousLabel: string;
-  formatDate: (value?: string | null) => string;
-  replyTo: number | null;
-  editingCommentId: number | null;
-  commentActionMenu: { commentId: number; anchorElement: HTMLElement } | null;
-  submittingComment: boolean;
-  commentBody: string;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  onReply: (commentId: number) => void;
-  onEdit: (comment: PublicCultureDiscussionComment) => void;
-  onDelete: (commentId: number) => void;
-  onDeleteBlocked: () => void;
-  onOpenMenu: (commentId: number, element: HTMLElement) => void;
-  onCloseMenu: () => void;
-  onCancelEdit: () => void;
-  onCommentSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCommentBodyChange: (body: string) => void;
-  registerReplyActionRef: (commentId: number, element: HTMLButtonElement | null) => void;
-  registerCommentRef: (commentId: number, element: HTMLDivElement | null) => void;
-  activeFormInputRef: Ref<HTMLInputElement>;
-}
-
-function ThreadCommentBranch({
-  node,
-  depth,
-  parentAuthorLabel,
-  anonymousLabel,
-  formatDate,
-  replyTo,
-  editingCommentId,
-  commentActionMenu,
-  submittingComment,
-  commentBody,
-  t,
-  onReply,
-  onEdit,
-  onDelete,
-  onDeleteBlocked,
-  onOpenMenu,
-  onCloseMenu,
-  onCancelEdit,
-  onCommentSubmit,
-  onCommentBodyChange,
-  registerReplyActionRef,
-  registerCommentRef,
-  activeFormInputRef,
-}: ThreadCommentBranchProps) {
-  const visualDepth = Math.min(depth, MAX_VISIBLE_REPLY_DEPTH);
-  const childDepth = depth + 1;
-  const childVisualDepth = Math.min(childDepth, MAX_VISIBLE_REPLY_DEPTH);
-  const childIndentIncreases = childVisualDepth > visualDepth;
-  const childAuthorLabel = node.comment.created_by_label || anonymousLabel;
-  const hasChildGroup = node.children.length > 0 || replyTo === node.comment.id;
-
-  return (
-    <Box sx={{ display: 'grid', gap: 1 }}>
-      <DiscussionComment
-        comment={node.comment}
-        anonymousLabel={anonymousLabel}
-        formatDate={formatDate}
-        isReply={depth > 0}
-        logicalDepth={depth}
-        visualDepth={visualDepth}
-        parentAuthorLabel={parentAuthorLabel}
-        isEditing={editingCommentId === node.comment.id}
-        menuAnchorElement={commentActionMenu?.commentId === node.comment.id ? commentActionMenu.anchorElement : null}
-        submittingComment={submittingComment}
-        commentBody={commentBody}
-        t={t}
-        onReply={onReply}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onDeleteBlocked={onDeleteBlocked}
-        onOpenMenu={onOpenMenu}
-        onCloseMenu={onCloseMenu}
-        onCancelEdit={onCancelEdit}
-        onCommentSubmit={onCommentSubmit}
-        onCommentBodyChange={onCommentBodyChange}
-        registerReplyActionRef={registerReplyActionRef}
-        registerCommentRef={registerCommentRef}
-        activeFormInputRef={activeFormInputRef}
-      />
-      {hasChildGroup ? (
-        <Box
-          role="group"
-          aria-label={t('library.page.discussion.repliesForAuthor', { author: childAuthorLabel })}
-          sx={{
-            borderLeft: childIndentIncreases ? 2 : 0,
-            borderColor: 'divider',
-            display: 'grid',
-            gap: 1,
-            ml: childIndentIncreases ? { xs: 1, sm: 2 } : 0,
-            pl: childIndentIncreases ? { xs: 1.25, sm: 1.75 } : 0,
-          }}
-        >
-          {node.children.map((childNode) => (
-            <ThreadCommentBranch
-              key={childNode.comment.id}
-              node={childNode}
-              depth={childDepth}
-              parentAuthorLabel={childAuthorLabel}
-              anonymousLabel={anonymousLabel}
-              formatDate={formatDate}
-              replyTo={replyTo}
-              editingCommentId={editingCommentId}
-              commentActionMenu={commentActionMenu}
-              submittingComment={submittingComment}
-              commentBody={commentBody}
-              t={t}
-              onReply={onReply}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onDeleteBlocked={onDeleteBlocked}
-              onOpenMenu={onOpenMenu}
-              onCloseMenu={onCloseMenu}
-              onCancelEdit={onCancelEdit}
-              onCommentSubmit={onCommentSubmit}
-              onCommentBodyChange={onCommentBodyChange}
-              registerReplyActionRef={registerReplyActionRef}
-              registerCommentRef={registerCommentRef}
-              activeFormInputRef={activeFormInputRef}
-            />
-          ))}
-          {replyTo === node.comment.id ? (
-            <CommentForm
-              body={commentBody}
-              disabled={submittingComment}
-              inputRef={activeFormInputRef}
-              label={t('library.page.discussion.replyLabel')}
-              submitLabel={t('library.page.discussion.submit')}
-              t={t}
-              onBodyChange={onCommentBodyChange}
-              onCancel={onCancelEdit}
-              onSubmit={onCommentSubmit}
-            />
-          ) : null}
-        </Box>
-      ) : null}
-    </Box>
-  );
-}
-
-interface PublicCultureMobileSelectorDialogProps {
-  open: boolean;
-  query: string;
-  cultures: PublicCulture[];
-  loading: boolean;
-  error: string;
-  selectedCultureId: number | null;
-  listRef: Ref<HTMLUListElement>;
-  onClose: () => void;
-  onQueryChange: (value: string) => void;
-  onSearchSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelect: (culture: PublicCulture) => void;
-  onListScroll: (event: UIEvent<HTMLUListElement>) => void;
-}
-
-function PublicCultureMobileSelectorDialog({
-  open,
-  query,
-  cultures,
-  loading,
-  error,
-  selectedCultureId,
-  listRef,
-  onClose,
-  onQueryChange,
-  onSearchSubmit,
-  onSelect,
-  onListScroll,
-}: PublicCultureMobileSelectorDialogProps) {
-  const { t, i18n } = useTranslation('cultures');
-  const language = i18n.resolvedLanguage ?? i18n.language;
-
-  useOverlayHistory({
-    open,
-    onClose,
-    historyKey: 'openFarmPlannerPublicCultureSelector',
-  });
-
-  return (
-    <Dialog fullScreen open={open} onClose={onClose}>
-      <DialogTitle>{t('selectCulture')}</DialogTitle>
-      <DialogContent sx={{ px: 1.5, pb: 2 }}>
-        <Box component="form" onSubmit={onSearchSubmit} sx={{ mb: 1.5 }}>
-          <TextField
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            label={t('library.searchLabel')}
-            size="medium"
-            fullWidth
-          />
-        </Box>
-        {loading ? (
-          <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Stack spacing={1} alignItems="center">
-              <CircularProgress size={28} />
-              <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
-            </Stack>
-          </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : cultures.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              {t('library.emptyState.noResultsTitle')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-              {t('library.empty')}
-            </Typography>
-          </Box>
-        ) : (
-          <List
-            ref={listRef}
-            dense
-            disablePadding
-            role="listbox"
-            aria-label={t('library.page.title')}
-            onScroll={onListScroll}
-            sx={{ py: 0.5, px: 0.25, overflowY: 'auto' }}
-          >
-            {cultures.map((culture) => (
-              <ListItemButton
-                key={`mobile-public-${culture.id}`}
-                role="option"
-                aria-selected={culture.id === selectedCultureId}
-                selected={culture.id === selectedCultureId}
-                onClick={() => onSelect(culture)}
-                sx={{ borderRadius: 1.25, mb: 0.375 }}
-              >
-                <ListItemText
-                  primary={getCultureTitle(culture, t, language)}
-                  secondary={culture.crop_species_name || culture.crop_family || undefined}
-                  primaryTypographyProps={{ fontSize: '0.95rem', fontWeight: 600 }}
-                  secondaryTypographyProps={{ fontSize: '0.8rem', color: 'text.secondary' }}
-                />
-              </ListItemButton>
-            ))}
-          </List>
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 1.5, py: 1 }}>
-        <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 export default function PublicCropLibraryPage() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation('cultures');
@@ -1030,7 +131,6 @@ export default function PublicCropLibraryPage() {
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const [searchParams] = useSearchParams();
-  const location = useLocation();
   const navigate = useNavigate();
   const selectedCultureParam = searchParams.get('cultureId');
   const selectedCultureIdFromUrl = parsePublicCultureId(selectedCultureParam);
@@ -1045,6 +145,10 @@ export default function PublicCropLibraryPage() {
     selectedCultureIdFromUrl ?? storedViewState?.cultureId ?? getStoredPublicCultureId()
   ));
   const selectedCultureIdRef = useRef<number | null>(selectedCultureId);
+  // Tracks the cultureId our own updateSelectedCultureId last navigated to,
+  // while that navigate() is still in flight (cleared once the URL catches
+  // up, or once an external navigation is detected). See updateSelectedCultureId.
+  const pendingNavigationCultureIdRef = useRef<number | null>(selectedCultureId);
   const [loadStatus, setLoadStatus] = useState<PublicCultureLoadStatus>('loading');
   const [loadError, setLoadError] = useState('');
   const [topics, setTopics] = useState<PublicCultureDiscussionTopic[]>([]);
@@ -1060,16 +164,42 @@ export default function PublicCropLibraryPage() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
+  const [importConflict, setImportConflict] = useState<{
+    publicCultureId: number;
+    name: string;
+    varietyChange: { from: string; to: string } | null;
+  } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
+  const [removing, setRemoving] = useState(false);
+  const [descriptionDrafts, setDescriptionDrafts] = useState<Record<string, string>>({});
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
+  const [selectedSpeciesViewKey, setSelectedSpeciesViewKey] = useState<string | null>(null);
   const [revertingVersion, setRevertingVersion] = useState<number | null>(null);
+  const [libraryFilters, setLibraryFilters] = useState<PublicCultureFilterState>(EMPTY_PUBLIC_CULTURE_FILTERS);
+  const [libraryFilterAnchorEl, setLibraryFilterAnchorEl] = useState<HTMLElement | null>(null);
+  const isLibraryFilterPopoverOpen = Boolean(libraryFilterAnchorEl);
+  const activeLibraryFilterCount = countActivePublicCultureFilters(libraryFilters);
   const isMobile = useMediaQuery('(max-width:600px)');
   const useCompactLibraryLayout = useMediaQuery('(max-width:899.95px)');
+  const libraryAreaRef = useRef<HTMLDivElement>(null);
+  // How tall the two-pane area is allowed to be, measured directly from where it
+  // actually starts in the viewport rather than guessed via a hardcoded "chrome
+  // height" offset (which drifts whenever the surrounding header/layout changes
+  // and silently leaves the panes shorter than the available space).
+  const [libraryAreaMaxHeight, setLibraryAreaMaxHeight] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cultureListRef = useRef<HTMLUListElement>(null);
   const cultureListScrollTopRef = useRef<number>(storedViewState?.listScrollTop ?? 0);
   const cultureListRequestIdRef = useRef(0);
+  const collaborationLoadRequestIdRef = useRef(0);
+  // Cultures this client has saved, kept until a list response catches up with
+  // them. Bumping cultureListRequestIdRef on save only discards list requests
+  // that are already in flight; one started right after the save (the search
+  // box refreshes on a debounce) still carries pre-save data and would
+  // otherwise write the old values straight back over the saved ones.
+  const savedCulturesRef = useRef<Map<number, PublicCulture>>(new Map());
   const newTopicButtonRef = useRef<HTMLButtonElement>(null);
   const newTopicTitleInputRef = useRef<HTMLInputElement>(null);
   const activeCommentFormInputRef = useRef<HTMLInputElement>(null);
@@ -1078,6 +208,29 @@ export default function PublicCropLibraryPage() {
   const [commentActionMenu, setCommentActionMenu] = useState<{ commentId: number; anchorElement: HTMLElement } | null>(null);
   const [pendingFocusCommentId, setPendingFocusCommentId] = useState<number | null>(null);
   const isCultureLoading = loadStatus === 'loading';
+  useLayoutEffect(() => {
+    if (useCompactLibraryLayout) {
+      return undefined;
+    }
+    const element = libraryAreaRef.current;
+    if (!element) {
+      return undefined;
+    }
+    const BOTTOM_MARGIN_PX = 24;
+    const updateMaxHeight = () => {
+      const top = element.getBoundingClientRect().top;
+      setLibraryAreaMaxHeight(Math.max(0, window.innerHeight - top - BOTTOM_MARGIN_PX));
+    };
+    updateMaxHeight();
+    window.addEventListener('resize', updateMaxHeight);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateMaxHeight) : undefined;
+    resizeObserver?.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', updateMaxHeight);
+      resizeObserver?.disconnect();
+    };
+  }, [useCompactLibraryLayout, loadError, isCultureLoading]);
+  const canEditPublicCulture = Boolean(user);
   const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
 
   const focusSearch = useCallback(() => {
@@ -1103,49 +256,51 @@ export default function PublicCropLibraryPage() {
     discussionId?: number | null;
     replace?: boolean;
   }): void => {
-    const nextParams = new URLSearchParams(location.search);
-    if (cultureId === null) {
-      nextParams.delete('cultureId');
-      nextParams.delete('tab');
-      nextParams.delete('discussionId');
-    } else {
+    // Built from scratch (never read back from the current URL) so this is a
+    // pure function of its own arguments: this page only ever owns cultureId,
+    // tab and discussionId, so there is nothing to preserve from "the current
+    // search" — and nothing to go stale. A previous version rebuilt the next
+    // URL on top of a ref mirroring `location`, refreshed only by an effect
+    // running one render behind; selecting several cultures in quick
+    // succession (fast clicks, arrow-key repeat) called that version before
+    // the ref had caught up, so a later call could build its URL from an
+    // already-superseded base and even skip navigating entirely — read as
+    // the culture list (and the import/update button) jumping back to an
+    // earlier selection after a fast pick. Not reading any "current" state
+    // here removes that failure mode structurally instead of papering over it.
+    const nextParams = new URLSearchParams();
+    if (cultureId !== null) {
       nextParams.set('cultureId', String(cultureId));
 
       const nextTab = tab ?? activeTab;
       const tabParam = PUBLIC_CULTURE_TAB_BY_INDEX[nextTab] ?? 'details';
-      if (tabParam === 'details') {
-        nextParams.delete('tab');
-      } else {
+      if (tabParam !== 'details') {
         nextParams.set('tab', tabParam);
       }
 
       const nextDiscussionId = tabParam === 'discussion' ? (discussionId ?? null) : null;
-      if (nextDiscussionId === null) {
-        nextParams.delete('discussionId');
-      } else {
+      if (nextDiscussionId !== null) {
         nextParams.set('discussionId', String(nextDiscussionId));
         nextParams.set('tab', 'discussion');
       }
     }
 
     const nextSearch = nextParams.toString();
-    const currentSearch = location.search.startsWith('?') ? location.search.slice(1) : location.search;
-    if (nextSearch === currentSearch) {
-      return;
-    }
-    navigate(
-      {
-        pathname: location.pathname,
-        search: nextSearch ? `?${nextSearch}` : '',
-        hash: location.hash,
-      },
-      { replace },
-    );
-  }, [activeTab, location.hash, location.pathname, location.search, navigate]);
+    navigate(nextSearch ? `?${nextSearch}` : '', { replace });
+  }, [activeTab, navigate]);
 
-  const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean } = {}): void => {
+  const updateSelectedCultureId = useCallback((cultureId: number | null, options: { replace?: boolean; speciesViewKey?: string | null } = {}): void => {
+    setSelectedSpeciesViewKey(options.speciesViewKey ?? null);
     setSelectedCultureId(cultureId);
     selectedCultureIdRef.current = cultureId;
+    // navigate() (called below via navigateToLibraryState) is asynchronous —
+    // searchParams won't reflect `cultureId` until it resolves, some renders
+    // later. Recorded here so the URL-to-state sync effect can tell "the URL
+    // just hasn't caught up with our own pick yet" apart from a genuine
+    // external navigation, instead of reading the still-stale URL as more
+    // authoritative and snapping selectedCultureId back to the previous
+    // value in the meantime (see pendingNavigationCultureIdRef below).
+    pendingNavigationCultureIdRef.current = cultureId;
     if (cultureId === null) {
       window.localStorage.removeItem(SELECTED_PUBLIC_CULTURE_STORAGE_KEY);
     } else {
@@ -1159,8 +314,8 @@ export default function PublicCropLibraryPage() {
     });
   }, [activeTab, navigateToLibraryState]);
 
-  const selectMobileCulture = useCallback((culture: PublicCulture): void => {
-    updateSelectedCultureId(culture.id, { replace: false });
+  const selectMobileCulture = useCallback((culture: PublicCulture, itemKind: CropHierarchyItemKind, speciesKey: string): void => {
+    updateSelectedCultureId(culture.id, { replace: false, speciesViewKey: itemKind === 'species' ? speciesKey : null });
     setMobileSelectorOpen(false);
   }, [updateSelectedCultureId]);
 
@@ -1196,6 +351,157 @@ export default function PublicCropLibraryPage() {
     () => cultures.find((culture) => culture.id === selectedCultureId) ?? null,
     [cultures, selectedCultureId],
   );
+  const libraryFilterOptions = useMemo(() => getPublicCultureFilterOptions(cultures), [cultures]);
+  const filteredLibraryCultures = useMemo(
+    () => cultures.filter((culture) => matchesPublicCultureFilters(culture, libraryFilters)),
+    [cultures, libraryFilters],
+  );
+  const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
+  const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
+  const isSpeciesView = Boolean(
+    selectedCulture
+    && (
+      isSelectedSpeciesEntry
+      || (selectedSpeciesViewKey !== null && selectedSpeciesViewKey === selectedCultureSpeciesKey)
+    ),
+  );
+  // Converted to the project `Culture` shape (matching units/field names) so the edit
+  // form can reuse the same crop/variety inheritance highlighting as the project side.
+  const editFormCultures = useMemo(
+    () => cultures.map(publicCultureToCultureFormData),
+    [cultures],
+  );
+  // Memoized so this stays referentially stable across re-renders that don't
+  // actually change the selected culture (e.g. the notes-draft state update
+  // that runs while the edit dialog is open). CultureForm resets its draft
+  // whenever this reference changes, so an unmemoized object literal here
+  // would silently discard in-progress edits (e.g. a variety rename) the
+  // moment any unrelated state in this component updates.
+  const editFormCulture = useMemo(
+    () => (selectedCulture ? publicCultureToCultureFormData(selectedCulture) : undefined),
+    [selectedCulture],
+  );
+  const selectedSpeciesCulture = useMemo(
+    () => findSpeciesCulture(selectedCulture, cultures),
+    [cultures, selectedCulture],
+  );
+  const getPublicFieldValue = useCallback(<TValue,>(field: keyof PublicCulture, value: TValue): TValue => {
+    if (
+      selectedCulture?.variety
+      && !isSpeciesView
+      && selectedSpeciesCulture
+      && isEmptyPublicValue(value)
+    ) {
+      return selectedSpeciesCulture[field] as TValue;
+    }
+    return value;
+  }, [isSpeciesView, selectedCulture?.variety, selectedSpeciesCulture]);
+  const getPublicFieldSource = useCallback((field: keyof PublicCulture): ValueSource | null => {
+    if (isSpeciesView || !selectedCulture?.variety || !selectedSpeciesCulture) {
+      return null;
+    }
+    const ownValue = selectedCulture[field];
+    if (isEmptyPublicValue(ownValue)) {
+      return null;
+    }
+    const cropValue = selectedSpeciesCulture[field];
+    return arePublicValuesEqual(ownValue, cropValue) ? null : 'ownValue';
+  }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
+  const publicActiveCultivationTypes: CultivationType[] = useMemo(() => (selectedCulture
+    ? (
+      selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
+        ? selectedCulture.cultivation_types
+        : (
+          !isSpeciesView
+          && selectedCulture.variety
+          && selectedSpeciesCulture?.cultivation_types
+          && selectedSpeciesCulture.cultivation_types.length > 0
+            ? selectedSpeciesCulture.cultivation_types
+            : (
+              getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type)
+                ? [getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type)]
+                : []
+            )
+        )
+    ).filter((item): item is CultivationType => item === 'direct_sowing' || item === 'pre_cultivation')
+    : []), [getPublicFieldValue, isSpeciesView, selectedCulture, selectedSpeciesCulture]);
+  const publicSeedRateRows: CultureSeedRateRow[] = useMemo(() => (selectedCulture
+    ? (() => {
+      const isDirectActive = publicActiveCultivationTypes.includes('direct_sowing');
+      const isPreCultivationActive = publicActiveCultivationTypes.includes('pre_cultivation');
+      const directValue = getPublicFieldValue('seed_rate_direct_value', selectedCulture.seed_rate_direct_value);
+      const directUnit = getPublicFieldValue('seed_rate_direct_unit', selectedCulture.seed_rate_direct_unit);
+      const preCultivationValue = getPublicFieldValue('seed_rate_pre_cultivation_value', selectedCulture.seed_rate_pre_cultivation_value);
+      const preCultivationUnit = getPublicFieldValue('seed_rate_pre_cultivation_unit', selectedCulture.seed_rate_pre_cultivation_unit);
+      const rows: CultureSeedRateRow[] = [];
+
+      if (isDirectActive && directValue !== null && directValue !== undefined && directUnit) {
+        rows.push({
+          method: 'direct_sowing',
+          value: directValue,
+          unit: directUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent_direct', selectedCulture.sowing_calculation_safety_percent_direct) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_direct_value') ?? getPublicFieldSource('seed_rate_direct_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_direct'),
+        });
+      }
+      if (isPreCultivationActive && preCultivationValue !== null && preCultivationValue !== undefined && preCultivationUnit) {
+        rows.push({
+          method: 'pre_cultivation',
+          value: preCultivationValue,
+          unit: preCultivationUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent_pre_cultivation', selectedCulture.sowing_calculation_safety_percent_pre_cultivation) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_pre_cultivation_value') ?? getPublicFieldSource('seed_rate_pre_cultivation_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_pre_cultivation'),
+        });
+      }
+
+      if (rows.length > 0) {
+        return rows;
+      }
+
+      const seedRateByCultivation = getPublicFieldValue('seed_rate_by_cultivation', selectedCulture.seed_rate_by_cultivation);
+      if (seedRateByCultivation && Object.keys(seedRateByCultivation).length > 0) {
+        return Object.entries(seedRateByCultivation)
+          .filter(([method, payload]) => (
+            publicActiveCultivationTypes.includes(method as CultivationType)
+            && (method === 'direct_sowing' || method === 'pre_cultivation')
+            && payload
+            && typeof payload.value === 'number'
+            && typeof payload.unit === 'string'
+          ))
+          .map(([method, payload]) => ({
+            method: method as CultivationType,
+            value: payload.value,
+            unit: payload.unit,
+            safety: null,
+            valueSource: getPublicFieldSource('seed_rate_by_cultivation'),
+            safetySource: null,
+          }));
+      }
+
+      const generalSeedRateValue = getPublicFieldValue('seed_rate_value', selectedCulture.seed_rate_value);
+      const generalSeedRateUnit = getPublicFieldValue('seed_rate_unit', selectedCulture.seed_rate_unit);
+      if (
+        publicActiveCultivationTypes.length > 0
+        && generalSeedRateValue !== null
+        && generalSeedRateValue !== undefined
+        && generalSeedRateUnit
+      ) {
+        return [{
+          method: publicActiveCultivationTypes.includes('direct_sowing') ? 'direct_sowing' : 'pre_cultivation',
+          value: generalSeedRateValue,
+          unit: generalSeedRateUnit,
+          safety: getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent) ?? null,
+          valueSource: getPublicFieldSource('seed_rate_value') ?? getPublicFieldSource('seed_rate_unit'),
+          safetySource: getPublicFieldSource('sowing_calculation_safety_percent'),
+        }];
+      }
+
+      return [];
+    })()
+    : []), [getPublicFieldSource, getPublicFieldValue, publicActiveCultivationTypes, selectedCulture]);
   // Localized species name for the selected entry, plus the notice shown when
   // only another language's text is available.
   const selectedCultureName = useMemo(
@@ -1218,6 +524,27 @@ export default function PublicCropLibraryPage() {
     () => getDescriptionFallbackNotice(selectedCultureDescription, t, language),
     [selectedCultureDescription, t, language],
   );
+  const currentLanguageCode = normalizeLanguageTag(language) ?? 'de';
+  const selectedCultureOriginalLanguageCode = selectedCulture
+    ? getPublicCultureOriginalLanguageCode(selectedCulture, currentLanguageCode)
+    : currentLanguageCode;
+  const originalDescriptionDraft = selectedCulture
+    ? descriptionDrafts[selectedCultureOriginalLanguageCode] ?? ''
+    : '';
+  const currentDescriptionDraft = selectedCulture
+    ? descriptionDrafts[currentLanguageCode] ?? ''
+    : '';
+  const hasDescriptionDraftChanges = useMemo(() => {
+    if (!selectedCulture) {
+      return false;
+    }
+    const initialDrafts = buildPublicCultureDescriptionDrafts(selectedCulture);
+    const originalChanged = (descriptionDrafts[selectedCultureOriginalLanguageCode] ?? '')
+      !== (initialDrafts[selectedCultureOriginalLanguageCode] ?? '');
+    const currentChanged = currentLanguageCode !== selectedCultureOriginalLanguageCode
+      && (descriptionDrafts[currentLanguageCode] ?? '') !== (initialDrafts[currentLanguageCode] ?? '');
+    return originalChanged || currentChanged;
+  }, [currentLanguageCode, descriptionDrafts, selectedCulture, selectedCultureOriginalLanguageCode]);
   const selectedTopic = useMemo(
     () => topics.find((topic) => topic.id === selectedTopicId) ?? null,
     [selectedTopicId, topics],
@@ -1261,13 +588,6 @@ export default function PublicCropLibraryPage() {
     }, 0);
   }, []);
 
-  const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: cultures,
-    selectedId: selectedCultureId,
-    getId: (culture) => culture.id,
-    onSelect: (culture) => updateSelectedCultureId(culture.id),
-  });
-
   const goToRelativeCulture = useCallback((direction: 'next' | 'previous') => {
     if (selectedCultureId === null || cultures.length === 0) {
       return;
@@ -1294,6 +614,22 @@ export default function PublicCropLibraryPage() {
 
   useEffect(() => {
     if (selectedCultureIdFromUrl !== null) {
+      if (pendingNavigationCultureIdRef.current === selectedCultureIdFromUrl) {
+        // Our own navigate() just landed — selectedCultureId was already set
+        // optimistically when it was issued, so there's nothing left to sync.
+        pendingNavigationCultureIdRef.current = null;
+        return;
+      }
+      if (pendingNavigationCultureIdRef.current !== null) {
+        // Our own navigate() is still resolving; the URL hasn't caught up
+        // with it yet. Leave selectedCultureId alone instead of reading this
+        // stale URL as authoritative and snapping the selection back to
+        // whatever it said before we picked something new — that snap-back
+        // (followed by the correction once the URL does catch up) is what
+        // made the culture list, and the import/update button that follows
+        // selectedCulture, look like they were toggling after every pick.
+        return;
+      }
       if (selectedCultureId !== selectedCultureIdFromUrl) {
         setSelectedCultureId(selectedCultureIdFromUrl);
         selectedCultureIdRef.current = selectedCultureIdFromUrl;
@@ -1387,7 +723,7 @@ export default function PublicCropLibraryPage() {
       if (requestId !== cultureListRequestIdRef.current) {
         return;
       }
-      setCultures(results);
+      setCultures(applySavedCultures(results, savedCulturesRef.current));
       setLoadStatus('success');
     } catch {
       if (requestId !== cultureListRequestIdRef.current) {
@@ -1401,17 +737,25 @@ export default function PublicCropLibraryPage() {
   }, [t, updateSelectedCultureId]);
 
   const loadCollaboration = useCallback(async (cultureId: number): Promise<void> => {
+    const requestId = collaborationLoadRequestIdRef.current + 1;
+    collaborationLoadRequestIdRef.current = requestId;
     setCollaborationStatus('loading');
     try {
       const [topicsResponse, versionsResponse] = await Promise.all([
         publicCultureAPI.discussionTopics(cultureId),
         publicCultureAPI.versions(cultureId),
       ]);
+      if (requestId !== collaborationLoadRequestIdRef.current) {
+        return;
+      }
       setTopics(topicsResponse.data);
       setComments([]);
       setVersions(versionsResponse.data);
       setCollaborationStatus('success');
     } catch {
+      if (requestId !== collaborationLoadRequestIdRef.current) {
+        return;
+      }
       setComments([]);
       setTopics([]);
       setVersions([]);
@@ -1491,6 +835,14 @@ export default function PublicCropLibraryPage() {
   }, [selectedCultureId]);
 
   useEffect(() => {
+    if (!selectedCulture) {
+      setDescriptionDrafts({});
+      return;
+    }
+    setDescriptionDrafts(buildPublicCultureDescriptionDrafts(selectedCulture));
+  }, [selectedCulture]);
+
+  useEffect(() => {
     setReplyTo(null);
     setEditingCommentId(null);
     setCommentActionMenu(null);
@@ -1531,20 +883,96 @@ export default function PublicCropLibraryPage() {
     void loadCultures(query);
   };
 
-  const handleImport = useCallback(async (): Promise<void> => {
-    if (!selectedCulture) {
-      return;
-    }
-    setImportingId(selectedCulture.id);
+  const performImport = useCallback(async (
+    publicCultureId: number,
+    name: string,
+    mode?: 'update' | 'new',
+  ): Promise<void> => {
+    setImportingId(publicCultureId);
     try {
-      await publicCultureAPI.importToProject(selectedCulture.id);
-      showGlobalSnackbar({ message: t('library.importSuccess', { name: getCultureTitle(selectedCulture, t, language) }), severity: 'success' });
-    } catch {
+      const response = await publicCultureAPI.importToProject(publicCultureId, mode);
+      const importedCulture = response.data.culture;
+      // Bump the request id and record the merged row in savedCulturesRef, the
+      // same guards upsertCultureInList uses below: without them, a culture
+      // list request already in flight (or one the search debounce fires right
+      // after) can land after this and overwrite project_import_status with
+      // its pre-import snapshot, which reads as the import/update button
+      // flickering back to its old label.
+      cultureListRequestIdRef.current += 1;
+      setCultures((current) => current.map((culture) => {
+        if (culture.id !== publicCultureId) {
+          return culture;
+        }
+        const updated = {
+          ...culture,
+          project_import_status: {
+            culture_id: importedCulture.id as number,
+            culture_name: importedCulture.culture_display_name || importedCulture.name,
+            is_modified_from_source: Boolean(importedCulture.is_modified_from_source),
+          },
+        };
+        savedCulturesRef.current.set(culture.id, updated);
+        return updated;
+      }));
+      if (mode === 'update') {
+        showGlobalSnackbar({ message: t('library.importUpdatedForced', { name }), severity: 'success' });
+      } else if (mode === 'new') {
+        showGlobalSnackbar({ message: t('library.importedAsNew', { name }), severity: 'success' });
+      } else if (response.data.operation === 'unchanged') {
+        showGlobalSnackbar({ message: t('library.importUnchanged', { name }), severity: 'info' });
+      } else if (response.data.operation === 'updated') {
+        showGlobalSnackbar({ message: t('library.importUpdated', { name }), severity: 'success' });
+      } else {
+        showGlobalSnackbar({ message: t('library.importSuccess', { name }), severity: 'success' });
+      }
+      setImportConflict(null);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const conflict = error.response.data as ImportPublicCultureConfirmationRequiredError | undefined;
+        if (conflict?.code === 'import_requires_confirmation') {
+          setImportConflict({
+            publicCultureId,
+            name,
+            varietyChange: conflict.variety_changed
+              ? { from: conflict.existing_variety ?? '', to: conflict.public_variety ?? '' }
+              : null,
+          });
+          return;
+        }
+      }
       showGlobalSnackbar({ message: t('library.importError'), severity: 'error' });
     } finally {
       setImportingId(null);
     }
-  }, [language, selectedCulture, t]);
+  }, [t]);
+
+  const handleImport = useCallback(async (): Promise<void> => {
+    if (!selectedCulture) {
+      return;
+    }
+    await performImport(selectedCulture.id, getCultureTitle(selectedCulture, t, language));
+  }, [language, performImport, selectedCulture, t]);
+
+  const closeImportConflictDialog = useCallback((): void => {
+    if (importingId !== null) {
+      return;
+    }
+    setImportConflict(null);
+  }, [importingId]);
+
+  const handleImportConflictUpdate = useCallback((): void => {
+    if (!importConflict) {
+      return;
+    }
+    void performImport(importConflict.publicCultureId, importConflict.name, 'update');
+  }, [importConflict, performImport]);
+
+  const handleImportConflictNew = useCallback((): void => {
+    if (!importConflict) {
+      return;
+    }
+    void performImport(importConflict.publicCultureId, importConflict.name, 'new');
+  }, [importConflict, performImport]);
 
   const openEditDialog = useCallback((): void => {
     if (!selectedCulture) {
@@ -1557,15 +985,42 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
-  const openTranslationDialog = useCallback((): void => {
+  const openRemoveDialog = useCallback((): void => {
     if (!selectedCulture) {
       return;
     }
-    setTranslationDialogOpen(true);
+    setRemoveReason('');
+    setRemoveDialogOpen(true);
   }, [selectedCulture]);
 
-  const closeTranslationDialog = (): void => {
-    setTranslationDialogOpen(false);
+  const closeRemoveDialog = (): void => {
+    if (removing) {
+      return;
+    }
+    setRemoveDialogOpen(false);
+    setRemoveReason('');
+  };
+
+  const handleConfirmRemove = async (): Promise<void> => {
+    if (!selectedCulture || !removeReason) {
+      return;
+    }
+    setRemoving(true);
+    try {
+      await publicCultureAPI.remove(selectedCulture.id, removeReason);
+      showGlobalSnackbar({
+        message: t('library.removeSuccess', { name: getCultureTitle(selectedCulture, t, language) }),
+        severity: 'success',
+      });
+      setRemoveDialogOpen(false);
+      setRemoveReason('');
+      updateSelectedCultureId(null);
+      await loadCultures(query);
+    } catch {
+      showGlobalSnackbar({ message: t('library.removeError'), severity: 'error' });
+    } finally {
+      setRemoving(false);
+    }
   };
 
   const openModeration = useCallback((): void => {
@@ -1574,18 +1029,38 @@ export default function PublicCropLibraryPage() {
 
   const topbarContextActions = useMemo<TopbarContextAction[]>(() => (
     canModeratePublicLibrary
-      ? [{
-        id: 'public-crop-library-moderation',
-        label: t('library.page.moderation.open'),
-        ariaLabel: t('library.page.moderation.open'),
-        onClick: openModeration,
-        appearance: 'standard' as const,
-      }]
+      ? [
+        {
+          id: 'public-crop-library-moderation',
+          label: t('library.page.moderation.open'),
+          ariaLabel: t('library.page.moderation.open'),
+          onClick: openModeration,
+          appearance: 'standard' as const,
+          menuActions: [
+            {
+              id: 'public-crop-library-moderation-queue',
+              label: t('library.moderation.title'),
+              onClick: openModeration,
+            },
+            ...(selectedCulture ? [{
+              id: 'public-crop-library-remove',
+              label: t('library.removeAction'),
+              onClick: openRemoveDialog,
+              destructive: true,
+            }] : []),
+          ],
+        },
+      ]
       : []
-  ), [canModeratePublicLibrary, openModeration, t]);
+  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, selectedCulture, t]);
 
   useTopbarContextActions(setTopbarContextActions, topbarContextActions);
 
+  // `focusSearch` reads searchInputRef.current in its body, and the rule cannot
+  // see into the imported spec factory to know the callback is only stored, not
+  // invoked, so it assumes the ref could be read during render. The ref is only
+  // ever touched when the command runs.
+  // eslint-disable-next-line react-hooks/refs
   const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
     t,
     cultures,
@@ -1601,6 +1076,7 @@ export default function PublicCropLibraryPage() {
 
   const upsertCultureInList = (updatedCulture: PublicCulture): void => {
     cultureListRequestIdRef.current += 1;
+    savedCulturesRef.current.set(updatedCulture.id, updatedCulture);
     setLoadError('');
     setLoadStatus('success');
     setCultures((current) => {
@@ -1619,29 +1095,41 @@ export default function PublicCropLibraryPage() {
       return;
     }
     try {
+      const draftWithOriginalNotes = {
+        ...draft,
+        notes: descriptionDrafts[selectedCultureOriginalLanguageCode] ?? '',
+      };
       const response = await publicCultureAPI.update(
         selectedCulture.id,
-        buildPublicCultureUpdatePayload(draft, selectedCulture.version),
+        buildPublicCultureUpdatePayload(draftWithOriginalNotes, selectedCulture.version),
       );
-      upsertCultureInList(response.data);
-      setEditDialogOpen(false);
-      await loadCollaboration(response.data.id);
-      showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
-    } catch {
-      showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
-    }
-  };
 
-  const handleTranslationSaved = async (): Promise<void> => {
-    if (!selectedCulture) {
-      return;
-    }
-    try {
-      const response = await publicCultureAPI.get(selectedCulture.id);
-      upsertCultureInList(response.data);
-      showGlobalSnackbar({ message: t('library.translation.saveSuccess'), severity: 'success' });
-    } catch {
-      showGlobalSnackbar({ message: t('library.translation.saveError'), severity: 'error' });
+      let updatedCulture = response.data;
+      const initialDrafts = buildPublicCultureDescriptionDrafts(selectedCulture);
+      const currentTranslationChanged = currentLanguageCode !== selectedCultureOriginalLanguageCode
+        && (descriptionDrafts[currentLanguageCode] ?? '') !== (initialDrafts[currentLanguageCode] ?? '');
+      if (currentTranslationChanged) {
+        await publicCultureAPI.updateTranslations(selectedCulture.id, {
+          [currentLanguageCode]: descriptionDrafts[currentLanguageCode] ?? '',
+        });
+        const refreshedResponse = await publicCultureAPI.get(selectedCulture.id);
+        updatedCulture = refreshedResponse.data;
+      }
+
+      upsertCultureInList(updatedCulture);
+      setEditDialogOpen(false);
+      await loadCollaboration(updatedCulture.id);
+      showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
+    } catch (error) {
+      if (
+        axios.isAxiosError(error)
+        && error.response?.status === 409
+        && (error.response.data as { code?: string } | undefined)?.code === 'public_culture_variety_conflict'
+      ) {
+        showGlobalSnackbar({ message: t('form.varietyConflict'), severity: 'error' });
+        return;
+      }
+      showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
     }
   };
 
@@ -1684,6 +1172,7 @@ export default function PublicCropLibraryPage() {
         setComments(response.data);
       } else {
         const createdTopic = await publicCultureAPI.createDiscussionTopic(selectedCulture.id, { title: topicTitle.trim(), body: commentBody.trim(), revision: topicRevision });
+        collaborationLoadRequestIdRef.current += 1;
         const [topicsResponse, commentsResponse] = await Promise.all([
           publicCultureAPI.discussionTopics(selectedCulture.id),
           publicCultureAPI.discussionComments(selectedCulture.id, createdTopic.data.id),
@@ -1691,6 +1180,7 @@ export default function PublicCropLibraryPage() {
         setTopics(topicsResponse.data);
         setComments(commentsResponse.data);
         setCommentsStatus('success');
+        setCollaborationStatus('success');
         navigateToLibraryState({
           cultureId: selectedCulture.id,
           tab: PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion,
@@ -1858,7 +1348,13 @@ export default function PublicCropLibraryPage() {
     bgcolor: 'background.paper',
   } as const;
 
-  const cropActions = selectedCulture ? (
+  // Memoized so unrelated re-renders elsewhere on this page (typing in the
+  // search box, opening a discussion, etc.) don't force DetailPageActions —
+  // and every MUI Button/Emotion style inside it — to re-render from a fresh
+  // primaryActions array on every keystroke. DetailPageActions is wrapped in
+  // React.memo, so this only re-renders when one of the values below
+  // actually changes.
+  const cropActions = useMemo(() => (selectedCulture ? (
     <DetailPageActions
       compact={useCompactLibraryLayout}
       primaryActions={[
@@ -1868,20 +1364,28 @@ export default function PublicCropLibraryPage() {
           onClick: openEditDialog,
         },
         {
-          label: t('library.translation.editDialogOpen'),
-          icon: <TranslateOutlinedIcon fontSize="small" />,
-          onClick: openTranslationDialog,
-        },
-        {
-          label: importingId ? t('library.importing') : t('library.importButton'),
-          icon: <DownloadOutlinedIcon fontSize="small" />,
+          label: importingId
+            ? t('library.importing')
+            : selectedCulture.project_import_status
+              ? t('library.importUpdateButton')
+              : t('library.importButton'),
+          icon: selectedCulture.project_import_status
+            ? <SyncOutlinedIcon fontSize="small" />
+            : <DownloadOutlinedIcon fontSize="small" />,
           onClick: () => void handleImport(),
           disabled: importingId !== null,
           variant: 'contained',
         },
       ]}
     />
-  ) : null;
+  ) : null), [
+    handleImport,
+    importingId,
+    openEditDialog,
+    selectedCulture,
+    t,
+    useCompactLibraryLayout,
+  ]);
   return (
     <PageContainer variant="xwide">
       <Box sx={{ width: '100%' }}>
@@ -1889,17 +1393,12 @@ export default function PublicCropLibraryPage() {
           {loadError ? <Alert severity="error">{loadError}</Alert> : null}
 
           <Box
+            ref={libraryAreaRef}
             sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                md: '230px minmax(0, 1fr)',
-                lg: '300px minmax(0, 1fr)',
-                xl: '330px minmax(0, 1fr)',
-              },
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
               gap: { xs: 1.25, lg: 1.1, xl: 1.25 },
-              alignItems: 'start',
-              minHeight: { md: 560 },
+              height: { md: libraryAreaMaxHeight !== null ? `${libraryAreaMaxHeight}px` : 'calc(100vh - 210px)' },
             }}
           >
             {!useCompactLibraryLayout ? (
@@ -1907,8 +1406,15 @@ export default function PublicCropLibraryPage() {
               variant="outlined"
               sx={{
                 ...libraryCardSx,
-                minHeight: 280,
-                maxHeight: { md: 'calc(100vh - 210px)' },
+                width: { md: 230, lg: 300, xl: 330 },
+                flexShrink: 0,
+                height: { md: '100%' },
+                // Flex items default to `min-height: auto`, which ignores the
+                // parent's bounded height and lets content push the card taller
+                // than its 100% instead of letting the inner list scroll.
+                minHeight: { xs: 280, md: 0 },
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Box component="form" onSubmit={handleSearchSubmit} sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
@@ -1919,11 +1425,41 @@ export default function PublicCropLibraryPage() {
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <IconButton
+                          size="small"
+                          onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
+                          aria-expanded={isLibraryFilterPopoverOpen}
+                          aria-haspopup="dialog"
+                          aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                          aria-label={t('filters.openAdvanced')}
+                          sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                        >
+                          <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
+                            <TuneIcon fontSize="small" />
+                          </Badge>
+                        </IconButton>
+                      ),
+                    }
+                  }}
                 />
               </Box>
+              <PublicCultureFiltersPopover
+                anchorEl={libraryFilterAnchorEl}
+                onClose={() => setLibraryFilterAnchorEl(null)}
+                filters={libraryFilters}
+                onFilterChange={(key, value) => setLibraryFilters((prev) => ({ ...prev, [key]: value }))}
+                options={libraryFilterOptions}
+                onReset={() => {
+                  setLibraryFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+                  setLibraryFilterAnchorEl(null);
+                }}
+              />
               {isCultureLoading ? (
                 <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Stack spacing={1} alignItems="center">
+                  <Stack spacing={1} sx={{ alignItems: "center", }} >
                     <CircularProgress size={28} />
                     <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
                   </Stack>
@@ -1932,7 +1468,7 @@ export default function PublicCropLibraryPage() {
                 <Box sx={{ p: 2 }}>
                   <Alert severity="error">{loadError}</Alert>
                 </Box>
-              ) : cultures.length === 0 ? (
+              ) : filteredLibraryCultures.length === 0 ? (
                 <Box sx={{ p: 3, textAlign: 'center' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                     {t('library.emptyState.noResultsTitle')}
@@ -1942,68 +1478,79 @@ export default function PublicCropLibraryPage() {
                   </Typography>
                 </Box>
               ) : (
-                <List
-                  ref={cultureListRef}
-                  disablePadding
-                  role="listbox"
-                  aria-label={t('library.page.title')}
+                <PublicCropHierarchyList
+                  listRef={cultureListRef}
+                  cultures={filteredLibraryCultures}
+                  selectedCultureId={selectedCultureId}
+                  isSpeciesView={isSpeciesView}
+                  storageKey="publicCropLibrary"
+                  searchQuery={query}
+                  autoFocusSelected={!useCompactLibraryLayout}
+                  dense
+                  ariaLabel={t('library.page.title')}
                   onScroll={handleCultureListScroll}
-                  sx={{ maxHeight: { xs: 280, md: 'calc(100vh - 290px)' }, overflow: 'auto' }}
-                >
-                  {cultures.map((culture) => (
-                    <ListItemButton
-                      key={culture.id}
-                      {...cultureListNavigation.getItemProps(culture)}
-                      selected={culture.id === selectedCultureId}
-                      onClick={() => {
-                        updateSelectedCultureId(culture.id, { replace: false });
-                      }}
-                      sx={{
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        alignItems: 'flex-start',
-                        px: 1.5,
-                        py: 1.25,
-                        '&.Mui-selected': {
-                          bgcolor: 'success.50',
-                          borderLeft: '3px solid',
-                          borderLeftColor: 'success.main',
-                          pl: 1.125,
-                        },
-                        '&.Mui-selected:hover': {
-                          bgcolor: 'success.100',
-                        },
-                      }}
-                    >
-                      <ListItemText
-                        primary={getCultureTitle(culture, t, language)}
-                        secondary={culture.crop_species_name || culture.name}
-                        primaryTypographyProps={{ fontWeight: 700, noWrap: true }}
-                        secondaryTypographyProps={{ noWrap: true }}
-                      />
-                    </ListItemButton>
-                  ))}
-                </List>
+                  onSelect={(culture, { kind, speciesKey }) => {
+                    updateSelectedCultureId(culture.id, {
+                      replace: false,
+                      speciesViewKey: kind === 'species' ? speciesKey : null,
+                    });
+                  }}
+                  // MUI breakpoint values cascade upward when not overridden, so the
+                  // mobile-only 280px cap must be explicitly cleared at md+ or it
+                  // silently caps the list there too, leaving the flex-grown space
+                  // below it blank no matter how tall the surrounding card is.
+                  sx={{
+                    py: { xs: 0.5, lg: 0.75 },
+                    px: { xs: 0.5, lg: 0.75 },
+                    maxHeight: { xs: 280, md: 'none' },
+                    flex: { md: 1 },
+                    minHeight: 0,
+                    overflow: 'auto',
+                  }}
+                />
               )}
             </Card>
             ) : null}
 
-            <Box sx={{ minWidth: 0, width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-              <Card variant="outlined" sx={{ ...libraryCardSx, width: '100%', maxWidth: { sm: 920, lg: 980, xl: 1040 }, minHeight: 420 }}>
-                {isCultureLoading ? (
+            <Box
+              sx={{
+                minWidth: 0,
+                width: '100%',
+                flex: { md: 1 },
+                display: 'flex',
+                justifyContent: 'flex-start',
+                height: { md: '100%' },
+              }}
+            >
+              <Card
+                variant="outlined"
+                sx={{
+                  ...libraryCardSx,
+                  width: '100%',
+                  maxWidth: { sm: 920, lg: 980, xl: 1040 },
+                  minHeight: 420,
+                  // The card itself (not a wider wrapper spanning the full column) owns
+                  // the bounded height and scroll, so its own scrollbar hugs the card's
+                  // right edge instead of sitting far away at the wrapper's full width.
+                  height: { md: '100%' },
+                  overflowY: { md: 'auto' },
+                }}
+              >
+                {isCultureLoading && !selectedCulture ? (
                   <Box sx={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-                    <Stack spacing={1} alignItems="center">
+                    <Stack spacing={1} sx={{ alignItems: "center", }} >
                       <CircularProgress size={28} />
                       <Typography variant="body2" color="text.secondary">{t('messages.loadingCultures')}</Typography>
                     </Stack>
                   </Box>
-                ) : loadStatus === 'error' ? (
+                ) : loadStatus === 'error' && !selectedCulture ? (
                   <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                     <Alert severity="error">{loadError}</Alert>
                   </Box>
                 ) : !selectedCulture ? (
                 <Box sx={{ p: { xs: 3, sm: 4 }, display: 'flex', flexDirection: 'column', gap: { xs: 3, sm: 3.5 } }}>
-                  <Stack spacing={1} alignItems="center" sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto' }}>
+                  <Stack spacing={1} sx={{ textAlign: 'center', maxWidth: 480, mx: 'auto',
+                    alignItems: "center", }}  >
                     <Box
                       sx={{
                         width: 56,
@@ -2031,7 +1578,8 @@ export default function PublicCropLibraryPage() {
                     ) : null}
                   </Stack>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: { xs: 2.5, sm: 3 } }}>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <SearchOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.discoverTitle')}
@@ -2040,7 +1588,8 @@ export default function PublicCropLibraryPage() {
                         {t('library.emptyState.discoverDescription')}
                       </Typography>
                     </Stack>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <DownloadOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.importTitle')}
@@ -2049,7 +1598,8 @@ export default function PublicCropLibraryPage() {
                         {t('library.emptyState.importDescription')}
                       </Typography>
                     </Stack>
-                    <Stack spacing={0.75} alignItems="center" sx={{ textAlign: 'center' }}>
+                    <Stack spacing={0.75} sx={{ textAlign: 'center',
+                      alignItems: "center", }}  >
                       <HistoryOutlinedIcon sx={{ color: 'success.main', fontSize: 28 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                         {t('library.emptyState.improveTitle')}
@@ -2068,9 +1618,9 @@ export default function PublicCropLibraryPage() {
                       direction="row"
                       spacing={1.5}
                       useFlexGap
-                      flexWrap="wrap"
-                      alignItems="flex-start"
-                      justifyContent="space-between"
+                      sx={{ flexWrap: "wrap",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between", }}
                     >
                       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                         {selectedCulture.display_color ? (
@@ -2102,18 +1652,24 @@ export default function PublicCropLibraryPage() {
                             </Typography>
                           )}
                           {selectedCulture.variety ? (
-                            <Typography variant="body2" color="text.secondary">
-                              {selectedCulture.variety}
-                            </Typography>
+                            !isSpeciesView ? (
+                              <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
+                                  {t('hierarchy.varietyLabel')}
+                                </Typography>
+                                <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+                                  {selectedCulture.variety}
+                                </Typography>
+                              </Stack>
+                            ) : null
                           ) : null}
-                          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                            <Chip size="small" label={t('library.versionLabel') + ` ${selectedCulture.version}`} />
-                            <Chip size="small" label={selectedCultureName.text} variant="outlined" />
+                          <Stack direction="row" spacing={0.75} sx={{ mt: 1,
+                            flexWrap: "wrap", }}  useFlexGap >
                             {/* Say plainly that this is another language's text
                                 rather than letting an English name read as a
                                 German translation. */}
                             {nameFallbackNotice ? (
-                              <Tooltip title={nameFallbackNotice.tooltip}>
+                              <AppTooltip title={nameFallbackNotice.tooltip}>
                                 <Chip
                                   size="small"
                                   icon={<TranslateOutlinedIcon fontSize="small" />}
@@ -2121,7 +1677,7 @@ export default function PublicCropLibraryPage() {
                                   variant="outlined"
                                   color="warning"
                                 />
-                              </Tooltip>
+                              </AppTooltip>
                             ) : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCulture.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>
@@ -2159,18 +1715,33 @@ export default function PublicCropLibraryPage() {
 
                   {activeTab === 0 ? (
                     <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
+                      {showVarietyValueLegend ? (
+                        <VarietyValueLegend
+                          sampleLabel={t('hierarchy.ownValueLegendSample')}
+                          description={t('hierarchy.ownValueLegendDescription')}
+                        />
+                      ) : null}
+
                       <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCulture.crop_species_name || selectedCulture.name || t('library.page.notSpecified')} />
-                          <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
-                          <DetailRow label={t('library.page.fields.cropFamily')} value={selectedCulture.crop_family || t('library.page.notSpecified')} />
+                          <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
+                          {!isSpeciesView ? (
+                            <DetailRow label={t('library.page.fields.variety')} value={selectedCulture.variety || t('library.page.notSpecified')} />
+                          ) : null}
+                          <DetailRow label={t('library.page.fields.cropFamily')} value={getPublicFieldValue('crop_family', selectedCulture.crop_family) || t('library.page.notSpecified')} source={getPublicFieldSource('crop_family')} />
                           <DetailRow
                             label={t('library.page.fields.nutrientDemand')}
-                            value={getNutrientDemandLabel(selectedCulture.nutrient_demand, t, t('library.page.notSpecified'))}
+                            value={getNutrientDemandLabel(getPublicFieldValue('nutrient_demand', selectedCulture.nutrient_demand), t, t('library.page.notSpecified'))}
+                            source={getPublicFieldSource('nutrient_demand')}
                           />
                           <DetailRow
                             label={t('library.page.fields.cultivationType')}
-                            value={getCultivationTypesLabel(selectedCulture, t, t('library.page.notSpecified'))}
+                            value={getCultivationTypesLabel({
+                              ...selectedCulture,
+                              cultivation_types: getPublicFieldValue('cultivation_types', selectedCulture.cultivation_types),
+                              cultivation_type: getPublicFieldValue('cultivation_type', selectedCulture.cultivation_type),
+                            }, t, t('library.page.notSpecified'))}
+                            source={getPublicFieldSource('cultivation_types') ?? getPublicFieldSource('cultivation_type')}
                           />
                         </DetailGrid>
                       </DetailSection>
@@ -2179,9 +1750,9 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.timing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(selectedCulture.growth_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
-                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(selectedCulture.harvest_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
-                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(selectedCulture.propagation_duration_days, locale, t('library.page.notSpecified'), t('library.page.units.days'))} />
+                          <DetailRow label={t('library.page.fields.growthDurationDays')} value={formatDays(getPublicFieldValue('growth_duration_days', selectedCulture.growth_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('growth_duration_days')} />
+                          <DetailRow label={t('library.page.fields.harvestDurationDays')} value={formatDays(getPublicFieldValue('harvest_duration_days', selectedCulture.harvest_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('harvest_duration_days')} />
+                          <DetailRow label={t('library.page.fields.propagationDurationDays')} value={formatDays(getPublicFieldValue('propagation_duration_days', selectedCulture.propagation_duration_days), locale, t('library.page.notSpecified'), t('library.page.units.days'))} source={getPublicFieldSource('propagation_duration_days')} />
                         </DetailGrid>
                       </DetailSection>
 
@@ -2189,53 +1760,39 @@ export default function PublicCropLibraryPage() {
 
                       <DetailSection title={t('library.page.sections.spacing')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(selectedCulture.distance_within_row_m, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(selectedCulture.row_spacing_m, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(selectedCulture.sowing_depth_m, locale, t('library.page.notSpecified'))} />
+                          <DetailRow label={t('library.page.fields.distanceWithinRow')} value={formatMetersAsCentimeters(getPublicFieldValue('distance_within_row_m', selectedCulture.distance_within_row_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('distance_within_row_m')} />
+                          <DetailRow label={t('library.page.fields.rowSpacing')} value={formatMetersAsCentimeters(getPublicFieldValue('row_spacing_m', selectedCulture.row_spacing_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('row_spacing_m')} />
+                          <DetailRow label={t('library.page.fields.sowingDepth')} value={formatMetersAsCentimeters(getPublicFieldValue('sowing_depth_m', selectedCulture.sowing_depth_m), locale, t('library.page.notSpecified'))} source={getPublicFieldSource('sowing_depth_m')} />
                         </DetailGrid>
                       </DetailSection>
 
                       <Divider />
 
                       <DetailSection title={t('library.page.sections.seed')}>
-                        <DetailGrid>
-                          <DetailRow
-                            label={t('library.page.fields.seedRate')}
-                            value={formatSeedRate(selectedCulture.seed_rate_value, selectedCulture.seed_rate_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRateByCultivation')}
-                            value={formatSeedRateByCultivation(selectedCulture, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRateDirect')}
-                            value={formatSeedRate(selectedCulture.seed_rate_direct_value, selectedCulture.seed_rate_direct_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow
-                            label={t('library.page.fields.seedRatePreCultivation')}
-                            value={formatSeedRate(selectedCulture.seed_rate_pre_cultivation_value, selectedCulture.seed_rate_pre_cultivation_unit, locale, t('library.page.notSpecified'), t)}
-                          />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercent')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercentDirect')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent_direct, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.sowingSafetyPercentPreCultivation')} value={formatPercent(selectedCulture.sowing_calculation_safety_percent_pre_cultivation, locale, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.thousandKernelWeight')} value={selectedCulture.thousand_kernel_weight_g === null || selectedCulture.thousand_kernel_weight_g === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(selectedCulture.thousand_kernel_weight_g, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} g`} />
-                          <DetailRow
-                            label={t('library.page.fields.seedingRequirement')}
-                            value={selectedCulture.seeding_requirement === null || selectedCulture.seeding_requirement === undefined
-                              ? t('library.page.notSpecified')
-                              : `${formatLocalizedNumber(selectedCulture.seeding_requirement, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })}${getSeedingRequirementTypeLabel(selectedCulture.seeding_requirement_type, t) ? ` ${getSeedingRequirementTypeLabel(selectedCulture.seeding_requirement_type, t)}` : ''}`}
-                          />
-                          <DetailRow label={t('library.page.fields.seedPackages')} value={formatSeedPackages(selectedCulture, locale, t('library.page.notSpecified'), t)} />
-                        </DetailGrid>
+                        <CultureSeedDetails
+                          activeCultivationTypes={publicActiveCultivationTypes}
+                          seedRateRows={publicSeedRateRows}
+                          sowingSafetyPercent={getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
+                          sowingSafetySource={getPublicFieldSource('sowing_calculation_safety_percent')}
+                          seedingRequirement={getPublicFieldValue('seeding_requirement', selectedCulture.seeding_requirement)}
+                          seedingRequirementSource={getPublicFieldSource('seeding_requirement')}
+                          seedingRequirementType={getPublicFieldValue('seeding_requirement_type', selectedCulture.seeding_requirement_type)}
+                          seedingRequirementTypeSource={getPublicFieldSource('seeding_requirement_type')}
+                          thousandKernelWeightG={getPublicFieldValue('thousand_kernel_weight_g', selectedCulture.thousand_kernel_weight_g)}
+                          thousandKernelWeightSource={getPublicFieldSource('thousand_kernel_weight_g')}
+                          emptyValueLabel={t('library.page.notSpecified')}
+                          locale={locale}
+                          t={t}
+                        />
                       </DetailSection>
 
                       <Divider />
 
                       <DetailSection title={t('library.page.sections.harvest')}>
                         <DetailGrid>
-                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(selectedCulture.harvest_method, t, t('library.page.notSpecified'))} />
-                          <DetailRow label={t('library.page.fields.expectedYield')} value={selectedCulture.expected_yield === null || selectedCulture.expected_yield === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(selectedCulture.expected_yield, locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} />
-                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={selectedCulture.allow_deviation_delivery_weeks ? t('library.page.boolean.yes') : t('library.page.boolean.no')} />
+                          <DetailRow label={t('library.page.fields.harvestMethod')} value={getHarvestMethodLabel(getPublicFieldValue('harvest_method', selectedCulture.harvest_method), t, t('library.page.notSpecified'))} source={getPublicFieldSource('harvest_method')} />
+                          <DetailRow label={t('library.page.fields.expectedYield')} value={getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === null || getPublicFieldValue('expected_yield', selectedCulture.expected_yield) === undefined ? t('library.page.notSpecified') : `${formatLocalizedNumber(getPublicFieldValue('expected_yield', selectedCulture.expected_yield), locale, t('library.page.notSpecified'), { maximumFractionDigits: 2 })} kg`} source={getPublicFieldSource('expected_yield')} />
+                          <DetailRow label={t('library.page.fields.allowDeviationDeliveryWeeks')} value={getPublicFieldValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) ? t('library.page.boolean.yes') : t('library.page.boolean.no')} source={getPublicFieldSource('allow_deviation_delivery_weeks')} />
                         </DetailGrid>
                       </DetailSection>
 
@@ -2256,16 +1813,34 @@ export default function PublicCropLibraryPage() {
                             another language exists, say so instead of showing
                             it as if it were this language. */}
                         {descriptionFallbackNotice ? (
-                          <Tooltip title={descriptionFallbackNotice.tooltip}>
-                            <Chip
-                              size="small"
-                              icon={<TranslateOutlinedIcon fontSize="small" />}
-                              label={descriptionFallbackNotice.label}
-                              variant="outlined"
-                              color="warning"
-                              sx={{ mb: 1 }}
-                            />
-                          </Tooltip>
+                          <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            sx={{ mb: 1,
+                      alignItems: { xs: 'flex-start', sm: 'center' }, }}
+                          >
+                            <AppTooltip title={descriptionFallbackNotice.tooltip}>
+                              <Chip
+                                size="small"
+                                icon={<TranslateOutlinedIcon fontSize="small" />}
+                                label={descriptionFallbackNotice.label}
+                                variant="outlined"
+                                color="warning"
+                              />
+                            </AppTooltip>
+                            {canEditPublicCulture ? (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<TranslateOutlinedIcon fontSize="small" />}
+                                onClick={openEditDialog}
+                              >
+                                {t('library.translation.addTranslationAction', {
+                                  language: getLanguageDisplayName(currentLanguageCode, language),
+                                })}
+                              </Button>
+                            ) : null}
+                          </Stack>
                         ) : null}
                         {selectedCultureDescription.text ? (
                           <Box
@@ -2337,7 +1912,7 @@ export default function PublicCropLibraryPage() {
                               <TextField inputRef={newTopicTitleInputRef} label={t('library.page.discussion.titleLabel')} value={topicTitle} onChange={(event) => setTopicTitle(event.target.value)} />
                               <TextField label={t('library.page.discussion.commentLabel')} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} multiline minRows={2} maxRows={8} />
                               {topicRevision ? (
-                                <Stack direction="row" spacing={1} alignItems="center">
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
                                   <Typography variant="caption" color="text.secondary">{t('library.page.discussion.versionReference')}</Typography>
                                   <Chip size="small" label={t('library.page.versions.versionTitle', { version: versions.find((version) => version.id === topicRevision)?.version })} />
                                 </Stack>
@@ -2489,6 +2064,7 @@ export default function PublicCropLibraryPage() {
         loading={isCultureLoading}
         error={loadStatus === 'error' ? loadError : ''}
         selectedCultureId={selectedCultureId}
+        selectedSpeciesViewKey={selectedSpeciesViewKey}
         listRef={cultureListRef}
         onClose={() => setMobileSelectorOpen(false)}
         onQueryChange={setQuery}
@@ -2498,22 +2074,92 @@ export default function PublicCropLibraryPage() {
       />
       {editDialogOpen && selectedCulture ? (
         <CultureForm
-          culture={publicCultureToCultureFormData(selectedCulture)}
+          culture={editFormCulture}
+          cultures={editFormCultures}
           onSave={handleEditSave}
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}
           variant="publicLibrary"
+          hasExternalChanges={hasDescriptionDraftChanges}
+          importedCopiesCount={selectedCulture.imported_cultures_count}
+          extraSections={(
+            <MultilingualTextFieldSection
+              title={t('form.notes')}
+              fieldLabel={t('form.notes')}
+              originalLanguageCode={selectedCultureOriginalLanguageCode}
+              currentLanguageCode={currentLanguageCode}
+              originalValue={originalDescriptionDraft}
+              translationValue={currentDescriptionDraft}
+              translationPlaceholder={t('library.translation.descriptionPlaceholder')}
+              onOriginalValueChange={(value) => setDescriptionDrafts((current) => ({
+                ...current,
+                [selectedCultureOriginalLanguageCode]: value,
+              }))}
+              onTranslationValueChange={(value) => setDescriptionDrafts((current) => ({
+                ...current,
+                [currentLanguageCode]: value,
+              }))}
+            />
+          )}
         />
       ) : null}
-      {selectedCulture ? (
-        <PublicCultureTranslationDialog
-          open={translationDialogOpen}
-          culture={selectedCulture}
-          language={language}
-          onClose={closeTranslationDialog}
-          onSaved={() => void handleTranslationSaved()}
-        />
-      ) : null}
+      <Dialog open={removeDialogOpen} onClose={closeRemoveDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('library.removeDialog.title')}</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            {t('library.removeDialog.moderationMessage', {
+              name: selectedCulture ? getCultureTitle(selectedCulture, t, language) : '',
+            })}
+          </Typography>
+          <FormControl fullWidth size="small">
+            <InputLabel id="public-culture-removal-reason-label">
+              {t('library.removeDialog.reasonLabel')}
+            </InputLabel>
+            <Select
+              labelId="public-culture-removal-reason-label"
+              value={removeReason}
+              label={t('library.removeDialog.reasonLabel')}
+              onChange={(event) => setRemoveReason(event.target.value as PublicCultureRemovalReason)}
+            >
+              {([
+                'accidental_publication',
+                'test_data',
+                'duplicate',
+                'wrong_mapping',
+                'unlawful_content',
+                'other',
+              ] as PublicCultureRemovalReason[]).map((reason) => (
+                <MenuItem key={reason} value={reason}>
+                  {t(`library.removeReasons.${reason}`)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+          <Button variant="outlined" onClick={closeRemoveDialog} disabled={removing}>
+            {t('common:actions.cancel')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={!removeReason || removing}
+            onClick={() => void handleConfirmRemove()}
+          >
+            {removing ? t('library.moderation.saving') : t('library.removeAction')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <ImportConflictDialog
+        open={importConflict !== null}
+        cultureName={importConflict?.name ?? ''}
+        busy={importingId !== null}
+        t={t}
+        onCancel={closeImportConflictDialog}
+        onUpdate={handleImportConflictUpdate}
+        onImportAsNew={handleImportConflictNew}
+        varietyChange={importConflict?.varietyChange ?? null}
+      />
     </PageContainer>
   );
 }

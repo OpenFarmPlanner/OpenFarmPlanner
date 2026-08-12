@@ -17,6 +17,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from . import services
 from .models import CropSpecies, PublicLibraryModeratorRequest
 from .permissions import (
@@ -41,7 +42,11 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         queryset = CropSpecies.objects.select_related(
             'proposed_by__public_profile',
             'reviewed_by__public_profile',
-        ).order_by('name')
+        # Every serialized row renders the full `translations` list and
+        # resolves `display_name`/`display_language_code` through
+        # `localized_name`; without the prefetch that is three queries per
+        # species on a page that holds up to PAGE_SIZE of them.
+        ).prefetch_related('translations').order_by('name')
         include_proposed = (
             self.request.query_params.get('include_proposed') in {'1', 'true', 'True'}
         )
@@ -55,10 +60,12 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=CropSpecies.STATUS_PUBLISHED)
         query = (self.request.query_params.get('q') or '').strip()
         if query:
-            queryset = queryset.filter(name__icontains=query)
+            queryset = queryset.filter(services.build_species_search_query(query)).distinct()
         return queryset
 
     def create(self, request, *args, **kwargs):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         species = serializer.save(status=CropSpecies.STATUS_PROPOSED, proposed_by=request.user)
@@ -165,6 +172,8 @@ class PublicLibraryModeratorRequestViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         if is_public_library_moderator(request.user):
             return Response(
                 {

@@ -8,9 +8,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.consent import has_accepted_current, record_acceptance
 from accounts.models import DocumentConsent
 from farm.common.mixins import ProjectScopedMixin
@@ -25,19 +27,33 @@ from farm.models import (
     MediaFile,
     PublicCulture,
     Supplier,
+    format_culture_display_name,
 )
 from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
     PublicCulturePublishingValidationError,
+    PublicCultureUpdateBlockedError,
+    build_public_culture_update_status,
     build_publishing_check_result,
+    link_project_culture_to_public_reference,
     publish_culture_to_public_library,
+    reject_public_culture_update,
 )
+
 
 from ..serializers import (
     CultureSerializer,
     PublicCultureSerializer,
 )
+
+
+def _request_boolean(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return False
 
 
 class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
@@ -50,7 +66,11 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         queryset: All Culture objects ordered by name and variety
         serializer_class: CultureSerializer for serialization
     """
-    queryset = Culture.objects.select_related('supplier', 'image_file', 'source_public_culture')
+    queryset = (
+        Culture.objects
+        .select_related('supplier', 'image_file', 'source_public_culture', 'crop_species')
+        .prefetch_related('crop_species__translations')
+    )
     serializer_class = CultureSerializer
 
     # Actions reachable with a project-bound API token (see
@@ -98,8 +118,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         return (
             manager
             .filter(project=self.request.active_project)
-            .select_related('supplier', 'image_file', 'source_public_culture')
-            .prefetch_related('supplier_data__supplier', 'seed_packages', owned_public_cultures_prefetch)
+            .select_related('supplier', 'image_file', 'source_public_culture', 'crop_species')
+            .prefetch_related('supplier_data__supplier', 'seed_packages', 'crop_species__translations', owned_public_cultures_prefetch)
         )
 
     @action(detail=False, methods=['get'], url_path='duplicate-check')
@@ -446,12 +466,42 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         previous_media_id = instance.image_file_id
-        updated = serializer.save()
-        self._set_latest_revision_actor(updated)
+        old_name = instance.name
+        old_crop_species_id = instance.crop_species_id
+        with transaction.atomic():
+            updated = serializer.save()
+            self._set_latest_revision_actor(updated)
+            if updated.name != old_name:
+                self._rename_sibling_cultures(updated, old_name, old_crop_species_id)
         if previous_media_id and previous_media_id != updated.image_file_id:
             MediaFile.objects.filter(id=previous_media_id, orphaned_at__isnull=True).update(orphaned_at=timezone.now())
         if updated.image_file_id:
             MediaFile.objects.filter(id=updated.image_file_id).update(orphaned_at=None)
+
+    def _rename_sibling_cultures(
+        self, updated: Culture, old_name: str, old_crop_species_id: int | None,
+    ) -> None:
+        """Cascade a Culture's name change to its crop siblings.
+
+        A "crop" has no dedicated table - it's just every Culture row that
+        shares a name (or crop_species), grouped the same way the frontend's
+        `getCropSpeciesKey` does. Without this, renaming one variety's own
+        row leaves its siblings behind under the old name, which visually
+        looks like a brand new crop was created instead of a rename.
+        """
+        from farm.utils import normalize_text
+
+        siblings_qs = Culture.objects.filter(project_id=updated.project_id).exclude(pk=updated.pk)
+        if old_crop_species_id:
+            siblings_qs = siblings_qs.filter(crop_species_id=old_crop_species_id)
+        else:
+            siblings_qs = siblings_qs.filter(
+                crop_species_id__isnull=True, name_normalized=normalize_text(old_name),
+            )
+
+        for sibling in siblings_qs:
+            sibling.name = updated.name
+            sibling.save(update_fields=['name', 'name_normalized', 'updated_at'])
 
     @action(detail=True, methods=['get'], url_path='history')
     def history(self, request, pk=None):
@@ -514,6 +564,8 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='publish-public')
     def publish_public(self, request, pk=None):
+        if is_active_guest_demo_user(request.user):
+            return guest_demo_forbidden_response()
         culture = self.get_object()
         if not culture.name.strip():
             return Response({'detail': 'Name is required for publishing.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -536,6 +588,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 user=request.user,
                 crop_species_id=crop_species_id,
                 original_language_code=request.data.get('original_language_code'),
+                publish_as_general=_request_boolean(request.data.get('publish_as_general')),
             )
         except PublicCulturePublishingValidationError as error:
             return Response(
@@ -546,21 +599,17 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except PublicCultureUpdateBlockedError as error:
+            return Response({
+                'code': 'public_culture_update_blocked',
+                'detail': 'The public entry has a newer version this copy has not taken over.',
+                'reason': error.reason,
+            }, status=status.HTTP_409_CONFLICT)
         except DuplicatePublicCultureError as error:
             return Response({
                 'code': 'duplicate_public_culture',
                 'detail': 'A similar public culture already exists.',
-                'duplicates': [
-                    {
-                        'id': item.id,
-                        'name': item.name,
-                        'variety': item.variety,
-                        'version': item.version,
-                        'published_at': item.published_at,
-                        'created_by_label': item.created_by_label,
-                    }
-                    for item in error.duplicates
-                ],
+                'duplicates': self._serialize_duplicates(error.duplicates),
                 'normalized_identity': error.normalized_identity,
             }, status=status.HTTP_409_CONFLICT)
         if not has_library_consent:
@@ -569,18 +618,86 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         return Response({
             'operation': operation,
             'public_culture': serializer.data,
-            'duplicates': [
-                {
-                    'id': item.id,
-                    'name': item.name,
-                    'variety': item.variety,
-                    'version': item.version,
-                    'published_at': item.published_at,
-                    'created_by_label': item.created_by_label,
-                }
-                for item in duplicates
-            ],
+            'duplicates': self._serialize_duplicates(duplicates),
         }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='link-public-culture')
+    def link_public_culture(self, request: Request, pk: str | None = None) -> Response:
+        culture = self.get_object()
+        public_culture_id = request.data.get('public_culture_id')
+        try:
+            public_culture_id = int(public_culture_id)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'A valid public culture ID is required.', 'code': 'public_culture_required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        public_culture = get_object_or_404(
+            PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED),
+            pk=public_culture_id,
+        )
+        linked = link_project_culture_to_public_reference(culture=culture, public_culture=public_culture)
+        serializer = self.get_serializer(linked)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='public-update')
+    def public_update(self, request: Request, pk: str | None = None) -> Response:
+        """Preview the pending library update for an imported culture.
+
+        Read-only on purpose: nothing is copied into the project until the user
+        confirms, at which point the frontend calls the existing
+        `public-cultures/<id>/import/` action with `mode=update` — the same
+        entry point the library page uses, so both surfaces go through one
+        import/update model.
+        """
+        culture = self.get_object()
+        update_status = build_public_culture_update_status(culture)
+        if update_status is None:
+            return Response({'available': False})
+        public_culture = update_status.public_culture
+        return Response({
+            'available': True,
+            'public_culture_id': public_culture.id,
+            'public_culture_name': format_culture_display_name(
+                public_culture.name, public_culture.variety,
+            ),
+            'public_version': update_status.public_version,
+            'local_version': update_status.local_version,
+            'has_local_changes': update_status.has_local_changes,
+            'is_rejected': update_status.is_rejected,
+            'changes': [
+                {
+                    'field': change.field,
+                    'local_value': change.local_value,
+                    'public_value': change.public_value,
+                }
+                for change in update_status.changes
+            ],
+        })
+
+    @action(detail=True, methods=['post'], url_path='public-update/reject')
+    def reject_public_update(self, request: Request, pk: str | None = None) -> Response:
+        """Record that the user declined the pending library version.
+
+        The counterpart to confirming in the diff dialog: no library-sourced
+        field is copied, only the decision is stored, so the notice disappears
+        for exactly this public version. The diff itself stays reachable and a
+        later public edit surfaces the notice again on its own.
+        """
+        culture = self.get_object()
+        update_status = build_public_culture_update_status(culture)
+        if update_status is None:
+            return Response(
+                {
+                    'detail': 'There is no pending public update for this culture.',
+                    'code': 'no_pending_public_update',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reject_public_culture_update(culture)
+        serializer = self.get_serializer(culture)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='publish-public/preview')
     def publish_public_preview(self, request, pk=None):
@@ -594,8 +711,24 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             culture=culture,
             crop_species_id=crop_species_id,
             original_language_code=request.query_params.get('original_language_code'),
+            user=request.user,
+            publish_as_general=_request_boolean(request.query_params.get('publish_as_general')),
         )
         return Response(self._serialize_publishing_check_result(result))
+
+    def _serialize_duplicates(self, duplicates):
+        return [
+            {
+                'id': item.id,
+                'name': item.name,
+                'variety': item.variety,
+                'version': item.version,
+                'published_at': item.published_at,
+                'created_by_label': item.created_by_label,
+                'is_mine': item.is_mine,
+            }
+            for item in duplicates
+        ]
 
     def _serialize_publishing_check_result(self, result):
         return {
@@ -610,18 +743,18 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 {'field': item.field, 'label_key': item.label_key}
                 for item in result.missing_required_fields
             ],
-            'duplicates': [
-                {
-                    'id': item.id,
-                    'name': item.name,
-                    'variety': item.variety,
-                    'version': item.version,
-                    'published_at': item.published_at,
-                    'created_by_label': item.created_by_label,
-                }
-                for item in result.duplicates
-            ],
+            'duplicates': self._serialize_duplicates(result.duplicates),
             'can_publish': result.can_publish,
+            'general_crop_notice': (
+                {
+                    'public_culture_id': result.general_crop_notice.public_culture_id,
+                    'updated_at': result.general_crop_notice.updated_at,
+                    'is_stale': result.general_crop_notice.is_stale,
+                    'is_incomplete': result.general_crop_notice.is_incomplete,
+                }
+                if result.general_crop_notice
+                else None
+            ),
         }
 
 

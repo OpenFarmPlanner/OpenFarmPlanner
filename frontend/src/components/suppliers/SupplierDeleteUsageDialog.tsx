@@ -7,6 +7,7 @@ import {
   DialogTitle,
   Typography,
 } from '@mui/material';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 import { useTranslation } from '../../i18n';
 import type { Supplier, SupplierDeleteUsage } from '../../api/types';
@@ -91,12 +92,21 @@ export function SupplierDeleteUsageDialog({
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
               {t('deleteUsageDialog.unlinkExplanation')}
             </Typography>
+            <Button
+              onClick={onOpenAffectedCultures}
+              variant="text"
+              size="small"
+              endIcon={<ArrowForwardIcon />}
+              sx={{ mt: 1, px: 0 }}
+            >
+              {t('deleteUsageDialog.openAffectedCultures')}
+            </Button>
           </Box>
         ) : null}
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1, flexWrap: 'wrap' }}>
-        <Button onClick={onOpenAffectedCultures} variant="outlined">
-          {t('deleteUsageDialog.openAffectedCultures')}
+      <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+        <Button onClick={onClose} variant="outlined">
+          {t('common:actions.cancel')}
         </Button>
         <Button
           onClick={onUnlinkAndDelete}
@@ -105,9 +115,6 @@ export function SupplierDeleteUsageDialog({
           disabled={unlinkDeletingSupplierId === dialog?.supplier.id}
         >
           {t('deleteUsageDialog.unlinkAndDelete')}
-        </Button>
-        <Button onClick={onClose}>
-          {t('common:actions.cancel')}
         </Button>
       </DialogActions>
     </Dialog>

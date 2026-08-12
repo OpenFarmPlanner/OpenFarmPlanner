@@ -1,9 +1,9 @@
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { MouseEvent } from 'react';
 import { CONTEXT_MENU_INDICATOR_CLASS } from './contextMenuIndicatorStyles';
+import { AppTooltip } from '../AppTooltip';
 
 interface ContextMenuIndicatorProps {
   /** Tooltip text and aria-label. */
@@ -39,7 +39,7 @@ interface ContextMenuIndicatorProps {
  */
 export function ContextMenuIndicator({ label, onClick, tabIndex, sx, withBackdrop }: ContextMenuIndicatorProps) {
   return (
-    <Tooltip
+    <AppTooltip
       title={label}
       disableInteractive
       slotProps={{ popper: { style: { pointerEvents: 'none' } } }}
@@ -70,6 +70,6 @@ export function ContextMenuIndicator({ label, onClick, tabIndex, sx, withBackdro
       >
         <MoreVertIcon fontSize="small" />
       </IconButton>
-    </Tooltip>
+    </AppTooltip>
   );
 }

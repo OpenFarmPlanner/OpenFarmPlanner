@@ -36,6 +36,14 @@
       }
     }
   },
+  "demoPage": {
+    "title": "Try the demo",
+    "subtitle": "Test OpenFarmPlanner instantly with a temporary example project.",
+    "description": "This link can be shared directly. A demo workspace is created only when you actively start the demo.",
+    "startAction": "Start demo now",
+    "backToLanding": "Back to home",
+    "safetyNote": "The demo does not require registration. Changes are deleted automatically and are not intended for real production data."
+  },
   "statusNote": "OpenFarmPlanner is currently in beta and is being continuously improved.",
   "statusOpenSource": {
     "text": "As an open-source project, we welcome feedback, ideas, and contributions.",
@@ -78,7 +86,7 @@
         "alt": "Yield overview with expected harvest quantities by calendar week and crop"
       },
       "cultures": {
-        "tab": "Crop library",
+        "tab": "Crops",
         "title": "Maintain crops centrally",
         "description": "Varieties, cultivation methods, spacing, expected yield, and seed data live in one place and feed the plan.",
         "alt": "Crops view with several vegetables and varieties in the demo project"
@@ -230,7 +238,7 @@
     },
     "terms": {
       "title": "Terms of Service",
-      "print": "Print / save as PDF",
+      "print": "Print / Save as PDF",
       "version": "Status: July 17, 2026",
       "sections": {
         "provider": {
@@ -263,7 +271,7 @@
         },
         "contributionLicense": {
           "title": "Open license for published crop data",
-          "content": "When you publish a crop record to the public crop library, you license the published crop data under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). This license in particular allows third parties to reproduce, distribute, edit, and combine the published crop data with other data, and to use it commercially, provided the license terms are followed. These terms include, in particular, appropriate attribution, an indication of the license, and sharing modified versions under the same or compatible terms.\n\nOnce validly granted, the license is irrevocable under its terms. OpenFarmPlanner may permanently store and display the published crop data, include it in search and import features, make it available in public data exports or APIs, technically process it, and further develop it as part of the collaborative crop library. You remain the owner of any rights you hold in your contribution; however, the open license enables its permanent use by OpenFarmPlanner and third parties."
+          "content": "When you publish a crop record to the public crop library, you license the published crop data under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0). This license in particular allows third parties to reproduce, distribute, edit, and combine the published crop data with other data, and to use it commercially, provided the license terms are followed. These terms include, in particular, appropriate attribution, an indication of the license, and sharing modified versions under the same or compatible terms.\n\nOnce validly granted, the license is irrevocable under its terms. OpenFarmPlanner may permanently store and display the published crop data, include it in search and import features, make it available in public data exports or APIs, technically process it, and further develop it as part of the collaborative crop library."
         },
         "prohibitedContent": {
           "title": "Prohibited content and behavior",
@@ -309,6 +317,7 @@
   "seo": {
     "titles": {
       "landing": "OpenFarmPlanner – planting planning for vegetable growing",
+      "demo": "Try the demo – OpenFarmPlanner",
       "imprint": "Imprint – OpenFarmPlanner",
       "privacy": "Privacy policy – OpenFarmPlanner",
       "terms": "Terms of service – OpenFarmPlanner",

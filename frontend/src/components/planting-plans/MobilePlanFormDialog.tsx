@@ -141,12 +141,14 @@ export function MobilePlanFormDialog({
               type="text"
               label={t("plantingPlans:columns.plantingDate")}
               placeholder={t('common:dateFormatPlaceholder')}
-              InputLabelProps={{ shrink: true }}
               value={form.planting_date}
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, planting_date: event.target.value }))
               }
               sx={compactFieldSx}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               type="text"

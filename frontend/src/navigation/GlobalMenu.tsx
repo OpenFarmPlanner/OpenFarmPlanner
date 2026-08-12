@@ -4,7 +4,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';

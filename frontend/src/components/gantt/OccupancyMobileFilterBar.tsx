@@ -5,13 +5,13 @@ import {
   InputAdornment,
   Stack,
   TextField,
-  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
 
 import { useTranslation } from '../../i18n';
+import { AppTooltip } from '../AppTooltip';
 
 interface OccupancyMobileFilterBarProps {
   /** Show the expanded search field instead of the search icon. */
@@ -48,7 +48,7 @@ export function OccupancyMobileFilterBar({
   const { t } = useTranslation(['ganttChart', 'common']);
 
   return searchExpanded ? (
-    <Stack direction="row" spacing={0.75} alignItems="center">
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
       <TextField
         size="small"
         placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
@@ -57,7 +57,7 @@ export function OccupancyMobileFilterBar({
         inputRef={searchInputRef}
         slotProps={{
           input: {
-            startAdornment: (
+      startAdornment: (
               <InputAdornment position="start">
                 <SearchIcon fontSize="small" />
               </InputAdornment>
@@ -66,7 +66,7 @@ export function OccupancyMobileFilterBar({
         }}
         sx={{ flex: '1 1 auto', minWidth: 0 }}
       />
-      <Tooltip title={t('ganttChart:treeFilters.clearSearch')}>
+      <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
         <IconButton
           size="small"
           aria-label={t('ganttChart:treeFilters.clearSearch')}
@@ -75,7 +75,7 @@ export function OccupancyMobileFilterBar({
         >
           <CloseIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
       <Button
         size="small"
         variant="outlined"
@@ -100,8 +100,8 @@ export function OccupancyMobileFilterBar({
       </Button>
     </Stack>
   ) : (
-    <Stack direction="row" spacing={0.75} alignItems="center">
-      <Tooltip title={t('common:actions.search')}>
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
+      <AppTooltip title={t('common:actions.search')}>
         <IconButton
           size="small"
           aria-label={t('common:actions.search')}
@@ -110,7 +110,7 @@ export function OccupancyMobileFilterBar({
         >
           <SearchIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </AppTooltip>
       <Button
         size="small"
         variant="outlined"

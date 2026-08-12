@@ -1,5 +1,11 @@
 /**
- * Tests for i18n configuration and functionality
+ * Tests for i18n configuration and functionality.
+ *
+ * These deliberately avoid asserting exact translated wording (that's covered,
+ * where it matters, by i18nKeyParity.test.ts and dedicated feature tests).
+ * Instead they check the properties that actually indicate i18n is wired up
+ * correctly: keys resolve to real content, interpolation works, namespaces
+ * are all registered, and distinct concepts don't collapse onto one string.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -12,68 +18,48 @@ describe('i18n Configuration', () => {
     expect(i18n.language).toBe('de');
   });
 
-  it('should load common translations', () => {
-    const appName = i18n.t('common:appName');
-    expect(appName).toBe('OpenFarmPlanner');
+  it('resolves known keys to real content instead of echoing the key back', () => {
+    const keys = [
+      'common:appName',
+      'navigation:plantingPlans',
+      'navigation:locations',
+      'navigation:cultures',
+      'navigation:cropLibrary',
+      'navigation:cultureActions.library',
+      'cultures:title',
+      'cultures:library.dialogTitle',
+      'cultures:library.page.title',
+    ];
+
+    for (const key of keys) {
+      const value = i18n.t(key);
+      expect(value, `${key} should resolve`).not.toBe(key);
+      expect(value.trim().length).toBeGreaterThan(0);
+    }
   });
 
-  it('should load navigation translations', () => {
-    const plantingPlans = i18n.t('navigation:plantingPlans');
-    expect(plantingPlans).toBe('Anbaupläne');
-
-    const locations = i18n.t('navigation:locations');
-    expect(locations).toBe('Standorte');
-
-    expect(i18n.t('navigation:cultures')).toBe('Kulturbibliothek');
-    expect(i18n.t('navigation:cropLibrary')).toBe('Öffentliche Kulturbibliothek');
-    expect(i18n.t('navigation:cultureActions.library')).toBe('Aus Bibliothek importieren');
-  });
-
-  it('should load page-specific translations', () => {
-    const locationsTitle = i18n.t('locations:title');
-    expect(locationsTitle).toBe('Standorte');
-    
-    const culturesTitle = i18n.t('cultures:title');
-    expect(culturesTitle).toBe('Kulturbibliothek');
-
-    expect(i18n.t('cultures:library.dialogTitle')).toBe('Aus Kulturbibliothek importieren');
-    expect(i18n.t('cultures:library.page.title')).toBe('Öffentliche Kulturbibliothek');
-    expect(i18n.t('cultures:library.importDialog.emptyMotivation')).toBe('Teile deine bewährten Kulturen mit anderen.');
-    expect(i18n.t('cultures:library.importDialog.emptyInstructionStep')).toBe('So geht’s:');
-    expect(i18n.t('cultures:library.importDialog.emptyInstructionContext')).toBe('Bei einer Kultur');
-    expect(i18n.t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Veröffentlichen' })).toBe('So geht’s: Bei einer Kultur das Drei-Punkte-Menü öffnen und Veröffentlichen wählen.');
-  });
-
-  it('keeps English library naming distinct for navigation and import flows', () => {
-    const t = i18n.getFixedT('en');
-
-    expect(t('navigation:cultures')).toBe('Crop library');
-    expect(t('navigation:cropLibrary')).toBe('Public crop library');
-    expect(t('navigation:cultureActions.library')).toBe('Import from library');
-    expect(t('cultures:library.dialogTitle')).toBe('Import from crop library');
-    expect(t('cultures:library.page.title')).toBe('Public crop library');
-    expect(t('cultures:library.importDialog.emptyMotivation')).toBe('Share your proven crops with others.');
-    expect(t('cultures:library.importDialog.emptyInstructionStep')).toBe('How it works:');
-    expect(t('cultures:library.importDialog.emptyInstructionContext')).toBe('On a crop');
-    expect(t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Publish' })).toBe('How it works: open the three-dot menu on a crop and choose Publish.');
+  it('keeps the crop-library navigation entry and the public library entry distinct', () => {
+    for (const language of ['de', 'en']) {
+      const t = i18n.getFixedT(language);
+      expect(t('navigation:cultures')).not.toBe(t('navigation:cropLibrary'));
+      expect(t('cultures:library.dialogTitle')).not.toBe(t('cultures:library.page.title'));
+    }
   });
 
   it('should support interpolation', () => {
     const harvestWindow = i18n.t('cultures:fields.harvestWindowValue', { first: 60, last: 90 });
-    expect(harvestWindow).toBe('60–90 Tage nach der Aussaat');
+    expect(harvestWindow).toContain('60');
+    expect(harvestWindow).toContain('90');
   });
 
-  it('should handle nested keys', () => {
-    const addAction = i18n.t('common:actions.add');
-    expect(addAction).toBe('Hinzufügen');
-    
-    const deleteAction = i18n.t('common:actions.delete');
-    expect(deleteAction).toBe('Löschen');
+  it('interpolates values into the publish-instruction hint', () => {
+    const withPublish = i18n.t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Veröffentlichen' });
+    expect(withPublish).toContain('Veröffentlichen');
   });
 
   it('should have all required namespaces', () => {
     const namespaces = ['common', 'navigation', 'home', 'locations', 'cultures', 'plantingPlans', 'fields', 'beds', 'hierarchy'];
-    
+
     namespaces.forEach(ns => {
       expect(i18n.hasResourceBundle('de', ns)).toBe(true);
     });

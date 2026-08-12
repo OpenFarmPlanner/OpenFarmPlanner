@@ -1,4 +1,5 @@
 import type { Culture, CultivationType, PublicCulture, SeedRateUnit } from '../api/types';
+import { normalizeLanguageTag } from '../i18n/languages';
 import {
   normalizeCultivationType,
   normalizeHarvestMethod,
@@ -58,14 +59,16 @@ export function publicCultureToCultureFormData(culture: PublicCulture): Culture 
   const cultivationTypes = resolveCultivationTypes(culture);
   const directRate = directSeedRate(culture, 'direct_sowing');
   const preCultivationRate = directSeedRate(culture, 'pre_cultivation');
+  const originalLanguageCode = normalizeLanguageTag(culture.original_language_code) ?? '';
+  const originalNotes = originalLanguageCode
+    ? culture.translations?.[originalLanguageCode] ?? culture.notes ?? ''
+    : culture.notes ?? '';
 
   return {
     id: culture.id,
     name: culture.name,
     variety: culture.variety ?? '',
-    // Notes are per-language and edited separately via the translations
-    // dialog/endpoint; this generic form never touches them.
-    notes: '',
+    notes: originalNotes,
     crop_family: culture.crop_family ?? '',
     nutrient_demand: culture.nutrient_demand ?? '',
     cultivation_type: culture.cultivation_type || cultivationTypes[0] || 'pre_cultivation',
@@ -116,6 +119,8 @@ export function buildPublicCultureUpdatePayload(
 
   return {
     base_version: baseVersion,
+    variety: draft.variety ?? '',
+    notes: draft.notes ?? '',
     crop_family: draft.crop_family ?? '',
     nutrient_demand: normalizeNutrientDemand(draft.nutrient_demand),
     cultivation_type: normalizeCultivationType(draft.cultivation_type),

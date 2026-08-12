@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
+from config.languages import DEFAULT_LANGUAGE_CODE, resolve_request_language
+from crops.models import CropSpecies
 from crops.permissions import is_public_library_moderator
 from farm.common.serializer_fields import (
     CentimetersField,
@@ -28,6 +30,13 @@ from farm.seed_units import (
     SEED_PACKAGE_UNIT_SEEDS,
     SEED_RATE_UNITS,
 )
+from farm.services.culture_display import resolve_culture_display_name
+from farm.services.public_cultures import (
+    has_open_public_culture_update,
+    is_public_culture_contributor,
+    is_public_culture_update_rejected,
+    resolve_public_publish_block,
+)
 
 from .seed_packages import SeedPackageSerializer
 from .seed_rates import (
@@ -44,9 +53,15 @@ from .suppliers import (
     _supplier_data_payload_has_supplier,
 )
 
+# Sentinel so a resolved `None` is cached instead of re-queried per field.
+_UNRESOLVED = object()
+
 
 class CultureSerializer(serializers.ModelSerializer):
     """Serializer for culture data with unit conversion and supplier helpers."""
+    culture_display_name = serializers.SerializerMethodField(read_only=True)
+    culture_display_language_code = serializers.SerializerMethodField(read_only=True)
+    crop_species_translations = serializers.SerializerMethodField(read_only=True)
     variety = serializers.CharField(
         required=False,
         allow_blank=True,
@@ -159,7 +174,11 @@ class CultureSerializer(serializers.ModelSerializer):
         help_text='Calculated plants per square meter based on spacing (read-only)'
     )
     owned_public_culture_id = serializers.SerializerMethodField()
-    
+    owned_public_culture_role = serializers.SerializerMethodField()
+    public_update_available = serializers.SerializerMethodField()
+    public_update_rejected = serializers.SerializerMethodField()
+    public_publish_blocked_reason = serializers.SerializerMethodField()
+
     def get_image_file(self, obj):
         if not obj.image_file_id:
             return None
@@ -180,38 +199,113 @@ class CultureSerializer(serializers.ModelSerializer):
         # client, otherwise a member could reassign a record to another project
         # via update and inject data across tenant boundaries.
         read_only_fields = ['project']
+
+    def _request_language(self) -> str:
+        request = self.context.get('request')
+        if request is None:
+            return DEFAULT_LANGUAGE_CODE
+        return resolve_request_language(request)
+
+    def _get_culture_species(self, obj: Culture) -> CropSpecies | None:
+        if obj.crop_species_id:
+            return obj.crop_species
+        return None
+
+    def _get_localized_culture_name(self, obj: Culture) -> tuple[str | None, str]:
+        return resolve_culture_display_name(obj, self._request_language())
+
+    def get_culture_display_name(self, obj: Culture) -> str | None:
+        return self._get_localized_culture_name(obj)[0]
+
+    def get_culture_display_language_code(self, obj: Culture) -> str:
+        return self._get_localized_culture_name(obj)[1]
+
+    def get_crop_species_translations(self, obj: Culture) -> dict[str, str]:
+        species = self._get_culture_species(obj)
+        if species is None:
+            return {}
+        return species.translations_by_language()
     
-    def get_owned_public_culture_id(self, obj: Culture) -> int | None:
+    def _resolve_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
+        """The published public-library entry the requesting user may act on for this culture."""
+        cached = getattr(obj, '_resolved_owned_public_culture', _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+
+        resolved = self._query_owned_public_culture(obj)
+        obj._resolved_owned_public_culture = resolved
+        return resolved
+
+    def _query_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:
             return None
 
         if obj.source_public_culture_id:
+            source_public = obj.source_public_culture
             if (
-                obj.source_public_culture
-                and obj.source_public_culture.status == PublicCulture.STATUS_PUBLISHED
+                source_public
+                and source_public.status == PublicCulture.STATUS_PUBLISHED
                 and (
-                    obj.source_public_culture.created_by_id == user.id
+                    source_public.created_by_id == user.id
                     or self._can_moderate_public_cultures(user)
                 )
             ):
-                return obj.source_public_culture_id
+                return source_public
             return None
 
         prefetched = getattr(obj, '_prefetched_owned_public_cultures', None)
         if prefetched is not None:
-            if prefetched:
-                return prefetched[0].id
-            return None
+            return prefetched[0] if prefetched else None
 
         linked_public = PublicCulture.objects.filter(
             source_project_culture=obj,
             status=PublicCulture.STATUS_PUBLISHED,
         )
-        if prefetched is None and not self._can_moderate_public_cultures(user):
+        if not self._can_moderate_public_cultures(user):
             linked_public = linked_public.filter(created_by=user)
-        return linked_public.order_by('-updated_at', '-id').values_list('id', flat=True).first()
+        return linked_public.order_by('-updated_at', '-id').first()
+
+    def get_owned_public_culture_id(self, obj: Culture) -> int | None:
+        public_culture = self._resolve_owned_public_culture(obj)
+        return public_culture.id if public_culture else None
+
+    def get_owned_public_culture_role(self, obj: Culture) -> str | None:
+        """How the requesting user relates to the linked public entry.
+
+        `contributor` means they published it themselves and can withdraw it
+        without a reason; `moderator` means removing it is a moderation action
+        that requires a structured reason.
+        """
+        public_culture = self._resolve_owned_public_culture(obj)
+        if public_culture is None:
+            return None
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if is_public_culture_contributor(public_culture=public_culture, user=user):
+            return 'contributor'
+        return 'moderator'
+
+    def get_public_update_available(self, obj: Culture) -> bool:
+        """Whether an undecided library update should be announced for this culture.
+
+        Reads the already `select_related`ed `source_public_culture`, so the
+        flag costs no extra query per row. The field-level preview behind it
+        lives on the `public-update` detail endpoint and is only fetched when
+        the user opens it. A version the user rejected is excluded here — the
+        notice is gone, but `public_update_rejected` keeps the divergence
+        visible so the diff stays reachable.
+        """
+        return has_open_public_culture_update(obj)
+
+    def get_public_update_rejected(self, obj: Culture) -> bool:
+        """Whether the pending library version was explicitly declined by the user."""
+        return is_public_culture_update_rejected(obj)
+
+    def get_public_publish_blocked_reason(self, obj: Culture) -> str | None:
+        """Why publishing/updating the public entry from this copy is blocked, if it is."""
+        return resolve_public_publish_block(obj)
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')

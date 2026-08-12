@@ -23,6 +23,44 @@ import { buildHeadTags } from '../src/seo/seoAssets';
 export { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE };
 export type { PublicRoute };
 
+function isLoopbackHttpUrl(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'].includes(parsed.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
+function removeLocalPreviewPreloads(document: Document): void {
+  document.querySelectorAll('link[href]').forEach((element) => {
+    const rel = (element.getAttribute('rel') ?? '').toLowerCase();
+    if (!['modulepreload', 'preload', 'prefetch'].includes(rel)) {
+      return;
+    }
+    if (isLoopbackHttpUrl(element.getAttribute('href'))) {
+      element.remove();
+    }
+  });
+}
+
+export function assertNoLoopbackUrls(html: string, routePath: string): void {
+  const matches = html.match(/https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|::1)(?::\d+)?[^\s"'<>)]*/g);
+  if (matches?.length) {
+    const uniqueMatches = [...new Set(matches)];
+    throw new Error(
+      `prerender: ${routePath} contains local preview URL(s): ${uniqueMatches.join(', ')}`
+    );
+  }
+}
+
 /**
  * Rewrite `<head>` in a captured, client-rendered document to the
  * route-specific canonical values. Strips whatever `seoPlugin` baked into
@@ -37,6 +75,8 @@ export function applyHeadTags(html: string, route: PublicRoute, env: SeoEnv): st
 
   const dom = new JSDOM(html);
   const { document } = dom.window;
+
+  removeLocalPreviewPreloads(document);
 
   document.title = route.title ?? 'OpenFarmPlanner';
 

@@ -33,9 +33,9 @@
     "supplierDataUsage": "{{cultureCount}} cultures have seed or supplier data with {{rowCount}} entries.",
     "seedDemandUsage_one": "{{count}} culture uses this supplier in seed demand planning.",
     "seedDemandUsage_other": "{{count}} cultures use this supplier in seed demand planning.",
-    "unlinkExplanation": "If you continue, all cultures are kept. Only the supplier link is removed.",
+    "unlinkExplanation": "Cultures are not deleted. Only their supplier relationship is removed before the supplier is deleted.",
     "openAffectedCultures": "Go to affected cultures",
-    "unlinkAndDelete": "Remove supplier from all cultures and delete"
+    "unlinkAndDelete": "Delete supplier"
   },
   "invalidDomain": "Invalid domain: {{domain}}. Domains must be valid hostnames without a scheme or path (e.g. example.com).",
   "domainValidationError": "Some domains are invalid. Please correct the input.",

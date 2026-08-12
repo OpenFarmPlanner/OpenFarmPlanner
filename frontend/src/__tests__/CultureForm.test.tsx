@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CultureForm } from '../cultures/CultureForm';
-import type { Culture } from '../api/types';
+import type { Culture, PublicCulture } from '../api/types';
+import type { PublicCultureSpeciesOption } from '../cultures/publicCultureNameSuggestions';
 
 vi.mock('../i18n', () => ({
   useTranslation: () => ({
@@ -10,9 +11,9 @@ vi.mock('../i18n', () => ({
   }),
 }));
 
-const { cultureDuplicateCheckMock, publicCultureMatchMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
+const { cultureDuplicateCheckMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
   cultureDuplicateCheckMock: vi.fn().mockResolvedValue({ data: { exists: false } }),
-  publicCultureMatchMock: vi.fn().mockResolvedValue({ data: { exists: false, culture: null } }),
+  publicCultureListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
   supplierCreateMock: vi.fn(),
   supplierListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
 }));
@@ -27,7 +28,7 @@ vi.mock('../api/api', async () => {
     },
     publicCultureAPI: {
       ...actual.publicCultureAPI,
-      match: publicCultureMatchMock,
+      list: publicCultureListMock,
     },
     supplierAPI: {
       list: supplierListMock,
@@ -42,25 +43,84 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     errors,
     identityHint,
     onChange,
+    showVarietyField = true,
+    showFirstVarietyField = false,
+    firstVarietyName = '',
+    onFirstVarietyNameChange,
+    nameOptions = [],
+    onNameSearchChange,
+    onNameOptionSelect,
+    varietyOptions = [],
+    onVarietyCommit,
+    firstVarietyOptions = [],
+    onFirstVarietyCommit,
+    existingCropHint,
   }: {
     formData: Partial<Culture>;
     errors: Record<string, string>;
     identityHint?: ReactNode;
     onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
+    showVarietyField?: boolean;
+    showFirstVarietyField?: boolean;
+    firstVarietyName?: string;
+    onFirstVarietyNameChange?: (value: string) => void;
+    nameOptions?: PublicCultureSpeciesOption[];
+    onNameSearchChange?: (value: string) => void;
+    onNameOptionSelect?: (option: PublicCultureSpeciesOption | null) => void;
+    varietyOptions?: string[];
+    onVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
+    firstVarietyOptions?: string[];
+    onFirstVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
+    existingCropHint?: ReactNode;
   }) => (
     <div>
       <input
         aria-label="name-input"
         value={formData.name ?? ''}
-        onChange={(event) => onChange('name', event.target.value)}
+        onChange={(event) => {
+          onNameSearchChange?.(event.target.value);
+          onChange('name', event.target.value);
+          onNameOptionSelect?.(null);
+        }}
       />
+      {nameOptions[0] ? (
+        <button
+          type="button"
+          onClick={() => {
+            onChange('name', nameOptions[0].name);
+            onNameOptionSelect?.(nameOptions[0]);
+          }}
+        >
+          select-name-option
+        </button>
+      ) : null}
       {errors.name ? <span>{errors.name}</span> : null}
-      <input
-        aria-label="variety-input"
-        value={formData.variety ?? ''}
-        onChange={(event) => onChange('variety', event.target.value)}
-      />
+      {showVarietyField ? (
+        <input
+          aria-label="variety-input"
+          value={formData.variety ?? ''}
+          onChange={(event) => onChange('variety', event.target.value)}
+        />
+      ) : null}
+      {showVarietyField && varietyOptions[0] ? (
+        <button type="button" onClick={() => onVarietyCommit?.(varietyOptions[0], 'selectOption')}>
+          select-variety-option
+        </button>
+      ) : null}
       {errors.variety ? <span>{errors.variety}</span> : null}
+      {showFirstVarietyField ? (
+        <input
+          aria-label="first-variety-input"
+          value={firstVarietyName}
+          onChange={(event) => onFirstVarietyNameChange?.(event.target.value)}
+        />
+      ) : null}
+      {showFirstVarietyField && firstVarietyOptions[0] ? (
+        <button type="button" onClick={() => onFirstVarietyCommit?.(firstVarietyOptions[0], 'selectOption')}>
+          select-first-variety-option
+        </button>
+      ) : null}
+      {showFirstVarietyField ? existingCropHint : null}
       {identityHint}
     </div>
   ),
@@ -121,8 +181,8 @@ describe('CultureForm', () => {
   beforeEach(() => {
     cultureDuplicateCheckMock.mockReset();
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockReset();
-    publicCultureMatchMock.mockResolvedValue({ data: { exists: false, culture: null } });
+    publicCultureListMock.mockReset();
+    publicCultureListMock.mockResolvedValue({ data: { results: [] } });
     supplierCreateMock.mockReset();
     supplierCreateMock.mockResolvedValue({
       data: { id: 42, name: 'Reinsaat', homepage_url: 'https://reinsaat.at', allowed_domains: [] },
@@ -206,11 +266,13 @@ describe('CultureForm', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'form.createSuppliers' })).not.toBeInTheDocument());
 
     const supplierSelect = await screen.findByRole('combobox');
-    expect(supplierSelect).toHaveTextContent('Reinsaat');
+    await waitFor(() => expect(supplierSelect).toHaveTextContent('Reinsaat'));
     expect(screen.getByLabelText('name-input')).toHaveValue('Neue Karotte');
     expect(screen.getByText('messages.unsavedChanges')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+    const saveButton = screen.getByRole('button', { name: 'form.save' });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
       name: 'Neue Karotte',
@@ -298,7 +360,10 @@ describe('CultureForm', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'form.createSuppliers' })).not.toBeInTheDocument());
-    expect(screen.getByRole('heading', { name: 'form.editTitle' })).toBeInTheDocument();
+    // CULTURE_A has a variety, so this is a variety-level edit (formKind
+    // defaults to 'variety' for backward compatibility with callers that
+    // don't pass it, which is correct here).
+    expect(screen.getByRole('heading', { name: 'form.editVarietyTitle' })).toBeInTheDocument();
   });
 
   it('shows only real suppliers in the supplier dropdown when supplier options are available', async () => {
@@ -382,7 +447,7 @@ describe('CultureForm', () => {
           supplier_name: 'Reinsaat',
         }),
       ],
-    }));
+    }), undefined);
   });
 
   it('loads all existing supplier rows when editing a culture', async () => {
@@ -424,6 +489,87 @@ describe('CultureForm', () => {
     expect(screen.getByText('form.supplierDataSectionTitle')).toBeInTheDocument();
   });
 
+  it('keeps supplier information rows compact without stretch layout', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ supplier_id: 10, supplier_name: 'Bingenheimer', packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const row = await screen.findByTestId('culture-supplier-data-row');
+    expect(row).toHaveStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      flexGrow: '0',
+      minHeight: '0',
+    });
+  });
+
+  it('shows only a compact hint instead of supplier fields while no supplier is selected', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(await screen.findByTestId('culture-supplier-data-hint')).toHaveTextContent('form.supplierDataSelectSupplierHint');
+    expect(screen.queryByLabelText('form.supplierProductNameLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('form.seedPackagesLabel')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'form.addSeedPackage' })).not.toBeInTheDocument();
+    // The row stays removable even without a selected supplier.
+    expect(screen.getByRole('button', { name: 'form.removeSupplierData' })).toBeInTheDocument();
+  });
+
+  it('reveals the supplier fields once a supplier is selected', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const supplierSelect = await screen.findByRole('combobox');
+    fireEvent.mouseDown(supplierSelect);
+    fireEvent.click(screen.getByRole('option', { name: 'Bingenheimer' }));
+
+    expect(await screen.findByLabelText('form.supplierProductNameLabel')).toBeInTheDocument();
+    expect(screen.getByText('form.seedPackagesLabel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'form.addSeedPackage' })).toBeInTheDocument();
+    expect(screen.queryByTestId('culture-supplier-data-hint')).not.toBeInTheDocument();
+  });
+
+  it('lays out the supplier section vertically without reserving extra height', async () => {
+    supplierListMock.mockResolvedValueOnce({ data: { results: [{ id: 10, name: 'Bingenheimer' }] } });
+
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, supplier_data: [{ supplier_id: 10, supplier_name: 'Bingenheimer', packaging_sizes: [] }] }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    const section = await screen.findByTestId('culture-supplier-data-section');
+    expect(section).toHaveStyle({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '14px',
+    });
+    expect(section).not.toHaveStyle({ height: '100%' });
+  });
+
   it('shows duplicate culture validation and blocks saving', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: true } });
@@ -444,59 +590,307 @@ describe('CultureForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('shows public library match hint only when creating a culture', async () => {
+  it('keeps free-text culture names private without requiring a public match', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockResolvedValue({
-      data: {
-        exists: true,
-        culture: { id: 42, name: 'Karotte', variety: 'Nantaise' },
-      },
-    });
+    publicCultureListMock.mockResolvedValue({ data: { results: [] } });
 
     render(
       <CultureForm
         onSave={vi.fn().mockResolvedValue(undefined)}
         onCancel={() => {}}
-        onViewPublicLibraryMatch={vi.fn()}
       />
     );
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
     fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
 
-    await waitFor(() => expect(publicCultureMatchMock).toHaveBeenCalledWith(
-      { name: 'Karotte', variety: 'Nantaise' },
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { q: 'Karotte' },
       expect.any(AbortSignal),
     ));
-    expect(await screen.findByText('form.publicLibraryMatchHint')).toBeInTheDocument();
+    expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
   });
 
-  it('does not check or show public library match hint when editing a culture', async () => {
-    cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
-    publicCultureMatchMock.mockResolvedValue({
-      data: {
-        exists: true,
-        culture: { id: 42, name: 'Neue Karotte', variety: 'Nantaise' },
-      },
+  it('offers no variety suggestions until the name matches an existing public crop species', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        version: 3,
+      } as PublicCulture] },
     });
 
     render(
       <CultureForm
-        culture={CULTURE_A}
         onSave={vi.fn().mockResolvedValue(undefined)}
         onCancel={() => {}}
-        onViewPublicLibraryMatch={vi.fn()}
       />
     );
 
-    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Neue Karotte' } });
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    // Typed text ("Tomaten") does not exactly match the suggested species
+    // ("Tomate") yet, so the variety field must stay free text.
+    expect(screen.queryByRole('button', { name: 'select-variety-option' })).not.toBeInTheDocument();
+    expect(publicCultureListMock).not.toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    );
+  });
 
+  it('copies public culture base values when a suggestion is selected', async () => {
+    cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        crop_family: 'Nachtschattengewächse',
+        growth_duration_days: 90,
+        row_spacing_m: 0.5,
+        version: 3,
+      } as PublicCulture] },
+    });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <CultureForm
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
+    await screen.findByRole('button', { name: 'select-variety-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-variety-option' }));
     await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
-      { name: 'Neue Karotte', variety: 'Nantaise', exclude_id: 1 },
+      { name: 'Tomate', variety: 'Moneymaker', exclude_id: undefined },
       expect.any(AbortSignal),
     ));
-    expect(publicCultureMatchMock).not.toHaveBeenCalled();
-    expect(screen.queryByText('form.publicLibraryMatchHint')).not.toBeInTheDocument();
+    const saveButton = screen.getByRole('button', { name: 'form.create' });
+    await waitFor(() => expect(saveButton).not.toBeDisabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Tomate',
+      variety: 'Moneymaker',
+      crop_species: 7,
+      source_public_culture: 42,
+      source_public_version: 3,
+      crop_family: 'Nachtschattengewächse',
+      growth_duration_days: 90,
+      row_spacing_cm: 50,
+      origin_type: 'imported',
+    }), undefined);
+    expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument();
+  });
+
+  // Regression guard for the "Add crop" dialog, where no variety field exists
+  // to select from: picking a Name suggestion must itself prefill and link,
+  // otherwise the public library is unreachable from that dialog entirely.
+  it('prefills and links from the species general entry when a name suggestion is selected', async () => {
+    publicCultureListMock.mockImplementation((params: { q?: string; crop_species?: number }) => Promise.resolve({
+      data: {
+        results: params.crop_species === 7
+          ? [
+            {
+              id: 40,
+              status: 'published',
+              name: 'Tomate',
+              display_name: 'Tomate',
+              variety: '',
+              crop_species: 7,
+              crop_family: 'Nachtschattengewächse',
+              growth_duration_days: 80,
+              row_spacing_m: 0.6,
+              version: 2,
+            } as PublicCulture,
+            {
+              id: 42,
+              status: 'published',
+              name: 'Tomate',
+              display_name: 'Tomate',
+              variety: 'Moneymaker',
+              crop_species: 7,
+              version: 3,
+            } as PublicCulture,
+          ]
+          : [{
+            id: 42,
+            status: 'published',
+            name: 'Tomate',
+            display_name: 'Tomate',
+            variety: 'Moneymaker',
+            crop_species: 7,
+            version: 3,
+          } as PublicCulture],
+      },
+    }));
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
+
+    await waitFor(() => expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Tomate',
+      variety: '',
+      crop_species: 7,
+      source_public_culture: 40,
+      source_public_version: 2,
+      crop_family: 'Nachtschattengewächse',
+      growth_duration_days: 80,
+      row_spacing_cm: 60,
+      origin_type: 'imported',
+    }), undefined);
+  });
+
+  it('links only crop_species when the matched species has no general entry', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        crop_family: 'Nachtschattengewächse',
+        version: 3,
+      } as PublicCulture] },
+    });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
+
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
+      { crop_species: 7 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const [savedCulture] = onSave.mock.calls[0] as [Culture];
+    expect(savedCulture.crop_species).toBe(7);
+    expect(savedCulture.source_public_culture).toBeFalsy();
+    expect(savedCulture.crop_family).toBe('');
+    expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
+  });
+
+  it('links the first variety to the library when its suggestion is selected', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        growth_duration_days: 95,
+        version: 3,
+      } as PublicCulture] },
+    });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomate' } });
+    await screen.findByRole('button', { name: 'select-first-variety-option' });
+    fireEvent.click(screen.getByRole('button', { name: 'select-first-variety-option' }));
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.anything(), {
+      name: 'Moneymaker',
+      draft: expect.objectContaining({
+        variety: 'Moneymaker',
+        source_public_culture: 42,
+        source_public_version: 3,
+        growth_duration_days: 95,
+        origin_type: 'imported',
+      }),
+    });
+  });
+
+  it('offers no first-variety suggestions while the crop name is unmatched free text', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: { results: [{
+        id: 42,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: 'Moneymaker',
+        crop_species: 7,
+        version: 3,
+      } as PublicCulture] },
+    });
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomaten' } });
+    await screen.findByRole('button', { name: 'select-name-option' });
+    expect(screen.queryByRole('button', { name: 'select-first-variety-option' })).not.toBeInTheDocument();
+    // The field itself stays usable as free text.
+    expect(screen.getByLabelText('first-variety-input')).toBeInTheDocument();
+  });
+
+  it('offers switching to the add-variety flow when the crop name already exists privately', async () => {
+    const onSwitchToAddVariety = vi.fn();
+
+    render(
+      <CultureForm
+        formKind="crop"
+        cultures={[CULTURE_A, { id: 9, name: 'Karotte', variety: '' } as Culture]}
+        onSave={vi.fn()}
+        onCancel={() => {}}
+        onSwitchToAddVariety={onSwitchToAddVariety}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: ' karotte ' } });
+
+    const hint = await screen.findByTestId('culture-existing-crop-hint');
+    expect(hint).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' }));
+
+    // The species-level row is the correct parent for the add-variety flow.
+    expect(onSwitchToAddVariety).toHaveBeenCalledWith(expect.objectContaining({ id: 9, variety: '' }));
+  });
+
+  it('shows no existing-crop hint for a name the project does not use yet', async () => {
+    render(
+      <CultureForm
+        formKind="crop"
+        cultures={[CULTURE_A]}
+        onSave={vi.fn()}
+        onCancel={() => {}}
+        onSwitchToAddVariety={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Pastinake' } });
+
+    await waitFor(() => expect(publicCultureListMock).toHaveBeenCalled());
+    expect(screen.queryByTestId('culture-existing-crop-hint')).not.toBeInTheDocument();
   });
 
   it('saves changed form data when editing a culture', async () => {
@@ -518,7 +912,128 @@ describe('CultureForm', () => {
       name: 'Neue Karotte',
       variety: 'Nantaise',
       supplier: { id: 10, name: 'Bingenheimer' },
-    }));
+    }), undefined);
+  });
+
+  it('hides the variety field and saves without one when formKind is crop', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    expect(screen.queryByLabelText('variety-input')).not.toBeInTheDocument();
+
+    // A crop-level entry has no variety, so the name+variety duplicate check
+    // (which requires both to be non-empty) never fires here — save directly.
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }), undefined);
+  });
+
+  it('shows the optional first-variety field only when adding a new crop', () => {
+    const { rerender } = render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.getByLabelText('first-variety-input')).toBeInTheDocument();
+
+    rerender(<CultureForm formKind="variety" onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.queryByLabelText('first-variety-input')).not.toBeInTheDocument();
+
+    rerender(<CultureForm formKind="crop" culture={CULTURE_A} onSave={vi.fn()} onCancel={() => {}} />);
+    expect(screen.queryByLabelText('first-variety-input')).not.toBeInTheDocument();
+  });
+
+  it('saves the crop without a variety name when the first-variety field is left empty', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Karotte', variety: '' }), undefined);
+  });
+
+  it('passes the entered variety name alongside the crop when the first-variety field is filled in', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Karotte', variety: '' }),
+      { name: 'Nantaise', draft: undefined },
+    );
+  });
+
+  it('shows and still requires the variety field when formKind is variety', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="variety" onSave={onSave} onCancel={() => {}} />);
+
+    expect(screen.getByLabelText('variety-input')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(await screen.findByText('form.varietyRequired')).toBeInTheDocument();
+  });
+
+  it('pre-fills crop_species and name from initialDraft when adding a variety', () => {
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '' }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Karotte');
+    expect(screen.getByLabelText('variety-input')).toHaveValue('');
+  });
+
+  it('clears a variety field left matching its crop-prefilled baseline value on save, so it keeps inheriting from the crop', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '', row_spacing_cm: 30 }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('row-spacing-input')).toHaveValue('30');
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].row_spacing_cm).toBeUndefined();
+  });
+
+  it('keeps a variety field the user changed away from its crop-prefilled baseline value', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        formKind="variety"
+        initialDraft={{ crop_species: 7, name: 'Karotte', variety: '', row_spacing_cm: 30 }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.change(screen.getByLabelText('row-spacing-input'), { target: { value: '40' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].row_spacing_cm).toBe(40);
   });
 
   it('closes without saving when an edited culture has no effective changes', () => {
@@ -596,7 +1111,7 @@ describe('CultureForm', () => {
       id: 1,
       name: 'Neue Karotte',
       variety: 'Nantaise',
-    }));
+    }), undefined);
   });
 
   it('saves the active culture edit dialog with Cmd+S', async () => {
@@ -703,7 +1218,7 @@ describe('CultureForm', () => {
       variety: 'Batavia',
       row_spacing_cm: 35,
       supplier: { id: 11, name: 'Dreschflegel' },
-    }));
+    }), undefined);
   });
 
   it('saves thousand-kernel weight directly on culture data', async () => {
@@ -718,7 +1233,7 @@ describe('CultureForm', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       id: 1,
       thousand_kernel_weight_g: 4.2,
-    }));
+    }), undefined);
   });
 
   it('maps legacy seed_supplier into supplier field for validation and save', async () => {
@@ -734,7 +1249,7 @@ describe('CultureForm', () => {
       id: 3,
       supplier: expect.objectContaining({ name: 'Legacy Seeds' }),
       row_spacing_cm: 40,
-    }));
+    }), undefined);
   });
 
   it('resets form state when a different culture is opened for editing', async () => {
@@ -758,7 +1273,7 @@ describe('CultureForm', () => {
       variety: 'Batavia',
       row_spacing_cm: 42,
       supplier: { id: 11, name: 'Dreschflegel' },
-    }));
+    }), undefined);
   });
 
   it('renders save error inline instead of snackbar overlap', async () => {

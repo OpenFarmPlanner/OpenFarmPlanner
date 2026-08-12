@@ -8,6 +8,7 @@ import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import GanttChartPage from '../pages/GanttChart';
 import { getGanttRenderWindow } from '../pages/ganttRenderWindow';
+import i18n from '../i18n/config';
 
 const mocks = vi.hoisted(() => ({
   locationList: vi.fn(),
@@ -286,7 +287,12 @@ vi.mock('../gantt-chart/src', () => ({
               {group.isExpanded ? 'collapse' : 'expand'}
             </button>
           ) : null}
-          {group.emptyRowLabel ? <span data-testid={`meta-${group.name}`}>{group.emptyRowLabel}</span> : null}
+          {/* The real library renders `emptyRowLabel` in the group's timeline
+              row, never in the left column — see
+              TaskRow.emptyRowLabel.test.tsx. */}
+          {group.emptyRowLabel ? (
+            <span data-testid={`timeline-summary-${group.name}`}>{group.emptyRowLabel}</span>
+          ) : null}
           <span data-testid={`row-height-${group.name}`}>{group.rowHeightOverride ?? 'auto'}</span>
           {props.onGroupContextMenu ? (
             <button
@@ -1523,6 +1529,140 @@ describe('GanttChartPage', () => {
         data: { results: [{ id: 1, name: 'Karotte' }, { id: 2, name: 'Tomate' }] },
       });
     };
+
+    describe('structure summary in the timeline area', () => {
+      it('shows Parzellen/Beete/belegt for a Standort and Beete/belegt for a Parzelle', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+
+        expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 1 Beet · 1 belegt');
+        expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('1 Beet · 1 belegt');
+      });
+
+      it('hands the summary to the timeline row, not to the left column', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+
+        const groups = mocks.ganttProps.mock.calls.at(-1)?.[0]?.tasks as Array<
+          Record<string, unknown> & { name: string }
+        >;
+        const location = groups.find((group) => group.name === 'Hof');
+        expect(location?.emptyRowLabel).toBe('1 Parzelle · 1 Beet · 1 belegt');
+        // A second, sidebar-rendered copy of the same string would show the
+        // summary twice — the left column must only get the row name.
+        expect(location).not.toHaveProperty('metaLabel');
+      });
+
+      it('uses plural forms once a Standort holds more than one Parzelle and Beet', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Nur belegte Beete' }));
+
+        await waitFor(() => {
+          expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 2 Beete · 1 belegt');
+        });
+        expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('2 Beete · 1 belegt');
+      });
+
+      it('does not put a summary on Beet rows', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+
+        expect(screen.queryByTestId('timeline-summary-Karottenbeet')).not.toBeInTheDocument();
+      });
+
+      it('counts the empty Beet only once "Nur belegte Beete" is switched off', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+        // Filtered view: the pruned Leerbeet must not be counted, otherwise the
+        // Standort would claim two Beete above a single visible Beet row.
+        expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 1 Beet · 1 belegt');
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Nur belegte Beete' }));
+
+        await waitFor(() => {
+          expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 2 Beete · 1 belegt');
+        });
+        expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('2 Beete · 1 belegt');
+      });
+
+      it('narrows the counts to the beds a search actually matches', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Nur belegte Beete' }));
+        await screen.findByText('Leerbeet');
+        expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('2 Beete · 1 belegt');
+
+        fireEvent.change(screen.getByPlaceholderText('Suche nach Kultur, Beet, Parzelle oder Standort…'), {
+          target: { value: 'Karottenbeet' },
+        });
+
+        await waitFor(() => {
+          expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('1 Beet · 1 belegt');
+        });
+        expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 1 Beet · 1 belegt');
+      });
+
+      it('keeps the counts stable when a level is collapsed', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Nur belegte Beete' }));
+        await screen.findByText('Leerbeet');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Eine Hierarchieebene ausblenden' }));
+
+        await waitFor(() => {
+          expect(screen.queryByText('Karottenbeet')).not.toBeInTheDocument();
+        });
+        // Collapsing hides rows; it does not remove beds from the structure.
+        expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 Parzelle · 2 Beete · 1 belegt');
+        expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('2 Beete · 1 belegt');
+      });
+
+      it('restricts the counts to the selected Standort', async () => {
+        setUpMultiLocationFixture();
+        renderWithAuth();
+
+        await screen.findByText('Karottenbeet');
+
+        fireEvent.mouseDown(screen.getByText('Alle Standorte'));
+        fireEvent.click(await screen.findByRole('option', { name: 'Pacht' }));
+
+        await waitFor(() => {
+          expect(screen.getByTestId('timeline-summary-Pacht')).toHaveTextContent('1 Parzelle · 1 Beet · 1 belegt');
+        });
+        expect(screen.queryByTestId('timeline-summary-Hof')).not.toBeInTheDocument();
+      });
+
+      it('localizes the summary in English', async () => {
+        await i18n.changeLanguage('en');
+        try {
+          setUpMultiLocationFixture();
+          renderWithAuth();
+
+          await screen.findByText('Karottenbeet');
+
+          expect(screen.getByTestId('timeline-summary-Hof')).toHaveTextContent('1 field · 1 bed · 1 occupied');
+          expect(screen.getByTestId('timeline-summary-Nordfeld')).toHaveTextContent('1 bed · 1 occupied');
+        } finally {
+          await i18n.changeLanguage('de');
+        }
+      });
+    });
 
     it('search finds a matching bed and keeps its parent Standort/Parzelle visible while hiding unrelated branches', async () => {
       setUpMultiLocationFixture();

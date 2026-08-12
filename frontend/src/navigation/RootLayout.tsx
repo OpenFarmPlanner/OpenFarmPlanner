@@ -30,7 +30,6 @@ import {
   type SvgIconProps,
   Drawer,
   Toolbar,
-  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -58,10 +57,12 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PublicIcon from '@mui/icons-material/Public';
+import GavelIcon from '@mui/icons-material/Gavel';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
 import { MobileProjectSwitcherDialog } from './MobileProjectSwitcherDialog';
@@ -86,7 +87,6 @@ import { useGlobalOverlayKeyboardScroll } from '../hooks/useDialogKeyboardScroll
 import { useFocusRegion } from '../focus/useFocusManager';
 import { useTopbarActionsRouteReset } from '../hooks/useTopbarActionsRouteReset';
 import { appRouteUrl } from '../utils/appRouteUrl';
-import { publicAssetUrl } from '../utils/publicAssetUrl';
 import { KEYBOARD_NAV_ROUTES, MAIN_NAV_ITEMS, getKeyboardNavigationRouteFromPathname, isProjectIndependentRoute, normalizeMainRoutePath, shouldDisableNavItem } from '../navigation/mainNavigation';
 import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import NavListItem from '../navigation/NavListItem';
@@ -105,8 +105,9 @@ import {
   navigationTooltipSx,
 } from '../navigation/navigationStyles';
 import { PanelLeft } from 'lucide-react';
+import AppIcon from '../components/layout/AppIcon';
+import { AppTooltip } from '../components/AppTooltip';
 
-const CONTENT_ALIGNMENT_MODE = 'centered';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
@@ -122,7 +123,7 @@ function FileExportIcon(props: SvgIconProps) {
 interface SnackbarState {
   open: boolean;
   message: string;
-  severity: 'success' | 'error';
+  severity: 'success' | 'error' | 'info';
   actionLabel?: string;
   onAction?: () => void | Promise<void>;
 }
@@ -160,7 +161,15 @@ function RootLayout() {
   );
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPathnameRef = React.useRef(location.pathname);
+  // The route the keyboard navigation and the command palette consider
+  // "current". Derived from the location rather than kept in a ref: the ref
+  // version made the value unreadable during render and, because its reader
+  // was a `useCallback([])`, left the command palette's `currentPath` frozen
+  // at whatever route the shell first mounted on.
+  const currentKeyboardRoute = useMemo(
+    () => getKeyboardNavigationRouteFromPathname(location.pathname) ?? normalizeMainRoutePath(location.pathname),
+    [location.pathname],
+  );
   const expandSidebarBtnRef = React.useRef<HTMLButtonElement>(null);
   const collapseSidebarBtnRef = React.useRef<HTMLButtonElement>(null);
   // The three primary F6-reachable focus regions of the app shell — see
@@ -203,8 +212,7 @@ function RootLayout() {
   const [cultureActionsMenuAnchor, setCultureActionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileActionsOverflowAnchor, setMobileActionsOverflowAnchor] = useState<null | HTMLElement>(null);
   const [topbarPrimaryActionMenuAnchor, setTopbarPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null);
-  currentPathnameRef.current = location.pathname;
-
+  const [publicLibraryModerationMenuAnchor, setPublicLibraryModerationMenuAnchor] = useState<null | HTMLElement>(null);
   useTopbarActionsRouteReset(location.pathname, setTopbarContextActions, setTopbarTitleActions);
 
   const { hasActiveProject } = useProjectRequirement();
@@ -306,9 +314,11 @@ function RootLayout() {
     message: '',
     severity: 'success',
   });
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error', actionLabel?: string, onAction?: () => void | Promise<void>) => {
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info', actionLabel?: string, onAction?: () => void | Promise<void>) => {
     setSnackbar({ open: true, message, severity, actionLabel, onAction });
-  }, []);
+    // `setSnackbar` is listed because the compiler infers it as a dependency.
+    // useState setters are stable, so this does not change the callback identity.
+  }, [setSnackbar]);
 
   useEffect(() => {
     const handleGlobalSnackbar = (event: Event): void => {
@@ -347,6 +357,7 @@ function RootLayout() {
       window.location.reload();
     } catch (error) {
       console.error('Error restoring project version:', error);
+      setPendingRestoreEntry(null);
       showSnackbar(t('commandPalette.feedback.versionRestoreError'), 'error');
     }
   };
@@ -371,35 +382,19 @@ function RootLayout() {
   const memberships = useMemo(() => user?.memberships ?? [], [user?.memberships]);
   const activeMembership = memberships.find((membership) => membership.project_id === activeProjectId) ?? null;
   const isGuestDemoSession = Boolean(user?.is_guest_demo);
-  const isPersonalDemoProject = !isGuestDemoSession && activeMembership?.is_demo_project === true;
-  const canLeaveDemoProject = isGuestDemoSession || isPersonalDemoProject;
+  const canLeaveDemoProject = isGuestDemoSession;
   const activeProjectLabel = activeMembership?.project_name ?? t('projectSwitcher.noProject');
 
   const handleLeaveDemoProject = useCallback(async (): Promise<void> => {
     try {
       handleGlobalMenuClose();
-      if (user?.is_guest_demo) {
-        navigate('/', { replace: true });
-        await endGuestDemo();
-        return;
-      }
-
-      const fallbackProject = memberships.find((membership) => (
-        membership.project_id !== activeProjectId
-        && membership.is_demo_project !== true
-      ));
-      if (fallbackProject) {
-        await switchActiveProject(fallbackProject.project_id);
-        navigate('/app/dashboard', { replace: true });
-        return;
-      }
-
-      navigate('/app/project-selection', { replace: true });
+      navigate('/', { replace: true });
+      await endGuestDemo();
     } catch (error) {
       console.error('Error leaving demo project:', error);
       showSnackbar(t('commandPalette.feedback.leaveDemoError'), 'error');
     }
-  }, [activeProjectId, endGuestDemo, memberships, navigate, showSnackbar, switchActiveProject, t, user?.is_guest_demo]);
+  }, [endGuestDemo, navigate, showSnackbar, t]);
 
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
@@ -484,8 +479,14 @@ function RootLayout() {
 
   const applyProjectContextChange = useCallback(async (projectId: number): Promise<void> => {
     await switchActiveProject(projectId);
-    window.location.href = appRouteUrl('/app/dashboard');
-  }, [switchActiveProject]);
+    const currentPath = `${location.pathname}${location.search}${location.hash}`;
+    const targetUrl = appRouteUrl(currentPath);
+    if (targetUrl === `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.location.reload();
+    } else {
+      window.location.href = targetUrl;
+    }
+  }, [switchActiveProject, location.pathname, location.search, location.hash]);
 
   const closeCreateProjectDialog = (): void => {
     setIsCreateProjectOpen(false);
@@ -512,8 +513,13 @@ function RootLayout() {
   const isCulturesPage = location.pathname.startsWith('/app/cultures');
   const isFieldsBedsPage = location.pathname.startsWith('/app/fields-beds');
   const isCalendarPage = location.pathname.startsWith('/app/gantt-chart');
+  const isPublicCropLibraryPage = location.pathname.startsWith('/app/crop-library');
   const cultureLibraryAction = useMemo(
     () => topbarContextActions.find((action) => action.id === 'cultures-open-library'),
+    [topbarContextActions],
+  );
+  const publicLibraryModerationAction = useMemo(
+    () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
     [topbarContextActions],
   );
   const cultureImportExportActions = useMemo(
@@ -529,7 +535,13 @@ function RootLayout() {
     [topbarTitleActions],
   );
   const genericTopbarContextActions = useMemo(
-    () => (isCulturesPage ? [] : topbarContextActions.filter((action) => action.id !== 'fields-global-add-field')),
+    () => (isCulturesPage
+      ? []
+      : topbarContextActions.filter((action) => (
+        action.id !== 'fields-global-add-field'
+        && action.id !== 'public-crop-library-moderation'
+        && action.id !== 'public-crop-library-remove'
+      ))),
     [isCulturesPage, topbarContextActions],
   );
   const topbarModeControls = useMemo(
@@ -570,11 +582,12 @@ function RootLayout() {
       !isFieldsBedsPage
       && !isCalendarPage
       && !isCulturesPage
+      && !isPublicCropLibraryPage
       && (
         hasVisibleMobileContextActions
       )
     ),
-    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage],
+    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage, isPublicCropLibraryPage],
   );
   const handleCreateProject = async (): Promise<void> => {
     if (!newProjectName.trim()) {
@@ -640,24 +653,18 @@ function RootLayout() {
     }
   }, [activeProjectId, applyProjectContextChange, handleProjectMenuClose, showSnackbar, t]);
 
-  const getCurrentRouteFromLocation = useCallback((): string => {
-    const pathname = currentPathnameRef.current;
-    return getKeyboardNavigationRouteFromPathname(pathname) ?? normalizeMainRoutePath(pathname);
-  }, []);
-
   const navigateRelativePage = useCallback((direction: 1 | -1): void => {
-    const currentRoute = getCurrentRouteFromLocation();
-    const currentIndex = KEYBOARD_NAV_ROUTES.indexOf(currentRoute);
+    const currentIndex = KEYBOARD_NAV_ROUTES.indexOf(currentKeyboardRoute);
 
     if (currentIndex === -1) {
-      console.warn(`[keyboard-nav] Unknown route "${currentRoute}" (pathname: "${currentPathnameRef.current}"). Falling back to dashboard.`);
+      console.warn(`[keyboard-nav] Unknown route "${currentKeyboardRoute}" (pathname: "${location.pathname}"). Falling back to dashboard.`);
       navigate('/app/dashboard');
       return;
     }
 
     const nextIndex = (currentIndex + direction + KEYBOARD_NAV_ROUTES.length) % KEYBOARD_NAV_ROUTES.length;
     navigate(KEYBOARD_NAV_ROUTES[nextIndex]);
-  }, [getCurrentRouteFromLocation, navigate]);
+  }, [currentKeyboardRoute, location.pathname, navigate]);
 
   const goToNextPage = useCallback((): void => {
     navigateRelativePage(1);
@@ -668,7 +675,7 @@ function RootLayout() {
   }, [navigateRelativePage]);
 
   const globalCommands = useMemo(() => createRootCommands({
-    currentPath: getCurrentRouteFromLocation(),
+    currentPath: currentKeyboardRoute,
     activeProjectId,
     memberships,
     onNextPage: goToNextPage,
@@ -702,7 +709,7 @@ function RootLayout() {
     },
   }), [
     activeProjectId,
-    getCurrentRouteFromLocation,
+    currentKeyboardRoute,
     goToNextPage,
     goToPreviousPage,
     handleLeaveDemoProject,
@@ -728,7 +735,7 @@ function RootLayout() {
   useEffect(() => {
     setSidebarCollapsed(!isLargeDesktop);
   }, [isLargeDesktop]);
-  
+
   const sidebarWidth = sidebarCollapsed ? 64 : 240;
   const currentPageTitle = useMemo(() => {
     const activeItem = navItems.find((item) => location.pathname === item.to || item.activeAliases.includes(location.pathname));
@@ -796,7 +803,7 @@ function RootLayout() {
   }
 
   return (
-    <Box className={`app app--${CONTENT_ALIGNMENT_MODE}`} sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
+    <Box sx={{ display: 'flex', width: '100%', maxWidth: '100%', overflowX: 'hidden', minHeight: '100vh', bgcolor: 'surface.appBackground', position: 'relative', isolation: 'isolate' }}>
       {isDesktopUp ? (
         <Box
           component="aside"
@@ -806,7 +813,9 @@ function RootLayout() {
         >
           <Stack sx={{ height: '100%', minHeight: 0, width: '100%' }}>
             {!sidebarCollapsed ? (
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1.5, py: 1, gap: 1 }}>
+              <Stack direction="row" sx={{ px: 1.5, py: 1, gap: 1,
+                alignItems: "center",
+                justifyContent: "space-between", }}   >
                 <Box
                   component={RouterLink}
                   to="/app/dashboard"
@@ -814,12 +823,7 @@ function RootLayout() {
                   title={t('globalMenu.dashboardLink')}
                   sx={navigationLogoLinkSx}
                 >
-                  <Box
-                    component="img"
-                    src={publicAssetUrl('/favicon.png')}
-                    alt="OpenFarmPlanner"
-                    sx={{ width: 24, height: 24, borderRadius: 0.5, flexShrink: 0 }}
-                  />
+                  <AppIcon size={24} sx={{ borderRadius: 0.5 }} />
                   <Typography
                     variant="subtitle2"
                     noWrap
@@ -828,7 +832,7 @@ function RootLayout() {
                     OpenFarmPlanner
                   </Typography>
                 </Box>
-                <Tooltip
+                <AppTooltip
                   title={t('globalMenu.closeSidebar')}
                   placement="right"
                   enterDelay={350}
@@ -843,11 +847,13 @@ function RootLayout() {
                   >
                     <PanelLeft size={18} strokeWidth={1.8} />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               </Stack>
             ) : (
-              <Stack direction="row" alignItems="center" justifyContent="center" sx={{ py: 1, mb: 0.75 }}>
-                <Tooltip
+              <Stack direction="row" sx={{ py: 1, mb: 0.75,
+                alignItems: "center",
+                justifyContent: "center", }}   >
+                <AppTooltip
                   title={t('globalMenu.openSidebar')}
                   placement="right"
                   enterDelay={350}
@@ -862,7 +868,7 @@ function RootLayout() {
                   >
                     <PanelLeft size={18} strokeWidth={1.8} />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               </Stack>
             )}
             <List sx={{ px: 1, pt: 0.5, pb: 1, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -922,7 +928,7 @@ function RootLayout() {
             flex: { xs: '0 1 max-content', md: '0 0 max-content' },
             flexWrap: 'nowrap',
             overflow: 'hidden',
-          }}>
+ }}>
             {!isDesktopUp ? (
               <Typography
                 component="h1"
@@ -1002,7 +1008,7 @@ function RootLayout() {
                       return null;
                     }
                     return (
-                      <Tooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
+                      <AppTooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
                         <ToggleButton
                           value={action.id}
                           aria-label={action.label}
@@ -1015,7 +1021,7 @@ function RootLayout() {
                         >
                           {icon}
                         </ToggleButton>
-                      </Tooltip>
+                      </AppTooltip>
                     );
                   })}
                 </ToggleButtonGroup>
@@ -1050,7 +1056,7 @@ function RootLayout() {
           {isCulturesPage ? (
             <>
               {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
-                <Tooltip title={t('cultureActions.openLibrary')}>
+                <AppTooltip title={t('cultureActions.openLibrary')}>
                   <span>
                     <Button
                       size="small"
@@ -1064,7 +1070,7 @@ function RootLayout() {
                       {!showIconOnlyCultureLibrary ? (showCompactCultureLibrary ? t('cultureActions.libraryShort') : t('cultureActions.library')) : null}
                     </Button>
                   </span>
-                </Tooltip>
+                </AppTooltip>
               ) : null}
               {(showCultureImportExportButton || isMobile) && !showDesktopCultureActionsOverflow ? (
                 <Button
@@ -1125,6 +1131,46 @@ function RootLayout() {
                     disabled={action.disabled}
                   >
                     <ListItemText primary={action.label} secondary={action.shortcutHint} />
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          ) : null}
+          {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+            <>
+              <Button
+                size="medium"
+                variant="outlined"
+                onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                disabled={publicLibraryModerationAction.disabled}
+                endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                sx={{
+                  ...getStandardActionButtonSx(false),
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {publicLibraryModerationAction.label}
+              </Button>
+              <Menu
+                anchorEl={publicLibraryModerationMenuAnchor}
+                open={Boolean(publicLibraryModerationMenuAnchor)}
+                onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              >
+                {publicLibraryModerationAction.menuActions?.map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                    disabled={action.disabled}
+                    sx={action.destructive ? { color: 'error.main' } : undefined}
+                  >
+                    {action.destructive ? (
+                      <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                    ) : null}
+                    {action.label}
                   </MenuItem>
                 ))}
               </Menu>
@@ -1192,9 +1238,9 @@ function RootLayout() {
                 </Button>
                 );
                 return action.tooltip ? (
-                  <Tooltip key={action.id} title={action.tooltip}>
+                  <AppTooltip key={action.id} title={action.tooltip}>
                     <Box component="span" sx={{ display: 'inline-flex', minWidth: 0 }}>{button}</Box>
-                  </Tooltip>
+                  </AppTooltip>
                 ) : React.cloneElement(button, { key: action.id });
               });
               return isSegmentedGroup ? (
@@ -1234,7 +1280,7 @@ function RootLayout() {
                 </Button>
               </ButtonGroup>
             ) : (
-              <Tooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
+              <AppTooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
                 <Button
                   size="small"
                   variant="contained"
@@ -1245,7 +1291,7 @@ function RootLayout() {
                 >
                   {isPhone ? <AddIcon fontSize="small" /> : topbarPrimaryAction.label}
                 </Button>
-              </Tooltip>
+              </AppTooltip>
             )
           ) : null}
             </Box>
@@ -1297,7 +1343,16 @@ function RootLayout() {
             startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
-            <span className="project-switcher-label">{activeProjectLabel}</span>
+            {/* The class name carries no styling — it is the selector
+                e2e/onboarding-demo-project.spec.ts uses to read the active
+                project name out of the topbar. */}
+            <Box
+              component="span"
+              className="project-switcher-label"
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {activeProjectLabel}
+            </Box>
           </Button>
           <ProjectMenu
             anchorEl={projectMenuAnchor}
@@ -1353,7 +1408,7 @@ function RootLayout() {
               {isCulturesPage ? (
                 <>
                   {cultureLibraryAction ? (
-                    <Tooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
                       <Box component="span" sx={{ display: 'inline-flex' }}>
                         <IconButton
                           size="small"
@@ -1371,10 +1426,10 @@ function RootLayout() {
                           <PublicIcon />
                         </IconButton>
                       </Box>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {showCultureImportExportButton ? (
-                    <Tooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
                         size="small"
                         aria-label={t('cultureActions.openImportExport')}
@@ -1393,7 +1448,7 @@ function RootLayout() {
                       >
                         <FileExportIcon />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   <Menu
                     id="culture-actions-menu-mobile"
@@ -1412,6 +1467,50 @@ function RootLayout() {
                         disabled={action.disabled}
                       >
                         <ListItemText primary={action.label} secondary={action.shortcutHint} />
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </>
+              ) : null}
+              {isPublicCropLibraryPage && publicLibraryModerationAction ? (
+                <>
+                  <AppTooltip title={publicLibraryModerationAction.label} enterTouchDelay={0}>
+                    <Box component="span" sx={{ display: 'inline-flex' }}>
+                      <IconButton
+                        size="small"
+                        onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                        aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                        sx={{
+                          width: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          height: COMPACT_TOPBAR_TOGGLE_SIZE,
+                          flexShrink: 0,
+                          color: 'text.primary',
+                          '& .MuiSvgIcon-root': { fontSize: 24 },
+                        }}
+                        disabled={publicLibraryModerationAction.disabled}
+                      >
+                        <GavelIcon />
+                      </IconButton>
+                    </Box>
+                  </AppTooltip>
+                  <Menu
+                    anchorEl={publicLibraryModerationMenuAnchor}
+                    open={Boolean(publicLibraryModerationMenuAnchor)}
+                    onClose={() => setPublicLibraryModerationMenuAnchor(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  >
+                    {publicLibraryModerationAction.menuActions?.map((action) => (
+                      <MenuItem
+                        key={action.id}
+                        onClick={() => { setPublicLibraryModerationMenuAnchor(null); action.onClick(); }}
+                        disabled={action.disabled}
+                        sx={action.destructive ? { color: 'error.main' } : undefined}
+                      >
+                        {action.destructive ? (
+                          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                        ) : null}
+                        {action.label}
                       </MenuItem>
                     ))}
                   </Menu>
@@ -1464,7 +1563,7 @@ function RootLayout() {
                           return null;
                         }
                         return (
-                          <Tooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
+                          <AppTooltip key={action.id} title={action.tooltip ?? action.label} describeChild enterTouchDelay={0}>
                             <ToggleButton
                               value={action.id}
                               aria-label={action.ariaLabel ?? action.label}
@@ -1473,13 +1572,13 @@ function RootLayout() {
                             >
                               {icon}
                             </ToggleButton>
-                          </Tooltip>
+                          </AppTooltip>
                         );
                       })}
                     </ToggleButtonGroup>
                   ) : null}
                   {isFieldsBedsPage && fieldsGlobalAddAction ? (
-                    <Tooltip title={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label} enterTouchDelay={0}>
+                    <AppTooltip title={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label} enterTouchDelay={0}>
                       <IconButton
                         size="small"
                         aria-label={fieldsGlobalAddAction.ariaLabel ?? fieldsGlobalAddAction.label}
@@ -1508,10 +1607,10 @@ function RootLayout() {
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {mobileFieldsAddLocationAction ? (
-                    <Tooltip title={mobileFieldsAddLocationAction.label}>
+                    <AppTooltip title={mobileFieldsAddLocationAction.label}>
                       <IconButton
                         size="small"
                         aria-label={mobileFieldsAddLocationAction.ariaLabel ?? mobileFieldsAddLocationAction.label}
@@ -1534,12 +1633,12 @@ function RootLayout() {
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                 </Box>
               ) : null}
               {topbarPrimaryAction && !showMobileTopbarViewActions ? (
-                <Tooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
+                <AppTooltip title={topbarPrimaryAction.tooltip ?? topbarPrimaryAction.label}>
                   <Button
                     size="small"
                     variant="contained"
@@ -1558,7 +1657,7 @@ function RootLayout() {
                   >
                     <AddIcon fontSize="small" />
                   </Button>
-                </Tooltip>
+                </AppTooltip>
               ) : null}
               {topbarPrimaryAction?.menuActions && topbarPrimaryAction.menuActions.length > 0 ? (
                 <Menu
@@ -1617,12 +1716,21 @@ function RootLayout() {
           )}
         </Toolbar>
         {isCompactTopbar && hasMobileSecondaryRow ? (
-          <Box className="mobile-action-scroll" sx={{ px: 0, pb: 0.5 }}>
+          <Box
+            sx={{
+              px: 0,
+              pb: 0.5,
+              overflowX: 'hidden',
+              overflowY: 'visible',
+              whiteSpace: 'normal',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
               {isCulturesPage ? (
                 <>
                   {cultureLibraryAction ? (
-                    <Tooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
                       <span>
                         <IconButton
                           onClick={() => cultureLibraryAction.onClick()}
@@ -1633,10 +1741,10 @@ function RootLayout() {
                           <PublicIcon />
                         </IconButton>
                       </span>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   {showCultureImportExportButton || isMobile ? (
-                    <Tooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
                         aria-label={t('cultureActions.openImportExport')}
                         aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu-mobile' : undefined}
@@ -1647,7 +1755,7 @@ function RootLayout() {
                       >
                         <FileExportIcon />
                       </IconButton>
-                    </Tooltip>
+                    </AppTooltip>
                   ) : null}
                   <Menu
                     id="culture-actions-menu-mobile"
@@ -1798,7 +1906,9 @@ function RootLayout() {
         ) : null}
       </AppBar>
 
-      <Drawer anchor="left" open={mobileNavOpen} onClose={closeMobileNav} PaperProps={{ sx: mobileNavigationDrawerPaperSx }}>
+      <Drawer anchor="left" open={mobileNavOpen} onClose={closeMobileNav} slotProps={{
+        paper: { sx: mobileNavigationDrawerPaperSx }
+ }}>
         <List sx={{ width: 280, flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <ListItem sx={{ py: 1.5, px: 2 }}>
             <AppLogo size={26} showText to="/app/dashboard" />
@@ -1932,7 +2042,8 @@ function RootLayout() {
                       </Stack>
                     </Paper>
                   ) : (
-                    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ width: '100%' }}>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%',
+                      alignItems: "flex-start", }}  >
                       <ListItemText
                         sx={{ mr: 1 }}
                         primary={(

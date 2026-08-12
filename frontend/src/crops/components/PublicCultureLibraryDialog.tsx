@@ -5,10 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
 import type { PublicCulture } from '../../api/types';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
+  Badge,
   Box,
   Button,
   Chip,
@@ -17,12 +15,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  List,
-  ListItemButton,
-  ListItemText,
-  MenuItem,
+  IconButton,
   TextField,
   Typography,
   useMediaQuery,
@@ -30,7 +23,6 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/Tune';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 // Cross-domain import: a markdown helper that today lives under the
@@ -39,8 +31,16 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 // future cleanup candidate rather than fixed now.
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
-import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
-import { useCultureListKeyboardNavigation } from '../../cultures/useCultureListKeyboardNavigation';
+import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { getPublicCultureTitle } from '../publicCultureDisplay';
+import { PublicCultureFiltersPopover } from './PublicCultureFiltersPopover';
+import {
+  EMPTY_PUBLIC_CULTURE_FILTERS,
+  countActivePublicCultureFilters,
+  getPublicCultureFilterOptions,
+  matchesPublicCultureFilters,
+  type PublicCultureFilterState,
+} from '../publicCultureFilters';
 
 interface PublicCultureLibraryDialogProps {
   open: boolean;
@@ -149,12 +149,15 @@ export function PublicCultureLibraryDialog({
   onSearch,
   onImport,
 }: PublicCultureLibraryDialogProps) {
-  const { t } = useTranslation('cultures');
+  const { t, i18n } = useTranslation('cultures');
+  const language = i18n.resolvedLanguage ?? i18n.language;
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [varietyFilter, setVarietyFilter] = useState('');
-  const [nutrientFilter, setNutrientFilter] = useState('');
-  const [cropFamilyFilter, setCropFamilyFilter] = useState('');
+  const [isSpeciesView, setIsSpeciesView] = useState(false);
+  const [filters, setFilters] = useState<PublicCultureFilterState>(EMPTY_PUBLIC_CULTURE_FILTERS);
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+  const isFilterPopoverOpen = Boolean(filterAnchorEl);
+  const activeFilterCount = countActivePublicCultureFilters(filters);
   const [mobileStep, setMobileStep] = useState<'list' | 'detail'>('list');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -179,9 +182,9 @@ export function PublicCultureLibraryDialog({
         }
         setQuery(initialQuery);
         setSelectedId(initialSelectedId);
-        setVarietyFilter('');
-        setNutrientFilter('');
-        setCropFamilyFilter('');
+        setIsSpeciesView(false);
+        setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+        setFilterAnchorEl(null);
         setMobileStep(initialSelectedId && useMobileFilterLayout ? 'detail' : 'list');
       });
       return () => {
@@ -196,42 +199,28 @@ export function PublicCultureLibraryDialog({
       queueMicrotask(() => {
         setQuery('');
         setSelectedId(null);
-        setVarietyFilter('');
-        setNutrientFilter('');
-        setCropFamilyFilter('');
+        setIsSpeciesView(false);
+        setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+        setFilterAnchorEl(null);
         setMobileStep('list');
       });
     }
   }, [open]);
 
   const normalizedQuery = query.trim().toLowerCase();
-  const varietyOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.variety?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
-  const nutrientOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.nutrient_demand || '').filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
-  const nutrientLabel = (value: string): string => {
-    if (value === 'low') return t('form.nutrientDemandLow');
-    if (value === 'medium') return t('form.nutrientDemandMedium');
-    if (value === 'high') return t('form.nutrientDemandHigh');
-    return value;
-  };
-  const cropFamilyOptions = useMemo(
-    () => Array.from(new Set(cultures.map((entry) => entry.crop_family?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
-    [cultures],
-  );
+  const filterOptions = useMemo(() => getPublicCultureFilterOptions(cultures), [cultures]);
 
   const filteredCultures = useMemo(() => cultures.filter((entry) => {
-    const label = `${entry.name} ${entry.variety || ''} ${entry.crop_species_name || ''} ${entry.crop_family || ''}`.toLowerCase();
+    const label = [
+      getPublicCultureTitle(entry, language, t('library.translation.missingName')),
+      entry.name,
+      entry.variety || '',
+      entry.crop_species_name || '',
+      entry.crop_family || '',
+    ].join(' ').toLowerCase();
     const matchesQuery = normalizedQuery.length === 0 || label.includes(normalizedQuery);
-    const matchesVariety = !varietyFilter || (entry.variety || '') === varietyFilter;
-    const matchesNutrient = !nutrientFilter || (entry.nutrient_demand || '') === nutrientFilter;
-    const matchesCropFamily = !cropFamilyFilter || (entry.crop_family || '') === cropFamilyFilter;
-    return matchesQuery && matchesVariety && matchesNutrient && matchesCropFamily;
-  }), [cropFamilyFilter, cultures, normalizedQuery, nutrientFilter, varietyFilter]);
+    return matchesQuery && matchesPublicCultureFilters(entry, filters);
+  }), [cultures, filters, language, normalizedQuery, t]);
 
   useEffect(() => {
     if (loading || (initialSelectedId && selectedId === initialSelectedId && cultures.length === 0)) {
@@ -258,19 +247,13 @@ export function PublicCultureLibraryDialog({
     [filteredCultures, selectedId],
   );
 
-  const selectCultureFromList = useCallback((culture: PublicCulture): void => {
+  const selectCultureFromList = useCallback((culture: PublicCulture, kind: 'species' | 'variety'): void => {
     setSelectedId(culture.id);
+    setIsSpeciesView(kind === 'species');
     if (useMobileFilterLayout) {
       setMobileStep('detail');
     }
   }, [useMobileFilterLayout]);
-
-  const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: filteredCultures,
-    selectedId,
-    getId: (culture) => culture.id,
-    onSelect: selectCultureFromList,
-  });
 
   const hasLibraryEntries = cultures.length > 0;
   const listEmptyTitle = hasLibraryEntries ? t('library.emptyState.noResultsTitle') : t('library.emptyState.emptyLibraryTitle');
@@ -304,6 +287,9 @@ export function PublicCultureLibraryDialog({
         }}
       >
         <MoreVertIcon sx={{ fontSize: 18 }} />
+      </Box>
+      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+        {t('library.importDialog.emptyInstructionAction')}
       </Box>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
         <Box component="span" aria-hidden="true">→</Box>
@@ -343,58 +329,19 @@ export function PublicCultureLibraryDialog({
     }
     : undefined;
 
-  const filterControls = (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' },
-        gap: 1,
-        mb: 2,
-      }}
-    >
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.variety')}</InputLabel>
-        <Select fullWidth value={varietyFilter} label={t('library.filters.variety')} onChange={(event) => setVarietyFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {varietyOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.nutrientDemand')}</InputLabel>
-        <Select fullWidth value={nutrientFilter} label={t('library.filters.nutrientDemand')} onChange={(event) => setNutrientFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {nutrientOptions.map((option) => (
-            <MenuItem key={option} value={option}>{nutrientLabel(option)}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <FormControl size="small">
-        <InputLabel>{t('library.filters.cropFamily')}</InputLabel>
-        <Select fullWidth value={cropFamilyFilter} label={t('library.filters.cropFamily')} onChange={(event) => setCropFamilyFilter(event.target.value)}>
-          <MenuItem value="">{t('filters.all')}</MenuItem>
-          {cropFamilyOptions.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    </Box>
-  );
-
   return (
-      <Dialog
-      open={open}
-      onClose={handleDialogClose}
-      maxWidth={useMobileFilterLayout ? false : 'md'}
-      fullWidth
-      fullScreen={useMobileFilterLayout}
-      slotProps={{
-        paper: {
-          sx: mobilePaperSx,
-        },
-      }}
-    >
+    <Dialog
+    open={open}
+    onClose={handleDialogClose}
+    maxWidth={useMobileFilterLayout ? false : 'md'}
+    fullWidth
+    fullScreen={useMobileFilterLayout}
+    slotProps={{
+      paper: {
+        sx: mobilePaperSx,
+      },
+    }}
+  >
       <DialogTitle sx={{ py: 2, px: useMobileFilterLayout ? 1.5 : 3, flexShrink: 0, bgcolor: 'background.paper' }}>
         {t('library.dialogTitle')}
       </DialogTitle>
@@ -420,26 +367,41 @@ export function PublicCultureLibraryDialog({
             setQuery(nextValue);
             onSearch(nextValue);
           }}
-          InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
           size="medium"
           sx={{ mb: 2 }}
+          slotProps={{
+            input: {
+              startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              endAdornment: (
+                <IconButton
+                  size="small"
+                  onClick={(event) => setFilterAnchorEl(event.currentTarget)}
+                  aria-expanded={isFilterPopoverOpen}
+                  aria-haspopup="dialog"
+                  aria-controls={isFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                  aria-label={t('filters.openAdvanced')}
+                  sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                >
+                  <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
+                    <TuneIcon fontSize="small" />
+                  </Badge>
+                </IconButton>
+              ),
+            }
+          }}
         />
 
-        {useMobileFilterLayout ? (
-          <Accordion disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 1.25 }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40 }}>
-              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                <TuneIcon fontSize="small" />
-                <Typography variant="body2">{t('filters.title', { defaultValue: 'Filter' })}</Typography>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0.75, pb: 1 }}>
-              <Box sx={{ '& > *': { mb: 0 } }}>
-                {filterControls}
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-        ) : filterControls}
+        <PublicCultureFiltersPopover
+          anchorEl={filterAnchorEl}
+          onClose={() => setFilterAnchorEl(null)}
+          filters={filters}
+          onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+          options={filterOptions}
+          onReset={() => {
+            setFilters(EMPTY_PUBLIC_CULTURE_FILTERS);
+            setFilterAnchorEl(null);
+          }}
+        />
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
@@ -450,42 +412,31 @@ export function PublicCultureLibraryDialog({
             </Box>
           ) : null}
           {(!useMobileFilterLayout || mobileStep === 'list') ? (
-            <List
-              role="listbox"
-              aria-label={t('library.dialogTitle')}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}
-            >
-            {filteredCultures.length === 0 ? (
-              useMobileFilterLayout ? (
-                <LibraryEmptyState title={listEmptyTitle} description={listEmptyDescription} compact />
-              ) : (
-                <Typography color="text.secondary" sx={{ p: 2 }}>{t('library.empty')}</Typography>
-              )
-            ) : filteredCultures.map((culture) => (
-                <ListItemButton
-                  key={culture.id}
-                  {...cultureListNavigation.getItemProps(culture)}
-                  selected={culture.id === selectedId}
-                  onClick={() => cultureListNavigation.selectItem(culture)}
-                  alignItems="flex-start"
-                  sx={{ py: 0.75, px: 1.25 }}
-                >
-                  <ListItemText
-                    primary={culture.variety ? `${culture.name} (${culture.variety})` : culture.name}
-                    secondary={culture.crop_species_name || culture.name}
-                    primaryTypographyProps={{ fontSize: '0.92rem', lineHeight: 1.25 }}
-                    secondaryTypographyProps={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.2 }}
-                  />
-                </ListItemButton>
-              ))}
-            </List>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, height: useMobileFilterLayout ? '100%' : 420, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' }}>
+              <PublicCropHierarchyList
+                cultures={filteredCultures}
+                selectedCultureId={selectedId}
+                isSpeciesView={isSpeciesView}
+                storageKey="publicCultureLibraryDialog"
+                searchQuery={query}
+                ariaLabel={t('library.dialogTitle')}
+                onSelect={(culture, { kind }) => selectCultureFromList(culture, kind)}
+                emptyState={useMobileFilterLayout ? (
+                  <LibraryEmptyState title={listEmptyTitle} description={listEmptyDescription} compact />
+                ) : (
+                  <Typography color="text.secondary" sx={{ p: 2 }}>{t('library.empty')}</Typography>
+                )}
+              />
+            </Box>
           ) : null}
 
           {(!useMobileFilterLayout || mobileStep === 'detail') ? (
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: useMobileFilterLayout ? 1.5 : 2, minHeight: useMobileFilterLayout ? '100%' : 420, maxHeight: useMobileFilterLayout ? 'none' : 420, overflowY: 'auto', scrollbarGutter: 'stable' }}>
             {selectedCulture ? (
               <>
-                <Typography variant="h6" sx={{ lineHeight: 1.25 }}>{selectedCulture.name}</Typography>
+                <Typography variant="h6" sx={{ lineHeight: 1.25 }}>
+                  {getPublicCultureTitle(selectedCulture, language, t('library.translation.missingName'))}
+                </Typography>
                 {selectedCulture.variety ? (
                   <Typography color="text.secondary" sx={{ mb: 0.75, lineHeight: 1.35 }}>{selectedCulture.variety}</Typography>
                 ) : null}

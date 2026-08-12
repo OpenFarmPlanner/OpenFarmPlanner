@@ -46,6 +46,9 @@ export interface SearchableSelectProps<T = unknown> {
   onInputChange?: (value: string) => void;
   endAdornment?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
+  open?: boolean;
+  onOpen?: () => void;
+  onClose?: (event: unknown) => void;
 }
 
 // Combines Autocomplete's own internal input ref (needed for its keyboard/focus
@@ -82,6 +85,9 @@ export function SearchableSelect<T = unknown>({
   onInputChange,
   endAdornment,
   inputRef,
+  open,
+  onOpen,
+  onClose,
 }: SearchableSelectProps<T>) {
   const [internalInputValue, setInternalInputValue] = useState('');
   const resolvedInputValue = inputValue ?? internalInputValue;
@@ -100,6 +106,9 @@ export function SearchableSelect<T = unknown>({
       fullWidth={fullWidth}
       autoHighlight
       openOnFocus
+      open={open}
+      onOpen={onOpen}
+      onClose={onClose}
       size={size}
       options={options}
       value={value}
@@ -122,22 +131,24 @@ export function SearchableSelect<T = unknown>({
           autoFocus={autoFocus}
           sx={textFieldSx}
           slotProps={{
+            ...params.slotProps,
+
             htmlInput: {
-              ...params.inputProps,
-              ref: mergeRefs(params.inputProps.ref, inputRef),
+              ...params.slotProps.htmlInput,
+              ref: mergeRefs(params.slotProps.htmlInput.ref, inputRef),
               tabIndex: inputTabIndex,
             },
-          }}
-          InputProps={{
-            ...params.InputProps,
-            endAdornment: (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                {params.InputProps.endAdornment}
-                {endAdornment}
-              </span>
-            ),
-          }}
-        />
+
+            input: {
+              ...params.slotProps.input,
+              endAdornment: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  {params.slotProps.input.endAdornment}
+                  {endAdornment}
+                </span>
+              ),
+            }
+          }} />
       )}
     />
   );

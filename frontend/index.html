@@ -4,6 +4,67 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="%BASE_URL%favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var supported = { de: true, en: true };
+        var fallback = 'en';
+
+        function normalize(value) {
+          var normalized = String(value || '').trim().toLowerCase().replace(/_/g, '-');
+          if (!normalized) {
+            return null;
+          }
+          var base = normalized.split('-')[0];
+          return supported[base] ? base : null;
+        }
+
+        function readStoredPreference() {
+          try {
+            var stored = window.localStorage.getItem('ui.language');
+            if (stored === null) {
+              return null;
+            }
+            var normalized = String(stored || '').trim().toLowerCase();
+            if (normalized === 'auto') {
+              return 'auto';
+            }
+            return normalize(normalized);
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function detectBrowserLanguage() {
+          var candidates = [];
+          if (Array.isArray(navigator.languages)) {
+            candidates = candidates.concat(navigator.languages);
+          }
+          if (navigator.language) {
+            candidates.push(navigator.language);
+          }
+          for (var i = 0; i < candidates.length; i += 1) {
+            var language = normalize(candidates[i]);
+            if (language) {
+              return language;
+            }
+          }
+          return fallback;
+        }
+
+        var preference = readStoredPreference();
+        var language = preference && preference !== 'auto' ? preference : detectBrowserLanguage();
+        document.documentElement.lang = language;
+        document.documentElement.dataset.initialUiLanguage = language;
+        if (language !== 'de') {
+          document.documentElement.classList.add('ofp-hide-prerender');
+        }
+      }());
+    </script>
+    <style>
+      html.ofp-hide-prerender #root {
+        visibility: hidden;
+      }
+    </style>
     <title>OpenFarmPlanner</title>
     <!-- The meta description (and canonical/robots/OG/Twitter tags) are
          injected at build time by build/seoPlugin.ts from seoConfig.ts /

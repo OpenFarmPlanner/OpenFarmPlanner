@@ -425,12 +425,32 @@
   color: var(--rmg-gray-200);
 }
 
-.rmg-task-row-empty-label {
+/* Structural summary of a bar-less parent row (Standort/Parzelle:
+   "2 Parzellen · 6 Beete · 5 belegt"), rendered at the start of that row's
+   timeline area. Deliberately quiet — small, secondary colour — so it reads
+   as metadata rather than as a bar bound to a particular month.
+
+   The row centres it vertically and, being a single nowrap line well under
+   the row's min-height, it never adds height of its own — which matters,
+   since the sidebar row next to it is sized from the same number.
+
+   `sticky` at the left column's width keeps it just past the divider while
+   the timeline scrolls horizontally, instead of sliding out of sight behind
+   the sticky, opaque left column. */
+.rmg-task-row-empty {
   display: flex;
   align-items: center;
-  height: 100%;
+}
+
+.rmg-task-row-empty-label {
+  position: sticky;
+  left: var(--rmg-left-column-width, 160px);
+  flex: 0 0 auto;
   padding-left: 12px;
   font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
   color: var(--rmg-gray-500);
 }
 

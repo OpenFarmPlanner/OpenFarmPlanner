@@ -61,7 +61,7 @@ const authState = {
   user: null as AuthUser | null,
   isLoading: false,
   activeProjectId: null as number | null,
-  login: vi.fn(async () => ({}) as AuthUser),
+  login: vi.fn(async () => (({}) as AuthUser)),
   logout: vi.fn(async () => {}),
   register: vi.fn(async () => 'ok'),
   activate: vi.fn(async () => {}),
@@ -69,7 +69,7 @@ const authState = {
   requestPasswordReset: vi.fn(async () => 'ok'),
   confirmPasswordReset: vi.fn(async () => 'ok'),
   requestAccountDeletion: vi.fn(async () => ({ detail: 'ok', scheduled_deletion_at: new Date().toISOString() })),
-  restoreAccount: vi.fn(async () => ({}) as AuthUser),
+  restoreAccount: vi.fn(async () => (({}) as AuthUser)),
   switchActiveProject: vi.fn(async () => {}),
   startGuestDemo: vi.fn(async () => createGuestDemoUser()),
   endGuestDemo: vi.fn(async () => {}),
@@ -185,7 +185,7 @@ describe('App', () => {
     expect(await screen.findByRole('tab', { name: 'Flächen' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Flächen',
-      'Kulturbibliothek',
+      'Kulturen',
       'Anbaupläne',
       'Kalender',
       'Erträge',
@@ -222,7 +222,7 @@ describe('App', () => {
     expect(await screen.findByRole('tab', { name: 'Areas' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Areas',
-      'Crop library',
+      'Crops',
       'Planting plans',
       'Calendar',
       'Yields',
@@ -262,6 +262,37 @@ describe('App', () => {
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     await user.click(await screen.findByRole('button', { name: 'Demo ohne Registrierung ansehen' }));
+
+    await waitFor(() => {
+      expect(authState.startGuestDemo).toHaveBeenCalledTimes(1);
+      expect(window.location.pathname).toBe('/app/fields-beds');
+    });
+  });
+
+  it('renders the shareable demo link without starting a session automatically', async () => {
+    window.history.pushState({}, '', '/demo');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'Demo ausprobieren' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Demo jetzt starten' })).toBeInTheDocument();
+    expect(authState.startGuestDemo).not.toHaveBeenCalled();
+  });
+
+  it('starts the public guest demo from the shareable demo link', async () => {
+    const user = userEvent.setup();
+    window.history.pushState({}, '', '/demo');
+
+    authState.startGuestDemo.mockImplementationOnce(async () => {
+      const demoUser = createGuestDemoUser();
+      authState.user = demoUser;
+      authState.activeProjectId = demoUser.resolved_project_id;
+      return demoUser;
+    });
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await user.click(await screen.findByRole('button', { name: 'Demo jetzt starten' }));
 
     await waitFor(() => {
       expect(authState.startGuestDemo).toHaveBeenCalledTimes(1);
@@ -664,7 +695,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Registrieren' })).toBeInTheDocument();
   });
 
-  it('keeps authenticated users signed in when leaving their personal demo project', async () => {
+  it('does not show "Demo verlassen" for authenticated users on their personal demo project', async () => {
     authState.user = createAuthenticatedUser([
       { project_id: 9, project_name: 'Solawi Sonnenacker', role: 'admin', is_demo_project: true },
       { project_id: 1, project_name: 'Alpha', role: 'admin', is_demo_project: false },
@@ -675,17 +706,8 @@ describe('App', () => {
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     fireEvent.click(await screen.findByLabelText('Mehr'));
-    expect(await screen.findByText('Demo verlassen')).toBeInTheDocument();
-    expect(screen.getByText(/Abmelden/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Demo verlassen'));
-
-    await waitFor(() => {
-      expect(authState.switchActiveProject).toHaveBeenCalledWith(1);
-      expect(authState.endGuestDemo).not.toHaveBeenCalled();
-      expect(authState.logout).not.toHaveBeenCalled();
-      expect(window.location.pathname).toBe('/app/dashboard');
-    });
+    expect(await screen.findByText(/Abmelden/)).toBeInTheDocument();
+    expect(screen.queryByText('Demo verlassen')).not.toBeInTheDocument();
   });
 
   it('only signs out authenticated users through the explicit logout action', async () => {
@@ -737,6 +759,24 @@ describe('App', () => {
     expect(screen.queryByText(/Papierkorb/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Neues Projekt'));
     expect(await screen.findByRole('heading', { name: 'Projekt anlegen' })).toBeInTheDocument();
+  });
+
+  it('stays on the current page when switching the active project from the project switcher menu', async () => {
+    authState.user = createAuthenticatedUser([
+      { project_id: 1, project_name: 'Alpha', role: 'admin' },
+      { project_id: 2, project_name: 'Beta', role: 'admin' },
+    ], 1);
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/anbauplaene');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Aktives Projekt wechseln' }));
+    fireEvent.click(await screen.findByText('Beta'));
+
+    await waitFor(() => {
+      expect(authState.switchActiveProject).toHaveBeenCalledWith(2);
+    });
+    expect(window.location.pathname).toBe('/app/anbauplaene');
   });
 
   it('opens the project trash from the project switcher when deleted projects exist', async () => {

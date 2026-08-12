@@ -291,6 +291,44 @@ describe('SeedDemandPage', () => {
     expect(screen.queryByText(/over:/i)).not.toBeInTheDocument();
   });
 
+  it('uses the localized culture display name when the API provides one', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            culture_id: 1,
+            culture_name: 'Ackerbohne',
+            culture_display_name: 'Broad bean',
+            culture_display_language_code: 'en',
+            variety: 'Hangdown',
+            supplier: 'Open Seeds',
+            supplier_options: [{ supplier_id: 10, supplier_name: 'Open Seeds' }],
+            selected_supplier_id: 10,
+            required_amount_value: 100,
+            required_amount_unit: 'g',
+            total_grams: 100,
+            package_suggestion: null,
+            warning: null,
+          },
+        ],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <SeedDemandPage />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('link', { name: 'Broad bean (Hangdown)' })).toBeInTheDocument();
+    expect(screen.queryByText('Ackerbohne (Hangdown)')).not.toBeInTheDocument();
+  });
+
   it('opens row actions from the right-click context menu and copies the visible row as TSV', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {

@@ -1,17 +1,15 @@
 import type { ReactElement } from 'react';
 import {
-  Box,
-  Button,
   FormControl,
   InputLabel,
   MenuItem,
-  Popover,
   TextField,
 } from '@mui/material';
 
 import { useTranslation } from '../i18n';
 import type { PersistedCultureFilters } from './cultureDetailFormatters';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
+import { FilterPopoverShell } from '../components/filters/FilterPopoverShell';
 
 interface CultureFiltersPopoverProps {
   anchorEl: HTMLElement | null;
@@ -46,24 +44,13 @@ export function CultureFiltersPopover({
   const { t } = useTranslation('cultures');
 
   return (
-    <Popover
+    <FilterPopoverShell
       id="culture-filters-popover"
-      open={Boolean(anchorEl)}
       anchorEl={anchorEl}
       onClose={onClose}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      PaperProps={{ sx: { width: { xs: 'min(92vw, 360px)', sm: 360 }, p: 1.5 } }}
+      onReset={onReset}
+      resetLabel={t('filters.reset')}
     >
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
-          gap: 1,
-          pt: 0.5,
-          pb: 0.5,
-        }}
-      >
         <FormControl size="small" sx={{ gridColumn: '1 / -1' }}>
           <InputLabel id="culture-family-filter-label">{t('filters.cropFamily')}</InputLabel>
           <Select
@@ -172,15 +159,6 @@ export function CultureFiltersPopover({
           value={filters.yieldMax}
           onChange={(event) => onFilterChange('yieldMax', event.target.value)}
         />
-        <Button
-          variant="text"
-          size="small"
-          onClick={onReset}
-          sx={{ justifySelf: 'end', whiteSpace: 'nowrap', gridColumn: '1 / -1' }}
-        >
-          {t('filters.reset')}
-        </Button>
-      </Box>
-    </Popover>
+    </FilterPopoverShell>
   );
 }

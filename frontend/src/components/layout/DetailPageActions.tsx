@@ -1,7 +1,8 @@
-import { Box, Button, Stack, Tooltip } from '@mui/material';
-import type { MouseEvent, ReactNode } from 'react';
+import { Box, Button, Stack } from '@mui/material';
+import { memo, type MouseEvent, type ReactNode } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { getStandardActionButtonSx } from '../buttons/segmentedControlStyles';
+import { AppTooltip } from '../AppTooltip';
 
 export interface DetailPagePrimaryAction {
   label: string;
@@ -19,7 +20,7 @@ interface DetailPageActionsProps {
   compact?: boolean;
 }
 
-export function DetailPageActions({
+export const DetailPageActions = memo(function DetailPageActions({
   primaryActions,
   overflowLabel,
   onOpenOverflow,
@@ -30,9 +31,9 @@ export function DetailPageActions({
       direction="row"
       spacing={1}
       useFlexGap
-      flexWrap={compact ? 'nowrap' : { xs: 'nowrap', sm: 'wrap' }}
-      justifyContent={compact ? 'flex-start' : { xs: 'flex-start', sm: 'flex-end' }}
-      sx={{ flexShrink: 0, minWidth: 'auto' }}
+      sx={{ flexShrink: 0, minWidth: 'auto',
+            flexWrap: compact ? 'nowrap' : { xs: 'nowrap', sm: 'wrap' },
+            justifyContent: compact ? 'flex-start' : { xs: 'flex-start', sm: 'flex-end' }, }}
     >
       {primaryActions.map((action) => {
         const button = (
@@ -59,13 +60,13 @@ export function DetailPageActions({
         }
 
         return (
-          <Tooltip key={action.label} title={action.tooltip}>
+          <AppTooltip key={action.label} title={action.tooltip}>
             <span>{button}</span>
-          </Tooltip>
+          </AppTooltip>
         );
       })}
       {overflowLabel && onOpenOverflow ? (
-        <Tooltip title={overflowLabel}>
+        <AppTooltip title={overflowLabel}>
           <Button
             aria-label={overflowLabel}
             onClick={onOpenOverflow}
@@ -81,8 +82,8 @@ export function DetailPageActions({
           >
             <MoreVertIcon fontSize="small" />
           </Button>
-        </Tooltip>
+        </AppTooltip>
       ) : null}
     </Stack>
   );
-}
+});

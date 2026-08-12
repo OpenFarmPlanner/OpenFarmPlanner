@@ -48,6 +48,22 @@ vi.mock('../i18n', () => ({
   useTranslation: () => ({ t: mockT }),
 }));
 
+vi.mock('../components/data-grid/RichTextEditor', () => ({
+  RichTextEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+  }) => (
+    <textarea
+      aria-label="notes"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 vi.mock('../commands/useCommandContext', () => ({
   useCommandContextTag: vi.fn(),
   useRegisterCommands: vi.fn(),

@@ -14,6 +14,7 @@ import type {
   GridCellParams,
   GridColDef,
   GridRenderCellParams,
+  GridRowId,
   GridValueOptionsParams,
 } from "@mui/x-data-grid";
 import {
@@ -22,7 +23,6 @@ import {
   CircularProgress,
   IconButton,
   Stack,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -92,8 +92,8 @@ import {
   getTranslatedProjectSetupActions,
 } from "./requirementFlow";
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
-import { CompactAreaCell } from "../components/planting-plans/CompactAreaCell";
 import EmptyStateCard from "../components/project/EmptyStateCard";
+import { formatCultureDisplayName } from "../cultures/cultureDisplay";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
@@ -114,6 +114,7 @@ import {
   type MobileCreateFormState,
   type PlantingPlanRow,
 } from './plantingPlansUtils';
+import { AppTooltip } from '../components/AppTooltip';
 
 const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
@@ -123,6 +124,8 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
 const CULTURE_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
+/** Columns whose editor is a dialog the cell opens on a single click. */
+const PLANTING_PLAN_DIALOG_EDIT_FIELDS = ["bed"];
 
 function PlantingPlans() {
   const { t } = useTranslation(["plantingPlans", "common"]);
@@ -301,6 +304,28 @@ function PlantingPlans() {
     ],
   );
 
+  /**
+   * Writes a growing-area selection made in the AreaAssignmentDialog back into
+   * the grid. The bed cell has no inline edit mode, so the column's former
+   * `valueSetter` side effects (hierarchy sync, area autofill for new rows)
+   * live here instead.
+   */
+  const applyBedSelection = useCallback(
+    async (rowId: GridRowId, row: PlantingPlanRow, nextBedId: number): Promise<void> => {
+      const selectedBed = bedById.get(nextBedId);
+      const shouldAutofillArea = Boolean(row.isNew)
+        && (row.area_m2 === undefined || row.area_m2 === null);
+
+      await gridCommandApiRef.current?.applyDialogEditValues(rowId, {
+        bed: nextBedId,
+        ...normalizeSelectionAfterBedChange(row, nextBedId, fields, beds),
+        ...(shouldAutofillArea && selectedBed?.area_sqm !== undefined
+          ? { area_m2: selectedBed.area_sqm }
+          : {}),
+      });
+    },
+    [bedById, beds, fields],
+  );
 
   /**
    * Check for cultureId or bedId parameter in URL and set as initial values
@@ -520,11 +545,14 @@ function PlantingPlans() {
       },
       {
         field: "bed",
-          headerName: areaColumnLabel,
+        headerName: areaColumnLabel,
         flex: 0,
         minWidth: dynamicWidths.bed,
         maxWidth: BED_COLUMN_MAX_WIDTH,
-        editable: true,
+        // The growing area is only ever picked in AreaAssignmentDialog, so the
+        // cell skips inline edit mode entirely — see the grid's
+        // `dialogEditFields` prop below.
+        editable: false,
         type: "singleSelect",
         valueOptions: bedOptions,
         valueFormatter: (_value, row) => getBedLabelForRow(row as PlantingPlanRow),
@@ -538,13 +566,8 @@ function PlantingPlans() {
         },
         renderCell: (params) => {
           const row = params.row as PlantingPlanRow;
-          const label = getBedLabelForRow(row);
-          return <CompactAreaCell label={label} hasFocus={params.hasFocus} />;
-        },
-        renderEditCell: (params) => {
-          const row = params.row as PlantingPlanRow;
           const bedId = resolveBedCellValue(params.value, row);
-          const label = getBedLabelForRow({ ...row, bed: bedId });
+          const label = getBedLabelForRow(row);
           return (
             <AreaAssignmentDialog
               bedId={bedId || null}
@@ -555,33 +578,12 @@ function PlantingPlans() {
               compactLabel={label}
               placeholder={t("plantingPlans:placeholders.selectArea")}
               hasFocus={params.hasFocus}
+              rowId={params.id}
+              field={params.field}
               memoKey={`${String(params.id)}:${params.field}`}
-              onApply={async (nextBedId) => {
-                await params.api.setEditCellValue({
-                  id: params.id,
-                  field: "bed",
-                  value: nextBedId,
-                });
-              }}
+              onApply={(nextBedId) => applyBedSelection(params.id, row, nextBedId)}
             />
           );
-        },
-        valueSetter: (value, row) => {
-          const nextRow = row as PlantingPlanRow;
-          const numericValue = resolveBedCellValue(value, nextRow);
-          const selectedBed = bedById.get(numericValue);
-          const isNewRow = Boolean(nextRow.isNew);
-          const currentArea = nextRow.area_m2;
-          const shouldAutofill = isNewRow && (currentArea === undefined || currentArea === null);
-
-          return {
-            ...nextRow,
-            ...normalizeSelectionAfterBedChange(nextRow, numericValue, fields, beds),
-            area_m2:
-              shouldAutofill && selectedBed?.area_sqm !== undefined
-                ? selectedBed.area_sqm
-                : currentArea,
-          } as PlantingPlanRow;
         },
       },
       {
@@ -644,7 +646,7 @@ function PlantingPlans() {
         maxWidth: dynamicWidths.area,
         editable: true,
         renderHeader: () => (
-          <Tooltip
+          <AppTooltip
             title={(
               <Box component="span" sx={{ display: "block" }}>
                 <Box component="span" sx={{ display: "block", fontWeight: 600 }}>
@@ -659,7 +661,7 @@ function PlantingPlans() {
             <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
               {t("plantingPlans:columns.areaM2")}
             </Box>
-          </Tooltip>
+          </AppTooltip>
         ),
         preProcessEditCellProps: (params) => {
           if (params.hasChanged) {
@@ -702,11 +704,11 @@ function PlantingPlans() {
         editable: true,
         type: "number",
         renderHeader: () => (
-          <Tooltip title={t("plantingPlans:tooltips.plantsFromSpacing")}>
+          <AppTooltip title={t("plantingPlans:tooltips.plantsFromSpacing")}>
             <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
               {t("plantingPlans:columns.plantsCount")}
             </Box>
-          </Tooltip>
+          </AppTooltip>
         ),
         preProcessEditCellProps: (params) => {
           if (params.hasChanged) {
@@ -756,7 +758,7 @@ function PlantingPlans() {
       },
     ],
     [
-      bedById,
+      applyBedSelection,
       bedLabelById,
       bedOptions,
       beds,
@@ -778,14 +780,27 @@ function PlantingPlans() {
 
   const getCultureLabel = (row: PlantingPlanRow): string => {
     const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    if (row.culture_name) {
-      if (linkedCulture?.variety && !row.culture_name.includes(`(${linkedCulture.variety})`)) {
-        return `${row.culture_name} (${linkedCulture.variety})`;
-      }
-      return row.culture_name;
+    const cultureLabel = formatCultureDisplayName({
+      name: linkedCulture?.name,
+      culture_name: row.culture_name,
+      culture_display_name: row.culture_display_name ?? linkedCulture?.culture_display_name,
+      variety: linkedCulture?.variety,
+      culture_variety: row.culture_variety,
+    });
+    if (cultureLabel) {
+      return cultureLabel;
     }
     const fallback = cultureOptions.find((option) => option.value === row.culture);
     return fallback?.label ?? "—";
+  };
+
+  const getPlantsPerSqmForCulture = (cultureId: string): number | null => {
+    const numericCultureId = Number(cultureId);
+    const culture = cultures.find((item) => item.id === numericCultureId);
+    if (!culture || !culture.plants_per_m2 || culture.plants_per_m2 <= 0) {
+      return null;
+    }
+    return culture.plants_per_m2;
   };
 
   const getDisplayArea = (row: PlantingPlanRow): string => {
@@ -1008,15 +1023,6 @@ function PlantingPlans() {
     } finally {
       setIsMobileNotesSaving(false);
     }
-  };
-
-  const getPlantsPerSqmForCulture = (cultureId: string): number | null => {
-    const numericCultureId = Number(cultureId);
-    const culture = cultures.find((item) => item.id === numericCultureId);
-    if (!culture || !culture.plants_per_m2 || culture.plants_per_m2 <= 0) {
-      return null;
-    }
-    return culture.plants_per_m2;
   };
 
   const getDerivedAreaFromRow = (row: PlantingPlanRow): number | null => {
@@ -1245,7 +1251,12 @@ function PlantingPlans() {
     setMobileLastEditedField(null);
     setIsMobileCreateOpen(true);
   };
-  openMobileEditDialogRef.current = openMobileEditDialog;
+  // Assigned from an effect rather than during render. The effect is declared
+  // before the deep-link effect below, which is the one that reads the ref, so
+  // effect ordering still guarantees the callback is in place on first mount.
+  useEffect(() => {
+    openMobileEditDialogRef.current = openMobileEditDialog;
+  });
 
   // Consumes a `?planId=<id>` deep link (e.g. "Anbauplan öffnen"/"bearbeiten"
   // or a double-click from the Gantt calendar's context menu): opens the
@@ -1445,7 +1456,7 @@ function PlantingPlans() {
               bgcolor: "surface.surfaceBackground",
             }}
           >
-            <Stack spacing={1.25} alignItems="center">
+            <Stack spacing={1.25} sx={{ alignItems: "center", }} >
               <CircularProgress size={24} />
               <Typography variant="body2" color="text.secondary">
                 Anbaupläne werden geladen…
@@ -1475,7 +1486,7 @@ function PlantingPlans() {
               renderPrimary={(item) => getCultureLabel(item)}
               renderSecondary={(item) => `${formatDateForDisplay(item.planting_date)} · ${getBedLabelForRow(item)}`}
               renderHeaderAction={(item) => (
-                <Tooltip title={t("common:actions.actions")}>
+                <AppTooltip title={t("common:actions.actions")}>
                   <IconButton
                     size="small"
                     aria-label={t("plantingPlans:mobile.actionsAria", {
@@ -1489,7 +1500,7 @@ function PlantingPlans() {
                   >
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
-                </Tooltip>
+                </AppTooltip>
               )}
               renderDetails={(item) => (
                 <Stack spacing={0.75}>
@@ -1504,7 +1515,7 @@ function PlantingPlans() {
                 </Stack>
               )}
               renderActions={(item) => (
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", }} >
                   <Button
                     variant="outlined"
                     startIcon={<PhotoCameraOutlinedIcon />}
@@ -1546,7 +1557,7 @@ function PlantingPlans() {
         ) : null}
 
         {!shouldShowPrerequisiteState && <PageSurface
-          variant="fullWorkspace"
+          variant={isMobile ? "fullWorkspace" : "contentFit"}
           sx={isMobile ? { position: 'fixed', top: '-9999px', left: 0, width: '100vw', height: 1, overflow: 'hidden', pointerEvents: 'none', visibility: 'hidden' } : undefined}
         >
           <EditableDataGrid<PlantingPlanRow>
@@ -1554,6 +1565,7 @@ function PlantingPlans() {
             scrollMode="continuous"
             columns={columns}
             api={plantingPlanGridAPI}
+            dialogEditFields={PLANTING_PLAN_DIALOG_EDIT_FIELDS}
             commandApiRef={gridCommandApiRef}
             onSelectedRowChange={setSelectedPlan}
             onRowsStateChange={(rows) => {
@@ -1792,8 +1804,8 @@ function PlantingPlans() {
           deleteErrorMessage={t("plantingPlans:errors.delete")}
           deleteConfirmMessage={t("plantingPlans:confirmDelete")}
           deleteUndoOptions={{
-            message: t("plantingPlans:messages.deleted"),
-            snackbarTestId: "planting-plan-delete-snackbar",
+                  message: t("plantingPlans:messages.deleted"),
+                  snackbarTestId: "planting-plan-delete-snackbar",
           }}
           clipboardColumns={clipboardColumns}
           addButtonLabel={`${t("plantingPlans:addButton")} (Alt+Shift+N)`}
@@ -1837,8 +1849,8 @@ function PlantingPlans() {
           ]}
           duplicateRow={(row) => ({
             ...row,
-            id: -Date.now(),
-            isNew: true,
+                  id: -Date.now(),
+                  isNew: true,
             __draft: true,
             note_attachment_count: 0,
           })}

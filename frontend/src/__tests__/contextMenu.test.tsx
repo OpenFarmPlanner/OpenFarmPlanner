@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   LONG_PRESS_THRESHOLD_MS,
   closestContextMenuElement,
+  isContextMenuDismissGestureInProgress,
   shouldOpenCustomContextMenu,
   useCloseCustomContextMenuOnNativeContextMenu,
   useIsCoarsePointer,
@@ -36,10 +37,21 @@ function ContextMenuBoundary({
   return (
     <>
       <div data-testid="custom-target" data-custom-context-menu-target="true" />
-      <div data-testid="native-target" onClick={onNativeTargetActivate} onTouchStart={onNativeTargetActivate} />
+      <div
+        data-testid="native-target"
+        onClick={onNativeTargetActivate}
+        onMouseDown={onNativeTargetActivate}
+        onPointerDown={onNativeTargetActivate}
+        onTouchStart={onNativeTargetActivate}
+      />
       <div role="menu" data-testid="open-menu" />
     </>
   );
+}
+
+function createPointerEvent(type: string, init: MouseEventInit): Event {
+  const PointerEventConstructor = window.PointerEvent ?? MouseEvent;
+  return new PointerEventConstructor(type, init);
 }
 
 describe('context menu helpers', () => {
@@ -156,6 +168,73 @@ describe('context menu helpers', () => {
     expect(onNativeTargetActivate).not.toHaveBeenCalled();
   });
 
+  it('a left click outside the menu closes it without also triggering the clicked target action', () => {
+    const onClose = vi.fn();
+    const onNativeTargetActivate = vi.fn();
+    const { getByTestId } = render(
+      <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+    const nativeTarget = getByTestId('native-target');
+
+    const pointerDownEvent = createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(nativeTarget, pointerDownEvent);
+    const mouseDownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(nativeTarget, mouseDownEvent);
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(nativeTarget, clickEvent);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(pointerDownEvent.defaultPrevented).toBe(true);
+    expect(mouseDownEvent.defaultPrevented).toBe(true);
+    expect(clickEvent.defaultPrevented).toBe(true);
+    expect(onNativeTargetActivate).not.toHaveBeenCalled();
+  });
+
+  it('closes on outside pointerdown even when that prevents a follow-up mousedown', () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const onNativeTargetActivate = vi.fn();
+      const { getByTestId } = render(
+        <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+      );
+      const nativeTarget = getByTestId('native-target');
+
+      const pointerDownEvent = createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 });
+      fireEvent(nativeTarget, pointerDownEvent);
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(pointerDownEvent.defaultPrevented).toBe(true);
+      expect(onNativeTargetActivate).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('marks the outside-click dismiss gesture while the original mouse sequence is still being swallowed', () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const { getByTestId } = render(<ContextMenuBoundary open onClose={onClose} />);
+      const nativeTarget = getByTestId('native-target');
+
+      fireEvent(nativeTarget, createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+
+      expect(isContextMenuDismissGestureInProgress()).toBe(true);
+
+      fireEvent(nativeTarget, new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+      fireEvent(nativeTarget, new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+
+      expect(isContextMenuDismissGestureInProgress()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not intercept a touch tap that lands on the menu itself (menu actions keep working)', () => {
     const onClose = vi.fn();
     const { getByTestId } = render(<ContextMenuBoundary open onClose={onClose} />);
@@ -188,6 +267,51 @@ describe('context menu helpers', () => {
 
     expect(onNativeTargetActivate).toHaveBeenCalledTimes(1);
     expect(secondTouchStart.defaultPrevented).toBe(false);
+  });
+
+  it('a later, separate left click on the same target works normally once the menu is closed', () => {
+    const onClose = vi.fn();
+    const onNativeTargetActivate = vi.fn();
+    const { getByTestId, rerender } = render(
+      <ContextMenuBoundary open onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+    const nativeTarget = getByTestId('native-target');
+
+    fireEvent(nativeTarget, createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }));
+    fireEvent(nativeTarget, new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    fireEvent(nativeTarget, new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onNativeTargetActivate).not.toHaveBeenCalled();
+
+    rerender(
+      <ContextMenuBoundary open={false} onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+    const secondClick = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+    fireEvent(nativeTarget, secondClick);
+
+    expect(onNativeTargetActivate).toHaveBeenCalledTimes(1);
+    expect(secondClick.defaultPrevented).toBe(false);
+  });
+
+  it('secondary pointer events on custom menu targets do not reach normal pointer handlers before contextmenu', () => {
+    const onClose = vi.fn();
+    const onNativeTargetActivate = vi.fn();
+    const { getByTestId } = render(
+      <ContextMenuBoundary open={false} onClose={onClose} onNativeTargetActivate={onNativeTargetActivate} />,
+    );
+    const customTarget = getByTestId('custom-target');
+    customTarget.addEventListener('mousedown', onNativeTargetActivate);
+    customTarget.addEventListener('pointerdown', onNativeTargetActivate);
+
+    const pointerDownEvent = createPointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 2 });
+    fireEvent(customTarget, pointerDownEvent);
+    const mouseDownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 2 });
+    fireEvent(customTarget, mouseDownEvent);
+
+    expect(pointerDownEvent.defaultPrevented).toBe(false);
+    expect(mouseDownEvent.defaultPrevented).toBe(false);
+    expect(onNativeTargetActivate).not.toHaveBeenCalled();
   });
 });
 

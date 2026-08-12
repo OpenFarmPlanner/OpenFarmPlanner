@@ -13,27 +13,14 @@ import { useLocation, useNavigate, useOutletContext } from 'react-router';
 import { useTranslation } from '../i18n';
 import PageContainer from '../components/layout/PageContainer';
 import { bedAPI, cultureAPI, fieldAPI, type Culture } from '../api/api';
-import type {
-  CultureHistoryEntry,
-  PublicCultureRemovalReason,
-} from '../api/types';
+import type { CultureHistoryEntry } from '../api/types';
 import { CultureDetail } from '../cultures/CultureDetail';
-import { CultureForm } from '../cultures/CultureForm';
+import { CultureForm, type FirstVarietyDraft } from '../cultures/CultureForm';
 import { PublicCultureLibraryDialog } from '../crops/components/PublicCultureLibraryDialog';
 import {
   Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
   type SxProps,
   type Theme,
-  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -65,6 +52,12 @@ import { useTopbarContextActions } from '../hooks/useTopbarContextActions';
 import {
   DeleteUndoSnackbar,
 } from '../components/data-grid';
+import { getCultureDisplayName } from '../cultures/cultureDisplay';
+import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
+
+// Stable identity so the memos downstream do not see a new array on every
+// render while no project is selected.
+const EMPTY_CULTURES: Culture[] = [];
 
 const PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX: SxProps<Theme> = {
   backgroundColor: 'rgba(76, 175, 80, 0.06)',
@@ -91,26 +84,34 @@ function Cultures() {
   const { selectedCultureId, updateSelectedCultureId } = useSelectedCultureSync();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
 
-  const [cultures, setCultures] = useState<Culture[]>([]);
-  const [isCulturesLoading, setIsCulturesLoading] = useState(true);
+  const [loadedCultures, setCultures] = useState<Culture[]>([]);
+  const [isFetchingCultures, setIsCulturesLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCulture, setEditingCulture] = useState<Culture | undefined>(undefined);
+  const [cultureFormKind, setCultureFormKind] = useState<'crop' | 'variety'>('crop');
+  const [initialFormDraft, setInitialFormDraft] = useState<Partial<Culture> | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: '', severity: 'success' });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyItems, setHistoryItems] = useState<CultureHistoryEntry[]>([]);
   const [historyScope, setHistoryScope] = useState<HistoryScope>('culture');
-  const [withdrawDialogCulture, setWithdrawDialogCulture] = useState<Culture | null>(null);
-  const [removeDialogCulture, setRemoveDialogCulture] = useState<Culture | null>(null);
-  const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusSearch = useCallback(() => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
   }, []);
-  const [hasFields, setHasFields] = useState(false);
-  const [hasBeds, setHasBeds] = useState(false);
+  const [hasFieldsLoaded, setHasFields] = useState(false);
+  const [hasBedsLoaded, setHasBeds] = useState(false);
+
+  // Without a project nothing is fetched, so the page reports an empty,
+  // settled state. Derived during render rather than pushed into state from
+  // the load effect below — that reset is what react-hooks/set-state-in-effect
+  // flags, and deriving also avoids the extra render pass it caused.
+  const cultures = shouldShowProjectRequiredState ? EMPTY_CULTURES : loadedCultures;
+  const isCulturesLoading = shouldShowProjectRequiredState ? false : isFetchingCultures;
+  const hasFields = shouldShowProjectRequiredState ? false : hasFieldsLoaded;
+  const hasBeds = shouldShowProjectRequiredState ? false : hasBedsLoaded;
+
   const selectedCulture = cultures.find((culture) => culture.id === selectedCultureId);
-  const canModeratePublicCulture = Boolean(user?.is_staff || user?.is_superuser);
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -227,11 +228,8 @@ function Cultures() {
     isUpdatingOwnPublicCulture,
     fetchPublicCultures,
     handleOpenPublicLibrary,
-    handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleWithdrawPublicCulture,
-    handleRemovePublicCulture,
   } = usePublicCultureLibrary({
     shouldShowProjectRequiredState,
     selectedCulture,
@@ -249,44 +247,23 @@ function Cultures() {
 
   const handlePublishingWizardPublish = useCallback((data: {
     acceptedPublicLibraryTerms: boolean;
-    cropSpeciesId: number;
+    cropSpeciesId?: number;
     originalLanguageCode: string;
+    publicCultureId?: number | null;
+    publishAsGeneral?: boolean;
   }) => {
     setPublishWizardOpen(false);
     void handlePublishCurrentCulture(data.acceptedPublicLibraryTerms, {
       cropSpeciesId: data.cropSpeciesId,
       originalLanguageCode: data.originalLanguageCode,
+      publicCultureId: data.publicCultureId,
+      publishAsGeneral: data.publishAsGeneral,
     });
   }, [handlePublishCurrentCulture]);
-
-  const handleConfirmWithdrawPublicCulture = useCallback(async () => {
-    if (!withdrawDialogCulture) {
-      return;
-    }
-    const success = await handleWithdrawPublicCulture(withdrawDialogCulture);
-    if (success) {
-      setWithdrawDialogCulture(null);
-    }
-  }, [handleWithdrawPublicCulture, withdrawDialogCulture]);
-
-  const handleConfirmRemovePublicCulture = useCallback(async () => {
-    if (!removeDialogCulture || !removeReason) {
-      return;
-    }
-    const success = await handleRemovePublicCulture(removeDialogCulture, removeReason);
-    if (success) {
-      setRemoveDialogCulture(null);
-      setRemoveReason('');
-    }
-  }, [handleRemovePublicCulture, removeDialogCulture, removeReason]);
 
   // Fetch cultures on mount
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setCultures([]);
-      setIsCulturesLoading(false);
-      setHasFields(false);
-      setHasBeds(false);
       return;
     }
     fetchCultures();
@@ -335,8 +312,33 @@ function Cultures() {
     updateSelectedCultureId(culture?.id, 'internal');
   };
 
+  // Regular culture selection (sidebar browsing, filters, etc.) replaces the
+  // current history entry via useSelectedCultureSync — deliberately, so
+  // clicking through many cultures in the sidebar doesn't turn "back" into
+  // stepping through each one. Clicking a row in the Varieties comparison
+  // table is a more deliberate "go to this variety's page" action, so it
+  // should behave like normal navigation: pushing a new history entry means
+  // the back button returns to the crop page you navigated from.
+  const handleVarietyRowNavigate = useCallback((culture: Culture) => {
+    updateSelectedCultureId(culture.id, 'internal', 'push');
+  }, [updateSelectedCultureId]);
+
   const handleAddNew = useCallback(() => {
     setEditingCulture(undefined);
+    setCultureFormKind('crop');
+    setInitialFormDraft(undefined);
+    setShowForm(true);
+  }, []);
+
+  const handleAddVariety = useCallback((speciesCulture: Culture) => {
+    setEditingCulture(undefined);
+    setCultureFormKind('variety');
+    setInitialFormDraft({
+      ...buildVarietyInheritanceBaseline(speciesCulture),
+      crop_species: speciesCulture.crop_species ?? null,
+      name: speciesCulture.name,
+      variety: '',
+    });
     setShowForm(true);
   }, []);
 
@@ -363,6 +365,8 @@ function Cultures() {
 
   const handleEdit = useCallback((culture: Culture) => {
     setEditingCulture(culture);
+    setCultureFormKind((culture.variety || '').trim() ? 'variety' : 'crop');
+    setInitialFormDraft(undefined);
     setShowForm(true);
   }, []);
 
@@ -420,7 +424,7 @@ function Cultures() {
   };
 
 
-  const handleSave = async (culture: Culture) => {
+  const handleSave = async (culture: Culture, firstVariety?: FirstVarietyDraft) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
 
@@ -432,13 +436,36 @@ function Cultures() {
       } else {
         const response = await cultureAPI.create(savePayload as Culture);
         savedCulture = response.data;
-        showSnackbar(t('messages.createSuccess'), 'success');
         // Auto-select the newly created culture
         updateSelectedCultureId(savedCulture.id, 'internal');
+
+        if (firstVariety) {
+          try {
+            // Without a library draft the variety inherits the crop's own
+            // values; with one it carries the library values and the same
+            // source linking an import would produce.
+            const varietyPayload = buildCultureSavePayload({
+              ...culture,
+              ...(firstVariety.draft ?? {}),
+              id: undefined,
+              name: culture.name,
+              crop_species: savedCulture.crop_species ?? culture.crop_species,
+              variety: firstVariety.name,
+            });
+            await cultureAPI.create(varietyPayload as Culture);
+            showSnackbar(t('messages.createWithVarietySuccess'), 'success');
+          } catch (varietyError) {
+            console.error('Error creating initial variety:', varietyError);
+            showSnackbar(t('messages.createVarietyPartialError'), 'error');
+          }
+        } else {
+          showSnackbar(t('messages.createSuccess'), 'success');
+        }
       }
       replaceSavedCulture(savedCulture);
       setShowForm(false);
       setEditingCulture(undefined);
+      setInitialFormDraft(undefined);
       void fetchCultures(savedCulture);
     } catch (error) {
       console.error('Error saving culture:', error);
@@ -449,6 +476,7 @@ function Cultures() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingCulture(undefined);
+    setInitialFormDraft(undefined);
   };
 
   const handleCloseSnackbar = () => {
@@ -536,6 +564,11 @@ function Cultures() {
 
   useRegisterCreateActions('cultures-page', createActions);
 
+  // `focusSearch` reads searchInputRef.current in its body, and the rule cannot
+  // see into the imported spec factory to know the callback is only stored, not
+  // invoked, so it assumes the ref could be read during render. The ref is only
+  // ever touched when the command runs.
+  // eslint-disable-next-line react-hooks/refs
   const commandSpecs = useMemo(() => createCulturesCommandSpecs({
     t,
     cultures,
@@ -586,22 +619,21 @@ function Cultures() {
           isLoading={isCulturesLoading}
           selectedCultureId={selectedCultureId}
           onCultureSelect={handleCultureSelect}
+          onNavigateToVariety={handleVarietyRowNavigate}
           searchInputRef={searchInputRef}
           onCreateCulture={handleAddNew}
           onOpenPublicLibrary={() => {
             void handleOpenPublicLibrary();
           }}
           onEditCulture={handleEdit}
+          onAddVariety={handleAddVariety}
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
           onPublishCulture={handleRequestPublishCulture}
-          onWithdrawPublicCulture={(culture) => setWithdrawDialogCulture(culture)}
-          onRemovePublicCulture={(culture) => {
-            setRemoveReason('');
-            setRemoveDialogCulture(culture);
+          onPublicUpdateApplied={() => {
+            void fetchCultures();
           }}
           onDeleteCulture={handleDelete}
-          canModeratePublicCulture={canModeratePublicCulture}
           canCreatePlan={canCreatePlantingPlan}
           isPublishingCulture={Boolean(selectedCulture && publishingCultureId === selectedCulture.id)}
           publishActionLabel={publishingCultureId === selectedCulture?.id
@@ -646,7 +678,7 @@ function Cultures() {
         open={Boolean(deleteDialogCulture)}
         fullWidth
         title={t('deleteDialog.title')}
-        message={t('deleteDialog.confirmation', { name: deleteDialogCulture?.name ?? '' })}
+        message={t('deleteDialog.confirmation', { name: deleteDialogCulture ? getCultureDisplayName(deleteDialogCulture) : '' })}
         cancelLabel={t('common:actions.cancel')}
         confirmLabel={t('buttons.delete')}
         onCancel={() => setDeleteDialogCulture(null)}
@@ -658,83 +690,6 @@ function Cultures() {
         cancelButtonProps={{ variant: 'outlined' }}
         confirmButtonProps={{ color: 'error', variant: 'contained' }}
       />
-
-      <ConfirmationDialog
-        open={Boolean(withdrawDialogCulture)}
-        fullWidth
-        title={t('library.withdrawDialog.title')}
-        message={t('library.withdrawDialog.message', { name: withdrawDialogCulture?.name ?? '' })}
-        cancelLabel={t('common:actions.cancel')}
-        confirmLabel={t('library.withdrawAction')}
-        onCancel={() => setWithdrawDialogCulture(null)}
-        onConfirm={handleConfirmWithdrawPublicCulture}
-        titleSx={{ pb: 1 }}
-        contentSx={{ pt: 1 }}
-        messageTypographyProps={{ variant: 'body1', color: 'text.secondary' }}
-        actionsSx={{ px: 3, pb: 2.5, pt: 1 }}
-        cancelButtonProps={{ variant: 'outlined' }}
-        confirmButtonProps={{ color: 'warning', variant: 'contained' }}
-      />
-
-      <Dialog
-        open={Boolean(removeDialogCulture)}
-        onClose={() => {
-          setRemoveDialogCulture(null);
-          setRemoveReason('');
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>{t('library.removeDialog.title')}</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {t('library.removeDialog.message', { name: removeDialogCulture?.name ?? '' })}
-          </Typography>
-          <FormControl fullWidth size="small">
-            <InputLabel id="public-culture-removal-reason-label">
-              {t('library.removeDialog.reasonLabel')}
-            </InputLabel>
-            <Select
-              labelId="public-culture-removal-reason-label"
-              value={removeReason}
-              label={t('library.removeDialog.reasonLabel')}
-              onChange={(event) => setRemoveReason(event.target.value as PublicCultureRemovalReason)}
-            >
-              {([
-                'accidental_publication',
-                'test_data',
-                'duplicate',
-                'wrong_mapping',
-                'unlawful_content',
-                'other',
-              ] as PublicCultureRemovalReason[]).map((reason) => (
-                <MenuItem key={reason} value={reason}>
-                  {t(`library.removeReasons.${reason}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setRemoveDialogCulture(null);
-              setRemoveReason('');
-            }}
-          >
-            {t('common:actions.cancel')}
-          </Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={!removeReason}
-            onClick={() => void handleConfirmRemovePublicCulture()}
-          >
-            {t('library.removeAction')}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <CulturesPublishingWizardDialog
         open={publishWizardOpen}
@@ -748,9 +703,12 @@ function Cultures() {
       {showForm ? (
         <CultureForm
           culture={editingCulture}
+          cultures={cultures}
           onSave={handleSave}
           onCancel={handleCancel}
-          onViewPublicLibraryMatch={(match) => void handleViewPublicLibraryMatch(match)}
+          onSwitchToAddVariety={handleAddVariety}
+          formKind={cultureFormKind}
+          initialDraft={initialFormDraft}
         />
       ) : null}
 

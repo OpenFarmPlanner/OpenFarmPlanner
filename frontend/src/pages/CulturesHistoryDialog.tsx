@@ -193,7 +193,8 @@ export function CulturesHistoryDialog({
                       </Stack>
                     </Paper>
                   ) : (
-                    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ width: '100%' }}>
+                    <Stack direction="row" spacing={2} sx={{ width: '100%',
+                      alignItems: "flex-start", }}  >
                       <ListItemText
                         sx={{ mr: 1 }}
                         disableTypography

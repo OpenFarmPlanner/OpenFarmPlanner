@@ -22,11 +22,19 @@ import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { collectHierarchyAvailability } from '../components/planting-plans/areaHierarchySelection';
 import type { SearchableSelectOption } from '../components/data-grid';
 import { useTranslation } from '../i18n';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
 
 export interface CultivationTypeSelectOption {
   value: CultivationType;
   label: string;
 }
+
+// Stable identities so consumers' memos do not see new arrays on every
+// render while no project is selected.
+const EMPTY_CULTURES: Culture[] = [];
+const EMPTY_LOCATIONS: Location[] = [];
+const EMPTY_FIELDS: Field[] = [];
+const EMPTY_BEDS: Bed[] = [];
 
 const CULTIVATION_TYPE_OPTIONS = [
   { value: 'direct_sowing', labelKey: 'plantingPlans:cultivationTypes.directSowing' },
@@ -48,19 +56,23 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
   const { i18n } = useTranslation();
   const numberLocale = resolveLocaleFromLanguage(i18n.language);
 
-  const [cultures, setCultures] = useState<Culture[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [fields, setFields] = useState<Field[]>([]);
-  const [beds, setBeds] = useState<Bed[]>([]);
-  const [isHierarchyLoading, setIsHierarchyLoading] = useState(true);
+  const [loadedCultures, setCultures] = useState<Culture[]>([]);
+  const [loadedLocations, setLocations] = useState<Location[]>([]);
+  const [loadedFields, setFields] = useState<Field[]>([]);
+  const [loadedBeds, setBeds] = useState<Bed[]>([]);
+  const [isFetching, setIsHierarchyLoading] = useState(true);
+
+  // Without a project nothing is fetched, so the hook reports an empty,
+  // settled result. Derived during render rather than pushed into state from
+  // the effect below, which is what react-hooks/set-state-in-effect flags.
+  const cultures = shouldShowProjectRequiredState ? EMPTY_CULTURES : loadedCultures;
+  const locations = shouldShowProjectRequiredState ? EMPTY_LOCATIONS : loadedLocations;
+  const fields = shouldShowProjectRequiredState ? EMPTY_FIELDS : loadedFields;
+  const beds = shouldShowProjectRequiredState ? EMPTY_BEDS : loadedBeds;
+  const isHierarchyLoading = shouldShowProjectRequiredState ? false : isFetching;
 
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setCultures([]);
-      setLocations([]);
-      setFields([]);
-      setBeds([]);
-      setIsHierarchyLoading(false);
       return;
     }
     const fetchData = async (): Promise<void> => {
@@ -96,7 +108,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
         .filter((c) => c.id !== undefined)
         .map((c) => ({
           value: c.id!,
-          label: c.variety ? `${c.name} (${c.variety})` : c.name,
+          label: formatCultureDisplayName(c),
         })),
     [cultures],
   );

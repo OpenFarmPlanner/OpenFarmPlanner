@@ -80,6 +80,7 @@ export function validateCulture(
   draft: Partial<Culture>,
   t: TFunction,
   mode: CultureValidationMode = 'submit',
+  requireVariety: boolean = true,
 ): ValidationResult {
   const errors: Record<string, string> = {};
 
@@ -95,12 +96,13 @@ export function validateCulture(
     validateSeedRateFields(draft, errors, t, mode, 'seed_rate_pre_cultivation_value', 'seed_rate_pre_cultivation_unit');
   }
 
-  // Required fields: name, variety
+  // Required fields: name always; variety only when the form is for a
+  // variety-level entry (a crop-level entry is intentionally variety-less).
   if (mode === 'submit') {
     if (!draft.name) {
       errors.name = t('form.nameRequired');
     }
-    if (!draft.variety) {
+    if (requireVariety && !draft.variety) {
       errors.variety = t('form.varietyRequired');
     }
   }

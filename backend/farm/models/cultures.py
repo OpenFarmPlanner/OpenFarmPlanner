@@ -266,6 +266,15 @@ class Culture(TimestampedModel):
     )
     source_public_culture = models.ForeignKey('PublicCulture', null=True, blank=True, on_delete=models.SET_NULL, related_name='imported_cultures')
     source_public_version = models.IntegerField(null=True, blank=True)
+    rejected_public_version = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            'Public-library version the user explicitly declined to take over. '
+            'Only silences the update notice for exactly that version; a newer '
+            'public version surfaces the notice again.'
+        ),
+    )
     origin_type = models.CharField(max_length=50, choices=ORIGIN_TYPE_CHOICES, default=ORIGIN_MANUAL)
     is_modified_from_source = models.BooleanField(default=False)
     
@@ -575,7 +584,7 @@ class Culture(TimestampedModel):
 
     # Fields whose change marks an imported culture as diverged from its source.
     _SOURCE_DIVERGENCE_TRACKED_FIELDS = {
-        'name', 'variety', 'notes', 'seed_supplier', 'crop_family', 'nutrient_demand', 'cultivation_types',
+        'name', 'variety', 'notes', 'crop_family', 'nutrient_demand', 'cultivation_types',
         'cultivation_type', 'growth_duration_days', 'harvest_duration_days', 'propagation_duration_days',
         'harvest_method', 'expected_yield', 'allow_deviation_delivery_weeks', 'distance_within_row_m',
         'row_spacing_m', 'sowing_depth_m', 'seed_rate_value', 'seed_rate_unit', 'seed_rate_by_cultivation',
@@ -863,8 +872,6 @@ class PublicCulture(TimestampedModel):
     name = models.CharField(max_length=200)
     variety = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
-    seed_supplier = models.CharField(max_length=200, blank=True)
-    supplier_name = models.CharField(max_length=200, blank=True)
     crop_species = models.ForeignKey(
         'crops.CropSpecies',
         null=True,

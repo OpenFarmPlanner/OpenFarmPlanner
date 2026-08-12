@@ -28,7 +28,11 @@ import { useTranslation } from '../i18n';
 import { useNavigationBlocker } from '../hooks/useNavigationBlocker';
 import { enableDevOnboardingPreview } from '../projects/devOnboardingPreview';
 import { clearContextMenuHintDismissals } from '../components/data-grid';
-import { mediumFieldSx, wideFieldSx, wideStackedFieldSx } from '../components/forms/formLayout';
+import {
+  mediumStackedFieldSx,
+  wideSingleColumnFieldSx,
+  wideStackedFieldSx,
+} from '../components/forms/formLayout';
 import { actionButtonSx, useSectionSubmit } from './accountSettingsForm';
 import {
   InlineEditor,
@@ -257,7 +261,7 @@ export default function AccountSettingsPage() {
                 label={t('displayName')}
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                sx={wideFieldSx}
+                sx={wideSingleColumnFieldSx}
                 slotProps={{ htmlInput: { maxLength: 255 } }}
               />
             </InlineEditor>
@@ -295,7 +299,7 @@ export default function AccountSettingsPage() {
                 label={t('publicProfile.publicDisplayName')}
                 value={publicDisplayName}
                 onChange={(event) => setPublicDisplayName(event.target.value)}
-                sx={wideFieldSx}
+                sx={wideSingleColumnFieldSx}
                 helperText={t('publicProfile.helperText')}
                 slotProps={{ htmlInput: { maxLength: 255 } }}
               />
@@ -387,7 +391,7 @@ export default function AccountSettingsPage() {
             <TextField
               label={t('security.newEmail')}
               type="email"
-              sx={wideFieldSx}
+              sx={wideSingleColumnFieldSx}
               value={newEmail}
               onChange={(event) => setNewEmail(event.target.value)}
             />
@@ -395,7 +399,7 @@ export default function AccountSettingsPage() {
               <TextField
                 label={t('currentPassword')}
                 type="password"
-                sx={mediumFieldSx}
+                sx={mediumStackedFieldSx}
                 value={emailPassword}
                 onChange={(event) => setEmailPassword(event.target.value)}
               />
@@ -413,21 +417,21 @@ export default function AccountSettingsPage() {
             <TextField
               label={t('currentPassword')}
               type="password"
-              sx={mediumFieldSx}
+              sx={mediumStackedFieldSx}
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
             />
             <TextField
               label={t('security.newPassword')}
               type="password"
-              sx={mediumFieldSx}
+              sx={mediumStackedFieldSx}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
             />
             <TextField
               label={t('security.repeatNewPassword')}
               type="password"
-              sx={mediumFieldSx}
+              sx={mediumStackedFieldSx}
               value={repeatPassword}
               onChange={(event) => setRepeatPassword(event.target.value)}
             />
@@ -491,7 +495,7 @@ export default function AccountSettingsPage() {
             <Typography>{t('restoreDescription')}</Typography>
             {hasPassword ? (
               <TextField
-                sx={mediumFieldSx}
+                sx={mediumStackedFieldSx}
                 type="password"
                 label={t('currentPassword')}
                 value={deletePassword}
@@ -499,7 +503,7 @@ export default function AccountSettingsPage() {
               />
             ) : null}
             <TextField
-              sx={wideFieldSx}
+              sx={wideSingleColumnFieldSx}
               label={t('deletePhraseLabel')}
               value={deleteConfirmationText}
               onChange={(event) => setDeleteConfirmationText(event.target.value)}

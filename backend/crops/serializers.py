@@ -291,8 +291,6 @@ class CropSerializer(serializers.ModelSerializer):
             'name',
             'variety',
             'notes',
-            'seed_supplier',
-            'supplier_name',
             'crop_species',
             'crop_species_name',
             'original_language_code',

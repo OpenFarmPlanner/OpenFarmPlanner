@@ -1,5 +1,6 @@
 import { Box, styled } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import type { ResponsiveStyleValue } from '@mui/system';
 import { useState } from 'react';
 import { publicAssetUrl } from '../utils/publicAssetUrl';
 
@@ -22,10 +23,20 @@ const HERO_IMAGE_SRC_SET = [
   `${HERO_IMAGE_SRC} 1920w`,
 ].join(', ');
 
+type HeroPosition = 'absolute' | 'fixed';
+
 interface HeroImageProps {
   /** Accessible description of the image. Pass "" for purely decorative use. */
   alt: string;
-  /** Additional/overriding sx merged onto the absolutely-positioned <img>. */
+  /**
+   * Positioning scheme for the backdrop. `absolute` (the default) anchors it
+   * to the nearest positioned ancestor, `fixed` pins it to the viewport.
+   * Applied to the image *and* its overlay together, so the two always share
+   * one containing block — mixing them would let the raw image show through
+   * wherever the container and the viewport disagree in size.
+   */
+  position?: ResponsiveStyleValue<HeroPosition>;
+  /** Additional/overriding sx merged onto the <img>. */
   sx?: SxProps<Theme>;
   /** Optional overlay (e.g. a readability gradient) rendered above the image. */
   overlaySx?: SxProps<Theme>;
@@ -37,7 +48,7 @@ interface HeroImageProps {
  * discover and prioritize it as early as possible, and fades it in once
  * loaded to avoid a jarring pop-in on slower connections.
  */
-export default function HeroImage({ alt, sx, overlaySx }: HeroImageProps) {
+export default function HeroImage({ alt, position = 'absolute', sx, overlaySx }: HeroImageProps) {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -54,7 +65,7 @@ export default function HeroImage({ alt, sx, overlaySx }: HeroImageProps) {
         height={HERO_IMAGE_HEIGHT}
         onLoad={() => setLoaded(true)}
         sx={{
-          position: 'absolute',
+          position,
           inset: 0,
           width: '100%',
           height: '100%',
@@ -64,7 +75,9 @@ export default function HeroImage({ alt, sx, overlaySx }: HeroImageProps) {
           ...sx,
         }}
       />
-      {overlaySx ? <Box aria-hidden sx={{ position: 'absolute', inset: 0, ...overlaySx }} /> : null}
+      {overlaySx ? (
+        <Box aria-hidden data-testid="hero-image-overlay" sx={{ position, inset: 0, ...overlaySx }} />
+      ) : null}
     </>
   );
 }

@@ -1,7 +1,8 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 import { Box, MenuItem, TextField } from "@mui/material";
 import type { GridRenderEditCellParams } from "@mui/x-data-grid";
 import { useClosedSelectTypeahead } from "../components/inputs/selectTypeahead";
+import { useSelectEditCellOpenRequest } from "../components/data-grid/SelectEditCellContext";
 import { normalizeCultivationType } from "./plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "./usePlantingPlanHierarchy";
 
@@ -19,8 +20,17 @@ export const CultivationTypeEditCell = memo(function CultivationTypeEditCell({
   options,
   placeholder,
 }: CultivationTypeEditCellProps) {
+  const [open, setOpen] = useState(false);
   const selectedValue = normalizeCultivationType(value) ?? "";
   const selectedOption = options.find((option) => option.value === selectedValue);
+  const handleOpen = useCallback((): void => {
+    setOpen(true);
+  }, []);
+  const notifyMenuClose = useSelectEditCellOpenRequest(id, field, handleOpen);
+  const handleClose = useCallback((event: unknown): void => {
+    setOpen(false);
+    notifyMenuClose(event);
+  }, [notifyMenuClose]);
   const handleTypeaheadSelect = useCallback((nextValue: string | string[]): void => {
     const nextSelectedValue = Array.isArray(nextValue) ? nextValue[0] : nextValue;
     void api.setEditCellValue({
@@ -48,6 +58,9 @@ export const CultivationTypeEditCell = memo(function CultivationTypeEditCell({
         },
         select: {
           displayEmpty: true,
+          open,
+          onClose: handleClose,
+          onOpen: handleOpen,
           onKeyDown: handleSelectKeyDown,
           renderValue: () => selectedOption?.label ?? (
             <Box

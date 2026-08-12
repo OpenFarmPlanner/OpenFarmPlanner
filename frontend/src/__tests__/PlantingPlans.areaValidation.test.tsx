@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import PlantingPlans from "../pages/PlantingPlans";
 import type { EditableDataGridCommandApi } from "../components/data-grid";
+import { registerOpenContextMenu } from "../components/contextMenu/contextMenuOpenState";
 
 const mockGridRowState = vi.hoisted(() => ({
   row: {} as Record<string, unknown>,
@@ -22,6 +23,7 @@ const commandApiSpies = vi.hoisted(() => ({
   addRow: vi.fn(),
   setDraftValues: vi.fn(),
   commitDraftValues: vi.fn(),
+  applyDialogEditValues: vi.fn(),
   saveAttemptResult: vi.fn(),
   apiPayload: vi.fn(),
   gridProps: vi.fn(),
@@ -124,6 +126,7 @@ vi.mock("../components/data-grid", async () => {
             });
             commandApiSpies.saveAttemptResult(true);
           },
+          applyDialogEditValues: commandApiSpies.applyDialogEditValues,
         };
       }
       const latestPropsRef = React.useRef({ api, mapToRow, onRowsStateChange, onLoadStateChange });
@@ -329,6 +332,106 @@ describe("PlantingPlans save-time area validation", () => {
     expect(inlineDeleteHelper).toHaveBeenCalledWith(-1);
   });
 
+  it("edits the growing area through its dialog instead of an inline edit cell", async () => {
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+
+    const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
+    const bedColumn = (latestProps?.columns ?? []).find(
+      (column: { field: string }) => column.field === "bed",
+    );
+
+    expect(latestProps?.dialogEditFields).toContain("bed");
+    expect(bedColumn?.editable).toBe(false);
+    expect(bedColumn?.renderEditCell).toBeUndefined();
+    expect(bedColumn?.valueSetter).toBeUndefined();
+  });
+
+  it("opens the growing area dialog with a single click and saves the picked bed", async () => {
+    apiMocks.bedList.mockResolvedValue({
+      data: {
+        results: [
+          { id: 101, name: "Beet A", field: 11, area_sqm: 1 },
+          { id: 102, name: "Beet B", field: 11, area_sqm: 3 },
+        ],
+      },
+    });
+    const user = userEvent.setup();
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+
+    const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
+    const bedColumn = (latestProps?.columns ?? []).find(
+      (column: { field: string }) => column.field === "bed",
+    );
+    const cell = render(
+      <>
+        {bedColumn.renderCell({
+          id: 7,
+          field: "bed",
+          value: 101,
+          row: { id: 7, bed: 101, area_m2: 1 },
+          hasFocus: false,
+        })}
+      </>,
+    );
+
+    await user.click(cell.getByRole("button", { name: "Anbaufläche bearbeiten" }));
+    await user.click(await screen.findByRole("combobox", { name: "Beet" }));
+    await user.click(await screen.findByRole("option", { name: /^Beet B/ }));
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }));
+
+    await waitFor(() => {
+      expect(commandApiSpies.applyDialogEditValues).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ bed: 102 }),
+      );
+    });
+    expect(commandApiSpies.setDraftValues).not.toHaveBeenCalled();
+    cell.unmount();
+  });
+
+  it("does not open the growing area dialog while an app context menu is open", async () => {
+    apiMocks.bedList.mockResolvedValue({
+      data: {
+        results: [
+          { id: 101, name: "Beet A", field: 11, area_sqm: 1 },
+          { id: 102, name: "Beet B", field: 11, area_sqm: 3 },
+        ],
+      },
+    });
+    const user = userEvent.setup();
+    const releaseMenu = registerOpenContextMenu(Symbol("test-context-menu"));
+
+    try {
+      render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+      await waitForPlansToLoad();
+
+      const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0];
+      const bedColumn = (latestProps?.columns ?? []).find(
+        (column: { field: string }) => column.field === "bed",
+      );
+      const cell = render(
+        <>
+          {bedColumn.renderCell({
+            id: 7,
+            field: "bed",
+            value: 101,
+            row: { id: 7, bed: 101, area_m2: 1 },
+            hasFocus: false,
+          })}
+        </>,
+      );
+
+      await user.click(cell.getByRole("button", { name: "Anbaufläche bearbeiten" }));
+
+      expect(screen.queryByRole("dialog", { name: "Anbaufläche ändern" })).not.toBeInTheDocument();
+      cell.unmount();
+    } finally {
+      releaseMenu();
+    }
+  });
+
   it("uses one compact width for all date columns", async () => {
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -458,6 +561,27 @@ describe("PlantingPlans save-time area validation", () => {
     expect(screen.getByText(areaText("Beetfläche", "1,00"))).toBeInTheDocument();
     expect(screen.getByText(areaText("Angefragt", "99,00"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Beetfläche übernehmen" })).toBeInTheDocument();
+  });
+
+  it("closes the area validation dialog with Escape", async () => {
+    mockGridRowState.row = {
+      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+    };
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+    await userEvent.click(await screen.findByRole("button", { name: "Zeile speichern" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Die angegebene Fläche überschreitet die Größe dieses Beets.",
+    });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", {
+        name: "Die angegebene Fläche überschreitet die Größe dieses Beets.",
+      })).not.toBeInTheDocument();
+    });
+    expect(commandApiSpies.saveAttemptResult).toHaveBeenLastCalledWith(false);
   });
 
   it("shows bed-limit dialog when saving via Enter flow", async () => {

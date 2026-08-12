@@ -102,7 +102,8 @@ export interface PublicRoute {
  * Publicly reachable, canonical, indexable routes.
  *
  * ONLY genuinely public information pages belong here — never login,
- * registration, password reset, invitations, demo or in-app (`/app/*`) routes.
+ * registration, password reset, invitations, demo-start or in-app (`/app/*`)
+ * routes.
  * When a new public route is added (e.g. the planned public crop library under
  * `/crops`), add it here and it flows automatically into the sitemap and,
  * via `build/prerender.ts`, into build-time prerendered HTML.
@@ -135,11 +136,13 @@ export const PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[] = [
 /**
  * Path prefixes that must never be indexed and are disallowed in robots.txt.
  *
- * These cover the authenticated application shell and all authentication /
- * account-management flows. They intentionally do NOT include public info pages.
+ * These cover the authenticated application shell, the shareable demo-start
+ * page and all authentication / account-management flows. They intentionally
+ * do NOT include public info pages.
  */
 export const NON_INDEXABLE_PATH_PREFIXES: readonly string[] = [
   '/app',
+  '/demo',
   '/login',
   '/register',
   '/activate',

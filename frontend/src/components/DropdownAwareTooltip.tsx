@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Tooltip, type TooltipProps } from '@mui/material';
+import type { TooltipProps } from '@mui/material';
+import { AppTooltip } from './AppTooltip';
 
 const FLOATING_DROPDOWN_SELECTOR = [
   '.MuiPopover-root [role="listbox"]',
@@ -96,7 +97,7 @@ export function DropdownAwareTooltip({
   const effectiveOpen = shouldHideTooltip ? false : (open ?? uncontrolledOpen);
 
   return (
-    <Tooltip
+    <AppTooltip
       {...props}
       open={effectiveOpen}
       onOpen={(event) => {

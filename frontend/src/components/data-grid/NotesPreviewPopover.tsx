@@ -212,7 +212,7 @@ export function NotesPreviewPopover({
             {preview}
           </Typography>
         ) : (
-          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic", }} >
             {t('notesPreview.empty')}
           </Typography>
         )}

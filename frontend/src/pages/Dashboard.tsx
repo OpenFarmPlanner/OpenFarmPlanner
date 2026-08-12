@@ -16,19 +16,24 @@ import { deriveLocationTasks } from './locationDerivedTasks';
 export default function Dashboard() {
   const { t, i18n } = useTranslation(['dashboard', 'common']);
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isFetching, setLoading] = useState(true);
+  const [fetchError, setError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
   const [cultures, setCultures] = useState<Culture[]>([]);
   const [plans, setPlans] = useState<PlantingPlan[]>([]);
 
+  // Without a project there is nothing to fetch, so the page is neither
+  // loading nor in error. Derived rather than pushed into state from the
+  // effect below — the fetched collections do not need clearing either,
+  // because the project-required branch renders before they are read and
+  // `loading` is back to true by the time a project appears.
+  const loading = shouldShowProjectRequiredState ? false : isFetching;
+  const error = shouldShowProjectRequiredState ? null : fetchError;
+
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
-      setLoading(false);
-      setError(null);
-      setLocations([]); setFields([]); setBeds([]); setCultures([]); setPlans([]);
       return;
     }
     const fetchData = async (): Promise<void> => {
@@ -88,7 +93,8 @@ export default function Dashboard() {
         <PageSurface variant="contentFit" sx={{ mb: 2, minWidth: { md: 480 } }}>
         <Card variant="outlined" sx={{ width: 'fit-content', maxWidth: '100%' }}>
           <CardContent>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+            <Stack direction="row" spacing={1} sx={{ mb: 0.75,
+              alignItems: "center", }}  >
               <SproutOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               <Typography variant="h6">{t('dashboard:checklist.title')}</Typography>
             </Stack>

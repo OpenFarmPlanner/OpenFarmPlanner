@@ -3,11 +3,13 @@ import { useLocation, useNavigate } from 'react-router';
 import axios from 'axios';
 import { cultureAPI, publicCultureAPI } from '../api/api';
 import type { Culture } from '../api/api';
-import type { PublicCulture, PublicCultureRemovalReason, PublishPublicCultureDuplicateError } from '../api/types';
+import type { PublicCulture, PublishPublicCultureDuplicateError } from '../api/types';
 import { useTranslation } from '../i18n';
 import { useAuth } from '../auth/useAuth';
 import { extractApiErrorMessage } from '../api/errors';
 import { dedupePublicCultures } from './publicCultureUtils';
+import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
 
 interface UsePublicCultureLibraryConfig {
   shouldShowProjectRequiredState: boolean;
@@ -26,7 +28,8 @@ export function usePublicCultureLibrary({
   onClearForm,
   showSnackbar,
 }: UsePublicCultureLibraryConfig) {
-  const { t } = useTranslation(['cultures', 'common']);
+  const { t, i18n } = useTranslation(['cultures', 'common']);
+  const language = i18n.resolvedLanguage ?? i18n.language;
   const { refreshUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -76,13 +79,30 @@ export function usePublicCultureLibrary({
   }, [fetchPublicCultures, onClearForm]);
 
   const handleImportPublicCulture = async (publicCulture: PublicCulture) => {
+    const name = getPublicCultureTitle(publicCulture, language, t('library.translation.missingName'));
     try {
       setPublicLibraryImportingId(publicCulture.id);
       const response = await publicCultureAPI.importToProject(publicCulture.id);
-      await onImportSuccess(response.data.id!);
-      setPublicLibraryOpen(false);
-      showSnackbar(t('library.importSuccess', { name: publicCulture.name }), 'success');
+      // Deliberately doesn't close the dialog (unlike a plain "select and
+      // done" flow) — staying open lets the user import several cultures
+      // from the library in one sitting instead of reopening it each time.
+      await onImportSuccess(response.data.culture.id!);
+      if (response.data.operation === 'unchanged') {
+        showSnackbar(t('library.importUnchanged', { name }), 'info');
+      } else if (response.data.operation === 'updated') {
+        showSnackbar(t('library.importUpdated', { name }), 'success');
+      } else {
+        showSnackbar(t('library.importSuccess', { name }), 'success');
+      }
     } catch (error) {
+      // This search-and-import flow doesn't offer the update/import-as-new
+      // choice the Public Crop Library page's conflict dialog does — a 409
+      // here just means "already imported with local changes", so point the
+      // user at the place that can actually resolve it.
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        setPublicLibraryError(t('library.importConflictDialog.resolveElsewhere', { name }));
+        return;
+      }
       console.error('Error importing public culture:', error);
       setPublicLibraryError(extractApiErrorMessage(error, t, t('library.importError')));
     } finally {
@@ -99,7 +119,7 @@ export function usePublicCultureLibrary({
 
   const handlePublishCurrentCulture = async (
     acceptedPublicLibraryTerms = false,
-    publishingData?: { cropSpeciesId: number; originalLanguageCode: string },
+    publishingData?: { cropSpeciesId?: number; originalLanguageCode: string; publicCultureId?: number | null; publishAsGeneral?: boolean },
   ): Promise<boolean> => {
     if (!selectedCulture?.id) {
       return false;
@@ -107,17 +127,24 @@ export function usePublicCultureLibrary({
 
     try {
       setPublishingCultureId(selectedCulture.id);
+      if (publishingData?.publicCultureId) {
+        await cultureAPI.linkPublicCulture(selectedCulture.id, publishingData.publicCultureId);
+        showSnackbar(t('library.linkPublicCultureSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
+        await refreshPublicCultureStatusContext();
+        return true;
+      }
       const response = await cultureAPI.publishPublic(selectedCulture.id, {
         accepted_public_library_terms: acceptedPublicLibraryTerms,
         ...(publishingData ? {
           crop_species_id: publishingData.cropSpeciesId,
           original_language_code: publishingData.originalLanguageCode,
+          ...(publishingData.publishAsGeneral !== undefined ? { publish_as_general: publishingData.publishAsGeneral } : {}),
         } : {}),
       });
       if (response.data.operation === 'updated') {
-        showSnackbar(t('library.updateSuccess', { name: selectedCulture.name }), 'success');
+        showSnackbar(t('library.updateSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
       } else {
-        showSnackbar(t('library.publishSuccess', { name: selectedCulture.name }), 'success');
+        showSnackbar(t('library.publishSuccess', { name: formatCultureDisplayName(selectedCulture) }), 'success');
       }
       if (acceptedPublicLibraryTerms) {
         await refreshUser();
@@ -142,41 +169,6 @@ export function usePublicCultureLibrary({
       return false;
     } finally {
       setPublishingCultureId(null);
-    }
-  };
-
-  const handleWithdrawPublicCulture = async (culture: Culture): Promise<boolean> => {
-    if (!culture.owned_public_culture_id) {
-      return false;
-    }
-    try {
-      await publicCultureAPI.withdraw(culture.owned_public_culture_id);
-      await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.withdrawSuccess', { name: culture.name }), 'success');
-      return true;
-    } catch (error) {
-      console.error('Error withdrawing public culture:', error);
-      showSnackbar(extractApiErrorMessage(error, t, t('library.withdrawError')), 'error');
-      return false;
-    }
-  };
-
-  const handleRemovePublicCulture = async (
-    culture: Culture,
-    reason: PublicCultureRemovalReason,
-  ): Promise<boolean> => {
-    if (!culture.owned_public_culture_id) {
-      return false;
-    }
-    try {
-      await publicCultureAPI.remove(culture.owned_public_culture_id, reason);
-      await refreshPublicCultureStatusContext();
-      showSnackbar(t('library.removeSuccess', { name: culture.name }), 'success');
-      return true;
-    } catch (error) {
-      console.error('Error removing public culture:', error);
-      showSnackbar(extractApiErrorMessage(error, t, t('library.removeError')), 'error');
-      return false;
     }
   };
 
@@ -217,7 +209,5 @@ export function usePublicCultureLibrary({
     handleViewPublicLibraryMatch,
     handleImportPublicCulture,
     handlePublishCurrentCulture,
-    handleWithdrawPublicCulture,
-    handleRemovePublicCulture,
   };
 }
