@@ -147,6 +147,7 @@ export function BasicInfoSection({
                   helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
                   slotProps={{
                     ...params.slotProps,
+
                     htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                     input: {
@@ -204,6 +205,7 @@ export function BasicInfoSection({
                     helperText={errors.variety}
                     slotProps={{
                       ...params.slotProps,
+
                       htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                       input: {
@@ -272,6 +274,7 @@ export function BasicInfoSection({
                   helperText={t('form.firstVarietyHelperText')}
                   slotProps={{
                     ...params.slotProps,
+
                     htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
                     input: {
