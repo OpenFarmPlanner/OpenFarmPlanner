@@ -1,22 +1,49 @@
 # International Public Crop Library: Target Data Model and Migration Plan
 
-Date: 2026-07-22 (status updated 2026-07-28)<br>
-Status: architecture decision record and migration plan. The
-publishing-boundary slice exists: `CropSpecies`, optional private
-`Culture.crop_species`, `PublicCulture.crop_species`,
-`PublicCulture.original_language_code`, the Publishing Wizard, and the
-non-destructive public-library lifecycle statuses (`draft`, `published`,
-`withdrawn`, `removed`) with status events. The collaborative layer also
-exists: users can discuss public entries and submit reviewed
-`PublicCultureChangeProposal` rows before moderators apply changes to the
-public master data.
+Date: 2026-07-22 (status updated 2026-08-12)<br>
+Status: **architecture decision record and migration plan — mostly not built
+yet.**
 
-**The translation layer of this plan is now implemented** for German and
-English — see [`i18n.md`](./i18n.md) for the shipped behaviour:
+> **Read this first.** Sections 2–4 and 7–9 below describe a *target* schema
+> (`CropVariety`, `CropTranslation`, species→variety inheritance, a phased
+> migration). None of that exists in the database today. For what the crop
+> library actually does right now, read
+> [`crop-library-architecture.md`](./crop-library-architecture.md) — it is the
+> description of shipped behaviour, and it wins wherever the two disagree.
 
-- `CropSpeciesTranslation` (species + language → common name) and
-  `PublicCultureTranslation` (entry + language → public description), each
-  unique per language;
+### Already implemented from this plan
+
+- `CropSpecies` as the language-independent identity, optional private
+  `Culture.crop_species`, `PublicCulture.crop_species`, and
+  `PublicCulture.original_language_code`;
+- the Publishing Wizard as the quality gate at the publishing boundary
+  (Variant B from section 6, minus the `CropVariety` half);
+- the non-destructive public-library lifecycle (`draft`, `published`,
+  `withdrawn`, `removed`) with `PublicCultureStatusEvent`;
+- the collaborative layer, though **not in the reviewed-proposal form this
+  plan originally assumed**:
+  editing a public entry is a direct, immediately-published wiki-style edit
+  recorded as an immutable `PublicCultureRevision`, with threaded
+  `PublicCultureDiscussionTopic`/`…Comment` discussions alongside it. The
+  reviewed-proposal workflow (`PublicCultureChangeProposal`) is legacy: rows
+  and endpoints remain, no UI creates or reviews them.
+
+### Still future work from this plan
+
+The separate `CropVariety` entity (varieties remain fields on
+`PublicCulture`), the `CropTranslation` table (public descriptions are stored
+as `PublicCultureTranslation` against `PublicCulture`, not against a canonical
+variety), attribute inheritance from species to variety (section 2.3), the
+phased migration of section 7, and the controlled retirement of the legacy
+single-language columns (phase 5).
+
+**The translation layer of this plan is implemented** for German and
+English, in the reduced shape just described — see [`i18n.md`](./i18n.md) for
+the shipped behaviour:
+
+- `CropSpeciesTranslation` (species + language → common name, in
+  `crops.models`) and `PublicCultureTranslation` (entry + language → public
+  description, in `farm.models`), each unique per language;
 - the fallback resolver of section 5, with the resolved language returned by
   the API so the UI can label content shown in another language;
 - cross-language search and duplicate detection based on the
@@ -66,9 +93,12 @@ species identity table:
 - `CropSpecies` is the official species list. It is nullable on private
   cultures so project work stays flexible, but it is required by the
   publishing quality gate.
-- `PublicCultureDiscussionComment` and `PublicCultureChangeProposal` are
-  additive collaboration records on `PublicCulture`. They support discussion
-  and reviewed edits without mutating imported project copies.
+- `PublicCultureDiscussionTopic`/`PublicCultureDiscussionComment` and
+  `PublicCultureRevision` are additive collaboration records on
+  `PublicCulture`: threaded discussion plus an immutable version history for
+  direct edits, neither of which mutates imported project copies.
+  `PublicCultureChangeProposal` is the legacy reviewed-edit table from an
+  earlier iteration; it is retained for audit only.
 
 `CultureSupplierData` and `SeedPackage` are project-owned child records.
 `PlantingPlan` intentionally points to the private `Culture` snapshot, not to

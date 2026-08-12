@@ -17,8 +17,25 @@ This keeps desktop forms compact without introducing separate mobile forms.
 
 Use `formRowSx` to place related compact fields beside each other. It wraps
 automatically and aligns fields at the top so validation and helper text do
-not disturb neighboring controls. `singleColumnFormSx` caps authentication
-and similar identity forms at the same width as a wide field.
+not disturb neighboring controls.
+
+### Stacked variants
+
+`compactFieldSx` … `wideFieldSx` set a `flex` shorthand, which sizes the
+*main axis*. Inside a column `Stack` that axis is the height, so a multiline
+field would be stretched vertically instead of constrained horizontally. For
+fields stacked vertically rather than laid out in a `formRowSx` row, use the
+plain width/maxWidth variants instead:
+
+| Role | Equivalent of |
+|---|---|
+| `mediumStackedFieldSx` | `mediumFieldSx` (300 px) |
+| `wideSingleColumnFieldSx` | `wideFieldSx` (400 px) |
+| `wideStackedFieldSx` | wide multiline fields (460 px) |
+
+Authentication and similar identity forms are capped by their page shell
+(`AuthPageShell` plus `pages/auth/authPageStyles.ts`), not by a form-layout
+role.
 
 ## Exceptions
 

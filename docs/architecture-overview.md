@@ -28,7 +28,7 @@ where a change belongs. For setup/commands see the root
 backend/
   accounts/     # User account lifecycle: activation, password reset, deletion, consent
   farm/         # The core domain app: locations/fields/beds, cultures, planting plans, seed demand, history
-  crops/        # Thin, read-only app for the future public Crop Library (see crop-library-architecture.md)
+  crops/        # Public Crop Library boundary: official species list, translations, moderation (see crop-library-architecture.md)
   config/       # Django settings, URL roots
 frontend/
   src/
@@ -38,7 +38,7 @@ frontend/
     auth/              # Session/auth context, CSRF handling, ProtectedRoute
     focus/, commands/  # Keyboard focus regions and the command/shortcut system
     cultures/, crops/  # Culture domain UI vs. the (not yet public) Crop Library UI
-    i18n/              # Translation resources (German + English complete, no switcher UI yet)
+    i18n/              # Translation resources + language resolution/switcher (German, English)
     gantt-chart/       # Vendored third-party Gantt component (MIT, see its own README)
   e2e/                 # Playwright end-to-end tests
 docs/                  # This documentation
@@ -74,12 +74,18 @@ docs/                  # This documentation
   external-identity records — the session, the account state, and the
   account-linking rules stay in `accounts`; see
   [social-login.md](./social-login.md).
-- **`crops`** is a real Django app but defines **no models** — it's a
-  read-only API surface (`/api/crops/`) over `farm.PublicCulture`, kept
-  deliberately one-directional (crops never imports from farm) in
-  preparation for a future public Crop Library. It exists *alongside* the
-  older `/api/public-cultures/` endpoint, which the frontend still uses
-  today. Full reasoning: [crop-library-architecture.md](./crop-library-architecture.md).
+- **`crops`** is the public Crop Library boundary. It owns `CropSpecies`
+  (the official, language-independent species list), `CropSpeciesTranslation`,
+  and `PublicLibraryModeratorRequest`, and serves three mounts:
+  `/api/crops/` (a read-only view over `farm.PublicCulture`),
+  `/api/crop-species/` (species list, proposals, moderator approve/reject) and
+  `/api/public-library/moderator-requests/`. `PublicCulture` itself
+  deliberately stays in `farm.models`. The dependency direction is meant to be
+  one-way (crops must not depend on farm planning) and mostly is, with two
+  documented exceptions noted in
+  [crop-library-architecture.md](./crop-library-architecture.md) §3.
+  `/api/crops/` exists *alongside* the older `/api/public-cultures/` endpoint,
+  which is still the one the frontend actually uses.
 - Views follow a thin-view convention (CLAUDE.md): business logic goes into
   `backend/farm/services/*.py` (e.g. `services_area.py` for bed-area
   math, `services/seed_packages.py` for the seed-package optimizer,
@@ -109,6 +115,8 @@ docs/                  # This documentation
   | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte) |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
   | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
+  | `crops/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` (alias `/app/crops`) | Full public Crop Library workspace: browse, import, discuss, edit, version history |
+  | `crops/pages/PublicLibraryModerationPage.tsx` | `/app/public-library-moderation` | Moderation queues: species proposals, moderator-access requests, removed entries |
   | `PlantingPlans.tsx` | `/app/anbauplaene` (alias `/app/planting-plans`) | Spreadsheet-like editable grid of planting schedules |
   | `GanttChart.tsx` | `/app/gantt-chart` | Bed-occupancy timeline / seedling calendar |
   | `YieldOverview.tsx` | `/app/yield-overview` | Aggregated harvest/yield overview |
@@ -141,11 +149,13 @@ docs/                  # This documentation
   axios client, `authApi.ts`'s own for the auth client) — a known
   duplication, not a bug, if you're looking for "the" error handler.
 - **i18n**: one JSON namespace per feature area under
-  `frontend/src/i18n/locales/{de,en}/`. Both German and English now have all
-  16 namespaces translated with matching key structure. There is no
-  language switcher UI yet, though — German (`lng: 'de'`,
-  `fallbackLng: 'de'`) is still the only language actually shown to users
-  today; the English resources exist ahead of that UI being built.
+  `frontend/src/i18n/locales/{de,en}/` (17 namespaces today), with key parity
+  between the two bundles enforced by a test. German and English are both
+  live: users pick a language in the account menu, account settings, or the
+  public-page switcher, the choice is stored per account (`ui_language`) and
+  in `localStorage`, and the backend resolves content language from
+  `Accept-Language`. The full rules — resolution order, the crop-library
+  translation model, fallback labelling — are in [i18n.md](./i18n.md).
 - **Keyboard navigation & commands**: a focus-region model plus a
   shortcut/command system — see
   [keyboard-architecture.md](./keyboard-architecture.md).
@@ -194,8 +204,10 @@ a new one.
   stores full JSON snapshots per mutation, not deltas to replay. See
   [versioning-and-history.md](./versioning-and-history.md).
 - **The Crop Library split already exists in the data model** (`Culture` is
-  project-owned, `PublicCulture` is shared) but is only partially exposed
-  as its own app/route today — see
+  project-owned, `PublicCulture` is shared) and has a full authenticated
+  workspace at `/app/crop-library`, but it is **not public yet** and the
+  frontend still talks to the legacy `/api/public-cultures/` rather than
+  `/api/crops/` — see
   [crop-library-architecture.md](./crop-library-architecture.md) before
   assuming `/api/public-cultures/` can be renamed or removed.
 - **Large datasets use windowed rendering, not virtualization inside the
@@ -223,14 +235,23 @@ a new one.
   *and* the dimming overlay). Pinning the image to the viewport while the
   overlay stays bound to a container lets the raw image show through
   wherever the two disagree in width.
+- **A 401 mid-session logs the user out globally.** `httpClient`'s response
+  interceptor turns an authentication-expired error into a window event
+  (`openfarmplanner:authentication-expired`); `AuthContext` listens for it and
+  clears the authenticated user, which drops the app back through
+  `<ProtectedRoute />` to `/login`. The event carries the request's start
+  timestamp so a slow request that started *before* a successful
+  re-authentication cannot log the user back out — don't "simplify" that
+  timestamp away.
+- **Role gating on the frontend is one page, not a system.**
+  `ProjectSettingsPage.tsx`'s `isProjectAdmin` (`activeMembership?.role ===
+  'admin'`) is the only role conditional in the app; it hides project
+  rename/delete and member management. Everything else relies on the backend's
+  `require_project_admin()` check. Do not assume a frontend permission layer
+  exists to extend — there is one flag on one page.
 
 ## Unclear / needs check
 
-- Whether `ProjectMembership.role` gates any *frontend* UI beyond simple
-  display (no explicit role-based conditionals were found in the pages
-  reviewed while writing this doc) — verify before documenting a frontend
-  permission model that doesn't actually exist yet.
-- Whether a 401 mid-session (expired Django session while the user is
-  active on an `/app/*` page) triggers any global logout/redirect — no
-  global 401 interceptor was found; this is based on static reading, not an
-  observed runtime session-expiry test.
+- Whether every admin-only backend action has a matching frontend affordance
+  (or a sensible error path when a member triggers it anyway) — the two lists
+  were not reconciled endpoint by endpoint while writing this doc.

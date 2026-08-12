@@ -1,7 +1,31 @@
 # Crop Library / Farm Planning Architecture
 
-Date: 2026-07-03
+Date: 2026-07-03 (implementation status reviewed against the code 2026-08-12)
 Scope: `backend/`, `frontend/src/`
+
+## Implementation status at a glance
+
+This document describes **shipped behaviour**; where it talks about future
+work it says so explicitly (mainly §5, "Deliberately NOT done"). The separate
+[public-crop-library-data-model.md](./public-crop-library-data-model.md) is the
+opposite: apart from the parts it explicitly marks as shipped, it is a *target
+model and migration plan*, not a description of the current schema. When the
+two disagree about what exists, this file wins.
+
+| Area | Status |
+|---|---|
+| `crops` Django app with `CropSpecies` (+ translations) and a moderator-request model | **implemented** |
+| Publishing wizard (species mapping, original language, duplicate gate, species proposals) | **implemented** |
+| Duplicate detection on `crop_species` + normalized `variety` (cross-language) | **implemented** |
+| Direct wiki-style editing of public entries + immutable `PublicCultureRevision` history + revert | **implemented** |
+| Threaded discussions (`PublicCultureDiscussionTopic` → `…Comment`, soft delete) | **implemented** |
+| Non-destructive lifecycle (`draft`/`published`/`withdrawn`/`removed`) + status events + staff hard delete | **implemented** |
+| Moderation surfaces: species proposals, moderator-access requests, restoring removed entries (`/app/public-library-moderation`) | **implemented** |
+| Full library workspace at `/app/crop-library` (browse, import, discuss, edit, versions) | **implemented** |
+| `PublicCultureChangeProposal` review workflow | **legacy** — model, endpoints and API-client wrappers still exist, no UI creates or reviews them (see §0) |
+| `/api/crops/` as the *only* library surface; frontend switched off `/api/public-cultures/` | **not done** — see §5 |
+| Unauthenticated public `/crops` route | **not done** — see §5 |
+| Separate `CropVariety` entity and species→variety attribute inheritance | **not done** — planned in public-crop-library-data-model.md §2 |
 
 Goal: prepare and evolve the architecture for a public Crop Library
 (`/crops`) without splitting the repository unnecessarily. The library is
@@ -209,9 +233,15 @@ review those requests through the public-library moderation queue and approval
 grants only the moderator group.
 
 Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
-in the database for audit and transition safety. The active frontend no longer
-creates, reviews, or displays them, and existing proposals are not
-automatically applied.
+in the database for audit and transition safety. No UI creates, reviews, or
+displays them any more, and existing proposals are not automatically applied.
+The plumbing underneath is still there and still reachable: the model, the
+`change-proposals/` list/create/approve/reject actions on
+`PublicCultureViewSet`, and the `publicCultureAPI.changeProposals(...)` /
+`createChangeProposal` / `approveChangeProposal` / `rejectChangeProposal`
+wrappers in `frontend/src/api/api.ts` all still exist — only the components
+that used to call them are gone. Treat it as dead-but-live surface: don't build
+on it, and don't assume removing it is a no-op for API clients.
 
 ## 1. The current situation (before this pass)
 
@@ -251,9 +281,9 @@ scratch.
 
 ### Backend — a new `crops` Django app
 
-`backend/crops/` is a real Django app (`INSTALLED_APPS`). It now owns
-`CropSpecies`, the official language-independent species list used at the
-publishing boundary. `PublicCulture` stays in `farm.models` — moving that
+`backend/crops/` is a real Django app (`INSTALLED_APPS`). It owns the official
+language-independent species list used at the publishing boundary, plus the
+moderator-access queue. `PublicCulture` stays in `farm.models` — moving that
 existing model to a different app changes its migration state and (without
 careful `SeparateDatabaseAndState` migrations) its `app_label`-derived
 `db_table`. That's a real risk to existing data, and still isn't
@@ -263,40 +293,72 @@ service.
 ```
 backend/crops/
   apps.py          CropsConfig
-  models.py        CropSpecies, the official species list used by the
-                    Publishing Wizard
+  models.py        CropSpecies              official species list (published /
+                                             proposed / rejected), used by the
+                                             Publishing Wizard
+                   CropSpeciesTranslation   (species, language_code) → common_name
+                   PublicLibraryModeratorRequest  moderator-access requests
+  permissions.py   is_public_library_moderator() / is_public_library_admin(),
+                    the `Public Library Moderators` group and the
+                    `crops.moderate_crop_species` permission
+  seed_data.py     CROP_SPECIES_SEED_DATA — the starter species catalogue with
+                    stable keys and de/en names
   services.py      list_published_crops(), get_published_crop(),
                     find_exact_crop_match() — reads farm.models.PublicCulture,
                     nothing else
   serializers.py   CropSerializer (read-only; deliberately excludes
-                    source_project/source_project_culture — see §3)
+                    source_project/source_project_culture — see §3),
+                    CropSpecies + moderator-request serializers
   views.py         CropViewSet (ReadOnlyModelViewSet, IsAuthenticated)
-                    CropSpeciesViewSet (official list + proposed entries)
-  urls.py          router → included at /api/crops/
-  tests/
+                    CropSpeciesViewSet (list/propose + moderator approve/reject)
+                    PublicLibraryModeratorRequestViewSet (request/mine +
+                     admin approve/reject)
+  urls.py            router → /api/crops/
+  species_urls.py    router → /api/crop-species/
+  moderation_urls.py router → /api/public-library/moderator-requests/
+  migrations/, tests/
 ```
 
-This is **additive**: `/api/public-cultures/` keeps working exactly as
-before (still defined in `farm/cultures/views.py`/`farm/urls.py`, untouched) —
-the current frontend keeps using it. `/api/crops/` and `/api/crops/<id>/`
-are new, parallel endpoints with the same `IsAuthenticated` requirement
-as everything else — **not actually public yet**. Making them public
-later is a one-line permission-class change, not a rewrite.
+Note that only `CropViewSet` is read-only. `CropSpeciesViewSet` and
+`PublicLibraryModeratorRequestViewSet` are `ModelViewSet`s that accept writes
+(species proposals, moderation decisions, access requests), so "the crops app
+is a read-only surface" — true when this doc was first written — no longer
+describes it.
 
-`config/settings.py` (`INSTALLED_APPS`) and `config/urls.py` (both the
-plain and legacy-prefixed mounts, matching how `farm.urls` is already
-double-mounted) were updated to register the new app.
+The `/api/crops/` surface is **additive**: `/api/public-cultures/` keeps working
+exactly as before (still defined in `farm/cultures/views/public.py` and mounted
+through `farm/urls.py`, untouched) — the current frontend keeps using it.
+`/api/crops/` and `/api/crops/<id>/` are parallel endpoints with the same
+`IsAuthenticated` requirement as everything else — **not actually public yet**.
+Making them public later is a one-line permission-class change, not a rewrite.
+
+`config/settings.py` (`INSTALLED_APPS`) and `config/urls.py` register the app.
+All three crops mounts exist twice in `config/urls.py`, plain and
+legacy-prefixed, matching how `farm.urls` is already double-mounted.
 
 ### Frontend — `frontend/src/crops/`
 
 ```
 frontend/src/crops/
-  api/cropsApi.ts        new client for /api/crops (list/get/match) —
-                         NOT wired into any page yet
+  api/cropsApi.ts        client for /api/crops (list/get/match) —
+                         still NOT wired into any page; only its own test
+                         imports it
   components/
-    PublicCultureLibraryDialog.tsx   moved from src/cultures/ (see §3)
-  pages/                 empty (README explains what goes here later)
-  hooks/                 empty (README explains what goes here later)
+    PublicCultureLibraryDialog.tsx     the quick import picker, moved from
+                                        src/cultures/ (see §3)
+    PublicCultureFiltersPopover.tsx    library filter UI
+    MultilingualTextFieldSection.tsx   per-language text editing
+    publicCropLibrary/                 detail/discussion/version building
+                                        blocks (CommentForm, DiscussionComment,
+                                        VersionCard, ImportConflictDialog,
+                                        DetailPrimitives, the mobile selector,
+                                        formatters)
+  pages/
+    PublicCropLibraryPage.tsx      /app/crop-library — the full workspace
+    PublicLibraryModerationPage.tsx /app/public-library-moderation
+  hooks/                 still empty (README explains what goes here later)
+  publicCultureDisplay.ts, publicCultureFilters.ts,
+  publicCultureListMerge.ts, publicCropLibraryCommandSpecs.ts
   index.ts               barrel (mirrors src/cultures/index.ts's convention
                          of exporting only the public-facing pieces)
 ```
@@ -320,12 +382,21 @@ discussion.
 
 Applied concretely:
 
-- `crops/services.py`, `crops/serializers.py`, `crops/views.py` import
-  only `farm.models.PublicCulture` and `farm.utils.normalize_text` — never
-  farm's view/serializer packages, `Project`, or `Culture`. This is the
-  one dependency direction that matters: if `crops` ever imported from
-  farm's serializers, the arrow would point the wrong way (crop library
-  depending on farm planning).
+- `crops/services.py` imports only `farm.models.PublicCulture` and
+  `farm.utils.normalize_text` — never farm's view/serializer packages,
+  `Project`, or `Culture`. This is the one dependency direction that matters:
+  if `crops` imports from farm's serializers, the arrow points the wrong way
+  (crop library depending on farm planning).
+- **The rule has two live exceptions today, and they are worth knowing
+  about before you extract the app.** `crops/serializers.py` imports
+  `get_public_user_label` from `farm.cultures.serializers.public`, and
+  `crops/views.py` imports `guest_demo_forbidden_response` /
+  `is_active_guest_demo_user` from `accounts.demo_access`. Neither touches
+  `Project` or `Culture`, so the *data* boundary still holds, but the import
+  graph is no longer strictly one-directional. If `crops` is ever pulled out
+  into its own service, these two are the concrete things that have to move
+  (a shared display-label helper) or be re-expressed at the boundary (a guest
+  check the crop library cannot make on its own).
 - `crops/serializers.py`'s `CropSerializer` is **not** a re-export or
   subclass of `farm.cultures.serializers.PublicCultureSerializer`, even though
   they're currently near-identical — importing it would create exactly
@@ -338,8 +409,9 @@ Applied concretely:
 - The publish/import bridge itself (`farm/services/public_cultures.py`)
   is **not** moved into `crops`. It inherently needs both `Culture` and
   `Project` — it's a bridge, not a pure citizen of either domain. It's
-  called "farm's dependency on the crop library" already (`farm/cultures/views.py`
-  imports it), which is the correct direction; deciding whether it should
+  called "farm's dependency on the crop library" already
+  (`farm/cultures/views/cultures.py` imports it), which is the correct
+  direction; deciding whether it should
   someday become a real network call (once crops is an actual separate
   service) is future work, documented in §5, not solved now.
 - `frontend/src/pages/usePublicCultureLibrary.ts` — the hook driving
@@ -510,6 +582,10 @@ The status-change API lives on `/api/public-cultures/<id>/`:
   `CultureSerializer.owned_public_culture_role` (`contributor` / `moderator` /
   `null`) tells the UI which of the two paths applies, so the confirmation
   dialog only asks for a moderation reason when one is actually required.
+- `restore/` is the inverse of a moderator removal: it puts a `withdrawn` or
+  `removed` entry back into `published`. It is the action behind the "removed
+  entries" table on `/app/public-library-moderation`, so a wrong removal does
+  not need a database fix.
 - `hard-delete/` is staff-only and intentionally narrow. It is blocked when
   the public entry has imported project copies or source-project provenance;
   ordinary cleanup and moderation should use `removed` instead.

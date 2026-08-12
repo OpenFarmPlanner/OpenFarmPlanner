@@ -88,9 +88,21 @@ purely as the scoping hook for these rules and as the selector the Gantt e2e
 specs use.
 
 This file also sets the library's `--rmg-primary-color`, `--rmg-task-color`
-and `--rmg-hover-color`. Those three are **the only colour literals outside
-`theme.ts`** — the library consumes them as CSS custom properties and plain
-CSS has no access to the MUI theme. Keep them in sync by hand.
+and `--rmg-hover-color`. Those three are the only colour literals that are
+*allowed to stay* outside `theme.ts` — the library consumes them as CSS custom
+properties and plain CSS has no access to the MUI theme, so keep them in sync
+by hand.
+
+A third stylesheet exists but is not the app's: `src/gantt-chart/src/styles/gantt.css`
+ships with the vendored Gantt library. Treat it as third-party code — changes
+there are library patches, not app styling (see
+[occupancy-tree-hierarchy.md](./occupancy-tree-hierarchy.md)).
+
+**Reality check:** roughly 50 hex colour literals still exist in app `.ts`/`.tsx`
+files (`components/data-grid/styles.ts`, `NotesDrawer.tsx`,
+`ContextMenuIndicator.tsx`, `pages/auth/authPageStyles.ts`, and others). They
+are legacy, not precedent. The rule above is the rule; migrate a literal to a
+theme token when you touch the code around it, and don't add new ones.
 
 ## 5. i18n and writing direction
 

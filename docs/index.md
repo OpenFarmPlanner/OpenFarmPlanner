@@ -56,6 +56,34 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
 - **[Large-Dataset Rendering](./large-dataset-rendering.md)** — pagination,
   bulk-read limits, and scroll-driven windowing for large projects.
 
+## Geplant / in Arbeit — noch nicht implementiert
+
+Everything linked above describes code that exists. This section is the
+opposite: features that are **planned only** and have **no counterpart in the
+codebase**. There is deliberately no deep-dive doc for them — writing one
+before the design exists would produce exactly the confusion this section is
+here to prevent. If you are advising on architecture or scoping work, treat
+these as green field.
+
+| Planned feature | Current state in the code |
+|---|---|
+| **Saisonen** — a `Season` entity, a season switcher in the UI, and planting plans scoped to a season | Nothing. There is no `Season` model, no season field on `PlantingPlan`, and no season UI. Plans carry plain dates and are scoped only by `Project`. |
+| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning") and `Culture.nutrient_demand`. Both are plain informational fields today: no rotation model, no history-of-use per field, no validation, no UI. |
+
+Two consequences worth stating explicitly, because they are easy to
+mis-assume:
+
+- **A year is not a season.** Planning data is filtered by date ranges, not by
+  a season object, so "the 2026 season" is a UI convention over dates, not an
+  entity you can attach settings or a lifecycle to.
+- **`crop_family` being present is not rotation support.** It is a label on a
+  culture; nothing reads it to check or suggest a rotation.
+
+Partially built features live with their own docs instead of here — the public
+Crop Library is the main one, and
+[crop-library-architecture.md](./crop-library-architecture.md) opens with a
+table of what is and isn't implemented.
+
 ## Process / QA
 
 - [`qa-strategy.md`](./qa-strategy.md) — when to do a full vs. targeted

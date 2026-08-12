@@ -116,7 +116,8 @@ erDiagram
   and culture it was published from. Published rows are intended to be
   durable open-data knowledge-base entries under the public-library
   contribution terms, not ordinary user-owned records with self-service
-  deletion. See
+  deletion. Its own satellite records (translations, revisions, discussions,
+  status events) are in [§5](#5-public-crop-library); see
   [crop-library-architecture.md](./crop-library-architecture.md) for the
   full story of how this split is formalized into the `crops` Django app.
 - **`CultureSupplierData`** is the join between one `Culture` and one
@@ -150,7 +151,59 @@ erDiagram
   [datagrid-architecture.md](./datagrid-architecture.md#notes--markdown-cells)
   for how these render as rich markdown+photo notes in the grid.
 
-## 5. History and versioning
+## 5. Public crop library
+
+These are the shared, cross-project records behind the public Crop Library.
+None of them has a `project` FK. `CropSpecies` and `CropSpeciesTranslation`
+live in the `crops` app (`backend/crops/models.py`); everything else lives in
+`backend/farm/models/cultures.py` alongside `PublicCulture` itself.
+
+```mermaid
+erDiagram
+    CropSpecies ||--o{ CropSpeciesTranslation : "localized common names"
+    CropSpecies ||--o{ PublicCulture : "official species of (nullable)"
+    CropSpecies ||--o{ Culture : "optional private species link (nullable)"
+    PublicCulture ||--o{ PublicCultureTranslation : "localized description"
+    PublicCulture ||--o{ PublicCultureRevision : "immutable version history"
+    PublicCulture ||--o{ PublicCultureStatusEvent : "lifecycle audit trail"
+    PublicCulture ||--o{ PublicCultureDiscussionTopic : "discussion threads"
+    PublicCultureDiscussionTopic ||--o{ PublicCultureDiscussionComment : "posts and replies"
+    PublicCultureDiscussionComment ||--o{ PublicCultureDiscussionComment : "parent / reply"
+    PublicCultureRevision ||--o{ PublicCultureDiscussionTopic : "optionally discusses a version"
+    PublicCulture ||--o{ PublicCultureChangeProposal : "legacy, audit only"
+    User ||--o{ PublicLibraryModeratorRequest : "requests moderator access"
+```
+
+- **`CropSpecies`** is the language-independent identity ("tomato" is one
+  row, not one row per language). Its `status` is `published` / `proposed` /
+  `rejected`: a user can propose a species from the publishing wizard and
+  publish against it immediately, while it stays hidden from every other
+  surface until a moderator approves or rejects it. It is **nullable** on
+  private `Culture` rows — free-text project cultures stay valid — but
+  required at the publishing boundary.
+- **Translations** are separate rows, never columns: `CropSpeciesTranslation`
+  holds `(species, language_code) → common_name`, `PublicCultureTranslation`
+  holds `(entry, language_code) → description`. Varieties are proper names and
+  are never translated. See [i18n.md](./i18n.md) for the fallback rules.
+- **`PublicCultureRevision`** is the library's own immutable version history —
+  a *different* mechanism from `EntityRevision` in §6, which only covers
+  project-scoped data. Editing a public entry always appends a revision;
+  reverting appends another one rather than deleting any.
+- **`PublicCultureStatusEvent`** records every `draft`/`published`/
+  `withdrawn`/`removed` transition, which is what makes contributor withdrawal
+  and moderator removal auditable instead of destructive.
+- **`PublicCultureChangeProposal`** is a legacy table from an earlier
+  reviewed-edit workflow. It is retained for audit; nothing in the UI creates
+  or reviews proposals today.
+- **`PublicLibraryModeratorRequest`** backs the "request moderator access"
+  flow. Approval only adds the user to the `Public Library Moderators` group
+  (permission `crops.moderate_crop_species`) — it never grants staff or Django
+  admin rights.
+
+Full behaviour, including the publishing wizard and the moderation surfaces:
+[crop-library-architecture.md](./crop-library-architecture.md).
+
+## 6. History and versioning
 
 ```mermaid
 erDiagram

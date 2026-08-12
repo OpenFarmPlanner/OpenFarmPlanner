@@ -110,5 +110,5 @@ The backend test suite verifies the important fixture guarantees:
 Run the focused tests with:
 
 ```bash
-DJANGO_SETTINGS_MODULE=config.settings_test pdm run python manage.py test farm.tests.test_hint_test_project
+pdm run test farm/tests/test_hint_test_project.py
 ```

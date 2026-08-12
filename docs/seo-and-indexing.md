@@ -83,10 +83,16 @@ always runs right after `vite build`):
    build-time and runtime tags never disagree or duplicate;
 5. writes the result as a real file per route: `dist/index.html`,
    `dist/impressum/index.html`, `dist/datenschutz/index.html`,
-   `dist/nutzungsbedingungen/index.html`.
+   `dist/nutzungsbedingungen/index.html`;
+6. additionally copies the *un*-prerendered SPA shell to
+   `dist/app-shell.html`. Production's SPA fallback serves that file for every
+   non-prerendered route, so `/app/*` and the auth routes never get the
+   landing page's markup and metadata. An e2e assertion
+   (`e2e/public-page-prerendering.spec.ts`) guards that it stays empty.
 
 Every other route (`/app/*`, `/login`, `/register`, password reset,
-invitations, ...) is untouched — only the four files above are written. The
+invitations, ...) has no prerendered content of its own — only the four route
+files above plus the shell are written. The
 browser then boots the exact same SPA bundle as before
 (`createRoot(...).render(...)`, no hydration) and takes over normal
 client-side routing/i18n immediately; there is no route-specific content baked

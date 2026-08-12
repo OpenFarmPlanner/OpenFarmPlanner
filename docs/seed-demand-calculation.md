@@ -25,10 +25,10 @@ fields/beds/cultures/plans yet.
 | Piece | File |
 |---|---|
 | Per-plan requirement + aggregation + supplier/TKG/germination resolution | `backend/farm/services/seed_demand.py`, `build_seed_demand_rows()` |
-| HTTP layer: request parsing, serialization, supplier-selection POST | `backend/farm/cultures/views.py`, `SeedDemandListView` (`GET`/`POST /seed-demand/`) |
+| HTTP layer: request parsing, serialization, supplier-selection POST | `backend/farm/cultures/views/seed_demand.py`, `SeedDemandListView` (`GET`/`POST /seed-demand/`) |
 | Package-count optimizer | `backend/farm/services/seed_packages.py`, `compute_seed_package_suggestion()` |
 | Unit constants + TKG conversion helpers | `backend/farm/seed_units.py` |
-| Read-only response shape | `backend/farm/cultures/serializers.py`, `SeedDemandSerializer` |
+| Read-only response shape | `backend/farm/cultures/serializers/seed_demand.py`, `SeedDemandSerializer` |
 | Display + supplier selection UI | `frontend/src/pages/SeedDemand.tsx` |
 
 ## Calculation, step by step
