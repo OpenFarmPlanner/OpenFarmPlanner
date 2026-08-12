@@ -28,7 +28,7 @@ import type { ApiToken, ApiTokenCreated, ApiTokenScope } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../i18n';
-import { mediumFieldSx, wideFieldSx } from '../components/forms/formLayout';
+import { mediumStackedFieldSx, wideFieldSx, wideSingleColumnFieldSx } from '../components/forms/formLayout';
 import { actionButtonSx } from './accountSettingsForm';
 import { InlineEditor, SectionAlerts, SettingsCard } from './accountSettingsCards';
 
@@ -240,7 +240,7 @@ export default function AccountSettingsApiTokensCard() {
             label={t('apiTokens.form.name')}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            sx={wideFieldSx}
+            sx={wideSingleColumnFieldSx}
             slotProps={{ htmlInput: { maxLength: 120 } }}
           />
           <TextField
@@ -248,7 +248,7 @@ export default function AccountSettingsApiTokensCard() {
             label={t('apiTokens.form.project')}
             value={projectId}
             onChange={(event) => setProjectId(Number(event.target.value))}
-            sx={mediumFieldSx}
+            sx={mediumStackedFieldSx}
             helperText={t('apiTokens.form.projectHelper')}
           >
             {memberships.map((membership) => (
@@ -262,7 +262,7 @@ export default function AccountSettingsApiTokensCard() {
             label={t('apiTokens.form.scope')}
             value={scope}
             onChange={(event) => setScope(event.target.value as ApiTokenScope)}
-            sx={mediumFieldSx}
+            sx={mediumStackedFieldSx}
             helperText={t(`apiTokens.scopeHelp.${scope}`)}
           >
             {SCOPES.map((value) => (
@@ -276,7 +276,7 @@ export default function AccountSettingsApiTokensCard() {
             label={t('apiTokens.form.expiresAt')}
             value={expiresAt}
             onChange={(event) => setExpiresAt(event.target.value)}
-            sx={mediumFieldSx}
+            sx={mediumStackedFieldSx}
             helperText={t('apiTokens.form.expiresAtHelper')}
             slotProps={{ inputLabel: { shrink: true } }}
           />
