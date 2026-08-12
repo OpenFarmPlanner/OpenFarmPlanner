@@ -523,6 +523,25 @@ class ApiTokenManagementEndpointTests(ApiTokenTestBase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_create_accepts_a_future_expiry(self):
+        expires_at = timezone.now() + timedelta(days=30)
+
+        response = self.client.post(
+            '/api/api-tokens/',
+            {
+                'name': 'Claude',
+                'project': self.project.id,
+                'scope': 'write',
+                'expires_at': expires_at.isoformat(),
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['name'], 'Claude')
+        self.assertEqual(response.data['scope'], 'write')
+        self.assertIsNotNone(response.data['expires_at'])
+
     def test_listing_never_exposes_other_users_tokens(self):
         ProjectApiToken.create_token(
             user=self.other_user, project=self.foreign_project, name='Theirs'
