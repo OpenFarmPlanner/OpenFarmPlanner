@@ -32,8 +32,10 @@ from farm.seed_units import (
 )
 from farm.services.culture_display import resolve_culture_display_name
 from farm.services.public_cultures import (
-    has_pending_public_culture_update,
+    has_open_public_culture_update,
     is_public_culture_contributor,
+    is_public_culture_update_rejected,
+    resolve_public_publish_block,
 )
 
 from .seed_packages import SeedPackageSerializer
@@ -174,6 +176,8 @@ class CultureSerializer(serializers.ModelSerializer):
     owned_public_culture_id = serializers.SerializerMethodField()
     owned_public_culture_role = serializers.SerializerMethodField()
     public_update_available = serializers.SerializerMethodField()
+    public_update_rejected = serializers.SerializerMethodField()
+    public_publish_blocked_reason = serializers.SerializerMethodField()
 
     def get_image_file(self, obj):
         if not obj.image_file_id:
@@ -284,14 +288,24 @@ class CultureSerializer(serializers.ModelSerializer):
         return 'moderator'
 
     def get_public_update_available(self, obj: Culture) -> bool:
-        """Whether the library entry this culture was imported from moved on.
+        """Whether an undecided library update should be announced for this culture.
 
         Reads the already `select_related`ed `source_public_culture`, so the
         flag costs no extra query per row. The field-level preview behind it
         lives on the `public-update` detail endpoint and is only fetched when
-        the user opens it.
+        the user opens it. A version the user rejected is excluded here — the
+        notice is gone, but `public_update_rejected` keeps the divergence
+        visible so the diff stays reachable.
         """
-        return has_pending_public_culture_update(obj)
+        return has_open_public_culture_update(obj)
+
+    def get_public_update_rejected(self, obj: Culture) -> bool:
+        """Whether the pending library version was explicitly declined by the user."""
+        return is_public_culture_update_rejected(obj)
+
+    def get_public_publish_blocked_reason(self, obj: Culture) -> str | None:
+        """Why publishing/updating the public entry from this copy is blocked, if it is."""
+        return resolve_public_publish_block(obj)
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')

@@ -328,6 +328,7 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             version=3,
         )
         self.culture.source_public_culture = own_public
+        self.culture.source_public_version = own_public.version
         self.culture.name = 'Carrot'
         self.culture.variety = 'Mokum'
         self.culture.notes = 'Refined owner notes'
@@ -1075,6 +1076,132 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         rows = {row['id']: row for row in response.data['results']}
         self.assertTrue(rows[imported.id]['public_update_available'])
         self.assertFalse(rows[self.culture.id]['public_update_available'])
+
+    def _reject_public_update(self, culture_id: int):
+        return self.client.post(
+            f'/openfarmplanner/api/cultures/{culture_id}/public-update/reject/', {}, format='json',
+        )
+
+    def test_rejecting_a_public_update_silences_the_notice_without_touching_the_copy(self):
+        _, imported = self._import_and_rename_variety()
+
+        response = self._reject_public_update(imported.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['public_update_available'])
+        self.assertTrue(response.data['public_update_rejected'])
+        imported.refresh_from_db()
+        self.assertEqual(imported.variety, 'Nantes', 'rejecting must not change the local copy')
+        self.assertEqual(imported.source_public_version, 1)
+        self.assertFalse(imported.is_modified_from_source)
+
+    def test_rejected_update_keeps_the_diff_reachable_for_a_later_change_of_mind(self):
+        """The user must be able to reopen the diff without waiting for a new public edit."""
+        _, imported = self._import_and_rename_variety()
+        self._reject_public_update(imported.id)
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/public-update/')
+
+        self.assertTrue(response.data['available'])
+        self.assertTrue(response.data['is_rejected'])
+        self.assertEqual(
+            [change for change in response.data['changes'] if change['field'] == 'variety'],
+            [{'field': 'variety', 'local_value': 'Nantes', 'public_value': 'Nantes II'}],
+        )
+
+    def test_a_newer_public_version_surfaces_the_notice_again_after_a_rejection(self):
+        public_culture, imported = self._import_and_rename_variety()
+        self._reject_public_update(imported.id)
+
+        self.client.patch(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/',
+            {'base_version': public_culture.version, 'growth_duration_days': 90},
+            format='json',
+        )
+
+        response = self.client.get('/openfarmplanner/api/cultures/')
+        row = {item['id']: item for item in response.data['results']}[imported.id]
+        self.assertTrue(row['public_update_available'])
+        self.assertFalse(row['public_update_rejected'])
+
+    def test_applying_the_update_clears_an_earlier_rejection(self):
+        public_culture, imported = self._import_and_rename_variety()
+        self._reject_public_update(imported.id)
+
+        self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'update'},
+            format='json',
+        )
+
+        imported.refresh_from_db()
+        self.assertIsNone(imported.rejected_public_version)
+
+    def test_rejecting_without_a_pending_update_is_a_bad_request(self):
+        public_culture = PublicCulture.objects.create(
+            name='Carrot', variety='Nantes', status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/', {}, format='json',
+        )
+
+        response = self._reject_public_update(import_response.data['culture']['id'])
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['code'], 'no_pending_public_update')
+
+    def test_publish_block_reason_tracks_the_update_decision_states(self):
+        public_culture, imported = self._import_and_rename_variety()
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[imported.id]['public_publish_blocked_reason'], 'update_pending')
+
+        self._reject_public_update(imported.id)
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[imported.id]['public_publish_blocked_reason'], 'update_rejected')
+
+        self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'update'},
+            format='json',
+        )
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[imported.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+        imported.refresh_from_db()
+        imported.notes = 'Local edit after aligning'
+        imported.save()
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertIsNone(rows[imported.id]['public_publish_blocked_reason'])
+
+    def test_manual_cultures_are_never_publish_blocked(self):
+        response = self.client.get('/openfarmplanner/api/cultures/')
+
+        rows = {row['id']: row for row in response.data['results']}
+        self.assertIsNone(rows[self.culture.id]['public_publish_blocked_reason'])
+
+    def test_publishing_over_a_rejected_public_version_is_refused(self):
+        """The lock exists so a declined public change cannot be silently overwritten."""
+        public_culture, imported = self._import_and_rename_variety()
+        imported.notes = 'Local edit'
+        imported.save()
+        self._reject_public_update(imported.id)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{imported.id}/publish-public/',
+            {
+                'crop_species_id': self.species.id,
+                'original_language_code': 'de',
+                'accepted_public_library_terms': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'public_culture_update_blocked')
+        self.assertEqual(response.data['reason'], 'update_rejected')
+        public_culture.refresh_from_db()
+        self.assertEqual(public_culture.variety, 'Nantes II')
 
     def test_confirming_the_update_applies_the_variety_rename_to_an_unmodified_copy(self):
         public_culture, imported = self._import_and_rename_variety()

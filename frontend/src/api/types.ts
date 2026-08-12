@@ -86,8 +86,12 @@ export interface Culture {
   owned_public_culture_id?: number | null;
   owned_public_culture_role?: PublicCultureOwnershipRole | null;
   is_modified_from_source?: boolean;
-  /** True when the linked library entry has a newer version this copy has not taken yet. */
+  /** True when the linked library entry has a newer version the user has not decided on yet. */
   public_update_available?: boolean;
+  /** True when the user explicitly declined exactly the library version that is pending. */
+  public_update_rejected?: boolean;
+  /** Why pushing this copy into the public library is blocked, or null when it is allowed. */
+  public_publish_blocked_reason?: PublicPublishBlockedReason | null;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
   package_size_g?: number; // deprecated, replaced by seed_packages
@@ -270,6 +274,8 @@ export interface CulturePublicUpdate {
   public_version?: number;
   local_version?: number | null;
   has_local_changes?: boolean;
+  /** True when this exact public version was already declined by the user. */
+  is_rejected?: boolean;
   changes?: PublicCultureUpdateFieldChange[];
 }
 
@@ -354,6 +360,13 @@ export interface PublicCultureDiscussionTopic {
  * remove somebody else's entry and must pick a moderation reason.
  */
 export type PublicCultureOwnershipRole = 'contributor' | 'moderator';
+
+/**
+ * Why a linked project culture may not be pushed into the public library:
+ * an undecided library update, a version the user declined, or a copy that is
+ * aligned with the library and carries no local edits worth contributing.
+ */
+export type PublicPublishBlockedReason = 'update_pending' | 'update_rejected' | 'no_local_changes';
 
 export type PublicCultureRemovalReason =
   | 'accidental_publication'
