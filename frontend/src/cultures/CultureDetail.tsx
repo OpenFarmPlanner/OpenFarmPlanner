@@ -20,6 +20,7 @@ import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
+import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
 import {
   Badge,
   Box,
@@ -73,6 +74,8 @@ interface CultureDetailProps {
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
   onPublishCulture?: () => void;
+  /** Called after a pending public-library update was applied to the selected culture. */
+  onPublicUpdateApplied?: () => void;
   onDeleteCulture?: (culture: Culture) => void;
   canCreatePlan?: boolean;
   isPublishingCulture?: boolean;
@@ -103,6 +106,7 @@ export function CultureDetail({
   onCreatePlan,
   onOpenHistory,
   onPublishCulture,
+  onPublicUpdateApplied,
   onDeleteCulture,
   canCreatePlan = true,
   isPublishingCulture = false,
@@ -981,6 +985,8 @@ const detailSectionGridSx = {
                 t={t}
               />
             </Box>
+
+            <PublicCultureUpdateNotice culture={selectedCulture} onUpdated={onPublicUpdateApplied} />
 
             {showVarietyValueLegend ? (
               <Box sx={{ mt: 1.25 }}>

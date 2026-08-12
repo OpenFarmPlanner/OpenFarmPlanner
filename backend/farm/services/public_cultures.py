@@ -60,6 +60,7 @@ CULTURE_COPY_FIELDS = [
 ]
 
 PUBLIC_CULTURE_EDITABLE_FIELDS = [
+    'variety',
     'notes',
     'crop_family',
     'nutrient_demand',
@@ -177,6 +178,21 @@ class PublicCultureEditConflictError(Exception):
         self.code = 'stale_public_culture_version'
 
 
+class PublicCultureIdentityConflictError(Exception):
+    """Raised when renaming a public culture's variety would collide with another published entry.
+
+    ``name`` (the crop) stays fixed after publication, but ``variety`` can be
+    corrected to fix typos. Doing so must still respect the same
+    crop+variety uniqueness invariant enforced at publish time, or two
+    published entries could end up sharing one identity.
+    """
+
+    def __init__(self, *, conflicting_public_culture: PublicCulture) -> None:
+        super().__init__('A published entry with this crop and variety already exists.')
+        self.conflicting_public_culture = conflicting_public_culture
+        self.code = 'public_culture_variety_conflict'
+
+
 class PublicCultureRevisionNotFoundError(Exception):
     """Raised when a requested public culture version snapshot is missing."""
 
@@ -276,6 +292,33 @@ def _validate_base_version(public_culture: PublicCulture, base_version: int | No
         )
 
 
+def find_public_culture_identity_conflict(
+    public_culture: PublicCulture,
+    *,
+    variety: str,
+) -> PublicCulture | None:
+    """Another published entry that a variety rename would collide with, if any.
+
+    Mirrors the identity rule in :func:`detect_public_culture_duplicates`
+    (species, or legacy name, plus normalized variety) but starts from an
+    existing ``PublicCulture`` being renamed rather than a project ``Culture``
+    being published, and excludes the entry itself.
+    """
+    normalized_variety = normalize_identity_value(variety)
+    queryset = PublicCulture.objects.filter(
+        status=PublicCulture.STATUS_PUBLISHED,
+        variety_normalized=normalized_variety,
+    ).exclude(pk=public_culture.pk)
+    if public_culture.crop_species_id:
+        queryset = queryset.filter(
+            Q(crop_species_id=public_culture.crop_species_id)
+            | Q(crop_species__isnull=True, name_normalized=public_culture.name_normalized),
+        )
+    else:
+        queryset = queryset.filter(name_normalized=public_culture.name_normalized)
+    return queryset.first()
+
+
 def update_public_culture_directly(
     *,
     public_culture: PublicCulture,
@@ -302,8 +345,16 @@ def update_public_culture_directly(
         if not changed_field_names:
             return locked
 
+        if 'variety' in changed_field_names:
+            conflict = find_public_culture_identity_conflict(locked, variety=locked.variety)
+            if conflict is not None:
+                raise PublicCultureIdentityConflictError(conflicting_public_culture=conflict)
+
+        update_fields = [*changed_field_names, 'version', 'updated_at']
+        if 'variety' in changed_field_names:
+            update_fields.append('variety_normalized')
         locked.version = max(locked.version, 1) + 1
-        locked.save(update_fields=[*changed_field_names, 'version', 'updated_at'])
+        locked.save(update_fields=update_fields)
         if 'notes' in changed_field_names:
             sync_original_language_translation(locked)
         create_public_culture_revision(
@@ -1143,6 +1194,68 @@ def _apply_public_culture_update(*, culture: Culture, public_culture: PublicCult
     Culture.objects.filter(pk=culture.pk).update(is_modified_from_source=False)
     culture.is_modified_from_source = False
     return culture
+
+
+@dataclass(frozen=True)
+class PublicCultureFieldChange:
+    field: str
+    local_value: Any
+    public_value: Any
+
+
+@dataclass(frozen=True)
+class PublicCultureUpdateStatus:
+    """A pending library update for one imported project culture.
+
+    ``changes`` is derived from ``CULTURE_COPY_FIELDS`` — the exact set
+    :func:`_apply_public_culture_update` overwrites — so the preview can never
+    show a field the update leaves alone, nor hide one it rewrites (which is
+    what let a public variety rename reach a project copy unannounced).
+    """
+
+    public_culture: PublicCulture
+    public_version: int
+    local_version: int | None
+    has_local_changes: bool
+    changes: list[PublicCultureFieldChange]
+
+
+def has_pending_public_culture_update(culture: Culture) -> bool:
+    """Whether the linked library entry has a version this copy has not taken yet.
+
+    Version-based, exactly like the 'unchanged' branch of
+    :func:`import_public_culture_into_project`, so the badge the user sees and
+    the decision the import takes can never disagree.
+    """
+    public_culture = culture.source_public_culture
+    if public_culture is None or public_culture.status != PublicCulture.STATUS_PUBLISHED:
+        return False
+    return culture.source_public_version != public_culture.version
+
+
+def build_public_culture_update_status(culture: Culture) -> PublicCultureUpdateStatus | None:
+    """The field-level preview of the pending library update, or None if there is none."""
+    if not has_pending_public_culture_update(culture):
+        return None
+    public_culture = culture.source_public_culture
+    local_payload = _copy_fields(culture)
+    public_payload = _copy_fields(public_culture)
+    changes = [
+        PublicCultureFieldChange(
+            field=field,
+            local_value=_json_safe(local_payload[field]),
+            public_value=_json_safe(public_payload[field]),
+        )
+        for field in CULTURE_COPY_FIELDS
+        if local_payload[field] != public_payload[field]
+    ]
+    return PublicCultureUpdateStatus(
+        public_culture=public_culture,
+        public_version=public_culture.version,
+        local_version=culture.source_public_version,
+        has_local_changes=bool(culture.is_modified_from_source),
+        changes=changes,
+    )
 
 
 def import_public_culture_into_project(

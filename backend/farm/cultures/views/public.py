@@ -25,6 +25,7 @@ from farm.models import (
 from farm.project_context import get_active_project_optional, get_active_project_or_400
 from farm.services.public_cultures import (
     PublicCultureEditConflictError,
+    PublicCultureIdentityConflictError,
     PublicCultureImportConfirmationRequiredError,
     PublicCulturePermissionError,
     PublicCultureRevisionNotFoundError,
@@ -93,6 +94,13 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             base_queryset
             .select_related('created_by__public_profile', 'crop_species')
             .prefetch_related('crop_species__translations', 'translations')
+            .annotate(
+                imported_cultures_count=Count(
+                    'imported_cultures',
+                    filter=Q(imported_cultures__deleted_at__isnull=True),
+                    distinct=True,
+                ),
+            )
         )
         active_project = get_active_project_optional(self.request)
         if active_project is not None:
@@ -188,6 +196,12 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             return self._transition_error_response(error, status.HTTP_403_FORBIDDEN)
         except PublicCultureEditConflictError as error:
             return self._edit_conflict_response(error)
+        except PublicCultureIdentityConflictError as error:
+            return Response({
+                'detail': str(error),
+                'code': error.code,
+                'conflicting_public_culture_id': error.conflicting_public_culture.id,
+            }, status=status.HTTP_409_CONFLICT)
         except ValueError as error:
             return Response({'detail': str(error), 'code': 'unsupported_public_culture_fields'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(PublicCultureSerializer(updated, context=self.get_serializer_context()).data)
@@ -293,6 +307,9 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
                 'detail': str(error),
                 'existing_culture_id': existing.id,
                 'existing_culture_name': format_culture_display_name(existing.name, existing.variety),
+                'variety_changed': (existing.variety or '') != (public_culture.variety or ''),
+                'existing_variety': existing.variety,
+                'public_variety': public_culture.variety,
             }, status=status.HTTP_409_CONFLICT)
         serializer = CultureSerializer(imported, context={'request': request})
         response_status = status.HTTP_201_CREATED if operation == 'created' else status.HTTP_200_OK

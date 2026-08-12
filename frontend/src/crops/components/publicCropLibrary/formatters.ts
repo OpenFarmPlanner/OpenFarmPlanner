@@ -274,6 +274,43 @@ export function getPublicCultureFieldLabel(field: string, t: (key: string, optio
   return field;
 }
 
+const normalizeComparisonValue = (value: unknown): unknown => {
+  if (value === undefined || value === '') return null;
+  if (Array.isArray(value)) return value.length ? [...value].sort() : null;
+  return value;
+};
+
+/** Label for one changed public-culture field, shared by every diff surface. */
+export function getPublicCultureComparisonFieldLabel(field: string, t: TFunction): string {
+  return t(`library.publishWizard.comparison.fields.${field}`);
+}
+
+/**
+ * Renders one public-culture field value for a diff row.
+ *
+ * Shared by the publishing wizard's comparison (private → public) and the
+ * library-update dialog (public → private) so both directions localize enum
+ * values, booleans and empty values identically.
+ */
+export function formatPublicCultureValue(field: string, value: unknown, t: TFunction): string {
+  const normalized = normalizeComparisonValue(value);
+  if (normalized === null) return t('library.publishWizard.comparison.empty');
+  if (typeof normalized === 'boolean') {
+    return t(normalized ? 'library.publishWizard.comparison.yes' : 'library.publishWizard.comparison.no');
+  }
+  if (Array.isArray(normalized)) {
+    return normalized.map((item) => {
+      if (typeof item === 'object') return JSON.stringify(item);
+      return t(`library.publishWizard.comparison.values.${String(item)}`, String(item));
+    }).join(', ');
+  }
+  if (typeof normalized === 'object') return JSON.stringify(normalized);
+  if (['nutrient_demand', 'harvest_method', 'seed_rate_unit', 'seeding_requirement_type'].includes(field)) {
+    return t(`library.publishWizard.comparison.values.${String(normalized)}`, String(normalized));
+  }
+  return String(normalized);
+}
+
 export function getRevisionValueLabel(value: unknown, fallback: string): string {
   if (value === null || value === undefined || value === '') {
     return fallback;

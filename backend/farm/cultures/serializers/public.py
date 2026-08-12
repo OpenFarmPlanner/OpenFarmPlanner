@@ -81,6 +81,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     description_language_code = serializers.SerializerMethodField()
     translations = serializers.SerializerMethodField()
     project_import_status = serializers.SerializerMethodField()
+    imported_cultures_count = serializers.SerializerMethodField()
     thousand_kernel_weight_g = LocalizedDecimalField(
         max_digits=6,
         decimal_places=2,
@@ -137,6 +138,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'source_project_culture',
             'source_project',
             'project_import_status',
+            'imported_cultures_count',
         ]
         read_only_fields = fields
 
@@ -189,6 +191,20 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         if obj.crop_species is None:
             return {}
         return obj.crop_species.translations_by_language()
+
+    def get_imported_cultures_count(self, obj: PublicCulture) -> int:
+        """How many project cultures (across all projects) are linked to this entry.
+
+        Shown to admins editing a public entry so a rename's blast radius is
+        visible before saving. The list/retrieve queryset annotates this
+        directly (a single JOIN, no per-row query); the fallback count only
+        runs for objects built outside that queryset, such as the instance
+        returned right after a direct edit.
+        """
+        annotated = getattr(obj, 'imported_cultures_count', None)
+        if annotated is not None:
+            return annotated
+        return obj.imported_cultures.filter(deleted_at__isnull=True).count()
 
 
 class PublicCultureUpdateSerializer(serializers.ModelSerializer):

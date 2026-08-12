@@ -164,7 +164,11 @@ export default function PublicCropLibraryPage() {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [importingId, setImportingId] = useState<number | null>(null);
-  const [importConflict, setImportConflict] = useState<{ publicCultureId: number; name: string } | null>(null);
+  const [importConflict, setImportConflict] = useState<{
+    publicCultureId: number;
+    name: string;
+    varietyChange: { from: string; to: string } | null;
+  } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState<PublicCultureRemovalReason | ''>('');
@@ -366,6 +370,16 @@ export default function PublicCropLibraryPage() {
   const editFormCultures = useMemo(
     () => cultures.map(publicCultureToCultureFormData),
     [cultures],
+  );
+  // Memoized so this stays referentially stable across re-renders that don't
+  // actually change the selected culture (e.g. the notes-draft state update
+  // that runs while the edit dialog is open). CultureForm resets its draft
+  // whenever this reference changes, so an unmemoized object literal here
+  // would silently discard in-progress edits (e.g. a variety rename) the
+  // moment any unrelated state in this component updates.
+  const editFormCulture = useMemo(
+    () => (selectedCulture ? publicCultureToCultureFormData(selectedCulture) : undefined),
+    [selectedCulture],
   );
   const selectedSpeciesCulture = useMemo(
     () => findSpeciesCulture(selectedCulture, cultures),
@@ -916,7 +930,13 @@ export default function PublicCropLibraryPage() {
       if (axios.isAxiosError(error) && error.response?.status === 409) {
         const conflict = error.response.data as ImportPublicCultureConfirmationRequiredError | undefined;
         if (conflict?.code === 'import_requires_confirmation') {
-          setImportConflict({ publicCultureId, name });
+          setImportConflict({
+            publicCultureId,
+            name,
+            varietyChange: conflict.variety_changed
+              ? { from: conflict.existing_variety ?? '', to: conflict.public_variety ?? '' }
+              : null,
+          });
           return;
         }
       }
@@ -1100,7 +1120,15 @@ export default function PublicCropLibraryPage() {
       setEditDialogOpen(false);
       await loadCollaboration(updatedCulture.id);
       showGlobalSnackbar({ message: t('library.page.edit.success'), severity: 'success' });
-    } catch {
+    } catch (error) {
+      if (
+        axios.isAxiosError(error)
+        && error.response?.status === 409
+        && (error.response.data as { code?: string } | undefined)?.code === 'public_culture_variety_conflict'
+      ) {
+        showGlobalSnackbar({ message: t('form.varietyConflict'), severity: 'error' });
+        return;
+      }
       showGlobalSnackbar({ message: t('library.page.edit.error'), severity: 'error' });
     }
   };
@@ -2046,13 +2074,14 @@ export default function PublicCropLibraryPage() {
       />
       {editDialogOpen && selectedCulture ? (
         <CultureForm
-          culture={publicCultureToCultureFormData(selectedCulture)}
+          culture={editFormCulture}
           cultures={editFormCultures}
           onSave={handleEditSave}
           onCancel={closeEditDialog}
           title={t('library.page.edit.title')}
           variant="publicLibrary"
           hasExternalChanges={hasDescriptionDraftChanges}
+          importedCopiesCount={selectedCulture.imported_cultures_count}
           extraSections={(
             <MultilingualTextFieldSection
               title={t('form.notes')}
@@ -2129,6 +2158,7 @@ export default function PublicCropLibraryPage() {
         onCancel={closeImportConflictDialog}
         onUpdate={handleImportConflictUpdate}
         onImportAsNew={handleImportConflictNew}
+        varietyChange={importConflict?.varietyChange ?? null}
       />
     </PageContainer>
   );

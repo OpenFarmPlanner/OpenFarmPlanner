@@ -630,6 +630,9 @@ function Cultures() {
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
           onPublishCulture={handleRequestPublishCulture}
+          onPublicUpdateApplied={() => {
+            void fetchCultures();
+          }}
           onDeleteCulture={handleDelete}
           canCreatePlan={canCreatePlantingPlan}
           isPublishingCulture={Boolean(selectedCulture && publishingCultureId === selectedCulture.id)}

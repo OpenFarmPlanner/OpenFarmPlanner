@@ -324,7 +324,7 @@ wheels = [
 
 [[package]]
 name = "openfarmplanner-backend"
-version = "1.18.2"
+version = "1.18.3"
 source = { virtual = "." }
 dependencies = [
     { name = "asgiref" },
