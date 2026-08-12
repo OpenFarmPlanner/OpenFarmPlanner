@@ -28,7 +28,7 @@ import type { ApiToken, ApiTokenCreated, ApiTokenScope } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../i18n';
-import { mediumStackedFieldSx, wideFieldSx, wideSingleColumnFieldSx } from '../components/forms/formLayout';
+import { mediumStackedFieldSx, wideSingleColumnFieldSx } from '../components/forms/formLayout';
 import { actionButtonSx } from './accountSettingsForm';
 import { InlineEditor, SectionAlerts, SettingsCard } from './accountSettingsCards';
 
@@ -299,7 +299,7 @@ export default function AccountSettingsApiTokensCard() {
               value={createdToken?.token ?? ''}
               multiline
               minRows={2}
-              sx={wideFieldSx}
+              sx={wideSingleColumnFieldSx}
               slotProps={{ htmlInput: { readOnly: true, 'aria-label': t('apiTokens.created.tokenLabel') } }}
             />
             <DialogContentText>{t('apiTokens.created.usageHint')}</DialogContentText>

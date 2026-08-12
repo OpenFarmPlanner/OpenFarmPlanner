@@ -1131,9 +1131,7 @@ describe('PublicCropLibraryPage', () => {
       .mockResolvedValueOnce({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
-    renderPage();
-    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
-    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    renderPage(['/app/crop-library?cultureId=1&tab=discussion']);
     await user.click(await screen.findByRole('button', { name: 'Neue Diskussion' }));
 
     expect(screen.queryByRole('button', { name: 'Neue Diskussion' })).not.toBeInTheDocument();
