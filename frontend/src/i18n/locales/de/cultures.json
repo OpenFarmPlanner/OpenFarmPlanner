@@ -833,7 +833,7 @@
       "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die öffentliche Kulturbibliothek aktualisierst.",
-        "update_rejected": "Du hast eine neuere Version aus der Bibliothek abgelehnt. Bitte zuerst die öffentliche Kultur direkt bearbeiten, um die Versionen anzugleichen.",
+        "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
         "no_local_changes": "Deine lokale Kopie entspricht der aktuellen öffentlichen Version. Bearbeite sie zuerst lokal, um eine Aktualisierung zu veröffentlichen."
       }
     },
