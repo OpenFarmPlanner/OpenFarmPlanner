@@ -1,10 +1,22 @@
-# Autosave Implementation Documentation
+# Autosave Implementation Documentation (archived)
+
+> **Archived snapshot — do not use as a reference.** The still-valid parts of
+> this document (the `useAutosaveDraft`/`useNavigationBlocker` hooks, the
+> validation utilities, the navigation-protection and MUI-integration
+> mechanics) were consolidated into
+> [`docs/datagrid-architecture.md`](../datagrid-architecture.md), which is now
+> the single source for this topic. The rest — chiefly the "Applied To"
+> section — describes the feature *as originally implemented* and is outdated:
+> `Locations.tsx` and `CultureForm.tsx` no longer use `useAutosaveDraft` (both
+> moved to explicit dialog Save/Cancel forms), and `Beds.tsx`/`Fields.tsx` no
+> longer exist as separate pages (merged into
+> `FieldsBedsPage.tsx`/`FieldsBedsHierarchy.tsx`, which use a raw MUI
+> `DataGrid`, not `EditableDataGrid`). This file is kept only so the original
+> reasoning stays retrievable.
 
 ## Overview
 
 This document describes the spreadsheet-like autosave functionality implemented across the OpenFarmPlanner frontend.
-
-> **Status note (2026-07):** the hooks and utilities below (`useAutosaveDraft`, `useNavigationBlocker`, `src/hooks/validation.ts`) are still current. The "Applied To" section further down, however, predates later refactors — `Locations.tsx` and `CultureForm.tsx` no longer use `useAutosaveDraft` (both moved to explicit dialog Save/Cancel forms), and `Beds.tsx`/`Fields.tsx` no longer exist as separate pages (merged into `FieldsBedsPage.tsx`/`FieldsBedsHierarchy.tsx`, which use a raw MUI `DataGrid`, not `EditableDataGrid`). Today, `useAutosaveDraft` is consumed only from `frontend/src/components/data-grid/DataGrid.tsx` (`EditableDataGrid`), whose current sole page user is `PlantingPlans.tsx`. See [`docs/datagrid-architecture.md`](./docs/datagrid-architecture.md) for the current, accurate picture of which grids use this pattern.
 
 ## Features
 
@@ -143,7 +155,7 @@ const result = validateFields(data, validations);
 
 ## Applied To
 
-> This section describes the state of the feature **as originally implemented**. As of 2026-07 it is only partially accurate — see the status note at the top of this file and [`docs/datagrid-architecture.md`](./docs/datagrid-architecture.md) for what's current.
+> This section describes the state of the feature **as originally implemented**. As of 2026-07 it is only partially accurate — see the status note at the top of this file and [`docs/datagrid-architecture.md`](../datagrid-architecture.md) for what's current.
 
 ### Forms
 
@@ -164,7 +176,7 @@ Originally moved to save-on-blur; **currently uses an explicit dialog Save/Cance
 - **Validation**: Invalid rows cannot be saved (error shown to user, row stays in edit mode)
 - **Data Protection**: Dirty rows are saved before navigation. Save failures keep inline validation/errors available when the user returns to the row.
 
-**Pages currently using `EditableDataGrid`:** `PlantingPlans.tsx` is the only page using it today. `Locations.tsx` moved to a card/dialog form (not a grid), and `FieldsBedsHierarchy.tsx` renders a raw MUI `DataGrid` directly (see [`docs/datagrid-architecture.md`](./docs/datagrid-architecture.md)) rather than `EditableDataGrid`, so it does not get this autosave behavior automatically.
+**Pages currently using `EditableDataGrid`:** `PlantingPlans.tsx` is the only page using it today. `Locations.tsx` moved to a card/dialog form (not a grid), and `FieldsBedsHierarchy.tsx` renders a raw MUI `DataGrid` directly (see [`docs/datagrid-architecture.md`](../datagrid-architecture.md)) rather than `EditableDataGrid`, so it does not get this autosave behavior automatically.
 
 ### Not Changed
 

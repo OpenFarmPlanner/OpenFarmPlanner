@@ -79,8 +79,9 @@ erDiagram
 - `Location` → `Field` → `Bed` is a strict three-level physical hierarchy
   ("Standort" → "Parzelle" → "Beet" in the UI). Only *area* (`area_sqm`) is
   stored for fields/beds today, no polygon geometry — see
-  `FIELD_BED_AREA_IMPLEMENTATION.md` for the historical rationale and the
-  intended future geometry extension path.
+  [`archive/FIELD_BED_AREA_IMPLEMENTATION.md`](./archive/FIELD_BED_AREA_IMPLEMENTATION.md)
+  for the historical rationale and the intended future geometry extension
+  path.
 - `BedLayout`/`FieldLayout` hold persisted x/y coordinates for the
   graphical/map layout view (`GraphicalFields.tsx`) — they're optional,
   separate rows from `Bed`/`Field` themselves, not embedded fields.

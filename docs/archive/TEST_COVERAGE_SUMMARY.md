@@ -1,4 +1,12 @@
-# Test Coverage Implementation Summary
+# Test Coverage Implementation Summary (archived)
+
+> **Archived point-in-time report.** The numbers below describe the frontend
+> test suite as it stood when the report was written; they are not kept in
+> sync with the current suite. For how testing works today see the "Testing
+> Rules" section of [`CLAUDE.md`](../../CLAUDE.md) and the "Testing Overview"
+> section of the root [`README.md`](../../README.md). The autosave-specific
+> parts are covered by
+> [`docs/datagrid-architecture.md`](../datagrid-architecture.md).
 
 ## Overview
 

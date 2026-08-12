@@ -18,7 +18,8 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
 
 - **[DataGrid Architecture](./datagrid-architecture.md)** — the custom
   layer OpenFarmPlanner built on top of MUI X DataGrid: inline editing,
-  row actions, notes/markdown cells, copy/paste, column visibility.
+  autosave-on-blur (`useAutosaveDraft`, `useNavigationBlocker`), row
+  actions, notes/markdown cells, copy/paste, column visibility.
 - **[Demo Project Template](./demo-project.md)** — the reusable realistic
   demo dataset used by first-project onboarding and landing screenshots.
 - **[Hint Test Project](./hint-test-project.md)** — reproducible developer
@@ -54,21 +55,28 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
   `EntityRevision` audit trail and how culture/project restore works.
 - **[Large-Dataset Rendering](./large-dataset-rendering.md)** — pagination,
   bulk-read limits, and scroll-driven windowing for large projects.
-- **[`AUTOSAVE_IMPLEMENTATION.md`](../AUTOSAVE_IMPLEMENTATION.md)** —
-  save-on-blur, validation-before-save, and navigation-blocking hooks
-  (`useAutosaveDraft`, `useNavigationBlocker`).
 
 ## Process / QA
 
 - [`qa-strategy.md`](./qa-strategy.md) — when to do a full vs. targeted
   exploratory QA sweep.
-- [`qa-coverage-2026-06-30.md`](./qa-coverage-2026-06-30.md) (or a later
-  `qa-coverage-*.md`, if one exists — use the most recent date) — what was
-  last tested, at which commit.
+- [`qa-coverage-2026-07-27.md`](./qa-coverage-2026-07-27.md) (or a later
+  `qa-coverage-*.md`, if one exists — use the most recent date; older ones are
+  in [`qa-archive/`](./qa-archive/)) — what was last tested, at which commit.
 - [`qa-excluded-issues.md`](./qa-excluded-issues.md) — known, intentional
   behavior that looks like a bug but isn't; don't re-report these.
 - [`keyboard-shortcuts-audit.md`](./keyboard-shortcuts-audit.md) — shortcut
   inventory audit.
+
+## Archives
+
+Nothing in these folders is maintained — they exist so the original reasoning
+stays retrievable:
+
+- [`archive/`](./archive/) — completed implementation notes and point-in-time
+  reports that were superseded by the docs above.
+- [`qa-archive/`](./qa-archive/) — dated QA reports, fix logs, and superseded
+  coverage snapshots.
 
 ## Conventions used across these docs
 
