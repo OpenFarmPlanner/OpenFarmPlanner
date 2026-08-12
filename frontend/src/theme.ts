@@ -422,47 +422,45 @@ const theme = createTheme({
       // MUI v9 no longer generates compound variant+color utility classes
       // (e.g. `filledInfo`, `standardSuccess`), so these must be expressed
       // as `variants` entries instead of `styleOverrides` keys.
-      variants: [
-        {
-          props: { variant: 'filled', color: 'info' },
-          style: ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme),
-        },
-        {
-          props: { variant: 'filled', color: 'success' },
-          style: ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme),
-        },
-        {
-          props: { variant: 'standard', color: 'info' },
-          style: ({ theme }: { theme: Theme }) => ({
+      //
+      // Match on Alert's own `color ?? severity` resolution, not a bare
+      // `color` prop: every caller here only ever passes `severity`, so
+      // `ownerState.color` stays undefined and a `color`-keyed variant
+      // never matches. Matching on `color` here silently broke every
+      // custom Alert color since the v9 migration (all alerts fell back
+      // to MUI's stock palette) because `variants` prop-matching can only
+      // see public `AlertProps` fields, not Alert's internal derived
+      // `colorSeverity` ownerState field.
+      variants: (
+        [
+          ['filled', 'info', ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme)],
+          ['filled', 'success', ({ theme }: { theme: Theme }) => createPositiveFilledAlertStyles(theme)],
+          ['standard', 'info', ({ theme }: { theme: Theme }) => ({
             backgroundColor: flattenOnWhite(theme.palette.primary.main, 0.08),
             color: theme.palette.primary.dark,
             '& .MuiAlert-icon': {
               color: theme.palette.primary.main,
             },
-          }),
-        },
-        {
-          props: { variant: 'standard', color: 'success' },
-          style: {
+          })],
+          ['standard', 'success', {
             backgroundColor: flattenOnWhite('#4caf50', 0.1),
             color: '#2f5a35',
-          },
-        },
-        {
-          props: { variant: 'standard', color: 'warning' },
-          style: {
+          }],
+          ['standard', 'warning', {
             backgroundColor: flattenOnWhite('#ed6c02', 0.1),
             color: '#75491e',
-          },
-        },
-        {
-          props: { variant: 'standard', color: 'error' },
-          style: {
+          }],
+          ['standard', 'error', {
             backgroundColor: flattenOnWhite('#d32f2f', 0.09),
             color: '#6e2c2c',
-          },
-        },
-      ],
+          }],
+        ] as const
+      ).map(([variant, colorSeverity, style]) => ({
+        props: (props: { variant?: string; color?: string; severity?: string }) => (
+          props.variant === variant && (props.color ?? props.severity) === colorSeverity
+        ),
+        style,
+      })),
     },
     MuiTableCell: {
       styleOverrides: {

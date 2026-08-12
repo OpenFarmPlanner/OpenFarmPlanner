@@ -33,6 +33,7 @@ import {
   IconButton,
 } from '@mui/material';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
+import { alpha } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { cultureAPI, publicCultureAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
@@ -175,7 +176,7 @@ const PublicCultureSourceHint = ({ text }: { text: string }) => (
       py: 1,
       borderLeft: `4px solid ${theme.palette.primary.main}`,
       borderRadius: 1,
-      bgcolor: 'rgba(76, 135, 86, 0.10)',
+      bgcolor: alpha(theme.palette.primary.light, 0.1),
       color: 'text.primary',
     })}
   >
