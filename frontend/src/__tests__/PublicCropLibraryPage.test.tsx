@@ -1093,18 +1093,23 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
   });
 
-  // Retried because this test has flaked on CI since 2026-08-10 and the cause
-  // is still unidentified. Four fixes have been tried and measured against it,
-  // and none of them stopped it: raising the assertion timeout (#451), giving
-  // `discussionTopics` a default mock so an extra call cannot resolve
-  // `undefined` (#467), stopping the topic-exists guard from deselecting a
-  // just-created topic (#469), and running the full suite under heavier load
-  // than CI locally (671s vs CI's 471s - still green, so it is not plain
-  // starvation). The retry keeps CI meaningful for everything else instead of
-  // the whole gate riding on one unexplained test; the split assertion above
-  // is there to identify the cause the next time it surfaces. Remove both once
-  // it is understood - do not copy this to another test.
-  it('creates a new discussion inline and opens it after saving', { retry: 2 }, async () => {
+  // DELIBERATELY NOT RETRIED while the flake is being identified.
+  //
+  // This test has flaked on CI since 2026-08-10 and the cause is still
+  // unknown. Four fixes have been tried and measured, and none stopped it:
+  // raising the assertion timeout (#451), giving `discussionTopics` a default
+  // mock so an extra call cannot resolve `undefined` (#467), stopping the
+  // topic-exists guard from deselecting a just-created topic (#469), and
+  // running the full suite locally under heavier load than CI (671s vs CI's
+  // 471s - still green, so it is not plain starvation). It does not reproduce
+  // locally at all.
+  //
+  // A `retry` was added and then removed on purpose: retrying hides the one
+  // signal left to work with. The assertion below is split so a CI failure
+  // names which half broke - the lost navigation or the topic list - instead
+  // of only reporting "element could not be found". Once a failure has been
+  // captured and the cause is understood, fix it and delete this note.
+  it('creates a new discussion inline and opens it after saving', async () => {
     const user = userEvent.setup();
     const createdTopic: PublicCultureDiscussionTopic = {
       id: 20,
