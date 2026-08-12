@@ -60,6 +60,33 @@ The public Crop Library follows an open-data model:
   The endpoint is read-only: confirming in the dialog calls the existing
   `public-cultures/<id>/import/` action with `mode=update`, so the private
   culture page and the library page share one import/update path.
+- Declining a public change is a third, explicit outcome next to applying and
+  cancelling. `POST /api/cultures/<id>/public-update/reject/` stores
+  `Culture.rejected_public_version` and touches no library-sourced field, so the
+  notice disappears for exactly that version while the local copy stays as it
+  was. Because the decision is a *version number* rather than a flag, a later
+  public edit produces a version the user never decided on and the notice comes
+  back on its own; taking an update over (`build_project_culture_payload`)
+  clears the rejection again. Cancelling remains the "no decision" path — the
+  notice returns on the next visit.
+- The diff stays reachable after a decision: `build_public_culture_update_status()`
+  is still built for a rejected version, and the culture detail header carries a
+  permanent, quiet marker next to the "Importiert" badge
+  (`PublicCultureUpdateMarker`) that reopens the dialog whenever the copy and
+  the library version differ. Both entry points share one
+  `usePublicCultureUpdate` controller, so the notice and the marker can never
+  disagree about what is loading, applying, or rejecting.
+- `CultureSerializer.public_publish_blocked_reason` locks the "Öffentliche
+  Kulturbibliothek aktualisieren" action while pushing the local copy would be
+  wrong: `update_pending` (undecided library change), `update_rejected` (the
+  user declined that public version — pushing would silently undo exactly the
+  change they declined), and `no_local_changes` (aligned copy with nothing to
+  contribute). The lock is not only cosmetic:
+  `publish_culture_to_public_library()` raises `PublicCultureUpdateBlockedError`
+  (409 `public_culture_update_blocked`) for the two divergence cases before the
+  quality gate runs. The action becomes available again once the copy is
+  aligned with the current public version *and* carries local edits made after
+  that.
 - The publishing wizard's comparison covers `variety` too. Before the Sorte
   became editable it was left out as immutable, which meant publishing an
   update could rename the public entry without the change ever appearing in

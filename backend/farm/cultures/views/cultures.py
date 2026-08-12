@@ -33,10 +33,12 @@ from farm.project_context import get_active_project_or_400
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
     PublicCulturePublishingValidationError,
+    PublicCultureUpdateBlockedError,
     build_public_culture_update_status,
     build_publishing_check_result,
     link_project_culture_to_public_reference,
     publish_culture_to_public_library,
+    reject_public_culture_update,
 )
 
 
@@ -578,6 +580,12 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except PublicCultureUpdateBlockedError as error:
+            return Response({
+                'code': 'public_culture_update_blocked',
+                'detail': 'The public entry has a newer version this copy has not taken over.',
+                'reason': error.reason,
+            }, status=status.HTTP_409_CONFLICT)
         except DuplicatePublicCultureError as error:
             return Response({
                 'code': 'duplicate_public_culture',
@@ -638,6 +646,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             'public_version': update_status.public_version,
             'local_version': update_status.local_version,
             'has_local_changes': update_status.has_local_changes,
+            'is_rejected': update_status.is_rejected,
             'changes': [
                 {
                     'field': change.field,
@@ -647,6 +656,29 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 for change in update_status.changes
             ],
         })
+
+    @action(detail=True, methods=['post'], url_path='public-update/reject')
+    def reject_public_update(self, request: Request, pk: str | None = None) -> Response:
+        """Record that the user declined the pending library version.
+
+        The counterpart to confirming in the diff dialog: no library-sourced
+        field is copied, only the decision is stored, so the notice disappears
+        for exactly this public version. The diff itself stays reachable and a
+        later public edit surfaces the notice again on its own.
+        """
+        culture = self.get_object()
+        update_status = build_public_culture_update_status(culture)
+        if update_status is None:
+            return Response(
+                {
+                    'detail': 'There is no pending public update for this culture.',
+                    'code': 'no_pending_public_update',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reject_public_culture_update(culture)
+        serializer = self.get_serializer(culture)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'], url_path='publish-public/preview')
     def publish_public_preview(self, request, pk=None):

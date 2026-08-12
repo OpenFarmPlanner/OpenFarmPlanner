@@ -821,7 +821,21 @@
       "apply": "Apply",
       "applying": "Applying…",
       "applied": "The changes to “{{name}}” have been applied.",
-      "applyError": "The changes could not be applied."
+      "applyError": "The changes could not be applied.",
+      "reject": "Decline",
+      "rejecting": "Declining…",
+      "rejected": "The changes to “{{name}}” were declined. Your local copy stays unchanged.",
+      "rejectError": "The changes could not be declined.",
+      "rejectedHint": "You already declined this version. You can still apply it here at any time.",
+      "markerLabel": "Update available",
+      "markerTooltip": "Your local copy differs from the current library version. Click to review the changes.",
+      "markerRejectedLabel": "Update declined",
+      "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
+      "publishBlocked": {
+        "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the public crop library.",
+        "update_rejected": "You declined a newer version from the library. Edit the public crop directly first to align the versions.",
+        "no_local_changes": "Your local copy matches the current public version. Edit it locally first to publish an update."
+      }
     },
     "publishButton": "Publish",
     "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
