@@ -1,4 +1,4 @@
-import type { PublicCulture } from '../api/types';
+import type { PublicCulture, PublicCultureDiscussionTopic } from '../api/types';
 
 /**
  * Keeps locally saved cultures from being rolled back by a list response that
@@ -32,4 +32,30 @@ export function applySavedCultures(
     }
     return savedCulture;
   });
+}
+
+/**
+ * Keeps a just-created discussion topic in the list even when the reload that
+ * follows the create does not contain it yet.
+ *
+ * Creating a topic selects it by navigating to `?discussionId=<id>`, and a
+ * guard effect deselects any discussion id that is missing from `topics` (so a
+ * stale link to a deleted discussion cannot leave the page pointing at
+ * nothing). If the reload response lags behind the create — ordering,
+ * pagination, or a replica that has not caught up — that guard throws the user
+ * straight back out of the discussion they just created. The detail pane reads
+ * its title from the list entry too, so the same gap renders an endless
+ * spinner instead of the new discussion.
+ *
+ * The created topic is prepended rather than appended: the list is ordered by
+ * newest activity first, which a brand-new topic always is.
+ */
+export function withCreatedTopic(
+  topics: PublicCultureDiscussionTopic[],
+  createdTopic: PublicCultureDiscussionTopic,
+): PublicCultureDiscussionTopic[] {
+  if (topics.some((topic) => topic.id === createdTopic.id)) {
+    return topics;
+  }
+  return [createdTopic, ...topics];
 }

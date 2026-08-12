@@ -1167,6 +1167,55 @@ describe('PublicCropLibraryPage', () => {
     expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 25000 })).toBeInTheDocument();
   }, 60000);
 
+  it('keeps a created discussion open when the reloaded topic list does not contain it yet', async () => {
+    const user = userEvent.setup();
+    const createdTopic: PublicCultureDiscussionTopic = {
+      id: 20,
+      public_culture: 1,
+      title: 'Neue Frage',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-28T10:00:00Z',
+      last_comment_preview: 'Vorschau des Kommentars',
+    };
+    const createdComment: PublicCultureDiscussionComment = {
+      id: 21,
+      topic: 20,
+      parent: null,
+      body: 'Was ist hier gemeint?',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      updated_at: '2026-07-28T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    };
+    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    // The reload never returns the new topic - the case this guards against is
+    // a list response that lags behind the create (ordering, pagination, or a
+    // replica that has not caught up). Without the created-topic merge the
+    // "unknown discussion ID" guard deselects the discussion the user just
+    // created and the detail pane is stuck on a spinner.
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByRole('button', { name: 'Neue Diskussion' }));
+    await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'Neue Frage');
+    await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Was ist hier gemeint?');
+    const submitButton = screen.getByRole('button', { name: 'Diskussion starten' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
+
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('current route')).toHaveTextContent('discussionId=20');
+    });
+  });
+
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
     const user = userEvent.setup();
     renderPage();
