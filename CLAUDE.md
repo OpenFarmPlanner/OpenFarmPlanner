@@ -67,7 +67,10 @@ exactly one section below; don't restate rules here.
   - Backend: `cd backend && pdm run test` (plus `pdm run makemigrations` / `pdm run migrate` if models changed).
   - Frontend: `cd frontend && npm run lint && npm run test` (add `npm run test:e2e` for user-facing flows with existing E2E coverage).
   - Or `./scripts/quality.sh` from the repo root to run the same gates CI uses.
-- Do NOT execute CI workflows manually.
+- Re-running a CI job is allowed when it serves a purpose you can name — most
+  often sampling an intermittent failure that does not reproduce locally.
+  Prefer the local gates above for ordinary verification, and say why a re-run
+  is needed rather than re-running until a check happens to pass.
 
 ## Playwright Screenshot Tests
 - Screenshot baselines must never be updated or committed automatically.
