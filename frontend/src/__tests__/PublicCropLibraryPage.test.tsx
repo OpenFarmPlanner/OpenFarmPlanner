@@ -1121,9 +1121,14 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     };
     publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    // The default covers every call after the first: the topic reload races
+    // with the `discussionId` navigation that follows it, so under load the
+    // page can refetch the topics once more. With only two queued `Once`
+    // values that extra call resolved `undefined` and blew up the reload,
+    // leaving the heading below to time out instead of failing loudly.
     publicCultureApiMocks.discussionTopics
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [createdTopic] });
+      .mockResolvedValue({ data: [createdTopic] })
+      .mockResolvedValueOnce({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
     renderPage();
