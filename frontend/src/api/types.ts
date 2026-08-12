@@ -79,6 +79,14 @@ export interface SeedRateByCultivationEntry {
 
 export type SeedRateByCultivation = Partial<Record<CultivationType, SeedRateByCultivationEntry>>;
 
+export interface SeedRequirementEntry {
+  value: number;
+  unit: SeedRateUnit;
+  safety_percent?: number;
+}
+
+export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
+
 export interface Culture {
   source_public_culture?: number | null;
   source_public_version?: number | null;
@@ -101,6 +109,7 @@ export interface Culture {
   seed_rate_value?: number | null;
   seed_rate_unit?: SeedRateUnit | null;
   seed_rate_by_cultivation?: SeedRateByCultivation | null;
+  seed_requirements?: SeedRequirements;
   seed_rate_direct_value?: number | null;
   seed_rate_direct_unit?: SeedRateUnit | null;
   sowing_calculation_safety_percent_direct?: number | null;

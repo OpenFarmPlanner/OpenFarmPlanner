@@ -19,6 +19,7 @@ class OpenApiDocumentTests(APITestCase):
     def setUp(self):
         self.document = build_openapi_document()
         self.culture_schema = self.document['components']['schemas']['CultureImportItem']
+        self.culture_write_schema = self.document['components']['schemas']['CultureWriteItem']
 
     def test_document_declares_bearer_security(self):
         scheme = self.document['components']['securitySchemes']['bearerAuth']
@@ -86,6 +87,31 @@ class OpenApiDocumentTests(APITestCase):
     def test_seed_rate_units_list_only_the_canonical_project_vocabulary(self):
         schema = self.culture_schema['properties']['seed_rate_direct_unit']
         self.assertEqual(set(schema['enum']), set(SEED_RATE_UNIT_VALUES))
+
+    def test_culture_write_schema_prefers_seed_requirements_object(self):
+        schema = self.culture_write_schema['properties']['seed_requirements']
+
+        self.assertIn('Total seed demand is calculated later', schema['description'])
+        self.assertEqual(
+            set(schema['properties']),
+            {'direct_sowing', 'pre_cultivation'},
+        )
+        entry = schema['properties']['pre_cultivation']
+        self.assertEqual(entry['required'], ['value', 'unit'])
+        self.assertEqual(
+            set(entry['properties']['unit']['enum']),
+            set(SEED_RATE_UNIT_VALUES),
+        )
+
+    def test_culture_create_documents_seed_requirements_example(self):
+        request_body = self.document['paths']['/cultures/']['post']['requestBody']
+        examples = request_body['content']['application/json']['examples']
+
+        tomato = examples['preCultivatedTomato']['value']
+        self.assertEqual(
+            tomato['seed_requirements']['pre_cultivation'],
+            {'value': 2, 'unit': 'seeds_per_plant'},
+        )
 
     def test_coupled_fields_declare_their_companion(self):
         properties = self.culture_schema['properties']

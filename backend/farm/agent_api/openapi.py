@@ -110,6 +110,124 @@ def build_culture_import_item_schema() -> dict[str, Any]:
     }
 
 
+def _seed_requirements_schema() -> dict[str, Any]:
+    """Return the preferred seed-rate schema for culture create/update."""
+    entry_schema = {
+        'type': 'object',
+        'required': ['value', 'unit'],
+        'additionalProperties': False,
+        'properties': {
+            'value': {
+                'type': 'number',
+                'exclusiveMinimum': 0,
+                'description': 'Seed rate value. This is not the total amount to buy.',
+                'examples': [2],
+            },
+            'unit': {
+                'type': 'string',
+                'enum': [
+                    'g_per_m2',
+                    'g_per_lfm',
+                    'seeds_per_m2',
+                    'seeds_per_lfm',
+                    'seeds_per_plant',
+                ],
+                'description': (
+                    'Unit that defines whether the value is per area, row metre, '
+                    'or plant.'
+                ),
+                'examples': ['seeds_per_plant'],
+            },
+            'safety_percent': {
+                'type': 'number',
+                'minimum': 0,
+                'maximum': 100,
+                'description': 'Optional extra seed margin added during demand calculation.',
+                'examples': [10],
+            },
+        },
+    }
+    return {
+        'type': 'object',
+        'description': (
+            'Preferred agent-facing seed-rate object. Keys are cultivation methods; '
+            'values describe seed rate per area, row metre, or target plant. '
+            'Use this instead of legacy seeding_requirement fields. Total seed '
+            'demand is calculated later from planting area or plant count.'
+        ),
+        'additionalProperties': False,
+        'properties': {
+            'direct_sowing': entry_schema,
+            'pre_cultivation': entry_schema,
+        },
+        'examples': [
+            {'pre_cultivation': {'value': 2, 'unit': 'seeds_per_plant'}},
+            {'direct_sowing': {'value': 1.5, 'unit': 'g_per_m2', 'safety_percent': 10}},
+        ],
+    }
+
+
+def build_culture_write_item_schema() -> dict[str, Any]:
+    """Return the JSON Schema for direct culture create/update payloads."""
+    properties = {spec.name: _field_schema(spec) for spec in CULTURE_FIELD_SPECS}
+    properties['seed_requirements'] = _seed_requirements_schema()
+    return {
+        'type': 'object',
+        'title': 'CultureWriteItem',
+        'description': (
+            'Culture create/update payload. For seed rates, prefer seed_requirements: '
+            'it states the cultivation method and unit in one object. The older '
+            'seed_rate_* fields remain accepted for compatibility.'
+        ),
+        'required': ['name'],
+        'additionalProperties': True,
+        'properties': properties,
+    }
+
+
+def _culture_write_request_body(*, required: bool) -> dict[str, Any]:
+    """Return the request body schema for culture create/update endpoints."""
+    return {
+        'required': required,
+        'content': {
+            'application/json': {
+                'schema': {'$ref': '#/components/schemas/CultureWriteItem'},
+                'examples': {
+                    'preCultivatedTomato': {
+                        'summary': 'Pre-cultivated tomato',
+                        'value': {
+                            'name': 'Tomate',
+                            'variety': 'San Marzano',
+                            'cultivation_types': ['pre_cultivation'],
+                            'seed_requirements': {
+                                'pre_cultivation': {
+                                    'value': 2,
+                                    'unit': 'seeds_per_plant',
+                                }
+                            },
+                        },
+                    },
+                    'directSownCarrot': {
+                        'summary': 'Direct-sown carrot by area',
+                        'value': {
+                            'name': 'Karotte',
+                            'variety': 'Nantaise',
+                            'cultivation_types': ['direct_sowing'],
+                            'seed_requirements': {
+                                'direct_sowing': {
+                                    'value': 1.5,
+                                    'unit': 'g_per_m2',
+                                    'safety_percent': 10,
+                                }
+                            },
+                        },
+                    },
+                },
+            }
+        },
+    }
+
+
 def _preview_field_schema() -> dict[str, Any]:
     """Return the schema of one row/field entry in an import preview."""
     return {
@@ -244,6 +362,7 @@ def _culture_paths() -> dict[str, Any]:
                     f'{project_note}'
                 ),
                 'tags': ['cultures'],
+                'requestBody': _culture_write_request_body(required=True),
                 'responses': {'201': {'description': 'Created culture.'}},
             },
         },
@@ -267,12 +386,14 @@ def _culture_paths() -> dict[str, Any]:
                 'summary': 'Partially update one culture',
                 'description': 'Requires scope `write`.',
                 'tags': ['cultures'],
+                'requestBody': _culture_write_request_body(required=False),
                 'responses': {'200': {'description': 'Updated culture.'}},
             },
             'put': {
                 'summary': 'Replace one culture',
                 'description': 'Requires scope `write`.',
                 'tags': ['cultures'],
+                'requestBody': _culture_write_request_body(required=True),
                 'responses': {'200': {'description': 'Updated culture.'}},
             },
             'delete': {
@@ -507,6 +628,7 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
                     },
                 },
                 'CultureImportItem': build_culture_import_item_schema(),
+                'CultureWriteItem': build_culture_write_item_schema(),
                 'CultureImportPreviewField': _preview_field_schema(),
                 'CultureImportPreviewItem': _preview_item_schema(),
                 'CultureImportDraft': _draft_schema(),

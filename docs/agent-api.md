@@ -258,6 +258,58 @@ itself states one (`"50 cm"` or `{"value": 50, "unit": "cm"}`).
 | `seed_rate_direct_value` | see its `_unit` | > 0 … 100000 | depends on the unit |
 | `seed_rate_pre_cultivation_value` | see its `_unit` | > 0 … 100000 | depends on the unit |
 
+For direct culture create/update, agents should prefer the `seed_requirements`
+object over the flat `seed_rate_*` fields:
+
+```json
+{
+  "cultivation_types": ["pre_cultivation"],
+  "seed_requirements": {
+    "pre_cultivation": {
+      "value": 2,
+      "unit": "seeds_per_plant",
+      "safety_percent": 10
+    }
+  }
+}
+```
+
+`seed_requirements` is a **rate**, not a shopping total. Its keys are cultivation
+methods (`pre_cultivation`, `direct_sowing`), and its units say whether the rate
+is per square metre, row metre, or target plant. The server stores this into the
+existing method-specific fields (`seed_rate_pre_cultivation_*` or
+`seed_rate_direct_*`) so browser workflows and seed-demand calculations keep
+working. If an agent sends both `seed_requirements` and the flat fields, they
+must agree.
+
+Use examples:
+
+```json
+{
+  "name": "Tomate",
+  "variety": "San Marzano",
+  "cultivation_types": ["pre_cultivation"],
+  "seed_requirements": {
+    "pre_cultivation": {"value": 2, "unit": "seeds_per_plant"}
+  }
+}
+```
+
+```json
+{
+  "name": "Karotte",
+  "variety": "Nantaise",
+  "cultivation_types": ["direct_sowing"],
+  "seed_requirements": {
+    "direct_sowing": {"value": 1.5, "unit": "g_per_m2", "safety_percent": 10}
+  }
+}
+```
+
+The older `seeding_requirement` / `seeding_requirement_type` pair is legacy
+planning metadata. Do not use it for agent imports or researched variety seed
+rates. Total seed demand is calculated later from planting area or plant count.
+
 Seed-rate units are the project's existing vocabulary from `farm/seed_units.py`
 and nothing else: `g_per_m2`, `g_per_lfm`, `seeds_per_m2`, `seeds_per_lfm`,
 `seeds_per_plant`. Synonyms (`g/m²`, `Korn / Pflanze`, …) are normalized to
@@ -408,9 +460,10 @@ naming the same culture is blocked with `duplicate_in_payload`.
   is the point, not an oversight.
 - **Drafts expire after two hours** and are not garbage-collected on a schedule;
   expired rows stay in the table until someone prunes them.
-- **`seed_rate_by_cultivation`, seed packages, images, and supplier rows** are
-  not part of the import schema yet. They remain editable through the browser
-  and, for seed packages, through the culture endpoints.
+- **`seed_requirements`, seed packages, images, and supplier rows** are not part
+  of the preview/apply import schema yet. `seed_requirements` is available on
+  direct culture create/update endpoints; seed packages remain editable through
+  the browser and culture endpoints.
 - **`last_used_at` is coalesced** to at most one write per minute, so it is
   accurate to the minute rather than the request.
 - **No rate limiting specific to tokens.** The existing DRF throttles are scoped
