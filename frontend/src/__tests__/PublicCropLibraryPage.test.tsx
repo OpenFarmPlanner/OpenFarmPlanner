@@ -1093,6 +1093,22 @@ describe('PublicCropLibraryPage', () => {
     expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
   });
 
+  // DELIBERATELY NOT RETRIED while the flake is being identified.
+  //
+  // This test has flaked on CI since 2026-08-10 and the cause is still
+  // unknown. Four fixes have been tried and measured, and none stopped it:
+  // raising the assertion timeout (#451), giving `discussionTopics` a default
+  // mock so an extra call cannot resolve `undefined` (#467), stopping the
+  // topic-exists guard from deselecting a just-created topic (#469), and
+  // running the full suite locally under heavier load than CI (671s vs CI's
+  // 471s - still green, so it is not plain starvation). It does not reproduce
+  // locally at all.
+  //
+  // A `retry` was added and then removed on purpose: retrying hides the one
+  // signal left to work with. The assertion below is split so a CI failure
+  // names which half broke - the lost navigation or the topic list - instead
+  // of only reporting "element could not be found". Once a failure has been
+  // captured and the cause is understood, fix it and delete this note.
   it('creates a new discussion inline and opens it after saving', async () => {
     const user = userEvent.setup();
     const createdTopic: PublicCultureDiscussionTopic = {
@@ -1121,9 +1137,14 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     };
     publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    // The default covers every call after the first: the topic reload races
+    // with the `discussionId` navigation that follows it, so under load the
+    // page can refetch the topics once more. With only two queued `Once`
+    // values that extra call resolved `undefined` and blew up the reload,
+    // leaving the heading below to time out instead of failing loudly.
     publicCultureApiMocks.discussionTopics
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [createdTopic] });
+      .mockResolvedValue({ data: [createdTopic] })
+      .mockResolvedValueOnce({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
     renderPage();
@@ -1145,22 +1166,73 @@ describe('PublicCropLibraryPage', () => {
       revision: undefined,
     }));
     await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
-    // Rendering the reloaded topic list needs two things to converge: the
-    // `topics` state from the reload fetch, and the `discussionId` URL param
-    // that selects it (set via a router navigation in the same handler).
-    // Under normal load both land in one render; under heavy CI load
-    // (running alongside ~2000 other tests) the router's state update can
-    // lag more than one tick behind, so this needs real wall-clock slack
-    // rather than the default 1000ms findByRole timeout - hence the
-    // explicit timeout, matching the one already used for the comment body
-    // below. Bumped from 15s/45s after it still occasionally timed out at
-    // that ceiling under full-suite CI load (2026-08-10).
+    // Opening the created discussion needs two things to converge: the `topics`
+    // state from the reload fetch, and the `discussionId` URL param that
+    // selects it (set via a router navigation in the same handler). This
+    // assertion splits the two, because the combined one below only ever
+    // reported "element could not be found" and never said which half was
+    // missing. If this line is what fails, the navigation was lost or
+    // overwritten; if it passes and the heading below fails, the navigation
+    // landed and the topic list is what did not.
+    await waitFor(
+      () => expect(screen.getByLabelText('current route')).toHaveTextContent('discussionId=20'),
+      { timeout: 25000 },
+    );
     expect(await screen.findByRole('heading', { name: 'Neue Frage' }, { timeout: 25000 })).toBeInTheDocument();
     // The heading only needs the reloaded topic list, the comment body needs
     // the separate discussionComments request on top of it - so this has to
     // wait for one more round trip rather than read the DOM synchronously.
     expect(await screen.findByText('Was ist hier gemeint?', undefined, { timeout: 25000 })).toBeInTheDocument();
   }, 60000);
+
+  it('keeps a created discussion open when the reloaded topic list does not contain it yet', async () => {
+    const user = userEvent.setup();
+    const createdTopic: PublicCultureDiscussionTopic = {
+      id: 20,
+      public_culture: 1,
+      title: 'Neue Frage',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      comment_count: 1,
+      last_activity_at: '2026-07-28T10:00:00Z',
+      last_comment_preview: 'Vorschau des Kommentars',
+    };
+    const createdComment: PublicCultureDiscussionComment = {
+      id: 21,
+      topic: 20,
+      parent: null,
+      body: 'Was ist hier gemeint?',
+      created_by_label: 'Martin Public',
+      created_at: '2026-07-28T10:00:00Z',
+      updated_at: '2026-07-28T10:00:00Z',
+      deleted_at: null,
+      is_edited: false,
+      can_edit: true,
+    };
+    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    // The reload never returns the new topic - the case this guards against is
+    // a list response that lags behind the create (ordering, pagination, or a
+    // replica that has not caught up). Without the created-topic merge the
+    // "unknown discussion ID" guard deselects the discussion the user just
+    // created and the detail pane is stuck on a spinner.
+    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
+
+    renderPage();
+    await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+    await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
+    await user.click(await screen.findByRole('button', { name: 'Neue Diskussion' }));
+    await user.type(screen.getByRole('textbox', { name: 'Titel' }), 'Neue Frage');
+    await user.type(screen.getByRole('textbox', { name: 'Kommentar' }), 'Was ist hier gemeint?');
+    const submitButton = screen.getByRole('button', { name: 'Diskussion starten' });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    await user.click(submitButton);
+
+    expect(await screen.findByRole('heading', { name: 'Neue Frage' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('current route')).toHaveTextContent('discussionId=20');
+    });
+  });
 
   it('returns focus to the new discussion button after cancelling the inline editor', async () => {
     const user = userEvent.setup();

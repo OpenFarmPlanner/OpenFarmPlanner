@@ -76,7 +76,7 @@ import {
   getPublicCultureDescription,
   getPublicCultureName,
 } from '../publicCultureDisplay';
-import { applySavedCultures } from '../publicCultureListMerge';
+import { applySavedCultures, withCreatedTopic } from '../publicCultureListMerge';
 import { MultilingualTextFieldSection } from '../components/MultilingualTextFieldSection';
 import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
@@ -1177,7 +1177,7 @@ export default function PublicCropLibraryPage() {
           publicCultureAPI.discussionTopics(selectedCulture.id),
           publicCultureAPI.discussionComments(selectedCulture.id, createdTopic.data.id),
         ]);
-        setTopics(topicsResponse.data);
+        setTopics(withCreatedTopic(topicsResponse.data, createdTopic.data));
         setComments(commentsResponse.data);
         setCommentsStatus('success');
         setCollaborationStatus('success');
