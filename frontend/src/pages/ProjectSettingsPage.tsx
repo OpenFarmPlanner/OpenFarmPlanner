@@ -334,7 +334,9 @@ export default function ProjectSettingsPage() {
                 error={projectNameError !== null}
                 helperText={projectNameError ?? ' '}
                 sx={{
-                  ...wideFieldSx,
+                  width: { xs: '100%', sm: 300 },
+                  maxWidth: '100%',
+                  flex: '0 0 auto',
                   '& input': {
                     cursor: isProjectAdmin ? 'text' : 'default',
                     fontSize: (theme) => theme.typography.h6.fontSize,
