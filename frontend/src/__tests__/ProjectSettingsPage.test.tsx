@@ -115,6 +115,27 @@ describe('ProjectSettingsPage', () => {
     await waitFor(() => expect(removeMemberMock).toHaveBeenCalledWith(1, 11));
   });
 
+  it('uses the member email as the primary label when the display name is empty', async () => {
+    listMembersMock.mockResolvedValueOnce({
+      data: [
+        {
+          id: 12,
+          user: 1,
+          user_email: 'martin.stipsitz@gmail.com',
+          user_display_name: '',
+          project: 1,
+          role: 'admin',
+          created_at: '2026-03-18T08:00:00Z',
+        },
+      ],
+    });
+
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+
+    expect(await screen.findByText('martin.stipsitz@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText('Ohne Anzeigenamen')).not.toBeInTheDocument();
+  });
+
   it('shows a neutral no-access state for invitations when the user is not an admin', async () => {
     authState.user = {
       id: 1,

@@ -664,6 +664,18 @@ class ProjectsApiTests(APITestCase):
         member.refresh_from_db()
         self.assertEqual(member.role, 'admin')
 
+    def test_member_list_includes_account_display_name(self) -> None:
+        self.invitee.first_name = 'Martin'
+        self.invitee.last_name = 'Stipsitz'
+        self.invitee.save(update_fields=['first_name', 'last_name'])
+        ProjectMembership.objects.create(user=self.invitee, project=self.project, role='member')
+
+        response = self.client.get(f'/openfarmplanner/api/projects/{self.project.id}/members/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        invitee_row = next(row for row in response.data if row['user'] == self.invitee.id)
+        self.assertEqual(invitee_row['user_display_name'], 'Martin Stipsitz')
+
     def test_cannot_demote_last_admin(self) -> None:
         own_membership = ProjectMembership.objects.get(user=self.user, project=self.project)
         response = self.client.patch(

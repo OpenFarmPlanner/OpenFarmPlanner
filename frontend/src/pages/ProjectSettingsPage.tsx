@@ -389,7 +389,8 @@ export default function ProjectSettingsPage() {
         {memberLoadError ? <Alert severity="error">{memberLoadError}</Alert> : null}
         {!memberLoadError ? members.map((member) => {
           const isCurrentUser = member.user === user?.id;
-          const displayName = member.user_display_name || t('memberDisplayFallback');
+          const displayName = member.user_display_name.trim() || member.user_email || t('memberDisplayFallback');
+          const showEmailSecondary = member.user_email && member.user_email !== displayName;
 
           return (
             <Box key={member.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
@@ -401,7 +402,9 @@ export default function ProjectSettingsPage() {
                     <Typography sx={{ fontWeight: 600 }}>{displayName}</Typography>
                     {isCurrentUser ? <Chip label={t('memberYou')} size="small" /> : null}
                   </Stack>
-                  <Typography variant="body2" color="text.secondary">{member.user_email}</Typography>
+                  {showEmailSecondary ? (
+                    <Typography variant="body2" color="text.secondary">{member.user_email}</Typography>
+                  ) : null}
                 </Box>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
                   <FormControl
