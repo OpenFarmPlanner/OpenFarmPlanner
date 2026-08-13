@@ -98,7 +98,7 @@ function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTablePr
           field: 'scope',
           headerName: t('apiTokens.columns.scope'),
           flex: 1,
-          minWidth: 170,
+          minWidth: 140,
           renderCell: (params) => (
             <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${params.value}`)} />
           ),
@@ -113,7 +113,7 @@ function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTablePr
           field: 'created_at',
           headerName: t('apiTokens.columns.created'),
           flex: 1,
-          minWidth: 170,
+          minWidth: 150,
           valueGetter: (_value, row) => getTimestamp(row.created_at),
           valueFormatter: (value) => formatMoment(new Date(value as number).toISOString(), '–'),
         },
@@ -121,7 +121,7 @@ function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTablePr
           field: 'expires_at',
           headerName: t('apiTokens.columns.expires'),
           flex: 1,
-          minWidth: 170,
+          minWidth: 150,
           valueGetter: (_value, row) => getTimestamp(row.expires_at),
           valueFormatter: (value) => {
             const timestamp = value as number;
@@ -132,7 +132,7 @@ function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTablePr
           field: 'last_used_at',
           headerName: t('apiTokens.columns.lastUsed'),
           flex: 1,
-          minWidth: 170,
+          minWidth: 150,
           valueGetter: (_value, row) => getTimestamp(row.last_used_at),
           valueFormatter: (value) => {
             const timestamp = value as number;
@@ -150,7 +150,8 @@ function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTablePr
         {
           field: 'actions',
           headerName: t('apiTokens.columns.action'),
-          width: 130,
+          width: 150,
+          minWidth: 150,
           sortable: false,
           filterable: false,
           align: 'right',
