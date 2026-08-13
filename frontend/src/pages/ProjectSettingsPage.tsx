@@ -124,8 +124,7 @@ export default function ProjectSettingsPage() {
   if (!activeMembership) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5">{t('title')}</Typography>
-        <Alert severity="info" sx={{ mt: 2 }}>{t('noActiveProject')}</Alert>
+        <Alert severity="info">{t('noActiveProject')}</Alert>
       </Box>
     );
   }
@@ -290,7 +289,6 @@ export default function ProjectSettingsPage() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 760, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ mb: 1 }}>{t('title')}</Typography>
       <Box sx={{ mb: 3 }}>
         {!isEditingProjectName ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
