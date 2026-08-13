@@ -61,7 +61,8 @@
     "emailPasswordActive": "Email & password · Active",
     "connect": "Connect {{provider}}",
     "connected": "The login method was connected.",
-    "connectedSince": "{{provider}} · connected since {{date}}"
+    "connectedSince": "{{provider}} · connected since {{date}}",
+    "connectedSinceWithEmail": "{{provider}} · {{email}} · connected since {{date}}"
   },
   "dangerZone": "Danger zone",
   "deleteDescription": "If you delete your account, it is deactivated immediately and anonymized after 14 days. Projects without remaining members are then deleted including project data; published public library entries remain.",

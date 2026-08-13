@@ -61,7 +61,8 @@
     "emailPasswordActive": "E-Mail & Passwort · Aktiv",
     "connect": "Mit {{provider}} verknüpfen",
     "connected": "Die Anmeldemethode wurde verknüpft.",
-    "connectedSince": "{{provider}} · verknüpft seit {{date}}"
+    "connectedSince": "{{provider}} · verknüpft seit {{date}}",
+    "connectedSinceWithEmail": "{{provider}} · {{email}} · verknüpft seit {{date}}"
   },
   "dangerZone": "Gefährlicher Bereich",
   "deleteDescription": "Wenn du dein Konto löschst, wird es sofort deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann einschließlich Projektdaten gelöscht; veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen.",

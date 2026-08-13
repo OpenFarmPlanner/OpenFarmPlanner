@@ -60,6 +60,7 @@ function isInactiveToken(token: ApiToken): boolean {
 interface ApiTokenTableProps {
   tokens: ApiToken[];
   onRevoke: (token: ApiToken) => void;
+  showActions?: boolean;
 }
 
 const API_TOKEN_SORT_MODEL: GridSortModel = [{ field: 'created_at', sort: 'desc' }];
@@ -72,109 +73,123 @@ function getTimestamp(value: string | null): number {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function ApiTokenTable({ tokens, onRevoke }: ApiTokenTableProps) {
+function ApiTokenTable({ tokens, onRevoke, showActions = true }: ApiTokenTableProps) {
   const { t } = useTranslation('account');
 
   const columns = useMemo<GridColDef<ApiToken>[]>(
-    () => [
-      {
-        field: 'name',
-        headerName: t('apiTokens.columns.name'),
-        width: 300,
-        renderCell: (params) => (
-          <Typography
-            variant="body2"
-            title={`${t('apiTokens.meta.prefix')}: ${params.row.token_prefix}...`}
-            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {params.value}
-          </Typography>
-        ),
-      },
-      {
-        field: 'scope',
-        headerName: t('apiTokens.columns.scope'),
-        width: 180,
-        renderCell: (params) => (
-          <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${params.value}`)} />
-        ),
-      },
-      {
-        field: 'project_name',
-        headerName: t('apiTokens.columns.project'),
-        width: 180,
-      },
-      {
-        field: 'created_at',
-        headerName: t('apiTokens.columns.created'),
-        width: 180,
-        valueGetter: (_value, row) => getTimestamp(row.created_at),
-        valueFormatter: (value) => formatMoment(new Date(value as number).toISOString(), '–'),
-      },
-      {
-        field: 'expires_at',
-        headerName: t('apiTokens.columns.expires'),
-        width: 180,
-        valueGetter: (_value, row) => getTimestamp(row.expires_at),
-        valueFormatter: (value) => {
-          const timestamp = value as number;
-          return timestamp === 0 ? t('apiTokens.meta.never') : formatMoment(new Date(timestamp).toISOString(), '–');
-        },
-      },
-      {
-        field: 'last_used_at',
-        headerName: t('apiTokens.columns.lastUsed'),
-        width: 180,
-        valueGetter: (_value, row) => getTimestamp(row.last_used_at),
-        valueFormatter: (value) => {
-          const timestamp = value as number;
-          return timestamp === 0 ? t('apiTokens.meta.neverUsed') : formatMoment(new Date(timestamp).toISOString(), '–');
-        },
-      },
-      {
-        field: 'actions',
-        headerName: t('apiTokens.columns.action'),
-        width: 130,
-        sortable: false,
-        filterable: false,
-        align: 'right',
-        headerAlign: 'right',
-        renderCell: (params) => (
-          params.row.status === 'active' ? (
-            <Button
-              color="error"
-              variant="outlined"
-              size="small"
-              sx={actionButtonSx}
-              onClick={() => onRevoke(params.row)}
+    () => {
+      const baseColumns: GridColDef<ApiToken>[] = [
+        {
+          field: 'name',
+          headerName: t('apiTokens.columns.name'),
+          flex: 1.7,
+          minWidth: 240,
+          renderCell: (params) => (
+            <Typography
+              variant="body2"
+              title={`${t('apiTokens.meta.prefix')}: ${params.row.token_prefix}...`}
+              sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
-              {t('apiTokens.actions.revoke')}
-            </Button>
-          ) : null
-        ),
-      },
-    ],
-    [onRevoke, t],
+              {params.value}
+            </Typography>
+          ),
+        },
+        {
+          field: 'scope',
+          headerName: t('apiTokens.columns.scope'),
+          flex: 1,
+          minWidth: 170,
+          renderCell: (params) => (
+            <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${params.value}`)} />
+          ),
+        },
+        {
+          field: 'project_name',
+          headerName: t('apiTokens.columns.project'),
+          flex: 1,
+          minWidth: 160,
+        },
+        {
+          field: 'created_at',
+          headerName: t('apiTokens.columns.created'),
+          flex: 1,
+          minWidth: 170,
+          valueGetter: (_value, row) => getTimestamp(row.created_at),
+          valueFormatter: (value) => formatMoment(new Date(value as number).toISOString(), '–'),
+        },
+        {
+          field: 'expires_at',
+          headerName: t('apiTokens.columns.expires'),
+          flex: 1,
+          minWidth: 170,
+          valueGetter: (_value, row) => getTimestamp(row.expires_at),
+          valueFormatter: (value) => {
+            const timestamp = value as number;
+            return timestamp === 0 ? t('apiTokens.meta.never') : formatMoment(new Date(timestamp).toISOString(), '–');
+          },
+        },
+        {
+          field: 'last_used_at',
+          headerName: t('apiTokens.columns.lastUsed'),
+          flex: 1,
+          minWidth: 170,
+          valueGetter: (_value, row) => getTimestamp(row.last_used_at),
+          valueFormatter: (value) => {
+            const timestamp = value as number;
+            return timestamp === 0 ? t('apiTokens.meta.neverUsed') : formatMoment(new Date(timestamp).toISOString(), '–');
+          },
+        },
+      ];
+
+      if (!showActions) {
+        return baseColumns;
+      }
+
+      return [
+        ...baseColumns,
+        {
+          field: 'actions',
+          headerName: t('apiTokens.columns.action'),
+          width: 130,
+          sortable: false,
+          filterable: false,
+          align: 'right',
+          headerAlign: 'right',
+          renderCell: (params) => (
+            params.row.status === 'active' ? (
+              <Button
+                color="error"
+                variant="outlined"
+                size="small"
+                sx={actionButtonSx}
+                onClick={() => onRevoke(params.row)}
+              >
+                {t('apiTokens.actions.revoke')}
+              </Button>
+            ) : null
+          ),
+        },
+      ];
+    },
+    [onRevoke, showActions, t],
   );
 
   return (
-    <Box sx={{ width: '100%', overflowX: 'auto' }}>
-      <DataGrid<ApiToken>
-        rows={tokens}
-        columns={columns}
-        autoHeight
-        hideFooter
-        disableRowSelectionOnClick
-        initialState={{ sorting: { sortModel: API_TOKEN_SORT_MODEL } }}
-        localeText={getDataGridLocaleText()}
-        sx={{
-          minWidth: 1230,
-          borderColor: 'divider',
-          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 },
-          '& .MuiDataGrid-cell': { alignItems: 'center' },
-        }}
-      />
-    </Box>
+    <DataGrid<ApiToken>
+      rows={tokens}
+      columns={columns}
+      autoHeight
+      hideFooter
+      disableRowSelectionOnClick
+      initialState={{ sorting: { sortModel: API_TOKEN_SORT_MODEL } }}
+      localeText={getDataGridLocaleText()}
+      sx={{
+        width: '100%',
+        borderColor: 'divider',
+        '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 },
+        '& .MuiDataGrid-cell': { alignItems: 'center' },
+      }}
+    />
   );
 }
 
@@ -322,7 +337,11 @@ export default function AccountSettingsApiTokensCard() {
                 </Button>
                 <Collapse in={inactiveTokensOpen} unmountOnExit>
                   <Box sx={{ pt: 1.5 }}>
-                    <ApiTokenTable tokens={inactiveTokens} onRevoke={(token) => void handleRevoke(token)} />
+                    <ApiTokenTable
+                      tokens={inactiveTokens}
+                      onRevoke={(token) => void handleRevoke(token)}
+                      showActions={false}
+                    />
                   </Box>
                 </Collapse>
               </Box>

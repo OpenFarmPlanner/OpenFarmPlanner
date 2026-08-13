@@ -137,10 +137,16 @@ function AccountSettingsSocialMethodsContent({ wrapInCard }: AccountSettingsSoci
                 <ProviderIcon fontSize="small" sx={{ color: 'text.disabled', flexShrink: 0 }} />
               ) : null}
               <Typography variant="body2">
-                {t('loginMethods.connectedSince', {
-                  provider: connection.provider_name,
-                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
-                })}
+                {t(
+                  connection.email
+                    ? 'loginMethods.connectedSinceWithEmail'
+                    : 'loginMethods.connectedSince',
+                  {
+                    provider: connection.provider_name,
+                    email: connection.email,
+                    date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                  },
+                )}
               </Typography>
             </Stack>
           );

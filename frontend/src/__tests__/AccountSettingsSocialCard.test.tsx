@@ -36,6 +36,7 @@ function connection(overrides: Partial<SocialConnection> = {}): SocialConnection
     id: 1,
     provider: 'google',
     provider_name: 'Google',
+    email: 'google-user@example.com',
     connected_at: '2026-07-01T10:00:00Z',
     can_disconnect: true,
     ...overrides,
@@ -65,9 +66,19 @@ describe('AccountSettingsSocialCard', () => {
 
     renderCard();
 
-    expect(await screen.findByText(/Google · verknüpft seit/)).toBeInTheDocument();
+    expect(await screen.findByText(/Google · google-user@example.com · verknüpft seit/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mit Microsoft verknüpfen' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Mit Google verknüpfen' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the previous linked identity text when no provider email is available', async () => {
+    getSocialProvidersMock.mockResolvedValue(providers);
+    getSocialConnectionsMock.mockResolvedValue([connection({ email: null })]);
+
+    renderCard();
+
+    expect(await screen.findByText(/Google · verknüpft seit/)).toBeInTheDocument();
+    expect(screen.queryByText(/google-user@example.com/)).not.toBeInTheDocument();
   });
 
   it('starts the connect flow for a provider that is not linked yet', async () => {
@@ -108,10 +119,12 @@ describe('AccountSettingsSocialCard', () => {
     renderCard();
 
     expect(await screen.findByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
-    expect(screen.getByText(/Google · verknüpft seit/)).toBeInTheDocument();
+    expect(screen.getByText(/Google · google-user@example.com · verknüpft seit/)).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /E-Mail & Passwort/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Google · verknüpft seit/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Google · google-user@example.com · verknüpft seit/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('does not offer disconnecting a linked login method', async () => {
@@ -120,7 +133,7 @@ describe('AccountSettingsSocialCard', () => {
 
     renderCard();
 
-    await screen.findByText(/Google · verknüpft seit/);
+    await screen.findByText(/Google · google-user@example.com · verknüpft seit/);
     expect(screen.queryByRole('button', { name: 'Entfernen' })).not.toBeInTheDocument();
   });
 

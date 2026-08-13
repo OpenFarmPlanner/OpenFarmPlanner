@@ -228,11 +228,7 @@ export default function AccountSettingsPage() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 900, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        {t('title')}
-      </Typography>
-
+    <Box sx={{ p: 3, width: '100%', boxSizing: 'border-box' }}>
       <Stack spacing={3}>
         <SettingsCard title={t('sections.profile')} collapsible defaultExpanded>
           <Stack spacing={2}>

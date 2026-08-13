@@ -132,6 +132,7 @@ describe('AccountSettingsApiTokensCard', () => {
     expect(await screen.findByText('Expired agent')).toBeInTheDocument();
     expect(screen.getByText('Revoked agent')).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader', { name: 'Rechte' })).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader', { name: 'Aktion' })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Widerrufen' })).toHaveLength(1);
 
     await user.click(toggle);

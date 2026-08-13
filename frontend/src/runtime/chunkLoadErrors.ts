@@ -84,6 +84,15 @@ export function shouldAutomaticallyReloadForRouteLoadError(routeKey = getCurrent
   return true;
 }
 
+export function clearRouteLoadRetry(routeKey = getCurrentRouteKey()): void {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.removeItem(getRouteLoadRetryStorageKey(routeKey));
+}
+
 export function reloadPage(): void {
   window.location.reload();
 }

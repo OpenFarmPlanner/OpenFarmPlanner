@@ -30,12 +30,19 @@ def _is_provider_configured(request: Request, provider_id: str) -> bool:
     return bool(get_socialaccount_adapter().list_apps(request, provider=provider_id))
 
 
+def _provider_email(account: SocialAccount) -> str | None:
+    """Return the provider account email if the OAuth payload included one."""
+    email = account.extra_data.get('email')
+    return email if isinstance(email, str) and email else None
+
+
 def _serialize_connection(account: SocialAccount, *, can_disconnect: bool) -> dict[str, object]:
     """Serialize a linked provider identity for the account settings page."""
     return {
         'id': account.pk,
         'provider': account.provider,
         'provider_name': PROVIDER_NAMES.get(account.provider, account.provider),
+        'email': _provider_email(account),
         'connected_at': account.date_joined.isoformat(),
         'can_disconnect': can_disconnect,
     }
