@@ -305,7 +305,11 @@ export default function ProjectSettingsPage() {
       <Stack spacing={2.5}>
         <Card variant="outlined" aria-labelledby="project-context-title">
           <CardContent sx={sectionCardContentSx}>
-            <Box sx={formRowSx}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' }, width: 'fit-content', maxWidth: '100%' }}
+            >
               <TextField
                 id="project-context-title"
                 label={t('currentProjectLabel')}
@@ -347,7 +351,7 @@ export default function ProjectSettingsPage() {
               >
                 {t('projectRename.save')}
               </Button>
-            </Box>
+            </Stack>
           </CardContent>
         </Card>
 
