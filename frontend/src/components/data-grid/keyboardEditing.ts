@@ -83,12 +83,30 @@ export function useSpreadsheetEditStarter<Row extends GridValidRowModel>({
 }: UseSpreadsheetEditStarterParams<Row>): UseSpreadsheetEditStarterResult<Row> {
   const pendingValuesRef = useRef<Map<string, PendingEditValue>>(new Map());
   const clearTimersRef = useRef<Map<string, number>>(new Map());
+  const focusTimerRef = useRef<number | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
+  const unmountedRef = useRef(false);
+
+  const cancelScheduledFocus = useCallback((): void => {
+    if (focusTimerRef.current !== null) {
+      window.clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = null;
+    }
+    if (focusFrameRef.current !== null) {
+      if (typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(focusFrameRef.current);
+      }
+      focusFrameRef.current = null;
+    }
+  }, []);
 
   useEffect(() => () => {
+    unmountedRef.current = true;
+    cancelScheduledFocus();
     clearTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     clearTimersRef.current.clear();
     pendingValuesRef.current.clear();
-  }, []);
+  }, [cancelScheduledFocus]);
 
   const clearPendingLater = useCallback((pendingKey: string): void => {
     const existingTimer = clearTimersRef.current.get(pendingKey);
@@ -107,7 +125,15 @@ export function useSpreadsheetEditStarter<Row extends GridValidRowModel>({
     field: string,
     caretPosition?: number,
   ): void => {
+    // A newer focus request supersedes whatever the previous one still had
+    // scheduled — otherwise a stale attempt lands on the previously edited
+    // cell after this one already focused the new cell.
+    cancelScheduledFocus();
+
     const focusEditor = (): boolean => {
+      if (unmountedRef.current) {
+        return false;
+      }
       const cellElement = apiRef.current?.getCellElement?.(id, field);
       const editor = cellElement?.querySelector<HTMLElement>(EDIT_CELL_FOCUS_TARGET_SELECTOR);
       if (!editor) {
@@ -129,13 +155,25 @@ export function useSpreadsheetEditStarter<Row extends GridValidRowModel>({
       return true;
     };
 
+    // The editor may not be mounted yet, so the same attempt is repeated
+    // across a microtask, a macrotask and a frame. The handles are kept so
+    // they can be cancelled: an uncancelled timer that fires after the grid
+    // unmounted reaches for a cell element that no longer exists — in tests
+    // that outlives the jsdom environment and fails the whole run with
+    // "document is not defined" even though every test passed.
     focusEditor();
     queueMicrotask(focusEditor);
-    window.setTimeout(focusEditor, 0);
+    focusTimerRef.current = window.setTimeout(() => {
+      focusTimerRef.current = null;
+      focusEditor();
+    }, 0);
     if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(focusEditor);
+      focusFrameRef.current = window.requestAnimationFrame(() => {
+        focusFrameRef.current = null;
+        focusEditor();
+      });
     }
-  }, [apiRef]);
+  }, [apiRef, cancelScheduledFocus]);
 
   const flushPendingValue = useCallback((pendingKey: string): void => {
     const applyPendingValue = (): void => {
