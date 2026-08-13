@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { updatePublicDisplayName } from '../auth/authApi';
@@ -125,6 +125,16 @@ describe('AccountSettingsPage', () => {
     expect(screen.queryByText('Die Sprache der Oberfläche gehört zu deinem Konto')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Meine Daten herunterladen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Onboarding erneut anzeigen' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Profil' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Login & Sicherheit' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: 'Konto' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Profil' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Anzeigename ändern' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Login & Sicherheit' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Profil' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Sprache' }));
     expect(screen.getByText(/Die Sprache der Oberfläche gehört zu deinem Konto/)).toBeInTheDocument();

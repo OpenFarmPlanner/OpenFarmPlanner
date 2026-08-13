@@ -56,14 +56,22 @@ describe('AccountSettingsApiTokensCard', () => {
   });
 
   it('lists existing tokens with their project, scope, and status', async () => {
+    const user = userEvent.setup();
     listMock.mockResolvedValue({ data: [token({ scope: 'write' })] });
 
     render(<AccountSettingsApiTokensCard />);
 
+    const cardToggle = screen.getByRole('button', { name: 'API-Tokens für Coding-Agenten' });
+    expect(cardToggle).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByText('Codex')).toBeInTheDocument();
     expect(screen.getByText('Aktiv')).toBeInTheDocument();
     expect(screen.getByText('Lesen und schreiben')).toBeInTheDocument();
     expect(screen.getByText(/Hof Nord/)).toBeInTheDocument();
+
+    await user.click(cardToggle);
+
+    await waitFor(() => expect(screen.queryByText('Codex')).not.toBeInTheDocument());
+    expect(cardToggle).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('keeps expired and revoked tokens collapsed below active tokens by default', async () => {

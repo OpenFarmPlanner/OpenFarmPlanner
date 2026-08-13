@@ -234,7 +234,7 @@ export default function AccountSettingsPage() {
       </Typography>
 
       <Stack spacing={3}>
-        <SettingsCard title={t('sections.profile')}>
+        <SettingsCard title={t('sections.profile')} collapsible defaultExpanded>
           <Stack spacing={2}>
             <Typography>
               <strong>{t('email')}:</strong> {user?.email}
@@ -350,7 +350,7 @@ export default function AccountSettingsPage() {
           </Stack>
         </SettingsCard>
 
-        <SettingsCard title={t('sections.security')}>
+        <SettingsCard title={t('sections.security')} collapsible defaultExpanded>
           <Stack spacing={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
               {t('security.credentials')}

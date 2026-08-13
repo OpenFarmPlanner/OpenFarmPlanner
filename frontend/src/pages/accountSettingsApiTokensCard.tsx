@@ -245,7 +245,7 @@ export default function AccountSettingsApiTokensCard() {
   const hasProjects = memberships.length > 0;
 
   return (
-    <SettingsCard title={t('apiTokens.title')} description={t('apiTokens.description')}>
+    <SettingsCard title={t('apiTokens.title')} description={t('apiTokens.description')} collapsible defaultExpanded>
       <Stack spacing={2}>
         <SectionAlerts message={message} error={listError} />
 
