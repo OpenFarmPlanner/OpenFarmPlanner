@@ -111,7 +111,7 @@
     "contextualShortcutsTitle": "Tastenkürzel (?)",
     "contextualShortcutsDescription": "Shortcuts sind browser-sicher und überschreiben keine üblichen Browser-Shortcuts.",
     "primaryShortcutTitle": "Aktionssuche",
-    "primaryShortcutDescription": "Befehle und Seiten durchsuchen",
+    "primaryShortcutDescription": "Befehle, Seiten und seitenspezifische Tastenkürzel finden",
     "universalShortcutsTitle": "Grundlegende Navigation",
     "universalShortcuts": {
       "nextRegion": "Nächster Fokusbereich",

@@ -233,7 +233,7 @@ describe('CommandProvider', () => {
     const actionSearchTitle = screen.getByText('Aktionssuche');
     const basicNavigationTitle = screen.getByText('Grundlegende Navigation');
     expect(actionSearchTitle.compareDocumentPosition(basicNavigationTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText('Befehle und Seiten durchsuchen')).toBeInTheDocument();
+    expect(screen.getByText('Befehle, Seiten und seitenspezifische Tastenkürzel finden')).toBeInTheDocument();
     expect(screen.getAllByText('Aktionssuche')).toHaveLength(1);
     expect(screen.getByText('Ctrl+K')).toBeInTheDocument();
     expect(screen.getByText('Alt+K')).toBeInTheDocument();
