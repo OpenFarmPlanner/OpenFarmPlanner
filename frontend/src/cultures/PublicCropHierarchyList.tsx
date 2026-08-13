@@ -7,7 +7,7 @@ import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { CropHierarchyRow } from './CropHierarchyRow';
-import { getCultivationTypeLabel, getPublicCultureTitle } from '../crops/publicCultureDisplay';
+import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
 
 interface PublicCropHierarchyListProps {
   cultures: PublicCulture[];
@@ -157,9 +157,7 @@ export function PublicCropHierarchyList({
               : culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : undefined}
             primary={node.label}
             isPrimaryEmphasized={node.kind === 'species'}
-            secondary={node.kind === 'species'
-              ? undefined
-              : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
+            secondary={undefined}
             varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
             onClick={() => {
               if (culture?.id !== undefined) {

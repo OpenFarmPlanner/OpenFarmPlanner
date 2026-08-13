@@ -22,7 +22,7 @@ import { flattenTreeRows } from '../../../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../../../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from '../../../cultures/CropHierarchyExpandToggle';
 import { useOverlayHistory } from '../../../hooks/useOverlayHistory';
-import { getCultivationTypeLabel, getPublicCultureTitle } from '../../publicCultureDisplay';
+import { getPublicCultureTitle } from '../../publicCultureDisplay';
 
 export interface PublicCultureMobileSelectorDialogProps {
   open: boolean;
@@ -181,9 +181,10 @@ export function PublicCultureMobileSelectorDialog({
                   }}
                   sx={{
                     borderRadius: 1.25,
-                    mb: 0.375,
+                    mb: 0.125,
                     ml: `calc(${depth * 1.75}rem)`,
                     pl: 0.75,
+                    py: 0.25,
                   }}
                 >
                   <CropHierarchyExpandToggle
@@ -202,11 +203,13 @@ export function PublicCultureMobileSelectorDialog({
                         culture?.crop_family,
                         node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
                       ].filter(Boolean).join(' • ') || undefined
-                      : (culture ? getCultivationTypeLabel(culture.cultivation_type, t, '') : '') || undefined}
+                      : undefined}
                     slotProps={{
-                      primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 } },
+                      primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500, lineHeight: 1.2 } },
                       secondary: { sx: { fontSize: '0.8rem', color: 'text.secondary' } }
- }} />
+                    }}
+                    sx={{ my: 0 }}
+                  />
                 </ListItemButton>
               );
             })}
