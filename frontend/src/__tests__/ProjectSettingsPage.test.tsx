@@ -247,16 +247,28 @@ describe('ProjectSettingsPage', () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
     expect(await screen.findByLabelText('Projektname')).toHaveValue('Alpha');
     expect(screen.queryByRole('button', { name: 'Projekt umbenennen' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Speichern' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
   });
 
-  it('allows renaming via PATCH when the inline field loses focus', async () => {
+  it('keeps inline project name changes unsaved when the field loses focus', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
     const projectNameInput = await screen.findByLabelText('Projektname');
     expect(projectNameInput).toHaveValue('Alpha');
 
     fireEvent.change(projectNameInput, { target: { value: 'Beta' } });
     fireEvent.blur(projectNameInput);
+
+    expect(updateProjectMock).not.toHaveBeenCalled();
+    expect(projectNameInput).toHaveValue('Beta');
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeEnabled();
+  });
+
+  it('allows renaming via PATCH from the explicit save button', async () => {
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+    const projectNameInput = await screen.findByLabelText('Projektname');
+
+    fireEvent.change(projectNameInput, { target: { value: 'Beta' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith(1, { name: 'Beta' }));
     await waitFor(() => expect(refreshUserMock).toHaveBeenCalled());
@@ -268,7 +280,7 @@ describe('ProjectSettingsPage', () => {
     const projectNameInput = await screen.findByLabelText('Projektname');
 
     fireEvent.change(projectNameInput, { target: { value: '   ' } });
-    fireEvent.blur(projectNameInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     expect(updateProjectMock).not.toHaveBeenCalled();
     expect(projectNameInput).toHaveValue('Alpha');
@@ -277,9 +289,8 @@ describe('ProjectSettingsPage', () => {
 
   it('ignores unchanged project name saves', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    const projectNameInput = await screen.findByLabelText('Projektname');
-
-    fireEvent.blur(projectNameInput);
+    expect(await screen.findByLabelText('Projektname')).toHaveValue('Alpha');
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
 
     expect(updateProjectMock).not.toHaveBeenCalled();
   });

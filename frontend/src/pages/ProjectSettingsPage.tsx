@@ -43,6 +43,7 @@ export default function ProjectSettingsPage() {
   const isProjectAdmin = activeMembership?.role === 'admin';
   const canManageMembers = isProjectAdmin;
   const normalizedProjectName = projectNameDraft.trim();
+  const hasProjectNameChanges = normalizedProjectName !== (activeMembership?.project_name ?? '');
   const canDeleteProject = deleteConfirmationText === (activeMembership?.project_name ?? '');
   const canQuickDeleteProjectInDev = import.meta.env.DEV && isProjectAdmin;
 
@@ -304,33 +305,49 @@ export default function ProjectSettingsPage() {
       <Stack spacing={2.5}>
         <Card variant="outlined" aria-labelledby="project-context-title">
           <CardContent sx={sectionCardContentSx}>
-            <TextField
-              id="project-context-title"
-              label={t('currentProjectLabel')}
-              value={projectNameDraft}
-              onChange={(event) => {
-                setProjectNameDraft(event.target.value);
-                setProjectNameError(null);
-              }}
-              onBlur={() => void handleProjectNameCommit()}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setProjectNameDraft(activeMembership.project_name);
+            <Box sx={formRowSx}>
+              <TextField
+                id="project-context-title"
+                label={t('currentProjectLabel')}
+                value={projectNameDraft}
+                onChange={(event) => {
+                  setProjectNameDraft(event.target.value);
                   setProjectNameError(null);
-                  return;
-                }
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void handleProjectNameCommit();
-                }
-              }}
-              disabled={!isProjectAdmin || isSavingProjectName}
-              error={projectNameError !== null}
-              helperText={projectNameError ?? ' '}
-              sx={{ ...wideFieldSx, '& input': { cursor: isProjectAdmin ? 'text' : 'default', fontWeight: 600 } }}
-              slotProps={{ htmlInput: { 'aria-label': t('currentProjectLabel') } }}
-            />
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setProjectNameDraft(activeMembership.project_name);
+                    setProjectNameError(null);
+                    return;
+                  }
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleProjectNameCommit();
+                  }
+                }}
+                disabled={!isProjectAdmin || isSavingProjectName}
+                error={projectNameError !== null}
+                helperText={projectNameError ?? ' '}
+                sx={{
+                  ...wideFieldSx,
+                  '& input': {
+                    cursor: isProjectAdmin ? 'text' : 'default',
+                    fontSize: (theme) => theme.typography.h6.fontSize,
+                    fontWeight: 600,
+                  },
+                }}
+                slotProps={{ htmlInput: { 'aria-label': t('currentProjectLabel') } }}
+              />
+              <Button
+                variant="contained"
+                onClick={() => void handleProjectNameCommit()}
+                disabled={!isProjectAdmin || isSavingProjectName || !hasProjectNameChanges}
+                sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, minWidth: 140 }}
+              >
+                {t('projectRename.save')}
+              </Button>
+            </Box>
           </CardContent>
         </Card>
 
