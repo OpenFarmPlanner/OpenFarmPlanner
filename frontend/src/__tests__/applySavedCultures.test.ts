@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PublicCulture } from '../api/types';
-import { applySavedCultures } from '../crops/publicCultureListMerge';
+import type { PublicCulture, PublicCultureDiscussionTopic } from '../api/types';
+import { applySavedCultures, withCreatedTopic } from '../crops/publicCultureListMerge';
 
 const culture = (id: number, version: number, growthDurationDays: number): PublicCulture => ({
   id,
@@ -50,5 +50,27 @@ describe('applySavedCultures', () => {
 
     expect(applied[0].growth_duration_days).toBe(12);
     expect(saved.has(1)).toBe(true);
+  });
+});
+
+const topic = (id: number, title: string): PublicCultureDiscussionTopic => ({
+  id,
+  title,
+} as PublicCultureDiscussionTopic);
+
+describe('withCreatedTopic', () => {
+  it('prepends a created topic the reloaded list does not contain yet', () => {
+    const reloaded = [topic(1, 'Ältere Frage')];
+
+    expect(withCreatedTopic(reloaded, topic(2, 'Neue Frage'))).toEqual([
+      topic(2, 'Neue Frage'),
+      topic(1, 'Ältere Frage'),
+    ]);
+  });
+
+  it('keeps the reloaded entry when the list already contains the created topic', () => {
+    const reloaded = [topic(2, 'Neue Frage'), topic(1, 'Ältere Frage')];
+
+    expect(withCreatedTopic(reloaded, topic(2, 'Veralteter Titel'))).toBe(reloaded);
   });
 });
