@@ -363,14 +363,18 @@ export default function ProjectSettingsPage() {
             {!canManageMembers ? (
               <Alert severity="info" sx={{ mb: 2 }}>{t('memberManagementNoAccess')}</Alert>
             ) : null}
-            <Box sx={formRowSx}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' }, width: 'fit-content', maxWidth: '100%' }}
+            >
               <TextField
                 label={t('emailLabel')}
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 disabled={!canManageMembers}
-                sx={wideFieldSx}
+                sx={{ width: { xs: '100%', sm: 300 }, maxWidth: '100%', flex: '0 0 auto' }}
               />
               <FormControl disabled={!canManageMembers} sx={compactFieldSx}>
                 <InputLabel id="project-invite-role-label">{t('roleLabel')}</InputLabel>
@@ -393,7 +397,7 @@ export default function ProjectSettingsPage() {
               >
                 {t('sendInvite')}
               </Button>
-            </Box>
+            </Stack>
 
             {!canManageMembers ? (
               <Alert severity="info" sx={{ mt: 2 }}>{t('projectMembers.invite.noPermission')}</Alert>
