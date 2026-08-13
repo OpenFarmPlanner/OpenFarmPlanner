@@ -3,7 +3,24 @@
 Date: 2026-05-05
 Scope: `frontend/src`
 
-## 1) Existing shortcuts (implemented)
+> **This is a dated audit, not a live shortcut inventory.** Its
+> recommendation in §4/§5 *was* implemented — main-page navigation is
+> `Ctrl+Shift+ArrowUp`/`ArrowDown` today — and several other bindings have
+> changed since (the sidebar toggle is `Ctrl+B`, not `Alt+B`; the command
+> palette answers to `Ctrl+K` *and* `Alt+K`; `?` opens the shortcuts help;
+> version history is `Alt+V`). The table below is kept because the
+> consistency and conflict analysis in §2–§4 is still the reasoning behind the
+> current scheme.
+>
+> For what is actually bound right now, there are two sources and both are
+> generated, not hand-maintained: `frontend/src/commands/commands.ts` for
+> global commands, and the in-app `?` dialog, which builds itself from the
+> live command and region registries. See
+> [keyboard-architecture.md](./keyboard-architecture.md) for the model behind
+> them. Deliberately not duplicated into a table here — that is exactly what
+> went stale.
+
+## 1) Existing shortcuts (implemented, as of 2026-05-05)
 
 | Shortcut | Action | Location in code |
 |---|---|---|

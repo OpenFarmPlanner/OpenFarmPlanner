@@ -38,9 +38,13 @@ result.
 
 ## Fix
 
-- Analysis pages use `fetchAllPaginated` to follow every backend `next` link.
+- Analysis pages use `fetchAllPaginated` (`frontend/src/api/api.ts`) to follow
+  every backend `next` link.
 - Bulk reads request up to 1,000 records per response through a bounded DRF
-  page-size override; normal API lists still default to 100.
+  page-size override; normal API lists still default to 100. Both numbers live
+  in `backend/config/pagination.py`
+  (`OpenFarmPlannerPageNumberPagination`: `page_size_query_param = "page_size"`,
+  `max_page_size = 1000`) and `PAGE_SIZE` in `backend/config/settings.py`.
 - The planting-plan grid loads the complete paginated API result up front, then
   uses the same scroll-driven internal DataGrid row window as the field/bed
   hierarchy. No pager UI is shown; persistent sorting and filtering remain

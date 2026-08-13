@@ -7,9 +7,15 @@ stock grid. It intentionally does not repeat:
 
 - keyboard focus regions and the global shortcut system —
   [keyboard-architecture.md](./keyboard-architecture.md)
-- autosave-on-blur mechanics — `AUTOSAVE_IMPLEMENTATION.md`
 - the Standort/Parzelle/Beet tree view (a *different*, raw `<DataGrid>`
   page, not `EditableDataGrid`) — [occupancy-tree-hierarchy.md](./occupancy-tree-hierarchy.md)
+
+Autosave-on-blur used to live in a separate root-level
+`AUTOSAVE_IMPLEMENTATION.md`. **This document is now the single source for
+it** — see "[Autosave on blur](#autosave-on-blur-useautosavedraft)" below.
+The original file is kept unchanged for history at
+[`archive/AUTOSAVE_IMPLEMENTATION.md`](./archive/AUTOSAVE_IMPLEMENTATION.md);
+its "Applied To" section is outdated and must not be used as a reference.
 
 **Not every table uses `EditableDataGrid`.** `FieldsBedsHierarchy.tsx`
 renders a raw MUI `<DataGrid>` with its own row-data wiring and keyboard
@@ -111,6 +117,93 @@ into a row that's already mid-edit (e.g. a calculated side-effect from
 another field), either staying in edit mode or committing immediately.
 `applyDialogEditValues` is the entry point for cells that have no edit
 session at all — see "Cells edited in a popover/dialog" below.
+
+## Autosave on blur (`useAutosaveDraft`)
+
+Editing anywhere in `EditableDataGrid` is draft-first: input is held in local
+state, nothing is sent per keystroke, and a save is attempted when the user
+leaves the row (click outside, Tab away, click another row). Invalid data is
+never sent — the row stays in edit mode with its errors visible. In-flight
+saves are superseded by newer drafts, so the latest draft always wins.
+
+Who uses this today: `useAutosaveDraft` is consumed only from
+`components/data-grid/DataGrid.tsx` (`EditableDataGrid`), whose current sole
+page user is `PlantingPlans.tsx`. `CultureForm.tsx` and `Locations.tsx` moved
+to explicit dialog Save/Cancel forms, and `FieldsBedsHierarchy.tsx` renders a
+raw `<DataGrid>` — none of them get this behavior. The hooks remain the right
+building blocks if a *form* needs blur-based autosave again.
+
+### The hooks
+
+`frontend/src/hooks/autosave.ts` exports both hooks and `ValidationResult`:
+
+```typescript
+const {
+  draft,              // Current draft state
+  setField,           // Update single field
+  updateDraft,        // Update multiple fields
+  errors,             // Current validation errors
+  isDirty,            // Has unsaved changes
+  isValid,            // Current validation state
+  isSaving,           // Save in progress
+  saveIfValid,        // Manually trigger save, e.g. saveIfValid('blur')
+  resetDraft,         // Reset to saved state
+  commitSavedState,   // Update saved state after server response
+} = useAutosaveDraft({
+  initialData,
+  validate,   // (draft) => ValidationResult
+  save,       // async (draft) => savedDraft
+  onSaveSuccess,
+  onSaveError,
+});
+
+useNavigationBlocker(
+  isDirty && !isValid,  // Block condition
+  'You have unsaved changes. Are you sure you want to leave?',
+  saveBeforeLeaving,    // optional callback run before navigation proceeds
+  false,                // skip the confirm dialog for in-app navigation
+);
+```
+
+Wiring a field is `onChange={(e) => setField('name', e.target.value)}` plus
+`onBlur={() => saveIfValid('blur')}`, with `error`/`helperText` driven by
+`errors.name`. A new validation rule goes into `src/hooks/validation.ts` as a
+`Validator<unknown>` returning a message string or `null`.
+
+### Validation utilities
+
+`src/hooks/validation.ts` provides `required`, `min(n)`, `max(n)`,
+`hexColor`, `isoDate`, `email`, `positive`, `nonNegative`, `oneOf(values)`,
+`maxLength(n)`, `minLength(n)`, and `validateFields` — the latter runs a list
+of `{ field, validators }` entries over an object and returns
+`{ isValid, errors }`. Unit tests live in `src/__tests__/validation.test.ts`
+and `src/__tests__/useAutosaveDraft.test.ts`.
+
+### Navigation protection
+
+Two layers, and they are deliberately different:
+
+- **Browser navigation** (tab close, reload, typing a new URL) — both
+  `useAutosaveDraft` and `useNavigationBlocker` register a `beforeunload`
+  listener while there are unsaved changes. The browser shows its own native
+  prompt; the message string cannot be customized.
+- **In-app navigation** — `useNavigationBlocker` uses React Router's
+  `useBlocker`, which requires the data router API (`createBrowserRouter`,
+  as set up in `App.tsx`). When blocked it optionally confirms, then awaits
+  `onProceed()` before calling `blocker.proceed()`. `EditableDataGrid` passes
+  `confirmBeforeProceed: false` and uses the callback to save dirty/editing
+  rows *silently* before the route change continues — a route change must not
+  pop a confirmation dialog for data the grid can just persist.
+
+### MUI DataGrid integration
+
+Autosave on the grid works by *not* preventing MUI's default `rowFocusOut`
+edit stop: `handlers.ts`'s `handleRowEditStop` only sets
+`event.defaultMuiPrevented = true` for `escapeKeyDown`, so Escape reliably
+means "cancel" while every other exit reason falls through to
+`processRowUpdate` and saves. Save failures keep the row editable with its
+inline errors intact. For planting plans specifically, incomplete rows may be
+saved as drafts as long as either a culture or a bed is selected.
 
 ## Custom edit cells
 
@@ -517,8 +610,8 @@ grid," that's new work, not exposing something that already half-exists.
   place the new location far from the topbar action that created it.
 - `handlers.ts` — `handleRowEditStop` deliberately suppresses MUI's default
   Escape-triggers-save-attempt behavior so Escape reliably means "cancel";
-  see `AUTOSAVE_IMPLEMENTATION.md` for how the blur-triggered save itself
-  works.
+  see "[Autosave on blur](#autosave-on-blur-useautosavedraft)" above for how
+  the blur-triggered save itself works.
 - `styles.ts` — the single `dataGridSx` object defining every `ofp-*` CSS
   class referenced above (`.ofp-row-editing`, `.ofp-cell-dirty`,
   `.ofp-cell-error`, `.ofp-row-long-press`, ...). Cells that render

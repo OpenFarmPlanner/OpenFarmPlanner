@@ -17,7 +17,7 @@ Nicht bei jedem QA-Lauf alles testen — stattdessen:
 
 ## Ablauf eines QA-Laufs
 
-1. `docs/qa-coverage-*.md` lesen → welche Bereiche wurden zuletzt getestet, bei welchem Commit
+1. `docs/qa-coverage-*.md` lesen → welche Bereiche wurden zuletzt getestet, bei welchem Commit (nur die aktuellste Datei liegt in `docs/`; ältere Stände in `docs/qa-archive/`)
 2. `git log` → was hat sich seitdem geändert
 3. `docs/qa-excluded-issues.md` lesen → bekannte Won't-Fix-Items nicht nochmal melden
 4. Playwright-Skript schreiben mit E2E-Setup via `/api/__e2e__/invite-flow/` (Action `setup`)
@@ -43,6 +43,9 @@ Nicht bei jedem QA-Lauf alles testen — stattdessen:
 
 ## Dokumentation nach einem Lauf
 
-Neue Bugs → in neues `qa-report-YYYY-MM-DD.md` dokumentieren
-Won't-Fix-Entscheidungen → in `qa-excluded-issues.md` eintragen
-Coverage aktualisieren → `qa-coverage-YYYY-MM-DD.md` (altes umbenennen oder neues anlegen)
+Neue Bugs → in neues `docs/qa-archive/qa-report-YYYY-MM-DD.md` dokumentieren
+Won't-Fix-Entscheidungen → in `docs/qa-excluded-issues.md` eintragen
+Coverage aktualisieren → `docs/qa-coverage-YYYY-MM-DD.md` (altes umbenennen oder
+neues anlegen). In `docs/` bleibt immer nur die aktuellste Coverage-Datei — die
+vorherige nach `docs/qa-archive/` verschieben und den Verweis in
+`docs/index.md` anpassen.

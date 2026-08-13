@@ -12,7 +12,7 @@ The service has two persistent-data entry points:
   fixture used by the management command and landing-page screenshot workflow.
 
 The template currently creates the `Solawi Sonnenacker` / `Sunny Acre CSA`
-project with two locations, four fields, twelve beds, three suppliers, sixteen
+project with two locations, four fields, twelve beds, three suppliers, twenty
 crop-library rows, seed package data for the planned varieties, and twelve
 planting plans for the 2026 season. The crop rows deliberately include
 selectable species entries plus varieties with different shared and own values

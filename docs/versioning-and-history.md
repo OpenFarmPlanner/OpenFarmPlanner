@@ -90,9 +90,22 @@ Two restore paths, both admin-only (`require_project_admin`):
   to its live entity table; this is an intentional generic-relation-like
   pattern, not an oversight.
 
-## Unclear / needs check
+## What participates in whole-project restore
 
-- The exact list backing `_RESTORABLE_ENTITY_TYPES` (which models
-  participate in whole-project restore) should be read directly from
-  `backend/farm/history/records.py` before assuming a given model is or isn't
-  covered — it wasn't fully enumerated in this doc.
+`_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`) is an ordered
+list — parents before children, because restore deletes in reverse order and
+recreates in forward order:
+
+`Location` → `Field` → `Bed` → `BedLayout` → `FieldLayout` → `Supplier` →
+`Culture` → `PlantingPlan` → `Task` → `NoteAttachment`.
+
+Three more entity types get revision rows but are **not** part of
+whole-project restore (they are in `_ENTITY_TYPE_LABELS` only):
+`MediaFile`, `SeedPackage`, and `CultureSupplierData`. That mirrors what the
+older whole-project serializer already omitted. Read the list in the source
+before relying on it — this is the kind of thing a new model silently misses.
+
+Public crop-library entries have their **own**, separate version history
+(`PublicCultureRevision`, see
+[crop-library-architecture.md](./crop-library-architecture.md)). They are not
+project-scoped and never take part in project restore.

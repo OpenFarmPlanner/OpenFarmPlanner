@@ -268,6 +268,6 @@ tests, screenshots, or manual checks were performed.
 ## QA / Exploratory Testing
 When asked to search for bugs, run exploratory tests, or do a QA sweep:
 1. Read `docs/qa-strategy.md` first — it defines when to do a full vs. targeted sweep and contains Playwright setup details.
-2. Read `docs/qa-coverage-*.md` (most recent date) — it lists which areas were last tested, at which git commit, and known UI patterns that look like bugs but are by design.
+2. Read `docs/qa-coverage-*.md` (most recent date) — it lists which areas were last tested, at which git commit, and known UI patterns that look like bugs but are by design. Only the most recent coverage file stays in `docs/`; older reports, fix logs, and coverage snapshots are archived under `docs/qa-archive/` and are historical only.
 3. Read `docs/qa-excluded-issues.md` — do not re-report these won't-fix items.
-4. After the session, update `docs/qa-coverage-*.md` with the new git commit reference and any newly confirmed areas.
+4. After the session, update `docs/qa-coverage-*.md` with the new git commit reference and any newly confirmed areas. If you write a new dated coverage file instead, move the previous one to `docs/qa-archive/` and update the reference in `docs/index.md`.

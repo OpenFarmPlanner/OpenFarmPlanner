@@ -1,9 +1,17 @@
-# Field/Bed Area-Only Model Implementation
+# Field/Bed Area-Only Model Implementation (archived)
+
+> **Archived implementation checklist.** This work is complete; the file is
+> kept for the historical rationale behind storing only `area_sqm` and the
+> intended future geometry extension path. The model/validation details below
+> are still accurate (see `backend/farm/models/structure.py`), but the
+> frontend section references `frontend/src/pages/Beds.tsx`, which no longer
+> exists as a standalone page — field/bed management now lives in
+> `FieldsBedsPage.tsx`/`FieldsBedsHierarchy.tsx`/`GraphicalFields.tsx`. For the
+> current farm-structure model see
+> [`docs/data-model.md`](../data-model.md#2-farm-structure-locations--fields--beds).
 
 ## Overview
 This document summarizes the implementation of area-only storage for Field and Bed entities in v1, preparing for future polygon/geometry support.
-
-> **Status note (2026-07):** the model/validation details below are still current (see `backend/farm/models/structure.py`). The frontend section references `frontend/src/pages/Beds.tsx`, which no longer exists as a standalone page — field/bed management now lives in `FieldsBedsPage.tsx`/`FieldsBedsHierarchy.tsx`/`GraphicalFields.tsx`. See [`docs/data-model.md`](./docs/data-model.md#2-farm-structure-locations--fields--beds) for the current farm-structure model overview.
 
 ## Issue Requirements
 - ✅ Only the area (sqm) is stored in v1

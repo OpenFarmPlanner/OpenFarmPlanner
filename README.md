@@ -254,8 +254,11 @@ Safety behavior:
 - `frontend/README.md` – frontend-specific development details
 - `frontend/e2e/README.md` – E2E testing notes
 - `CONTRIBUTING.md` – commit conventions and contribution expectations
+- `CHANGELOG.md` – released versions and their user-visible changes
 - `CLAUDE.md` – rules AI coding agents must follow in this repository (`AGENTS.md` is a stub pointing here)
 - **[`docs/index.md`](docs/index.md)** – technical documentation index: architecture overview, data model, and deep dives into complex features (DataGrid, keyboard navigation, Gantt/occupancy hierarchy, Crop Library, seed demand calculation, versioning/history)
+- [`docs/archive/`](docs/archive/) – historical implementation notes and point-in-time reports, kept for their original reasoning; **not maintained**, see `docs/index.md` for the current documentation
+- [`docs/qa-archive/`](docs/qa-archive/) – dated QA reports, fix logs, and superseded coverage snapshots; the current QA documents stay in `docs/`
 
 ## Deployment / Operations
 
