@@ -300,10 +300,10 @@ export default function ProjectSettingsPage() {
               <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography id="project-context-title" variant="h5" sx={{ wordBreak: 'break-word' }}>
-                    <Box component="span" color="text.secondary">
+                    <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
                       {t('currentProjectLabel')}:{' '}
                     </Box>
-                    <Box component="span" sx={{ fontWeight: 600 }}>
+                    <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
                       {activeMembership.project_name}
                     </Box>
                   </Typography>
