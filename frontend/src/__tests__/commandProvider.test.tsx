@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useMemo } from 'react';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
@@ -221,7 +221,7 @@ describe('CommandProvider', () => {
     expect(screen.getByRole('textbox', { name: 'Aktionssuche' })).toBeInTheDocument();
   });
 
-  it('opens the dynamic shortcuts-help dialog with a bare "?"', () => {
+  it('opens the dynamic shortcuts-help dialog with a bare "?" and only lists assigned shortcuts', () => {
     render(
       <FocusManagerProvider><CommandProvider>
         <RootCommandFixture />
@@ -230,7 +230,31 @@ describe('CommandProvider', () => {
 
     fireEvent.keyDown(window, { key: '?' });
 
-    expect(screen.getByText('Projekteinstellungen')).toBeInTheDocument();
+    const actionSearchTitle = screen.getByText('Aktionssuche');
+    const basicNavigationTitle = screen.getByText('Grundlegende Navigation');
+    expect(actionSearchTitle.compareDocumentPosition(basicNavigationTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText('Aktionssuche')).toHaveLength(1);
+    const primaryShortcutSection = actionSearchTitle.closest('section');
+    expect(primaryShortcutSection).not.toBeNull();
+    expect(within(primaryShortcutSection as HTMLElement).getByText('Ctrl+K')).toBeInTheDocument();
+    expect(within(primaryShortcutSection as HTMLElement).getByText('Alt+K')).toBeInTheDocument();
+    expect(screen.getByText('Versionsverlauf')).toBeInTheDocument();
+    expect(screen.getByText('Alt+V')).toBeInTheDocument();
+    expect(screen.getByText('Tastenkürzel anzeigen')).toBeInTheDocument();
+    expect(screen.getByText('Seitenspezifische Tastenkürzel')).toBeInTheDocument();
+    expect(screen.getByText('Kultur hinzufügen')).toBeInTheDocument();
+    expect(screen.getByText('Kultur bearbeiten')).toBeInTheDocument();
+    expect(screen.getByText('Anbaukalender')).toBeInTheDocument();
+    expect(screen.getByText('Zur aktuellen Periode springen')).toBeInTheDocument();
+    expect(screen.getByText('Lieferant hinzufügen')).toBeInTheDocument();
+    const globalSection = screen.getByText('Global').closest('section');
+    expect(globalSection).not.toBeNull();
+    expect(within(globalSection as HTMLElement).queryByText('Aktionssuche')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projekteinstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projekt erstellen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projekt wechseln: Garten')).not.toBeInTheDocument();
+    expect(screen.queryByText('Kontoeinstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Abmelden')).not.toBeInTheDocument();
   });
 
   it('toggles the sidebar with Ctrl+B through the registered command', () => {
