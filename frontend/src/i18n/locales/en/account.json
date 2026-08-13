@@ -104,6 +104,7 @@
     "empty": "You have not created any API tokens yet.",
     "noProjects": "You need to be a member of a project before you can create an API token.",
     "revoked": "The token \"{{name}}\" has been revoked and no longer works.",
+    "inactiveToggle": "Show expired and revoked tokens ({{count}})",
     "status": {
       "active": "Active",
       "expired": "Expired",

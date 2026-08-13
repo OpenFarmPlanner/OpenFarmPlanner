@@ -11,6 +11,7 @@ import {
   Box,
   Button,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -49,6 +50,89 @@ function formatMoment(value: string | null, fallback: string): string {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed.toLocaleString();
 }
 
+function isInactiveToken(token: ApiToken): boolean {
+  if (token.status === 'revoked' || token.status === 'expired' || token.revoked_at) {
+    return true;
+  }
+  if (!token.expires_at) {
+    return false;
+  }
+  const expiresAt = new Date(token.expires_at);
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt < new Date();
+}
+
+interface ApiTokenCardProps {
+  token: ApiToken;
+  onRevoke: (token: ApiToken) => void;
+}
+
+function ApiTokenCard({ token, onRevoke }: ApiTokenCardProps) {
+  const { t } = useTranslation('account');
+
+  return (
+    <Stack
+      component="li"
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={1}
+      sx={{
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        justifyContent: 'space-between',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        p: 1.5,
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 600 }}>{token.name}</Typography>
+          <Chip
+            size="small"
+            label={t(`apiTokens.status.${token.status}`)}
+            color={STATUS_COLOR[token.status]}
+          />
+          <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${token.scope}`)} />
+        </Stack>
+        <Typography variant="body2" color="text.secondary">
+          {t('apiTokens.meta.project')}: {token.project_name} · {t('apiTokens.meta.prefix')}:{' '}
+          <code>{token.token_prefix}…</code>
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {t('apiTokens.meta.created')}: {formatMoment(token.created_at, '–')} ·{' '}
+          {t('apiTokens.meta.expires')}: {formatMoment(token.expires_at, t('apiTokens.meta.never'))} ·{' '}
+          {t('apiTokens.meta.lastUsed')}: {formatMoment(token.last_used_at, t('apiTokens.meta.neverUsed'))}
+        </Typography>
+      </Box>
+      {token.status === 'active' ? (
+        <Button
+          color="error"
+          variant="outlined"
+          size="small"
+          sx={actionButtonSx}
+          onClick={() => onRevoke(token)}
+        >
+          {t('apiTokens.actions.revoke')}
+        </Button>
+      ) : null}
+    </Stack>
+  );
+}
+
+interface ApiTokenListProps {
+  tokens: ApiToken[];
+  onRevoke: (token: ApiToken) => void;
+}
+
+function ApiTokenList({ tokens, onRevoke }: ApiTokenListProps) {
+  return (
+    <Stack spacing={1.5} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+      {tokens.map((token) => (
+        <ApiTokenCard key={token.id} token={token} onRevoke={onRevoke} />
+      ))}
+    </Stack>
+  );
+}
+
 export default function AccountSettingsApiTokensCard() {
   const { t } = useTranslation('account');
   const { user } = useAuth();
@@ -61,6 +145,7 @@ export default function AccountSettingsApiTokensCard() {
   const [formError, setFormError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<ApiTokenCreated | null>(null);
+  const [inactiveTokensOpen, setInactiveTokensOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [projectId, setProjectId] = useState<number | ''>('');
@@ -91,6 +176,21 @@ export default function AccountSettingsApiTokensCard() {
       setProjectId(memberships[0].project_id);
     }
   }, [memberships, projectId]);
+
+  const { activeTokens, inactiveTokens } = useMemo(() => {
+    const nextActiveTokens: ApiToken[] = [];
+    const nextInactiveTokens: ApiToken[] = [];
+
+    for (const token of tokens) {
+      if (isInactiveToken(token)) {
+        nextInactiveTokens.push(token);
+      } else {
+        nextActiveTokens.push(token);
+      }
+    }
+
+    return { activeTokens: nextActiveTokens, inactiveTokens: nextInactiveTokens };
+  }, [tokens]);
 
   const resetForm = () => {
     setName('');
@@ -160,57 +260,28 @@ export default function AccountSettingsApiTokensCard() {
             {t('apiTokens.empty')}
           </Typography>
         ) : (
-          <Stack spacing={1.5} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-            {tokens.map((token) => (
-              <Stack
-                key={token.id}
-                component="li"
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={1}
-                sx={{
-                  alignItems: { xs: 'flex-start', sm: 'center' },
-                  justifyContent: 'space-between',
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  p: 1.5,
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography sx={{ fontWeight: 600 }}>{token.name}</Typography>
-                    <Chip
-                      size="small"
-                      label={t(`apiTokens.status.${token.status}`)}
-                      color={STATUS_COLOR[token.status]}
-                    />
-                    <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${token.scope}`)} />
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('apiTokens.meta.project')}: {token.project_name} · {t('apiTokens.meta.prefix')}:{' '}
-                    <code>{token.token_prefix}…</code>
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('apiTokens.meta.created')}: {formatMoment(token.created_at, '–')} ·{' '}
-                    {t('apiTokens.meta.expires')}:{' '}
-                    {formatMoment(token.expires_at, t('apiTokens.meta.never'))} ·{' '}
-                    {t('apiTokens.meta.lastUsed')}:{' '}
-                    {formatMoment(token.last_used_at, t('apiTokens.meta.neverUsed'))}
-                  </Typography>
-                </Box>
-                {token.status === 'active' ? (
-                  <Button
-                    color="error"
-                    variant="outlined"
-                    size="small"
-                    sx={actionButtonSx}
-                    onClick={() => void handleRevoke(token)}
-                  >
-                    {t('apiTokens.actions.revoke')}
-                  </Button>
-                ) : null}
-              </Stack>
-            ))}
+          <Stack spacing={1.5}>
+            {activeTokens.length > 0 ? (
+              <ApiTokenList tokens={activeTokens} onRevoke={(token) => void handleRevoke(token)} />
+            ) : null}
+            {inactiveTokens.length > 0 ? (
+              <Box>
+                <Button
+                  type="button"
+                  variant="text"
+                  sx={actionButtonSx}
+                  onClick={() => setInactiveTokensOpen((open) => !open)}
+                  aria-expanded={inactiveTokensOpen}
+                >
+                  {t('apiTokens.inactiveToggle', { count: inactiveTokens.length })}
+                </Button>
+                <Collapse in={inactiveTokensOpen} unmountOnExit>
+                  <Box sx={{ pt: 1.5 }}>
+                    <ApiTokenList tokens={inactiveTokens} onRevoke={(token) => void handleRevoke(token)} />
+                  </Box>
+                </Collapse>
+              </Box>
+            ) : null}
           </Stack>
         )}
 

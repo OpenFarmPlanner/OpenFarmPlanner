@@ -104,6 +104,7 @@
     "empty": "Du hast noch keine API-Tokens erstellt.",
     "noProjects": "Du musst Mitglied in einem Projekt sein, um ein API-Token erstellen zu können.",
     "revoked": "Das Token „{{name}}“ wurde widerrufen und funktioniert nicht mehr.",
+    "inactiveToggle": "Abgelaufene und widerrufene Tokens anzeigen ({{count}})",
     "status": {
       "active": "Aktiv",
       "expired": "Abgelaufen",

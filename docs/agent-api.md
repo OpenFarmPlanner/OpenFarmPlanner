@@ -142,6 +142,8 @@ the project, `read`, `write`, or `delete`, and optionally an expiry date (at
 most one year out). The plaintext is shown once, in a dialog, with an explicit
 note that it cannot be retrieved again. Afterwards the list shows only the
 display prefix (`abcd1234…`), the status, and `last_used_at`.
+Expired and revoked tokens stay visible from the same account settings card,
+but are grouped behind a collapsed section below the active tokens.
 
 Revoking is immediate and permanent; a revoked token is never reactivated.
 

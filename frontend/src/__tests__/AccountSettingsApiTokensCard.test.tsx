@@ -66,6 +66,58 @@ describe('AccountSettingsApiTokensCard', () => {
     expect(screen.getByText(/Hof Nord/)).toBeInTheDocument();
   });
 
+  it('keeps expired and revoked tokens collapsed below active tokens by default', async () => {
+    const user = userEvent.setup();
+    const expiredToken = token({
+      id: 11,
+      name: 'Expired agent',
+      status: 'expired',
+      expires_at: '2026-01-01T00:00:00Z',
+    });
+    const revokedToken = token({
+      id: 12,
+      name: 'Revoked agent',
+      status: 'revoked',
+      revoked_at: '2026-07-15T08:00:00Z',
+    });
+    listMock.mockResolvedValue({ data: [token(), expiredToken, revokedToken] });
+
+    render(<AccountSettingsApiTokensCard />);
+
+    expect(await screen.findByText('Codex')).toBeInTheDocument();
+    expect(screen.queryByText('Expired agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Revoked agent')).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', {
+      name: 'Abgelaufene und widerrufene Tokens anzeigen (2)',
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Expired agent')).toBeInTheDocument();
+    expect(screen.getByText('Revoked agent')).toBeInTheDocument();
+    expect(screen.getByText('Abgelaufen')).toBeInTheDocument();
+    expect(screen.getAllByText('Widerrufen')).toHaveLength(2);
+
+    await user.click(toggle);
+
+    await waitFor(() => expect(screen.queryByText('Expired agent')).not.toBeInTheDocument());
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('hides the inactive-token section when there are no expired or revoked tokens', async () => {
+    listMock.mockResolvedValue({ data: [token()] });
+
+    render(<AccountSettingsApiTokensCard />);
+
+    expect(await screen.findByText('Codex')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Abgelaufene und widerrufene Tokens anzeigen/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it('never renders a full token value in the list', async () => {
     listMock.mockResolvedValue({ data: [token()] });
 
@@ -167,7 +219,10 @@ describe('AccountSettingsApiTokensCard', () => {
     await user.click(screen.getByRole('button', { name: 'Widerrufen' }));
 
     await waitFor(() => expect(revokeMock).toHaveBeenCalledWith(10));
-    expect(await screen.findByText('Widerrufen')).toBeInTheDocument();
+    expect(screen.getByRole('button', {
+      name: 'Abgelaufene und widerrufene Tokens anzeigen (1)',
+    })).toBeInTheDocument();
+    expect(screen.queryByText('Codex')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Widerrufen' })).not.toBeInTheDocument();
   });
 
