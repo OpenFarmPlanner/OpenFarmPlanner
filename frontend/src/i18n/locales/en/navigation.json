@@ -118,6 +118,71 @@
       "closeDialog": "Close dialog or menu"
     },
     "currentRegionShortcutsTitle": "Current focus region",
+    "allPageShortcutsTitle": "Page-specific shortcuts",
+    "allPageShortcuts": {
+      "cultures": {
+        "title": "Crops",
+        "create": "Add crop",
+        "search": "Focus crop search",
+        "edit": "Edit crop",
+        "delete": "Delete crop",
+        "exportCurrent": "Export selected crop",
+        "exportAll": "Export all crops",
+        "import": "Import crops",
+        "createPlan": "Create planting plan from crop",
+        "previous": "Select previous crop",
+        "next": "Select next crop"
+      },
+      "publicCropLibrary": {
+        "title": "Public crop library",
+        "search": "Search crop library",
+        "edit": "Edit public crop",
+        "import": "Import crop",
+        "previous": "Select previous crop",
+        "next": "Select next crop"
+      },
+      "areas": {
+        "title": "Growing areas",
+        "create": "Create growing area",
+        "focusTable": "Focus table",
+        "createFromSelection": "Add child item to selection",
+        "delete": "Delete selected growing area",
+        "showList": "Show list view",
+        "showGraphical": "Show graphical view",
+        "toggleGraphicalEdit": "Toggle graphical editing"
+      },
+      "plans": {
+        "title": "Planting plans",
+        "create": "Add planting plan",
+        "edit": "Edit planting plan",
+        "delete": "Delete planting plan"
+      },
+      "calendar": {
+        "title": "Planting calendar",
+        "today": "Jump to current period",
+        "previousPeriod": "Previous period",
+        "nextPeriod": "Next period",
+        "previousLargePeriod": "Previous large period",
+        "nextLargePeriod": "Next large period",
+        "dayView": "Day view",
+        "weekView": "Week view",
+        "monthView": "Month view",
+        "quarterView": "Quarter view",
+        "yearView": "Year view",
+        "search": "Focus calendar search",
+        "showOccupancy": "Show field occupancy",
+        "showSeedlings": "Show seedlings",
+        "toggleEdit": "Toggle moving periods"
+      },
+      "locations": {
+        "title": "Locations",
+        "create": "Add location"
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "create": "Add supplier"
+      }
+    },
     "currentVersion": "Current version",
     "versionHistoryTitle": "Version history",
     "versionHistoryEmpty": "No changes recorded yet.",

@@ -5,7 +5,7 @@ import FieldsBedsHierarchy from './FieldsBedsHierarchy';
 import GraphicalFields from './GraphicalFields';
 import { AddBedIcon } from '../components/hierarchy/AddBedIcon';
 import { HierarchyAddIcon } from '../components/hierarchy/HierarchyAddIcon';
-import { useCommandContextTag, useRegisterCommands } from '../commands/useCommandContext';
+import { useCommandContextTag, useRegisterCommands, useRegisterCreateActions } from '../commands/useCommandContext';
 import type { CommandSpec } from '../commands/types';
 import { useTranslation } from '../i18n';
 import PageContainer from '../components/layout/PageContainer';
@@ -342,6 +342,38 @@ export default function FieldsBedsPage() {
 
   useTopbarContextActions(setTopbarContextActions, contextActions);
   useTopbarTitleActions(setTopbarTitleActions, viewModeActions);
+
+  const createActions = useMemo(() => {
+    if (shouldShowProjectRequiredState) {
+      return [];
+    }
+    if (canUseGlobalAddField) {
+      return [
+        {
+          id: 'create-field',
+          label: t('hierarchy:actions.addFieldDropdown'),
+          shortcut: 'Alt+Shift+N',
+          handler: requestInlineFieldCreation,
+        },
+      ];
+    }
+    return [
+      {
+        id: 'create-location',
+        label: t('hierarchy:actions.createLocation'),
+        shortcut: 'Alt+Shift+N',
+        handler: openAddLocationDialog,
+      },
+    ];
+  }, [
+    canUseGlobalAddField,
+    openAddLocationDialog,
+    requestInlineFieldCreation,
+    shouldShowProjectRequiredState,
+    t,
+  ]);
+
+  useRegisterCreateActions('areas-page', createActions);
 
   return (
     <>

@@ -118,6 +118,71 @@
       "closeDialog": "Dialog oder Menü schließen"
     },
     "currentRegionShortcutsTitle": "Aktueller Fokusbereich",
+    "allPageShortcutsTitle": "Seitenspezifische Tastenkürzel",
+    "allPageShortcuts": {
+      "cultures": {
+        "title": "Kulturen",
+        "create": "Kultur hinzufügen",
+        "search": "Kultursuche fokussieren",
+        "edit": "Kultur bearbeiten",
+        "delete": "Kultur löschen",
+        "exportCurrent": "Ausgewählte Kultur exportieren",
+        "exportAll": "Alle Kulturen exportieren",
+        "import": "Kulturen importieren",
+        "createPlan": "Anbauplan aus Kultur erstellen",
+        "previous": "Vorherige Kultur auswählen",
+        "next": "Nächste Kultur auswählen"
+      },
+      "publicCropLibrary": {
+        "title": "Öffentliche Kulturbibliothek",
+        "search": "Kulturbibliothek durchsuchen",
+        "edit": "Öffentliche Kultur bearbeiten",
+        "import": "Kultur importieren",
+        "previous": "Vorherige Kultur auswählen",
+        "next": "Nächste Kultur auswählen"
+      },
+      "areas": {
+        "title": "Anbauflächen",
+        "create": "Neue Anbaufläche erstellen",
+        "focusTable": "Tabelle fokussieren",
+        "createFromSelection": "Unterelement zur Auswahl hinzufügen",
+        "delete": "Ausgewählte Anbaufläche löschen",
+        "showList": "Listenansicht anzeigen",
+        "showGraphical": "Grafikansicht anzeigen",
+        "toggleGraphicalEdit": "Grafik-Bearbeitung ein-/ausschalten"
+      },
+      "plans": {
+        "title": "Anbaupläne",
+        "create": "Anbauplan hinzufügen",
+        "edit": "Anbauplan bearbeiten",
+        "delete": "Anbauplan löschen"
+      },
+      "calendar": {
+        "title": "Anbaukalender",
+        "today": "Zur aktuellen Periode springen",
+        "previousPeriod": "Vorherige Periode",
+        "nextPeriod": "Nächste Periode",
+        "previousLargePeriod": "Vorherige große Periode",
+        "nextLargePeriod": "Nächste große Periode",
+        "dayView": "Tagesansicht",
+        "weekView": "Wochenansicht",
+        "monthView": "Monatsansicht",
+        "quarterView": "Quartalsansicht",
+        "yearView": "Jahresansicht",
+        "search": "Kalendersuche fokussieren",
+        "showOccupancy": "Feldbelegung anzeigen",
+        "showSeedlings": "Anzucht anzeigen",
+        "toggleEdit": "Zeiträume verschieben ein-/ausschalten"
+      },
+      "locations": {
+        "title": "Standorte",
+        "create": "Standort hinzufügen"
+      },
+      "suppliers": {
+        "title": "Lieferanten",
+        "create": "Lieferant hinzufügen"
+      }
+    },
     "currentVersion": "Aktuelle Version",
     "versionHistoryTitle": "Versionsverlauf",
     "versionHistoryEmpty": "Noch keine Änderungen aufgezeichnet.",

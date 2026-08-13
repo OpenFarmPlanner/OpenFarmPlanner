@@ -236,6 +236,12 @@ describe('CommandProvider', () => {
     expect(screen.getByText('Versionsverlauf')).toBeInTheDocument();
     expect(screen.getByText('Alt+V')).toBeInTheDocument();
     expect(screen.getByText('Tastenkürzel anzeigen')).toBeInTheDocument();
+    expect(screen.getByText('Seitenspezifische Tastenkürzel')).toBeInTheDocument();
+    expect(screen.getByText('Kultur hinzufügen')).toBeInTheDocument();
+    expect(screen.getByText('Kultur bearbeiten')).toBeInTheDocument();
+    expect(screen.getByText('Anbaukalender')).toBeInTheDocument();
+    expect(screen.getByText('Zur aktuellen Periode springen')).toBeInTheDocument();
+    expect(screen.getByText('Lieferant hinzufügen')).toBeInTheDocument();
     expect(screen.queryByText('Projekteinstellungen')).not.toBeInTheDocument();
     expect(screen.queryByText('Projekt erstellen')).not.toBeInTheDocument();
     expect(screen.queryByText('Projekt wechseln: Garten')).not.toBeInTheDocument();

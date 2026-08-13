@@ -37,17 +37,122 @@ const SHORTCUT_HINT_KEY = 'ofp.shortcutHintSeen';
 const CREATE_SHORTCUT_HINT = 'Alt+Shift+N';
 const CREATE_SHORTCUT_KEYS = { alt: true, shift: true, key: 'n' } as const;
 
+type ShortcutHelpEntry = {
+  labelKey: string;
+  shortcutHint: string;
+};
+
+type PageShortcutHelpGroup = {
+  titleKey: string;
+  entries: ShortcutHelpEntry[];
+};
+
+const PAGE_SHORTCUT_HELP_GROUPS: PageShortcutHelpGroup[] = [
+  {
+    titleKey: 'commandPalette.allPageShortcuts.cultures.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.create', shortcutHint: CREATE_SHORTCUT_HINT },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.search', shortcutHint: '/' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.edit', shortcutHint: 'Alt+E' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.delete', shortcutHint: 'Alt+Shift+D' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.exportCurrent', shortcutHint: 'Alt+J' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.exportAll', shortcutHint: 'Alt+Shift+J' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.import', shortcutHint: 'Alt+I' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.createPlan', shortcutHint: 'Alt+P' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.previous', shortcutHint: 'Alt+Shift+←' },
+      { labelKey: 'commandPalette.allPageShortcuts.cultures.next', shortcutHint: 'Alt+Shift+→' },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.publicCropLibrary.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.publicCropLibrary.search', shortcutHint: '/' },
+      { labelKey: 'commandPalette.allPageShortcuts.publicCropLibrary.edit', shortcutHint: 'Alt+E' },
+      { labelKey: 'commandPalette.allPageShortcuts.publicCropLibrary.import', shortcutHint: 'Alt+I' },
+      { labelKey: 'commandPalette.allPageShortcuts.publicCropLibrary.previous', shortcutHint: 'Alt+Shift+←' },
+      { labelKey: 'commandPalette.allPageShortcuts.publicCropLibrary.next', shortcutHint: 'Alt+Shift+→' },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.areas.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.areas.create', shortcutHint: CREATE_SHORTCUT_HINT },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.focusTable', shortcutHint: 'Alt+T' },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.createFromSelection', shortcutHint: 'Einfg' },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.delete', shortcutHint: 'Entf' },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.showList', shortcutHint: 'L' },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.showGraphical', shortcutHint: 'G' },
+      { labelKey: 'commandPalette.allPageShortcuts.areas.toggleGraphicalEdit', shortcutHint: 'Alt+E' },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.plans.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.plans.create', shortcutHint: CREATE_SHORTCUT_HINT },
+      { labelKey: 'commandPalette.allPageShortcuts.plans.edit', shortcutHint: 'Alt+E' },
+      { labelKey: 'commandPalette.allPageShortcuts.plans.delete', shortcutHint: 'Entf' },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.calendar.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.today', shortcutHint: 'T' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.previousPeriod', shortcutHint: '←' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.nextPeriod', shortcutHint: '→' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.previousLargePeriod', shortcutHint: 'Shift+←' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.nextLargePeriod', shortcutHint: 'Shift+→' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.dayView', shortcutHint: '1' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.weekView', shortcutHint: '2' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.monthView', shortcutHint: '3' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.quarterView', shortcutHint: '4' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.yearView', shortcutHint: '5' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.search', shortcutHint: '/' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.showOccupancy', shortcutHint: 'F' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.showSeedlings', shortcutHint: 'A' },
+      { labelKey: 'commandPalette.allPageShortcuts.calendar.toggleEdit', shortcutHint: 'Alt+E / Z' },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.locations.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.locations.create', shortcutHint: CREATE_SHORTCUT_HINT },
+    ],
+  },
+  {
+    titleKey: 'commandPalette.allPageShortcuts.suppliers.title',
+    entries: [
+      { labelKey: 'commandPalette.allPageShortcuts.suppliers.create', shortcutHint: CREATE_SHORTCUT_HINT },
+    ],
+  },
+];
+
 function getShortcutParts(shortcutHint: string): string[] {
   return shortcutHint.split('/').map((part) => part.trim()).filter(Boolean);
 }
 
 function ShortcutHelpRow({ label, shortcutHint }: { label: string; shortcutHint: string }): React.ReactElement {
   return (
-    <ListItem disableGutters sx={{ gap: 2, py: 0.75, px: 0, alignItems: 'center' }}>
-      <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>
+    <ListItem
+      disableGutters
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr) max-content',
+          sm: 'minmax(0, 26rem) max-content',
+        },
+        columnGap: 3,
+        rowGap: 0.75,
+        py: 0.75,
+        px: 0,
+        alignItems: 'center',
+        width: 'fit-content',
+        maxWidth: '100%',
+      }}
+    >
+      <Typography variant="body2" sx={{ minWidth: 0 }}>
         {label}
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.75, flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 0.75, minWidth: 0 }}>
         {getShortcutParts(shortcutHint).map((part) => (
           <Chip
             key={part}
@@ -356,6 +461,23 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
               ))}
             </ShortcutHelpSection>
           ))}
+          <ShortcutHelpSection title={t('commandPalette.allPageShortcutsTitle')}>
+            {PAGE_SHORTCUT_HELP_GROUPS.map((group, groupIndex) => (
+              <Fragment key={group.titleKey}>
+                {groupIndex > 0 ? <Divider component="li" /> : null}
+                <ListItem disableGutters sx={{ py: 1, px: 0 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {t(group.titleKey)}
+                  </Typography>
+                </ListItem>
+                {group.entries.map((entry) => (
+                  <Fragment key={`${group.titleKey}-${entry.labelKey}`}>
+                    <ShortcutHelpRow label={t(entry.labelKey)} shortcutHint={entry.shortcutHint} />
+                  </Fragment>
+                ))}
+              </Fragment>
+            ))}
+          </ShortcutHelpSection>
         </DialogContent>
       </Dialog>
       <AlertSnackbar

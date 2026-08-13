@@ -114,6 +114,9 @@ built but never wired to anything) showing:
    `useRegionShortcuts`'s registry, filtered by `activeRegionId`).
 3. All commands active for the current page (grouped by context tag, same
    list the command palette searches).
+4. A compact all-pages reference for page-specific shortcuts, so users can
+   discover e.g. the Cultures page shortcuts even while they opened help from
+   account settings or another page without local commands.
 
 This replaced three separate, drifting implementations (a static, hand
 maintained list in `App.tsx`, a near-duplicate in `pages/Cultures.tsx`, and
