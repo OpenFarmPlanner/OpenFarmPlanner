@@ -291,60 +291,69 @@ export default function ProjectSettingsPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 760, mx: 'auto' }}>
-      <Box sx={{ mb: 2.5 }}>
-        {!isEditingProjectName ? (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
-            <Typography variant="h6">{activeMembership.project_name}</Typography>
-            {isProjectAdmin ? (
-              <IconButton aria-label={t('projectRename.label')} onClick={handleProjectNameEditStart}>
-                <EditIcon />
-              </IconButton>
-            ) : null}
-          </Stack>
-        ) : (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' }, }} >
-            <TextField
-              label={t('projectRename.label')}
-              value={projectNameDraft}
-              onChange={(event) => setProjectNameDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  handleProjectNameEditCancel();
-                  return;
-                }
-                if (event.key === 'Enter' && canSaveProjectName) {
-                  event.preventDefault();
-                  void handleProjectNameSave();
-                }
-              }}
-              disabled={!isProjectAdmin || isSavingProjectName}
-              error={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2}
-              helperText={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2 ? t('projectRename.minLength') : ' '}
-              sx={wideFieldSx}
-              autoFocus
-              slotProps={{ htmlInput: { 'aria-label': t('projectRename.label') } }}
-            />
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                onClick={() => void handleProjectNameSave()}
-                disabled={!canSaveProjectName || isSavingProjectName}
-                sx={{ minWidth: 140 }}
-              >
-                {t('projectRename.save')}
-              </Button>
-              <Button variant="outlined" onClick={handleProjectNameEditCancel} disabled={isSavingProjectName}>
-                {t('projectRename.cancel')}
-              </Button>
-            </Stack>
-          </Stack>
-        )}
-      </Box>
-
       {feedback ? <Alert severity={feedback.severity} sx={{ mb: 2.5, wordBreak: 'break-all' }}>{feedback.text}</Alert> : null}
 
       <Stack spacing={2.5}>
+        <Card variant="outlined" aria-labelledby="project-context-title">
+          <CardContent sx={sectionCardContentSx}>
+            {!isEditingProjectName ? (
+              <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography id="project-context-title" variant="caption" color="text.secondary">
+                    {t('currentProjectLabel')}
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+                    {activeMembership.project_name}
+                  </Typography>
+                </Box>
+                {isProjectAdmin ? (
+                  <IconButton size="small" aria-label={t('projectRename.label')} onClick={handleProjectNameEditStart}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                ) : null}
+              </Stack>
+            ) : (
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' }, }} >
+                <TextField
+                  label={t('projectRename.label')}
+                  value={projectNameDraft}
+                  onChange={(event) => setProjectNameDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      handleProjectNameEditCancel();
+                      return;
+                    }
+                    if (event.key === 'Enter' && canSaveProjectName) {
+                      event.preventDefault();
+                      void handleProjectNameSave();
+                    }
+                  }}
+                  disabled={!isProjectAdmin || isSavingProjectName}
+                  error={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2}
+                  helperText={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2 ? t('projectRename.minLength') : ' '}
+                  sx={wideFieldSx}
+                  autoFocus
+                  slotProps={{ htmlInput: { 'aria-label': t('projectRename.label') } }}
+                />
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="contained"
+                    onClick={() => void handleProjectNameSave()}
+                    disabled={!canSaveProjectName || isSavingProjectName}
+                    sx={{ minWidth: 140 }}
+                  >
+                    {t('projectRename.save')}
+                  </Button>
+                  <Button variant="outlined" onClick={handleProjectNameEditCancel} disabled={isSavingProjectName}>
+                    {t('projectRename.cancel')}
+                  </Button>
+                </Stack>
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+
         <Card variant="outlined" aria-labelledby="project-invite-section-title">
           <CardContent sx={sectionCardContentSx}>
             <Typography id="project-invite-section-title" variant="h6" sx={{ mb: 2 }}>{t('inviteSectionTitle')}</Typography>
