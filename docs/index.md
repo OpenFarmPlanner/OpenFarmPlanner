@@ -37,10 +37,10 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
 - **[Social Login](./social-login.md)** — Google/Microsoft sign-in via
   django-allauth: the OAuth flow, the account-linking rules, and the
   Google/Microsoft setup steps.
-- **[Agent API](./agent-api.md)** — project-bound API tokens for external
-  coding agents: the security model, the available permissions, the culture
-  validation and plausibility rules, and the two-step preview/apply import
-  flow.
+- **[External Tool API Tokens](./agent-api.md)** — project-bound API tokens for
+  external tools, scripts, and coding agents: the security model, the available
+  permissions, the culture validation and plausibility rules, and the two-step
+  preview/apply import flow.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
   project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.

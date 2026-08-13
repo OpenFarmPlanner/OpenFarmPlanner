@@ -1,13 +1,14 @@
-# Agent API
+# External Tool API Tokens
 
-How external coding agents (Codex, Claude Code, scripts, CI jobs) authenticate
-against OpenFarmPlanner and import culture data safely.
+How external tools (coding agents such as Codex or Claude Code, scripts, CI
+jobs, and other automations) authenticate against OpenFarmPlanner and import
+culture data safely.
 
 There is **no separate agent API**. Agents call the same endpoints the browser
 calls, backed by the same serializers, the same `Culture.clean()`, and the same
-project scoping. What this feature adds is a second credential type, a set of
-rules that narrow what that credential can reach, and a two-step import flow
-that refuses to guess.
+project scoping. What this feature adds is a second credential type for
+external, non-browser clients, a set of rules that narrow what that credential
+can reach, and a two-step import flow that refuses to guess.
 
 ## Contents
 
@@ -137,13 +138,29 @@ Opting a new endpoint in is a deliberate one-line change: add
 
 ## Getting a token
 
-In the app: **Account settings → API tokens for coding agents**. Choose a name,
+In the app: **Account settings → API tokens for external tools**. Choose a name,
 the project, `read`, `write`, or `delete`, and optionally an expiry date (at
 most one year out). The plaintext is shown once, in a dialog, with an explicit
-note that it cannot be retrieved again. Afterwards the list shows only the
-display prefix (`abcd1234…`), the status, and `last_used_at`.
+note that it cannot be retrieved again.
+
+After creation, tokens are shown in a MUI DataGrid table inside the account
+settings card. Active tokens are listed directly with these columns:
+
+| Column | Meaning |
+|---|---|
+| Name | User-provided token name; hovering exposes the non-secret display prefix |
+| Rights | `read`, `write`, or `delete` as a compact rights label |
+| Project | The project the token is permanently bound to |
+| Created | Creation timestamp |
+| Expires | Expiry timestamp, or "no expiry date" |
+| Last used | Last successful authentication timestamp, or "never" |
+| Action | Revoke button for active tokens |
+
 Expired and revoked tokens stay visible from the same account settings card,
-but are grouped behind a collapsed section below the active tokens.
+but are grouped behind a collapsed section below the active tokens:
+**Abgelaufene und widerrufene Tokens anzeigen (N)** in the German UI. Opening
+that section renders the same table shape without the **Action** column,
+because inactive tokens cannot be revoked again.
 
 Revoking is immediate and permanent; a revoked token is never reactivated.
 

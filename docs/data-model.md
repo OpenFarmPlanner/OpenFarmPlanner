@@ -29,7 +29,7 @@ erDiagram
     User ||--o| AccountDeletionRequest : "1:1 (deletion grace period)"
     User ||--o{ AgentLoginToken : "created_by (superuser tooling)"
     Project ||--o{ AgentLoginToken : "scoped to"
-    User ||--o{ ProjectApiToken : "owns (personal agent tokens)"
+    User ||--o{ ProjectApiToken : "owns (external tool tokens)"
     Project ||--o{ ProjectApiToken : "bound to exactly one"
     User ||--o{ CultureImportDraft : "created_by"
     Project ||--o{ CultureImportDraft : "scoped to"
@@ -51,8 +51,9 @@ erDiagram
   manageable. Shared `PublicCulture` entries are not owned by a project and
   use nullable provenance links (`on_delete=SET_NULL`), so they remain part
   of the public knowledge base even when the source project is deleted.
-- **`ProjectApiToken`** is the credential external coding agents use. It is
-  bound to one user *and* one project at creation time and stores only a
+- **`ProjectApiToken`** is the credential external tools use for API access
+  outside the browser session (for example coding agents, scripts, or CI jobs).
+  It is bound to one user *and* one project at creation time and stores only a
   SHA-256 digest of the token plus a short display prefix; the plaintext is
   returned once and never again. Its `scope` (`read` / `write` / `delete`) is a
   second, narrower permission axis on top of `ProjectMembership.role` — it can
