@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
@@ -9,6 +9,8 @@ import { FocusManagerProvider } from '../focus/FocusManager';
 import translations from '@/test-utils/translations';
 import type { AuthUser } from '../auth/types';
 import i18n from '../i18n/config';
+
+const originalMatchMedia = window.matchMedia;
 
 function createGuestDemoUser(): AuthUser {
   return {
@@ -55,6 +57,22 @@ function createAuthenticatedUser(
     is_guest_demo: false,
     guest_demo_session_id: null,
   };
+}
+
+function mockMobileTopbarViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width') || query.includes('down'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 }
 
 const authState = {
@@ -166,6 +184,13 @@ describe('App', () => {
     await i18n.changeLanguage('de');
     localStorage.clear();
     window.history.pushState({}, '', '/');
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
   });
 
   it('renders public home page on root path', async () => {
@@ -565,6 +590,44 @@ describe('App', () => {
     fireEvent.click(await screen.findByLabelText('Mehr'));
     expect(await screen.findByText('Kontoeinstellungen')).toBeInTheDocument();
     expect(screen.getByText('Projekteinstellungen')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/app/project-settings', 'Projekteinstellungen'],
+    ['/app/project-selection', 'Projektauswahl'],
+    ['/app/public-library-moderation', 'Kulturbibliothek moderieren'],
+  ])('shows the app-route title in the topbar for %s', async (path, title) => {
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', path);
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument();
+  });
+
+  it('does not duplicate the project settings page title inside the page content', async () => {
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/project-settings');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByRole('heading', { level: 1, name: 'Projekteinstellungen' });
+    expect(screen.getAllByRole('heading', { name: 'Projekteinstellungen' })).toHaveLength(1);
+  });
+
+  it('keeps the project settings title in the mobile topbar without duplicating it in content', async () => {
+    mockMobileTopbarViewport();
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/project-settings');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByRole('heading', { level: 1, name: 'Projekteinstellungen' });
+    expect(screen.getAllByRole('heading', { name: 'Projekteinstellungen' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Menü öffnen' })).toBeInTheDocument();
   });
 
   // Regression coverage for a routing bug: a user with zero projects who

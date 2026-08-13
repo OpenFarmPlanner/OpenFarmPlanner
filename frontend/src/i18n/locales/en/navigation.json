@@ -12,10 +12,12 @@
   "seedDemand": "Seed demand",
   "graphicalFields": "Graphical view",
   "accountSettings": "Account settings",
+  "publicLibraryModeration": "Moderate crop library",
   "appVersionLabel": "Version",
   "disabledNoProjectTooltip": "Create a project first.",
   "project": {
     "settings": "Project settings",
+    "selection": "Project selection",
     "members": "Manage members",
     "create": "New project",
     "switch": "Switch project"

@@ -2,12 +2,14 @@
   "title": "Projekteinstellungen",
   "noActiveProject": "Kein aktives Projekt ausgewählt.",
   "projectLabel": "Projekt: {{name}}",
+  "currentProjectLabel": "Projektname",
   "projectRename": {
     "label": "Projekt umbenennen",
     "save": "Speichern",
     "cancel": "Abbrechen",
     "success": "Projektname aktualisiert.",
     "error": "Projektname konnte nicht aktualisiert werden.",
+    "empty": "Projektname darf nicht leer sein.",
     "minLength": "Mindestens 2 Zeichen."
   },
   "projectDelete": {

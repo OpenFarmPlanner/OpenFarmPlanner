@@ -115,6 +115,27 @@ describe('ProjectSettingsPage', () => {
     await waitFor(() => expect(removeMemberMock).toHaveBeenCalledWith(1, 11));
   });
 
+  it('uses the member email as the primary label when the display name is empty', async () => {
+    listMembersMock.mockResolvedValueOnce({
+      data: [
+        {
+          id: 12,
+          user: 1,
+          user_email: 'martin.stipsitz@gmail.com',
+          user_display_name: '',
+          project: 1,
+          role: 'admin',
+          created_at: '2026-03-18T08:00:00Z',
+        },
+      ],
+    });
+
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+
+    expect(await screen.findByText('martin.stipsitz@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText('Ohne Anzeigenamen')).not.toBeInTheDocument();
+  });
+
   it('shows a neutral no-access state for invitations when the user is not an admin', async () => {
     authState.user = {
       id: 1,
@@ -222,76 +243,76 @@ describe('ProjectSettingsPage', () => {
     ).not.toBe(0);
   });
 
-  it('shows project name in view mode and allows switching to edit mode', async () => {
+  it('shows project name as an inline editable field', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    expect(await screen.findByText('Alpha')).toBeInTheDocument();
-    expect(screen.getByLabelText('Projekt umbenennen')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Speichern' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Projekt umbenennen' }));
-    expect(await screen.findByLabelText('Projekt umbenennen')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Abbrechen' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Projektname')).toHaveValue('Alpha');
+    expect(screen.queryByRole('button', { name: 'Projekt umbenennen' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
   });
 
-  it('allows renaming via PATCH from edit mode', async () => {
+  it('keeps inline project name changes unsaved when the field loses focus', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Projekt umbenennen' }));
-    const projectNameInput = await screen.findByLabelText('Projekt umbenennen');
+    const projectNameInput = await screen.findByLabelText('Projektname');
     expect(projectNameInput).toHaveValue('Alpha');
+
+    fireEvent.change(projectNameInput, { target: { value: 'Beta' } });
+    fireEvent.blur(projectNameInput);
+
+    expect(updateProjectMock).not.toHaveBeenCalled();
+    expect(projectNameInput).toHaveValue('Beta');
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeEnabled();
+  });
+
+  it('allows renaming via PATCH from the explicit save button', async () => {
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+    const projectNameInput = await screen.findByLabelText('Projektname');
 
     fireEvent.change(projectNameInput, { target: { value: 'Beta' } });
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith(1, { name: 'Beta' }));
     await waitFor(() => expect(refreshUserMock).toHaveBeenCalled());
+    expect(await screen.findByText('Projektname aktualisiert.')).toBeInTheDocument();
   });
 
-  it('prevents empty or unchanged project name saves', async () => {
+  it('prevents empty project name saves and restores the old name with feedback', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Projekt umbenennen' }));
-    const projectNameInput = await screen.findByLabelText('Projekt umbenennen');
-    const saveButton = screen.getByRole('button', { name: 'Speichern' });
+    const projectNameInput = await screen.findByLabelText('Projektname');
 
-    expect(saveButton).toBeDisabled();
     fireEvent.change(projectNameInput, { target: { value: '   ' } });
-    expect(saveButton).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(updateProjectMock).not.toHaveBeenCalled();
+    expect(projectNameInput).toHaveValue('Alpha');
+    expect(screen.getAllByText('Projektname darf nicht leer sein.').length).toBeGreaterThan(0);
+  });
+
+  it('ignores unchanged project name saves', async () => {
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+    expect(await screen.findByLabelText('Projektname')).toHaveValue('Alpha');
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled();
+
     expect(updateProjectMock).not.toHaveBeenCalled();
   });
 
   it('submits rename on Enter key', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Projekt umbenennen' }));
-    const projectNameInput = await screen.findByLabelText('Projekt umbenennen');
+    const projectNameInput = await screen.findByLabelText('Projektname');
     fireEvent.change(projectNameInput, { target: { value: 'Gamma' } });
     fireEvent.keyDown(projectNameInput, { key: 'Enter', code: 'Enter' });
 
     await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith(1, { name: 'Gamma' }));
   });
 
-  it('cancels edit mode on Escape without API call', async () => {
+  it('restores the previous inline project name on Escape without API call', async () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Projekt umbenennen' }));
-    const projectNameInput = await screen.findByLabelText('Projekt umbenennen');
+    const projectNameInput = await screen.findByLabelText('Projektname');
 
     fireEvent.change(projectNameInput, { target: { value: 'Delta' } });
     fireEvent.keyDown(projectNameInput, { key: 'Escape', code: 'Escape' });
 
     expect(updateProjectMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Projekt umbenennen')).toBeInTheDocument();
-    expect(screen.getByText('Alpha')).toBeInTheDocument();
-  });
-
-  it('cancels edit mode via cancel button without API call', async () => {
-    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Projekt umbenennen' }));
-    const projectNameInput = await screen.findByLabelText('Projekt umbenennen');
-
-    fireEvent.change(projectNameInput, { target: { value: 'Delta' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
-
-    expect(updateProjectMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Projekt umbenennen')).toBeInTheDocument();
-    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(projectNameInput).toHaveValue('Alpha');
   });
 
   it('offers a developer shortcut to delete the active project without typing its name', async () => {
