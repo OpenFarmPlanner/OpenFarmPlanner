@@ -8,7 +8,7 @@ import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import { useTranslation } from '../i18n';
 import { showProjectDeleteUndoSnackbar } from '../projects/projectDeletionFeedback';
-import { compactFieldSx, formRowSx, wideFieldSx } from '../components/forms/formLayout';
+import { compactFieldSx, wideFieldSx } from '../components/forms/formLayout';
 
 interface InviteFeedback {
   severity: 'success' | 'warning' | 'error';
