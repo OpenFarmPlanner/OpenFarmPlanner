@@ -1,6 +1,6 @@
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, IconButton, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload } from '../api/api';
@@ -287,9 +287,11 @@ export default function ProjectSettingsPage() {
     return null;
   })();
 
+  const sectionCardContentSx = { p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } };
+
   return (
-    <Box sx={{ p: 3, maxWidth: 760, mx: 'auto' }}>
-      <Box sx={{ mb: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 760, mx: 'auto' }}>
+      <Box sx={{ mb: 2.5 }}>
         {!isEditingProjectName ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
             <Typography variant="h6">{activeMembership.project_name}</Typography>
@@ -340,172 +342,188 @@ export default function ProjectSettingsPage() {
         )}
       </Box>
 
-      {!canManageMembers ? (
-        <Alert severity="info" sx={{ mb: 3 }}>{t('memberManagementNoAccess')}</Alert>
-      ) : null}
-      <Typography variant="h6" sx={{ mb: 2 }}>{t('inviteSectionTitle')}</Typography>
-      <Box sx={formRowSx}>
-        <TextField
-          label={t('emailLabel')}
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          disabled={!canManageMembers}
-          sx={wideFieldSx}
-        />
-        <FormControl disabled={!canManageMembers} sx={compactFieldSx}>
-          <InputLabel id="project-invite-role-label">{t('roleLabel')}</InputLabel>
-          <Select
-            fullWidth
-            labelId="project-invite-role-label"
-            label={t('roleLabel')}
-            value={role}
-            onChange={(event) => setRole(event.target.value as 'admin' | 'member')}
-          >
-            <MenuItem value="member">{t('roleMember')}</MenuItem>
-            <MenuItem value="admin">{t('roleAdmin')}</MenuItem>
-          </Select>
-        </FormControl>
-        <Button
-          variant="contained"
-          onClick={() => void handleInvite()}
-          disabled={!canManageMembers || !email.trim()}
-          sx={{ alignSelf: { xs: 'stretch', sm: 'center' } }}
-        >
-          {t('sendInvite')}
-        </Button>
-      </Box>
+      {feedback ? <Alert severity={feedback.severity} sx={{ mb: 2.5, wordBreak: 'break-all' }}>{feedback.text}</Alert> : null}
 
-      {!canManageMembers ? (
-        <Alert severity="info" sx={{ mt: 2 }}>{t('projectMembers.invite.noPermission')}</Alert>
-      ) : null}
-
-      {feedback ? <Alert severity={feedback.severity} sx={{ mt: 2, wordBreak: 'break-all' }}>{feedback.text}</Alert> : null}
-
-      <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>{t('membersSectionTitle')}</Typography>
-      <Stack spacing={1.5}>
-        {memberLoadError ? <Alert severity="error">{memberLoadError}</Alert> : null}
-        {!memberLoadError ? members.map((member) => {
-          const isCurrentUser = member.user === user?.id;
-          const displayName = member.user_display_name.trim() || member.user_email || t('memberDisplayFallback');
-          const showEmailSecondary = member.user_email && member.user_email !== displayName;
-
-          return (
-            <Box key={member.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-              <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: "space-between",
-                alignItems: { xs: 'flex-start', md: 'center' }, }}   spacing={2}>
-                <Box>
-                  <Stack direction="row" spacing={1} sx={{ mb: 0.5,
-                    alignItems: "center", }}  >
-                    <Typography sx={{ fontWeight: 600 }}>{displayName}</Typography>
-                    {isCurrentUser ? <Chip label={t('memberYou')} size="small" /> : null}
-                  </Stack>
-                  {showEmailSecondary ? (
-                    <Typography variant="body2" color="text.secondary">{member.user_email}</Typography>
-                  ) : null}
-                </Box>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
-                  <FormControl
-                    size="small"
-                    disabled={!canManageMembers || isCurrentUser}
-                    sx={compactFieldSx}
-                  >
-                    <InputLabel id={`project-member-role-label-${member.id}`}>{t('memberRoleLabel')}</InputLabel>
-                    <Select
-                      fullWidth
-                      labelId={`project-member-role-label-${member.id}`}
-                      size="small"
-                      label={t('memberRoleLabel')}
-                      value={member.role}
-                      onChange={(event) => void handleMemberRoleChange(member.id, event.target.value as 'admin' | 'member', isCurrentUser)}
-                    >
-                      <MenuItem value="member">{t('roleMember')}</MenuItem>
-                      <MenuItem value="admin">{t('roleAdmin')}</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={() => setPendingRemovalMember(member)}
-                    disabled={!canManageMembers || isCurrentUser}
-                  >
-                    {t('removeMember')}
-                  </Button>
-                </Stack>
-              </Stack>
-            </Box>
-          );
-        }) : null}
-        {!memberLoadError && members.length === 0 ? <Alert severity="info">{t('membersEmpty')}</Alert> : null}
-      </Stack>
-
-      <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>{t('listTitle')}</Typography>
-      <Stack spacing={1.5}>
-        {canManageMembers && !invitationLoadError ? sortedInvitations.map((invitation) => (
-          <Box key={invitation.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-            <Stack direction="row" sx={{ justifyContent: "space-between",
-              alignItems: "center", }}   spacing={2}>
-              <Box>
-                <Typography sx={{ fontWeight: 600 }}>{invitation.email}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('expiresAt', { date: new Date(invitation.expires_at).toLocaleString('de-DE') })}
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
-                <Chip label={t(`status.${invitation.resolved_status}`)} size="small" />
-                {invitation.resolved_status === 'pending' ? (
-                  <Button size="small" variant="outlined" color="error" onClick={() => void handleRevoke(invitation.id)}>
-                    {t('revoke')}
-                  </Button>
-                ) : null}
-              </Stack>
-            </Stack>
-          </Box>
-        )) : null}
-        {invitationStatus}
-      </Stack>
-
-      {isProjectAdmin ? (
-        <Box sx={{ mt: 5, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2.5, bgcolor: 'background.paper' }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>{t('projectDelete.managementTitle')}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t('projectDelete.managementDescription')}
-          </Typography>
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {t('projectDelete.shortInfoTitle')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('projectDelete.shortInfoText')}
-            </Typography>
-          </Box>
-          <Button
-            color="error"
-            variant="contained"
-            startIcon={<DeleteOutlineIcon />}
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            {t('projectDelete.openButton')}
-          </Button>
-          {canQuickDeleteProjectInDev ? (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {t('projectDelete.devQuickDescription')}
-              </Typography>
+      <Stack spacing={2.5}>
+        <Card variant="outlined" aria-labelledby="project-invite-section-title">
+          <CardContent sx={sectionCardContentSx}>
+            <Typography id="project-invite-section-title" variant="h6" sx={{ mb: 2 }}>{t('inviteSectionTitle')}</Typography>
+            {!canManageMembers ? (
+              <Alert severity="info" sx={{ mb: 2 }}>{t('memberManagementNoAccess')}</Alert>
+            ) : null}
+            <Box sx={formRowSx}>
+              <TextField
+                label={t('emailLabel')}
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={!canManageMembers}
+                sx={wideFieldSx}
+              />
+              <FormControl disabled={!canManageMembers} sx={compactFieldSx}>
+                <InputLabel id="project-invite-role-label">{t('roleLabel')}</InputLabel>
+                <Select
+                  fullWidth
+                  labelId="project-invite-role-label"
+                  label={t('roleLabel')}
+                  value={role}
+                  onChange={(event) => setRole(event.target.value as 'admin' | 'member')}
+                >
+                  <MenuItem value="member">{t('roleMember')}</MenuItem>
+                  <MenuItem value="admin">{t('roleAdmin')}</MenuItem>
+                </Select>
+              </FormControl>
               <Button
-                color="error"
-                variant="outlined"
-                startIcon={<DeleteOutlineIcon />}
-                onClick={() => void handleProjectDelete({ skipNameConfirmation: true })}
-                disabled={isDeletingProject}
+                variant="contained"
+                onClick={() => void handleInvite()}
+                disabled={!canManageMembers || !email.trim()}
+                sx={{ alignSelf: { xs: 'stretch', sm: 'center' } }}
               >
-                {t('projectDelete.devQuickButton')}
+                {t('sendInvite')}
               </Button>
             </Box>
-          ) : null}
-        </Box>
-      ) : null}
+
+            {!canManageMembers ? (
+              <Alert severity="info" sx={{ mt: 2 }}>{t('projectMembers.invite.noPermission')}</Alert>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined" aria-labelledby="project-members-section-title">
+          <CardContent sx={sectionCardContentSx}>
+            <Typography id="project-members-section-title" variant="h6" sx={{ mb: 2 }}>{t('membersSectionTitle')}</Typography>
+            <Stack spacing={0} divider={<Divider flexItem />}>
+              {memberLoadError ? <Alert severity="error">{memberLoadError}</Alert> : null}
+              {!memberLoadError ? members.map((member) => {
+                const isCurrentUser = member.user === user?.id;
+                const displayName = member.user_display_name.trim() || member.user_email || t('memberDisplayFallback');
+                const showEmailSecondary = member.user_email && member.user_email !== displayName;
+
+                return (
+                  <Box key={member.id} sx={{ py: 1.5 }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} sx={{ justifyContent: "space-between",
+                      alignItems: { xs: 'flex-start', md: 'center' }, }}   spacing={2}>
+                      <Box>
+                        <Stack direction="row" spacing={1} sx={{ mb: 0.5,
+                          alignItems: "center", }}  >
+                          <Typography sx={{ fontWeight: 600 }}>{displayName}</Typography>
+                          {isCurrentUser ? <Chip label={t('memberYou')} size="small" /> : null}
+                        </Stack>
+                        {showEmailSecondary ? (
+                          <Typography variant="body2" color="text.secondary">{member.user_email}</Typography>
+                        ) : null}
+                      </Box>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, width: { xs: '100%', md: 'auto' }, }} >
+                        <FormControl
+                          size="small"
+                          disabled={!canManageMembers || isCurrentUser}
+                          sx={compactFieldSx}
+                        >
+                          <InputLabel id={`project-member-role-label-${member.id}`}>{t('memberRoleLabel')}</InputLabel>
+                          <Select
+                            fullWidth
+                            labelId={`project-member-role-label-${member.id}`}
+                            size="small"
+                            label={t('memberRoleLabel')}
+                            value={member.role}
+                            onChange={(event) => void handleMemberRoleChange(member.id, event.target.value as 'admin' | 'member', isCurrentUser)}
+                          >
+                            <MenuItem value="member">{t('roleMember')}</MenuItem>
+                            <MenuItem value="admin">{t('roleAdmin')}</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => setPendingRemovalMember(member)}
+                          disabled={!canManageMembers || isCurrentUser}
+                        >
+                          {t('removeMember')}
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  </Box>
+                );
+              }) : null}
+              {!memberLoadError && members.length === 0 ? <Alert severity="info">{t('membersEmpty')}</Alert> : null}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined" aria-labelledby="project-invitations-section-title">
+          <CardContent sx={sectionCardContentSx}>
+            <Typography id="project-invitations-section-title" variant="h6" sx={{ mb: 2 }}>{t('listTitle')}</Typography>
+            <Stack spacing={0} divider={<Divider flexItem />}>
+              {canManageMembers && !invitationLoadError ? sortedInvitations.map((invitation) => (
+                <Box key={invitation.id} sx={{ py: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: "space-between",
+                    alignItems: { xs: 'flex-start', sm: 'center' }, }}   spacing={2}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{invitation.email}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('expiresAt', { date: new Date(invitation.expires_at).toLocaleString('de-DE') })}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", }} >
+                      <Chip label={t(`status.${invitation.resolved_status}`)} size="small" />
+                      {invitation.resolved_status === 'pending' ? (
+                        <Button size="small" variant="outlined" color="error" onClick={() => void handleRevoke(invitation.id)}>
+                          {t('revoke')}
+                        </Button>
+                      ) : null}
+                    </Stack>
+                  </Stack>
+                </Box>
+              )) : null}
+              {invitationStatus}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {isProjectAdmin ? (
+          <Card variant="outlined" aria-labelledby="project-management-section-title" sx={{ borderColor: 'error.light' }}>
+            <CardContent sx={sectionCardContentSx}>
+              <Typography id="project-management-section-title" variant="h6" sx={{ mb: 1 }} color="error.main">{t('projectDelete.managementTitle')}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('projectDelete.managementDescription')}
+              </Typography>
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {t('projectDelete.shortInfoTitle')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('projectDelete.shortInfoText')}
+                </Typography>
+              </Box>
+              <Button
+                color="error"
+                variant="contained"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                {t('projectDelete.openButton')}
+              </Button>
+              {canQuickDeleteProjectInDev ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t('projectDelete.devQuickDescription')}
+                  </Typography>
+                  <Button
+                    color="error"
+                    variant="outlined"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={() => void handleProjectDelete({ skipNameConfirmation: true })}
+                    disabled={isDeletingProject}
+                  >
+                    {t('projectDelete.devQuickButton')}
+                  </Button>
+                </Box>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+      </Stack>
 
       <ConfirmationDialog
         open={pendingRemovalMember !== null}
