@@ -299,11 +299,13 @@ export default function ProjectSettingsPage() {
             {!isEditingProjectName ? (
               <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography id="project-context-title" variant="caption" color="text.secondary">
-                    {t('currentProjectLabel')}
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
-                    {activeMembership.project_name}
+                  <Typography id="project-context-title" variant="subtitle1" sx={{ wordBreak: 'break-word' }}>
+                    <Box component="span" color="text.secondary">
+                      {t('currentProjectLabel')}:{' '}
+                    </Box>
+                    <Box component="span" sx={{ fontWeight: 600 }}>
+                      {activeMembership.project_name}
+                    </Box>
                   </Typography>
                 </Box>
                 {isProjectAdmin ? (
