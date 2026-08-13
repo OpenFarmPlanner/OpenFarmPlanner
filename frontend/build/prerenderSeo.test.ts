@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyHeadTags, assertNoLoopbackUrls, PUBLIC_INDEXABLE_ROUTES } from './prerenderSeo';
+import { applyHeadTags, assertNoLoopbackUrls, PUBLIC_INDEXABLE_ROUTES } from './prerenderSeo.ts';
 
 /**
  * Simulates what Playwright's `page.content()` actually captures: the base
