@@ -9,6 +9,7 @@
     "cancel": "Cancel",
     "success": "Project name updated.",
     "error": "Project name could not be updated.",
+    "empty": "Project name cannot be empty.",
     "minLength": "At least 2 characters."
   },
   "projectDelete": {

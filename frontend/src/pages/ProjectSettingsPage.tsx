@@ -1,6 +1,5 @@
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
-import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload } from '../api/api';
@@ -35,8 +34,8 @@ export default function ProjectSettingsPage() {
   const [memberLoadError, setMemberLoadError] = useState<string | null>(null);
   const [invitationLoadError, setInvitationLoadError] = useState<string | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState('');
+  const [projectNameError, setProjectNameError] = useState<string | null>(null);
   const [isSavingProjectName, setIsSavingProjectName] = useState(false);
-  const [isEditingProjectName, setIsEditingProjectName] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -46,9 +45,6 @@ export default function ProjectSettingsPage() {
   const normalizedProjectName = projectNameDraft.trim();
   const canDeleteProject = deleteConfirmationText === (activeMembership?.project_name ?? '');
   const canQuickDeleteProjectInDev = import.meta.env.DEV && isProjectAdmin;
-  const canSaveProjectName = isProjectAdmin
-    && normalizedProjectName.length >= 2
-    && normalizedProjectName !== (activeMembership?.project_name ?? '');
 
   const extractErrorPayload = (error: unknown): { code: string | null; detail: string | null; message: string | null } => {
     const payload = (error as { response?: { data?: { code?: string; detail?: string; message?: string } } })?.response?.data;
@@ -106,10 +102,9 @@ export default function ProjectSettingsPage() {
   }, [loadInvitations]);
 
   useEffect(() => {
-    if (!isEditingProjectName) {
-      setProjectNameDraft(activeMembership?.project_name ?? '');
-    }
-  }, [activeMembership?.project_name, isEditingProjectName]);
+    setProjectNameDraft(activeMembership?.project_name ?? '');
+    setProjectNameError(null);
+  }, [activeMembership?.project_name]);
 
   const sortedInvitations = useMemo(() => (
     [...invitations].sort((left, right) => {
@@ -159,33 +154,46 @@ export default function ProjectSettingsPage() {
     }
   };
 
-  const handleProjectNameSave = async (): Promise<void> => {
-    if (!activeMembership || !canSaveProjectName) {
+  const handleProjectNameCommit = async (): Promise<void> => {
+    if (!activeMembership || !isProjectAdmin || isSavingProjectName) {
       return;
     }
+
+    const previousProjectName = activeMembership.project_name;
+    if (normalizedProjectName === previousProjectName) {
+      setProjectNameDraft(previousProjectName);
+      setProjectNameError(null);
+      return;
+    }
+
+    if (normalizedProjectName.length === 0) {
+      setProjectNameDraft(previousProjectName);
+      setProjectNameError(t('projectRename.empty'));
+      setFeedback({ severity: 'error', text: t('projectRename.empty') });
+      return;
+    }
+
+    if (normalizedProjectName.length < 2) {
+      setProjectNameDraft(previousProjectName);
+      setProjectNameError(t('projectRename.minLength'));
+      setFeedback({ severity: 'error', text: t('projectRename.minLength') });
+      return;
+    }
+
     setIsSavingProjectName(true);
+    setProjectNameError(null);
     setFeedback(null);
     try {
       await projectAPI.update(activeMembership.project_id, { name: normalizedProjectName });
       await refreshUser();
-      setIsEditingProjectName(false);
+      setProjectNameDraft(normalizedProjectName);
       setFeedback({ severity: 'success', text: t('projectRename.success') });
     } catch {
+      setProjectNameDraft(previousProjectName);
       setFeedback({ severity: 'error', text: t('projectRename.error') });
     } finally {
       setIsSavingProjectName(false);
     }
-  };
-
-  const handleProjectNameEditStart = (): void => {
-    setProjectNameDraft(activeMembership?.project_name ?? '');
-    setIsEditingProjectName(true);
-  };
-
-  const handleProjectNameEditCancel = (): void => {
-    setProjectNameDraft(activeMembership?.project_name ?? '');
-    setIsEditingProjectName(false);
-    setFeedback(null);
   };
 
   const handleDeleteDialogClose = (): void => {
@@ -296,63 +304,33 @@ export default function ProjectSettingsPage() {
       <Stack spacing={2.5}>
         <Card variant="outlined" aria-labelledby="project-context-title">
           <CardContent sx={sectionCardContentSx}>
-            {!isEditingProjectName ? (
-              <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography id="project-context-title" variant="h5" sx={{ wordBreak: 'break-word' }}>
-                    <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-                      {t('currentProjectLabel')}:{' '}
-                    </Box>
-                    <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                      {activeMembership.project_name}
-                    </Box>
-                  </Typography>
-                </Box>
-                {isProjectAdmin ? (
-                  <IconButton size="small" aria-label={t('projectRename.label')} onClick={handleProjectNameEditStart}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                ) : null}
-              </Stack>
-            ) : (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' }, }} >
-                <TextField
-                  label={t('projectRename.label')}
-                  value={projectNameDraft}
-                  onChange={(event) => setProjectNameDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') {
-                      event.preventDefault();
-                      handleProjectNameEditCancel();
-                      return;
-                    }
-                    if (event.key === 'Enter' && canSaveProjectName) {
-                      event.preventDefault();
-                      void handleProjectNameSave();
-                    }
-                  }}
-                  disabled={!isProjectAdmin || isSavingProjectName}
-                  error={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2}
-                  helperText={projectNameDraft.trim().length > 0 && projectNameDraft.trim().length < 2 ? t('projectRename.minLength') : ' '}
-                  sx={wideFieldSx}
-                  autoFocus
-                  slotProps={{ htmlInput: { 'aria-label': t('projectRename.label') } }}
-                />
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    onClick={() => void handleProjectNameSave()}
-                    disabled={!canSaveProjectName || isSavingProjectName}
-                    sx={{ minWidth: 140 }}
-                  >
-                    {t('projectRename.save')}
-                  </Button>
-                  <Button variant="outlined" onClick={handleProjectNameEditCancel} disabled={isSavingProjectName}>
-                    {t('projectRename.cancel')}
-                  </Button>
-                </Stack>
-              </Stack>
-            )}
+            <TextField
+              id="project-context-title"
+              label={t('currentProjectLabel')}
+              value={projectNameDraft}
+              onChange={(event) => {
+                setProjectNameDraft(event.target.value);
+                setProjectNameError(null);
+              }}
+              onBlur={() => void handleProjectNameCommit()}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setProjectNameDraft(activeMembership.project_name);
+                  setProjectNameError(null);
+                  return;
+                }
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void handleProjectNameCommit();
+                }
+              }}
+              disabled={!isProjectAdmin || isSavingProjectName}
+              error={projectNameError !== null}
+              helperText={projectNameError ?? ' '}
+              sx={{ ...wideFieldSx, '& input': { cursor: isProjectAdmin ? 'text' : 'default', fontWeight: 600 } }}
+              slotProps={{ htmlInput: { 'aria-label': t('currentProjectLabel') } }}
+            />
           </CardContent>
         </Card>
 

@@ -9,6 +9,7 @@
     "cancel": "Abbrechen",
     "success": "Projektname aktualisiert.",
     "error": "Projektname konnte nicht aktualisiert werden.",
+    "empty": "Projektname darf nicht leer sein.",
     "minLength": "Mindestens 2 Zeichen."
   },
   "projectDelete": {
