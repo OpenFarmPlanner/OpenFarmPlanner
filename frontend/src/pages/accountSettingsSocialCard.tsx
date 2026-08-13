@@ -31,7 +31,11 @@ const providerIcons = {
   microsoft: MicrosoftIcon,
 } as const;
 
-export default function AccountSettingsSocialCard() {
+interface AccountSettingsSocialMethodsContentProps {
+  wrapInCard: boolean;
+}
+
+function AccountSettingsSocialMethodsContent({ wrapInCard }: AccountSettingsSocialMethodsContentProps) {
   const { t } = useTranslation(['account', 'auth']);
   const { user } = useAuth();
   const location = useLocation();
@@ -82,53 +86,73 @@ export default function AccountSettingsSocialCard() {
     }
   };
 
-  return (
-    <SettingsCard title={t('loginMethods.title')} description={t('loginMethods.description')}>
-      <Stack spacing={2}>
-        {redirectErrorCode ? (
-          <Alert severity="error">{t(socialLoginErrorKey(redirectErrorCode))}</Alert>
-        ) : null}
-        {connectSucceeded ? <Alert severity="success">{t('loginMethods.connected')}</Alert> : null}
+  const content = (
+    <Stack spacing={2}>
+      {redirectErrorCode ? (
+        <Alert severity="error">{t(socialLoginErrorKey(redirectErrorCode))}</Alert>
+      ) : null}
+      {connectSucceeded ? <Alert severity="success">{t('loginMethods.connected')}</Alert> : null}
 
-        {user?.has_password ? (
-          <Typography>{t('loginMethods.emailPasswordActive')}</Typography>
-        ) : null}
+      <Typography variant="body2" color="text.secondary">
+        {t('loginMethods.description')}
+      </Typography>
 
-        {connections.map((connection) => {
-          const ProviderIcon = providerIcons[connection.provider];
-          return (
-            <Stack key={connection.id} direction="row" spacing={1.25} sx={{ alignItems: "center", }} >
-              {ProviderIcon ? <ProviderIcon fontSize="small" /> : null}
-              <Typography>
-                {t('loginMethods.connectedSince', {
-                  provider: connection.provider_name,
-                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
-                })}
-              </Typography>
-            </Stack>
-          );
-        })}
+      {user?.has_password ? (
+        <Typography>{t('loginMethods.emailPasswordActive')}</Typography>
+      ) : null}
 
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          {providers
-            .filter((provider) => !connectedProviderIds.has(provider.id))
-            .map((provider) => {
-              const ProviderIcon = providerIcons[provider.id];
-              return (
-                <Button
-                  key={provider.id}
-                  variant="outlined"
-                  disabled={pendingProvider !== null}
-                  startIcon={ProviderIcon ? <ProviderIcon /> : undefined}
-                  onClick={() => void handleConnect(provider)}
-                  sx={actionButtonSx}
-                >
-                  {t('loginMethods.connect', { provider: provider.name })}
-                </Button>
-              );
-            })}
-        </Stack>
+      {connections.map((connection) => {
+        const ProviderIcon = providerIcons[connection.provider];
+        return (
+          <Stack key={connection.id} direction="row" spacing={1.25} sx={{ alignItems: "center", }} >
+            {ProviderIcon ? <ProviderIcon fontSize="small" /> : null}
+            <Typography>
+              {t('loginMethods.connectedSince', {
+                provider: connection.provider_name,
+                date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+              })}
+            </Typography>
+          </Stack>
+        );
+      })}
+
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+        {providers
+          .filter((provider) => !connectedProviderIds.has(provider.id))
+          .map((provider) => {
+            const ProviderIcon = providerIcons[provider.id];
+            return (
+              <Button
+                key={provider.id}
+                variant="outlined"
+                disabled={pendingProvider !== null}
+                startIcon={ProviderIcon ? <ProviderIcon /> : undefined}
+                onClick={() => void handleConnect(provider)}
+                sx={actionButtonSx}
+              >
+                {t('loginMethods.connect', { provider: provider.name })}
+              </Button>
+            );
+          })}
       </Stack>
-    </SettingsCard>
+    </Stack>
   );
+
+  if (wrapInCard) {
+    return (
+      <SettingsCard title={t('loginMethods.title')}>
+        {content}
+      </SettingsCard>
+    );
+  }
+
+  return content;
+}
+
+export function AccountSettingsSocialMethods() {
+  return <AccountSettingsSocialMethodsContent wrapInCard={false} />;
+}
+
+export default function AccountSettingsSocialCard() {
+  return <AccountSettingsSocialMethodsContent wrapInCard />;
 }

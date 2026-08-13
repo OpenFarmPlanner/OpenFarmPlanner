@@ -48,6 +48,7 @@
   },
   "security": {
     "changeEmailTitle": "E-Mail-Adresse ändern",
+    "credentials": "Zugangsdaten",
     "newEmail": "Neue E-Mail-Adresse",
     "changePasswordTitle": "Passwort ändern",
     "newPassword": "Neues Passwort",

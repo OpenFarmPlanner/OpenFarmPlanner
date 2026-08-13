@@ -48,6 +48,7 @@
   },
   "security": {
     "changeEmailTitle": "Change email address",
+    "credentials": "Credentials",
     "newEmail": "New email address",
     "changePasswordTitle": "Change password",
     "newPassword": "New password",

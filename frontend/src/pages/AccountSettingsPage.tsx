@@ -39,7 +39,7 @@ import {
   SectionAlerts,
   SettingsCard,
 } from './accountSettingsCards';
-import AccountSettingsSocialCard from './accountSettingsSocialCard';
+import { AccountSettingsSocialMethods } from './accountSettingsSocialCard';
 import AccountSettingsApiTokensCard from './accountSettingsApiTokensCard';
 import { AccountLanguageSelect } from '../i18n/LanguageSwitcher';
 
@@ -351,102 +351,112 @@ export default function AccountSettingsPage() {
         </SettingsCard>
 
         <SettingsCard title={t('sections.security')}>
-          <SectionAlerts message={emailSection.message} error={emailSection.error} />
-          <SectionAlerts message={passwordSection.message} error={passwordSection.error} />
+          <Stack spacing={2}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {t('security.credentials')}
+            </Typography>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-            <Button
-              variant={activeEditor === 'email' ? 'contained' : 'outlined'}
-              onClick={() => setActiveEditor('email')}
-              sx={actionButtonSx}
-            >
-              {t('security.changeEmailTitle')}
-            </Button>
-            {hasPassword ? (
+            <SectionAlerts message={emailSection.message} error={emailSection.error} />
+            <SectionAlerts message={passwordSection.message} error={passwordSection.error} />
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button
-                variant={activeEditor === 'password' ? 'contained' : 'outlined'}
-                onClick={() => setActiveEditor('password')}
+                variant={activeEditor === 'email' ? 'contained' : 'outlined'}
+                onClick={() => setActiveEditor('email')}
                 sx={actionButtonSx}
               >
-                {t('security.changePasswordTitle')}
+                {t('security.changeEmailTitle')}
               </Button>
-            ) : null}
-          </Stack>
+              {hasPassword ? (
+                <Button
+                  variant={activeEditor === 'password' ? 'contained' : 'outlined'}
+                  onClick={() => setActiveEditor('password')}
+                  sx={actionButtonSx}
+                >
+                  {t('security.changePasswordTitle')}
+                </Button>
+              ) : null}
+            </Stack>
 
-          {hasPassword ? null : (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t('security.noPasswordHint')}
-            </Typography>
-          )}
+            {hasPassword ? null : (
+              <Typography variant="body2" color="text.secondary">
+                {t('security.noPasswordHint')}
+              </Typography>
+            )}
 
-          <InlineEditor
-            open={activeEditor === 'email'}
-            saveLabel={t('actions.sendConfirmationLink')}
-            onSave={() => void handleEmailChangeRequest()}
-            onCancel={closeEmailEditor}
-            submitting={emailSection.submitting}
-            saveDisabled={!newEmail.trim() || (hasPassword && !emailPassword.trim())}
-            sx={{ mb: 2 }}
-          >
-            <TextField
-              label={t('security.newEmail')}
-              type="email"
-              sx={wideSingleColumnFieldSx}
-              value={newEmail}
-              onChange={(event) => setNewEmail(event.target.value)}
-            />
-            {hasPassword ? (
+            <InlineEditor
+              open={activeEditor === 'email'}
+              saveLabel={t('actions.sendConfirmationLink')}
+              onSave={() => void handleEmailChangeRequest()}
+              onCancel={closeEmailEditor}
+              submitting={emailSection.submitting}
+              saveDisabled={!newEmail.trim() || (hasPassword && !emailPassword.trim())}
+            >
+              <TextField
+                label={t('security.newEmail')}
+                type="email"
+                sx={wideSingleColumnFieldSx}
+                value={newEmail}
+                onChange={(event) => setNewEmail(event.target.value)}
+              />
+              {hasPassword ? (
+                <TextField
+                  label={t('currentPassword')}
+                  type="password"
+                  sx={mediumStackedFieldSx}
+                  value={emailPassword}
+                  onChange={(event) => setEmailPassword(event.target.value)}
+                />
+              ) : null}
+            </InlineEditor>
+
+            <InlineEditor
+              open={activeEditor === 'password'}
+              saveLabel={t('actions.savePassword')}
+              onSave={() => void handlePasswordChange()}
+              onCancel={closePasswordEditor}
+              submitting={passwordSection.submitting}
+              saveDisabled={!currentPassword || !newPassword || !repeatPassword}
+            >
               <TextField
                 label={t('currentPassword')}
                 type="password"
                 sx={mediumStackedFieldSx}
-                value={emailPassword}
-                onChange={(event) => setEmailPassword(event.target.value)}
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
               />
-            ) : null}
-          </InlineEditor>
+              <TextField
+                label={t('security.newPassword')}
+                type="password"
+                sx={mediumStackedFieldSx}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+              <TextField
+                label={t('security.repeatNewPassword')}
+                type="password"
+                sx={mediumStackedFieldSx}
+                value={repeatPassword}
+                onChange={(event) => setRepeatPassword(event.target.value)}
+              />
+            </InlineEditor>
 
-          <InlineEditor
-            open={activeEditor === 'password'}
-            saveLabel={t('actions.savePassword')}
-            onSave={() => void handlePasswordChange()}
-            onCancel={closePasswordEditor}
-            submitting={passwordSection.submitting}
-            saveDisabled={!currentPassword || !newPassword || !repeatPassword}
-          >
-            <TextField
-              label={t('currentPassword')}
-              type="password"
-              sx={mediumStackedFieldSx}
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-            />
-            <TextField
-              label={t('security.newPassword')}
-              type="password"
-              sx={mediumStackedFieldSx}
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-            />
-            <TextField
-              label={t('security.repeatNewPassword')}
-              type="password"
-              sx={mediumStackedFieldSx}
-              value={repeatPassword}
-              onChange={(event) => setRepeatPassword(event.target.value)}
-            />
-          </InlineEditor>
+            <Divider />
+
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {t('loginMethods.title')}
+            </Typography>
+            <AccountSettingsSocialMethods />
+          </Stack>
         </SettingsCard>
-
-        <AccountSettingsSocialCard />
 
         <AccountSettingsApiTokensCard />
 
-        <SettingsCard title={t('sections.language')} description={t('language.description')}>
+        <SettingsCard title={t('sections.language')} description={t('language.description')} collapsible>
           <AccountLanguageSelect />
         </SettingsCard>
 
-        <SettingsCard title={t('sections.privacy')} description={t('dataExport.description')}>
+        <SettingsCard title={t('sections.privacy')} description={t('dataExport.description')} collapsible>
           <SectionAlerts message={dataExportSection.message} error={dataExportSection.error} />
           <Button
             variant="outlined"
@@ -459,7 +469,7 @@ export default function AccountSettingsPage() {
         </SettingsCard>
 
         {import.meta.env.DEV ? (
-          <SettingsCard title={t('developer.title')} description={t('developer.hintsDescription')}>
+          <SettingsCard title={t('developer.title')} description={t('developer.hintsDescription')} collapsible>
             {hintsResetDone ? <Alert severity="success" sx={{ mb: 2 }}>{t('developer.hintsResetDone')}</Alert> : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button variant="outlined" onClick={handleResetHints}>
