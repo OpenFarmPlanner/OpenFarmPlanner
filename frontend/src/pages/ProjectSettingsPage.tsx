@@ -299,7 +299,7 @@ export default function ProjectSettingsPage() {
             {!isEditingProjectName ? (
               <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography id="project-context-title" variant="subtitle1" sx={{ wordBreak: 'break-word' }}>
+                  <Typography id="project-context-title" variant="h5" sx={{ wordBreak: 'break-word' }}>
                     <Box component="span" color="text.secondary">
                       {t('currentProjectLabel')}:{' '}
                     </Box>
