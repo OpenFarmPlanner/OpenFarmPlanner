@@ -567,6 +567,20 @@ describe('App', () => {
     expect(screen.getByText('Projekteinstellungen')).toBeInTheDocument();
   });
 
+  it.each([
+    ['/app/project-settings', 'Projekteinstellungen'],
+    ['/app/project-selection', 'Projektauswahl'],
+    ['/app/public-library-moderation', 'Kulturbibliothek moderieren'],
+  ])('shows the app-route title in the topbar for %s', async (path, title) => {
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', path);
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument();
+  });
+
   // Regression coverage for a routing bug: a user with zero projects who
   // opened a project-independent page (e.g. account settings) from the
   // global menu was bounced straight back to "Erstes Projekt starten" —

@@ -742,8 +742,17 @@ function RootLayout() {
     if (!activeItem && location.pathname.startsWith('/app/locations')) {
       return t('locations');
     }
+    if (!activeItem && location.pathname.startsWith('/app/project-selection')) {
+      return t('project.selection');
+    }
     if (!activeItem && location.pathname.startsWith('/app/account-settings')) {
       return t('accountSettings');
+    }
+    if (!activeItem && location.pathname.startsWith('/app/project-settings')) {
+      return t('project.settings');
+    }
+    if (!activeItem && location.pathname.startsWith('/app/public-library-moderation')) {
+      return t('publicLibraryModeration');
     }
     return activeItem?.label ?? '';
   }, [location.pathname, navItems, t]);

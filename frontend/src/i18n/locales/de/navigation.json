@@ -12,10 +12,12 @@
   "seedDemand": "Saatgutbedarf",
   "graphicalFields": "Grafische Ansicht",
   "accountSettings": "Kontoeinstellungen",
+  "publicLibraryModeration": "Kulturbibliothek moderieren",
   "appVersionLabel": "Version",
   "disabledNoProjectTooltip": "Erstelle zuerst ein Projekt.",
   "project": {
     "settings": "Projekteinstellungen",
+    "selection": "Projektauswahl",
     "members": "Mitglieder verwalten",
     "create": "Neues Projekt",
     "switch": "Projekt wechseln"
