@@ -1,4 +1,7 @@
 import {
+  Box,
+  Chip,
+  Divider,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -8,7 +11,7 @@ import {
   ListItemText,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommandPalette } from './CommandPalette';
 import { getRunnableCommands, getVisibleCommands } from './commands';
 import type { CommandContextTag, CommandSpec, CreateAction } from './types';
@@ -33,6 +36,44 @@ const CONTEXT_TITLE_KEYS: Record<CommandContextTag, string> = {
 const SHORTCUT_HINT_KEY = 'ofp.shortcutHintSeen';
 const CREATE_SHORTCUT_HINT = 'Alt+Shift+N';
 const CREATE_SHORTCUT_KEYS = { alt: true, shift: true, key: 'n' } as const;
+
+function getShortcutParts(shortcutHint: string): string[] {
+  return shortcutHint.split('/').map((part) => part.trim()).filter(Boolean);
+}
+
+function ShortcutHelpRow({ label, shortcutHint }: { label: string; shortcutHint: string }): React.ReactElement {
+  return (
+    <ListItem disableGutters sx={{ gap: 2, py: 0.75, px: 0, alignItems: 'center' }}>
+      <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.75, flexShrink: 0 }}>
+        {getShortcutParts(shortcutHint).map((part) => (
+          <Chip
+            key={part}
+            label={part}
+            size="small"
+            variant="outlined"
+            sx={{ borderRadius: 1, fontFamily: 'monospace', bgcolor: 'background.paper' }}
+          />
+        ))}
+      </Box>
+    </ListItem>
+  );
+}
+
+function ShortcutHelpSection({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
+  return (
+    <Box component="section" sx={{ mt: 2.5 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 600 }}>
+        {title}
+      </Typography>
+      <List dense disablePadding sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+        {children}
+      </List>
+    </Box>
+  );
+}
 
 const getAvailableCreateActions = (actions: CreateAction[]): CreateAction[] => actions
   .filter((action) => !action.hidden && !action.disabled)
@@ -184,7 +225,11 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
   }, [commandsWithCreateAction, currentContextTags]);
 
   const helpCommands = useMemo(
-    () => getVisibleCommands(commandsWithCreateAction).filter((command) => command.contextTags.some((tag) => currentContextTags.includes(tag))),
+    () => getVisibleCommands(commandsWithCreateAction).filter((command) => (
+      command.contextTags.some((tag) => currentContextTags.includes(tag))
+      && Boolean(command.keys)
+      && Boolean(command.shortcutHint?.trim())
+    )),
     [commandsWithCreateAction, currentContextTags],
   );
 
@@ -282,62 +327,34 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
           <Typography variant="body2" sx={{ mb: 2 }}>
             {t('commandPalette.contextualShortcutsDescription')}
           </Typography>
-          <div>
-            <Typography variant="h6" sx={{ mt: 2 }}>{t('commandPalette.universalShortcutsTitle')}</Typography>
-            <List dense>
-              <ListItem>
-                <ListItemText primary={t('commandPalette.universalShortcuts.nextRegion')} secondary="F6" slotProps={{ secondary: { style: { textAlign: 'right' } } }} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={t('commandPalette.universalShortcuts.previousRegion')} secondary="Shift+F6" slotProps={{ secondary: { style: { textAlign: 'right' } } }} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={t('commandPalette.universalShortcuts.withinRegion')} secondary="Tab / Shift+Tab" slotProps={{ secondary: { style: { textAlign: 'right' } } }} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary={t('commandPalette.universalShortcuts.closeDialog')} secondary="Esc" slotProps={{ secondary: { style: { textAlign: 'right' } } }} />
-              </ListItem>
-            </List>
-          </div>
+          <ShortcutHelpSection title={t('commandPalette.universalShortcutsTitle')}>
+            <ShortcutHelpRow label={t('commandPalette.universalShortcuts.nextRegion')} shortcutHint="F6" />
+            <Divider component="li" />
+            <ShortcutHelpRow label={t('commandPalette.universalShortcuts.previousRegion')} shortcutHint="Shift+F6" />
+            <Divider component="li" />
+            <ShortcutHelpRow label={t('commandPalette.universalShortcuts.withinRegion')} shortcutHint="Tab / Shift+Tab" />
+            <Divider component="li" />
+            <ShortcutHelpRow label={t('commandPalette.universalShortcuts.closeDialog')} shortcutHint="Esc" />
+          </ShortcutHelpSection>
           {currentRegionShortcuts.length > 0 && (
-            <div>
-              <Typography variant="h6" sx={{ mt: 2 }}>{t('commandPalette.currentRegionShortcutsTitle')}</Typography>
-              <List dense>
-                {currentRegionShortcuts.map((shortcut) => (
-                  <ListItem key={`region-${shortcut.key}`}>
-                    <ListItemText
-                      primary={shortcut.label}
-                      secondary={shortcut.key}
-                      slotProps={{
-                        secondary: {
-                          style: { textAlign: 'right' },
-                        },
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </div>
+            <ShortcutHelpSection title={t('commandPalette.currentRegionShortcutsTitle')}>
+              {currentRegionShortcuts.map((shortcut, index) => (
+                <Fragment key={`region-${shortcut.key}`}>
+                  {index > 0 ? <Divider component="li" /> : null}
+                  <ShortcutHelpRow label={shortcut.label} shortcutHint={shortcut.key} />
+                </Fragment>
+              ))}
+            </ShortcutHelpSection>
           )}
           {groupedHelpCommands.map((group) => (
-            <div key={group.tag}>
-              <Typography variant="h6" sx={{ mt: 2 }}>{group.title}</Typography>
-              <List dense>
-                {group.commands.map((command) => (
-                  <ListItem key={`${group.tag}-${command.id}`}>
-                    <ListItemText
-                      primary={command.label}
-                      secondary={command.shortcutHint}
-                      slotProps={{
-                        secondary: {
-                          style: { textAlign: 'right' },
-                        },
-                      }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </div>
+            <ShortcutHelpSection key={group.tag} title={group.title}>
+              {group.commands.map((command, index) => (
+                <Fragment key={`${group.tag}-${command.id}`}>
+                  {index > 0 ? <Divider component="li" /> : null}
+                  <ShortcutHelpRow label={command.label} shortcutHint={command.shortcutHint ?? ''} />
+                </Fragment>
+              ))}
+            </ShortcutHelpSection>
           ))}
         </DialogContent>
       </Dialog>

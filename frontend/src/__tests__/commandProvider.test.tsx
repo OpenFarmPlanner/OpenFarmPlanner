@@ -221,7 +221,7 @@ describe('CommandProvider', () => {
     expect(screen.getByRole('textbox', { name: 'Aktionssuche' })).toBeInTheDocument();
   });
 
-  it('opens the dynamic shortcuts-help dialog with a bare "?"', () => {
+  it('opens the dynamic shortcuts-help dialog with a bare "?" and only lists assigned shortcuts', () => {
     render(
       <FocusManagerProvider><CommandProvider>
         <RootCommandFixture />
@@ -230,7 +230,17 @@ describe('CommandProvider', () => {
 
     fireEvent.keyDown(window, { key: '?' });
 
-    expect(screen.getByText('Projekteinstellungen')).toBeInTheDocument();
+    expect(screen.getByText('Aktionssuche')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+K')).toBeInTheDocument();
+    expect(screen.getByText('Alt+K')).toBeInTheDocument();
+    expect(screen.getByText('Versionsverlauf')).toBeInTheDocument();
+    expect(screen.getByText('Alt+V')).toBeInTheDocument();
+    expect(screen.getByText('Tastenkürzel anzeigen')).toBeInTheDocument();
+    expect(screen.queryByText('Projekteinstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projekt erstellen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Projekt wechseln: Garten')).not.toBeInTheDocument();
+    expect(screen.queryByText('Kontoeinstellungen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Abmelden')).not.toBeInTheDocument();
   });
 
   it('toggles the sidebar with Ctrl+B through the registered command', () => {
