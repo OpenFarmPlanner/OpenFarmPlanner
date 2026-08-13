@@ -61,10 +61,16 @@ describe('AccountSettingsApiTokensCard', () => {
 
     render(<AccountSettingsApiTokensCard />);
 
-    const cardToggle = screen.getByRole('button', { name: 'API-Tokens für Coding-Agenten' });
+    const cardToggle = screen.getByRole('button', { name: 'API-Tokens für externe Tools' });
     expect(cardToggle).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByText('Codex')).toBeInTheDocument();
-    expect(screen.getByText('Aktiv')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Rechte' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Projekt' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Erstellt/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Läuft ab' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Zuletzt verwendet' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Aktion' })).toBeInTheDocument();
     expect(screen.getByText('Lesen und schreiben')).toBeInTheDocument();
     expect(screen.getByText(/Hof Nord/)).toBeInTheDocument();
 
@@ -72,6 +78,25 @@ describe('AccountSettingsApiTokensCard', () => {
 
     await waitFor(() => expect(screen.queryByText('Codex')).not.toBeInTheDocument());
     expect(cardToggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('sorts tokens by creation time descending by default', async () => {
+    listMock.mockResolvedValue({
+      data: [
+        token({ id: 10, name: 'Older token', created_at: '2026-07-01T10:00:00Z' }),
+        token({ id: 11, name: 'Newest token', created_at: '2026-08-01T10:00:00Z' }),
+      ],
+    });
+
+    render(<AccountSettingsApiTokensCard />);
+
+    expect(await screen.findByText('Newest token')).toBeInTheDocument();
+    const rows = screen.getAllByRole('row');
+    const newestRowIndex = rows.findIndex((row) => row.textContent?.includes('Newest token'));
+    const olderRowIndex = rows.findIndex((row) => row.textContent?.includes('Older token'));
+    expect(newestRowIndex).toBeGreaterThan(-1);
+    expect(olderRowIndex).toBeGreaterThan(-1);
+    expect(newestRowIndex).toBeLessThan(olderRowIndex);
   });
 
   it('keeps expired and revoked tokens collapsed below active tokens by default', async () => {
@@ -106,8 +131,8 @@ describe('AccountSettingsApiTokensCard', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByText('Expired agent')).toBeInTheDocument();
     expect(screen.getByText('Revoked agent')).toBeInTheDocument();
-    expect(screen.getByText('Abgelaufen')).toBeInTheDocument();
-    expect(screen.getAllByText('Widerrufen')).toHaveLength(2);
+    expect(screen.getAllByRole('columnheader', { name: 'Rechte' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Widerrufen' })).toHaveLength(1);
 
     await user.click(toggle);
 
@@ -132,7 +157,7 @@ describe('AccountSettingsApiTokensCard', () => {
     render(<AccountSettingsApiTokensCard />);
 
     await screen.findByText('Codex');
-    expect(screen.getByText(/abcd1234…/)).toBeInTheDocument();
+    expect(screen.queryByText(/abcd1234…/)).not.toBeInTheDocument();
     expect(screen.queryByText(/ofp_pat_/)).not.toBeInTheDocument();
   });
 

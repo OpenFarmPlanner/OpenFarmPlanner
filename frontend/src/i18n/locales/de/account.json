@@ -99,7 +99,7 @@
     "description": "Die Sprache der Oberfläche gehört zu deinem Konto, nicht zum Projekt. Andere Mitglieder desselben Projekts können OpenFarmPlanner gleichzeitig in einer anderen Sprache verwenden. Frei eingegebene Inhalte wie Projekt-, Standort- und Beetnamen werden nie übersetzt."
   },
   "apiTokens": {
-    "title": "API-Tokens für Coding-Agenten",
+    "title": "API-Tokens für externe Tools",
     "description": "Mit persönlichen Tokens können externe Werkzeuge wie Codex oder Claude Code die OpenFarmPlanner-API in deinem Namen nutzen. Jedes Token ist fest an genau ein Projekt gebunden und kommt an kein anderes heran – auch nicht an Projekte, in denen du Mitglied bist. Tokens können nie Projektmitglieder, Einladungen oder Kontoeinstellungen ändern.",
     "loading": "Tokens werden geladen…",
     "empty": "Du hast noch keine API-Tokens erstellt.",
@@ -120,6 +120,15 @@
       "read": "Darf die Daten des Projekts lesen. Kann nichts ändern.",
       "write": "Darf die Daten des Projekts lesen sowie Kulturen anlegen und aktualisieren. Kann nichts löschen.",
       "delete": "Darf Kulturen zusätzlich löschen und wiederherstellen. Projektmitglieder, Einladungen, Kontoeinstellungen und andere Verwaltungsbereiche bleiben gesperrt."
+    },
+    "columns": {
+      "name": "Name",
+      "scope": "Rechte",
+      "project": "Projekt",
+      "created": "Erstellt",
+      "expires": "Läuft ab",
+      "lastUsed": "Zuletzt verwendet",
+      "action": "Aktion"
     },
     "meta": {
       "project": "Projekt",

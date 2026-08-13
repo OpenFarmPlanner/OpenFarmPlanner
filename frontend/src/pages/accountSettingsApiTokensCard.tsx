@@ -22,6 +22,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiTokenAPI } from '../api/api';
@@ -29,17 +30,12 @@ import type { ApiToken, ApiTokenCreated, ApiTokenScope } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import { useAuth } from '../auth/useAuth';
 import { useTranslation } from '../i18n';
+import { getDataGridLocaleText } from '../components/data-grid/localeText';
 import { mediumStackedFieldSx, wideSingleColumnFieldSx } from '../components/forms/formLayout';
 import { actionButtonSx } from './accountSettingsForm';
 import { InlineEditor, SectionAlerts, SettingsCard } from './accountSettingsCards';
 
 const SCOPES: ApiTokenScope[] = ['read', 'write', 'delete'];
-
-const STATUS_COLOR: Record<ApiToken['status'], 'success' | 'default' | 'error'> = {
-  active: 'success',
-  expired: 'default',
-  revoked: 'error',
-};
 
 /** Format an ISO timestamp for display, or return the placeholder for null. */
 function formatMoment(value: string | null, fallback: string): string {
@@ -61,75 +57,124 @@ function isInactiveToken(token: ApiToken): boolean {
   return !Number.isNaN(expiresAt.getTime()) && expiresAt < new Date();
 }
 
-interface ApiTokenCardProps {
-  token: ApiToken;
-  onRevoke: (token: ApiToken) => void;
-}
-
-function ApiTokenCard({ token, onRevoke }: ApiTokenCardProps) {
-  const { t } = useTranslation('account');
-
-  return (
-    <Stack
-      component="li"
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={1}
-      sx={{
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        justifyContent: 'space-between',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: 1,
-        p: 1.5,
-      }}
-    >
-      <Box sx={{ minWidth: 0 }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 600 }}>{token.name}</Typography>
-          <Chip
-            size="small"
-            label={t(`apiTokens.status.${token.status}`)}
-            color={STATUS_COLOR[token.status]}
-          />
-          <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${token.scope}`)} />
-        </Stack>
-        <Typography variant="body2" color="text.secondary">
-          {t('apiTokens.meta.project')}: {token.project_name} · {t('apiTokens.meta.prefix')}:{' '}
-          <code>{token.token_prefix}…</code>
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t('apiTokens.meta.created')}: {formatMoment(token.created_at, '–')} ·{' '}
-          {t('apiTokens.meta.expires')}: {formatMoment(token.expires_at, t('apiTokens.meta.never'))} ·{' '}
-          {t('apiTokens.meta.lastUsed')}: {formatMoment(token.last_used_at, t('apiTokens.meta.neverUsed'))}
-        </Typography>
-      </Box>
-      {token.status === 'active' ? (
-        <Button
-          color="error"
-          variant="outlined"
-          size="small"
-          sx={actionButtonSx}
-          onClick={() => onRevoke(token)}
-        >
-          {t('apiTokens.actions.revoke')}
-        </Button>
-      ) : null}
-    </Stack>
-  );
-}
-
-interface ApiTokenListProps {
+interface ApiTokenTableProps {
   tokens: ApiToken[];
   onRevoke: (token: ApiToken) => void;
 }
 
-function ApiTokenList({ tokens, onRevoke }: ApiTokenListProps) {
+const API_TOKEN_SORT_MODEL: GridSortModel = [{ field: 'created_at', sort: 'desc' }];
+
+function getTimestamp(value: string | null): number {
+  if (!value) {
+    return 0;
+  }
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function ApiTokenTable({ tokens, onRevoke }: ApiTokenTableProps) {
+  const { t } = useTranslation('account');
+
+  const columns = useMemo<GridColDef<ApiToken>[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: t('apiTokens.columns.name'),
+        width: 300,
+        renderCell: (params) => (
+          <Typography
+            variant="body2"
+            title={`${t('apiTokens.meta.prefix')}: ${params.row.token_prefix}...`}
+            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {params.value}
+          </Typography>
+        ),
+      },
+      {
+        field: 'scope',
+        headerName: t('apiTokens.columns.scope'),
+        width: 180,
+        renderCell: (params) => (
+          <Chip size="small" variant="outlined" label={t(`apiTokens.scopes.${params.value}`)} />
+        ),
+      },
+      {
+        field: 'project_name',
+        headerName: t('apiTokens.columns.project'),
+        width: 180,
+      },
+      {
+        field: 'created_at',
+        headerName: t('apiTokens.columns.created'),
+        width: 180,
+        valueGetter: (_value, row) => getTimestamp(row.created_at),
+        valueFormatter: (value) => formatMoment(new Date(value as number).toISOString(), '–'),
+      },
+      {
+        field: 'expires_at',
+        headerName: t('apiTokens.columns.expires'),
+        width: 180,
+        valueGetter: (_value, row) => getTimestamp(row.expires_at),
+        valueFormatter: (value) => {
+          const timestamp = value as number;
+          return timestamp === 0 ? t('apiTokens.meta.never') : formatMoment(new Date(timestamp).toISOString(), '–');
+        },
+      },
+      {
+        field: 'last_used_at',
+        headerName: t('apiTokens.columns.lastUsed'),
+        width: 180,
+        valueGetter: (_value, row) => getTimestamp(row.last_used_at),
+        valueFormatter: (value) => {
+          const timestamp = value as number;
+          return timestamp === 0 ? t('apiTokens.meta.neverUsed') : formatMoment(new Date(timestamp).toISOString(), '–');
+        },
+      },
+      {
+        field: 'actions',
+        headerName: t('apiTokens.columns.action'),
+        width: 130,
+        sortable: false,
+        filterable: false,
+        align: 'right',
+        headerAlign: 'right',
+        renderCell: (params) => (
+          params.row.status === 'active' ? (
+            <Button
+              color="error"
+              variant="outlined"
+              size="small"
+              sx={actionButtonSx}
+              onClick={() => onRevoke(params.row)}
+            >
+              {t('apiTokens.actions.revoke')}
+            </Button>
+          ) : null
+        ),
+      },
+    ],
+    [onRevoke, t],
+  );
+
   return (
-    <Stack spacing={1.5} component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-      {tokens.map((token) => (
-        <ApiTokenCard key={token.id} token={token} onRevoke={onRevoke} />
-      ))}
-    </Stack>
+    <Box sx={{ width: '100%', overflowX: 'auto' }}>
+      <DataGrid<ApiToken>
+        rows={tokens}
+        columns={columns}
+        autoHeight
+        hideFooter
+        disableRowSelectionOnClick
+        initialState={{ sorting: { sortModel: API_TOKEN_SORT_MODEL } }}
+        localeText={getDataGridLocaleText()}
+        sx={{
+          minWidth: 1230,
+          borderColor: 'divider',
+          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600 },
+          '& .MuiDataGrid-cell': { alignItems: 'center' },
+        }}
+      />
+    </Box>
   );
 }
 
@@ -262,7 +307,7 @@ export default function AccountSettingsApiTokensCard() {
         ) : (
           <Stack spacing={1.5}>
             {activeTokens.length > 0 ? (
-              <ApiTokenList tokens={activeTokens} onRevoke={(token) => void handleRevoke(token)} />
+              <ApiTokenTable tokens={activeTokens} onRevoke={(token) => void handleRevoke(token)} />
             ) : null}
             {inactiveTokens.length > 0 ? (
               <Box>
@@ -277,7 +322,7 @@ export default function AccountSettingsApiTokensCard() {
                 </Button>
                 <Collapse in={inactiveTokensOpen} unmountOnExit>
                   <Box sx={{ pt: 1.5 }}>
-                    <ApiTokenList tokens={inactiveTokens} onRevoke={(token) => void handleRevoke(token)} />
+                    <ApiTokenTable tokens={inactiveTokens} onRevoke={(token) => void handleRevoke(token)} />
                   </Box>
                 </Collapse>
               </Box>
