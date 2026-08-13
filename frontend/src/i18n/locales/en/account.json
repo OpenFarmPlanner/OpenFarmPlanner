@@ -57,7 +57,7 @@
   },
   "loginMethods": {
     "title": "Login methods",
-    "description": "Manage the login methods connected to your account.",
+    "description": "These login methods are connected to your account.",
     "emailPasswordActive": "Email & password · Active",
     "connect": "Connect {{provider}}",
     "connected": "The login method was connected.",

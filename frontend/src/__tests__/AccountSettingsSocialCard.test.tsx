@@ -88,7 +88,7 @@ describe('AccountSettingsSocialCard', () => {
 
     renderCard();
 
-    expect(await screen.findByText('Verwalte die mit deinem Konto verknüpften Anmeldemethoden.')).toBeInTheDocument();
+    expect(await screen.findByText('Diese Anmeldemethoden sind mit deinem Konto verknüpft.')).toBeInTheDocument();
     expect(screen.queryByText(/Microsoft/)).not.toBeInTheDocument();
   });
 

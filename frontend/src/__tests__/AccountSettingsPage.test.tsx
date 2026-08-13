@@ -110,7 +110,7 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByText('Login & Sicherheit')).toBeInTheDocument();
     expect(screen.getByText('Zugangsdaten')).toBeInTheDocument();
     expect(await screen.findByText('Anmeldemethoden')).toBeInTheDocument();
-    expect(screen.getByText('Verwalte die mit deinem Konto verknüpften Anmeldemethoden.')).toBeInTheDocument();
+    expect(screen.getByText('Diese Anmeldemethoden sind mit deinem Konto verknüpft.')).toBeInTheDocument();
     expect(screen.getByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
     expect(screen.getByText('Datenschutz & Datenexport')).toBeInTheDocument();
     expect(screen.getByText('Konto')).toBeInTheDocument();

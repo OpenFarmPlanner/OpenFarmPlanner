@@ -57,7 +57,7 @@
   },
   "loginMethods": {
     "title": "Anmeldemethoden",
-    "description": "Verwalte die mit deinem Konto verknüpften Anmeldemethoden.",
+    "description": "Diese Anmeldemethoden sind mit deinem Konto verknüpft.",
     "emailPasswordActive": "E-Mail & Passwort · Aktiv",
     "connect": "Mit {{provider}} verknüpfen",
     "connected": "Die Anmeldemethode wurde verknüpft.",
