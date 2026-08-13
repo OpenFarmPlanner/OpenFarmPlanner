@@ -349,7 +349,7 @@ export default function ProjectSettingsPage() {
                 variant="contained"
                 onClick={() => void handleProjectNameCommit()}
                 disabled={!isProjectAdmin || isSavingProjectName || !hasProjectNameChanges}
-                sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, mt: { sm: 1 }, minWidth: 140 }}
+                sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' }, minHeight: 56, minWidth: 140 }}
               >
                 {t('projectRename.save')}
               </Button>
