@@ -7,7 +7,7 @@
 // currently needs, and the backend endpoint (kept for potential internal
 // use) already refuses to strand an account without any usable login method.
 
-import { Alert, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import {
@@ -97,24 +97,55 @@ function AccountSettingsSocialMethodsContent({ wrapInCard }: AccountSettingsSoci
         {t('loginMethods.description')}
       </Typography>
 
-      {user?.has_password ? (
-        <Typography>{t('loginMethods.emailPasswordActive')}</Typography>
-      ) : null}
-
-      {connections.map((connection) => {
-        const ProviderIcon = providerIcons[connection.provider];
-        return (
-          <Stack key={connection.id} direction="row" spacing={1.25} sx={{ alignItems: "center", }} >
-            {ProviderIcon ? <ProviderIcon fontSize="small" /> : null}
-            <Typography>
-              {t('loginMethods.connectedSince', {
-                provider: connection.provider_name,
-                date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
-              })}
-            </Typography>
+      <Stack component="ul" spacing={0.75} sx={{ listStyle: 'none', p: 0, m: 0 }}>
+        {user?.has_password ? (
+          <Stack
+            component="li"
+            direction="row"
+            spacing={1.25}
+            sx={{ alignItems: 'center', color: 'text.secondary', cursor: 'default' }}
+          >
+            <Box
+              aria-hidden="true"
+              sx={{
+                width: 20,
+                height: 20,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.disabled',
+                flexShrink: 0,
+              }}
+            >
+              •
+            </Box>
+            <Typography variant="body2">{t('loginMethods.emailPasswordActive')}</Typography>
           </Stack>
-        );
-      })}
+        ) : null}
+
+        {connections.map((connection) => {
+          const ProviderIcon = providerIcons[connection.provider];
+          return (
+            <Stack
+              key={connection.id}
+              component="li"
+              direction="row"
+              spacing={1.25}
+              sx={{ alignItems: 'center', color: 'text.secondary', cursor: 'default' }}
+            >
+              {ProviderIcon ? (
+                <ProviderIcon fontSize="small" sx={{ color: 'text.disabled', flexShrink: 0 }} />
+              ) : null}
+              <Typography variant="body2">
+                {t('loginMethods.connectedSince', {
+                  provider: connection.provider_name,
+                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                })}
+              </Typography>
+            </Stack>
+          );
+        })}
+      </Stack>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
         {providers

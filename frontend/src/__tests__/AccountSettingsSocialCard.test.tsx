@@ -101,6 +101,19 @@ describe('AccountSettingsSocialCard', () => {
     expect(await screen.findByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
   });
 
+  it('renders linked login methods as non-interactive status rows', async () => {
+    getSocialProvidersMock.mockResolvedValue(providers);
+    getSocialConnectionsMock.mockResolvedValue([connection()]);
+
+    renderCard();
+
+    expect(await screen.findByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
+    expect(screen.getByText(/Google · verknüpft seit/)).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /E-Mail & Passwort/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Google · verknüpft seit/ })).not.toBeInTheDocument();
+  });
+
   it('does not offer disconnecting a linked login method', async () => {
     getSocialProvidersMock.mockResolvedValue(providers);
     getSocialConnectionsMock.mockResolvedValue([connection()]);
