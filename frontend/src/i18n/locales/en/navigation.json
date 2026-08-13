@@ -111,7 +111,7 @@
     "contextualShortcutsTitle": "Contextual keyboard shortcuts (Alt+K)",
     "contextualShortcutsDescription": "Shortcuts are browser-safe and do not override common browser shortcuts.",
     "primaryShortcutTitle": "Action search",
-    "primaryShortcutDescription": "Find commands, pages, and page-specific shortcuts",
+    "primaryShortcutDescription": "Show page-specific commands and keyboard shortcuts",
     "universalShortcutsTitle": "Basic navigation",
     "universalShortcuts": {
       "nextRegion": "Next focus region",

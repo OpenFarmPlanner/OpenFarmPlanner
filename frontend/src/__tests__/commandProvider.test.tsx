@@ -233,10 +233,11 @@ describe('CommandProvider', () => {
     const actionSearchTitle = screen.getByText('Aktionssuche');
     const basicNavigationTitle = screen.getByText('Grundlegende Navigation');
     expect(actionSearchTitle.compareDocumentPosition(basicNavigationTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText('Befehle, Seiten und seitenspezifische Tastenkürzel finden')).toBeInTheDocument();
     expect(screen.getAllByText('Aktionssuche')).toHaveLength(1);
-    expect(screen.getByText('Ctrl+K')).toBeInTheDocument();
-    expect(screen.getByText('Alt+K')).toBeInTheDocument();
+    const primaryShortcutSection = actionSearchTitle.closest('section');
+    expect(primaryShortcutSection).not.toBeNull();
+    expect(within(primaryShortcutSection as HTMLElement).getByText('Ctrl+K')).toBeInTheDocument();
+    expect(within(primaryShortcutSection as HTMLElement).getByText('Alt+K')).toBeInTheDocument();
     expect(screen.getByText('Versionsverlauf')).toBeInTheDocument();
     expect(screen.getByText('Alt+V')).toBeInTheDocument();
     expect(screen.getByText('Tastenkürzel anzeigen')).toBeInTheDocument();
