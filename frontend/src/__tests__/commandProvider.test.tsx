@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useMemo } from 'react';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
@@ -230,7 +230,11 @@ describe('CommandProvider', () => {
 
     fireEvent.keyDown(window, { key: '?' });
 
-    expect(screen.getByText('Aktionssuche')).toBeInTheDocument();
+    const actionSearchTitle = screen.getByText('Aktionssuche');
+    const basicNavigationTitle = screen.getByText('Grundlegende Navigation');
+    expect(actionSearchTitle.compareDocumentPosition(basicNavigationTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('Befehle und Seiten durchsuchen')).toBeInTheDocument();
+    expect(screen.getAllByText('Aktionssuche')).toHaveLength(1);
     expect(screen.getByText('Ctrl+K')).toBeInTheDocument();
     expect(screen.getByText('Alt+K')).toBeInTheDocument();
     expect(screen.getByText('Versionsverlauf')).toBeInTheDocument();
@@ -242,6 +246,9 @@ describe('CommandProvider', () => {
     expect(screen.getByText('Anbaukalender')).toBeInTheDocument();
     expect(screen.getByText('Zur aktuellen Periode springen')).toBeInTheDocument();
     expect(screen.getByText('Lieferant hinzufügen')).toBeInTheDocument();
+    const globalSection = screen.getByText('Global').closest('section');
+    expect(globalSection).not.toBeNull();
+    expect(within(globalSection as HTMLElement).queryByText('Aktionssuche')).not.toBeInTheDocument();
     expect(screen.queryByText('Projekteinstellungen')).not.toBeInTheDocument();
     expect(screen.queryByText('Projekt erstellen')).not.toBeInTheDocument();
     expect(screen.queryByText('Projekt wechseln: Garten')).not.toBeInTheDocument();

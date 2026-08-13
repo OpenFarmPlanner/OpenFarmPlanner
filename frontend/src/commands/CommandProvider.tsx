@@ -130,6 +130,22 @@ function getShortcutParts(shortcutHint: string): string[] {
   return shortcutHint.split('/').map((part) => part.trim()).filter(Boolean);
 }
 
+function ShortcutBadges({ shortcutHint }: { shortcutHint: string }): React.ReactElement {
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 0.75, minWidth: 0 }}>
+      {getShortcutParts(shortcutHint).map((part) => (
+        <Chip
+          key={part}
+          label={part}
+          size="small"
+          variant="outlined"
+          sx={{ borderRadius: 1, fontFamily: 'monospace', bgcolor: 'background.paper' }}
+        />
+      ))}
+    </Box>
+  );
+}
+
 function ShortcutHelpRow({ label, shortcutHint }: { label: string; shortcutHint: string }): React.ReactElement {
   return (
     <ListItem
@@ -152,18 +168,54 @@ function ShortcutHelpRow({ label, shortcutHint }: { label: string; shortcutHint:
       <Typography variant="body2" sx={{ minWidth: 0 }}>
         {label}
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 0.75, minWidth: 0 }}>
-        {getShortcutParts(shortcutHint).map((part) => (
-          <Chip
-            key={part}
-            label={part}
-            size="small"
-            variant="outlined"
-            sx={{ borderRadius: 1, fontFamily: 'monospace', bgcolor: 'background.paper' }}
-          />
-        ))}
-      </Box>
+      <ShortcutBadges shortcutHint={shortcutHint} />
     </ListItem>
+  );
+}
+
+function PrimaryShortcutHelpEntry({
+  title,
+  description,
+  shortcutHint,
+}: {
+  title: string;
+  description: string;
+  shortcutHint: string;
+}): React.ReactElement {
+  return (
+    <Box
+      component="section"
+      aria-labelledby="primary-shortcut-help-title"
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr) max-content',
+          sm: 'minmax(0, 26rem) max-content',
+        },
+        columnGap: 3,
+        rowGap: 0.75,
+        alignItems: 'center',
+        width: 'fit-content',
+        maxWidth: '100%',
+        mt: 2,
+        py: 1.25,
+        px: 1.5,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        bgcolor: 'action.hover',
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography id="primary-shortcut-help-title" variant="subtitle2" sx={{ fontWeight: 700 }}>
+          {title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+          {description}
+        </Typography>
+      </Box>
+      <ShortcutBadges shortcutHint={shortcutHint} />
+    </Box>
   );
 }
 
@@ -331,7 +383,8 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
 
   const helpCommands = useMemo(
     () => getVisibleCommands(commandsWithCreateAction).filter((command) => (
-      command.contextTags.some((tag) => currentContextTags.includes(tag))
+      command.id !== 'help.openPalette'
+      && command.contextTags.some((tag) => currentContextTags.includes(tag))
       && Boolean(command.keys)
       && Boolean(command.shortcutHint?.trim())
     )),
@@ -432,6 +485,11 @@ export function CommandProvider({ children }: { children: React.ReactNode }) {
           <Typography variant="body2" sx={{ mb: 2 }}>
             {t('commandPalette.contextualShortcutsDescription')}
           </Typography>
+          <PrimaryShortcutHelpEntry
+            title={t('commandPalette.primaryShortcutTitle')}
+            description={t('commandPalette.primaryShortcutDescription')}
+            shortcutHint="Ctrl+K / Alt+K"
+          />
           <ShortcutHelpSection title={t('commandPalette.universalShortcutsTitle')}>
             <ShortcutHelpRow label={t('commandPalette.universalShortcuts.nextRegion')} shortcutHint="F6" />
             <Divider component="li" />

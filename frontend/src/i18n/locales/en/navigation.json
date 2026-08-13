@@ -110,6 +110,8 @@
     "createNewShortcut": "Create new",
     "contextualShortcutsTitle": "Contextual keyboard shortcuts (Alt+K)",
     "contextualShortcutsDescription": "Shortcuts are browser-safe and do not override common browser shortcuts.",
+    "primaryShortcutTitle": "Action search",
+    "primaryShortcutDescription": "Search commands and pages",
     "universalShortcutsTitle": "Basic navigation",
     "universalShortcuts": {
       "nextRegion": "Next focus region",

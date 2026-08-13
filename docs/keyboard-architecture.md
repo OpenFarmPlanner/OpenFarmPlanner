@@ -109,12 +109,15 @@ implementations).
 
 `?` opens a single dialog (`CommandProvider`'s `helpOpen` state, previously
 built but never wired to anything) showing:
-1. Universal keys (F6, Shift+F6, Tab/Shift+Tab, Esc) — always relevant.
-2. The **current focus region's** single-key shortcuts (from
+1. The action search as the primary shortcut (`Ctrl+K` / `Alt+K`), because it
+   lets users discover commands and page navigation without memorizing the
+   rest of the shortcut inventory.
+2. Universal keys (F6, Shift+F6, Tab/Shift+Tab, Esc) — always relevant.
+3. The **current focus region's** single-key shortcuts (from
    `useRegionShortcuts`'s registry, filtered by `activeRegionId`).
-3. All commands active for the current page (grouped by context tag, same
+4. All commands active for the current page (grouped by context tag, same
    list the command palette searches).
-4. A compact all-pages reference for page-specific shortcuts, so users can
+5. A compact all-pages reference for page-specific shortcuts, so users can
    discover e.g. the Cultures page shortcuts even while they opened help from
    account settings or another page without local commands.
 
