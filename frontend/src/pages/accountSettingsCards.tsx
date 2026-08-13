@@ -1,8 +1,22 @@
 // Presentational building blocks for the account settings page: success/error
 // alerts, the inline editor wrapper, and the settings card shell.
 
-import { Alert, Button, Card, CardContent, Collapse, Stack, Typography, type SxProps, type Theme } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  Collapse,
+  Stack,
+  Typography,
+  type SxProps,
+  type Theme,
+} from '@mui/material';
 import type { FormEvent, ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from '../i18n';
 import { actionButtonSx, type SectionSubmit } from './accountSettingsForm';
 
@@ -57,10 +71,70 @@ export function InlineEditor({ open, saveLabel, onSave, onCancel, submitting, sa
 interface SettingsCardProps {
   title: ReactNode;
   description?: ReactNode;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
   children: ReactNode;
 }
 
-export function SettingsCard({ title, description, children }: SettingsCardProps) {
+export function SettingsCard({
+  title,
+  description,
+  collapsible = false,
+  defaultExpanded = false,
+  children,
+}: SettingsCardProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  if (collapsible) {
+    return (
+      <Card>
+        <CardContent sx={{ '&:last-child': { pb: expanded ? 3 : 2 } }}>
+          <CardActionArea
+            component="button"
+            type="button"
+            onClick={() => setExpanded((open) => !open)}
+            aria-expanded={expanded}
+            sx={{
+              borderRadius: 1,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              minHeight: 44,
+              px: 1,
+              py: 0.5,
+              mx: -1,
+              my: -0.5,
+              textAlign: 'left',
+            }}
+          >
+            <Typography variant="h6">{title}</Typography>
+            <Box
+              aria-hidden="true"
+              sx={{
+                display: 'inline-flex',
+                color: 'action.active',
+                transition: 'transform 160ms ease-in-out',
+                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            >
+              <ExpandMoreIcon fontSize="small" />
+            </Box>
+          </CardActionArea>
+          <Collapse in={expanded} unmountOnExit>
+            <Box sx={{ pt: 2 }}>
+              {description ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {description}
+                </Typography>
+              ) : null}
+              {children}
+            </Box>
+          </Collapse>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardContent>

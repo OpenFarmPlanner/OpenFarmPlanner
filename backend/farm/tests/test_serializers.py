@@ -157,6 +157,75 @@ class SerializerBranchCoverageTest(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
+    def test_accepts_agent_seed_requirements_object(self):
+        serializer = CultureSerializer(
+            data={
+                'name': 'Tomate',
+                'variety': 'San Marzano',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_requirements': {
+                    'pre_cultivation': {
+                        'value': 2,
+                        'unit': 'seeds_per_plant',
+                        'safety_percent': 15,
+                    },
+                },
+                'project': self.project.id,
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        culture = serializer.save(project=self.project)
+        self.assertEqual(culture.seed_rate_pre_cultivation_value, 2)
+        self.assertEqual(culture.seed_rate_pre_cultivation_unit, 'seeds_per_plant')
+        self.assertEqual(culture.sowing_calculation_safety_percent_pre_cultivation, 15)
+        self.assertEqual(
+            culture.seed_rate_by_cultivation,
+            {'pre_cultivation': {'value': 2.0, 'unit': 'seeds_per_plant'}},
+        )
+
+    def test_represents_seed_requirements_object(self):
+        culture = Culture.objects.create(
+            name='Tomate',
+            variety='San Marzano',
+            cultivation_types=['pre_cultivation'],
+            seed_rate_pre_cultivation_value=2,
+            seed_rate_pre_cultivation_unit='seeds_per_plant',
+            sowing_calculation_safety_percent_pre_cultivation=15,
+            project=self.project,
+        )
+
+        data = CultureSerializer(culture).data
+
+        self.assertEqual(
+            data['seed_requirements'],
+            {
+                'pre_cultivation': {
+                    'value': 2.0,
+                    'unit': 'seeds_per_plant',
+                    'safety_percent': 15.0,
+                },
+            },
+        )
+
+    def test_rejects_conflicting_seed_requirements_and_flat_fields(self):
+        serializer = CultureSerializer(
+            data={
+                'name': 'Tomate',
+                'variety': 'San Marzano',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_rate_pre_cultivation_value': 1,
+                'seed_rate_pre_cultivation_unit': 'seeds_per_plant',
+                'seed_requirements': {
+                    'pre_cultivation': {'value': 2, 'unit': 'seeds_per_plant'},
+                },
+                'project': self.project.id,
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('seed_requirements', serializer.errors)
+
     def test_allows_seed_rate_units_without_values(self):
         serializer = CultureSerializer(
             data={

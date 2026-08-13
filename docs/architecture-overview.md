@@ -124,7 +124,7 @@ docs/                  # This documentation
   | `Suppliers.tsx` | `/app/suppliers` | Manage seed/plant suppliers |
   | `ProjectSelectionPage.tsx` | `/app/project-selection` | Pick/create/restore a project |
   | `ProjectSettingsPage.tsx` | `/app/project-settings` | Rename/delete project, manage members & invitations |
-  | `AccountSettingsPage.tsx` | `/app/account-settings` | Account details, email/password change, data export, deletion |
+  | `AccountSettingsPage.tsx` | `/app/account-settings` | Account details, login methods, API tokens for external tools, language, data export, deletion |
 
   (`pages/InvitationPage.tsx`, an earlier, unrouted invitation-accept
   implementation superseded by `InvitationAcceptPage.tsx`, was confirmed
@@ -191,7 +191,34 @@ docs/                  # This documentation
   header sent, and is explicitly never treated as admin even if the
   underlying user is one — used for automation/agent tooling access, not
   regular users.
+- **Project-bound API tokens** (`ProjectApiToken`, created by any member from
+  account settings) are the supported way for external tools to call the API.
+  They authenticate a single request via `Authorization: Bearer …`, derive the
+  project from the token row rather than from any header, carry a `read`,
+  `write`, or `delete` scope, and can only reach views that explicitly declare
+  `api_token_actions`. Session authentication is unaffected — see
+  [agent-api.md](./agent-api.md).
 - Full model relationships: [data-model.md](./data-model.md#1-projects-users-and-access).
+
+## Account Settings UI
+
+`/app/account-settings` uses the normal app topbar title (`Kontoeinstellungen`
+in the German UI); the page body starts directly with the **Profile** card
+rather than repeating a large content heading. The settings are grouped into
+independent cards, all using the same card-collapse pattern:
+
+- **Profile**, **Login & Security**, and **API tokens for external tools** are
+  expanded by default.
+- **Language**, **Privacy & data export**, and **Developer** are collapsed by
+  default.
+- **Account** stays visible and non-collapsible because it contains the
+  destructive account-deletion action.
+
+The **API tokens for external tools** card renders active tokens in a MUI
+DataGrid table with columns for name, rights, project, creation time, expiry,
+last use, and action. Expired and revoked tokens are grouped below the active
+table behind the collapsed toggle **Abgelaufene und widerrufene Tokens anzeigen
+(N)** and render in a separate table without the action column.
 
 ## Notable architecture & UX decisions worth knowing before changing things
 

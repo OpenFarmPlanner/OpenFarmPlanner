@@ -1,5 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from .agent_api.views import (
+    AgentOpenApiSchemaView,
+    CultureImportApplyView,
+    CultureImportDraftView,
+    CultureImportPreviewView,
+    ProjectApiTokenViewSet,
+)
 from .planning.views import (
     PlantingPlanViewSet,
     TaskViewSet,
@@ -58,9 +65,17 @@ router.register(r'seed-packages', SeedPackageViewSet)
 router.register(r'planting-plans', PlantingPlanViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'projects', ProjectViewSet, basename='projects')
+router.register(r'api-tokens', ProjectApiTokenViewSet, basename='api-tokens')
 
 urlpatterns = [
     path('version/', VersionView.as_view(), name='api-version'),
+    # Agent API: OpenAPI description plus the two-step culture import.
+    # Registered before the router so the fixed `preview/` segment is not
+    # swallowed by the draft-id route.
+    path('agent/openapi.json', AgentOpenApiSchemaView.as_view(), name='agent-openapi-schema'),
+    path('culture-imports/preview/', CultureImportPreviewView.as_view(), name='culture-import-preview'),
+    path('culture-imports/<uuid:draft_id>/', CultureImportDraftView.as_view(), name='culture-import-draft'),
+    path('culture-imports/<uuid:draft_id>/apply/', CultureImportApplyView.as_view(), name='culture-import-apply'),
     path('history/project/', ProjectHistoryListView.as_view(), name='project-history-list'),
     path('history/project/restore/', ProjectHistoryRestoreView.as_view(), name='project-history-restore'),
     path('cultures/<int:pk>/undelete/', CultureUndeleteView.as_view(), name='culture-undelete'),

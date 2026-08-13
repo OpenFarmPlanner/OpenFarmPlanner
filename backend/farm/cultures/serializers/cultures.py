@@ -1,6 +1,7 @@
 """Serializer for cultures (unit conversion, seed rates, supplier rows)."""
 
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -138,10 +139,28 @@ class CultureSerializer(serializers.ModelSerializer):
     )
     seed_rate_direct_value = serializers.FloatField(required=False, allow_null=True)
     seed_rate_direct_unit = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    sowing_calculation_safety_percent_direct = serializers.FloatField(required=False, allow_null=True)
+    sowing_calculation_safety_percent_direct = serializers.FloatField(
+        required=False,
+        allow_null=True,
+    )
     seed_rate_pre_cultivation_value = serializers.FloatField(required=False, allow_null=True)
-    seed_rate_pre_cultivation_unit = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    sowing_calculation_safety_percent_pre_cultivation = serializers.FloatField(required=False, allow_null=True)
+    seed_rate_pre_cultivation_unit = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+    )
+    sowing_calculation_safety_percent_pre_cultivation = serializers.FloatField(
+        required=False,
+        allow_null=True,
+    )
+    seed_requirements = serializers.JSONField(
+        required=False,
+        help_text=(
+            'Preferred agent-facing seed-rate object keyed by cultivation method. '
+            'Example: {"pre_cultivation": {"value": 2, "unit": "seeds_per_plant"}}. '
+            'This is a rate, not the total amount to buy.'
+        ),
+    )
     thousand_kernel_weight_g = LocalizedDecimalField(
         max_digits=6,
         decimal_places=2,
@@ -331,7 +350,36 @@ class CultureSerializer(serializers.ModelSerializer):
                 if raw_value in EMPTY_SEED_RATE_UNIT_VALUES
                 else normalize_seed_rate_unit(raw_value) or raw_value
             )
+        data['seed_requirements'] = self._build_seed_requirements_representation(data)
         return data
+
+    def _build_seed_requirements_representation(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return the preferred agent-facing seed-rate object."""
+        requirements = {}
+        for method, value_field, unit_field, safety_field in (
+            (
+                'direct_sowing',
+                'seed_rate_direct_value',
+                'seed_rate_direct_unit',
+                'sowing_calculation_safety_percent_direct',
+            ),
+            (
+                'pre_cultivation',
+                'seed_rate_pre_cultivation_value',
+                'seed_rate_pre_cultivation_unit',
+                'sowing_calculation_safety_percent_pre_cultivation',
+            ),
+        ):
+            value = data.get(value_field)
+            unit = data.get(unit_field)
+            if value is None or not unit:
+                continue
+            entry = {'value': value, 'unit': unit}
+            safety_percent = data.get(safety_field)
+            if safety_percent is not None:
+                entry['safety_percent'] = safety_percent
+            requirements[method] = entry
+        return requirements
 
     def validate_seed_packages(self, value):
         seen: set[str] = set()
@@ -513,6 +561,7 @@ class CultureSerializer(serializers.ModelSerializer):
 
         self._validate_name_and_duplicates(attrs, errors)
         cultivation_types = self._validate_cultivation_types(attrs, errors)
+        self._apply_seed_requirements_alias(attrs, errors, cultivation_types)
         self._validate_seed_rate_by_cultivation(attrs, errors, cultivation_types)
         self._validate_seed_rate_fields(attrs, errors, cultivation_types)
         self._validate_supplier_data_rows(attrs, errors)
@@ -624,6 +673,186 @@ class CultureSerializer(serializers.ModelSerializer):
             attrs['cultivation_types'] = normalized_types
             attrs['cultivation_type'] = normalized_types[0]
         return cultivation_types
+
+    def _apply_seed_requirements_alias(
+        self,
+        attrs: dict[str, Any],
+        errors: dict[str, str],
+        cultivation_types: list[str] | None,
+    ) -> None:
+        """Map the preferred nested seed-rate object onto the stored fields."""
+        if 'seed_requirements' not in attrs:
+            return
+
+        seed_requirements = attrs.pop('seed_requirements')
+        if not isinstance(seed_requirements, dict):
+            errors['seed_requirements'] = 'Seed requirements must be an object.'
+            return
+
+        method_error = self._seed_requirements_method_error(
+            attrs,
+            cultivation_types,
+            seed_requirements,
+        )
+        if method_error:
+            errors['seed_requirements'] = method_error
+            return
+
+        normalized_requirements = {}
+        for method, payload in seed_requirements.items():
+            normalized_entry, entry_error = self._normalize_seed_requirement_entry(
+                method,
+                payload,
+            )
+            if entry_error:
+                errors['seed_requirements'] = entry_error
+                return
+            value = normalized_entry['value']
+            unit = normalized_entry['unit']
+            safety_percent = normalized_entry.get('safety_percent')
+            value_field, unit_field, safety_field = self._seed_requirement_method_fields()[method]
+            conflict = self._seed_requirement_conflict(
+                attrs,
+                value_field=value_field,
+                unit_field=unit_field,
+                safety_field=safety_field,
+                value=value,
+                unit=unit,
+                safety_percent=safety_percent,
+            )
+            if conflict:
+                errors['seed_requirements'] = conflict
+                return
+
+            attrs[value_field] = value
+            attrs[unit_field] = unit
+            if safety_percent is not None:
+                attrs[safety_field] = safety_percent
+            normalized_requirements[method] = normalized_entry
+
+        if normalized_requirements:
+            attrs['seed_rate_by_cultivation'] = {
+                method: {
+                    'value': entry['value'],
+                    'unit': entry['unit'],
+                }
+                for method, entry in normalized_requirements.items()
+            }
+
+    def _seed_requirement_method_fields(self) -> dict[str, tuple[str, str, str]]:
+        """Return storage fields for each seed requirement method."""
+        return {
+            'direct_sowing': (
+                'seed_rate_direct_value',
+                'seed_rate_direct_unit',
+                'sowing_calculation_safety_percent_direct',
+            ),
+            'pre_cultivation': (
+                'seed_rate_pre_cultivation_value',
+                'seed_rate_pre_cultivation_unit',
+                'sowing_calculation_safety_percent_pre_cultivation',
+            ),
+        }
+
+    def _seed_requirements_method_error(
+        self,
+        attrs: dict[str, Any],
+        cultivation_types: list[str] | None,
+        seed_requirements: dict[str, Any],
+    ) -> str | None:
+        """Return a method-level validation error for the seed requirements object."""
+        target_types = set(attrs.get('cultivation_types') or cultivation_types or [])
+        allowed_methods = set(self._seed_requirement_method_fields())
+        unknown_methods = set(seed_requirements) - allowed_methods
+        if unknown_methods:
+            return 'Seed requirements contain unsupported methods.'
+        if target_types and not set(seed_requirements).issubset(target_types):
+            return 'Seed requirement methods must be subset of cultivation_types.'
+        return None
+
+    def _normalize_seed_requirement_entry(
+        self,
+        method: str,
+        payload: Any,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Normalize one seed requirement entry or return a validation message."""
+        if not isinstance(payload, dict):
+            return None, 'Seed requirement entries must be objects.'
+        try:
+            value = float(payload.get('value'))
+        except (TypeError, ValueError):
+            return None, 'Seed requirement values must be numeric.'
+        if value <= 0:
+            return None, 'Seed requirement values must be positive.'
+        try:
+            unit = _normalize_seed_rate_unit_value(payload.get('unit'))
+        except serializers.ValidationError:
+            return None, 'Seed requirement unit is unsupported.'
+        if unit is None:
+            return None, 'Seed requirement unit is required.'
+
+        entry_error = _seed_rate_entry_error(method, {'value': value, 'unit': unit})
+        if entry_error:
+            return None, entry_error
+
+        normalized_entry = {'value': value, 'unit': unit}
+        safety_percent, safety_error = self._normalize_seed_requirement_safety(payload)
+        if safety_error:
+            return None, safety_error
+        if safety_percent is not None:
+            normalized_entry['safety_percent'] = safety_percent
+        return normalized_entry, None
+
+    def _normalize_seed_requirement_safety(
+        self,
+        payload: dict[str, Any],
+    ) -> tuple[float | None, str | None]:
+        """Normalize optional seed requirement safety_percent."""
+        safety_percent = payload.get('safety_percent')
+        if safety_percent is None:
+            return None, None
+        try:
+            safety_percent = float(safety_percent)
+        except (TypeError, ValueError):
+            return None, 'Seed requirement safety_percent must be numeric.'
+        if safety_percent < 0 or safety_percent > 100:
+            return None, 'Seed requirement safety_percent must be between 0 and 100.'
+        return safety_percent, None
+
+    def _seed_requirement_conflict(
+        self,
+        attrs,
+        *,
+        value_field: str,
+        unit_field: str,
+        safety_field: str,
+        value: float,
+        unit: str,
+        safety_percent: float | None,
+    ) -> str | None:
+        """Return a validation message when nested and flat seed rates disagree."""
+        if value_field in attrs and attrs[value_field] is not None:
+            try:
+                existing_value = float(attrs[value_field])
+            except (TypeError, ValueError):
+                existing_value = None
+            if existing_value != value:
+                return f'{value_field} conflicts with seed_requirements.'
+        if unit_field in attrs:
+            try:
+                existing_unit = _normalize_seed_rate_unit_value(attrs[unit_field])
+            except serializers.ValidationError:
+                existing_unit = attrs[unit_field]
+            if existing_unit != unit:
+                return f'{unit_field} conflicts with seed_requirements.'
+        if safety_percent is not None and safety_field in attrs and attrs[safety_field] is not None:
+            try:
+                existing_safety = float(attrs[safety_field])
+            except (TypeError, ValueError):
+                existing_safety = None
+            if existing_safety != safety_percent:
+                return f'{safety_field} conflicts with seed_requirements.'
+        return None
 
     def _validate_seed_rate_by_cultivation(self, attrs, errors, cultivation_types):
         """Validate the per-cultivation seed rate map and derive the legacy fields."""

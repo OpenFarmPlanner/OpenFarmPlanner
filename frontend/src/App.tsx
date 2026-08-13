@@ -19,6 +19,7 @@ import { resolveRouterBasename } from './routerBasename';
 import RuntimeErrorState from './components/runtime/RuntimeErrorState';
 import RouteSeo from './seo/RouteSeo';
 import {
+  clearRouteLoadRetry,
   isDynamicImportLoadError,
   reloadOnceForDynamicImportError,
   reloadPage,
@@ -80,7 +81,9 @@ function RouteErrorBoundary() {
   const location = useLocation();
   const isApplicationUpdateError = isDynamicImportLoadError(error);
   const routeKey = `${location.pathname}${location.search}`;
-  const [isReloading] = useState(() => shouldAutomaticallyReloadForRouteLoadError(routeKey));
+  const [isReloading] = useState(
+    () => isApplicationUpdateError && shouldAutomaticallyReloadForRouteLoadError(routeKey),
+  );
 
   useEffect(() => {
     if (isReloading) {
@@ -93,6 +96,16 @@ function RouteErrorBoundary() {
   }
 
   return <RuntimeErrorState variant={isApplicationUpdateError ? 'applicationUpdated' : 'routeError'} />;
+}
+
+function RouteLoadSuccessMarker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    clearRouteLoadRetry(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
+
+  return null;
 }
 
 interface GlobalRuntimeErrorHandlerProps {
@@ -161,6 +174,7 @@ function GlobalRuntimeErrorHandler({ children }: GlobalRuntimeErrorHandlerProps)
 function RootSeoLayout() {
   return (
     <>
+      <RouteLoadSuccessMarker />
       <RouteSeo />
       <Outlet />
     </>

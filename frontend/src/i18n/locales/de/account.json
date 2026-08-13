@@ -48,6 +48,7 @@
   },
   "security": {
     "changeEmailTitle": "E-Mail-Adresse ändern",
+    "credentials": "Zugangsdaten",
     "newEmail": "Neue E-Mail-Adresse",
     "changePasswordTitle": "Passwort ändern",
     "newPassword": "Neues Passwort",
@@ -56,11 +57,12 @@
   },
   "loginMethods": {
     "title": "Anmeldemethoden",
-    "description": "Verwalte die mit deinem Konto verknüpften Anmeldemethoden.",
+    "description": "Diese Anmeldemethoden sind mit deinem Konto verknüpft.",
     "emailPasswordActive": "E-Mail & Passwort · Aktiv",
     "connect": "Mit {{provider}} verknüpfen",
     "connected": "Die Anmeldemethode wurde verknüpft.",
-    "connectedSince": "{{provider}} · verknüpft seit {{date}}"
+    "connectedSince": "{{provider}} · verknüpft seit {{date}}",
+    "connectedSinceWithEmail": "{{provider}} · {{email}} · verknüpft seit {{date}}"
   },
   "dangerZone": "Gefährlicher Bereich",
   "deleteDescription": "Wenn du dein Konto löschst, wird es sofort deaktiviert und nach 14 Tagen anonymisiert. Projekte ohne verbleibende Mitglieder werden dann einschließlich Projektdaten gelöscht; veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen.",
@@ -96,5 +98,67 @@
   },
   "language": {
     "description": "Die Sprache der Oberfläche gehört zu deinem Konto, nicht zum Projekt. Andere Mitglieder desselben Projekts können OpenFarmPlanner gleichzeitig in einer anderen Sprache verwenden. Frei eingegebene Inhalte wie Projekt-, Standort- und Beetnamen werden nie übersetzt."
+  },
+  "apiTokens": {
+    "title": "API-Tokens für externe Tools",
+    "description": "Mit persönlichen Tokens können externe Werkzeuge wie Codex oder Claude Code die OpenFarmPlanner-API in deinem Namen nutzen. Jedes Token ist fest an genau ein Projekt gebunden und kommt an kein anderes heran – auch nicht an Projekte, in denen du Mitglied bist. Tokens können nie Projektmitglieder, Einladungen oder Kontoeinstellungen ändern.",
+    "loading": "Tokens werden geladen…",
+    "empty": "Du hast noch keine API-Tokens erstellt.",
+    "noProjects": "Du musst Mitglied in einem Projekt sein, um ein API-Token erstellen zu können.",
+    "revoked": "Das Token „{{name}}“ wurde widerrufen und funktioniert nicht mehr.",
+    "inactiveToggle": "Abgelaufene und widerrufene Tokens anzeigen ({{count}})",
+    "status": {
+      "active": "Aktiv",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen"
+    },
+    "scopes": {
+      "read": "Lesen",
+      "write": "Lesen und schreiben",
+      "delete": "Lesen, schreiben und löschen"
+    },
+    "scopeHelp": {
+      "read": "Darf die Daten des Projekts lesen. Kann nichts ändern.",
+      "write": "Darf die Daten des Projekts lesen sowie Kulturen anlegen und aktualisieren. Kann nichts löschen.",
+      "delete": "Darf Kulturen zusätzlich löschen und wiederherstellen. Projektmitglieder, Einladungen, Kontoeinstellungen und andere Verwaltungsbereiche bleiben gesperrt."
+    },
+    "columns": {
+      "name": "Name",
+      "scope": "Rechte",
+      "project": "Projekt",
+      "created": "Erstellt",
+      "expires": "Läuft ab",
+      "lastUsed": "Zuletzt verwendet",
+      "action": "Aktion"
+    },
+    "meta": {
+      "project": "Projekt",
+      "prefix": "Token",
+      "created": "Erstellt",
+      "expires": "Läuft ab",
+      "lastUsed": "Zuletzt verwendet",
+      "never": "kein Ablaufdatum",
+      "neverUsed": "nie"
+    },
+    "actions": {
+      "create": "Token erstellen",
+      "revoke": "Widerrufen"
+    },
+    "form": {
+      "name": "Name",
+      "project": "Projekt",
+      "projectHelper": "Das Token kann ausschließlich auf dieses Projekt zugreifen. Das lässt sich später nicht ändern.",
+      "scope": "Berechtigungen",
+      "expiresAt": "Ablaufdatum (optional)",
+      "expiresAtHelper": "Leer lassen für ein Token ohne Ablaufdatum. Höchstens ein Jahr in der Zukunft."
+    },
+    "created": {
+      "title": "Dein neues API-Token",
+      "warning": "Kopiere das Token jetzt. Es wird nur dieses eine Mal angezeigt und kann danach nicht erneut abgerufen werden.",
+      "description": "Bewahre das Token wie ein Passwort auf, zum Beispiel in der Secret-Verwaltung deines Agenten. Lege es niemals in einem Repository ab. Wenn du es verlierst, widerrufe es hier und erstelle ein neues.",
+      "tokenLabel": "Token",
+      "usageHint": "Verwendung als HTTP-Header: Authorization: Bearer <token>",
+      "confirm": "Ich habe das Token gespeichert"
+    }
   }
 }

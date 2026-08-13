@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { updatePublicDisplayName } from '../auth/authApi';
@@ -19,6 +19,7 @@ const authState = {
     resolved_project_id: null,
     needs_project_selection: false,
     memberships: [],
+    has_password: true,
     account_pending_deletion: false,
     scheduled_deletion_at: null,
   },
@@ -39,9 +40,30 @@ const moderatorRequestApiMocks = vi.hoisted(() => ({
   create: vi.fn(async () => ({ data: { id: 1, user: 1, user_label: 'Demo', motivation: 'I can help.', status: 'pending' } })),
 }));
 
+const socialAuthMocks = vi.hoisted(() => ({
+  getSocialProviders: vi.fn(async () => []),
+  getSocialConnections: vi.fn(async () => []),
+  startSocialLogin: vi.fn(),
+}));
+
 vi.mock('../api/api', () => ({
   publicLibraryModeratorRequestAPI: moderatorRequestApiMocks,
+  apiTokenAPI: {
+    list: vi.fn(async () => ({ data: [] })),
+    create: vi.fn(),
+    revoke: vi.fn(),
+  },
 }));
+
+vi.mock('../auth/socialAuth', async () => {
+  const actual = await vi.importActual<typeof import('../auth/socialAuth')>('../auth/socialAuth');
+  return {
+    ...actual,
+    getSocialProviders: () => socialAuthMocks.getSocialProviders(),
+    getSocialConnections: () => socialAuthMocks.getSocialConnections(),
+    startSocialLogin: socialAuthMocks.startSocialLogin,
+  };
+});
 
 vi.mock('../auth/authApi', () => ({
   updateProfile: vi.fn(async () => ({ detail: 'Profil aktualisiert.', user: authState.user })),
@@ -69,6 +91,13 @@ describe('AccountSettingsPage', () => {
     moderatorRequestApiMocks.mine.mockClear();
     moderatorRequestApiMocks.create.mockClear();
     moderatorRequestApiMocks.mine.mockResolvedValue({ data: { is_moderator: false, request: null } });
+    socialAuthMocks.getSocialProviders.mockClear();
+    socialAuthMocks.getSocialConnections.mockClear();
+    socialAuthMocks.startSocialLogin.mockClear();
+    socialAuthMocks.getSocialProviders.mockResolvedValue([
+      { id: 'google', name: 'Google', login_url: '/api/auth/social/google/login/' },
+    ]);
+    socialAuthMocks.getSocialConnections.mockResolvedValue([]);
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURLMock });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURLMock });
   });
@@ -79,6 +108,10 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByText('Profil')).toBeInTheDocument();
     expect(screen.getByText('Öffentliche Kulturbibliothek')).toBeInTheDocument();
     expect(screen.getByText('Login & Sicherheit')).toBeInTheDocument();
+    expect(screen.getByText('Zugangsdaten')).toBeInTheDocument();
+    expect(await screen.findByText('Anmeldemethoden')).toBeInTheDocument();
+    expect(screen.getByText('Diese Anmeldemethoden sind mit deinem Konto verknüpft.')).toBeInTheDocument();
+    expect(screen.getByText('E-Mail & Passwort · Aktiv')).toBeInTheDocument();
     expect(screen.getByText('Datenschutz & Datenexport')).toBeInTheDocument();
     expect(screen.getByText('Konto')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Anzeigename ändern' })).toBeInTheDocument();
@@ -89,7 +122,25 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByText(/veröffentlichte Kulturbibliotheks-Einträge bleiben bestehen/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Neue E-Mail-Adresse')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Neues Passwort')).not.toBeInTheDocument();
+    expect(screen.queryByText('Die Sprache der Oberfläche gehört zu deinem Konto')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Meine Daten herunterladen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Onboarding erneut anzeigen' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Profil' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Login & Sicherheit' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: 'Konto' })).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Profil' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Anzeigename ändern' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: 'Login & Sicherheit' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Profil' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sprache' }));
+    expect(screen.getByText(/Die Sprache der Oberfläche gehört zu deinem Konto/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Meine Daten herunterladen' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Datenschutz & Datenexport' }));
     fireEvent.click(screen.getByRole('button', { name: 'Meine Daten herunterladen' }));
     expect(await screen.findByText('Datenexport wurde erstellt.')).toBeInTheDocument();
     expect(createObjectURLMock).toHaveBeenCalledOnce();
@@ -149,6 +200,7 @@ describe('AccountSettingsPage', () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Entwickler' }));
     fireEvent.click(screen.getByRole('button', { name: 'Onboarding erneut anzeigen' }));
 
     expect(localStorage.getItem(DEV_ONBOARDING_PREVIEW_STORAGE_KEY)).toBe('1');

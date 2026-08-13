@@ -73,6 +73,22 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     )
     serializer_class = CultureSerializer
 
+    # Actions reachable with a project-bound API token (see
+    # farm/agent_api/permissions.py). `destroy` and `undelete` additionally
+    # require the dedicated delete scope.
+    api_token_actions = {
+        'list',
+        'retrieve',
+        'create',
+        'update',
+        'partial_update',
+        'destroy',
+        'duplicate_check',
+        'history',
+        'undelete',
+    }
+    api_token_delete_actions = {'destroy', 'undelete'}
+
     def _set_latest_revision_actor(self, culture: Culture) -> None:
         actor_label = _current_actor_label(self.request)
         if not actor_label:
@@ -144,8 +160,10 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         supplier_name = culture_data.get('supplier_name')
         
         if supplier_id:
+            # Project-scoped so a supplied id cannot pull in a supplier from
+            # another project and attach it to this project's culture.
             try:
-                return Supplier.objects.get(id=supplier_id)
+                return Supplier.objects.get(id=supplier_id, project=self.request.active_project)
             except Supplier.DoesNotExist:
                 return None
         elif supplier_name:
@@ -183,8 +201,12 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         
         name_norm = normalize_text(name) or ''
         variety_norm = normalize_text(variety)
-        
+
+        # Scoped to the active project: without this filter an import row could
+        # match — and then overwrite — a culture belonging to a different
+        # project that happens to share a name/variety pair.
         base_queryset = Culture.objects.filter(
+            project=self.request.active_project,
             name_normalized=name_norm,
             variety_normalized=variety_norm,
         )
@@ -741,6 +763,9 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
 class CultureUndeleteView(APIView):
     """Undelete a soft-deleted culture by ID."""
+
+    api_token_actions = {'post'}
+    api_token_delete_actions = {'post'}
 
     def post(self, request, pk: int):
         active_project = get_active_project_or_400(request)

@@ -577,7 +577,12 @@ class SocialApiEndpointTest(SocialLoginTestCase):
         self.assertEqual([provider['id'] for provider in response.json()], ['google'])
 
     def test_connections_endpoint_lists_linked_identities(self) -> None:
-        SocialAccount.objects.create(user=self.user, provider='google', uid='g-1', extra_data={})
+        SocialAccount.objects.create(
+            user=self.user,
+            provider='google',
+            uid='g-1',
+            extra_data={'email': 'google-user@example.com'},
+        )
         self.client.force_login(self.user)
 
         response = self.client.get('/api/auth/social/connections/')
@@ -587,6 +592,7 @@ class SocialApiEndpointTest(SocialLoginTestCase):
         self.assertEqual(len(connections), 1)
         self.assertEqual(connections[0]['provider'], 'google')
         self.assertEqual(connections[0]['provider_name'], 'Google')
+        self.assertEqual(connections[0]['email'], 'google-user@example.com')
         self.assertTrue(connections[0]['can_disconnect'])
         self.assertNotIn('uid', connections[0])
 

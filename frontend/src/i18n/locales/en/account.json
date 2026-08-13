@@ -48,6 +48,7 @@
   },
   "security": {
     "changeEmailTitle": "Change email address",
+    "credentials": "Credentials",
     "newEmail": "New email address",
     "changePasswordTitle": "Change password",
     "newPassword": "New password",
@@ -56,11 +57,12 @@
   },
   "loginMethods": {
     "title": "Login methods",
-    "description": "Manage the login methods connected to your account.",
+    "description": "These login methods are connected to your account.",
     "emailPasswordActive": "Email & password · Active",
     "connect": "Connect {{provider}}",
     "connected": "The login method was connected.",
-    "connectedSince": "{{provider}} · connected since {{date}}"
+    "connectedSince": "{{provider}} · connected since {{date}}",
+    "connectedSinceWithEmail": "{{provider}} · {{email}} · connected since {{date}}"
   },
   "dangerZone": "Danger zone",
   "deleteDescription": "If you delete your account, it is deactivated immediately and anonymized after 14 days. Projects without remaining members are then deleted including project data; published public library entries remain.",
@@ -96,5 +98,67 @@
   },
   "language": {
     "description": "The interface language belongs to your account, not to a project. Other members of the same project can use OpenFarmPlanner in a different language at the same time. Content you type yourself — project, location and bed names — is never translated."
+  },
+  "apiTokens": {
+    "title": "API tokens for external tools",
+    "description": "Personal tokens let external tools such as Codex or Claude Code use the OpenFarmPlanner API on your behalf. Every token is permanently bound to one project and cannot reach any other — not even projects you are a member of. Tokens can never change project members, invitations, or account settings.",
+    "loading": "Loading tokens…",
+    "empty": "You have not created any API tokens yet.",
+    "noProjects": "You need to be a member of a project before you can create an API token.",
+    "revoked": "The token \"{{name}}\" has been revoked and no longer works.",
+    "inactiveToggle": "Show expired and revoked tokens ({{count}})",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "scopes": {
+      "read": "Read",
+      "write": "Read and write",
+      "delete": "Read, write, and delete"
+    },
+    "scopeHelp": {
+      "read": "May read the project's data. Cannot change anything.",
+      "write": "May read the project's data and create or update cultures. Cannot delete.",
+      "delete": "May additionally delete and restore cultures. Project members, invitations, account settings, and other administrative areas stay blocked."
+    },
+    "columns": {
+      "name": "Name",
+      "scope": "Permissions",
+      "project": "Project",
+      "created": "Created",
+      "expires": "Expires",
+      "lastUsed": "Last used",
+      "action": "Action"
+    },
+    "meta": {
+      "project": "Project",
+      "prefix": "Token",
+      "created": "Created",
+      "expires": "Expires",
+      "lastUsed": "Last used",
+      "never": "no expiry",
+      "neverUsed": "never"
+    },
+    "actions": {
+      "create": "Create token",
+      "revoke": "Revoke"
+    },
+    "form": {
+      "name": "Name",
+      "project": "Project",
+      "projectHelper": "The token can only ever access this project. This cannot be changed later.",
+      "scope": "Permissions",
+      "expiresAt": "Expiry date (optional)",
+      "expiresAtHelper": "Leave empty for a token without an expiry date. At most one year ahead."
+    },
+    "created": {
+      "title": "Your new API token",
+      "warning": "Copy the token now. It is shown this one time and cannot be retrieved again.",
+      "description": "Store the token like a password, for example in your agent's secret storage. Never commit it to a repository. If you lose it, revoke it here and create a new one.",
+      "tokenLabel": "Token",
+      "usageHint": "Use it as an HTTP header: Authorization: Bearer <token>",
+      "confirm": "I have stored the token"
+    }
   }
 }

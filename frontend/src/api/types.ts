@@ -79,6 +79,14 @@ export interface SeedRateByCultivationEntry {
 
 export type SeedRateByCultivation = Partial<Record<CultivationType, SeedRateByCultivationEntry>>;
 
+export interface SeedRequirementEntry {
+  value: number;
+  unit: SeedRateUnit;
+  safety_percent?: number;
+}
+
+export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
+
 export interface Culture {
   source_public_culture?: number | null;
   source_public_version?: number | null;
@@ -101,6 +109,7 @@ export interface Culture {
   seed_rate_value?: number | null;
   seed_rate_unit?: SeedRateUnit | null;
   seed_rate_by_cultivation?: SeedRateByCultivation | null;
+  seed_requirements?: SeedRequirements;
   seed_rate_direct_value?: number | null;
   seed_rate_direct_unit?: SeedRateUnit | null;
   sowing_calculation_safety_percent_direct?: number | null;
@@ -706,4 +715,48 @@ export interface CultureHistoryChange {
   field: string;
   old_value: unknown;
   new_value: unknown;
+}
+
+/**
+ * Scope of a project-bound API token.
+ *
+ * `read` permits safe requests only; `write` additionally permits creating and
+ * updating project data; `delete` also permits culture soft-delete and restore.
+ * No scope can reach administrative endpoints — see docs/agent-api.md.
+ */
+export type ApiTokenScope = 'read' | 'write' | 'delete';
+
+/** Lifecycle status derived server-side from expiry and revocation. */
+export type ApiTokenStatus = 'active' | 'expired' | 'revoked';
+
+/**
+ * A project-bound API token as listed in the account settings.
+ *
+ * Deliberately without the secret: the plaintext value exists only in the
+ * creation response (`ApiTokenCreated`) and is never returned again.
+ */
+export interface ApiToken {
+  id: number;
+  name: string;
+  project: number;
+  project_name: string;
+  scope: ApiTokenScope;
+  token_prefix: string;
+  status: ApiTokenStatus;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** Creation response — the only place the plaintext token is ever available. */
+export interface ApiTokenCreated extends ApiToken {
+  token: string;
+}
+
+export interface ApiTokenCreatePayload {
+  name: string;
+  project: number;
+  scope: ApiTokenScope;
+  expires_at?: string | null;
 }

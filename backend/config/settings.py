@@ -208,6 +208,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Refuses API-token requests aimed at views that never opted into the agent
+    # API, independently of each view's own permission_classes.
+    'farm.agent_api.middleware.ApiTokenSurfaceMiddleware',
     # Required by django-allauth; must run after AuthenticationMiddleware.
     'allauth.account.middleware.AccountMiddleware',
 ]
@@ -450,10 +453,19 @@ if not DEBUG:
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        # Session first: browser requests keep their existing behaviour
+        # (including CSRF enforcement) untouched. The token authenticator only
+        # engages for requests carrying an `Authorization: Bearer ofp_pat_…`
+        # header — see docs/agent-api.md.
         'rest_framework.authentication.SessionAuthentication',
+        'farm.agent_api.authentication.ProjectApiTokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
+        # Deny-by-default for API tokens: a view is unreachable with a token
+        # unless it declares `api_token_actions`. Session requests pass through
+        # this check unchanged.
+        'farm.agent_api.permissions.ApiTokenAccessPermission',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.ScopedRateThrottle',

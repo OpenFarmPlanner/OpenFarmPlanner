@@ -174,6 +174,12 @@ Auth endpoints are available under `/api/auth/`:
 - Agent login consume endpoint: `/agent-login/<token>/` and legacy `/openfarmplanner/agent-login/<token>/`
 - Session authentication with CSRF protection is enabled.
 - Most API endpoints require authentication by default.
+- Project-bound API tokens (`Authorization: Bearer ofp_pat_…`) let external
+  coding agents call a deny-by-default subset of the same endpoints. They need
+  no CSRF token, are bound to one project server-side, and can only delete or
+  restore cultures when created with the dedicated delete scope. Administrative
+  endpoints remain unreachable. Machine-readable schema:
+  `/api/agent/openapi.json`. Full documentation: [`docs/agent-api.md`](../docs/agent-api.md).
 
 ## Environment Notes
 

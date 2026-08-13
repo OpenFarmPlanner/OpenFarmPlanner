@@ -48,6 +48,13 @@ For each culture with at least one planting plan:
    the culture's enabled `cultivation_types`, the plan is silently excluded
    from the rate lookup.
 
+   External tool API writes should use the `seed_requirements` object on direct
+   culture create/update endpoints instead of the flat `seed_rate_*` fields. It
+   is a normalized write alias for these per-cultivation seed rates, not a
+   total purchase requirement: `value` plus `unit` describes seed per square
+   metre, row metre, or target plant. The total seed demand is derived here
+   later from the planting plans' area or plant count.
+
 2. **Safety margin.** A per-cultivation-type safety-margin percentage
    (`sowing_calculation_safety_percent_direct` / `_pre_cultivation`, or a
    generic fallback) is applied **per plan, before summing**:

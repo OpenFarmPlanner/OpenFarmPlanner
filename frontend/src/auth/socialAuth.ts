@@ -22,6 +22,8 @@ export interface SocialConnection {
   id: number;
   provider: SocialProviderId;
   provider_name: string;
+  /** Email address reported by the provider, when the provider payload includes one. */
+  email?: string | null;
   connected_at: string;
   /** False while this is the account's only remaining way to sign in. */
   can_disconnect: boolean;

@@ -742,6 +742,9 @@ function RootLayout() {
     if (!activeItem && location.pathname.startsWith('/app/locations')) {
       return t('locations');
     }
+    if (!activeItem && location.pathname.startsWith('/app/account-settings')) {
+      return t('accountSettings');
+    }
     return activeItem?.label ?? '';
   }, [location.pathname, navItems, t]);
   useEffect(() => {

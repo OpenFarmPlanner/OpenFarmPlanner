@@ -29,6 +29,10 @@ erDiagram
     User ||--o| AccountDeletionRequest : "1:1 (deletion grace period)"
     User ||--o{ AgentLoginToken : "created_by (superuser tooling)"
     Project ||--o{ AgentLoginToken : "scoped to"
+    User ||--o{ ProjectApiToken : "owns (external tool tokens)"
+    Project ||--o{ ProjectApiToken : "bound to exactly one"
+    User ||--o{ CultureImportDraft : "created_by"
+    Project ||--o{ CultureImportDraft : "scoped to"
 ```
 
 - **`ProjectMembership.role`** is either `admin` or `member` — this is the
@@ -47,8 +51,20 @@ erDiagram
   manageable. Shared `PublicCulture` entries are not owned by a project and
   use nullable provenance links (`on_delete=SET_NULL`), so they remain part
   of the public knowledge base even when the source project is deleted.
+- **`ProjectApiToken`** is the credential external tools use for API access
+  outside the browser session (for example coding agents, scripts, or CI jobs).
+  It is bound to one user *and* one project at creation time and stores only a
+  SHA-256 digest of the token plus a short display prefix; the plaintext is
+  returned once and never again. Its `scope` (`read` / `write` / `delete`) is a
+  second, narrower permission axis on top of `ProjectMembership.role` — it can
+  only ever *reduce* what the owning member may do, never widen it, and it
+  grants no administrative access at all. The `delete` scope is limited to
+  culture soft-delete/restore. **`CultureImportDraft`**
+  stores a validated import awaiting confirmation, which is what makes the
+  preview/apply split tamper-evident. See [agent-api.md](./agent-api.md).
 - Every API request that touches project-scoped data must send an
-  `X-Project-Id` header; `ProjectScopedMixin` (`backend/farm/common/mixins.py`)
+  `X-Project-Id` header (token-authenticated requests are the exception —
+  their project comes from the token row); `ProjectScopedMixin` (`backend/farm/common/mixins.py`)
   resolves and validates it once per request (`initial()`), then
   auto-filters `get_queryset()` by `project=request.active_project` for any
   model that has a `project` field, and auto-injects `project` on create.
