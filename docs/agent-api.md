@@ -119,6 +119,7 @@ Reachable endpoints (everything else returns 403 for tokens):
 | `POST /api/culture-imports/preview/` | ❌ | ✅ | ✅ |
 | `GET /api/culture-imports/{draft_id}/` | ✅ | ✅ | ✅ |
 | `POST /api/culture-imports/{draft_id}/apply/` | ❌ | ✅ | ✅ |
+| `GET /api/agent/context/` | ✅ | ✅ | ✅ |
 | `GET /api/suppliers/`, `/seed-packages/`, `/culture-supplier-data/` | ✅ | ✅ | ✅ |
 | `GET /api/locations/`, `/fields/`, `/beds/`, `/planting-plans/`, `/tasks/` | ✅ | ✅ | ✅ |
 | `GET /api/agent/openapi.json` | ✅ | ✅ | ✅ |
@@ -192,6 +193,23 @@ Fetch the machine-readable schema:
 ```bash
 curl -sS "$OFP_API/agent/openapi.json" \
   -H "Authorization: Bearer $OFP_TOKEN"
+```
+
+Check which project the token is bound to before writing:
+
+```bash
+curl -sS "$OFP_API/agent/context/" \
+  -H "Authorization: Bearer $OFP_TOKEN"
+```
+
+The response contains only non-secret token context:
+
+```json
+{
+  "project_id": 1,
+  "project_name": "Market Garden",
+  "token_scope": "write"
+}
 ```
 
 Update one culture (requires `write`):

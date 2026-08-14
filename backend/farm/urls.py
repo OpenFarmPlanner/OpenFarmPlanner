@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .agent_api.views import (
+    AgentContextView,
     AgentOpenApiSchemaView,
     CultureImportApplyView,
     CultureImportDraftView,
@@ -72,6 +73,7 @@ urlpatterns = [
     # Agent API: OpenAPI description plus the two-step culture import.
     # Registered before the router so the fixed `preview/` segment is not
     # swallowed by the draft-id route.
+    path('agent/context/', AgentContextView.as_view(), name='agent-context'),
     path('agent/openapi.json', AgentOpenApiSchemaView.as_view(), name='agent-openapi-schema'),
     path('culture-imports/preview/', CultureImportPreviewView.as_view(), name='culture-import-preview'),
     path('culture-imports/<uuid:draft_id>/', CultureImportDraftView.as_view(), name='culture-import-draft'),

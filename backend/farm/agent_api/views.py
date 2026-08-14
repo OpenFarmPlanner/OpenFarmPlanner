@@ -21,6 +21,7 @@ from farm.models import CultureImportDraft, Project, ProjectApiToken
 from farm.services.culture_import import analyze_import_payload
 from farm.services.culture_import.apply import ImportExecutionError, apply_import_draft
 
+from .permissions import get_request_api_token
 from .serializers import (
     CultureImportApplyRequestSerializer,
     CultureImportPreviewRequestSerializer,
@@ -156,6 +157,31 @@ class CultureImportApplyView(ProjectScopedMixin, APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(result, status=status.HTTP_200_OK)
+
+
+class AgentContextView(APIView):
+    """Return the project context of the authenticating API token."""
+
+    api_token_actions = {'get'}
+
+    def get(self, request):
+        """Return non-secret context for the project-bound token."""
+        token = get_request_api_token(request)
+        if token is None:
+            return Response(
+                {
+                    'detail': 'API token authentication is required.',
+                    'code': 'api_token_required',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(
+            {
+                'project_id': token.project_id,
+                'project_name': token.project.name,
+                'token_scope': token.scope,
+            }
+        )
 
 
 def _draft_payload(draft: CultureImportDraft) -> dict:
