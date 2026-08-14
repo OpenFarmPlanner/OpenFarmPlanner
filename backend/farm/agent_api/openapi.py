@@ -586,6 +586,35 @@ def _read_only_collection_paths() -> dict[str, Any]:
     }
 
 
+def _agent_context_path() -> dict[str, Any]:
+    """Return the token self-context endpoint path item."""
+    return {
+        '/agent/context/': {
+            'get': {
+                'summary': 'Read the project context bound to this API token',
+                'description': (
+                    'Requires scope `read`. Returns only non-secret context for '
+                    'the authenticating token so tools can confirm the target '
+                    'project before writing. It does not expose project members '
+                    'or any project list.'
+                ),
+                'tags': ['agent'],
+                'responses': {
+                    '200': {
+                        'description': 'The token-bound project context.',
+                        'content': {
+                            'application/json': {
+                                'schema': {'$ref': '#/components/schemas/AgentContext'}
+                            }
+                        },
+                    },
+                    '403': {'description': 'Returned for session-authenticated callers.'},
+                },
+            }
+        }
+    }
+
+
 def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
     """Build the OpenAPI document for the agent-reachable API surface.
 
@@ -593,6 +622,7 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
     :return: The OpenAPI document as a plain dictionary.
     """
     paths: dict[str, Any] = {}
+    paths.update(_agent_context_path())
     paths.update(_culture_paths())
     paths.update(_import_paths())
     paths.update(_read_only_collection_paths())
@@ -636,6 +666,26 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
                         'message': {'type': 'string'},
                         'field': {'type': 'string'},
                     },
+                },
+                'AgentContext': {
+                    'type': 'object',
+                    'description': 'Non-secret context for the authenticating project API token.',
+                    'properties': {
+                        'project_id': {
+                            'type': 'integer',
+                            'description': 'Project id permanently bound to the token.',
+                        },
+                        'project_name': {
+                            'type': 'string',
+                            'description': 'Human-readable name of the bound project.',
+                        },
+                        'token_scope': {
+                            'type': 'string',
+                            'enum': ['read', 'write', 'delete'],
+                            'description': 'Scope carried by the token.',
+                        },
+                    },
+                    'required': ['project_id', 'project_name', 'token_scope'],
                 },
                 'CultureImportItem': build_culture_import_item_schema(),
                 'CultureWriteItem': build_culture_write_item_schema(),

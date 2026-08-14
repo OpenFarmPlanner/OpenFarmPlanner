@@ -30,6 +30,7 @@ class OpenApiDocumentTests(APITestCase):
 
     def test_import_paths_are_documented(self):
         for path in (
+            '/agent/context/',
             '/culture-imports/preview/',
             '/culture-imports/{draft_id}/',
             '/culture-imports/{draft_id}/apply/',
@@ -38,6 +39,20 @@ class OpenApiDocumentTests(APITestCase):
             '/cultures/{id}/undelete/',
         ):
             self.assertIn(path, self.document['paths'])
+
+    def test_agent_context_schema_is_documented(self):
+        schema = self.document['components']['schemas']['AgentContext']
+        operation = self.document['paths']['/agent/context/']['get']
+
+        self.assertEqual(
+            set(schema['required']),
+            {'project_id', 'project_name', 'token_scope'},
+        )
+        self.assertEqual(
+            set(schema['properties']['token_scope']['enum']),
+            {'read', 'write', 'delete'},
+        )
+        self.assertIn('project context', operation['summary'])
 
     def test_only_culture_soft_delete_is_documented_as_delete(self):
         delete_paths = [

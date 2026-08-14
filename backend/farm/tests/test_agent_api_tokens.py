@@ -154,6 +154,30 @@ class ApiTokenLifecycleTests(ApiTokenTestBase):
 class ApiTokenScopeTests(ApiTokenTestBase):
     """`read` must not mutate; destructive actions require the delete scope."""
 
+    def test_read_token_can_fetch_bound_project_context(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
+
+        response = self.bearer_client(raw_token).get('/api/agent/context/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            {
+                'project_id': self.project.id,
+                'project_name': self.project.name,
+                'token_scope': ProjectApiToken.SCOPE_READ,
+            },
+        )
+
+    def test_session_user_cannot_use_token_context_endpoint(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        response = client.get('/api/agent/context/')
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data['code'], 'api_token_required')
+
     def test_read_token_can_list_and_retrieve(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
         client = self.bearer_client(raw_token)
