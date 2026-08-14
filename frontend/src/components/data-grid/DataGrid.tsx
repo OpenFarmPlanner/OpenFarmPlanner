@@ -63,7 +63,7 @@ import { NotesPreviewPopover } from './NotesPreviewPopover';
 import { extractApiErrorMessage } from '../../api/errors';
 import { getDataGridLocaleText } from './localeText';
 import { TableCopyMenuItems } from './TableCopyMenuItems';
-import { formatClipboardValue, type TableClipboardRow } from './tableClipboard';
+import { buildClipboardRowValues, buildClipboardTableRows, type TableClipboardRow } from './tableClipboard';
 import { handleContextMenuKeyboardNavigation } from './contextMenuFocus';
 import { ContextMenuHint } from './ContextMenuHint';
 import { useContextMenuHint } from './useContextMenuHint';
@@ -2183,16 +2183,11 @@ export function EditableDataGrid<T extends EditableRow>({
       }));
   }, [clipboardColumns, columns]);
   const getClipboardRowValues = useCallback((row: T): TableClipboardRow => (
-    resolvedClipboardColumns.map((column) => (
-      column.getValue
-        ? column.getValue(row)
-        : formatClipboardValue(row[column.field])
-    ))
+    buildClipboardRowValues(resolvedClipboardColumns, row)
   ), [resolvedClipboardColumns]);
-  const getClipboardTableRows = useCallback((): TableClipboardRow[] => [
-    resolvedClipboardColumns.map((column) => column.headerName),
-    ...(rowsForGrid as T[]).map(getClipboardRowValues),
-  ], [getClipboardRowValues, resolvedClipboardColumns, rowsForGrid]);
+  const getClipboardTableRows = useCallback((): TableClipboardRow[] => (
+    buildClipboardTableRows(resolvedClipboardColumns, rowsForGrid as T[])
+  ), [resolvedClipboardColumns, rowsForGrid]);
 
   const renderInlineActionCell = useCallback((
     col: GridColDef,

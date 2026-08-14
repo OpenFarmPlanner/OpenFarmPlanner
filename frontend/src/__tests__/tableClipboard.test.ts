@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildTsv, copyRowsToClipboard, copyTextToClipboardSilently } from '../components/data-grid/tableClipboard';
+import {
+  buildClipboardRowValues,
+  buildClipboardTableRows,
+  buildTsv,
+  copyRowsToClipboard,
+  copyTextToClipboardSilently,
+  formatClipboardValue,
+} from '../components/data-grid/tableClipboard';
+import type { EditableDataGridClipboardColumn } from '../components/data-grid/types';
 import { GLOBAL_SNACKBAR_EVENT } from '../utils/globalSnackbar';
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
@@ -111,5 +119,52 @@ describe('table clipboard utilities', () => {
 
     expect(consoleError).not.toHaveBeenCalled();
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+interface ClipboardTestRow {
+  id: number;
+  name: string;
+  count: number;
+  [key: string]: unknown;
+}
+
+const clipboardColumns: EditableDataGridClipboardColumn<ClipboardTestRow>[] = [
+  { field: 'name', headerName: 'Name' },
+  { field: 'count', headerName: 'Anzahl' },
+  { field: 'label', headerName: 'Label', getValue: (row) => `#${row.id}` },
+];
+
+const clipboardRows: ClipboardTestRow[] = [
+  { id: 1, name: 'Tomate', count: 3 },
+  { id: 2, name: 'Gurke', count: 5 },
+];
+
+describe('buildClipboardRowValues', () => {
+  it('formats values and honors per-column getValue overrides', () => {
+    expect(buildClipboardRowValues(clipboardColumns, clipboardRows[0])).toEqual(['Tomate', '3', '#1']);
+  });
+});
+
+describe('buildClipboardTableRows', () => {
+  it('prepends a header row of column names', () => {
+    const table = buildClipboardTableRows(clipboardColumns, clipboardRows);
+
+    expect(table[0]).toEqual(['Name', 'Anzahl', 'Label']);
+    expect(table).toHaveLength(clipboardRows.length + 1);
+    expect(table[1]).toEqual(['Tomate', '3', '#1']);
+    expect(table[2]).toEqual(['Gurke', '5', '#2']);
+  });
+
+  it('returns only the header row for an empty data set', () => {
+    expect(buildClipboardTableRows(clipboardColumns, [])).toEqual([['Name', 'Anzahl', 'Label']]);
+  });
+});
+
+describe('formatClipboardValue', () => {
+  it('formats dates in German locale and blanks nullish values', () => {
+    expect(formatClipboardValue(new Date('2026-03-15'))).toBe('15.3.2026');
+    expect(formatClipboardValue(null)).toBe('');
+    expect(formatClipboardValue(undefined)).toBe('');
   });
 });
