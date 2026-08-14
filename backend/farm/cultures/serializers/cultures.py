@@ -66,8 +66,9 @@ class CultureSerializer(serializers.ModelSerializer):
     variety = serializers.CharField(
         required=False,
         allow_blank=True,
+        allow_null=True,
         default='',
-        help_text='Culture variety (optional)'
+        help_text='Culture variety; blank or null for species-level general data'
     )
     distance_within_row_cm = CentimetersField(
         source='distance_within_row_m',
@@ -621,7 +622,7 @@ class CultureSerializer(serializers.ModelSerializer):
             errors['name'] = 'Name is required.'
             return
         attrs['name'] = ' '.join(str(raw_name).split())
-        attrs['variety'] = ' '.join(str(raw_variety).split())
+        attrs['variety'] = ' '.join(str(raw_variety or '').split())
         project = self._resolve_project(attrs, instance_first=False)
         if project is None:
             return
