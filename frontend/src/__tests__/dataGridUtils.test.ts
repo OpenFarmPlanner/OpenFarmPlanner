@@ -3,7 +3,8 @@ import { GridRowEditStopReasons, GridRowModes } from '@mui/x-data-grid';
 import type { GridSortModel } from '@mui/x-data-grid';
 import { handleEditableCellClick, handleRowEditStop } from '../components/data-grid/handlers';
 import { getPlainExcerpt, stripMarkdown } from '../components/data-grid/markdown';
-import { getSortedRowIds, orderRowsByStableIds } from '../components/data-grid/dataGridUtils';
+import { buildDefaultClipboardColumns, getSortedRowIds, orderRowsByStableIds } from '../components/data-grid/dataGridUtils';
+import type { GridColDef } from '@mui/x-data-grid';
 import type { EditableRow } from '../components/data-grid/types';
 
 interface TestRow extends EditableRow {
@@ -150,3 +151,20 @@ describe('stable row order (EditableDataGrid)', () => {
     expect(getSortedRowIds(rows, [])).toEqual([2, 1]);
   });
 });
+
+describe('buildDefaultClipboardColumns', () => {
+  it('drops id and action columns and falls back to the field name for missing headers', () => {
+    const columns: GridColDef[] = [
+      { field: 'id', headerName: 'ID' },
+      { field: 'name', headerName: 'Name' },
+      { field: 'width_m' },
+      { field: 'actions', type: 'actions' },
+      { field: 'rowActions', type: 'actions' },
+    ];
+
+    expect(buildDefaultClipboardColumns(columns)).toEqual([
+      { field: 'name', headerName: 'Name' },
+      { field: 'width_m', headerName: 'width_m' },
+    ]);
+  });
+})

@@ -113,6 +113,7 @@ import {
   type ContinuousScrollLayoutHeights,
 } from './continuousScrollLayout';
 import {
+  buildDefaultClipboardColumns,
   getSortedRowIds,
   isEmptyNewDraftRow,
   isSaveBlockedError,
@@ -2171,17 +2172,9 @@ export function EditableDataGrid<T extends EditableRow>({
   const menuRow = rowActionMenuState ? rowsById.get(String(rowActionMenuState.rowId)) as T | undefined : undefined;
   const shouldUseRowActions = Boolean(getRowActions || duplicateRow);
   const menuActions = menuRow && shouldUseRowActions ? resolveRowActions(menuRow) : [];
-  const resolvedClipboardColumns = useMemo<EditableDataGridClipboardColumn<T>[]>(() => {
-    if (clipboardColumns) {
-      return clipboardColumns;
-    }
-    return columns
-      .filter((column) => column.field !== 'id' && column.field !== 'actions' && column.type !== 'actions')
-      .map((column) => ({
-        field: column.field,
-        headerName: column.headerName ?? column.field,
-      }));
-  }, [clipboardColumns, columns]);
+  const resolvedClipboardColumns = useMemo<EditableDataGridClipboardColumn<T>[]>(() => (
+    clipboardColumns ?? buildDefaultClipboardColumns<T>(columns)
+  ), [clipboardColumns, columns]);
   const getClipboardRowValues = useCallback((row: T): TableClipboardRow => (
     buildClipboardRowValues(resolvedClipboardColumns, row)
   ), [resolvedClipboardColumns]);
