@@ -9,7 +9,7 @@ import type { GridColDef, GridFilterOperator, GridRowId, GridSortModel } from '@
 import { Box } from '@mui/material';
 import { OverflowTooltip } from '../OverflowTooltip';
 import { DateEditCell } from './DateEditCell';
-import type { EditableRow } from './types';
+import type { EditableDataGridClipboardColumn, EditableRow } from './types';
 
 export const isUnsavedDraftRow = (row: EditableRow): boolean =>
   Boolean(row.isNew || row.__draft || Number(row.id) < 0);
@@ -206,3 +206,18 @@ export const orderRowsByStableIds = <T extends EditableRow>(
   const missingRows = sourceRows.filter((row) => !orderedIdKeys.has(String(row.id)));
   return [...orderedRows, ...missingRows];
 };
+
+/**
+ * Derives the default set of clipboard columns from the grid columns, dropping
+ * the id and action columns and falling back to the field name when a column
+ * has no header. Used when no explicit clipboard column config is provided.
+ */
+export const buildDefaultClipboardColumns = <T extends EditableRow>(
+  columns: readonly GridColDef[],
+): EditableDataGridClipboardColumn<T>[] =>
+  columns
+    .filter((column) => column.field !== 'id' && column.field !== 'actions' && column.type !== 'actions')
+    .map((column) => ({
+      field: column.field,
+      headerName: column.headerName ?? column.field,
+    }));
