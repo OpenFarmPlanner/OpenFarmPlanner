@@ -351,6 +351,40 @@ export function scrollCellIntoView<Row extends GridValidRowModel>(
   api.scrollToIndexes(indexes);
 }
 
+export type KeyboardNavigationAxis = 'horizontal' | 'vertical';
+
+export interface ViewModeNavigationRequest {
+  axis: KeyboardNavigationAxis;
+  direction: Direction;
+  wrapRows: boolean;
+}
+
+/**
+ * Maps a view-mode navigation keypress to the axis, direction, and row-wrapping
+ * behavior it should trigger, or null for keys that do not navigate. Horizontal
+ * requests drive the column-first target search and vertical requests the
+ * same-column search; only Tab wraps across rows. Pure function of its inputs.
+ */
+export function getViewModeNavigationRequest(
+  key: string,
+  shiftKey: boolean,
+): ViewModeNavigationRequest | null {
+  switch (key) {
+    case 'Tab':
+      return { axis: 'horizontal', direction: shiftKey ? -1 : 1, wrapRows: true };
+    case 'ArrowRight':
+      return { axis: 'horizontal', direction: 1, wrapRows: false };
+    case 'ArrowLeft':
+      return { axis: 'horizontal', direction: -1, wrapRows: false };
+    case 'ArrowDown':
+      return { axis: 'vertical', direction: 1, wrapRows: false };
+    case 'ArrowUp':
+      return { axis: 'vertical', direction: -1, wrapRows: false };
+    default:
+      return null;
+  }
+}
+
 export function focusKeyboardNavigableCell<Row extends GridValidRowModel>({
   api,
   cell,

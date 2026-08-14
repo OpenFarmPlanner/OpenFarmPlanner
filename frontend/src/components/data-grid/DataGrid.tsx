@@ -132,6 +132,7 @@ import {
   getVerticalKeyboardNavigationTarget,
   getCellLocationFromDomTarget,
   getHorizontalKeyboardNavigationTarget,
+  getViewModeNavigationRequest,
   isCellKeyboardNavigable,
   isInteractiveCellTarget,
   preventReadOnlyCellMouseFocus,
@@ -2517,55 +2518,22 @@ export function EditableDataGrid<T extends EditableRow>({
       return false;
     }
 
-    const direction = event.shiftKey ? -1 : 1;
-    const target =
-      event.key === 'Tab'
-        ? getKeyboardNavigationTarget<T>({
-          api: gridApiRef.current,
-          columns: columnsWithActions,
-          current: { id: params.id, field: params.field },
-          direction,
-          isActionCell: isActionCellKeyboardNavigable,
-          rows: rowsForGrid,
-          wrapRows: true,
-        })
-        : event.key === 'ArrowRight'
-          ? getKeyboardNavigationTarget<T>({
-            api: gridApiRef.current,
-            columns: columnsWithActions,
-            current: { id: params.id, field: params.field },
-            direction: 1,
-            isActionCell: isActionCellKeyboardNavigable,
-            rows: rowsForGrid,
-          })
-          : event.key === 'ArrowLeft'
-            ? getKeyboardNavigationTarget<T>({
-              api: gridApiRef.current,
-              columns: columnsWithActions,
-              current: { id: params.id, field: params.field },
-              direction: -1,
-              isActionCell: isActionCellKeyboardNavigable,
-              rows: rowsForGrid,
-            })
-            : event.key === 'ArrowDown'
-              ? getVerticalKeyboardNavigationTarget<T>({
-                api: gridApiRef.current,
-                columns: columnsWithActions,
-                current: { id: params.id, field: params.field },
-                direction: 1,
-                isActionCell: isActionCellKeyboardNavigable,
-                rows: rowsForGrid,
-              })
-              : event.key === 'ArrowUp'
-                ? getVerticalKeyboardNavigationTarget<T>({
-                  api: gridApiRef.current,
-                  columns: columnsWithActions,
-                  current: { id: params.id, field: params.field },
-                  direction: -1,
-                  isActionCell: isActionCellKeyboardNavigable,
-                  rows: rowsForGrid,
-                })
-                : null;
+    const navigationRequest = getViewModeNavigationRequest(event.key, Boolean(event.shiftKey));
+    if (!navigationRequest) {
+      return false;
+    }
+
+    const navigationOptions = {
+      api: gridApiRef.current,
+      columns: columnsWithActions,
+      current: { id: params.id, field: params.field },
+      direction: navigationRequest.direction,
+      isActionCell: isActionCellKeyboardNavigable,
+      rows: rowsForGrid,
+    };
+    const target = navigationRequest.axis === 'horizontal'
+      ? getKeyboardNavigationTarget<T>({ ...navigationOptions, wrapRows: navigationRequest.wrapRows })
+      : getVerticalKeyboardNavigationTarget<T>(navigationOptions);
 
     if (!target) {
       return false;
