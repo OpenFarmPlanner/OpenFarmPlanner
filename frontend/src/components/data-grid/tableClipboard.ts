@@ -1,4 +1,5 @@
 import { showGlobalSnackbar, type GlobalSnackbarSeverity } from '../../utils/globalSnackbar';
+import type { EditableDataGridClipboardColumn, EditableRow } from './types';
 
 export type TableClipboardRow = readonly string[];
 
@@ -33,6 +34,33 @@ export function formatClipboardValue(value: unknown): string {
     return value.map(formatClipboardValue).filter(Boolean).join(', ');
   }
   return String(value);
+}
+
+/**
+ * Maps a single row to its clipboard cell values, honoring per-column
+ * `getValue` overrides and falling back to the shared value formatter.
+ */
+export function buildClipboardRowValues<T extends EditableRow>(
+  columns: readonly EditableDataGridClipboardColumn<T>[],
+  row: T,
+): TableClipboardRow {
+  return columns.map((column) => (
+    column.getValue ? column.getValue(row) : formatClipboardValue(row[column.field])
+  ));
+}
+
+/**
+ * Builds the full clipboard table: a header row of column names followed by one
+ * formatted values row per data row.
+ */
+export function buildClipboardTableRows<T extends EditableRow>(
+  columns: readonly EditableDataGridClipboardColumn<T>[],
+  rows: readonly T[],
+): TableClipboardRow[] {
+  return [
+    columns.map((column) => column.headerName),
+    ...rows.map((row) => buildClipboardRowValues(columns, row)),
+  ];
 }
 
 export function buildTsv(rows: readonly TableClipboardRow[]): string {
