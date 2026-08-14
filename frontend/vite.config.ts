@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import { seoPlugin } from './build/seoPlugin'
+import { seoPlugin } from './build/seoPlugin.ts'
 
 function normalizeBasePath(input?: string): string {
   const value = input && input.trim().length > 0 ? input.trim() : '/'
@@ -62,7 +62,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
     dedupe: ['react', 'react-dom'],
   },

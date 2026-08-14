@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { seoPlugin } from './seoPlugin';
+import { seoPlugin } from './seoPlugin.ts';
 
 const SAMPLE_HTML = [
   '<!doctype html>',

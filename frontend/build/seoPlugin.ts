@@ -14,8 +14,8 @@
  */
 
 import type { Plugin } from 'vite';
-import { resolveIndexable, resolveSiteUrl, type SeoEnv } from '../src/seo/seoConfig';
-import { buildHeadTags, buildRobotsTxt, buildSitemapXml } from '../src/seo/seoAssets';
+import { resolveIndexable, resolveSiteUrl, type SeoEnv } from '../src/seo/seoConfig.ts';
+import { buildHeadTags, buildRobotsTxt, buildSitemapXml } from '../src/seo/seoAssets.ts';
 
 export function seoPlugin(env: SeoEnv = process.env as SeoEnv): Plugin {
   const siteUrl = resolveSiteUrl(env);

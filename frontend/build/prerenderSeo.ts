@@ -3,10 +3,9 @@
  * its unit tests: computing the final, route-specific `<head>` for a
  * prerendered page. Kept as its own module (rather than inlined in
  * prerender.ts) so it can be loaded through Vite's SSR module runner, which
- * resolves this project's usual extensionless/aliased imports the same way
- * `vite build`/`vitest` do — the Node entry point itself is executed
- * directly by Node (via `--experimental-strip-types`) and cannot resolve
- * those on its own.
+ * resolves this project's TypeScript imports the same way `vite build` and
+ * `vitest` do — the Node entry point itself is executed directly by Node
+ * (via `--experimental-strip-types`), so keep its direct imports explicit.
  */
 
 import { JSDOM } from 'jsdom';
@@ -17,8 +16,8 @@ import {
   resolveSiteUrl,
   type PublicRoute,
   type SeoEnv,
-} from '../src/seo/seoConfig';
-import { buildHeadTags } from '../src/seo/seoAssets';
+} from '../src/seo/seoConfig.ts';
+import { buildHeadTags } from '../src/seo/seoAssets.ts';
 
 export { PUBLIC_INDEXABLE_ROUTES, SITE_LANGUAGE };
 export type { PublicRoute };

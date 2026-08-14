@@ -31,9 +31,8 @@
  *
  * `prerenderSeo.ts` (the actual SEO logic) is loaded through Vite's SSR
  * module runner rather than imported directly, because it in turn imports
- * this project's `src/seo/*` modules using the same extensionless/aliased
- * imports as the rest of the app — something only Vite's resolver (not
- * Node's own ESM loader) understands.
+ * this project's `src/seo/*` modules with TypeScript file extensions —
+ * something Vite's resolver handles consistently with the rest of the build.
  *
  * Before any route is prerendered, the pristine (un-prerendered) `index.html`
  * is copied to `app-shell.html`. Production's reverse proxy uses SPA-fallback

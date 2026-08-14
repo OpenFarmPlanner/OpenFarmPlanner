@@ -16,7 +16,7 @@ import {
   SITE_LANGUAGE,
   buildCanonicalUrl,
   type PublicRoute,
-} from './seoConfig';
+} from './seoConfig.ts';
 
 export interface RobotsOptions {
   siteUrl: string;
