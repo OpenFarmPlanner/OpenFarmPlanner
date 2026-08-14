@@ -106,6 +106,33 @@ class CultureApiTest(ProjectApiTestCase):
         response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    def test_culture_create_and_update_general_data_with_null_variety(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'General Tomato',
+                'variety': None,
+                'crop_family': 'Solanaceae',
+                'growth_duration_days': 80,
+                'row_spacing_cm': 60,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['variety'], '')
+
+        update_response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{response.data["id"]}/',
+            {'variety': None, 'growth_duration_days': 90, 'notes': 'General baseline'},
+            format='json',
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data['variety'], '')
+        self.assertEqual(update_response.data['growth_duration_days'], 90)
+        self.assertEqual(update_response.data['notes'], 'General baseline')
+
     def test_culture_create_rejects_duplicate_name_and_variety(self):
         existing = Culture.objects.create(
             name='Duplicate Test Culture',
@@ -159,6 +186,17 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertTrue(matching_response.data['exists'])
         self.assertFalse(other_project_response.data['exists'])
         self.assertFalse(public_response.data['exists'])
+
+    def test_culture_duplicate_check_supports_general_data_without_variety(self):
+        Culture.objects.create(name='General Bean', variety='', project=self.project)
+
+        response = self.client.get(
+            '/openfarmplanner/api/cultures/duplicate-check/',
+            {'name': ' general bean ', 'variety': ''},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['exists'])
 
     def test_public_culture_match_returns_exact_normalized_match(self):
         PublicCulture.objects.create(name='Tomate', variety='Roma', status='published')

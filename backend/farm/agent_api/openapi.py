@@ -170,6 +170,7 @@ def _seed_requirements_schema() -> dict[str, Any]:
 def build_culture_write_item_schema() -> dict[str, Any]:
     """Return the JSON Schema for direct culture create/update payloads."""
     properties = {spec.name: _field_schema(spec) for spec in CULTURE_FIELD_SPECS}
+    properties['variety']['type'] = ['string', 'null']
     properties['seed_requirements'] = _seed_requirements_schema()
     return {
         'type': 'object',
@@ -193,6 +194,15 @@ def _culture_write_request_body(*, required: bool) -> dict[str, Any]:
             'application/json': {
                 'schema': {'$ref': '#/components/schemas/CultureWriteItem'},
                 'examples': {
+                    'generalCulture': {
+                        'summary': 'Species-level general culture data',
+                        'value': {
+                            'name': 'Tomate',
+                            'variety': '',
+                            'crop_family': 'Solanaceae',
+                            'growth_duration_days': 80,
+                        },
+                    },
                     'preCultivatedTomato': {
                         'summary': 'Pre-cultivated tomato',
                         'value': {

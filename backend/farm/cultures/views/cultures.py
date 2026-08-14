@@ -132,7 +132,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
         normalized_name = normalize_text(request.query_params.get('name'))
         normalized_variety = normalize_text(request.query_params.get('variety'))
-        if not normalized_name or not normalized_variety:
+        if not normalized_name:
             return Response({'exists': False})
 
         queryset = self.get_queryset().filter(

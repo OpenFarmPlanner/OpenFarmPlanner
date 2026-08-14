@@ -355,6 +355,12 @@ Enums: `nutrient_demand` (`low`/`medium`/`high`), `harvest_method`
 `name` is the only required field. Everything else is optional, and an absent
 field is left untouched rather than reset.
 
+Species-level general data uses the same private `Culture` endpoint and fields
+as variety-specific data. Send `variety` as an empty string or `null` (or omit
+it when creating the row); the API stores all three forms as an empty string.
+Duplicate detection treats the resulting `(name, empty variety)` identity like
+any other culture identity. On update, omitting `variety` leaves it unchanged.
+
 Rejected (the row becomes `blocked` and the draft cannot be applied):
 
 - a number whose unit is stated nowhere — in the key, the value, or an explicit

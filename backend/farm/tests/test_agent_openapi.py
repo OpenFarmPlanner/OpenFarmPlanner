@@ -113,6 +113,14 @@ class OpenApiDocumentTests(APITestCase):
             {'value': 2, 'unit': 'seeds_per_plant'},
         )
 
+    def test_culture_create_documents_general_culture_identity(self):
+        variety_schema = self.culture_write_schema['properties']['variety']
+        request_body = self.document['paths']['/cultures/']['post']['requestBody']
+        examples = request_body['content']['application/json']['examples']
+
+        self.assertEqual(variety_schema['type'], ['string', 'null'])
+        self.assertEqual(examples['generalCulture']['value']['variety'], '')
+
     def test_coupled_fields_declare_their_companion(self):
         properties = self.culture_schema['properties']
 

@@ -191,6 +191,39 @@ class ApiTokenScopeTests(ApiTokenTestBase):
         )
         self.assertEqual(patched.status_code, 200)
 
+    def test_write_token_can_create_and_patch_general_culture_data(self):
+        _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
+        client = self.bearer_client(raw_token)
+
+        created = client.post(
+            '/api/cultures/',
+            {
+                'name': 'General Carrot',
+                'variety': None,
+                'crop_family': 'Apiaceae',
+                'growth_duration_days': 100,
+                'row_spacing_cm': 30,
+            },
+            format='json',
+        )
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data['variety'], '')
+        culture = Culture.objects.get(pk=created.data['id'])
+        self.assertEqual(culture.project_id, self.project.id)
+
+        patched = client.patch(
+            f'/api/cultures/{culture.id}/',
+            {'variety': None, 'growth_duration_days': 110, 'notes': 'Token baseline'},
+            format='json',
+        )
+
+        self.assertEqual(patched.status_code, 200)
+        self.assertEqual(patched.data['variety'], '')
+        culture.refresh_from_db()
+        self.assertEqual(culture.growth_duration_days, 110)
+        self.assertEqual(culture.notes, 'Token baseline')
+
     def test_write_token_cannot_delete(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         response = self.bearer_client(raw_token).delete(f'/api/cultures/{self.culture.id}/')
