@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { stripMarkdown, getPlainExcerpt, stripCitationMarkers } from '../components/data-grid/markdown';
+import { stripMarkdown, getPlainExcerpt, stripCitationMarkers, prepareSourceLinkedMarkdown } from '../components/data-grid/markdown';
 
 describe('stripMarkdown', () => {
   it('should return empty string for null input', () => {
@@ -158,6 +158,35 @@ describe('stripCitationMarkers', () => {
 
   it('strips marker at end of text', () => {
     expect(stripCitationMarkers('Ende des Textes.【123†ref】')).toBe('Ende des Textes.');
+  });
+});
+
+describe('prepareSourceLinkedMarkdown', () => {
+  it('links footnote references to the corresponding source list item and removes definitions', () => {
+    const input = `## Hinweise
+laut ReinSaat[^reinsaat] und Raimund[^raimund].
+
+## Quellen
+1. [ReinSaat](https://example.test/reinsaat)
+2. [Raimund](https://example.test/raimund)
+
+[^reinsaat]: [ReinSaat](https://example.test/reinsaat)
+[^raimund]: [Raimund](https://example.test/raimund)`;
+
+    const result = prepareSourceLinkedMarkdown(input);
+
+    expect(result.sourceReferenceCount).toBe(2);
+    expect(result.markdown).toContain('ReinSaat[1](#ofp-source-1)');
+    expect(result.markdown).toContain('Raimund[2](#ofp-source-2)');
+    expect(result.markdown).not.toContain('[^reinsaat]:');
+    expect(result.markdown).not.toContain('[^raimund]:');
+  });
+
+  it('leaves unresolved footnote references unchanged', () => {
+    const result = prepareSourceLinkedMarkdown('Quelle[^missing]');
+
+    expect(result.sourceReferenceCount).toBe(0);
+    expect(result.markdown).toBe('Quelle[^missing]');
   });
 });
 

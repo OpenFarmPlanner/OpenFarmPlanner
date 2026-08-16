@@ -1,7 +1,6 @@
-import { Box, Typography } from '@mui/material';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Typography } from '@mui/material';
 import { useTranslation } from '../../i18n';
+import { SourceLinkedMarkdown } from './SourceLinkedMarkdown';
 
 interface RichTextViewerProps {
   value: string;
@@ -57,19 +56,8 @@ export function RichTextViewer({ value, emptyLabel }: RichTextViewerProps) {
   }
 
   return (
-    <Box sx={viewerSx} data-testid="rich-text-viewer">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ node, ...props }) => {
-            void node;
-            return <a {...props} target="_blank" rel="noopener noreferrer" />;
-          },
-          html: () => null,
-        }}
-      >
-        {text}
-      </ReactMarkdown>
-    </Box>
+    <SourceLinkedMarkdown sx={viewerSx} testId="rich-text-viewer">
+      {text}
+    </SourceLinkedMarkdown>
   );
 }

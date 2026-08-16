@@ -2,8 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import axios from 'axios';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
   Alert,
   Badge,
@@ -59,6 +57,7 @@ import { useTranslation } from '../../i18n';
 import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
+import { SourceLinkedMarkdown } from '../../components/data-grid/SourceLinkedMarkdown';
 import { findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
 import { CultureForm } from '../../cultures/CultureForm';
 import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
@@ -1854,9 +1853,9 @@ export default function PublicCropLibraryPage() {
                               '& em': { color: 'text.secondary' },
                             }}
                           >
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <SourceLinkedMarkdown>
                               {stripCitationMarkers(selectedCultureDescription.text)}
-                            </ReactMarkdown>
+                            </SourceLinkedMarkdown>
                           </Box>
                         ) : (
                           <Typography variant="body2" color="text.secondary">

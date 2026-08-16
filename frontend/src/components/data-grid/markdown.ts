@@ -6,6 +6,8 @@
 
 // Matches internal AI citation markers of the form 【digits†identifier】
 const CITATION_MARKER_RE = /\s*【[^】]*†[^】]*】/g;
+const FOOTNOTE_DEFINITION_RE = /^\s*\[\^([^\]]+)\]:\s*(.*)$/;
+const FOOTNOTE_REFERENCE_RE = /\[\^([^\]]+)\]/g;
 
 /**
  * Remove AI-generated citation markers (e.g. 【941131680077198†L4162-L4178】) from text.
@@ -19,6 +21,58 @@ const CITATION_MARKER_RE = /\s*【[^】]*†[^】]*】/g;
 export function stripCitationMarkers(text: string): string {
   if (!text) return text;
   return text.replace(CITATION_MARKER_RE, '');
+}
+
+export interface SourceLinkedMarkdown {
+  markdown: string;
+  sourceReferenceCount: number;
+}
+
+/**
+ * Convert Markdown footnote references into internal source links.
+ *
+ * OpenFarmPlanner notes use ordinary Markdown footnote syntax to keep source
+ * references close to the sentence, but the UI points those references to the
+ * existing "Quellen" list instead of rendering a separate footnotes section.
+ */
+export function prepareSourceLinkedMarkdown(markdown: string): SourceLinkedMarkdown {
+  if (!markdown) {
+    return { markdown: '', sourceReferenceCount: 0 };
+  }
+
+  const footnoteIndexes = new Map<string, number>();
+  const lines: string[] = [];
+
+  for (const line of markdown.split('\n')) {
+    const definitionMatch = line.match(FOOTNOTE_DEFINITION_RE);
+    if (definitionMatch) {
+      const [, id] = definitionMatch;
+      if (!footnoteIndexes.has(id)) {
+        footnoteIndexes.set(id, footnoteIndexes.size + 1);
+      }
+      continue;
+    }
+
+    lines.push(line);
+  }
+
+  if (footnoteIndexes.size === 0) {
+    return { markdown, sourceReferenceCount: 0 };
+  }
+
+  const linkedMarkdown = lines
+    .join('\n')
+    .replace(FOOTNOTE_REFERENCE_RE, (match, id: string) => {
+      const index = footnoteIndexes.get(id);
+      return index ? `[${index}](#ofp-source-${index})` : match;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return {
+    markdown: linkedMarkdown,
+    sourceReferenceCount: footnoteIndexes.size,
+  };
 }
 
 /**

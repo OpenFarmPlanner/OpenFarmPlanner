@@ -6,8 +6,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../i18n';
 import { AppTooltip } from '../components/AppTooltip';
 import { CultureFiltersPopover } from './CultureFiltersPopover';
@@ -44,6 +42,7 @@ import type { SearchableSelectOption } from '../components/inputs/SearchableSele
 import { UI_LABEL_SEPARATOR } from '../utils/uiLabelSeparator';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
+import { SourceLinkedMarkdown } from '../components/data-grid/SourceLinkedMarkdown';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { DetailPageActions } from '../components/layout/DetailPageActions';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
@@ -1320,18 +1319,9 @@ const detailSectionGridSx = {
                         '& em': { color: 'text.secondary' },
                       }}
                     >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ children, ...props }) => (
-                            <Link target="_blank" rel="noreferrer" {...props}>
-                              {children}
-                            </Link>
-                          ),
-                        }}
-                      >
+                      <SourceLinkedMarkdown>
                         {stripCitationMarkers(selectedCulture.notes)}
-                      </ReactMarkdown>
+                      </SourceLinkedMarkdown>
                     </Box>
                   </Box>
                 )}

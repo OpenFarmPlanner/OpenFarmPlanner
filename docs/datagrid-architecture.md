@@ -449,6 +449,14 @@ upload. `noteAttachmentsCache.ts` caches attachment fetches per note id so
 re-hovering a row doesn't refetch; the drawer explicitly invalidates that
 cache after upload/delete.
 
+Markdown notes support source references written as footnote syntax
+(`[^source-id]`) plus matching footnote definitions. The UI deliberately
+does not render the generated GFM footnotes section: `SourceLinkedMarkdown`
+maps each reference to the corresponding numbered row in the existing
+`Quellen` / `Sources` list, scrolls to that row, and briefly highlights it.
+This keeps saved notes readable as Markdown while avoiding a second
+footnotes block in the app.
+
 ## Cells edited in a popover/dialog (`dialogEditFields`)
 
 Some values are never typed into a cell — they are picked in a dialog

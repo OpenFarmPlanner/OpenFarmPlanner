@@ -7,11 +7,10 @@ import { Badge, Box, IconButton, Typography } from '@mui/material';
 import NotesIcon from '@mui/icons-material/Notes';
 import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
 import type { NotesPreviewOpenMode } from './useNotesPreview';
 import { AppTooltip } from '../AppTooltip';
+import { SourceLinkedMarkdown } from './SourceLinkedMarkdown';
 
 export interface NotesCellProps {
   hasValue: boolean;
@@ -73,12 +72,9 @@ export function NotesCell({
         },
       }}
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{ html: () => null }}
-      >
+      <SourceLinkedMarkdown>
         {tooltipMarkdown}
-      </ReactMarkdown>
+      </SourceLinkedMarkdown>
     </Box>
   ) : (
     <Typography variant="body2">{t('notes.empty')}</Typography>

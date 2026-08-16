@@ -66,7 +66,8 @@
     "editEmpty": "Notiz hinzufügen",
     "editWithContent": "Notiz bearbeiten",
     "attachmentsCount_one": "{{count}} Foto in Notizen",
-    "attachmentsCount_other": "{{count}} Fotos in Notizen"
+    "attachmentsCount_other": "{{count}} Fotos in Notizen",
+    "jumpToSource": "Zur Quelle {{index}} springen"
   },
   "notesPreview": {
     "heading": "Notiz",
