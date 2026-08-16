@@ -82,6 +82,8 @@ import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { CropSpeciesPendingChip } from '../../cultures/CropSpeciesPendingChip';
+import { isCropSpeciesPending } from '../../cultures/cropSpeciesPending';
 import { PublicCultureFiltersPopover } from '../components/PublicCultureFiltersPopover';
 import {
   EMPTY_PUBLIC_CULTURE_FILTERS,
@@ -408,6 +410,7 @@ export default function PublicCropLibraryPage() {
     return arePublicValuesEqual(ownValue, cropValue) ? null : 'ownValue';
   }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
   const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
+  const isSelectedSpeciesPending = isCropSpeciesPending(selectedCulture);
   const publicActiveCultivationTypes: CultivationType[] = useMemo(() => (selectedCulture
     ? (
       selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
@@ -1373,7 +1376,10 @@ export default function PublicCropLibraryPage() {
             ? <SyncOutlinedIcon fontSize="small" />
             : <DownloadOutlinedIcon fontSize="small" />,
           onClick: () => void handleImport(),
-          disabled: importingId !== null,
+          // Import and the library-update sync both copy an entry whose
+          // species is not settled yet; they wait for the moderator.
+          disabled: importingId !== null || isSelectedSpeciesPending,
+          tooltip: isSelectedSpeciesPending ? t('library.badges.speciesPendingTooltip') : undefined,
           variant: 'contained',
         },
       ]}
@@ -1381,6 +1387,7 @@ export default function PublicCropLibraryPage() {
   ) : null), [
     handleImport,
     importingId,
+    isSelectedSpeciesPending,
     openEditDialog,
     selectedCulture,
     t,
@@ -1679,6 +1686,7 @@ export default function PublicCropLibraryPage() {
                                 />
                               </AppTooltip>
                             ) : null}
+                            {isSelectedSpeciesPending ? <CropSpeciesPendingChip /> : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCulture.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>
                         </Box>
@@ -1897,12 +1905,24 @@ export default function PublicCropLibraryPage() {
 
                   {activeTab === 2 ? (
                     <Stack spacing={2} sx={{ p: { xs: 2, sm: 2.5 } }}>
+                      {/* Reading an existing discussion stays possible; only
+                          writing waits for the species review. */}
+                      {isSelectedSpeciesPending ? (
+                        <Alert severity="info">{t('library.badges.speciesPendingTooltip')}</Alert>
+                      ) : null}
                       {collaborationStatus === 'loading' ? <CircularProgress size={24} /> : null}
                       {collaborationStatus === 'error' ? <Alert severity="error">{t('library.page.collaborationLoadError')}</Alert> : null}
                       {selectedTopicId === null ? (
                         <Stack spacing={1.25}>
                           {!newTopicOpen && topics.length > 0 ? (
-                            <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ alignSelf: 'flex-start' }} onClick={openNewTopicForm}>
+                            <Button
+                              ref={newTopicButtonRef}
+                              variant="outlined"
+                              startIcon={<AddOutlinedIcon />}
+                              sx={{ alignSelf: 'flex-start' }}
+                              onClick={openNewTopicForm}
+                              disabled={isSelectedSpeciesPending}
+                            >
                               {t('library.page.discussion.newTopic')}
                             </Button>
                           ) : null}
@@ -1929,7 +1949,14 @@ export default function PublicCropLibraryPage() {
                                 <Typography variant="subtitle2">{t('library.page.discussion.emptyTitle')}</Typography>
                                 <Typography variant="body2" color="text.secondary">{t('library.page.discussion.empty')}</Typography>
                               </Box>
-                              <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ justifySelf: 'flex-start' }} onClick={openNewTopicForm}>
+                              <Button
+                                ref={newTopicButtonRef}
+                                variant="outlined"
+                                startIcon={<AddOutlinedIcon />}
+                                sx={{ justifySelf: 'flex-start' }}
+                                onClick={openNewTopicForm}
+                                disabled={isSelectedSpeciesPending}
+                              >
                                 {t('library.page.discussion.newTopic')}
                               </Button>
                             </Box>
@@ -2017,6 +2044,7 @@ export default function PublicCropLibraryPage() {
                                   editingCommentId={editingCommentId}
                                   commentActionMenu={commentActionMenu}
                                   submittingComment={submittingComment}
+                                  writingDisabled={isSelectedSpeciesPending}
                                   commentBody={commentBody}
                                   t={t}
                                   onReply={startReply}
@@ -2038,7 +2066,7 @@ export default function PublicCropLibraryPage() {
                           {replyTo === null && editingCommentId === null && commentsStatus !== 'loading' && commentsStatus !== 'error' && selectedTopic ? (
                             <CommentForm
                               body={commentBody}
-                              disabled={submittingComment}
+                              disabled={submittingComment || isSelectedSpeciesPending}
                               label={t('library.page.discussion.commentLabel')}
                               submitLabel={t('library.page.discussion.submit')}
                               t={t}

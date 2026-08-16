@@ -3,6 +3,8 @@ import type {
   ApiToken,
   ApiTokenCreatePayload,
   ApiTokenCreated,
+  AppNotification,
+  NotificationListResponse,
   Culture,
   Location,
   Field,
@@ -146,6 +148,12 @@ export const cultureAPI = {
   // Records the explicit "do not take this version" decision. Nothing is copied;
   // only the notice for exactly this public version disappears.
   rejectPublicUpdate: (id: number) => http.post<Culture>(`/cultures/${id}/public-update/reject/`),
+};
+
+export const notificationAPI = {
+  /** Newest first; the unread count rides along so the bell needs one request. */
+  list: () => http.get<NotificationListResponse>('/notifications/'),
+  markRead: (id: number) => http.post<AppNotification>(`/notifications/${id}/read/`),
 };
 
 export const cropSpeciesAPI = {
@@ -474,6 +482,7 @@ export type {
 export default {
   cultures: cultureAPI,
   cropSpecies: cropSpeciesAPI,
+  notifications: notificationAPI,
   publicCultures: publicCultureAPI,
   suppliers: supplierAPI,
   cultureSupplierData: cultureSupplierDataAPI,

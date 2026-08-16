@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import { useTranslation } from '../i18n';
+import { AppTooltip } from '../components/AppTooltip';
 import type { Culture, PublicCultureUpdateFieldChange } from '../api/types';
 import {
   formatPublicCultureValue,
@@ -36,6 +37,8 @@ import type { PublicCultureUpdateController } from './usePublicCultureUpdate';
 interface PublicCultureUpdateNoticeProps {
   culture: Culture;
   controller: PublicCultureUpdateController;
+  /** When set, reviewing is blocked and this explains why (e.g. species awaiting moderation). */
+  disabledReason?: string;
 }
 
 const DIFF_ROW_SX = {
@@ -48,7 +51,7 @@ const DIFF_ROW_SX = {
   borderColor: 'divider',
 } as const;
 
-export function PublicCultureUpdateNotice({ culture, controller }: PublicCultureUpdateNoticeProps) {
+export function PublicCultureUpdateNotice({ culture, controller, disabledReason }: PublicCultureUpdateNoticeProps) {
   const { t } = useTranslation(['cultures', 'common']);
   const {
     update,
@@ -76,14 +79,18 @@ export function PublicCultureUpdateNotice({ culture, controller }: PublicCulture
           data-testid="culture-public-update-notice"
           sx={{ mt: 1.5 }}
           action={(
-            <Button
-              color="inherit"
-              size="small"
-              onClick={openDiff}
-              disabled={isLoading}
-            >
-              {isLoading ? t('library.publicUpdate.loading') : t('library.publicUpdate.review')}
-            </Button>
+            <AppTooltip title={disabledReason ?? ''}>
+              <span>
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={openDiff}
+                  disabled={isLoading || Boolean(disabledReason)}
+                >
+                  {isLoading ? t('library.publicUpdate.loading') : t('library.publicUpdate.review')}
+                </Button>
+              </span>
+            </AppTooltip>
           )}
         >
           {t('library.publicUpdate.notice')}

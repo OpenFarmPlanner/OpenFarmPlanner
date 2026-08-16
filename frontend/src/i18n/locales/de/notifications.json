@@ -1,0 +1,13 @@
+{
+  "bell": {
+    "ariaLabel": "Benachrichtigungen",
+    "unreadAriaLabel": "Benachrichtigungen ({{unread}} ungelesen)",
+    "title": "Benachrichtigungen",
+    "empty": "Keine Benachrichtigungen",
+    "loadError": "Benachrichtigungen konnten nicht geladen werden."
+  },
+  "messages": {
+    "crop_species_proposal_accepted": "Dein Vorschlag für die Kulturart „{{name}}“ wurde angenommen.",
+    "crop_species_proposal_rejected": "Dein Vorschlag für die Kulturart „{{name}}“ wurde abgelehnt."
+  }
+}

@@ -6,6 +6,7 @@ from accounts.guest_demo import create_guest_demo_session
 from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
+from notifications.models import Notification
 
 User = get_user_model()
 
@@ -158,6 +159,51 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(proposal.status, CropSpecies.STATUS_PUBLISHED)
         self.assertEqual(proposal.reviewed_by, moderator)
         self.assertEqual(proposal.review_note, 'Good addition.')
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.notification_type, Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED)
+        self.assertEqual(notification.context, {'name': 'Tree onion'})
+        # No published variety of the proposer under this species yet, so the
+        # notification points at the species itself.
+        self.assertEqual(notification.target_type, Notification.TARGET_CROP_SPECIES)
+        self.assertEqual(notification.target_id, proposal.id)
+        self.assertFalse(notification.is_read)
+
+    def test_approving_a_proposal_links_the_notification_to_the_proposers_variety(self):
+        moderator = User.objects.create_user(
+            username='species-link-moderator',
+            email='species-link-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
+        published_variety = PublicCulture.objects.create(
+            name='Tree onion', variety='Egyptian', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_CULTURE)
+        self.assertEqual(notification.target_id, published_variety.id)
+
+    def test_reviewing_a_species_nobody_proposed_creates_no_notification(self):
+        moderator = User.objects.create_user(
+            username='species-seed-moderator',
+            email='species-seed-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Seeded species', status=CropSpecies.STATUS_PROPOSED)
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Notification.objects.count(), 0)
 
     def test_moderator_can_reject_species_proposal(self):
         moderator = User.objects.create_user(
@@ -176,6 +222,9 @@ class CropViewSetTest(DRFAPITestCase):
         proposal.refresh_from_db()
         self.assertEqual(proposal.status, CropSpecies.STATUS_REJECTED)
         self.assertEqual(proposal.review_note, 'Duplicate common name.')
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.notification_type, Notification.TYPE_CROP_SPECIES_PROPOSAL_REJECTED)
+        self.assertEqual(notification.context, {'name': 'Tree onion'})
 
     def test_normal_user_cannot_edit_or_delete_published_species(self):
         species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)

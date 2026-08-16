@@ -13,6 +13,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
+from crops.models import CropSpecies
 from crops.permissions import is_public_library_moderator
 from crops.services import build_public_crop_search_query, find_exact_crop_match
 from farm.models import (
@@ -166,6 +167,26 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         )
 
     @staticmethod
+    def _crop_species_pending_forbidden(public_culture: PublicCulture) -> Response | None:
+        """Block actions that treat an unreviewed species as settled reference data.
+
+        Importing, updating and discussing an entry all imply its species is
+        real; while the species is only `proposed`, the entry stays visible
+        (its publisher needs it) but those actions wait for moderation. The UI
+        disables the same three actions — this is the enforcement behind it.
+        """
+        species = public_culture.crop_species
+        if species is None or species.status != CropSpecies.STATUS_PROPOSED:
+            return None
+        return Response(
+            {
+                'detail': 'The crop species of this entry is still awaiting moderation.',
+                'code': 'crop_species_pending',
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    @staticmethod
     def _edit_conflict_response(error: PublicCultureEditConflictError) -> Response:
         return Response(
             {
@@ -292,6 +313,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='import')
     def import_to_project(self, request, pk=None):
         public_culture = self.get_object()
+        if (blocked := self._crop_species_pending_forbidden(public_culture)) is not None:
+            return blocked
         request.active_project = get_active_project_or_400(request)
         mode = request.data.get('mode') or 'auto'
         try:
@@ -336,6 +359,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
         topic_serializer = PublicCultureDiscussionTopicSerializer(data=request.data)
         if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
             return forbidden
+        if (blocked := self._crop_species_pending_forbidden(public_culture)) is not None:
+            return blocked
         topic_serializer.is_valid(raise_exception=True)
         comment_serializer = PublicCultureDiscussionCommentSerializer(data={'body': request.data.get('body', '')})
         comment_serializer.is_valid(raise_exception=True)
@@ -379,6 +404,8 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
             ).data)
         if (forbidden := self._guest_demo_write_forbidden(request)) is not None:
             return forbidden
+        if (blocked := self._crop_species_pending_forbidden(public_culture)) is not None:
+            return blocked
         serializer = PublicCultureDiscussionCommentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         parent = serializer.validated_data.get('parent')

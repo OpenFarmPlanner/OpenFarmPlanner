@@ -1,0 +1,114 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { NotificationBell } from '../notifications/NotificationBell';
+import type { AppNotification } from '../api/types';
+
+const { notificationListMock, notificationMarkReadMock, navigateMock } = vi.hoisted(() => ({
+  notificationListMock: vi.fn(),
+  notificationMarkReadMock: vi.fn(),
+  navigateMock: vi.fn(),
+}));
+
+vi.mock('../api/api', async () => {
+  const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
+  return {
+    ...actual,
+    notificationAPI: {
+      list: notificationListMock,
+      markRead: notificationMarkReadMock,
+    },
+  };
+});
+
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+const notification = (overrides: Partial<AppNotification> = {}): AppNotification => ({
+  id: 1,
+  notification_type: 'crop_species_proposal_accepted',
+  message: 'Your proposal for the crop species "Kürbis" was accepted.',
+  context: { name: 'Kürbis' },
+  target_type: 'public_culture',
+  target_id: 42,
+  is_read: false,
+  created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  ...overrides,
+});
+
+const renderBell = () => render(
+  <MemoryRouter>
+    <NotificationBell />
+  </MemoryRouter>,
+);
+
+describe('NotificationBell', () => {
+  beforeEach(() => {
+    notificationListMock.mockReset();
+    notificationMarkReadMock.mockReset();
+    navigateMock.mockReset();
+    notificationMarkReadMock.mockResolvedValue({ data: notification({ is_read: true }) });
+    notificationListMock.mockResolvedValue({
+      data: { count: 1, next: null, previous: null, results: [notification()], unread_count: 1 },
+    });
+  });
+
+  it('shows the unread count on the bell and renders the localized message with a relative time', async () => {
+    renderBell();
+
+    const bell = await screen.findByRole('button', { name: /Benachrichtigungen \(1 ungelesen\)/i });
+    fireEvent.click(bell);
+
+    expect(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
+    expect(screen.getByText(/vor 2 Tagen/)).toBeInTheDocument();
+  });
+
+  it('does not mark anything as read just by opening the dropdown', async () => {
+    renderBell();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
+    await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.');
+
+    expect(notificationMarkReadMock).not.toHaveBeenCalled();
+    // The open menu is a modal, so the bell behind it is aria-hidden — the
+    // unread count is still what its label reports.
+    expect(screen.getByRole('button', { name: /1 ungelesen/i, hidden: true })).toBeInTheDocument();
+  });
+
+  it('marks exactly the clicked entry as read and navigates to the linked object', async () => {
+    renderBell();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
+    fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
+
+    await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
+    // The unread count is gone once the only unread entry was read.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Benachrichtigungen' })).toBeInTheDocument());
+  });
+
+  it('renders no badge and an empty state when there is nothing to show', async () => {
+    notificationListMock.mockResolvedValue({
+      data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
+    });
+
+    renderBell();
+
+    const bell = await screen.findByRole('button', { name: 'Benachrichtigungen' });
+    fireEvent.click(bell);
+
+    expect(await screen.findByText('Keine Benachrichtigungen')).toBeInTheDocument();
+  });
+
+  it('reports a failed load instead of rendering an empty dropdown', async () => {
+    notificationListMock.mockRejectedValue(new Error('network'));
+
+    renderBell();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Benachrichtigungen' }));
+
+    expect(await screen.findByText('Benachrichtigungen konnten nicht geladen werden.')).toBeInTheDocument();
+  });
+});

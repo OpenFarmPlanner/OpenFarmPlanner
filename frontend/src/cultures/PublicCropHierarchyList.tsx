@@ -8,6 +8,8 @@ import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
+import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
+import { isCropSpeciesPending } from './cropSpeciesPending';
 
 interface PublicCropHierarchyListProps {
   cultures: PublicCulture[];
@@ -135,6 +137,11 @@ export function PublicCropHierarchyList({
           : null;
         const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
         const itemProps = isClickable ? listNavigation.getItemProps(node) : {};
+        // A proposed species is pending for every entry beneath it, so the
+        // marker sits on the species row — including species rows that only
+        // exist through their varieties.
+        const showPendingMarker = node.kind === 'species'
+          && isCropSpeciesPending(culture ?? firstVarietyCulture);
         const isRowSelected = Boolean(
           culture?.id !== undefined
           && culture.id === selectedCultureId
@@ -159,6 +166,7 @@ export function PublicCropHierarchyList({
             isPrimaryEmphasized={node.kind === 'species'}
             secondary={undefined}
             varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
+            endAdornment={showPendingMarker ? <CropSpeciesPendingChip iconOnly /> : undefined}
             onClick={() => {
               if (culture?.id !== undefined) {
                 onSelect(culture, { kind: node.kind, speciesKey: node.speciesKey });

@@ -1,0 +1,13 @@
+{
+  "bell": {
+    "ariaLabel": "Notifications",
+    "unreadAriaLabel": "Notifications ({{unread}} unread)",
+    "title": "Notifications",
+    "empty": "No notifications",
+    "loadError": "Notifications could not be loaded."
+  },
+  "messages": {
+    "crop_species_proposal_accepted": "Your proposal for the crop species \"{{name}}\" was accepted.",
+    "crop_species_proposal_rejected": "Your proposal for the crop species \"{{name}}\" was rejected."
+  }
+}

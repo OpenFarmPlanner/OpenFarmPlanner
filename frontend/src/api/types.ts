@@ -100,6 +100,8 @@ export interface Culture {
   public_update_rejected?: boolean;
   /** Why pushing this copy into the public library is blocked, or null when it is allowed. */
   public_publish_blocked_reason?: PublicPublishBlockedReason | null;
+  /** True while this culture's own library entry sits under a crop species no moderator reviewed yet. */
+  public_crop_species_pending?: boolean;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
   package_size_g?: number; // deprecated, replaced by seed_packages
@@ -213,6 +215,8 @@ export interface PublicCulture {
   crop_species_canonical_name?: string;
   /** Every stored species name, keyed by language code. */
   crop_species_translations?: Record<string, string>;
+  /** Moderation state of the linked species; 'proposed' means still awaiting review. */
+  crop_species_status?: CropSpecies['status'] | '';
   /** Species name in the request language, after the fallback chain. */
   display_name?: string;
   /** Language `display_name` actually came from; '' when no translation exists. */
@@ -759,4 +763,31 @@ export interface ApiTokenCreatePayload {
   project: number;
   scope: ApiTokenScope;
   expires_at?: string | null;
+}
+
+/**
+ * One in-app notification. The backend keeps `message` in English for
+ * admin/API consumers; the UI renders `notification_type` + `context` through
+ * i18n instead, so the same row reads in whatever language the user picked.
+ */
+export type NotificationType =
+  | 'crop_species_proposal_accepted'
+  | 'crop_species_proposal_rejected';
+
+export type NotificationTargetType = 'public_culture' | 'crop_species' | '';
+
+export interface AppNotification {
+  id: number;
+  notification_type: NotificationType;
+  /** English fallback text — never rendered by the app UI. */
+  message: string;
+  context: Record<string, string>;
+  target_type: NotificationTargetType;
+  target_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse extends PaginatedResponse<AppNotification> {
+  unread_count: number;
 }

@@ -62,6 +62,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
@@ -1383,6 +1384,7 @@ function RootLayout() {
             onOpenProjectTrash={handleOpenProjectTrash}
             t={t}
           />
+          <NotificationBell />
           <IconButton
             aria-label="Mehr"
             aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
@@ -1695,6 +1697,7 @@ function RootLayout() {
                   ))}
                 </Menu>
               ) : null}
+              <NotificationBell buttonSize={COMPACT_TOPBAR_TOGGLE_SIZE} />
               <IconButton
                 aria-label="Mehr"
                 aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}

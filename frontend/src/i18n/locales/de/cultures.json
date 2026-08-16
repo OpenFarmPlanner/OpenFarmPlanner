@@ -1008,6 +1008,8 @@
       "speciesMissing": "Keine offizielle Kulturart ausgewählt",
       "speciesNoOptions": "Keine passende offizielle Kulturart gefunden.",
       "proposeSpeciesInline": "„{{name}}“ als neue Kulturart vorschlagen",
+      "proposeSpeciesSubmit": "Kulturart vorschlagen",
+      "proposeSpeciesPublishHint": "Deine Sorte wird vorläufig unter „{{name}}“ veröffentlicht, bis der Vorschlag geprüft wurde.",
       "proposedSpeciesNotice": "Dein Vorschlag für die neue Kulturart „{{name}}“ wurde zur Prüfung eingereicht. Du kannst deine Sorte jetzt trotzdem veröffentlichen — sie erscheint vorläufig unter „{{name}}“, bis der Vorschlag bestätigt ist.",
       "proposeSpeciesError": "Der Vorschlag konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "speciesAlreadyExists": "Diese Kulturart existiert bereits oder wurde schon vorgeschlagen — möglicherweise unter einem anderen Namen. Bitte in der Liste danach suchen.",
@@ -1048,6 +1050,9 @@
       "cropFamily": "Pflanzenfamilie"
     },
     "badges": {
+      "speciesPendingChip": "Vorschlag in Prüfung",
+      "speciesPendingTooltip": "Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.",
+      "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
       "local": "Lokal",
       "imported": "Importiert",
       "modified": "Lokal geändert"

@@ -174,3 +174,50 @@ def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCul
         .order_by('-published_at', '-id')
         .first()
     )
+
+
+def notify_species_proposal_reviewed(species: CropSpecies) -> None:
+    """Tell the proposing user that a moderator accepted or rejected their species.
+
+    Silently does nothing for species nobody proposed (seeded/admin-created
+    rows) and for statuses that are not a review outcome, so callers can invoke
+    this unconditionally after a moderation action.
+
+    The notification links to the proposer's own public entry under that
+    species when there is one — that variety is what the decision actually
+    affects — and falls back to the species itself otherwise.
+    """
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .models import CropSpecies
+
+    notification_type = {
+        CropSpecies.STATUS_PUBLISHED: Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED,
+        CropSpecies.STATUS_REJECTED: Notification.TYPE_CROP_SPECIES_PROPOSAL_REJECTED,
+    }.get(species.status)
+    if notification_type is None or species.proposed_by is None:
+        return
+
+    published_variety = (
+        PublicCulture.objects
+        .filter(crop_species=species, created_by=species.proposed_by)
+        .order_by('-published_at', '-id')
+        .values_list('id', flat=True)
+        .first()
+    )
+    accepted = notification_type == Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED
+    create_notification(
+        recipient=species.proposed_by,
+        notification_type=notification_type,
+        message=(
+            f'Your proposal for the crop species "{species.name}" was '
+            f'{"accepted" if accepted else "rejected"}.'
+        ),
+        context={'name': species.name},
+        target_type=(
+            Notification.TARGET_PUBLIC_CULTURE if published_variety
+            else Notification.TARGET_CROP_SPECIES
+        ),
+        target_id=published_variety or species.id,
+    )

@@ -45,6 +45,11 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
   project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.
+- **[In-App Notifications](./notifications.md)** — the generic
+  `Notification` model and topbar bell: why the stored text is English while
+  the UI is German, how a new notification kind is added, and the two
+  behaviours (no mark-read on open, platform-formatted relative times) that
+  are load-bearing.
 - **[Internationalization (i18n)](./i18n.md)** — supported languages, how the
   UI language is resolved and stored, the crop-library translation model and
   its fallback rules, cross-language search and duplicate detection, and the

@@ -22,6 +22,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
 import { PublicCultureUpdateMarker } from './PublicCultureUpdateMarker';
+import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { usePublicCultureUpdate } from './usePublicCultureUpdate';
 import {
   Badge,
@@ -439,6 +440,12 @@ const detailSectionGridSx = {
   const publicUpdate = usePublicCultureUpdate(selectedCulture, onPublicUpdateApplied);
   const publishBlockedTooltip = selectedCulture?.public_publish_blocked_reason
     ? t(`library.publicUpdate.publishBlocked.${selectedCulture.public_publish_blocked_reason}`)
+    : undefined;
+  // The variety is published, but under a species a moderator has not
+  // confirmed yet — visible as a chip, and the library sync waits for it.
+  const isPublishedUnderPendingSpecies = Boolean(selectedCulture?.public_crop_species_pending);
+  const pendingSpeciesDisabledReason = isPublishedUnderPendingSpecies
+    ? t('library.badges.speciesPendingTooltip')
     : undefined;
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
@@ -954,7 +961,11 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
-                        <PublicCultureUpdateMarker controller={publicUpdate} />
+                        {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
+                        <PublicCultureUpdateMarker
+                          controller={publicUpdate}
+                          disabledReason={pendingSpeciesDisabledReason}
+                        />
                       </Box>
                     </Box>
                   </Box>
@@ -994,7 +1005,11 @@ const detailSectionGridSx = {
               />
             </Box>
 
-            <PublicCultureUpdateNotice culture={selectedCulture} controller={publicUpdate} />
+            <PublicCultureUpdateNotice
+              culture={selectedCulture}
+              controller={publicUpdate}
+              disabledReason={pendingSpeciesDisabledReason}
+            />
 
             {showVarietyValueLegend ? (
               <Box sx={{ mt: 1.25 }}>

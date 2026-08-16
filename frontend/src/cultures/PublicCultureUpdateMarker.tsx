@@ -16,9 +16,11 @@ import type { PublicCultureUpdateController } from './usePublicCultureUpdate';
 
 interface PublicCultureUpdateMarkerProps {
   controller: PublicCultureUpdateController;
+  /** When set, the diff stays closed and this explains why (e.g. species awaiting moderation). */
+  disabledReason?: string;
 }
 
-export function PublicCultureUpdateMarker({ controller }: PublicCultureUpdateMarkerProps) {
+export function PublicCultureUpdateMarker({ controller, disabledReason }: PublicCultureUpdateMarkerProps) {
   const { t } = useTranslation('cultures');
   const { isDiverged, isRejected, isLoading, openDiff } = controller;
 
@@ -29,9 +31,9 @@ export function PublicCultureUpdateMarker({ controller }: PublicCultureUpdateMar
   const label = isRejected
     ? t('library.publicUpdate.markerRejectedLabel')
     : t('library.publicUpdate.markerLabel');
-  const tooltip = isRejected
+  const tooltip = disabledReason ?? (isRejected
     ? t('library.publicUpdate.markerRejectedTooltip')
-    : t('library.publicUpdate.markerTooltip');
+    : t('library.publicUpdate.markerTooltip'));
 
   return (
     <AppTooltip title={tooltip}>
@@ -39,9 +41,9 @@ export function PublicCultureUpdateMarker({ controller }: PublicCultureUpdateMar
         size="small"
         variant="outlined"
         color="info"
-        clickable
-        disabled={isLoading}
-        onClick={openDiff}
+        clickable={!disabledReason}
+        disabled={isLoading || Boolean(disabledReason)}
+        onClick={disabledReason ? undefined : openDiff}
         icon={<SyncOutlinedIcon fontSize="small" />}
         label={label}
         data-testid="culture-public-update-marker"

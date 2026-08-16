@@ -67,7 +67,13 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
                     project=self.project,
                 ))
 
-            species = CropSpecies.objects.create(name=f'Query count species {index}')
+            # One species stays unreviewed so both list serializers resolve
+            # `crop_species_status` / `public_crop_species_pending` against a
+            # `proposed` row too, not only against published ones.
+            species = CropSpecies.objects.create(
+                name=f'Query count species {index}',
+                status=CropSpecies.STATUS_PROPOSED if index == 0 else CropSpecies.STATUS_PUBLISHED,
+            )
             CropSpeciesTranslation.objects.create(
                 species=species, language_code='de', common_name=f'Art {index}',
             )
@@ -139,8 +145,8 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
 
     def test_cultures_list_query_count(self):
         """The heaviest project list: supplier rows, seed packages, species
-        translations and the owned-public-culture lookup are all per-row data
-        that the viewset resolves with prefetches."""
+        translations, the owned-public-culture lookup and that entry's species
+        status are all per-row data that the viewset resolves with prefetches."""
         # Each culture created above also has an imported sibling row, so the
         # project holds twice ROW_COUNT cultures.
         self.assert_list_query_count(
@@ -164,8 +170,9 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
         self.assert_list_query_count('/openfarmplanner/api/tasks/', 5)
 
     def test_public_cultures_list_query_count(self):
-        """Species translations, description translations and the active
-        project's imported copies are prefetched for the whole page."""
+        """Species translations, description translations, the species status
+        behind `crop_species_status` and the active project's imported copies
+        are all resolved for the whole page rather than per row."""
         self.assert_list_query_count('/openfarmplanner/api/public-cultures/', 8)
 
     def test_projects_list_query_count(self):

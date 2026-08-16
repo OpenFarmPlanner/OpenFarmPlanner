@@ -130,6 +130,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             species.reviewed_at = timezone.now()
             species.review_note = review_note
             species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 
     @action(detail=True, methods=['post'], url_path='reject')
@@ -144,6 +145,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         species.reviewed_at = timezone.now()
         species.review_note = (request.data.get('review_note') or '').strip()
         species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 
 

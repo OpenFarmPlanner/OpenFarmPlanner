@@ -526,10 +526,20 @@ by `filterOptions` as the **last** entry whenever the field holds text —
 including when official species *do* match. Hiding it behind `noOptionsText`
 (the earlier behaviour) meant a partial match such as "Kürbis" matching
 "Kürbisgewächse" silently removed the escape hatch, leaving no way to propose
-the name the user actually typed. Being a real option rather than a button in
-the empty-state slot also makes it keyboard-reachable; selecting it calls
-`crops.services`' `CropSpecies.propose()` endpoint directly from the dropdown,
-and a failed proposal surfaces as the field's `error`/`helperText`.
+the name the user actually typed. The single exception is an exact
+(case-insensitive) hit on an existing name — proposing that can only be
+rejected server-side, so the entry disappears. Being a real option rather
+than a button in the empty-state slot also makes it keyboard-reachable, and a
+divider separates it from the regular hits above it. A failed proposal
+surfaces as the field's `error`/`helperText`.
+
+The proposal is **not** sent when that entry is picked. Picking it only puts
+the wizard into "propose a new species" mode: the typed name stays in the
+field, a hint explains what will happen, and the dialog's main button changes
+to "Kulturart vorschlagen". Pressing it files the proposal *and* publishes the
+variety under it in one action. Submitting on pick (the earlier behaviour)
+meant a user who then closed the wizard left a stray proposal in the
+moderation queue for a variety that was never published.
 
 A user does not have to wait for moderation to publish once they've proposed
 a species: `resolve_publishing_crop_species()` (`farm.services.public_cultures`)
@@ -538,8 +548,8 @@ publish target (`PUBLISHABLE_CROP_SPECIES_STATUSES`) — `REJECTED` species
 remain excluded. `PROPOSED` already is the "pending moderation" state
 (`CropSpecies.STATUS_PROPOSED`); no separate status was introduced for this.
 On the frontend, a successful proposal immediately appends the new species to
-the wizard's local options and selects it, so "Publish now" becomes usable
-right away instead of staying blocked; a dismissible success `Alert`
+the wizard's local options and selects it, so publishing continues right away
+instead of staying blocked; a dismissible success `Alert`
 (`library.publishWizard.proposedSpeciesNotice`) explains that the variety
 will appear provisionally under the not-yet-approved species name. This is
 safe because `CropSpeciesViewSet.approve()`/`reject()`
@@ -554,6 +564,35 @@ still hides non-`PUBLISHED` species from every other user/surface (including
 the wizard's own initial species list) until a moderator approves or rejects
 them, so a pending species is not otherwise discoverable/searchable in the
 meantime.
+
+### While a species is `PROPOSED`
+
+Publishing under an unreviewed species is allowed, but everything that treats
+the species as *settled reference data* is not. The state is visible and the
+three affected actions are blocked on both sides:
+
+- **Visible.** `PublicCultureSerializer.crop_species_status` and
+  `CultureSerializer.public_crop_species_pending` expose it. The frontend
+  renders "Vorschlag in Prüfung" through one shared `CropSpeciesPendingChip`
+  — as a labelled chip in the library detail header and on the proposer's own
+  culture, and icon-only (tooltip + `aria-label` carry the text) on the crop
+  list row, where the sidebar is 230px wide on `md` and a labelled chip would
+  push the crop name out.
+- **Blocked.** Import, the library update/sync, and starting or answering a
+  discussion. The UI disables the controls with a tooltip; the backend rejects
+  the same three with 409 `crop_species_pending`
+  (`PublicCultureViewSet._crop_species_pending_forbidden`), so the disabled
+  button is a hint rather than the actual protection. Reading an existing
+  discussion stays available.
+- **Self-clearing.** Both `approve()` and `reject()` move the row out of
+  `PROPOSED`, which lifts every block above without any per-object cleanup —
+  the gate reads the species' current status, it does not cache a flag. What
+  happens to a variety published under a *rejected* species is deliberately
+  out of scope here: it stays published and simply stops being marked pending.
+
+Either decision also notifies the proposer through
+`crops.services.notify_species_proposal_reviewed()` — see
+[notifications.md](./notifications.md).
 
 When publishing a variety and the species has no species-level ("general",
 empty-`variety`) published entry yet, the backend
