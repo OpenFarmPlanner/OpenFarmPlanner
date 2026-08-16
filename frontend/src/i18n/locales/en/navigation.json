@@ -45,6 +45,7 @@
     "member": "Member"
   },
   "globalMenu": {
+    "notifications": "Notifications",
     "projectActions": "Project actions",
     "app": "App",
     "shortcuts": "Keyboard shortcuts",

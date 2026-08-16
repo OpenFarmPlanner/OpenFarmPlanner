@@ -39,7 +39,7 @@ frontend/
     auth/              # Session/auth context, CSRF handling, ProtectedRoute
     focus/, commands/  # Keyboard focus regions and the command/shortcut system
     cultures/, crops/  # Culture domain UI vs. the (not yet public) Crop Library UI
-    notifications/     # Topbar bell, dropdown, and the notification API client
+    notifications/     # Topbar bell (full layout) / "Mehr"-menu entries (compact) + API client
     i18n/              # Translation resources + language resolution/switcher (German, English)
     gantt-chart/       # Vendored third-party Gantt component (MIT, see its own README)
   e2e/                 # Playwright end-to-end tests

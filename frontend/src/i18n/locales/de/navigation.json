@@ -45,6 +45,7 @@
     "member": "Mitglied"
   },
   "globalMenu": {
+    "notifications": "Benachrichtigungen",
     "projectActions": "Projektaktionen",
     "app": "App",
     "shortcuts": "Tastenkürzel",

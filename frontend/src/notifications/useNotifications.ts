@@ -8,8 +8,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { notificationAPI } from '../api/api';
 import type { AppNotification } from '../api/types';
+import { getNotificationLink } from './notificationDisplay';
 
 export interface NotificationsController {
   notifications: AppNotification[];
@@ -73,4 +75,24 @@ export function useNotifications(enabled: boolean): NotificationsController {
   }, [notifications]);
 
   return { notifications, unreadCount, isLoading, hasError, reload, markRead };
+}
+
+/**
+ * What clicking a single notification does, shared by the desktop bell and the
+ * compact topbar's menu section: mark exactly that one as read, then open the
+ * object it refers to (if it still has one).
+ */
+export function useNotificationSelection(
+  controller: NotificationsController,
+): (notification: AppNotification) => void {
+  const navigate = useNavigate();
+  const { markRead } = controller;
+
+  return useCallback((notification: AppNotification): void => {
+    markRead(notification.id);
+    const link = getNotificationLink(notification);
+    if (link) {
+      void navigate(link);
+    }
+  }, [markRead, navigate]);
 }

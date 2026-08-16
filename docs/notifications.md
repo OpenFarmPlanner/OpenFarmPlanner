@@ -74,10 +74,23 @@ not each re-implement that check.
 
 `frontend/src/notifications/`
 
-- `NotificationBell.tsx` — topbar icon with an unread `Badge` (no badge at
-  zero, which is MUI's default for `badgeContent={0}`), and a `Menu` of
-  entries. Mounted twice in `RootLayout` (the full and the compact topbar
-  branch), matching how the neighbouring icon buttons are already duplicated.
+- `NotificationBell.tsx` — the **full topbar** only: an icon with an unread
+  `Badge` (no badge at zero, which is MUI's default for `badgeContent={0}`)
+  and a `Menu` of entries.
+- `useNotificationMenuItems.tsx` — the same entries as items of the **compact
+  topbar's** "Mehr" (⋮) menu, with the unread `Badge` moved onto that menu's
+  own button. The compact topbar has no room for another icon: adding a
+  standalone bell collapsed the page title to a single letter at 375px on
+  action-heavy pages (Anbauflächen), which is what made the responsive
+  screenshot baseline fail. Collapsing a secondary action into that menu is
+  the pattern the topbar already uses elsewhere.
+  It is a hook returning an array, not a component, because MUI's `Menu` reads
+  its direct children for keyboard navigation. `RootLayout` calls it and hands
+  the result to `GlobalMenu` as `notificationItems`, so `GlobalMenu` itself
+  needs neither router nor data-fetching context — it renders what it is
+  given.
+- `RootLayout` owns one `useNotifications` controller and feeds both entry
+  points, so the list is fetched once regardless of breakpoint.
 - `useNotifications.ts` — loads on mount and again on every dropdown open.
   Deliberately **not** polled: these are the outcome of a human moderation
   decision, so a refresh on open is timely enough and costs one request rather

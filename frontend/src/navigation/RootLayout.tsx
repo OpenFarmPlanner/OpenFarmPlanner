@@ -9,6 +9,7 @@
 import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   AppBar,
+  Badge,
   Button,
   ButtonGroup,
   Chip,
@@ -63,6 +64,8 @@ import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { useNotifications } from '../notifications/useNotifications';
+import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
@@ -151,6 +154,7 @@ function getCompactTopbarActionIcon(actionId: string): React.ReactNode {
  */
 function RootLayout() {
   const { t, i18n } = useTranslation('navigation');
+  const { t: tNotifications } = useTranslation('notifications');
   useGlobalOverlayKeyboardScroll();
   const tCultures = useMemo(
     () => i18n.getFixedT(i18n.resolvedLanguage ?? i18n.language ?? 'de', 'cultures'),
@@ -197,6 +201,9 @@ function RootLayout() {
   const { user, endGuestDemo, logout, activeProjectId, switchActiveProject } = useAuth();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
   const { activeCreateActions, openPalette, runPrimaryCreateAction, openShortcutsHelp } = useCommandContext();
+  // One controller for both entry points — the full topbar's bell and, on
+  // compact widths, the "Mehr" menu — so the list is fetched once.
+  const notifications = useNotifications(true);
   const [globalMenuAnchor, setGlobalMenuAnchor] = useState<null | HTMLElement>(null);
   const [projectMenuAnchor, setProjectMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -248,6 +255,9 @@ function RootLayout() {
   const handleGlobalMenuClose = () => {
     setGlobalMenuAnchor(null);
   };
+  // Built here rather than inside GlobalMenu so that menu keeps needing no
+  // router context — see its `notificationItems` prop.
+  const notificationMenuItems = useNotificationMenuItems(notifications, handleGlobalMenuClose);
   const handleOpenMobileProjectSwitcher = (): void => {
     handleGlobalMenuClose();
     setMobileProjectSwitcherOpen(true);
@@ -1384,7 +1394,7 @@ function RootLayout() {
             onOpenProjectTrash={handleOpenProjectTrash}
             t={t}
           />
-          <NotificationBell />
+          <NotificationBell controller={notifications} />
           <IconButton
             aria-label="Mehr"
             aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
@@ -1697,15 +1707,20 @@ function RootLayout() {
                   ))}
                 </Menu>
               ) : null}
-              <NotificationBell buttonSize={COMPACT_TOPBAR_TOGGLE_SIZE} />
               <IconButton
-                aria-label="Mehr"
+                aria-label={notifications.unreadCount > 0
+                  ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
+                  : 'Mehr'}
                 aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
                 aria-haspopup="true"
                 onClick={handleGlobalMenuOpen}
                 sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
               >
-                <MoreVertIcon />
+                {/* The compact topbar has no room for its own bell, so the
+                    unread signal rides on the menu that holds the entries. */}
+                <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
+                  <MoreVertIcon />
+                </Badge>
               </IconButton>
               <GlobalMenu
                 anchorEl={globalMenuAnchor}
@@ -1713,6 +1728,7 @@ function RootLayout() {
                 historyLoading={historyLoading}
                 userLabel={user?.email ? `(${user.email})` : (user?.display_label ? `(${user.display_label})` : '')}
                 isMobile={isCompactTopbar}
+                notificationItems={isCompactTopbar ? notificationMenuItems : undefined}
                 onClose={handleGlobalMenuClose}
                 onOpenProjectSwitcher={handleOpenMobileProjectSwitcher}
                 onOpenCreateProject={handleOpenCreateProject}

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { NotificationBell } from '../notifications/NotificationBell';
+import { GlobalMenu } from '../navigation/GlobalMenu';
 import { useNotifications } from '../notifications/useNotifications';
+import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
+import i18n from '../i18n/config';
 import type { AppNotification } from '../api/types';
 
 const { notificationListMock, notificationMarkReadMock, navigateMock } = vi.hoisted(() => ({
@@ -15,10 +17,7 @@ vi.mock('../api/api', async () => {
   const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
   return {
     ...actual,
-    notificationAPI: {
-      list: notificationListMock,
-      markRead: notificationMarkReadMock,
-    },
+    notificationAPI: { list: notificationListMock, markRead: notificationMarkReadMock },
   };
 });
 
@@ -39,19 +38,42 @@ const notification = (overrides: Partial<AppNotification> = {}): AppNotification
   ...overrides,
 });
 
-/** Mirrors RootLayout, which owns the controller and hands it to the bell. */
-function BellHarness() {
+/** Mirrors RootLayout's compact branch: the entries are built outside the menu and passed in. */
+function MenuHarness({ compact }: { compact: boolean }) {
   const controller = useNotifications(true);
-  return <NotificationBell controller={controller} />;
+  const items = useNotificationMenuItems(controller, () => {});
+  return (
+    <GlobalMenu
+      anchorEl={document.body}
+      open
+      historyLoading={false}
+      userLabel=""
+      isMobile={compact}
+      notificationItems={compact ? items : undefined}
+      onClose={() => {}}
+      onOpenProjectSwitcher={() => {}}
+      onOpenCreateProject={() => {}}
+      onOpenProjectSettings={() => {}}
+      onOpenProjectHistory={async () => {}}
+      onOpenAccountSettings={() => {}}
+      onOpenShortcuts={() => {}}
+      onOpenHelp={() => {}}
+      canLeaveDemoProject={false}
+      isGuestDemoSession={false}
+      onLeaveDemoProject={async () => {}}
+      onLogout={async () => {}}
+      t={(key: string) => i18n.t(key, { ns: 'navigation' })}
+    />
+  );
 }
 
-const renderBell = () => render(
+const renderMenu = (compact = true) => render(
   <MemoryRouter>
-    <BellHarness />
+    <MenuHarness compact={compact} />
   </MemoryRouter>,
 );
 
-describe('NotificationBell', () => {
+describe('GlobalMenu notifications section', () => {
   beforeEach(() => {
     notificationListMock.mockReset();
     notificationMarkReadMock.mockReset();
@@ -62,60 +84,38 @@ describe('NotificationBell', () => {
     });
   });
 
-  it('shows the unread count on the bell and renders the localized message with a relative time', async () => {
-    renderBell();
-
-    const bell = await screen.findByRole('button', { name: /Benachrichtigungen \(1 ungelesen\)/i });
-    fireEvent.click(bell);
+  it('lists the notifications inside the compact topbar menu', async () => {
+    renderMenu();
 
     expect(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
     expect(screen.getByText(/vor 2 Tagen/)).toBeInTheDocument();
+    expect(screen.getByText('Benachrichtigungen')).toBeInTheDocument();
   });
 
-  it('does not mark anything as read just by opening the dropdown', async () => {
-    renderBell();
+  it('marks the clicked entry as read and navigates', async () => {
+    renderMenu();
 
-    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
-    await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.');
-
-    expect(notificationMarkReadMock).not.toHaveBeenCalled();
-    // The open menu is a modal, so the bell behind it is aria-hidden — the
-    // unread count is still what its label reports.
-    expect(screen.getByRole('button', { name: /1 ungelesen/i, hidden: true })).toBeInTheDocument();
-  });
-
-  it('marks exactly the clicked entry as read and navigates to the linked object', async () => {
-    renderBell();
-
-    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
     fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
 
     await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
     expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
-    // The unread count is gone once the only unread entry was read.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Benachrichtigungen' })).toBeInTheDocument());
   });
 
-  it('renders no badge and an empty state when there is nothing to show', async () => {
+  it('shows an empty state when there is nothing to show', async () => {
     notificationListMock.mockResolvedValue({
       data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
     });
 
-    renderBell();
-
-    const bell = await screen.findByRole('button', { name: 'Benachrichtigungen' });
-    fireEvent.click(bell);
+    renderMenu();
 
     expect(await screen.findByText('Keine Benachrichtigungen')).toBeInTheDocument();
   });
 
-  it('reports a failed load instead of rendering an empty dropdown', async () => {
-    notificationListMock.mockRejectedValue(new Error('network'));
+  it('omits the section entirely on the full topbar, where the bell owns it', async () => {
+    renderMenu(false);
 
-    renderBell();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Benachrichtigungen' }));
-
-    expect(await screen.findByText('Benachrichtigungen konnten nicht geladen werden.')).toBeInTheDocument();
+    await waitFor(() => expect(notificationListMock).toHaveBeenCalled());
+    expect(screen.queryByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Benachrichtigungen')).not.toBeInTheDocument();
   });
 });

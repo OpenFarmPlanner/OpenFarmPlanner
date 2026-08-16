@@ -10,14 +10,15 @@ import {
   Typography,
 } from '@mui/material';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import { useNavigate } from 'react-router';
 import { AppTooltip } from '../components/AppTooltip';
 import { useTranslation } from '../i18n';
 import { formatRelativeTime } from '../utils/relativeTime';
-import { getNotificationLink, getNotificationMessage } from './notificationDisplay';
-import { useNotifications } from './useNotifications';
+import { getNotificationMessage } from './notificationDisplay';
+import { useNotificationSelection, type NotificationsController } from './useNotifications';
+import type { AppNotification } from '../api/types';
 
 interface NotificationBellProps {
+  controller: NotificationsController;
   /** Topbar icon buttons share one square size; passed in so the bell matches its neighbours. */
   buttonSize?: number;
 }
@@ -25,15 +26,20 @@ interface NotificationBellProps {
 /**
  * Topbar bell with an unread badge and a dropdown of the user's notifications.
  *
+ * Only rendered on the full topbar. The compact topbar has no room for another
+ * icon next to the page actions (it collapsed the page title to a single
+ * letter), so there the same notifications live inside the "Mehr" menu — see
+ * `NotificationMenuItems`.
+ *
  * Opening the menu deliberately marks nothing as read — only clicking a single
  * entry does, which then navigates to the object the notification is about.
  */
-export function NotificationBell({ buttonSize }: NotificationBellProps) {
+export function NotificationBell({ controller, buttonSize }: NotificationBellProps) {
   const { t, i18n } = useTranslation('notifications');
-  const navigate = useNavigate();
   const [anchorElement, setAnchorElement] = useState<null | HTMLElement>(null);
   const isOpen = Boolean(anchorElement);
-  const { notifications, unreadCount, isLoading, hasError, reload, markRead } = useNotifications(true);
+  const { notifications, unreadCount, isLoading, hasError, reload } = controller;
+  const selectNotification = useNotificationSelection(controller);
   const language = i18n.resolvedLanguage ?? i18n.language;
 
   const handleOpen = (event: MouseEvent<HTMLElement>): void => {
@@ -41,12 +47,9 @@ export function NotificationBell({ buttonSize }: NotificationBellProps) {
     reload();
   };
 
-  const handleSelect = (id: number, link: string | null): void => {
-    markRead(id);
+  const handleSelect = (notification: AppNotification): void => {
     setAnchorElement(null);
-    if (link) {
-      void navigate(link);
-    }
+    selectNotification(notification);
   };
 
   const label = unreadCount > 0
@@ -106,7 +109,7 @@ export function NotificationBell({ buttonSize }: NotificationBellProps) {
         {notifications.map((notification) => (
           <ListItemButton
             key={notification.id}
-            onClick={() => handleSelect(notification.id, getNotificationLink(notification))}
+            onClick={() => handleSelect(notification)}
             sx={{
               alignItems: 'flex-start',
               display: 'block',
