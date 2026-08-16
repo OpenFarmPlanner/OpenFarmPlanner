@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  createFilterOptions,
   Dialog,
   DialogActions,
   DialogContent,
@@ -57,6 +58,29 @@ const normalizeSpeciesName = (value: string | undefined | null): string => (
 // canonical "Pumpkin") looks missing, and proposing it as new fails
 // server-side because that translation already exists.
 const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+
+/**
+ * Sentinel option that lets the user propose their own typed name as a new
+ * crop species. It is appended to the species dropdown as the last entry
+ * whenever something is typed — also when the search *does* match official
+ * species, because a partial match ("Kürbis" matching "Kürbisgewächse") must
+ * not hide the escape hatch.
+ */
+interface ProposeSpeciesOption {
+  proposeName: string;
+}
+
+type SpeciesPickerOption = CropSpecies | ProposeSpeciesOption;
+
+const isProposeSpeciesOption = (option: SpeciesPickerOption): option is ProposeSpeciesOption => (
+  'proposeName' in option
+);
+
+const getSpeciesPickerOptionLabel = (option: SpeciesPickerOption): string => (
+  isProposeSpeciesOption(option) ? option.proposeName : getCropSpeciesOptionLabel(option)
+);
+
+const filterSpeciesOptions = createFilterOptions<SpeciesPickerOption>();
 
 const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined): CropSpecies | null => {
   const cultureSpeciesId = culture?.crop_species ?? null;
@@ -383,14 +407,47 @@ export function CulturesPublishingWizardDialog({
           <Stack spacing={2}>
             {isOwnedPublicCultureUpdate ? null : (
               <>
-                <Autocomplete
+                <Autocomplete<SpeciesPickerOption>
                   options={species}
                   value={selectedSpecies}
                   inputValue={speciesInputValue}
                   loading={speciesLoading}
-                  getOptionLabel={getCropSpeciesOptionLabel}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  getOptionLabel={getSpeciesPickerOptionLabel}
+                  isOptionEqualToValue={(option, value) => (
+                    !isProposeSpeciesOption(option) && !isProposeSpeciesOption(value) && option.id === value.id
+                  )}
+                  getOptionDisabled={(option) => isProposeSpeciesOption(option) && proposingSpecies}
+                  filterOptions={(options, params) => {
+                    const filtered = filterSpeciesOptions(options, params);
+                    const proposeName = params.inputValue.trim();
+                    if (!proposeName || speciesLoading) {
+                      return filtered;
+                    }
+                    return [...filtered, { proposeName }];
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...optionProps } = props;
+                    if (isProposeSpeciesOption(option)) {
+                      return (
+                        <Box component="li" {...optionProps} key="propose-species" sx={{ gap: 1 }}>
+                          <Typography variant="body2" color="primary.main">
+                            {t('library.publishWizard.proposeSpeciesInline', { name: option.proposeName })}
+                          </Typography>
+                          {proposingSpecies ? <CircularProgress color="inherit" size={16} /> : null}
+                        </Box>
+                      );
+                    }
+                    return (
+                      <li {...optionProps} key={key}>
+                        {getCropSpeciesOptionLabel(option)}
+                      </li>
+                    );
+                  }}
                   onChange={(_, value) => {
+                    if (value && isProposeSpeciesOption(value)) {
+                      void handleProposeSpecies(value.proposeName);
+                      return;
+                    }
                     setSelectedSpecies(value);
                     setSelectedPublicCulture(null);
                     setProposedSpeciesName(null);
@@ -400,35 +457,17 @@ export function CulturesPublishingWizardDialog({
                     setSpeciesInputValue(value);
                     setProposeSpeciesError('');
                   }}
-                  noOptionsText={speciesLoading ? (
-                    <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
-                  ) : speciesInputValue.trim() ? (
-                    <Stack spacing={0.5} sx={{ alignItems: "flex-start", }} >
-                      <Button
-                        size="small"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => void handleProposeSpecies(speciesInputValue)}
-                        disabled={proposingSpecies}
-                      >
-                        {proposingSpecies
-                          ? t('library.publishWizard.proposeSpeciesButton')
-                          : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
-                      </Button>
-                      {proposeSpeciesError ? (
-                        <Typography variant="body2" color="error.main" sx={{ px: 1 }}>
-                          {proposeSpeciesError}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  ) : (
-                    t('library.publishWizard.speciesNoOptions')
-                  )}
+                  noOptionsText={speciesLoading
+                    ? <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
+                    : t('library.publishWizard.speciesNoOptions')}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       inputRef={speciesInputRef}
                       label={t('library.publishWizard.speciesLabel')}
                       required
+                      error={Boolean(proposeSpeciesError)}
+                      helperText={proposeSpeciesError || undefined}
                       slotProps={{
                         ...params.slotProps,
 

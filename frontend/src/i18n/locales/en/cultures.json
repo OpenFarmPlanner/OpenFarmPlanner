@@ -1008,7 +1008,6 @@
       "speciesMissing": "No official crop species selected",
       "speciesNoOptions": "No matching official crop species found.",
       "proposeSpeciesInline": "Suggest \"{{name}}\" as a new crop species",
-      "proposeSpeciesButton": "Suggest",
       "proposedSpeciesNotice": "Your suggestion for the new crop species \"{{name}}\" has been submitted for review. You can go ahead and publish your variety now — it will appear provisionally under \"{{name}}\" until it's approved.",
       "proposeSpeciesError": "The suggestion could not be saved. Please try again.",
       "speciesAlreadyExists": "This crop species already exists or has already been suggested — possibly under a different name. Please search for it in the list.",

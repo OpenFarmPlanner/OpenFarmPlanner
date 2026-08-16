@@ -105,8 +105,8 @@ describe('CulturesPublishingWizardDialog', () => {
     const user = userEvent.setup();
     await user.type(speciesInput, 'Kürbis');
 
-    const proposeButton = await screen.findByRole('button', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
-    fireEvent.click(proposeButton);
+    const proposeOption = await screen.findByRole('option', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
 
@@ -149,7 +149,48 @@ describe('CulturesPublishingWizardDialog', () => {
     await user.type(speciesInput, 'Kürbis');
 
     expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the "propose a new crop species" entry as the last option even when the search matches', async () => {
+    cropSpeciesListMock.mockResolvedValue({
+      data: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          { id: 9, name: 'Pumpkin', display_name: 'Kürbis', status: 'published' },
+          { id: 10, name: 'Butternut squash', display_name: 'Kürbis Butternut', status: 'published' },
+        ],
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Kürbis');
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Kürbis',
+      'Kürbis Butternut',
+      '„Kürbis“ als neue Kulturart vorschlagen',
+    ]);
+
+    fireEvent.click(options[options.length - 1]);
+    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
+  });
+
+  it('hides the proposal entry while the species field is empty', async () => {
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.click(speciesInput);
+
+    expect(screen.queryByRole('option', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
   });
 
   it('shows an inline error when proposing a species fails', async () => {
@@ -168,8 +209,8 @@ describe('CulturesPublishingWizardDialog', () => {
     const user = userEvent.setup();
     await user.type(speciesInput, 'Kürbis');
 
-    const proposeButton = await screen.findByRole('button', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
-    fireEvent.click(proposeButton);
+    const proposeOption = await screen.findByRole('option', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
     expect(await screen.findByText(/existiert bereits oder wurde schon vorgeschlagen/)).toBeInTheDocument();

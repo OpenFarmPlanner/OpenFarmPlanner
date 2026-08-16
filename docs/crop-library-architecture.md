@@ -519,11 +519,17 @@ step when the user attempts publication, then shows only actionable problems:
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
 
-The species `Autocomplete` renders an inline proposal prompt as its
-`noOptionsText` when a typed name matches no official species, instead of a
-separate always-visible link — clicking it calls
-`crops.services`' `CropSpecies.propose()` endpoint directly from the
-dropdown.
+The species `Autocomplete` offers the proposal inline in the dropdown instead
+of as a separate always-visible link: a sentinel option
+(`ProposeSpeciesOption` in `CulturesPublishingWizardDialog.tsx`) is appended
+by `filterOptions` as the **last** entry whenever the field holds text —
+including when official species *do* match. Hiding it behind `noOptionsText`
+(the earlier behaviour) meant a partial match such as "Kürbis" matching
+"Kürbisgewächse" silently removed the escape hatch, leaving no way to propose
+the name the user actually typed. Being a real option rather than a button in
+the empty-state slot also makes it keyboard-reachable; selecting it calls
+`crops.services`' `CropSpecies.propose()` endpoint directly from the dropdown,
+and a failed proposal surfaces as the field's `error`/`helperText`.
 
 A user does not have to wait for moderation to publish once they've proposed
 a species: `resolve_publishing_crop_species()` (`farm.services.public_cultures`)
