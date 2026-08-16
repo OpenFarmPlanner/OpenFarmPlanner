@@ -29,7 +29,7 @@ interface NotificationBellProps {
  * Only rendered on the full topbar. The compact topbar has no room for another
  * icon next to the page actions (it collapsed the page title to a single
  * letter), so there the same notifications live inside the "Mehr" menu — see
- * `NotificationMenuItems`.
+ * `useNotificationMenuItems`.
  *
  * Opening the menu deliberately marks nothing as read — only clicking a single
  * entry does, which then navigates to the object the notification is about.
