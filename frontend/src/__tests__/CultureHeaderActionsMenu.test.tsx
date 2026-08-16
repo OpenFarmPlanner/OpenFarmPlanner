@@ -8,7 +8,7 @@ const labels: Record<string, string> = {
   'buttons.edit': 'Bearbeiten',
   'buttons.versions': 'Versionen',
   'buttons.delete': 'Löschen',
-  'library.updateButton': 'Öffentliche Kulturbibliothek aktualisieren',
+  'library.updateButton': 'Kulturbibliothek aktualisieren',
 };
 
 const t = ((key: string) => labels[key] ?? key) as TFunction<'cultures'>;
@@ -40,7 +40,7 @@ describe('CultureHeaderActionsMenu', () => {
 
     expect(menuItems).toEqual([
       'Versionen',
-      'Öffentliche Kulturbibliothek aktualisieren',
+      'Kulturbibliothek aktualisieren',
       'Löschen',
     ]);
     expect(screen.queryByRole('menuitem', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();

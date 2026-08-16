@@ -4,7 +4,7 @@
   "displayName": "Anzeigename",
   "sections": {
     "profile": "Profil",
-    "publicProfile": "Öffentliche Kulturbibliothek",
+    "publicProfile": "Kulturbibliothek",
     "security": "Login & Sicherheit",
     "privacy": "Datenschutz & Datenexport",
     "account": "Konto",
@@ -16,7 +16,7 @@
     "success": "Datenexport wurde erstellt."
   },
   "publicProfile": {
-    "description": "Dieser Name gehört zu deinem Konto und wird als Urheber:in bei allen Kulturen angezeigt, die du in der öffentlichen Kulturbibliothek veröffentlicht hast oder noch veröffentlichst.",
+    "description": "Dieser Name gehört zu deinem Konto und wird als Urheber:in bei allen Kulturen angezeigt, die du in der Kulturbibliothek veröffentlicht hast oder noch veröffentlichst.",
     "publicDisplayName": "Name bei Veröffentlichungen",
     "noPublicDisplayName": "Anonym",
     "helperText": "Ohne Namen veröffentlichst du anonym. Legst du später einen Namen fest, erscheint er automatisch bei allen bereits veröffentlichten Kulturen als Urheber – entfernst du ihn wieder, werden diese Kulturen wieder anonym angezeigt. Der Name muss eindeutig sein und darf noch von niemandem sonst verwendet werden.",
@@ -29,7 +29,7 @@
     "title": "Als Moderator mithelfen",
     "description": "Hilf dabei, Vorschläge für neue Kulturarten zu prüfen und die Kulturbibliothek konsistent zu halten.",
     "loading": "Status wird geladen…",
-    "alreadyModerator": "Du hast bereits Moderator-Rechte für die öffentliche Kulturbibliothek.",
+    "alreadyModerator": "Du hast bereits Moderator-Rechte für die Kulturbibliothek.",
     "pending": "Deine Anfrage wird geprüft.",
     "rejectedHint": "Du kannst eine neue Anfrage senden, wenn du weiterhin mithelfen möchtest.",
     "motivationLabel": "Warum möchtest du moderieren?",

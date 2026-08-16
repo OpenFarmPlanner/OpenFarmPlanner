@@ -248,7 +248,7 @@ describe('Cultures action area', () => {
       expect(screen.getByRole('button', { name: 'Kultur hinzufügen' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole('button', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
   });
 
   it('keeps public culture API idle when no public-library button is rendered', async () => {
@@ -258,7 +258,7 @@ describe('Cultures action area', () => {
       expect(screen.getByRole('button', { name: 'Kultur hinzufügen' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole('button', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
     expect(publicCultureListMock).not.toHaveBeenCalled();
   });
 
@@ -442,7 +442,7 @@ describe('Cultures action area', () => {
     renderCultures('/cultures?cultureId=1');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
   });
@@ -485,13 +485,13 @@ describe('Cultures action area', () => {
     renderCultures('/cultures?cultureId=1');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('Tomate · Roma aktualisieren')).toBeInTheDocument();
-    expect(within(dialog).getByText('Nur die folgenden abweichenden Werte werden in die öffentliche Kulturbibliothek übernommen.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nur die folgenden abweichenden Werte werden in die Kulturbibliothek übernommen.')).toBeInTheDocument();
     expect(within(dialog).queryByRole('combobox', { name: 'Passende öffentliche Kultur' })).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Offizielle Kulturart/)).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText('Originalsprache')).not.toBeInTheDocument();
@@ -530,7 +530,7 @@ describe('Cultures action area', () => {
     renderCultures('/cultures?cultureId=1');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
@@ -550,7 +550,7 @@ describe('Cultures action area', () => {
 
     renderCultures('/cultures?cultureId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Öffentliche Kulturbibliothek aktualisieren' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
   });

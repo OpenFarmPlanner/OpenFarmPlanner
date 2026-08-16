@@ -106,7 +106,7 @@ describe('AccountSettingsPage', () => {
     render(<MemoryRouter><AccountSettingsPage /></MemoryRouter>);
 
     expect(screen.getByText('Profil')).toBeInTheDocument();
-    expect(screen.getByText('Öffentliche Kulturbibliothek')).toBeInTheDocument();
+    expect(screen.getByText('Kulturbibliothek')).toBeInTheDocument();
     expect(screen.getByText('Login & Sicherheit')).toBeInTheDocument();
     expect(screen.getByText('Zugangsdaten')).toBeInTheDocument();
     expect(await screen.findByText('Anmeldemethoden')).toBeInTheDocument();

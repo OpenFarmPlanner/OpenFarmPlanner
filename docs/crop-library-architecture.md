@@ -27,6 +27,19 @@ two disagree about what exists, this file wins.
 | Unauthenticated public `/crops` route | **not done** — see §5 |
 | Separate `CropVariety` entity and species→variety attribute inheritance | **not done** — planned in public-crop-library-data-model.md §2 |
 
+### Naming: code/domain term vs. UI label
+
+Throughout this repository the *domain* term is "public Crop Library": it names
+the `crops` Django app boundary, the `Public*` models, the `/api/crops/`
+surface, and the `PublicCropLibraryPage` component. The *user-facing* label,
+however, is plain **"Kulturbibliothek"** (German) / **"Crop library"**
+(English) — the word "öffentlich"/"public" was dropped from the UI because the
+library is the only crop library users navigate to. Legal texts in
+`home.json` (privacy policy, terms of service) deliberately keep the explicit
+"öffentliche Kulturbibliothek" / "public crop library" wording, because the
+public nature of publishing is what those sections describe. Do not rename
+code identifiers to match the UI label.
+
 Goal: prepare and evolve the architecture for a public Crop Library
 (`/crops`) without splitting the repository unnecessarily. The library is
 now treated as a long-lived, community-built knowledge base for crop data.

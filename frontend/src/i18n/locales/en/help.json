@@ -20,7 +20,7 @@
     {
       "title": "Crops",
       "points": [
-        "Enter your crop data here, or draw on the public crop library."
+        "Enter your crop data here, or draw on the crop library."
       ]
     },
     {
@@ -139,8 +139,8 @@
           "title": "How to use it",
           "points": [
             "Select a crop to view or edit details.",
-            "The {{moreIcon}} opens further actions such as versions, publishing to the public crop library, or deleting the selected crop.",
-            "Use the public crop library to share or import crops."
+            "The {{moreIcon}} opens further actions such as versions, publishing to the crop library, or deleting the selected crop.",
+            "Use the crop library to share or import crops."
           ]
         },
         {
@@ -154,15 +154,15 @@
       "symbolsTitle": "Icons and controls",
       "symbols": {
         "add": "Create a new crop",
-        "library": "Open public crop library",
+        "library": "Open crop library",
         "createPlan": "Create a planting plan for this crop",
         "more": "Open more actions",
         "edit": "Edit crop data"
       }
     },
     "cropLibrary": {
-      "title": "Help: Public crop library",
-      "intro": "The public crop library contains community-published crops that can be used across projects.",
+      "title": "Help: Crop library",
+      "intro": "The crop library contains community-published crops that can be used across projects.",
       "sections": [
         {
           "title": "Collaboration",
@@ -176,7 +176,7 @@
           "title": "Using crops",
           "points": [
             "Import useful crops as your own project copy into the current project.",
-            "Already imported project crops stay independent from later changes in the public crop library."
+            "Already imported project crops stay independent from later changes in the crop library."
           ]
         }
       ]
