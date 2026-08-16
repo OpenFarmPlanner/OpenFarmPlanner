@@ -34,7 +34,7 @@ describe('PublicCropHierarchyList', () => {
         selectedCultureId={2}
         isSpeciesView={false}
         onSelect={vi.fn()}
-        ariaLabel="Public crop library"
+        ariaLabel="Crop library"
         searchQuery="bohne"
       />,
     );

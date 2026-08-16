@@ -176,15 +176,15 @@
     "existingCropHint": "The crop \"{{name}}\" already exists in this project. You can add a new variety to it instead.",
     "existingCropAddVarietyAction": "Add variety",
     "publicCultureAutocompleteHelp": "Public crops are suggested, free text is always possible.",
-    "publicCultureSourceHint": "Base values were copied from the public crop library and can be adjusted in this private crop.",
-    "publicCultureSuggestionsGroupLabel": "From the public crop library",
-    "publicCultureApplyHint": "\"{{name}}\" exists in the public crop library.",
+    "publicCultureSourceHint": "Base values were copied from the crop library and can be adjusted in this private crop.",
+    "publicCultureSuggestionsGroupLabel": "From the crop library",
+    "publicCultureApplyHint": "\"{{name}}\" exists in the crop library.",
     "publicCultureApplyAction": "Apply values",
-    "firstVarietySourceHint": "Base values for this variety were copied from the public crop library and will be used for the new variety when you save.",
+    "firstVarietySourceHint": "Base values for this variety were copied from the crop library and will be used for the new variety when you save.",
     "publicCropIdentityLabel": "Crop (public identity, not editable)",
     "publicCultureImportedCopiesCount_one": "This change affects {{count}} local copy in projects that imported this variety.",
     "publicCultureImportedCopiesCount_other": "This change affects {{count}} local copies in projects that imported this variety.",
-    "varietyConflict": "This crop and variety combination already exists in the public crop library. Please choose a different variety name.",
+    "varietyConflict": "This crop and variety combination already exists in the crop library. Please choose a different variety name.",
     "supplier": "Seed supplier",
     "supplierPlaceholder": "Select supplier",
     "supplierRequired": "Seed supplier is required",
@@ -579,11 +579,11 @@
       "emptyInstructionAria": "How it works: open the three-dot menu on a crop and choose {{publish}}."
     },
     "page": {
-      "title": "Public crop library",
+      "title": "Crop library",
       "description": "Browse public crops, import useful entries quickly into your project, and help improve the shared reference data step by step.",
       "help": {
-        "tooltip": "Help for the public crop library",
-        "openAria": "Open help for the public crop library"
+        "tooltip": "Help for the crop library",
+        "openAria": "Open help for the crop library"
       },
       "moderation": {
         "open": "Moderation"
@@ -805,10 +805,10 @@
       "updateWarning": "Updating will discard your local changes and replace them with the current version from the library.",
       "importAsNew": "Import as new crop",
       "update": "Update",
-      "resolveElsewhere": "“{{name}}” was already imported and has been edited locally since. Open the crop in the public crop library to decide how to proceed."
+      "resolveElsewhere": "“{{name}}” was already imported and has been edited locally since. Open the crop in the crop library to decide how to proceed."
     },
     "publicUpdate": {
-      "notice": "A newer version of this crop is available in the public crop library.",
+      "notice": "A newer version of this crop is available in the crop library.",
       "review": "Review changes",
       "loading": "Loading changes…",
       "loadError": "The changes from the library could not be loaded.",
@@ -832,32 +832,32 @@
       "markerRejectedLabel": "Update declined",
       "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
       "publishBlocked": {
-        "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the public crop library.",
+        "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the crop library.",
         "update_rejected": "You declined a newer version from the library. Edit the public crop directly first to align the versions.",
         "no_local_changes": "Your local copy matches the current public version. Edit it locally first to publish an update."
       }
     },
     "publishButton": "Publish",
     "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
-    "updateButton": "Update public crop library",
+    "updateButton": "Update crop library",
     "publishing": "Publishing…",
     "updating": "Updating…",
     "publishSuccess": "“{{name}}” was published to the crop library.",
     "updateSuccess": "The public version of “{{name}}” was updated.",
-    "linkPublicCultureSuccess": "“{{name}}” was linked to the public crop library.",
+    "linkPublicCultureSuccess": "“{{name}}” was linked to the crop library.",
     "publishDuplicateError": "This crop already exists in the crop library.",
     "publishDuplicateErrorWithCandidates": "This crop already exists publicly: {{duplicates}}",
     "publishError": "The crop could not be published.",
     "removeAction": "Remove from library",
-    "removeSuccess": "“{{name}}” was removed from the public crop library.",
+    "removeSuccess": "“{{name}}” was removed from the crop library.",
     "removeError": "The culture could not be removed from the library.",
     "hardDeleteAction": "Permanently delete",
     "hardDeleteSuccess": "“{{name}}” was permanently deleted.",
     "hardDeleteError": "The culture could not be permanently deleted. There are probably still references or provenance data.",
     "removeDialog": {
       "title": "Remove from library?",
-      "message": "“{{name}}” disappears from the public crop library. Cultures already imported into projects remain fully intact. You can publish the culture again later.",
-      "moderationMessage": "Are you sure you want to remove “{{name}}” from the public crop library? It will be removed for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
+      "message": "“{{name}}” disappears from the crop library. Cultures already imported into projects remain fully intact. You can publish the culture again later.",
+      "moderationMessage": "Are you sure you want to remove “{{name}}” from the crop library? It will be removed for all users. Already imported project cultures remain unchanged. Please select the moderation reason.",
       "reasonLabel": "Reason"
     },
     "hardDeleteDialog": {
@@ -878,7 +878,7 @@
     "anonymousAuthor": "Anonymous",
     "moderation": {
       "title": "Moderate crop library",
-      "forbidden": "You do not have permission to moderate the public crop library.",
+      "forbidden": "You do not have permission to moderate the crop library.",
       "loadError": "Moderation data could not be loaded.",
       "actionError": "The moderation action could not be completed.",
       "approve": "Approve",
@@ -922,12 +922,12 @@
       "title": "Publish crop?",
       "intro": "“{{name}}” will be published as a growing data record.",
       "items": {
-        "permanent": "The record becomes a permanent part of the public crop library.",
+        "permanent": "The record becomes a permanent part of the crop library.",
         "privateData": "Private data such as your email address, private notes and photos are not published. Only your public display name is visible, if you have set one.",
         "reuse": "Others can permanently import, use and build on the record.",
         "license": "Licence: CC BY-SA 4.0. In practice this means: use and modification are allowed as long as the source is credited and improvements are shared under the same conditions."
       },
-      "acceptLicense": "I am allowed to publish this dataset and agree that it becomes a durable part of the public crop library under CC BY-SA 4.0.",
+      "acceptLicense": "I am allowed to publish this dataset and agree that it becomes a durable part of the crop library under CC BY-SA 4.0.",
       "linkPrefix": "Details are available in the ",
       "privacyLinkLabel": "privacy policy",
       "linkMiddle": " and the ",
@@ -950,7 +950,7 @@
       "comparison": {
         "ariaLabel": "Comparison between public and private crop",
         "title": "Changes before publishing",
-        "description": "Only the differing values below will be applied to the public crop library.",
+        "description": "Only the differing values below will be applied to the crop library.",
         "publicValue": "Currently public",
         "privateValue": "New private value",
         "noChanges": "There are no changes compared with the current public version.",
@@ -1028,7 +1028,7 @@
       "generalCropNoticeLink": "Edit in the library",
       "licenseComplete": "License confirmed",
       "licenseMissing": "License confirmation missing",
-      "licenseAlreadyAccepted": "The contribution terms for the public crop library have already been accepted.",
+      "licenseAlreadyAccepted": "The contribution terms for the crop library have already been accepted.",
       "steps": {
         "species": "Crop species",
         "language": "Original language",

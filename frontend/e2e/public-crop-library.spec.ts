@@ -107,7 +107,7 @@ test('public crop library supports quick import, direct edit, versions, discussi
     await expect(page).toHaveURL(/\/app\/crop-library/);
 
     await page.goto('/app/crop-library');
-    await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Kulturbibliothek' })).toBeVisible();
     await expect(page.getByText('Die Kulturbibliothek wächst mit der Community')).toBeVisible();
     await expect(page.getByText('Teile deine bewährten Kulturen mit anderen.')).toBeVisible();
     await page.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
@@ -185,7 +185,7 @@ test('public crop library supports quick import, direct edit, versions, discussi
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Kulturbibliothek' })).toBeVisible();
     await expect(page.getByLabel('Öffentliche Kulturen durchsuchen')).not.toBeVisible();
     await page.getByRole('button', { name: 'Kultur auswählen' }).click();
     const mobileSelector = page.getByRole('dialog', { name: 'Kultur auswählen' });

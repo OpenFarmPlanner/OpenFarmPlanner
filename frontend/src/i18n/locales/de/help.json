@@ -20,7 +20,7 @@
     {
       "title": "Kulturen",
       "points": [
-        "Hier trägst du deine Kulturdaten ein oder greifst auf die öffentliche Kulturbibliothek zurück."
+        "Hier trägst du deine Kulturdaten ein oder greifst auf die Kulturbibliothek zurück."
       ]
     },
     {
@@ -139,8 +139,8 @@
           "title": "Bedienung",
           "points": [
             "Wähle eine Kultur aus, um Details anzuzeigen, zu bearbeiten oder Anbaupläne dafür zu erstellen.",
-            "Über {{moreIcon}} erreichst du weitere Aktionen wie Versionen, Veröffentlichung in der öffentlichen Kulturbibliothek oder das Löschen der ausgewählten Kultur.",
-            "Nutze die öffentliche Kulturbibliothek, um Kulturen zu entdecken, zu verwenden oder zu veröffentlichen."
+            "Über {{moreIcon}} erreichst du weitere Aktionen wie Versionen, Veröffentlichung in der Kulturbibliothek oder das Löschen der ausgewählten Kultur.",
+            "Nutze die Kulturbibliothek, um Kulturen zu entdecken, zu verwenden oder zu veröffentlichen."
           ]
         },
         {
@@ -161,8 +161,8 @@
       }
     },
     "cropLibrary": {
-      "title": "Hilfe: Öffentliche Kulturbibliothek",
-      "intro": "Die öffentliche Kulturbibliothek enthält gemeinschaftlich veröffentlichte Kulturen, die projektübergreifend genutzt werden können.",
+      "title": "Hilfe: Kulturbibliothek",
+      "intro": "Die Kulturbibliothek enthält gemeinschaftlich veröffentlichte Kulturen, die projektübergreifend genutzt werden können.",
       "sections": [
         {
           "title": "Zusammenarbeit",
@@ -176,7 +176,7 @@
           "title": "Verwendung",
           "points": [
             "Importiere passende Kulturen als eigene Projektkopie in dein aktuelles Projekt.",
-            "Bereits importierte Projektkulturen bleiben unabhängig von späteren Änderungen in der öffentlichen Kulturbibliothek."
+            "Bereits importierte Projektkulturen bleiben unabhängig von späteren Änderungen in der Kulturbibliothek."
           ]
         }
       ]

@@ -4,7 +4,7 @@
   "locations": "Standorte",
   "fieldsAndBeds": "Anbauflächen",
   "cultures": "Kulturen",
-  "cropLibrary": "Öffentliche Kulturbibliothek",
+  "cropLibrary": "Kulturbibliothek",
   "suppliers": "Lieferanten",
   "plantingPlans": "Anbaupläne",
   "ganttChart": "Anbaukalender",
@@ -62,7 +62,7 @@
     "locations": "Hilfe zu Standorte",
     "areas": "Hilfe zu Anbauflächen",
     "cultures": "Hilfe zu Kulturen",
-    "cropLibrary": "Hilfe zur öffentlichen Kulturbibliothek",
+    "cropLibrary": "Hilfe zur Kulturbibliothek",
     "plantingPlans": "Hilfe zu Anbauplänen",
     "calendar": "Hilfe zu Anbaukalender",
     "yieldOverview": "Hilfe zu Ertragsübersicht",
@@ -138,7 +138,7 @@
         "next": "Nächste Kultur auswählen"
       },
       "publicCropLibrary": {
-        "title": "Öffentliche Kulturbibliothek",
+        "title": "Kulturbibliothek",
         "search": "Kulturbibliothek durchsuchen",
         "edit": "Öffentliche Kultur bearbeiten",
         "import": "Kultur importieren",
@@ -193,8 +193,8 @@
     "restoreVersion": "Zu dieser Version wechseln",
     "contextTitles": {
       "global": "Global",
-      "cultures": "Kulturbibliothek",
-      "publicCropLibrary": "Öffentliche Kulturbibliothek",
+      "cultures": "Kulturen",
+      "publicCropLibrary": "Kulturbibliothek",
       "locations": "Standorte",
       "areas": "Anbauflächen",
       "plans": "Anbaupläne",

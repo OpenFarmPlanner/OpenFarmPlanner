@@ -194,7 +194,7 @@ function TestAppShell() {
     <>
       <LocationProbe />
       <header>
-        <h1>Öffentliche Kulturbibliothek</h1>
+        <h1>Kulturbibliothek</h1>
         {topbarContextActions.map((action) => (
           <Fragment key={action.id}>
             <button
@@ -313,7 +313,7 @@ describe('PublicCropLibraryPage', () => {
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
 
-    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { name: 'Kulturbibliothek' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
@@ -364,7 +364,7 @@ describe('PublicCropLibraryPage', () => {
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
 
-    expect(screen.getAllByRole('heading', { name: 'Öffentliche Kulturbibliothek' })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { name: 'Kulturbibliothek' })).toHaveLength(1);
     expect(within(cropDetailHeader).getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
     expect(within(cropDetailHeader).queryByRole('button', { name: 'Moderation' })).not.toBeInTheDocument();
@@ -526,7 +526,7 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
     expect(screen.queryByText('Version 1')).not.toBeInTheDocument();
-    expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).not.toBeInTheDocument();
   });
 
@@ -537,7 +537,7 @@ describe('PublicCropLibraryPage', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
 
-    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).toBeInTheDocument();
   });
 
@@ -549,7 +549,7 @@ describe('PublicCropLibraryPage', () => {
     const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
     await user.click(within(titleTrigger).getByTestId('culture-title-selector-chevron'));
 
-    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
   });
 
   it('keeps the selected public culture when the mobile selector is cancelled', async () => {
@@ -561,7 +561,7 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
     });
     expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Tomate')).toBeInTheDocument();
     expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
@@ -573,14 +573,14 @@ describe('PublicCropLibraryPage', () => {
     renderPage(['/app/crop-library?cultureId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
-    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
 
     act(() => {
       window.history.back();
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
       expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
     });
   });
@@ -599,7 +599,7 @@ describe('PublicCropLibraryPage', () => {
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
       expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2');
     });
     expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Salat')).toBeInTheDocument();
@@ -631,7 +631,7 @@ describe('PublicCropLibraryPage', () => {
     renderPage(['/app/crop-library?cultureId=1']);
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
-    expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' })).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Kultur auswählen' })).not.toBeInTheDocument();
   });
@@ -947,7 +947,7 @@ describe('PublicCropLibraryPage', () => {
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
-    const cultureList = screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' });
+    const cultureList = screen.getByRole('listbox', { name: 'Kulturbibliothek' });
     fireEvent.scroll(cultureList, { target: { scrollTop: 48 } });
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Thread mit Scrollposition'));
@@ -959,7 +959,7 @@ describe('PublicCropLibraryPage', () => {
 
     await screen.findByText('Kommentar mit Scrollposition');
     await waitFor(() => {
-      expect(screen.getByRole('listbox', { name: 'Öffentliche Kulturbibliothek' }).scrollTop).toBe(48);
+      expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' }).scrollTop).toBe(48);
     });
   });
 
