@@ -939,7 +939,24 @@ function RootLayout() {
         elevation={0}
         sx={{ borderBottom: '1px solid', borderColor: 'surface.surfaceBorder', bgcolor: 'surface.topbarBackground', backdropFilter: 'saturate(120%) blur(2px)' }}
       >
-        <Toolbar variant="dense" sx={{ minHeight: 56, gap: 1, py: 0.5, px: { xs: 0, sm: 2, md: 3 }, flexWrap: 'nowrap', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+        <Toolbar
+          variant="dense"
+          sx={{
+            minHeight: 56,
+            gap: 1,
+            py: 0.5,
+            px: { xs: 0, sm: 2, md: 3 },
+            flexWrap: 'nowrap',
+            minWidth: 0,
+            maxWidth: '100%',
+            // Only horizontal overflow needs hiding (long titles/labels must not
+            // force a horizontal scrollbar); clipping the vertical axis too cuts
+            // off anything that legitimately overlaps a button's edge, like the
+            // moderation badge.
+            overflowX: 'hidden',
+            overflowY: 'visible',
+          }}
+        >
           {!isDesktopUp ? <IconButton aria-label={t('globalMenu.openMobileMenu')} onClick={() => setMobileNavOpen(true)} sx={{ width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}><MenuIcon /></IconButton> : null}
           <Box sx={{
             display: 'inline-flex',
@@ -1074,8 +1091,8 @@ function RootLayout() {
             ) : null}
           </Box>
           {!isCompactTopbar ? (
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', overflow: 'hidden', pr: 0.5 }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflowX: 'hidden', overflowY: 'visible', position: 'relative', zIndex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', overflowX: 'hidden', overflowY: 'visible', pr: 0.5 }}>
           {isCulturesPage ? (
             <>
               {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
@@ -1165,17 +1182,7 @@ function RootLayout() {
                 badgeContent={publicLibraryModerationAction.badgeContent}
                 color="error"
                 overlap="rectangular"
-                sx={{
-                  flexShrink: 0,
-                  // The default badge transform (translate(50%, -50%)) pokes half
-                  // the badge above the button's top edge, which the topbar's own
-                  // `overflow: hidden` then clips vertically. Dropping the
-                  // vertical half of that transform keeps the badge's top edge
-                  // pinned to the button's top edge — never above it, so it can
-                  // never be clipped — while it still pokes past the button on
-                  // the right, where there's room and no clipping ancestor.
-                  '& .MuiBadge-badge': { top: 2, right: 2, transform: 'translate(50%, 0)' },
-                }}
+                sx={{ flexShrink: 0 }}
               >
                 <Button
                   size="medium"
@@ -1534,7 +1541,6 @@ function RootLayout() {
                           badgeContent={publicLibraryModerationAction.badgeContent}
                           color="error"
                           overlap="circular"
-                          sx={{ '& .MuiBadge-badge': { top: 1, right: 1, transform: 'translate(50%, 0)' } }}
                         >
                           <GavelIcon />
                         </Badge>
