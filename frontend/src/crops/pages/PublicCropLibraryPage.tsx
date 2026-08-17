@@ -41,7 +41,7 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
-import { publicCultureAPI } from '../../api/api';
+import { cropSpeciesAPI, publicCultureAPI, publicLibraryModeratorRequestAPI } from '../../api/api';
 import type {
   CultivationType,
   Culture,
@@ -234,6 +234,35 @@ export default function PublicCropLibraryPage() {
   }, [useCompactLibraryLayout, loadError, isCultureLoading]);
   const canEditPublicCulture = Boolean(user);
   const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
+  const canManageModeratorRequests = Boolean(user?.is_staff || user?.is_superuser);
+  const [pendingModerationCount, setPendingModerationCount] = useState(0);
+
+  useEffect(() => {
+    if (!canModeratePublicLibrary) {
+      setPendingModerationCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    // Same queues the moderation page itself reads (proposed species + pending
+    // moderator requests) — page_size:1 keeps this to a cheap count-only call.
+    const countRequests: Array<Promise<{ data: { count: number } }>> = [
+      cropSpeciesAPI.list({ status: 'proposed', page_size: 1 }),
+    ];
+    if (canManageModeratorRequests) {
+      countRequests.push(publicLibraryModeratorRequestAPI.list({ status: 'pending', page_size: 1 }));
+    }
+    Promise.all(countRequests)
+      .then((responses) => {
+        if (cancelled) return;
+        setPendingModerationCount(responses.reduce((total, response) => total + response.data.count, 0));
+      })
+      .catch(() => {
+        if (!cancelled) setPendingModerationCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageModeratorRequests, canModeratePublicLibrary]);
 
   const focusSearch = useCallback(() => {
     if (useCompactLibraryLayout) {
@@ -1036,9 +1065,12 @@ export default function PublicCropLibraryPage() {
         {
           id: 'public-crop-library-moderation',
           label: t('library.page.moderation.open'),
-          ariaLabel: t('library.page.moderation.open'),
+          ariaLabel: pendingModerationCount > 0
+            ? t('library.page.moderation.openWithPending', { count: pendingModerationCount })
+            : t('library.page.moderation.open'),
           onClick: openModeration,
           appearance: 'standard' as const,
+          badgeContent: pendingModerationCount,
           menuActions: [
             {
               id: 'public-crop-library-moderation-queue',
@@ -1055,7 +1087,7 @@ export default function PublicCropLibraryPage() {
         },
       ]
       : []
-  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, selectedCulture, t]);
+  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, pendingModerationCount, selectedCulture, t]);
 
   useTopbarContextActions(setTopbarContextActions, topbarContextActions);
 

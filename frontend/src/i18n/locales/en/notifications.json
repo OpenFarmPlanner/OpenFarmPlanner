@@ -8,6 +8,8 @@
   },
   "messages": {
     "crop_species_proposal_accepted": "Your proposal for the crop species \"{{name}}\" was accepted.",
-    "crop_species_proposal_rejected": "Your proposal for the crop species \"{{name}}\" was rejected."
+    "crop_species_proposal_rejected": "Your proposal for the crop species \"{{name}}\" was rejected.",
+    "crop_species_proposal_submitted": "New crop species proposal \"{{name}}\" is waiting for review.",
+    "moderator_request_submitted": "{{name}} requested moderator access for the crop library."
   }
 }

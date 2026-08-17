@@ -30,6 +30,8 @@ export function getNotificationLink(notification: AppNotification): string | nul
       // Species have no detail route of their own; the library overview is the
       // closest place the decision is visible.
       return '/app/crop-library';
+    case 'public_library_moderation':
+      return '/app/public-library-moderation';
     default:
       return null;
   }

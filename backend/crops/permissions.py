@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.db.models import Q
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser
+    from django.db.models import QuerySet
 
 PUBLIC_LIBRARY_MODERATOR_GROUP = 'Public Library Moderators'
 MODERATE_CROP_SPECIES_PERMISSION = 'crops.moderate_crop_species'
@@ -44,3 +50,24 @@ def ensure_public_library_moderator_group() -> Group:
 def grant_public_library_moderator_access(user: Any) -> None:
     group = ensure_public_library_moderator_group()
     user.groups.add(group)
+
+
+def public_library_moderator_users() -> QuerySet[AbstractBaseUser]:
+    """Every active user who may review crop species proposals.
+
+    Mirrors :func:`is_public_library_moderator`'s three ways in (staff,
+    superuser, or the moderator group/permission) so notification fan-out
+    never misses a moderator granted access outside the group, e.g. directly
+    via `is_staff`.
+    """
+    User = get_user_model()
+    return User.objects.filter(
+        Q(is_staff=True) | Q(is_superuser=True) | Q(groups__name=PUBLIC_LIBRARY_MODERATOR_GROUP),
+        is_active=True,
+    ).distinct()
+
+
+def public_library_admin_users() -> QuerySet[AbstractBaseUser]:
+    """Every active user who may review public library moderator requests."""
+    User = get_user_model()
+    return User.objects.filter(Q(is_staff=True) | Q(is_superuser=True), is_active=True).distinct()

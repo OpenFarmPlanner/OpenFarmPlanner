@@ -41,6 +41,28 @@ describe('CropHierarchyRow', () => {
     expect(screen.queryByText('(0)')).not.toBeInTheDocument();
   });
 
+  it('shows only the pending-suggestion icon instead of the count when there is one or no varieties', () => {
+    render(
+      <List>
+        <CropHierarchyRow {...baseProps} varietyCount={1} isPendingSuggestion endAdornment={<span>hourglass</span>} />
+      </List>,
+    );
+
+    expect(screen.getByText('hourglass')).toBeInTheDocument();
+    expect(screen.queryByText('(1)')).not.toBeInTheDocument();
+  });
+
+  it('shows both the pending-suggestion icon and the count once there is more than one variety', () => {
+    render(
+      <List>
+        <CropHierarchyRow {...baseProps} varietyCount={2} isPendingSuggestion endAdornment={<span>hourglass</span>} />
+      </List>,
+    );
+
+    expect(screen.getByText('hourglass')).toBeInTheDocument();
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+  });
+
   it('renders the secondary text passed in for variety rows', () => {
     render(
       <List>

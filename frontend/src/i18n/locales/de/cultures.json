@@ -586,7 +586,8 @@
         "openAria": "Hilfe zur Kulturbibliothek öffnen"
       },
       "moderation": {
-        "open": "Moderation"
+        "open": "Moderation",
+        "openWithPending": "Moderation ({{count}} ausstehend)"
       },
       "tabs": {
         "details": "Details",

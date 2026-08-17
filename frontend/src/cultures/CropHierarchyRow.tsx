@@ -21,6 +21,14 @@ interface CropHierarchyRowProps {
   onDoubleClick: (event: MouseEvent) => void;
   itemProps?: Record<string, unknown>;
   endAdornment?: ReactNode;
+  /**
+   * When true, `endAdornment` (the pending-suggestion hourglass) takes the
+   * slot the "(N)" count normally occupies instead of following it, so the
+   * icon lines up with rows that have no count at all. The count still shows
+   * alongside the icon once there is more than one variety, so that
+   * information isn't lost.
+   */
+  isPendingSuggestion?: boolean;
 }
 
 /**
@@ -46,7 +54,21 @@ export function CropHierarchyRow({
   onDoubleClick,
   itemProps = {},
   endAdornment,
+  isPendingSuggestion = false,
 }: CropHierarchyRowProps) {
+  const countLabel = typeof varietyCount === 'number' && varietyCount > 0 ? (
+    <Typography
+      component="span"
+      sx={{
+        fontSize: { xs: '0.72rem', lg: '0.76rem' },
+        color: 'text.disabled',
+        flexShrink: 0,
+        ml: 1,
+      }}
+    >
+      {`(${varietyCount})`}
+    </Typography>
+  ) : null;
   return (
     <ListItemButton
       {...itemProps}
@@ -103,20 +125,17 @@ export function CropHierarchyRow({
             },
           }
         }} />
-      {typeof varietyCount === 'number' && varietyCount > 0 ? (
-        <Typography
-          component="span"
-          sx={{
-            fontSize: { xs: '0.72rem', lg: '0.76rem' },
-            color: 'text.disabled',
-            flexShrink: 0,
-            ml: 1,
-          }}
-        >
-          {`(${varietyCount})`}
-        </Typography>
-      ) : null}
-      {endAdornment}
+      {isPendingSuggestion ? (
+        <>
+          {endAdornment}
+          {typeof varietyCount === 'number' && varietyCount > 1 ? countLabel : null}
+        </>
+      ) : (
+        <>
+          {countLabel}
+          {endAdornment}
+        </>
+      )}
     </ListItemButton>
   );
 }

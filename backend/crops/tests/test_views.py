@@ -118,6 +118,37 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.get(name='Tree onion')
         self.assertEqual(proposal.proposed_by, self.user)
 
+    def test_species_create_notifies_public_library_moderators(self):
+        staff_moderator = User.objects.create_user(
+            username='staff-moderator', email='staff-moderator@example.com', password='testpass',
+            is_active=True, is_staff=True,
+        )
+        group_moderator = User.objects.create_user(
+            username='group-moderator', email='group-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(group_moderator)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Tree onion'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        proposal = CropSpecies.objects.get(name='Tree onion')
+        for recipient in (staff_moderator, group_moderator):
+            notification = Notification.objects.get(recipient=recipient)
+            self.assertEqual(
+                notification.notification_type,
+                Notification.TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED,
+            )
+            self.assertEqual(notification.context, {'name': 'Tree onion'})
+            self.assertEqual(
+                notification.target_type,
+                Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            )
+            self.assertEqual(notification.target_id, proposal.id)
+        # The proposer themselves is not a moderator here and gets nothing yet.
+        self.assertFalse(Notification.objects.filter(recipient=self.user).exists())
+
     def test_guest_demo_user_cannot_create_species_proposal(self):
         demo_session = create_guest_demo_session()
         self.client.force_authenticate(user=demo_session.user)
@@ -284,6 +315,40 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(response.data['code'], 'guest_demo_restricted')
         self.assertFalse(PublicLibraryModeratorRequest.objects.filter(user=demo_session.user).exists())
 
+    def test_moderator_request_create_notifies_admins_only(self):
+        admin = User.objects.create_user(
+            username='request-admin', email='request-admin@example.com', password='testpass',
+            is_active=True, is_staff=True,
+        )
+        plain_moderator = User.objects.create_user(
+            username='plain-moderator', email='plain-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(plain_moderator)
+        self.user.first_name = 'Ada'
+        self.user.last_name = 'Lovelace'
+        self.user.save()
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            '/openfarmplanner/api/public-library/moderator-requests/',
+            {'motivation': 'I can help.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        moderator_request = PublicLibraryModeratorRequest.objects.get(user=self.user)
+        notification = Notification.objects.get(recipient=admin)
+        self.assertEqual(
+            notification.notification_type,
+            Notification.TYPE_MODERATOR_REQUEST_SUBMITTED,
+        )
+        self.assertEqual(notification.context, {'name': 'Ada Lovelace'})
+        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_LIBRARY_MODERATION)
+        self.assertEqual(notification.target_id, moderator_request.id)
+        # A moderator without admin rights reviews species, not access requests.
+        self.assertFalse(Notification.objects.filter(recipient=plain_moderator).exists())
+
     def test_admin_can_approve_moderator_request_without_staff_rights_for_user(self):
         admin = User.objects.create_user(
             username='admin',
@@ -292,7 +357,9 @@ class CropViewSetTest(DRFAPITestCase):
             is_active=True,
             is_staff=True,
         )
-        moderator_request = PublicLibraryModeratorRequest.objects.create(user=self.user, motivation='I can help.')
+        moderator_request = PublicLibraryModeratorRequest.objects.create(
+            user=self.user, motivation='I can help.',
+        )
         self.client.force_authenticate(user=admin)
 
         response = self.client.post(

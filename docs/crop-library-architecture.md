@@ -272,6 +272,18 @@ rights. Normal users can request moderator access from account settings; admins
 review those requests through the public-library moderation queue and approval
 grants only the moderator group.
 
+Discoverability of pending items is deliberately reused, not duplicated: the
+"Moderation" topbar button (`PublicCropLibraryPage.tsx`) shows an MUI `Badge`
+with the same counts the moderation queue itself lists — proposed species
+always, pending moderator-access requests only for admins, since only admins
+can review those — fetched with `page_size: 1` against the existing
+`/api/crop-species/` and `/api/public-library/moderator-requests/` list
+endpoints rather than a separate count endpoint. Submitting either kind of
+item also fans out an in-app notification (see `docs/notifications.md`) to
+every moderator/admin, so the queue is discoverable even off the crop library
+page — the button badge and the bell read the same underlying pending state,
+just through two different existing surfaces.
+
 Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
 in the database for audit and transition safety. No UI creates, reviews, or
 displays them any more, and existing proposals are not automatically applied.
@@ -577,7 +589,11 @@ three affected actions are blocked on both sides:
   — as a labelled chip in the library detail header and on the proposer's own
   culture, and icon-only (tooltip + `aria-label` carry the text) on the crop
   list row, where the sidebar is 230px wide on `md` and a labelled chip would
-  push the crop name out.
+  push the crop name out. There the icon takes the slot the "(N)" variety
+  count normally occupies instead of trailing it, so pending and non-pending
+  rows stay aligned; the count still shows alongside the icon once the
+  species has more than one variety (`CropHierarchyRow`'s
+  `isPendingSuggestion` prop), so that number isn't lost.
 - **Blocked.** Import, the library update/sync, and starting or answering a
   discussion. The UI disables the controls with a tooltip; the backend rejects
   the same three with 409 `crop_species_pending`

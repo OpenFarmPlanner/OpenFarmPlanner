@@ -167,7 +167,7 @@ export const cropSpeciesAPI = {
 export const publicLibraryModeratorRequestAPI = {
   mine: () => http.get<PublicLibraryModeratorRequestMine>('/public-library/moderator-requests/mine/'),
   create: (motivation: string) => http.post<PublicLibraryModeratorRequest>('/public-library/moderator-requests/', { motivation }),
-  list: (params?: { status?: PublicLibraryModeratorRequest['status'] }) =>
+  list: (params?: { status?: PublicLibraryModeratorRequest['status']; page_size?: number }) =>
     http.get<PaginatedResponse<PublicLibraryModeratorRequest>>('/public-library/moderator-requests/', { params }),
   approve: (id: number, reviewNote = '') =>
     http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/approve/`, { review_note: reviewNote }),

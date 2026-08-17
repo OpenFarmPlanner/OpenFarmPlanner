@@ -1161,21 +1161,28 @@ function RootLayout() {
           ) : null}
           {isPublicCropLibraryPage && publicLibraryModerationAction ? (
             <>
-              <Button
-                size="medium"
-                variant="outlined"
-                onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
-                aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
-                disabled={publicLibraryModerationAction.disabled}
-                endIcon={<KeyboardArrowDownIcon fontSize="small" />}
-                sx={{
-                  ...getStandardActionButtonSx(false),
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap',
-                }}
+              <Badge
+                badgeContent={publicLibraryModerationAction.badgeContent}
+                color="error"
+                overlap="rectangular"
+                sx={{ flexShrink: 0 }}
               >
-                {publicLibraryModerationAction.label}
-              </Button>
+                <Button
+                  size="medium"
+                  variant="outlined"
+                  onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                  aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                  disabled={publicLibraryModerationAction.disabled}
+                  endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                  sx={{
+                    ...getStandardActionButtonSx(false),
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {publicLibraryModerationAction.label}
+                </Button>
+              </Badge>
               <Menu
                 anchorEl={publicLibraryModerationMenuAnchor}
                 open={Boolean(publicLibraryModerationMenuAnchor)}
@@ -1513,7 +1520,13 @@ function RootLayout() {
                         }}
                         disabled={publicLibraryModerationAction.disabled}
                       >
-                        <GavelIcon />
+                        <Badge
+                          badgeContent={publicLibraryModerationAction.badgeContent}
+                          color="error"
+                          overlap="circular"
+                        >
+                          <GavelIcon />
+                        </Badge>
                       </IconButton>
                     </Box>
                   </AppTooltip>

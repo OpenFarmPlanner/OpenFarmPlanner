@@ -21,16 +21,22 @@ from django.db import models
 class Notification(models.Model):
     TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED = 'crop_species_proposal_accepted'
     TYPE_CROP_SPECIES_PROPOSAL_REJECTED = 'crop_species_proposal_rejected'
+    TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED = 'crop_species_proposal_submitted'
+    TYPE_MODERATOR_REQUEST_SUBMITTED = 'moderator_request_submitted'
     TYPE_CHOICES = [
         (TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED, 'Crop species proposal accepted'),
         (TYPE_CROP_SPECIES_PROPOSAL_REJECTED, 'Crop species proposal rejected'),
+        (TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED, 'Crop species proposal submitted'),
+        (TYPE_MODERATOR_REQUEST_SUBMITTED, 'Moderator request submitted'),
     ]
 
     TARGET_PUBLIC_CULTURE = 'public_culture'
     TARGET_CROP_SPECIES = 'crop_species'
+    TARGET_PUBLIC_LIBRARY_MODERATION = 'public_library_moderation'
     TARGET_TYPE_CHOICES = [
         (TARGET_PUBLIC_CULTURE, 'Public culture'),
         (TARGET_CROP_SPECIES, 'Crop species'),
+        (TARGET_PUBLIC_LIBRARY_MODERATION, 'Public library moderation queue'),
     ]
 
     recipient = models.ForeignKey(

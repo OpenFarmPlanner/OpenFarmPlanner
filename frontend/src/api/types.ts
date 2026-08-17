@@ -774,7 +774,7 @@ export type NotificationType =
   | 'crop_species_proposal_accepted'
   | 'crop_species_proposal_rejected';
 
-export type NotificationTargetType = 'public_culture' | 'crop_species' | '';
+export type NotificationTargetType = 'public_culture' | 'crop_species' | 'public_library_moderation' | '';
 
 export interface AppNotification {
   id: number;

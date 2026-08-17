@@ -25,7 +25,9 @@ doubles as the fallback if an unknown type ever reaches an older client — a
 raw enum value must never surface at the user.
 
 Adding a notification kind is therefore a `TYPE_CHOICES` entry plus two
-translation keys. No migration, no serializer change.
+translation keys, no serializer change. Django still generates a migration for
+the `choices` metadata change, but it alters no column and is instant to
+apply.
 
 ## Model
 
@@ -58,14 +60,28 @@ server-side through `notifications.services.create_notification`.
 
 ## Producers
 
-`crops.services.notify_species_proposal_reviewed(species)` is the only
-producer today, called from `CropSpeciesViewSet.approve()`/`reject()`. It:
+All three producers today live in `crops.services`:
 
-- does nothing for species nobody proposed (seeded/admin rows) or for a status
-  that is not a review outcome, so the call sites stay unconditional;
-- links to the proposer's own published variety under that species when one
-  exists — that variety is what the decision actually affects — and falls back
-  to the species itself otherwise.
+- `notify_species_proposal_reviewed(species)`, called from
+  `CropSpeciesViewSet.approve()`/`reject()`. Tells the *proposer* the outcome.
+  Does nothing for species nobody proposed (seeded/admin rows) or for a status
+  that is not a review outcome, so the call sites stay unconditional. Links to
+  the proposer's own published variety under that species when one exists —
+  that variety is what the decision actually affects — and falls back to the
+  species itself otherwise (`target_type` `public_culture` / `crop_species`).
+- `notify_moderators_of_species_proposal(species)`, called from
+  `CropSpeciesViewSet.create()`. Tells every *public-library moderator*
+  (`crops.permissions.public_library_moderator_users()`) that a new proposal
+  is waiting.
+- `notify_admins_of_moderator_request(moderator_request)`, called from
+  `PublicLibraryModeratorRequestViewSet.create()`. Tells every *public-library
+  admin* (`crops.permissions.public_library_admin_users()`) — not every
+  moderator, since only admins can review these requests.
+
+The latter two both use `target_type = Notification.TARGET_PUBLIC_LIBRARY_MODERATION`,
+which the frontend resolves to `/app/public-library-moderation` — the
+moderation queue has no per-item detail route, so every notification of this
+kind opens the same page.
 
 `create_notification` skips missing and inactive recipients, so producers do
 not each re-implement that check.

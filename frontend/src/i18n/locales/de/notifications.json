@@ -8,6 +8,8 @@
   },
   "messages": {
     "crop_species_proposal_accepted": "Dein Vorschlag für die Kulturart „{{name}}“ wurde angenommen.",
-    "crop_species_proposal_rejected": "Dein Vorschlag für die Kulturart „{{name}}“ wurde abgelehnt."
+    "crop_species_proposal_rejected": "Dein Vorschlag für die Kulturart „{{name}}“ wurde abgelehnt.",
+    "crop_species_proposal_submitted": "Neuer Kulturart-Vorschlag „{{name}}“ wartet auf Prüfung.",
+    "moderator_request_submitted": "{{name}} hat Moderationsrechte für die Kulturbibliothek beantragt."
   }
 }

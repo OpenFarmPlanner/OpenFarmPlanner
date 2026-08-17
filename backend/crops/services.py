@@ -26,7 +26,7 @@ from farm.models import PublicCulture
 from farm.utils import normalize_text
 
 if TYPE_CHECKING:
-    from .models import CropSpecies
+    from .models import CropSpecies, PublicLibraryModeratorRequest
 
 SEARCH_ALIASES = {
     'paradeis': 'tomate',
@@ -221,3 +221,45 @@ def notify_species_proposal_reviewed(species: CropSpecies) -> None:
         ),
         target_id=published_variety or species.id,
     )
+
+
+def notify_moderators_of_species_proposal(species: CropSpecies) -> None:
+    """Tell every public library moderator that a new species proposal is waiting for review."""
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .permissions import public_library_moderator_users
+
+    for recipient in public_library_moderator_users():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED,
+            message=f'A new crop species proposal "{species.name}" is waiting for review.',
+            context={'name': species.name},
+            target_type=Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            target_id=species.id,
+        )
+
+
+def notify_admins_of_moderator_request(moderator_request: PublicLibraryModeratorRequest) -> None:
+    """Tell every public library admin that a new moderator access request is waiting for review."""
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .permissions import public_library_admin_users
+
+    requester = moderator_request.user
+    requester_label = (
+        (requester.get_full_name() or '').strip()
+        or requester.email
+        or requester.username
+    )
+    for recipient in public_library_admin_users():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.TYPE_MODERATOR_REQUEST_SUBMITTED,
+            message=f'{requester_label} requested public library moderator access.',
+            context={'name': requester_label},
+            target_type=Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            target_id=moderator_request.id,
+        )

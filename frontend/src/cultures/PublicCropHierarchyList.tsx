@@ -167,6 +167,7 @@ export function PublicCropHierarchyList({
             secondary={undefined}
             varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
             endAdornment={showPendingMarker ? <CropSpeciesPendingChip iconOnly /> : undefined}
+            isPendingSuggestion={showPendingMarker}
             onClick={() => {
               if (culture?.id !== undefined) {
                 onSelect(culture, { kind: node.kind, speciesKey: node.speciesKey });

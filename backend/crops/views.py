@@ -69,6 +69,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         species = serializer.save(status=CropSpecies.STATUS_PROPOSED, proposed_by=request.user)
+        services.notify_moderators_of_species_proposal(species)
         return Response(self.get_serializer(species).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -198,6 +199,7 @@ class PublicLibraryModeratorRequestViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         request_row = serializer.save(user=request.user)
+        services.notify_admins_of_moderator_request(request_row)
         return Response(self.get_serializer(request_row).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='mine')
