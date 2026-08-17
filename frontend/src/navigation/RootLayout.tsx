@@ -1165,7 +1165,14 @@ function RootLayout() {
                 badgeContent={publicLibraryModerationAction.badgeContent}
                 color="error"
                 overlap="rectangular"
-                sx={{ flexShrink: 0 }}
+                sx={{
+                  flexShrink: 0,
+                  // Default badge placement offsets half its own size past the
+                  // button's top-right corner, which the topbar's own
+                  // `overflow: hidden` then clips. Pulling it fully inside the
+                  // button keeps the number readable.
+                  '& .MuiBadge-badge': { top: 4, right: 4 },
+                }}
               >
                 <Button
                   size="medium"
@@ -1524,6 +1531,7 @@ function RootLayout() {
                           badgeContent={publicLibraryModerationAction.badgeContent}
                           color="error"
                           overlap="circular"
+                          sx={{ '& .MuiBadge-badge': { top: 2, right: 2 } }}
                         >
                           <GavelIcon />
                         </Badge>
