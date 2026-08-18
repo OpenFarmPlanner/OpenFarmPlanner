@@ -26,6 +26,8 @@ from farm.models import PublicCulture
 from farm.utils import normalize_text
 
 if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser
+
     from .models import CropSpecies, PublicLibraryModeratorRequest
 
 SEARCH_ALIASES = {
@@ -221,6 +223,42 @@ def notify_species_proposal_reviewed(species: CropSpecies) -> None:
         ),
         target_id=published_variety or species.id,
     )
+
+
+def remove_public_cultures_for_rejected_species(
+    species: CropSpecies, moderator: AbstractBaseUser,
+) -> None:
+    """Withdraw every published entry left under a species a moderator just rejected.
+
+    `CropSpeciesViewSet.reject()` only flips the species' own status — nothing
+    stops a variety published *while the species was still under review* from
+    staying published afterwards, still carrying the rejected species' name
+    (`PublicCulture.display_name()` always defers to the linked species). Left
+    alone, a rejected proposal like "Karotsdasdas" keeps showing up in the
+    library forever. This closes that gap by running every affected entry
+    through the same moderator-removal path as a manual "remove from library"
+    action (`farm.services.public_cultures.remove_public_culture`), so it's
+    non-destructive and shows up in the moderation queue's "removed" table
+    with a reason a moderator can see and reverse.
+
+    Imports the removal helper locally rather than at module level: it lives
+    in `farm.services.public_cultures`, a service module (not a project-scoped
+    model or a view/serializer package), and only ever touches `PublicCulture`
+    rows — the same model this file already reads/writes elsewhere — so it
+    does not cross the "crop library knows nothing about projects" boundary
+    documented at the top of this file.
+    """
+    from farm.services.public_cultures import remove_public_culture
+
+    affected = PublicCulture.objects.filter(
+        crop_species=species, status=PublicCulture.STATUS_PUBLISHED,
+    )
+    for public_culture in affected:
+        remove_public_culture(
+            public_culture=public_culture,
+            user=moderator,
+            reason=PublicCulture.REMOVAL_REASON_SPECIES_REJECTED,
+        )
 
 
 def notify_moderators_of_species_proposal(species: CropSpecies) -> None:

@@ -871,6 +871,7 @@
       "duplicate": "Duplicate",
       "wrong_mapping": "Wrong mapping",
       "unlawful_content": "Unlawful content",
+      "species_rejected": "Crop species proposal rejected",
       "other": "Other"
     },
     "loadError": "The crop library could not be loaded.",

@@ -847,6 +847,7 @@ class PublicCulture(TimestampedModel):
     REMOVAL_REASON_DUPLICATE = 'duplicate'
     REMOVAL_REASON_WRONG_MAPPING = 'wrong_mapping'
     REMOVAL_REASON_UNLAWFUL_CONTENT = 'unlawful_content'
+    REMOVAL_REASON_SPECIES_REJECTED = 'species_rejected'
     REMOVAL_REASON_OTHER = 'other'
     REMOVAL_REASON_CHOICES = [
         (REMOVAL_REASON_ACCIDENTAL, 'Accidental publication'),
@@ -854,6 +855,10 @@ class PublicCulture(TimestampedModel):
         (REMOVAL_REASON_DUPLICATE, 'Duplicate'),
         (REMOVAL_REASON_WRONG_MAPPING, 'Wrong mapping'),
         (REMOVAL_REASON_UNLAWFUL_CONTENT, 'Unlawful content'),
+        # System-applied only (never offered in the manual removal dialog): set
+        # when a moderator rejects the crop species a culture is published
+        # under, see crops.services.remove_public_cultures_for_rejected_species.
+        (REMOVAL_REASON_SPECIES_REJECTED, 'Crop species rejected'),
         (REMOVAL_REASON_OTHER, 'Other'),
     ]
 

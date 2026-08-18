@@ -257,6 +257,65 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(notification.notification_type, Notification.TYPE_CROP_SPECIES_PROPOSAL_REJECTED)
         self.assertEqual(notification.context, {'name': 'Tree onion'})
 
+    def test_rejecting_a_proposal_removes_entries_already_published_under_it(self):
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator',
+            email='species-cleanup-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        general_entry = PublicCulture.objects.create(
+            name='Karotte', variety='', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        variety_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Solveig', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        general_entry.refresh_from_db()
+        variety_entry.refresh_from_db()
+        for entry in (general_entry, variety_entry):
+            self.assertEqual(entry.status, PublicCulture.STATUS_REMOVED)
+            self.assertEqual(entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
+            self.assertEqual(entry.status_changed_by, moderator)
+        # The species itself is unaffected beyond its own status; its name is
+        # left as-is for the moderation log/history, only the entries move.
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.status, CropSpecies.STATUS_REJECTED)
+
+    def test_rejecting_a_proposal_leaves_other_statuses_under_it_untouched(self):
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator-2',
+            email='species-cleanup-moderator-2@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 2', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        withdrawn_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Withdrawn already', status=PublicCulture.STATUS_WITHDRAWN,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        withdrawn_entry.refresh_from_db()
+        self.assertEqual(withdrawn_entry.status, PublicCulture.STATUS_WITHDRAWN)
+        self.assertEqual(withdrawn_entry.removal_reason, '')
+
     def test_normal_user_cannot_edit_or_delete_published_species(self):
         species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
         self.client.force_authenticate(user=self.user)

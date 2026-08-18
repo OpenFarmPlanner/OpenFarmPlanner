@@ -387,6 +387,9 @@ export type PublicCultureRemovalReason =
   | 'duplicate'
   | 'wrong_mapping'
   | 'unlawful_content'
+  // System-applied only, set when the crop species behind an entry is
+  // rejected — never offered as a choice in the manual removal dialog.
+  | 'species_rejected'
   | 'other';
 
 export interface PublicCultureDuplicateCandidate {

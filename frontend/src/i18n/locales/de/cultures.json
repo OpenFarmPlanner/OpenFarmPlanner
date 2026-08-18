@@ -871,6 +871,7 @@
       "duplicate": "Duplikat",
       "wrong_mapping": "Falsche Zuordnung",
       "unlawful_content": "Unzulässiger Inhalt",
+      "species_rejected": "Kulturart-Vorschlag abgelehnt",
       "other": "Sonstiges"
     },
     "loadError": "Die Kulturbibliothek konnte nicht geladen werden.",

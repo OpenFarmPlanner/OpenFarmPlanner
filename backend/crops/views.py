@@ -138,14 +138,17 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
     def reject(self, request, pk=None):
         if not is_public_library_moderator(request.user):
             return self._moderator_required_response()
-        species = CropSpecies.objects.get(pk=pk)
-        if species.status != CropSpecies.STATUS_PROPOSED:
-            return self._proposal_status_error()
-        species.status = CropSpecies.STATUS_REJECTED
-        species.reviewed_by = request.user
-        species.reviewed_at = timezone.now()
-        species.review_note = (request.data.get('review_note') or '').strip()
-        species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        review_note = (request.data.get('review_note') or '').strip()
+        with transaction.atomic():
+            species = CropSpecies.objects.select_for_update().get(pk=pk)
+            if species.status != CropSpecies.STATUS_PROPOSED:
+                return self._proposal_status_error()
+            species.status = CropSpecies.STATUS_REJECTED
+            species.reviewed_by = request.user
+            species.reviewed_at = timezone.now()
+            species.review_note = review_note
+            species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+            services.remove_public_cultures_for_rejected_species(species, request.user)
         services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 

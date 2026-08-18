@@ -600,11 +600,23 @@ three affected actions are blocked on both sides:
   (`PublicCultureViewSet._crop_species_pending_forbidden`), so the disabled
   button is a hint rather than the actual protection. Reading an existing
   discussion stays available.
-- **Self-clearing.** Both `approve()` and `reject()` move the row out of
-  `PROPOSED`, which lifts every block above without any per-object cleanup —
-  the gate reads the species' current status, it does not cache a flag. What
-  happens to a variety published under a *rejected* species is deliberately
-  out of scope here: it stays published and simply stops being marked pending.
+- **Self-clearing on approve.** `approve()` moves the row out of `PROPOSED`,
+  which lifts every block above without any per-object cleanup — the gate
+  reads the species' current status, it does not cache a flag.
+- **Cleaned up on reject.** `reject()` also moves the row out of `PROPOSED`,
+  but a rejected species is never a valid thing to keep publishing under, so
+  it goes further: `crops.services.remove_public_cultures_for_rejected_species()`
+  runs every `PublicCulture` still `published` under that species through the
+  same path as a manual moderator removal
+  (`farm.services.public_cultures.remove_public_culture()`, reason
+  `species_rejected`) — or, if the acting moderator happens to be the
+  entry's own contributor, the self-service withdrawal path instead, since
+  `remove_public_culture()` checks contributorship before moderator rights.
+  Both are non-destructive and reversible from the moderation queue's
+  "removed"/reinstatement flow. This exists because
+  `PublicCulture.display_name()` always defers to the linked species' name
+  (see below) — without this cleanup, an entry published while a proposal was
+  still under review would keep showing the rejected species' name forever.
 
 Either decision also notifies the proposer through
 `crops.services.notify_species_proposal_reviewed()` — see
