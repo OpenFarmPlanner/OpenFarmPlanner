@@ -949,12 +949,13 @@ function RootLayout() {
             flexWrap: 'nowrap',
             minWidth: 0,
             maxWidth: '100%',
-            // Only horizontal overflow needs hiding (long titles/labels must not
-            // force a horizontal scrollbar); clipping the vertical axis too cuts
-            // off anything that legitimately overlaps a button's edge, like the
-            // moderation badge.
-            overflowX: 'hidden',
-            overflowY: 'visible',
+            // No `overflow` set here on purpose: per the CSS Overflow spec, a
+            // container with overflow-x: hidden and overflow-y: visible has its
+            // overflow-y computed as `auto` instead (browsers can't mix hidden
+            // and true visible across axes), which still clips the moderation
+            // badge poking above this row. The page-level Box's overflowX:
+            // hidden (RootLayout's outer wrapper) already guards against a
+            // horizontal scrollbar; nothing here needs its own clip.
           }}
         >
           {!isDesktopUp ? <IconButton aria-label={t('globalMenu.openMobileMenu')} onClick={() => setMobileNavOpen(true)} sx={{ width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}><MenuIcon /></IconButton> : null}
@@ -1091,8 +1092,8 @@ function RootLayout() {
             ) : null}
           </Box>
           {!isCompactTopbar ? (
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflowX: 'hidden', overflowY: 'visible', position: 'relative', zIndex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', overflowX: 'hidden', overflowY: 'visible', pr: 0.5 }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, position: 'relative', zIndex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', pr: 0.5 }}>
           {isCulturesPage ? (
             <>
               {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
@@ -1182,7 +1183,16 @@ function RootLayout() {
                 badgeContent={publicLibraryModerationAction.badgeContent}
                 color="error"
                 overlap="rectangular"
-                sx={{ flexShrink: 0 }}
+                sx={{
+                  flexShrink: 0,
+                  // The button sits only ~8px below the very top of the page,
+                  // so the badge's default anchor (centered on the button's
+                  // top edge) pokes ~2px above the viewport itself — outside
+                  // any container's box, so no overflow fix can reach it.
+                  // Nudging the anchor down clears that without pulling the
+                  // badge back inside the button.
+                  '& .MuiBadge-badge': { top: 6 },
+                }}
               >
                 <Button
                   size="medium"
@@ -1541,6 +1551,7 @@ function RootLayout() {
                           badgeContent={publicLibraryModerationAction.badgeContent}
                           color="error"
                           overlap="circular"
+                          sx={{ '& .MuiBadge-badge': { top: 6 } }}
                         >
                           <GavelIcon />
                         </Badge>
