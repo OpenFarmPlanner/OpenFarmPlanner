@@ -143,7 +143,7 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText(/ohne diese Daten können wir kein Benutzerkonto bereitstellen/)).toBeInTheDocument();
     expect(screen.getByText(/ohne Veröffentlichung können Sie die übrigen Funktionen weiterhin nutzen/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Drittlandübermittlung/ })).toBeInTheDocument();
-    expect(screen.getByText(/außerhalb der Europäischen Union oder des Europäischen Wirtschaftsraums findet/)).toBeInTheDocument();
+    expect(screen.getByText(/außerhalb der Europäischen Union oder des Europäischen Wirtschaftsraums statt/)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Automatisierte Entscheidungsfindung/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/einschließlich Profiling im Sinne des Art\. 22 DSGVO/)).not.toBeInTheDocument();
   });
@@ -159,13 +159,35 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText(/kein Mitglied mehr, löschen wir das Projekt einschließlich der projektspezifischen Daten/)).toBeInTheDocument();
     expect(screen.getByText(/Veröffentlichte Einträge in der öffentlichen Kulturbibliothek sind davon nicht betroffen/)).toBeInTheDocument();
     expect(screen.getByText(/Server-Logfiles des Hosting-Anbieters werden nach 7 Tagen gelöscht/)).toBeInTheDocument();
-    expect(screen.getByText(/Eigene technische Cron- und Anwendungslogs speichern wir höchstens 14 Tage/)).toBeInTheDocument();
+    expect(screen.getByText(/Eigene Protokolle unserer geplanten Wartungsaufgaben \(Cron-Jobs\) löschen wir automatisiert spätestens nach 14 Tagen/)).toBeInTheDocument();
+    expect(screen.getByText(/Passwort-Reset-Links sind derzeit 3 Tage gültig/)).toBeInTheDocument();
+    expect(screen.getByText(/unangemeldete Demo-Funktion.*spätestens 8 Stunden nach Sitzungsbeginn automatisch gelöscht/)).toBeInTheDocument();
   });
 
   it('uses a concrete revision date instead of a generic month/year stamp', () => {
     renderPrivacyPolicyPage();
 
-    expect(screen.getByText(/Stand: 17\. Juli 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Stand: 18\. August 2026/)).toBeInTheDocument();
+  });
+
+  it('describes Google sign-in as an active recipient without claiming Microsoft is active', () => {
+    renderPrivacyPolicyPage();
+
+    expect(screen.getByRole('heading', { name: /Anmeldung mit Google-Konto/ })).toBeInTheDocument();
+    expect(screen.getByText(/E-Mail-Adresse, Ihren Vor- und Nachnamen, eine stabile Google-Kontokennung/)).toBeInTheDocument();
+    expect(screen.getByText(/übernommen werden davon nur die E-Mail-Adresse und Ihr Vorname/)).toBeInTheDocument();
+    expect(screen.getByText(/ruft nach der Anmeldung keine Google-APIs auf/)).toBeInTheDocument();
+    expect(screen.getByText(/Google LLC mit Sitz in den USA übermittelt/)).toBeInTheDocument();
+    expect(screen.getByText(/unter dem EU-U\.S\. Data Privacy Framework \(DPF\) zertifiziert/)).toBeInTheDocument();
+    expect(screen.getByText(/Angemessenheitsbeschluss nach Art\. 45 DSGVO/)).toBeInTheDocument();
+    expect(screen.getByText(/Anmeldung mit Microsoft-Konto ist im Quellcode von OpenFarmPlanner vorbereitet, aber derzeit nicht aktiviert/)).toBeInTheDocument();
+  });
+
+  it('no longer lists the supplier name among publicly published crop data', () => {
+    renderPrivacyPolicyPage();
+
+    expect(screen.queryByText(/Lieferantenname/)).not.toBeInTheDocument();
+    expect(screen.getByText(/projektinterne Angaben wie Saatgutlieferanten werden nicht mitveröffentlicht/)).toBeInTheDocument();
   });
 
   it('explains privacy policy changes and points to the revision date at the end', () => {
