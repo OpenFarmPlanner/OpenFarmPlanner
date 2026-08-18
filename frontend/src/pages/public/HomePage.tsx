@@ -69,24 +69,10 @@ const PRODUCT_TOUR_ITEMS = [
 
 type ProductTourKey = (typeof PRODUCT_TOUR_ITEMS)[number]['key'];
 
-// Hero panel text sits on an opaque-leaning white background (see
-// HERO_CARD_SX), so unlike the previous dark-glass version it no longer needs
-// a shadow to stay legible - it's kept subtle purely to soften edges against
-// the photo behind the panel's own edges/corners.
-const HERO_TEXT_SHADOW = '0 1px 2px rgba(255,255,255,0.4)';
+const HERO_TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5)';
 
-// Near-black text tones tuned for AA contrast against the 85%-opacity white
-// panel background across a range of photos behind it, not just the current
-// one - lighter tones (e.g. MUI's default text.secondary at 0.6 alpha) can
-// fall below AA once a lighter/busier photo shows through the blur.
-const HERO_TEXT_PRIMARY = 'rgba(0,0,0,0.92)';
-const HERO_TEXT_SECONDARY = 'rgba(0,0,0,0.78)';
-
-// Single knob for the whole hero panel's text size: every fontSize below is
-// expressed as a base rem value run through heroRem(), and the panel/description
-// max-width scale with it (heroWidth()), so bumping this one number makes
-// everything bigger together without shifting the line-wrap points relative
-// to each other.
+// Single knob for the whole hero panel's text size, matching main's scale so
+// this branch's dark-glass panel reads at the same size as the light one.
 const HERO_FONT_SCALE = 1.1;
 
 const heroRem = (baseRem: number): string => `${+(baseRem * HERO_FONT_SCALE).toFixed(3)}rem`;
@@ -100,35 +86,20 @@ const HERO_ACTION_FONT_SIZE = { xs: heroRem(1.05), sm: heroRem(1.1) };
 // buttons, beta note, GitHub link) - one clearly-bounded, semi-transparent
 // panel instead of separate backgrounds per line/element, so there's no risk
 // of overlapping panels double-darkening the gaps between them.
-//
-// The background photo itself stays fully sharp - only this panel is blurred
-// and translucent. Browsers without backdrop-filter support (the `@supports`
-// fallback below) get a near-opaque background instead, so text stays legible
-// even without the blur.
 const HERO_CARD_SX = {
   position: 'relative' as const,
   zIndex: 1,
   width: '100%',
-  maxWidth: heroWidth(730),
+  maxWidth: heroWidth(800),
   mx: 'auto',
   px: { xs: 3, sm: 4, md: 4.5 },
   py: { xs: 3, sm: 3.5, md: 4 },
   borderRadius: { xs: 4, md: 6 },
-  border: '1px solid rgba(0,0,0,0.50)',
-  backgroundColor: 'rgba(255,255,255,0.85)',
-  backdropFilter: 'blur(10px)',
-  WebkitBackdropFilter: 'blur(10px)',
-  // Inset highlight/shade on top of the outer border gives the panel a
-  // slight bevel so it reads as a raised glass surface instead of a flat
-  // rectangle, matching the depth the previous dark-glass version had.
-  // The `0 0 0 1px` shadow is a second 1px ring stacked right outside the
-  // `border` above - two crisp lines read as a stronger frame than one
-  // border alone, without needing an extra wrapper element.
-  boxShadow:
-    'inset 0 1.5px 0 rgba(255,255,255,1), inset 0 -1.5px 0 rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.65), 0 14px 44px rgba(0,0,0,0.24)',
-  '@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))': {
-    backgroundColor: 'rgba(255,255,255,0.96)',
-  },
+  border: '1px solid rgba(255,255,255,0.28)',
+  backgroundColor: 'rgba(8,24,14,0.5)',
+  backdropFilter: 'blur(18px)',
+  WebkitBackdropFilter: 'blur(18px)',
+  boxShadow: '0 12px 40px rgba(0,0,0,0.28)',
 };
 
 // Three-column grid so the logo stays centred in the header: the empty first
@@ -230,9 +201,9 @@ export default function HomePage() {
                 variant="h6"
                 sx={{
                   fontSize: { xs: heroRem(1.35), sm: heroRem(1.5), md: heroRem(1.7) },
-                  fontWeight: 600,
+                  fontWeight: 500,
                   lineHeight: 1.35,
-                  color: HERO_TEXT_PRIMARY,
+                  color: '#fff',
                   textShadow: HERO_TEXT_SHADOW,
                 }}
               >
@@ -242,9 +213,8 @@ export default function HomePage() {
                 sx={{
                   maxWidth: heroWidth(780),
                   fontSize: { xs: heroRem(1.15), md: heroRem(1.25) },
-                  fontWeight: 500,
                   lineHeight: 1.65,
-                  color: HERO_TEXT_SECONDARY,
+                  color: 'rgba(255,255,255,0.94)',
                   textShadow: HERO_TEXT_SHADOW,
                 }}
               >
@@ -320,19 +290,24 @@ export default function HomePage() {
                     px: 1.2,
                     py: 0.4,
                     borderRadius: 1,
-                    color: 'primary.main',
-                    fontSize: { xs: heroRem(1.05), sm: heroRem(1.1) },
-                    fontWeight: 600,
+                    color: '#fff',
+                    bgcolor: 'rgba(0,0,0,0.25)',
+                    fontSize: HERO_ACTION_FONT_SIZE,
+                    fontWeight: 400,
                     textDecoration: 'underline',
+                    textDecorationThickness: '1px',
                     textUnderlineOffset: '3px',
+                    textShadow: HERO_TEXT_SHADOW,
                     whiteSpace: 'nowrap',
                     '&:hover, &:focus-visible': {
-                      color: 'primary.dark',
-                      bgcolor: 'rgba(0,0,0,0.06)',
+                      color: '#fff',
+                      bgcolor: 'rgba(0,0,0,0.35)',
                       textDecoration: 'underline',
+                      textDecorationThickness: '2px',
                     },
                     '&.Mui-disabled': {
-                      color: 'rgba(0,0,0,0.42)',
+                      color: 'rgba(255,255,255,0.58)',
+                      bgcolor: 'rgba(0,0,0,0.25)',
                     },
                   }}
                 >
@@ -355,7 +330,7 @@ export default function HomePage() {
                   severity="error"
                   sx={{
                     width: '100%',
-                    maxWidth: 520,
+                    maxWidth: heroWidth(520),
                     minHeight: 48,
                     textAlign: 'left',
                     color: 'error.dark',
@@ -374,15 +349,14 @@ export default function HomePage() {
               <Stack spacing={0.7} sx={{ pt: { xs: 0.3, md: 0.5 },
                 alignItems: "center",
                 textAlign: "center", }}   >
-                <Typography sx={{ fontSize: { xs: heroRem(1.15), md: heroRem(1.2) }, fontWeight: 500, lineHeight: 1.45, color: HERO_TEXT_PRIMARY, textShadow: HERO_TEXT_SHADOW }}>
+                <Typography sx={{ fontSize: { xs: heroRem(1.15), md: heroRem(1.2) }, lineHeight: 1.45, color: '#fff', textShadow: HERO_TEXT_SHADOW }}>
                   {t('statusNote')}
                 </Typography>
                 <Typography
                   sx={{
                     fontSize: { xs: heroRem(1), md: heroRem(1.05) },
-                    fontWeight: 500,
                     lineHeight: 1.4,
-                    color: HERO_TEXT_SECONDARY,
+                    color: 'rgba(255,255,255,0.92)',
                     textShadow: HERO_TEXT_SHADOW,
                   }}
                 >
