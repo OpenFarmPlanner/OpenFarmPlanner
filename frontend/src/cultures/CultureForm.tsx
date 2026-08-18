@@ -268,12 +268,20 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
 
   const normalizedNotes = culture.notes ? stripCitationMarkers(culture.notes) : culture.notes;
 
+  // `culture.name` is free text and never cascades a later crop_species rename
+  // (see culture_display.py) — `culture_display_name` is the field that already
+  // resolves to the species' current name, and it falls back to `culture.name`
+  // itself when there is no linked species, so preferring it here can only
+  // correct a stale value, never lose one.
+  const normalizedName = culture.culture_display_name ?? culture.name;
+
   if (culture.supplier || !culture.seed_supplier) {
     return {
       ...culture,
       ...normalizedSpacingValues,
       ...normalizedSeedRateUnits,
       notes: normalizedNotes,
+      name: normalizedName,
     };
   }
 
@@ -282,6 +290,7 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
     ...normalizedSpacingValues,
     ...normalizedSeedRateUnits,
     notes: normalizedNotes,
+    name: normalizedName,
     supplier: {
       name: culture.seed_supplier,
       allowed_domains: [],
@@ -528,7 +537,10 @@ export function CultureForm({
     const name = formData.name ?? '';
     const variety = formData.variety ?? '';
     const identityKey = buildCultureIdentityKey(name, variety);
-    const originalIdentityKey = buildCultureIdentityKey(culture?.name, culture?.variety);
+    const originalIdentityKey = buildCultureIdentityKey(
+      culture?.culture_display_name ?? culture?.name,
+      culture?.variety,
+    );
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
     queueMicrotask(() => setDuplicateErrorKey(''));
@@ -580,7 +592,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {

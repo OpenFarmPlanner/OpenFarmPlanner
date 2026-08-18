@@ -191,6 +191,30 @@ describe('CultureForm', () => {
     supplierListMock.mockResolvedValue({ data: { results: [] } });
   });
 
+  it('seeds the Name field from the current species name, not a stale culture.name', async () => {
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Ackerbohne', crop_species: 5, culture_display_name: '2' }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('2');
+  });
+
+  it('falls back to culture.name when there is no linked species', async () => {
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Karotte', crop_species: null, culture_display_name: undefined }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Karotte');
+  });
+
   it('renders supplier selection states based on supplier availability', async () => {
     supplierListMock.mockResolvedValueOnce({ data: { results: [] } });
 
