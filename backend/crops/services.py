@@ -262,13 +262,17 @@ def remove_public_cultures_for_rejected_species(
 
 
 def notify_moderators_of_species_proposal(species: CropSpecies) -> None:
-    """Tell every public library moderator that a new species proposal is waiting for review."""
+    """Tell every public library moderator that a new species proposal is waiting for review.
+
+    Skips the proposer themselves: a moderator proposing their own species
+    doesn't need to be told their own submission is waiting for review.
+    """
     from notifications.models import Notification
     from notifications.services import create_notification
 
     from .permissions import public_library_moderator_users
 
-    for recipient in public_library_moderator_users():
+    for recipient in public_library_moderator_users().exclude(pk=species.proposed_by_id):
         create_notification(
             recipient=recipient,
             notification_type=Notification.TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED,

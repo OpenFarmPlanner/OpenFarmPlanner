@@ -149,6 +149,25 @@ class CropViewSetTest(DRFAPITestCase):
         # The proposer themselves is not a moderator here and gets nothing yet.
         self.assertFalse(Notification.objects.filter(recipient=self.user).exists())
 
+    def test_species_create_does_not_notify_the_proposer_even_when_they_are_a_moderator(self):
+        proposing_moderator = User.objects.create_user(
+            username='proposing-moderator', email='proposing-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(proposing_moderator)
+        other_moderator = User.objects.create_user(
+            username='other-moderator', email='other-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(other_moderator)
+        self.client.force_authenticate(user=proposing_moderator)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Self-proposed onion'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(Notification.objects.filter(recipient=proposing_moderator).exists())
+        self.assertTrue(Notification.objects.filter(recipient=other_moderator).exists())
+
     def test_guest_demo_user_cannot_create_species_proposal(self):
         demo_session = create_guest_demo_session()
         self.client.force_authenticate(user=demo_session.user)
