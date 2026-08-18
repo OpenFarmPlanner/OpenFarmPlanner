@@ -100,6 +100,7 @@ export function BasicInfoSection({
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
+  const rotationBreakYearsVariety = getFieldTooltipProps?.('rotation_break_years');
 
   return (
     <>
@@ -341,6 +342,18 @@ export function BasicInfoSection({
               <MenuItem value="high">{t('form.nutrientDemandHigh')}</MenuItem>
             </Select>
           </FormControl>
+        </VarietyFieldTooltip>
+      </Box>
+      <Box sx={fieldRowSx}>
+        <VarietyFieldTooltip tooltipTitle={rotationBreakYearsVariety?.tooltipTitle}>
+          <TextField
+            type="number"
+            sx={mergeVarietyFieldSx(smallFieldSx, rotationBreakYearsVariety?.sx)}
+            label={t('form.rotationBreakYears')}
+            value={formData.rotation_break_years ?? ''}
+            onChange={e => onChange('rotation_break_years', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
         </VarietyFieldTooltip>
       </Box>
     </>

@@ -76,7 +76,7 @@
   },
   "detail": {
     "sections": {
-      "general": "General information",
+      "cropRotation": "Crop Rotation Properties",
       "spacing": "Spacing",
       "seed": "Seed",
       "harvest": "Yield",
@@ -95,6 +95,7 @@
     },
     "units": {
       "days": "days",
+      "years": "years",
       "centimeters": "cm",
       "grams": "g",
       "kilograms": "kg",
@@ -205,9 +206,10 @@
     "cropFamily": "Crop family",
     "cropFamilyPlaceholder": "e.g. Solanaceae",
     "nutrientDemand": "Nutrient demand",
-    "nutrientDemandLow": "Low",
-    "nutrientDemandMedium": "Medium",
-    "nutrientDemandHigh": "High",
+    "nutrientDemandLow": "Light feeder",
+    "nutrientDemandMedium": "Medium feeder",
+    "nutrientDemandHigh": "Heavy feeder",
+    "rotationBreakYears": "Rotation Break (Years)",
     "cultivationType": "Cultivation type",
     "cultivationTypeDirectSowing": "Direct sowing",
     "cultivationTypePreCultivation": "Transplanting",

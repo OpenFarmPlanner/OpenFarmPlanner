@@ -77,7 +77,7 @@ these as green field.
 | Planned feature | Current state in the code |
 |---|---|
 | **Saisonen** — a `Season` entity, a season switcher in the UI, and planting plans scoped to a season | Nothing. There is no `Season` model, no season field on `PlantingPlan`, and no season UI. Plans carry plain dates and are scoped only by `Project`. |
-| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning") and `Culture.nutrient_demand`. Both are plain informational fields today: no rotation model, no history-of-use per field, no validation, no UI. |
+| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning"), `Culture.nutrient_demand`, and `Culture.rotation_break_years` (recommended years before growing the same crop family again). All three are plain informational fields today, grouped under a "Fruchtfolge-Eigenschaften"/"Crop Rotation Properties" section on the culture detail page: no rotation model, no history-of-use per field, no validation, no UI beyond that display/edit. |
 
 Two consequences worth stating explicitly, because they are easy to
 mis-assume:

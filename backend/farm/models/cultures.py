@@ -301,10 +301,15 @@ class Culture(TimestampedModel):
         help_text="Crop family for rotation planning",
     )
     nutrient_demand = models.CharField(
-        max_length=20, 
-        choices=NUTRIENT_DEMAND_CHOICES, 
+        max_length=20,
+        choices=NUTRIENT_DEMAND_CHOICES,
         blank=True,
         help_text="Nutrient demand level"
+    )
+    rotation_break_years = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Recommended crop rotation break in years before growing this crop family again",
     )
     cultivation_types = models.JSONField(default=list, blank=True)
     cultivation_type = models.CharField(
@@ -491,6 +496,7 @@ class Culture(TimestampedModel):
             ('harvest_duration_days', 'Harvest duration must be non-negative.'),
             ('propagation_duration_days', 'Propagation duration must be non-negative.'),
             ('expected_yield', 'Expected yield must be non-negative.'),
+            ('rotation_break_years', 'Rotation break must be non-negative.'),
         )
         for field_name, message in non_negative_fields:
             value = getattr(self, field_name)

@@ -76,7 +76,7 @@
   },
   "detail": {
     "sections": {
-      "general": "Allgemeine Informationen",
+      "cropRotation": "Fruchtfolge-Eigenschaften",
       "spacing": "Abstände",
       "seed": "Saatgut",
       "harvest": "Ernte",
@@ -95,6 +95,7 @@
     },
     "units": {
       "days": "Tage",
+      "years": "Jahre",
       "centimeters": "cm",
       "grams": "g",
       "kilograms": "kg",
@@ -205,9 +206,10 @@
     "cropFamily": "Pflanzenfamilie",
     "cropFamilyPlaceholder": "z.B. Solanaceae",
     "nutrientDemand": "Nährstoffbedarf",
-    "nutrientDemandLow": "Niedrig",
-    "nutrientDemandMedium": "Mittel",
-    "nutrientDemandHigh": "Hoch",
+    "nutrientDemandLow": "Schwachzehrer",
+    "nutrientDemandMedium": "Mittelzehrer",
+    "nutrientDemandHigh": "Starkzehrer",
+    "rotationBreakYears": "Anbaupause (Jahre)",
     "cultivationType": "Anbauart",
     "cultivationTypeDirectSowing": "Direktsaat",
     "cultivationTypePreCultivation": "Pflanzung",

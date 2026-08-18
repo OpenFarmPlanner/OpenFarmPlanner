@@ -1064,10 +1064,10 @@ const detailSectionGridSx = {
             </>
             ) : null}
 
-            {/* General Information Section */}
-            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+            {/* Crop Rotation Properties Section */}
+            <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                {t('detail.sections.general')}
+                {t('detail.sections.cropRotation')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {getCropValue('crop_family', selectedCulture.crop_family) && (
@@ -1094,22 +1094,17 @@ const detailSectionGridSx = {
                     </Typography>
                   </Box>
                 )}
-                {activeCultivationTypes.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('form.cultivationType')}
-                    </Typography>
-                    <Typography variant="body1" sx={getOwnValueSx('cultivation_types', 'cultivation_type')}>
-                      {activeCultivationTypes
-                        .map((item) => (
-                          item === 'pre_cultivation'
-                            ? t('form.cultivationTypePreCultivation')
-                            : t('form.cultivationTypeDirectSowing')
-                        ))
-                        .join(', ')}
-                    </Typography>
-                  </Box>
-                )}
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('form.rotationBreakYears')}
+                  </Typography>
+                  <Typography variant="body1" sx={getOwnValueSx('rotation_break_years')}>
+                    {getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== null
+                      && getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== undefined
+                      ? `${formatNumber(getCropValue('rotation_break_years', selectedCulture.rotation_break_years), t, locale)} ${t('detail.units.years')}`
+                      : t('noData')}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 
@@ -1200,6 +1195,11 @@ const detailSectionGridSx = {
               </Typography>
               <CultureSeedDetails
                 activeCultivationTypes={activeCultivationTypes}
+                cultivationTypeSource={
+                  getCropValueSource('cultivation_types') === 'ownValue' || getCropValueSource('cultivation_type') === 'ownValue'
+                    ? 'ownValue'
+                    : null
+                }
                 seedRateRows={seedRateRows}
                 sowingSafetyPercent={getCropValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
                 sowingSafetySource={getCropValueSource('sowing_calculation_safety_percent')}

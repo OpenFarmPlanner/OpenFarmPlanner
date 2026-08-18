@@ -136,9 +136,10 @@ export interface Culture {
   image_file?: MediaFileRef | null;
   image_file_id?: number | null;
   notes?: string;
-  
+
   crop_family?: string;
   nutrient_demand?: 'low' | 'medium' | 'high' | '';
+  rotation_break_years?: number | null;
   cultivation_type?: CultivationType | '';
   cultivation_types?: CultivationType[];
   

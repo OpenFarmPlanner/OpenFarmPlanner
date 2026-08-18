@@ -251,6 +251,7 @@ class CultureModelTest(TestCase):
             notes="Great for winter growing",
             crop_family="Brassicaceae",
             nutrient_demand="high",
+            rotation_break_years=4,
             cultivation_type="pre_cultivation",
             growth_duration_days=10,
             harvest_duration_days=3,
@@ -266,6 +267,7 @@ class CultureModelTest(TestCase):
         self.assertEqual(culture.name, "Broccoli")
         self.assertEqual(culture.crop_family, "Brassicaceae")
         self.assertEqual(culture.nutrient_demand, "high")
+        self.assertEqual(culture.rotation_break_years, 4)
         self.assertEqual(culture.cultivation_type, "pre_cultivation")
         self.assertEqual(culture.growth_duration_days, 10)
         self.assertEqual(culture.harvest_duration_days, 3)
@@ -329,7 +331,21 @@ class CultureModelTest(TestCase):
             culture.clean()
         self.assertIn('growth_duration_days', context.exception.message_dict)
 
-    
+    def test_negative_rotation_break_years_validation(self):
+        """Test that a negative rotation break in years is rejected"""
+        from django.core.exceptions import ValidationError
+
+        culture = Culture(
+            name="Lettuce",
+            growth_duration_days=4,
+            harvest_duration_days=2,
+            rotation_break_years=-1,
+        )
+        with self.assertRaises(ValidationError) as context:
+            culture.clean()
+        self.assertIn('rotation_break_years', context.exception.message_dict)
+
+
     def test_display_color_format_validation(self):
         """Test that display color must be in hex format"""
         from django.core.exceptions import ValidationError
