@@ -1277,28 +1277,38 @@ def has_open_public_culture_update(culture: Culture) -> bool:
     return not is_public_culture_update_rejected(culture)
 
 
-def resolve_public_publish_block(culture: Culture) -> str | None:
+def resolve_public_publish_block(
+    culture: Culture,
+    owned_public_culture: PublicCulture | None,
+) -> str | None:
     """Why pushing this culture into the public library is currently blocked, if it is.
 
-    Only linked copies can be blocked — a culture that was never imported has no
-    public version to diverge from. The reasons are ordered by how the versions
-    relate, so the UI can explain the exact situation instead of a generic hint:
+    ``owned_public_culture`` is the entry an actual publish would target —
+    callers resolve it themselves (respecting per-request ownership/moderator
+    rules, and any prefetching they already did for it), so this stays a pure
+    comparison and never issues its own query. The reasons are ordered by how
+    the versions relate, so the UI can explain the exact situation instead of a
+    generic hint:
 
-    - ``update_pending``: the library moved on and the user has not decided yet;
-      pushing now would overwrite an unreviewed public change.
+    - ``update_pending``: this copy also tracks the entry as its import source
+      and the library moved on without a decision yet; pushing now would
+      overwrite an unreviewed public change.
     - ``update_rejected``: the user deliberately declined that public version;
       pushing would silently undo the very change they declined.
-    - ``no_local_changes``: the copy matches the current public version and
-      carries no local edits, so there is nothing to contribute.
+    - ``no_local_changes``: the copy's published fields already match the
+      public entry, so there is nothing to contribute.
     """
-    if culture.source_public_culture_id is None:
+    if owned_public_culture is None:
         return None
-    public_culture = culture.source_public_culture
-    if public_culture is None or public_culture.status != PublicCulture.STATUS_PUBLISHED:
+
+    if culture.source_public_culture_id == owned_public_culture.id:
+        if has_pending_public_culture_update(culture):
+            return 'update_rejected' if is_public_culture_update_rejected(culture) else 'update_pending'
+        if not culture.is_modified_from_source:
+            return 'no_local_changes'
         return None
-    if has_pending_public_culture_update(culture):
-        return 'update_rejected' if is_public_culture_update_rejected(culture) else 'update_pending'
-    if not culture.is_modified_from_source:
+
+    if _copy_fields(culture) == _copy_fields(owned_public_culture):
         return 'no_local_changes'
     return None
 

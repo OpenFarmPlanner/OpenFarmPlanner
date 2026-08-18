@@ -1,11 +1,14 @@
 /**
- * Permanent, quiet marker that the local copy differs from the current public
- * version — rendered next to the "Importiert" badge.
+ * Permanent, quiet marker of the sync state between a linked culture and its
+ * public library entry — rendered next to the "Importiert" badge.
  *
  * The update notice disappears once the user decides (or declines), so without
  * this the diff dialog would only be reachable while an undecided update
  * exists. The marker keeps it reachable for as long as the versions differ, so
- * a rejection stays reversible without waiting for the next public edit.
+ * a rejection stays reversible without waiting for the next public edit. When
+ * the copy is already in sync, the marker still renders — disabled, with a
+ * tooltip explaining why — so linked cultures keep a consistent, always-present
+ * sync indicator instead of the control silently disappearing.
  */
 
 import { Chip } from '@mui/material';
@@ -22,18 +25,24 @@ interface PublicCultureUpdateMarkerProps {
 
 export function PublicCultureUpdateMarker({ controller, disabledReason }: PublicCultureUpdateMarkerProps) {
   const { t } = useTranslation('cultures');
-  const { isDiverged, isRejected, isLoading, openDiff } = controller;
+  const { isLinked, isDiverged, isRejected, isLoading, openDiff } = controller;
 
-  if (!isDiverged) {
+  if (!isLinked) {
     return null;
   }
 
-  const label = isRejected
-    ? t('library.publicUpdate.markerRejectedLabel')
-    : t('library.publicUpdate.markerLabel');
-  const tooltip = disabledReason ?? (isRejected
-    ? t('library.publicUpdate.markerRejectedTooltip')
-    : t('library.publicUpdate.markerTooltip'));
+  const isUpToDate = !isDiverged;
+  const label = isUpToDate
+    ? t('library.publicUpdate.markerUpToDateLabel')
+    : (isRejected
+      ? t('library.publicUpdate.markerRejectedLabel')
+      : t('library.publicUpdate.markerLabel'));
+  const tooltip = disabledReason ?? (isUpToDate
+    ? t('library.publicUpdate.markerUpToDateTooltip')
+    : (isRejected
+      ? t('library.publicUpdate.markerRejectedTooltip')
+      : t('library.publicUpdate.markerTooltip')));
+  const isDisabled = isUpToDate || isLoading || Boolean(disabledReason);
 
   return (
     <AppTooltip title={tooltip}>
@@ -41,9 +50,9 @@ export function PublicCultureUpdateMarker({ controller, disabledReason }: Public
         size="small"
         variant="outlined"
         color="info"
-        clickable={!disabledReason}
-        disabled={isLoading || Boolean(disabledReason)}
-        onClick={disabledReason ? undefined : openDiff}
+        clickable={!isDisabled}
+        disabled={isDisabled}
+        onClick={isDisabled ? undefined : openDiff}
         icon={<SyncOutlinedIcon fontSize="small" />}
         label={label}
         data-testid="culture-public-update-marker"

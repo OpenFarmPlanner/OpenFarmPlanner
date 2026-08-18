@@ -832,6 +832,8 @@
       "markerTooltip": "Your local copy differs from the current library version. Click to review the changes.",
       "markerRejectedLabel": "Update declined",
       "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
+      "markerUpToDateLabel": "Up to date",
+      "markerUpToDateTooltip": "Culture library is already up to date",
       "publishBlocked": {
         "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the crop library.",
         "update_rejected": "You declined a newer version from the library. Edit the public crop directly first to align the versions.",

@@ -1180,6 +1180,21 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         rows = {row['id']: row for row in response.data['results']}
         self.assertIsNone(rows[self.culture.id]['public_publish_blocked_reason'])
 
+    def test_owner_publish_block_reason_tracks_local_changes_without_an_import_link(self):
+        """A culture published straight from local data (never imported) has no
+        `source_public_culture`, so the block reason must be derived by comparing
+        against the owned entry directly instead of the import-lineage fields."""
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[self.culture.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+        self.culture.refresh_from_db()
+        self.culture.notes = 'Local edit after publishing'
+        self.culture.save()
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertIsNone(rows[self.culture.id]['public_publish_blocked_reason'])
+
     def test_publishing_over_a_rejected_public_version_is_refused(self):
         """The lock exists so a declined public change cannot be silently overwritten."""
         public_culture, imported = self._import_and_rename_variety()

@@ -832,6 +832,8 @@
       "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
       "markerRejectedLabel": "Update abgelehnt",
       "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
+      "markerUpToDateLabel": "Aktuell",
+      "markerUpToDateTooltip": "Kulturbibliothek ist bereits aktuell",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die Kulturbibliothek aktualisierst.",
         "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
