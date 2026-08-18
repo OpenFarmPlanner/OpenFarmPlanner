@@ -503,11 +503,19 @@ export function CulturesPublishingWizardDialog({
                     resetValidationResult();
                   }}
                   onInputChange={(_, value, reason) => {
-                    setSpeciesInputValue(value);
                     setProposeSpeciesError('');
                     // 'reset' is MUI writing the picked option's label back into
                     // the field right after onChange — not the user retyping,
-                    // so it must not undo the propose mode just entered.
+                    // so it must not undo the propose mode just entered. Picking
+                    // "propose as new species" clears `selectedSpecies` (it isn't
+                    // a real CropSpecies), which makes this same 'reset' write an
+                    // empty label into the field; keep showing the proposed name
+                    // instead of letting that overwrite it.
+                    if (reason === 'reset' && pendingSpeciesProposalName) {
+                      setSpeciesInputValue(pendingSpeciesProposalName);
+                      return;
+                    }
+                    setSpeciesInputValue(value);
                     if (reason !== 'reset') {
                       setPendingSpeciesProposalName(null);
                     }

@@ -128,6 +128,42 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(await screen.findByText(/Dein Vorschlag für die neue Kulturart „Kürbis“ wurde zur Prüfung eingereicht/)).toBeInTheDocument();
   });
 
+  it('keeps showing the proposed name after picking it while an existing species was already selected', async () => {
+    // Regression test: the culture's name ("Tomate") matches an existing
+    // species in the default beforeEach mock, so the Autocomplete's
+    // `selectedSpecies` (its controlled `value`) starts out as that real
+    // CropSpecies, not null. Retyping a different name and picking "propose
+    // as new species" clears `selectedSpecies` to null, which is a genuine
+    // value change — unlike the case where nothing was ever selected — and
+    // is what triggers MUI's internal input-value reset. The field must
+    // still show the proposed name afterward, not go blank.
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    await waitFor(() => expect(speciesInput).toHaveValue('Tomate'));
+
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Ackerbohne test');
+
+    const proposeOption = await screen.findByRole('option', { name: /Ackerbohne test.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
+
+    expect(await screen.findByDisplayValue('Ackerbohne test')).toBeInTheDocument();
+    expect(screen.getByText(/Deine Sorte wird vorläufig unter „Ackerbohne test“ veröffentlicht/)).toBeInTheDocument();
+
+    // Switching back to an existing species afterward must not leave any
+    // stale "propose" state behind.
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Tomate');
+    const tomatoOption = await screen.findByRole('option', { name: 'Tomate' });
+    fireEvent.click(tomatoOption);
+
+    expect(await screen.findByDisplayValue('Tomate')).toBeInTheDocument();
+    expect(screen.queryByText(/Deine Sorte wird vorläufig unter/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Jetzt veröffentlichen' })).toBeInTheDocument();
+  });
+
   it('matches an existing species by its localized display name, not just the canonical name', async () => {
     // Regression test: canonical `name` may be in a different language than
     // what the user types/sees (e.g. canonical "Pumpkin", German
