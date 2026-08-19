@@ -1,44 +1,56 @@
 #!/usr/bin/env bash
 #
-# Installs Playwright's Chrome channel on a CI runner.
+# Makes Playwright's Chrome channel usable on a CI runner.
 #
 # Shared by .github/workflows/e2e.yml and frontend-build.yml, which both need
 # the browser before `npm run build` (the frontend's `postbuild` script,
-# build/prerender.ts, launches Chrome itself).
+# build/prerender.ts, launches Chrome itself). The Playwright config pins
+# `channel: 'chrome'`, i.e. the real Google Chrome install, not the bundled
+# Chromium — the screenshot baselines were recorded against it.
 #
-# The failure this guards against, observed repeatedly in CI: the Ubuntu
-# mirror the runner is pinned to (azure.archive.ubuntu.com) goes unreachable,
-# apt sits in its own retry loop for minutes, and the `timeout` around the
-# attempt kills `npx` — but the apt-get it spawned as root survives as an
-# orphan and keeps /var/lib/apt/lists/lock held. That orphan never recovers,
-# so every later attempt dies on the lock instead of installing anything.
+# The fast path is to install nothing. The GitHub runner image already ships
+# Google Chrome, which is exactly what `channel: 'chrome'` resolves to, so if
+# it launches there is nothing to do. That matters because every install route
+# goes through apt, and apt on these runners is the single least reliable
+# thing in CI: the mirror the image pins (azure.archive.ubuntu.com) regularly
+# stops answering, apt then hangs for minutes, and when the surrounding
+# `timeout` kills it the apt-get it spawned as root survives as an orphan
+# holding /var/lib/apt/lists/lock until the job dies — taking every retry with
+# it. Note that `npx playwright install chrome` does this too even without
+# `--with-deps`: installing the Chrome channel *is* an apt install of the
+# google-chrome deb.
 #
-# Three layers deal with that:
-#
-# 1. Fail fast. A drop-in apt config caps the per-mirror timeout and retries,
-#    so apt gives up on a dead mirror in seconds and falls through to the
-#    working archive.ubuntu.com entry instead of hanging.
-# 2. Clear the way. Before each attempt, briefly wait for any apt lock to be
-#    released, then kill whatever still holds it and repair dpkg. Waiting
-#    alone is not enough: the wedged orphan is stuck on network I/O and holds
-#    the lock until the job dies.
-# 3. Fall back. If all attempts fail, install the browser without
-#    `--with-deps` and verify it actually launches. `--with-deps` only adds OS
-#    libraries that the GitHub runner image already ships (it comes with
-#    Chrome preinstalled), so a browser that launches is a genuine success,
-#    not a masked failure — the original outages had a working Chrome on disk
-#    while the job failed on apt.
+# Only when no working Chrome is present do we go near apt, and then with the
+# guards below: a drop-in config so apt gives up on a dead mirror instead of
+# hanging, a SIGKILL of whatever still holds the lock before each retry (the
+# wedged orphan is blocked on network I/O and never frees it on its own), and
+# a dpkg repair so the next attempt starts clean.
 #
 # The caller's step timeout must exceed this script's worst case
 # (max_attempts * (lock_wait + attempt_timeout) + backoff + fallback).
 set -euo pipefail
 
 max_attempts=3
-attempt_timeout_seconds=240
+attempt_timeout_seconds=180
 lock_wait_seconds=30
 lock_poll_seconds=5
 
 apt_lock_files=(/var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock)
+
+# Launching is the only check that matters: it is what the build and the tests
+# actually do, so a pass here means the job can proceed no matter how the
+# browser got onto the machine.
+chrome_launches() {
+  node -e "
+    const { chromium } = require('playwright-core');
+    chromium.launch({ channel: 'chrome' })
+      .then((browser) => {
+        const version = browser.version();
+        return browser.close().then(() => console.log('Chrome ' + version));
+      })
+      .catch((error) => { console.error(error.message.split('\n')[0]); process.exit(1); });
+  "
+}
 
 configure_apt_to_fail_fast() {
   sudo tee /etc/apt/apt.conf.d/99-ci-fail-fast >/dev/null <<'APTCONF'
@@ -76,18 +88,12 @@ clear_apt_locks() {
   done
 }
 
-install_without_deps_and_verify() {
-  echo "Falling back to installing the browser without OS dependencies..." >&2
-  timeout "$attempt_timeout_seconds" npx playwright install chrome || return 1
-  echo "Verifying that the browser launches..." >&2
-  node -e "
-    const { chromium } = require('playwright-core');
-    chromium.launch({ channel: 'chrome' })
-      .then((browser) => browser.close())
-      .catch((error) => { console.error(error.message); process.exit(1); });
-  "
-}
+if chrome_launches; then
+  echo "A working Chrome is already installed; skipping the Playwright browser install." >&2
+  exit 0
+fi
 
+echo "No working Chrome found, installing it..." >&2
 configure_apt_to_fail_fast
 
 for attempt in $(seq 1 "$max_attempts"); do
@@ -96,6 +102,12 @@ for attempt in $(seq 1 "$max_attempts"); do
     exit 0
   fi
   echo "Playwright browser install attempt $attempt/$max_attempts failed or timed out" >&2
+  # An attempt that installed Chrome but failed on an unrelated apt step still
+  # leaves the job able to run.
+  if chrome_launches; then
+    echo "Chrome is usable despite the failed install step." >&2
+    exit 0
+  fi
   if [ "$attempt" -lt "$max_attempts" ]; then
     backoff=$((attempt * 10))
     echo "Retrying in ${backoff}s..." >&2
@@ -103,12 +115,5 @@ for attempt in $(seq 1 "$max_attempts"); do
   fi
 done
 
-echo "Playwright browser install failed after $max_attempts attempts" >&2
-clear_apt_locks
-if install_without_deps_and_verify; then
-  echo "Browser installed and verified without the apt dependency step." >&2
-  exit 0
-fi
-
-echo "Could not install a working browser" >&2
+echo "Could not install a working browser after $max_attempts attempts" >&2
 exit 1
