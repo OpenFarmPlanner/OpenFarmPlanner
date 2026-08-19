@@ -697,6 +697,10 @@ class Culture(TimestampedModel):
         plans_to_update = []
         now = timezone.now()
         for plan in self.planting_plans.all():
+            # These plans are this culture's by definition. Handing them the
+            # already-loaded instance saves a culture fetch per plan and lets
+            # them share this instance's cached general-Kultur lookup.
+            plan.culture = self
             previous_harvest_date = plan.harvest_date
             previous_harvest_end_date = plan.harvest_end_date
             plan.recalculate_harvest_dates()

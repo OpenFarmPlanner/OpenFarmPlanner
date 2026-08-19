@@ -34,6 +34,7 @@ from farm.seed_units import (
 from farm.services.culture_display import resolve_culture_display_name
 from farm.services.culture_inheritance import (
     CULTURE_INHERITABLE_FIELDS,
+    build_effective_culture_values,
     build_general_culture_index,
     build_inherited_culture_values,
     get_general_culture,
@@ -350,12 +351,12 @@ class CultureSerializer(serializers.ModelSerializer):
     def get_effective_values(self, obj: Culture) -> dict[str, Any]:
         if self._resolve_general_culture(obj) is None:
             return {}
-        inherited = self._inherited_values(obj)
+        effective = build_effective_culture_values(obj, self._general_culture_index(obj))
         return {
             _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field): self._api_representation(
-                model_field, inherited.get(model_field, getattr(obj, model_field)),
+                model_field, value,
             )
-            for model_field in CULTURE_INHERITABLE_FIELDS
+            for model_field, value in effective.items()
         }
     
     def _resolve_owned_public_culture(self, obj: Culture) -> PublicCulture | None:

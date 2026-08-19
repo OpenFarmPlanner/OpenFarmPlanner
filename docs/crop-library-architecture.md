@@ -264,11 +264,44 @@ future `CropVariety` entity and persisted nullable override chain exist,
 value-source cues are resolved from the current row plus the matching
 no-variety general crop row.
 
+Public-library moderators are granted through the Django group
+`Public Library Moderators`, which carries only the `crops.moderate_crop_species`
+permission. Staff/superusers inherit moderation capability for operational
+management, but ordinary moderators do not receive Django admin or staff
+rights. Normal users can request moderator access from account settings; admins
+review those requests through the public-library moderation queue and approval
+grants only the moderator group.
+
+Discoverability of pending items is deliberately reused, not duplicated: the
+"Moderation" topbar button (`PublicCropLibraryPage.tsx`) shows an MUI `Badge`
+with the same counts the moderation queue itself lists — proposed species
+always, pending moderator-access requests only for admins, since only admins
+can review those — fetched with `page_size: 1` against the existing
+`/api/crop-species/` and `/api/public-library/moderator-requests/` list
+endpoints rather than a separate count endpoint. Submitting either kind of
+item also fans out an in-app notification (see `docs/notifications.md`) to
+every moderator/admin, so the queue is discoverable even off the crop library
+page — the button badge and the bell read the same underlying pending state,
+just through two different existing surfaces.
+
+Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
+in the database for audit and transition safety. No UI creates, reviews, or
+displays them any more, and existing proposals are not automatically applied.
+The plumbing underneath is still there and still reachable: the model, the
+`change-proposals/` list/create/approve/reject actions on
+`PublicCultureViewSet`, and the `publicCultureAPI.changeProposals(...)` /
+`createChangeProposal` / `approveChangeProposal` / `rejectChangeProposal`
+wrappers in `frontend/src/api/api.ts` all still exist — only the components
+that used to call them are gone. Treat it as dead-but-live surface: don't build
+on it, and don't assume removing it is a no-op for API clients.
+
 ### Sorte → Kultur value inheritance
 
-That same pairing is also the **value** fallback for project cultures, not only
-a display cue. `backend/farm/services/culture_inheritance.py` owns the rule so
-the API, the planning calculations and the UI resolve it identically:
+The species → variety pairing described above (a general "no variety" row plus
+the rows that carry a variety) is also the **value** fallback for project
+cultures, not only a display cue.
+`backend/farm/services/culture_inheritance.py` owns the rule so the API, the
+planning calculations and the UI resolve it identically:
 
 - A Sorte (`variety` set) with a `crop_species` inherits from the general
   Kultur — same project, same `crop_species`, empty `variety`, not soft-deleted.
@@ -327,37 +360,6 @@ marking genuine per-Sorte values only. On save, anything still matching the
 baseline is cleared again (`stripValuesMatchingBaseline`, the same mechanism the
 add-variety prefill uses), so displaying an inherited value never freezes it as
 an override, and clearing a field simply removes the override.
-
-Public-library moderators are granted through the Django group
-`Public Library Moderators`, which carries only the `crops.moderate_crop_species`
-permission. Staff/superusers inherit moderation capability for operational
-management, but ordinary moderators do not receive Django admin or staff
-rights. Normal users can request moderator access from account settings; admins
-review those requests through the public-library moderation queue and approval
-grants only the moderator group.
-
-Discoverability of pending items is deliberately reused, not duplicated: the
-"Moderation" topbar button (`PublicCropLibraryPage.tsx`) shows an MUI `Badge`
-with the same counts the moderation queue itself lists — proposed species
-always, pending moderator-access requests only for admins, since only admins
-can review those — fetched with `page_size: 1` against the existing
-`/api/crop-species/` and `/api/public-library/moderator-requests/` list
-endpoints rather than a separate count endpoint. Submitting either kind of
-item also fans out an in-app notification (see `docs/notifications.md`) to
-every moderator/admin, so the queue is discoverable even off the crop library
-page — the button badge and the bell read the same underlying pending state,
-just through two different existing surfaces.
-
-Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
-in the database for audit and transition safety. No UI creates, reviews, or
-displays them any more, and existing proposals are not automatically applied.
-The plumbing underneath is still there and still reachable: the model, the
-`change-proposals/` list/create/approve/reject actions on
-`PublicCultureViewSet`, and the `publicCultureAPI.changeProposals(...)` /
-`createChangeProposal` / `approveChangeProposal` / `rejectChangeProposal`
-wrappers in `frontend/src/api/api.ts` all still exist — only the components
-that used to call them are gone. Treat it as dead-but-live surface: don't build
-on it, and don't assume removing it is a no-op for API clients.
 
 ## 1. The current situation (before this pass)
 
