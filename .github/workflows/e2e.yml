@@ -46,31 +46,15 @@ jobs:
       # the browser needs to already be installed by the time `npm run build`
       # runs, not just before `playwright test`.
       - name: Install Playwright browser (Chrome)
-        # The Playwright CDN download (esp. the bundled FFmpeg) has been observed to
-        # stall indefinitely after reaching 100% instead of erroring out, silently
-        # burning the whole job timeout. Two mitigations:
-        # 1. PLAYWRIGHT_DOWNLOAD_HOST forces the direct storage-bucket mirror instead
-        #    of the default Azure-routed ones (both prefixed /dbazure/), which is
-        #    where the stalls were observed.
-        # 2. Bound each attempt and retry instead of relying on a single unbounded
-        #    download; the step timeout must fit attempts * per-attempt timeout with
-        #    margin for apt-get, or a stuck last attempt gets killed by the step
-        #    timeout before the loop's own logic can report failure.
-        timeout-minutes: 15
+        # PLAYWRIGHT_DOWNLOAD_HOST forces the direct storage-bucket mirror instead
+        # of the default Azure-routed ones (both prefixed /dbazure/), which is where
+        # the download stalls were observed. The retry/lock handling lives in the
+        # script; the timeout below must stay above its documented worst case.
+        timeout-minutes: 20
         working-directory: frontend
         env:
           PLAYWRIGHT_DOWNLOAD_HOST: https://cdn.playwright.dev
-        run: |
-          set -e
-          max_attempts=3
-          for attempt in $(seq 1 "$max_attempts"); do
-            if timeout 180 npx playwright install --with-deps chrome; then
-              exit 0
-            fi
-            echo "Playwright browser install attempt $attempt/$max_attempts failed or timed out, retrying..." >&2
-          done
-          echo "Playwright browser install failed after $max_attempts attempts" >&2
-          exit 1
+        run: "$GITHUB_WORKSPACE/scripts/ci/install-playwright-chrome.sh"
 
       - name: Build frontend (production build)
         run: npm run build

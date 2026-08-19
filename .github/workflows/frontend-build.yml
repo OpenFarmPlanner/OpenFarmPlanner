@@ -39,23 +39,13 @@ jobs:
 
       # The frontend's `postbuild` script (build/prerender.ts) launches
       # Playwright's Chrome channel itself, so it must already be installed
-      # before `npm run build` runs — see e2e.yml for the same requirement
-      # and the retry rationale.
+      # before `npm run build` runs — see e2e.yml for the same requirement.
+      # The retry and apt-lock handling lives in the shared script.
       - name: Install Playwright browser (Chrome)
-        timeout-minutes: 15
+        timeout-minutes: 20
         env:
           PLAYWRIGHT_DOWNLOAD_HOST: https://cdn.playwright.dev
-        run: |
-          set -e
-          max_attempts=3
-          for attempt in $(seq 1 "$max_attempts"); do
-            if timeout 180 npx playwright install --with-deps chrome; then
-              exit 0
-            fi
-            echo "Playwright browser install attempt $attempt/$max_attempts failed or timed out, retrying..." >&2
-          done
-          echo "Playwright browser install failed after $max_attempts attempts" >&2
-          exit 1
+        run: "$GITHUB_WORKSPACE/scripts/ci/install-playwright-chrome.sh"
 
       - name: Build frontend
         run: npm run build
