@@ -95,5 +95,11 @@ export function buildCultureSavePayload(culture: Culture): CultureSavePayload {
   delete (payload as unknown as Record<string, unknown>).row_spacing_m;
   delete (payload as unknown as Record<string, unknown>).sowing_depth_m;
 
+  // Read-only inheritance data: the backend resolves these per response and
+  // ignores them on write, so sending them back is pure payload noise.
+  delete (payload as unknown as Record<string, unknown>).general_culture;
+  delete (payload as unknown as Record<string, unknown>).inherited_fields;
+  delete (payload as unknown as Record<string, unknown>).effective_values;
+
   return payload;
 }

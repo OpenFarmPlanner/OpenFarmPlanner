@@ -100,6 +100,36 @@ export function stripValuesMatchingBaseline<TDraft extends Partial<Culture>>(
   return stripped as TDraft;
 }
 
+/**
+ * The values the backend resolved from a Sorte's general Kultur, keyed by form
+ * field. The edit dialog merges these into the form so a field the Sorte does
+ * not override shows the Kultur's value instead of an empty input; it is also
+ * the baseline `stripValuesMatchingBaseline` clears again on save, so merely
+ * displaying an inherited value never turns it into an override.
+ *
+ * Empty when there is nothing to inherit from — a general Kultur, or a
+ * free-text Sorte without a linked crop species.
+ */
+export function buildInheritedValueBaseline(
+  culture: Culture | null | undefined,
+): Partial<Culture> {
+  if (!culture?.general_culture) {
+    return {};
+  }
+  const effectiveValues = culture.effective_values;
+  if (!effectiveValues) {
+    return {};
+  }
+  const baseline: Partial<Culture> = {};
+  for (const field of culture.inherited_fields ?? []) {
+    const value = effectiveValues[field];
+    if (!isEmptyCropValue(value)) {
+      (baseline as Record<string, unknown>)[field] = value;
+    }
+  }
+  return baseline;
+}
+
 export function getVarietyOwnValueSource(
   culture: Partial<Culture> | null | undefined,
   speciesCulture: Partial<Culture> | null | undefined,

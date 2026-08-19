@@ -61,7 +61,11 @@ import {
   isLikelyTestPublicCultureEntry,
   normalizeIdentityValue,
 } from './publicCultureNameSuggestions';
-import { getVarietyOwnValueSource, stripValuesMatchingBaseline } from './varietyValueSource';
+import {
+  buildInheritedValueBaseline,
+  getVarietyOwnValueSource,
+  stripValuesMatchingBaseline,
+} from './varietyValueSource';
 import { varietySpecificFieldHighlightSx } from './varietyValueAccent';
 import { buildVarietyFieldTooltipTitle, type GetVarietyFieldTooltipProps } from './varietyFieldTooltipHelpers';
 import { VarietyValueLegend } from './VarietyValueLegend';
@@ -249,35 +253,44 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
     return initialDraft ? { ...EMPTY_CULTURE, ...initialDraft } : EMPTY_CULTURE;
   }
 
+  // A Sorte only stores the values it actually overrides. Every other field
+  // shows the value the backend resolved from its general Kultur, so the form
+  // displays what the Sorte effectively is instead of a row of empty inputs.
+  // The merged-in values carry no override styling (they equal the Kultur's
+  // own values, see getVarietyOwnValueSource) and are stripped again on save.
+  const displayedCulture: Culture = { ...culture, ...buildInheritedValueBaseline(culture) };
+
   const normalizedSpacingValues: Partial<Culture> = {
     distance_within_row_cm:
-      typeof culture.distance_within_row_cm === 'number'
-        ? Math.round(culture.distance_within_row_cm)
-        : culture.distance_within_row_cm,
+      typeof displayedCulture.distance_within_row_cm === 'number'
+        ? Math.round(displayedCulture.distance_within_row_cm)
+        : displayedCulture.distance_within_row_cm,
     row_spacing_cm:
-      typeof culture.row_spacing_cm === 'number'
-        ? Math.round(culture.row_spacing_cm)
-        : culture.row_spacing_cm,
+      typeof displayedCulture.row_spacing_cm === 'number'
+        ? Math.round(displayedCulture.row_spacing_cm)
+        : displayedCulture.row_spacing_cm,
   };
 
   const normalizedSeedRateUnits: Partial<Culture> = {
-    seed_rate_unit: normalizeSeedRateUnit(culture.seed_rate_unit),
-    seed_rate_direct_unit: normalizeSeedRateUnit(culture.seed_rate_direct_unit),
-    seed_rate_pre_cultivation_unit: normalizeSeedRateUnit(culture.seed_rate_pre_cultivation_unit),
+    seed_rate_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_unit),
+    seed_rate_direct_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_direct_unit),
+    seed_rate_pre_cultivation_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_pre_cultivation_unit),
   };
 
-  const normalizedNotes = culture.notes ? stripCitationMarkers(culture.notes) : culture.notes;
+  const normalizedNotes = displayedCulture.notes
+    ? stripCitationMarkers(displayedCulture.notes)
+    : displayedCulture.notes;
 
   // `culture.name` is free text and never cascades a later crop_species rename
   // (see culture_display.py) — `culture_display_name` is the field that already
   // resolves to the species' current name, and it falls back to `culture.name`
   // itself when there is no linked species, so preferring it here can only
   // correct a stale value, never lose one.
-  const normalizedName = culture.culture_display_name ?? culture.name;
+  const normalizedName = displayedCulture.culture_display_name ?? displayedCulture.name;
 
-  if (culture.supplier || !culture.seed_supplier) {
+  if (displayedCulture.supplier || !displayedCulture.seed_supplier) {
     return {
-      ...culture,
+      ...displayedCulture,
       ...normalizedSpacingValues,
       ...normalizedSeedRateUnits,
       notes: normalizedNotes,
@@ -286,13 +299,13 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
   }
 
   return {
-    ...culture,
+    ...displayedCulture,
     ...normalizedSpacingValues,
     ...normalizedSeedRateUnits,
     notes: normalizedNotes,
     name: normalizedName,
     supplier: {
-      name: culture.seed_supplier,
+      name: displayedCulture.seed_supplier,
       allowed_domains: [],
     },
   };
@@ -1018,16 +1031,18 @@ export function CultureForm({
     isSavingRef.current = true;
     setIsSaving(true);
     try {
-      // A new variety's form starts prefilled with its crop's own values
-      // (see Cultures.tsx `handleAddVariety`) purely so the user can see
-      // what they're starting from. Any field left matching that baseline
-      // is stripped back to empty here so the variety keeps inheriting from
-      // the crop (including future crop edits) instead of freezing a
-      // duplicate copy of today's crop values.
-      const dataToSave = !isEdit && initialDraft
+      // The form shows the variety's inherited crop values — prefilled from the
+      // crop when adding one (see Cultures.tsx `handleAddVariety`), resolved by
+      // the backend when editing one — purely so the user can see what the
+      // variety effectively is. Any field left matching that baseline is
+      // stripped back to empty here so the variety keeps inheriting from the
+      // crop (including future crop edits) instead of freezing a duplicate copy
+      // of today's crop values.
+      const inheritanceBaseline = isEdit ? buildInheritedValueBaseline(culture) : initialDraft;
+      const dataToSave = inheritanceBaseline
         ? stripValuesMatchingBaseline(
           formData,
-          initialDraft,
+          inheritanceBaseline,
           (field) => (field in EMPTY_CULTURE ? EMPTY_CULTURE[field as keyof typeof EMPTY_CULTURE] : ''),
         )
         : formData;
