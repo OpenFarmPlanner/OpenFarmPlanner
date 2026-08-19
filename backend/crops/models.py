@@ -61,6 +61,16 @@ class CropSpecies(models.Model):
         self.name_normalized = normalize_text(self.name) or ''
         super().save(*args, **kwargs)
 
+    @property
+    def is_pending(self) -> bool:
+        """True while a moderator has not yet decided on this proposal.
+
+        The single source of truth for "pending" callers that gate on this
+        status (publish/import/discussion blocks, the frontend chip) so the
+        rule can't drift between call sites.
+        """
+        return self.status == self.STATUS_PROPOSED
+
     def translations_by_language(self) -> dict[str, str]:
         """language code → common name, for every stored translation.
 

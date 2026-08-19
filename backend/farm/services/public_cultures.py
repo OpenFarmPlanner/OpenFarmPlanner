@@ -1046,6 +1046,7 @@ def remove_public_culture(
     public_culture: PublicCulture,
     user: User | None,
     reason: str = '',
+    force_moderator_reason: bool = False,
 ) -> PublicCulture:
     """Remove a public culture from the public library.
 
@@ -1056,8 +1057,15 @@ def remove_public_culture(
       reversible: publishing the project culture again republishes it;
     - a moderator removes somebody else's entry (`removed`) and must supply a
       structured moderation reason.
+
+    ``force_moderator_reason`` skips the contributor auto-detection and always
+    takes the moderator/``removed`` path. Needed for system-driven cascades
+    (e.g. withdrawing every entry under a just-rejected species) that must
+    record the real reason even when the acting moderator happens to also be
+    the entry's own contributor — otherwise the contributor branch would
+    silently downgrade it to a self-reversible `withdrawn` with no reason.
     """
-    if is_public_culture_contributor(public_culture=public_culture, user=user):
+    if not force_moderator_reason and is_public_culture_contributor(public_culture=public_culture, user=user):
         if public_culture.status != PublicCulture.STATUS_PUBLISHED:
             raise PublicCultureStatusTransitionError(
                 'Only published public cultures can be removed from the library.',

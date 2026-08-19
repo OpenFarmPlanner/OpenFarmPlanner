@@ -335,6 +335,75 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(withdrawn_entry.status, PublicCulture.STATUS_WITHDRAWN)
         self.assertEqual(withdrawn_entry.removal_reason, '')
 
+    def test_rejecting_a_proposal_notifies_other_contributors_of_removed_entries(self):
+        """A collaborator who published under someone else's pending species
+        must learn their own entry was pulled, not just the proposer."""
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator-3',
+            email='species-cleanup-moderator-3@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        collaborator = User.objects.create_user(
+            username='species-cleanup-collaborator',
+            email='species-cleanup-collaborator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 3', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        collaborator_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Collaborator', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=collaborator, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        collaborator_entry.refresh_from_db()
+        self.assertEqual(collaborator_entry.status, PublicCulture.STATUS_REMOVED)
+        collaborator_notification = Notification.objects.get(
+            recipient=collaborator, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+        )
+        self.assertEqual(collaborator_notification.target_id, collaborator_entry.id)
+        # The proposer already gets the species-level notification and must
+        # not also receive a redundant per-entry one.
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.user, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+            ).exists(),
+        )
+
+    def test_rejecting_own_proposal_as_moderator_still_records_the_real_reason(self):
+        """A moderator who proposed and self-published under their own proposal,
+        then rejects it, must still get a moderation-tracked removal, not a
+        self-reversible withdrawal that loses the reason."""
+        moderator = User.objects.create_user(
+            username='species-self-reject-moderator',
+            email='species-self-reject-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 4', status=CropSpecies.STATUS_PROPOSED, proposed_by=moderator,
+        )
+        own_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Self-published', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=moderator, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        own_entry.refresh_from_db()
+        self.assertEqual(own_entry.status, PublicCulture.STATUS_REMOVED)
+        self.assertEqual(own_entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
+
     def test_normal_user_cannot_edit_or_delete_published_species(self):
         species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
         self.client.force_authenticate(user=self.user)

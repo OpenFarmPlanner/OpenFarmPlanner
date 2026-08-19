@@ -776,7 +776,10 @@ export interface ApiTokenCreatePayload {
  */
 export type NotificationType =
   | 'crop_species_proposal_accepted'
-  | 'crop_species_proposal_rejected';
+  | 'crop_species_proposal_rejected'
+  | 'crop_species_proposal_submitted'
+  | 'moderator_request_submitted'
+  | 'public_culture_removed';
 
 export type NotificationTargetType = 'public_culture' | 'crop_species' | 'public_library_moderation' | '';
 

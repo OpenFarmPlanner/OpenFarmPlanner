@@ -333,7 +333,7 @@ class CultureSerializer(serializers.ModelSerializer):
         """
         public_culture = self._resolve_owned_public_culture(obj)
         species = public_culture.crop_species if public_culture else None
-        return bool(species and species.status == CropSpecies.STATUS_PROPOSED)
+        return bool(species and species.is_pending)
 
     def get_public_publish_blocked_reason(self, obj: Culture) -> str | None:
         """Why publishing/updating the public entry from this copy is blocked, if it is."""

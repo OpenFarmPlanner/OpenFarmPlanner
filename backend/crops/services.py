@@ -247,8 +247,17 @@ def remove_public_cultures_for_rejected_species(
     rows — the same model this file already reads/writes elsewhere — so it
     does not cross the "crop library knows nothing about projects" boundary
     documented at the top of this file.
+
+    Also notifies every affected entry's contributor, except the species
+    proposer themselves — they already get a species-level notification from
+    `notify_species_proposal_reviewed`, so a second one about "their" entry
+    would be redundant. A collaborator who published a variety under someone
+    else's still-under-review species proposal would otherwise never learn
+    their contribution was pulled.
     """
     from farm.services.public_cultures import remove_public_culture
+    from notifications.models import Notification
+    from notifications.services import create_notification
 
     affected = PublicCulture.objects.filter(
         crop_species=species, status=PublicCulture.STATUS_PUBLISHED,
@@ -258,7 +267,24 @@ def remove_public_cultures_for_rejected_species(
             public_culture=public_culture,
             user=moderator,
             reason=PublicCulture.REMOVAL_REASON_SPECIES_REJECTED,
+            # A moderator rejecting a species may also be the contributor of
+            # one of the affected entries (they proposed and self-published
+            # under it) — this is still a moderation action, not a personal
+            # withdrawal, so it must always carry the real removal reason.
+            force_moderator_reason=True,
         )
+        if public_culture.created_by_id and public_culture.created_by_id != species.proposed_by_id:
+            create_notification(
+                recipient=public_culture.created_by,
+                notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+                message=(
+                    f'Your published crop "{public_culture.name}" was removed from the '
+                    f'public library because its crop species "{species.name}" was rejected.'
+                ),
+                context={'name': public_culture.name, 'species_name': species.name},
+                target_type=Notification.TARGET_PUBLIC_CULTURE,
+                target_id=public_culture.id,
+            )
 
 
 def notify_moderators_of_species_proposal(species: CropSpecies) -> None:

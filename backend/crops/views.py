@@ -111,7 +111,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         review_note = (request.data.get('review_note') or '').strip()
         with transaction.atomic():
             species = CropSpecies.objects.select_for_update().get(pk=pk)
-            if species.status != CropSpecies.STATUS_PROPOSED:
+            if not species.is_pending:
                 return self._proposal_status_error()
             duplicate = CropSpecies.objects.filter(
                 status=CropSpecies.STATUS_PUBLISHED,
@@ -141,7 +141,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         review_note = (request.data.get('review_note') or '').strip()
         with transaction.atomic():
             species = CropSpecies.objects.select_for_update().get(pk=pk)
-            if species.status != CropSpecies.STATUS_PROPOSED:
+            if not species.is_pending:
                 return self._proposal_status_error()
             species.status = CropSpecies.STATUS_REJECTED
             species.reviewed_by = request.user
