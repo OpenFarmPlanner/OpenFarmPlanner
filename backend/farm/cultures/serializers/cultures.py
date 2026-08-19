@@ -198,6 +198,7 @@ class CultureSerializer(serializers.ModelSerializer):
     public_update_available = serializers.SerializerMethodField()
     public_update_rejected = serializers.SerializerMethodField()
     public_publish_blocked_reason = serializers.SerializerMethodField()
+    public_crop_species_pending = serializers.SerializerMethodField()
 
     def get_image_file(self, obj):
         if not obj.image_file_id:
@@ -323,9 +324,20 @@ class CultureSerializer(serializers.ModelSerializer):
         """Whether the pending library version was explicitly declined by the user."""
         return is_public_culture_update_rejected(obj)
 
+    def get_public_crop_species_pending(self, obj: Culture) -> bool:
+        """Whether this culture's own public entry sits under an unreviewed species.
+
+        True only while a moderator has not decided on the species proposal:
+        the publication is real but provisional, which the culture detail
+        marks with a "proposal under review" chip.
+        """
+        public_culture = self._resolve_owned_public_culture(obj)
+        species = public_culture.crop_species if public_culture else None
+        return bool(species and species.is_pending)
+
     def get_public_publish_blocked_reason(self, obj: Culture) -> str | None:
         """Why publishing/updating the public entry from this copy is blocked, if it is."""
-        return resolve_public_publish_block(obj)
+        return resolve_public_publish_block(obj, self._resolve_owned_public_culture(obj))
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')
@@ -541,6 +553,11 @@ class CultureSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Harvest duration must be non-negative.')
         return value
     
+    def validate_rotation_break_years(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError('Rotation break must be non-negative.')
+        return value
+
     def validate_germination_rate(self, value):
         if value is not None and (value < 0 or value > 100):
             raise serializers.ValidationError('Germination rate must be between 0 and 100.')

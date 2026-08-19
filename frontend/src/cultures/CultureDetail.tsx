@@ -22,6 +22,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
 import { PublicCultureUpdateMarker } from './PublicCultureUpdateMarker';
+import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { usePublicCultureUpdate } from './usePublicCultureUpdate';
 import {
   Badge,
@@ -439,6 +440,12 @@ const detailSectionGridSx = {
   const publicUpdate = usePublicCultureUpdate(selectedCulture, onPublicUpdateApplied);
   const publishBlockedTooltip = selectedCulture?.public_publish_blocked_reason
     ? t(`library.publicUpdate.publishBlocked.${selectedCulture.public_publish_blocked_reason}`)
+    : undefined;
+  // The variety is published, but under a species a moderator has not
+  // confirmed yet — visible as a chip, and the library sync waits for it.
+  const isPublishedUnderPendingSpecies = Boolean(selectedCulture?.public_crop_species_pending);
+  const pendingSpeciesDisabledReason = isPublishedUnderPendingSpecies
+    ? t('library.badges.speciesPendingTooltip')
     : undefined;
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
@@ -954,7 +961,11 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
-                        <PublicCultureUpdateMarker controller={publicUpdate} />
+                        {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
+                        <PublicCultureUpdateMarker
+                          controller={publicUpdate}
+                          disabledReason={pendingSpeciesDisabledReason}
+                        />
                       </Box>
                     </Box>
                   </Box>
@@ -994,7 +1005,11 @@ const detailSectionGridSx = {
               />
             </Box>
 
-            <PublicCultureUpdateNotice culture={selectedCulture} controller={publicUpdate} />
+            <PublicCultureUpdateNotice
+              culture={selectedCulture}
+              controller={publicUpdate}
+              disabledReason={pendingSpeciesDisabledReason}
+            />
 
             {showVarietyValueLegend ? (
               <Box sx={{ mt: 1.25 }}>
@@ -1049,10 +1064,10 @@ const detailSectionGridSx = {
             </>
             ) : null}
 
-            {/* General Information Section */}
-            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+            {/* Crop Rotation Properties Section */}
+            <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                {t('detail.sections.general')}
+                {t('detail.sections.cropRotation')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {getCropValue('crop_family', selectedCulture.crop_family) && (
@@ -1079,22 +1094,17 @@ const detailSectionGridSx = {
                     </Typography>
                   </Box>
                 )}
-                {activeCultivationTypes.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('form.cultivationType')}
-                    </Typography>
-                    <Typography variant="body1" sx={getOwnValueSx('cultivation_types', 'cultivation_type')}>
-                      {activeCultivationTypes
-                        .map((item) => (
-                          item === 'pre_cultivation'
-                            ? t('form.cultivationTypePreCultivation')
-                            : t('form.cultivationTypeDirectSowing')
-                        ))
-                        .join(', ')}
-                    </Typography>
-                  </Box>
-                )}
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('form.rotationBreakYears')}
+                  </Typography>
+                  <Typography variant="body1" sx={getOwnValueSx('rotation_break_years')}>
+                    {getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== null
+                      && getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== undefined
+                      ? `${formatNumber(getCropValue('rotation_break_years', selectedCulture.rotation_break_years), t, locale)} ${t('detail.units.years')}`
+                      : t('noData')}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 
@@ -1185,6 +1195,11 @@ const detailSectionGridSx = {
               </Typography>
               <CultureSeedDetails
                 activeCultivationTypes={activeCultivationTypes}
+                cultivationTypeSource={
+                  getCropValueSource('cultivation_types') === 'ownValue' || getCropValueSource('cultivation_type') === 'ownValue'
+                    ? 'ownValue'
+                    : null
+                }
                 seedRateRows={seedRateRows}
                 sowingSafetyPercent={getCropValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
                 sowingSafetySource={getCropValueSource('sowing_calculation_safety_percent')}

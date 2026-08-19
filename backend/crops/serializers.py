@@ -282,6 +282,13 @@ class CropSerializer(serializers.ModelSerializer):
     description = serializers.SerializerMethodField()
     description_language_code = serializers.SerializerMethodField()
     crop_species_translations = serializers.SerializerMethodField()
+    # Mirrors `PublicCultureSerializer.crop_species_status`: `proposed` marks a
+    # species that is still awaiting moderation, which the UI shows as pending.
+    crop_species_status = serializers.CharField(
+        source='crop_species.status',
+        read_only=True,
+        default='',
+    )
 
     class Meta:
         model = PublicCulture
@@ -293,6 +300,7 @@ class CropSerializer(serializers.ModelSerializer):
             'notes',
             'crop_species',
             'crop_species_name',
+            'crop_species_status',
             'original_language_code',
             'crop_family',
             'nutrient_demand',

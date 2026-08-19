@@ -100,6 +100,7 @@ export function BasicInfoSection({
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
+  const rotationBreakYearsVariety = getFieldTooltipProps?.('rotation_break_years');
 
   return (
     <>
@@ -314,7 +315,7 @@ export function BasicInfoSection({
         <Box sx={fieldRowSx}>{firstVarietySourceHint}</Box>
       ) : null}
       {identityHint}
-      <Box sx={fieldRowSx}>
+      <Box sx={{ ...fieldRowSx, alignItems: 'flex-end' }}>
         <VarietyFieldTooltip tooltipTitle={cropFamilyVariety?.tooltipTitle}>
           <TextField
             sx={mergeVarietyFieldSx(mediumFieldSx, cropFamilyVariety?.sx)}
@@ -324,8 +325,6 @@ export function BasicInfoSection({
             onChange={e => onChange('crop_family', e.target.value)}
           />
         </VarietyFieldTooltip>
-      </Box>
-      <Box sx={fieldRowSx}>
         <VarietyFieldTooltip tooltipTitle={nutrientDemandVariety?.tooltipTitle}>
           <FormControl sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}>
             <InputLabel>{t('form.nutrientDemand')}</InputLabel>
@@ -341,6 +340,16 @@ export function BasicInfoSection({
               <MenuItem value="high">{t('form.nutrientDemandHigh')}</MenuItem>
             </Select>
           </FormControl>
+        </VarietyFieldTooltip>
+        <VarietyFieldTooltip tooltipTitle={rotationBreakYearsVariety?.tooltipTitle}>
+          <TextField
+            type="number"
+            sx={mergeVarietyFieldSx(smallFieldSx, rotationBreakYearsVariety?.sx)}
+            label={t('form.rotationBreakYears')}
+            value={formData.rotation_break_years ?? ''}
+            onChange={e => onChange('rotation_break_years', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
         </VarietyFieldTooltip>
       </Box>
     </>

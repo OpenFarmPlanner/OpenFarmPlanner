@@ -26,6 +26,8 @@ export interface TopbarContextAction {
    */
   appearance?: 'segmented' | 'standard';
   menuActions?: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean; destructive?: boolean }>;
+  /** Small numeric badge rendered on the action's button, e.g. a pending-items count. Omitted/0 shows no badge. */
+  badgeContent?: number;
 }
 
 export interface RootLayoutOutletContext {

@@ -112,16 +112,22 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         manager = Culture.all_objects if include_deleted else Culture.objects
         owned_public_cultures_prefetch = Prefetch(
             'published_public_cultures',
+            # `crop_species` is read per row by the serializer's
+            # `public_crop_species_pending` flag; without it every owned entry
+            # costs one extra query.
             queryset=PublicCulture.objects.filter(
                 status=PublicCulture.STATUS_PUBLISHED,
                 created_by=self.request.user,
-            ).order_by('-updated_at', '-id'),
+            ).select_related('crop_species').order_by('-updated_at', '-id'),
             to_attr='_prefetched_owned_public_cultures',
         )
         return (
             manager
             .filter(project=self.request.active_project)
-            .select_related('supplier', 'image_file', 'source_public_culture', 'crop_species')
+            .select_related(
+                'supplier', 'image_file', 'source_public_culture',
+                'source_public_culture__crop_species', 'crop_species',
+            )
             .prefetch_related('supplier_data__supplier', 'seed_packages', 'crop_species__translations', owned_public_cultures_prefetch)
         )
 

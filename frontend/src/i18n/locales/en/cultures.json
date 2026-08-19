@@ -76,7 +76,7 @@
   },
   "detail": {
     "sections": {
-      "general": "General information",
+      "cropRotation": "Crop Rotation Properties",
       "spacing": "Spacing",
       "seed": "Seed",
       "harvest": "Yield",
@@ -95,6 +95,7 @@
     },
     "units": {
       "days": "days",
+      "years": "years",
       "centimeters": "cm",
       "grams": "g",
       "kilograms": "kg",
@@ -205,9 +206,10 @@
     "cropFamily": "Crop family",
     "cropFamilyPlaceholder": "e.g. Solanaceae",
     "nutrientDemand": "Nutrient demand",
-    "nutrientDemandLow": "Low",
-    "nutrientDemandMedium": "Medium",
-    "nutrientDemandHigh": "High",
+    "nutrientDemandLow": "Light feeder",
+    "nutrientDemandMedium": "Medium feeder",
+    "nutrientDemandHigh": "Heavy feeder",
+    "rotationBreakYears": "Rotation Break (Years)",
     "cultivationType": "Cultivation type",
     "cultivationTypeDirectSowing": "Direct sowing",
     "cultivationTypePreCultivation": "Transplanting",
@@ -586,7 +588,8 @@
         "openAria": "Open help for the crop library"
       },
       "moderation": {
-        "open": "Moderation"
+        "open": "Moderation",
+        "openWithPending": "Moderation ({{count}} pending)"
       },
       "tabs": {
         "details": "Details",
@@ -831,6 +834,8 @@
       "markerTooltip": "Your local copy differs from the current library version. Click to review the changes.",
       "markerRejectedLabel": "Update declined",
       "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
+      "markerUpToDateLabel": "Up to date",
+      "markerUpToDateTooltip": "Culture library is already up to date",
       "publishBlocked": {
         "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the crop library.",
         "update_rejected": "You declined a newer version from the library. Edit the public crop directly first to align the versions.",
@@ -870,6 +875,7 @@
       "duplicate": "Duplicate",
       "wrong_mapping": "Wrong mapping",
       "unlawful_content": "Unlawful content",
+      "species_rejected": "Crop species proposal rejected",
       "other": "Other"
     },
     "loadError": "The crop library could not be loaded.",
@@ -1008,7 +1014,8 @@
       "speciesMissing": "No official crop species selected",
       "speciesNoOptions": "No matching official crop species found.",
       "proposeSpeciesInline": "Suggest \"{{name}}\" as a new crop species",
-      "proposeSpeciesButton": "Suggest",
+      "proposeSpeciesSubmit": "Suggest crop species",
+      "proposeSpeciesPublishHint": "Your variety will be published provisionally under \"{{name}}\" until the proposal has been reviewed.",
       "proposedSpeciesNotice": "Your suggestion for the new crop species \"{{name}}\" has been submitted for review. You can go ahead and publish your variety now — it will appear provisionally under \"{{name}}\" until it's approved.",
       "proposeSpeciesError": "The suggestion could not be saved. Please try again.",
       "speciesAlreadyExists": "This crop species already exists or has already been suggested — possibly under a different name. Please search for it in the list.",
@@ -1049,6 +1056,9 @@
       "cropFamily": "Crop family"
     },
     "badges": {
+      "speciesPendingChip": "Proposal under review",
+      "speciesPendingTooltip": "This function becomes available once a moderator has reviewed the crop species proposal.",
+      "speciesPendingChipTooltip": "The crop species has been proposed and has not been reviewed by a moderator yet.",
       "local": "Local",
       "imported": "Imported",
       "modified": "Modified locally"

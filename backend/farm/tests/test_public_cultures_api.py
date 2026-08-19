@@ -1180,6 +1180,21 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         rows = {row['id']: row for row in response.data['results']}
         self.assertIsNone(rows[self.culture.id]['public_publish_blocked_reason'])
 
+    def test_owner_publish_block_reason_tracks_local_changes_without_an_import_link(self):
+        """A culture published straight from local data (never imported) has no
+        `source_public_culture`, so the block reason must be derived by comparing
+        against the owned entry directly instead of the import-lineage fields."""
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[self.culture.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+        self.culture.refresh_from_db()
+        self.culture.notes = 'Local edit after publishing'
+        self.culture.save()
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertIsNone(rows[self.culture.id]['public_publish_blocked_reason'])
+
     def test_publishing_over_a_rejected_public_version_is_refused(self):
         """The lock exists so a declined public change cannot be silently overwritten."""
         public_culture, imported = self._import_and_rename_variety()
@@ -2337,3 +2352,119 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PublicCulture.objects.filter(id=public_culture.id).exists())
+
+
+class PublicCulturePendingSpeciesApiTest(DRFAPITestCase):
+    """Entries published under a not-yet-reviewed species stay read-only.
+
+    Publishing under a proposed species is deliberately allowed (the variety
+    goes live provisionally), but every action that treats the species as
+    settled reference data waits for the moderator's decision.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='pending-species-user', email='pending-species@example.com', password='testpass', is_active=True,
+        )
+        self.project = Project.objects.create(name='Pending Project', slug='pending-project')
+        ProjectMembership.objects.create(user=self.user, project=self.project, role='admin')
+        self.client.force_authenticate(user=self.user)
+        self.client.defaults['HTTP_X_PROJECT_ID'] = str(self.project.id)
+        self.pending_species = CropSpecies.objects.create(
+            name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        self.pending_entry = PublicCulture.objects.create(
+            name='Tree onion',
+            variety='Egyptian',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.pending_species,
+            created_by=self.user,
+        )
+
+    def test_serializer_exposes_the_pending_species_status(self):
+        response = self.client.get(f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['crop_species_status'], CropSpecies.STATUS_PROPOSED)
+
+    def test_import_is_blocked_while_the_species_awaits_moderation(self):
+        response = self.client.post(f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/import/')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'crop_species_pending')
+        self.assertFalse(Culture.objects.filter(project=self.project).exists())
+
+    def test_starting_a_discussion_is_blocked_while_the_species_awaits_moderation(self):
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/discussion-topics/',
+            {'title': 'Too early', 'body': 'Should not be possible yet.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'crop_species_pending')
+        self.assertFalse(PublicCultureDiscussionTopic.objects.exists())
+
+    def test_commenting_is_blocked_while_the_species_awaits_moderation(self):
+        topic = PublicCultureDiscussionTopic.objects.create(
+            public_culture=self.pending_entry, title='Existing', created_by=self.user,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/discussion-topics/{topic.id}/comments/',
+            {'body': 'Should not be possible yet.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'crop_species_pending')
+        self.assertFalse(PublicCultureDiscussionComment.objects.exists())
+
+    def test_everything_unblocks_once_the_species_is_approved(self):
+        self.pending_species.status = CropSpecies.STATUS_PUBLISHED
+        self.pending_species.save(update_fields=['status'])
+
+        import_response = self.client.post(f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/import/')
+        topic_response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{self.pending_entry.id}/discussion-topics/',
+            {'title': 'Now allowed', 'body': 'Approved species.'},
+            format='json',
+        )
+
+        self.assertEqual(import_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(topic_response.status_code, status.HTTP_201_CREATED)
+
+    def test_culture_detail_reports_its_own_entry_as_pending(self):
+        imported = Culture.objects.create(
+            name='Tree onion',
+            variety='Egyptian',
+            project=self.project,
+            source_public_culture=self.pending_entry,
+            source_public_version=1,
+            origin_type=Culture.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['public_crop_species_pending'])
+
+    def test_culture_detail_reports_no_pending_state_for_a_published_species(self):
+        published_species = CropSpecies.objects.create(name='Lettuce', status=CropSpecies.STATUS_PUBLISHED)
+        published_entry = PublicCulture.objects.create(
+            name='Lettuce', variety='Bijella', status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=published_species, created_by=self.user,
+        )
+        imported = Culture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            project=self.project,
+            source_public_culture=published_entry,
+            source_public_version=1,
+            origin_type=Culture.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{imported.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['public_crop_species_pending'])

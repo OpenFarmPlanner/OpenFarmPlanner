@@ -18,6 +18,8 @@ export interface DiscussionCommentProps {
   isEditing: boolean;
   menuAnchorElement: HTMLElement | null;
   submittingComment: boolean;
+  /** Blocks writing while reading stays available (e.g. species awaiting moderation). */
+  writingDisabled?: boolean;
   commentBody: string;
   t: (key: string, options?: Record<string, unknown>) => string;
   onReply: (commentId: number) => void;
@@ -45,6 +47,7 @@ export function DiscussionComment({
   isEditing,
   menuAnchorElement,
   submittingComment,
+  writingDisabled = false,
   commentBody,
   t,
   onReply,
@@ -101,7 +104,7 @@ export function DiscussionComment({
             <Box sx={{ mt: 1 }}>
               <CommentForm
                 body={commentBody}
-                disabled={submittingComment}
+                disabled={submittingComment || writingDisabled}
                 inputRef={activeFormInputRef}
                 label={t('library.page.discussion.commentLabel')}
                 submitLabel={t('library.page.discussion.submit')}
@@ -130,6 +133,7 @@ export function DiscussionComment({
                 size="small"
                 aria-label={replyLabel}
                 onClick={() => onReply(comment.id)}
+                disabled={writingDisabled}
               >
                 <ReplyOutlinedIcon fontSize="small" />
               </IconButton>
@@ -190,6 +194,8 @@ export interface ThreadCommentBranchProps {
   editingCommentId: number | null;
   commentActionMenu: { commentId: number; anchorElement: HTMLElement } | null;
   submittingComment: boolean;
+  /** Blocks writing while reading stays available (e.g. species awaiting moderation). */
+  writingDisabled?: boolean;
   commentBody: string;
   t: (key: string, options?: Record<string, unknown>) => string;
   onReply: (commentId: number) => void;
@@ -216,6 +222,7 @@ export function ThreadCommentBranch({
   editingCommentId,
   commentActionMenu,
   submittingComment,
+  writingDisabled = false,
   commentBody,
   t,
   onReply,
@@ -251,6 +258,7 @@ export function ThreadCommentBranch({
         isEditing={editingCommentId === node.comment.id}
         menuAnchorElement={commentActionMenu?.commentId === node.comment.id ? commentActionMenu.anchorElement : null}
         submittingComment={submittingComment}
+        writingDisabled={writingDisabled}
         commentBody={commentBody}
         t={t}
         onReply={onReply}
@@ -291,6 +299,7 @@ export function ThreadCommentBranch({
               editingCommentId={editingCommentId}
               commentActionMenu={commentActionMenu}
               submittingComment={submittingComment}
+              writingDisabled={writingDisabled}
               commentBody={commentBody}
               t={t}
               onReply={onReply}
@@ -310,7 +319,7 @@ export function ThreadCommentBranch({
           {replyTo === node.comment.id ? (
             <CommentForm
               body={commentBody}
-              disabled={submittingComment}
+              disabled={submittingComment || writingDisabled}
               inputRef={activeFormInputRef}
               label={t('library.page.discussion.replyLabel')}
               submitLabel={t('library.page.discussion.submit')}

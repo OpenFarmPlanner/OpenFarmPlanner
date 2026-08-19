@@ -250,6 +250,7 @@ class CultureApiTest(ProjectApiTestCase):
             'notes': 'Test notes',
             'crop_family': 'Solanaceae',
             'nutrient_demand': 'high',
+            'rotation_break_years': 3,
             'cultivation_type': 'pre_cultivation',
             'growth_duration_days': 8,
             'harvest_duration_days': 3,
@@ -269,6 +270,7 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(response.data['name'], 'Comprehensive Culture')
         self.assertEqual(response.data['crop_family'], 'Solanaceae')
         self.assertEqual(response.data['nutrient_demand'], 'high')
+        self.assertEqual(response.data['rotation_break_years'], 3)
         self.assertEqual(response.data['thousand_kernel_weight_g'], 472.02)
         self.assertEqual(response.data['display_color'], '#FF5733')
 
@@ -284,6 +286,18 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNone(response.data['growth_duration_days'])
         self.assertIsNone(response.data['harvest_duration_days'])
+        self.assertIsNone(response.data['rotation_break_years'])
+
+    def test_culture_create_rejects_negative_rotation_break_years(self):
+        """Test that a negative rotation break in years is rejected by the API"""
+        data = {
+            'name': 'Culture With Bad Rotation Break',
+            'rotation_break_years': -2,
+            'project': self.project.id,
+        }
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rotation_break_years', response.data)
 
     def test_culture_create_invalid_display_color(self):
         """Test that invalid display color format is rejected"""

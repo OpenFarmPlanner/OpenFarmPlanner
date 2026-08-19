@@ -45,6 +45,7 @@
     "member": "Member"
   },
   "globalMenu": {
+    "notifications": "Notifications",
     "projectActions": "Project actions",
     "app": "App",
     "shortcuts": "Keyboard shortcuts",
@@ -55,7 +56,8 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "dashboardLink": "Go to dashboard",
-    "openMobileMenu": "Open menu"
+    "openMobileMenu": "Open menu",
+    "moreActions": "More"
   },
   "pageHelp": {
     "dashboard": "Help for dashboard",

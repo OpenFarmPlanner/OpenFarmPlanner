@@ -9,6 +9,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';
 import { LanguageMenuItems } from '../i18n/LanguageSwitcher';
+import type { ReactNode } from 'react';
 
 interface GlobalMenuProps {
   anchorEl: HTMLElement | null;
@@ -28,6 +29,12 @@ interface GlobalMenuProps {
   isGuestDemoSession: boolean;
   onLeaveDemoProject: () => Promise<void>;
   onLogout: () => Promise<void>;
+  /**
+   * Notification entries for the compact layout, where the topbar has no room
+   * for a bell. Built by the owner (`useNotificationMenuItems`) rather than
+   * here, so this menu keeps needing no router or data-fetching context.
+   */
+  notificationItems?: ReactNode[];
   t: (key: string) => string;
 }
 
@@ -50,6 +57,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     isGuestDemoSession,
     onLeaveDemoProject,
     onLogout,
+    notificationItems,
     t,
   } = props;
 
@@ -57,6 +65,11 @@ export function GlobalMenu(props: GlobalMenuProps) {
   const wrapAsync = (fn: () => Promise<void>): () => void => () => { onClose(); void fn(); };
 
   const mobileMenuItems = [
+    ...(notificationItems ? [
+      <MenuItem key="mobile-section-notifications" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.notifications')}</MenuItem>,
+      ...notificationItems,
+      <Divider key="mobile-divider-notifications" />,
+    ] : []),
     <MenuItem key="mobile-section-project" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.projectActions')}</MenuItem>,
     <MenuItem key="mobile-project-switcher" onClick={wrap(onOpenProjectSwitcher)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SwapHorizIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('projectSwitcher.ariaLabel')}</MenuItem>,
     <MenuItem key="mobile-project-create" onClick={wrap(onOpenCreateProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><AddIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.create')}</MenuItem>,

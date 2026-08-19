@@ -182,6 +182,7 @@ INSTALLED_APPS = [
     'crops',
     'farm',
     'accounts',
+    'notifications',
 ]
 
 # django-debug-toolbar is a local-development-only dependency (PDM group

@@ -3,6 +3,8 @@ import type {
   ApiToken,
   ApiTokenCreatePayload,
   ApiTokenCreated,
+  AppNotification,
+  NotificationListResponse,
   Culture,
   Location,
   Field,
@@ -148,6 +150,12 @@ export const cultureAPI = {
   rejectPublicUpdate: (id: number) => http.post<Culture>(`/cultures/${id}/public-update/reject/`),
 };
 
+export const notificationAPI = {
+  /** Newest first; the unread count rides along so the bell needs one request. */
+  list: () => http.get<NotificationListResponse>('/notifications/'),
+  markRead: (id: number) => http.post<AppNotification>(`/notifications/${id}/read/`),
+};
+
 export const cropSpeciesAPI = {
   list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status']; page_size?: number }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
@@ -159,7 +167,7 @@ export const cropSpeciesAPI = {
 export const publicLibraryModeratorRequestAPI = {
   mine: () => http.get<PublicLibraryModeratorRequestMine>('/public-library/moderator-requests/mine/'),
   create: (motivation: string) => http.post<PublicLibraryModeratorRequest>('/public-library/moderator-requests/', { motivation }),
-  list: (params?: { status?: PublicLibraryModeratorRequest['status'] }) =>
+  list: (params?: { status?: PublicLibraryModeratorRequest['status']; page_size?: number }) =>
     http.get<PaginatedResponse<PublicLibraryModeratorRequest>>('/public-library/moderator-requests/', { params }),
   approve: (id: number, reviewNote = '') =>
     http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/approve/`, { review_note: reviewNote }),
@@ -474,6 +482,7 @@ export type {
 export default {
   cultures: cultureAPI,
   cropSpecies: cropSpeciesAPI,
+  notifications: notificationAPI,
   publicCultures: publicCultureAPI,
   suppliers: supplierAPI,
   cultureSupplierData: cultureSupplierDataAPI,

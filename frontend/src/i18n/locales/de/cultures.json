@@ -76,7 +76,7 @@
   },
   "detail": {
     "sections": {
-      "general": "Allgemeine Informationen",
+      "cropRotation": "Fruchtfolge-Eigenschaften",
       "spacing": "Abstände",
       "seed": "Saatgut",
       "harvest": "Ernte",
@@ -95,6 +95,7 @@
     },
     "units": {
       "days": "Tage",
+      "years": "Jahre",
       "centimeters": "cm",
       "grams": "g",
       "kilograms": "kg",
@@ -205,9 +206,10 @@
     "cropFamily": "Pflanzenfamilie",
     "cropFamilyPlaceholder": "z.B. Solanaceae",
     "nutrientDemand": "Nährstoffbedarf",
-    "nutrientDemandLow": "Niedrig",
-    "nutrientDemandMedium": "Mittel",
-    "nutrientDemandHigh": "Hoch",
+    "nutrientDemandLow": "Schwachzehrer",
+    "nutrientDemandMedium": "Mittelzehrer",
+    "nutrientDemandHigh": "Starkzehrer",
+    "rotationBreakYears": "Anbaupause (Jahre)",
     "cultivationType": "Anbauart",
     "cultivationTypeDirectSowing": "Direktsaat",
     "cultivationTypePreCultivation": "Pflanzung",
@@ -586,7 +588,8 @@
         "openAria": "Hilfe zur Kulturbibliothek öffnen"
       },
       "moderation": {
-        "open": "Moderation"
+        "open": "Moderation",
+        "openWithPending": "Moderation ({{count}} ausstehend)"
       },
       "tabs": {
         "details": "Details",
@@ -831,6 +834,8 @@
       "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
       "markerRejectedLabel": "Update abgelehnt",
       "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
+      "markerUpToDateLabel": "Aktuell",
+      "markerUpToDateTooltip": "Kulturbibliothek ist bereits aktuell",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die Kulturbibliothek aktualisierst.",
         "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
@@ -870,6 +875,7 @@
       "duplicate": "Duplikat",
       "wrong_mapping": "Falsche Zuordnung",
       "unlawful_content": "Unzulässiger Inhalt",
+      "species_rejected": "Kulturart-Vorschlag abgelehnt",
       "other": "Sonstiges"
     },
     "loadError": "Die Kulturbibliothek konnte nicht geladen werden.",
@@ -1008,7 +1014,8 @@
       "speciesMissing": "Keine offizielle Kulturart ausgewählt",
       "speciesNoOptions": "Keine passende offizielle Kulturart gefunden.",
       "proposeSpeciesInline": "„{{name}}“ als neue Kulturart vorschlagen",
-      "proposeSpeciesButton": "Vorschlagen",
+      "proposeSpeciesSubmit": "Kulturart vorschlagen",
+      "proposeSpeciesPublishHint": "Deine Sorte wird vorläufig unter „{{name}}“ veröffentlicht, bis der Vorschlag geprüft wurde.",
       "proposedSpeciesNotice": "Dein Vorschlag für die neue Kulturart „{{name}}“ wurde zur Prüfung eingereicht. Du kannst deine Sorte jetzt trotzdem veröffentlichen — sie erscheint vorläufig unter „{{name}}“, bis der Vorschlag bestätigt ist.",
       "proposeSpeciesError": "Der Vorschlag konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "speciesAlreadyExists": "Diese Kulturart existiert bereits oder wurde schon vorgeschlagen — möglicherweise unter einem anderen Namen. Bitte in der Liste danach suchen.",
@@ -1049,6 +1056,9 @@
       "cropFamily": "Pflanzenfamilie"
     },
     "badges": {
+      "speciesPendingChip": "Vorschlag in Prüfung",
+      "speciesPendingTooltip": "Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.",
+      "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
       "local": "Lokal",
       "imported": "Importiert",
       "modified": "Lokal geändert"

@@ -44,4 +44,26 @@ describe('BasicInfoSection', () => {
 
     expect(onChange).toHaveBeenCalledWith('nutrient_demand', 'high');
   });
+
+  it('updates the rotation break in years, clearing back to null', () => {
+    const onChange = vi.fn();
+
+    render(
+      <BasicInfoSection
+        formData={{ rotation_break_years: 3 }}
+        errors={{}}
+        onChange={onChange}
+        t={t}
+      />
+    );
+
+    const rotationBreakInput = screen.getByLabelText('form.rotationBreakYears');
+    expect(rotationBreakInput).toHaveValue(3);
+
+    fireEvent.change(rotationBreakInput, { target: { value: '5' } });
+    expect(onChange).toHaveBeenCalledWith('rotation_break_years', 5);
+
+    fireEvent.change(rotationBreakInput, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith('rotation_break_years', null);
+  });
 });

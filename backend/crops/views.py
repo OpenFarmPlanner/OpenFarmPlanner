@@ -69,6 +69,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         species = serializer.save(status=CropSpecies.STATUS_PROPOSED, proposed_by=request.user)
+        services.notify_moderators_of_species_proposal(species)
         return Response(self.get_serializer(species).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -110,7 +111,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         review_note = (request.data.get('review_note') or '').strip()
         with transaction.atomic():
             species = CropSpecies.objects.select_for_update().get(pk=pk)
-            if species.status != CropSpecies.STATUS_PROPOSED:
+            if not species.is_pending:
                 return self._proposal_status_error()
             duplicate = CropSpecies.objects.filter(
                 status=CropSpecies.STATUS_PUBLISHED,
@@ -130,20 +131,25 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             species.reviewed_at = timezone.now()
             species.review_note = review_note
             species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 
     @action(detail=True, methods=['post'], url_path='reject')
     def reject(self, request, pk=None):
         if not is_public_library_moderator(request.user):
             return self._moderator_required_response()
-        species = CropSpecies.objects.get(pk=pk)
-        if species.status != CropSpecies.STATUS_PROPOSED:
-            return self._proposal_status_error()
-        species.status = CropSpecies.STATUS_REJECTED
-        species.reviewed_by = request.user
-        species.reviewed_at = timezone.now()
-        species.review_note = (request.data.get('review_note') or '').strip()
-        species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+        review_note = (request.data.get('review_note') or '').strip()
+        with transaction.atomic():
+            species = CropSpecies.objects.select_for_update().get(pk=pk)
+            if not species.is_pending:
+                return self._proposal_status_error()
+            species.status = CropSpecies.STATUS_REJECTED
+            species.reviewed_by = request.user
+            species.reviewed_at = timezone.now()
+            species.review_note = review_note
+            species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+            services.remove_public_cultures_for_rejected_species(species, request.user)
+        services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 
 
@@ -196,6 +202,7 @@ class PublicLibraryModeratorRequestViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         request_row = serializer.save(user=request.user)
+        services.notify_admins_of_moderator_request(request_row)
         return Response(self.get_serializer(request_row).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='mine')

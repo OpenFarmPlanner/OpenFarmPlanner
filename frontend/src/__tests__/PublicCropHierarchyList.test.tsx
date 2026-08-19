@@ -46,4 +46,77 @@ describe('PublicCropHierarchyList', () => {
     expect(screen.getByText('Canadian Wonder2')).toBeInTheDocument();
     expect(screen.queryByText('Direktsaat')).not.toBeInTheDocument();
   });
+
+  it('shows only the pending-suggestion icon for a species with a single pending variety', async () => {
+    const pendingCultures: PublicCulture[] = [{
+      id: 3,
+      status: 'published',
+      name: 'Kürbis',
+      variety: 'Hokkaido',
+      crop_species_name: 'Kürbis',
+      crop_species_status: 'proposed',
+      version: 1,
+      cultivation_type: 'direct_sowing',
+      cultivation_types: ['direct_sowing'],
+    }];
+
+    render(
+      <PublicCropHierarchyList
+        cultures={pendingCultures}
+        selectedCultureId={null}
+        isSpeciesView
+        onSelect={vi.fn()}
+        ariaLabel="Crop library"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('(1)')).not.toBeInTheDocument();
+  });
+
+  it('shows the pending-suggestion icon alongside the count once more than one variety is proposed', async () => {
+    const pendingCultures: PublicCulture[] = [
+      {
+        id: 4,
+        status: 'published',
+        name: 'Kürbis',
+        variety: 'Hokkaido',
+        crop_species_name: 'Kürbis',
+        crop_species_status: 'proposed',
+        version: 1,
+        cultivation_type: 'direct_sowing',
+        cultivation_types: ['direct_sowing'],
+      },
+      {
+        id: 5,
+        status: 'published',
+        name: 'Kürbis',
+        variety: 'Butternut',
+        crop_species_name: 'Kürbis',
+        crop_species_status: 'proposed',
+        version: 1,
+        cultivation_type: 'direct_sowing',
+        cultivation_types: ['direct_sowing'],
+      },
+    ];
+
+    render(
+      <PublicCropHierarchyList
+        cultures={pendingCultures}
+        selectedCultureId={null}
+        isSpeciesView
+        onSelect={vi.fn()}
+        ariaLabel="Crop library"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+  });
 });

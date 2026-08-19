@@ -2184,4 +2184,46 @@ describe('PublicCropLibraryPage', () => {
       expect(await within(cropDetailHeader).findByRole('button', { name: 'Im Projekt aktualisieren' })).toBeInTheDocument();
     });
   });
+  describe('crop species awaiting moderation', () => {
+    const pendingCultures = [
+      { ...publicCultures[0], crop_species_status: 'proposed' as const },
+      publicCultures[1],
+    ];
+
+    it('marks the entry as pending and blocks import while the species is unreviewed', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({ data: { results: pendingCultures } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+      expect(within(cropDetailHeader).getByText('Vorschlag in Prüfung')).toBeInTheDocument();
+      expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeDisabled();
+    });
+
+    it('blocks starting a discussion and explains why', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({ data: { results: pendingCultures } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      await user.click(screen.getByRole('tab', { name: /Diskussion/i }));
+
+      expect(await screen.findByText(/Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Neue Diskussion' })).toBeDisabled();
+    });
+
+    it('leaves everything enabled for a species that was already reviewed', async () => {
+      publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await user.click(await screen.findByRole('option', { name: 'Tomate (Roma)' }));
+      const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
+
+      expect(within(cropDetailHeader).queryByText('Vorschlag in Prüfung')).not.toBeInTheDocument();
+      expect(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' })).toBeEnabled();
+    });
+  });
 });

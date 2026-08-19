@@ -9,6 +9,7 @@
 import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router';
 import {
   AppBar,
+  Badge,
   Button,
   ButtonGroup,
   Chip,
@@ -62,6 +63,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { useNotifications } from '../notifications/useNotifications';
+import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
@@ -107,6 +111,7 @@ import {
 import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
 import { AppTooltip } from '../components/AppTooltip';
+import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
@@ -150,6 +155,7 @@ function getCompactTopbarActionIcon(actionId: string): React.ReactNode {
  */
 function RootLayout() {
   const { t, i18n } = useTranslation('navigation');
+  const { t: tNotifications } = useTranslation('notifications');
   useGlobalOverlayKeyboardScroll();
   const tCultures = useMemo(
     () => i18n.getFixedT(i18n.resolvedLanguage ?? i18n.language ?? 'de', 'cultures'),
@@ -196,6 +202,9 @@ function RootLayout() {
   const { user, endGuestDemo, logout, activeProjectId, switchActiveProject } = useAuth();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
   const { activeCreateActions, openPalette, runPrimaryCreateAction, openShortcutsHelp } = useCommandContext();
+  // One controller for both entry points — the full topbar's bell and, on
+  // compact widths, the "Mehr" menu — so the list is fetched once.
+  const notifications = useNotifications(true);
   const [globalMenuAnchor, setGlobalMenuAnchor] = useState<null | HTMLElement>(null);
   const [projectMenuAnchor, setProjectMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -244,9 +253,15 @@ function RootLayout() {
     setGlobalMenuAnchor(event.currentTarget);
   };
 
-  const handleGlobalMenuClose = () => {
+  // Stable identity so useNotificationMenuItems (which takes this as a dep)
+  // can actually memoize instead of rebuilding its menu-item array whenever
+  // RootLayout re-renders for an unrelated reason.
+  const handleGlobalMenuClose = useCallback(() => {
     setGlobalMenuAnchor(null);
-  };
+  }, []);
+  // Built here rather than inside GlobalMenu so that menu keeps needing no
+  // router context — see its `notificationItems` prop.
+  const notificationMenuItems = useNotificationMenuItems(notifications, handleGlobalMenuClose);
   const handleOpenMobileProjectSwitcher = (): void => {
     handleGlobalMenuClose();
     setMobileProjectSwitcherOpen(true);
@@ -394,7 +409,7 @@ function RootLayout() {
       console.error('Error leaving demo project:', error);
       showSnackbar(t('commandPalette.feedback.leaveDemoError'), 'error');
     }
-  }, [endGuestDemo, navigate, showSnackbar, t]);
+  }, [endGuestDemo, handleGlobalMenuClose, navigate, showSnackbar, t]);
 
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
@@ -405,7 +420,7 @@ function RootLayout() {
       console.error('Error logging out:', error);
       showSnackbar(t('commandPalette.feedback.logoutError'), 'error');
     }
-  }, [logout, navigate, showSnackbar, t]);
+  }, [handleGlobalMenuClose, logout, navigate, showSnackbar, t]);
 
   const refreshDeletedProjectsCount = useCallback(async (): Promise<void> => {
     if (!user) {
@@ -928,7 +943,25 @@ function RootLayout() {
         elevation={0}
         sx={{ borderBottom: '1px solid', borderColor: 'surface.surfaceBorder', bgcolor: 'surface.topbarBackground', backdropFilter: 'saturate(120%) blur(2px)' }}
       >
-        <Toolbar variant="dense" sx={{ minHeight: 56, gap: 1, py: 0.5, px: { xs: 0, sm: 2, md: 3 }, flexWrap: 'nowrap', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+        <Toolbar
+          variant="dense"
+          sx={{
+            minHeight: 56,
+            gap: 1,
+            py: 0.5,
+            px: { xs: 0, sm: 2, md: 3 },
+            flexWrap: 'nowrap',
+            minWidth: 0,
+            maxWidth: '100%',
+            // No `overflow` set here on purpose: per the CSS Overflow spec, a
+            // container with overflow-x: hidden and overflow-y: visible has its
+            // overflow-y computed as `auto` instead (browsers can't mix hidden
+            // and true visible across axes), which still clips the moderation
+            // badge poking above this row. The page-level Box's overflowX:
+            // hidden (RootLayout's outer wrapper) already guards against a
+            // horizontal scrollbar; nothing here needs its own clip.
+          }}
+        >
           {!isDesktopUp ? <IconButton aria-label={t('globalMenu.openMobileMenu')} onClick={() => setMobileNavOpen(true)} sx={{ width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}><MenuIcon /></IconButton> : null}
           <Box sx={{
             display: 'inline-flex',
@@ -1063,8 +1096,8 @@ function RootLayout() {
             ) : null}
           </Box>
           {!isCompactTopbar ? (
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', overflow: 'hidden', pr: 0.5 }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, position: 'relative', zIndex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', pr: 0.5 }}>
           {isCulturesPage ? (
             <>
               {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
@@ -1150,21 +1183,31 @@ function RootLayout() {
           ) : null}
           {isPublicCropLibraryPage && publicLibraryModerationAction ? (
             <>
-              <Button
-                size="medium"
-                variant="outlined"
-                onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
-                aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
-                disabled={publicLibraryModerationAction.disabled}
-                endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+              <Badge
+                badgeContent={publicLibraryModerationAction.badgeContent}
+                color="error"
+                overlap="rectangular"
                 sx={{
-                  ...getStandardActionButtonSx(false),
                   flexShrink: 0,
-                  whiteSpace: 'nowrap',
+                  ...TOPBAR_BADGE_SX,
                 }}
               >
-                {publicLibraryModerationAction.label}
-              </Button>
+                <Button
+                  size="medium"
+                  variant="outlined"
+                  onClick={(event) => setPublicLibraryModerationMenuAnchor(event.currentTarget)}
+                  aria-label={publicLibraryModerationAction.ariaLabel ?? publicLibraryModerationAction.label}
+                  disabled={publicLibraryModerationAction.disabled}
+                  endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                  sx={{
+                    ...getStandardActionButtonSx(false),
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {publicLibraryModerationAction.label}
+                </Button>
+              </Badge>
               <Menu
                 anchorEl={publicLibraryModerationMenuAnchor}
                 open={Boolean(publicLibraryModerationMenuAnchor)}
@@ -1383,6 +1426,7 @@ function RootLayout() {
             onOpenProjectTrash={handleOpenProjectTrash}
             t={t}
           />
+          <NotificationBell controller={notifications} />
           <IconButton
             aria-label="Mehr"
             aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
@@ -1501,7 +1545,14 @@ function RootLayout() {
                         }}
                         disabled={publicLibraryModerationAction.disabled}
                       >
-                        <GavelIcon />
+                        <Badge
+                          badgeContent={publicLibraryModerationAction.badgeContent}
+                          color="error"
+                          overlap="circular"
+                          sx={TOPBAR_BADGE_SX}
+                        >
+                          <GavelIcon />
+                        </Badge>
                       </IconButton>
                     </Box>
                   </AppTooltip>
@@ -1696,13 +1747,19 @@ function RootLayout() {
                 </Menu>
               ) : null}
               <IconButton
-                aria-label="Mehr"
+                aria-label={notifications.unreadCount > 0
+                  ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
+                  : t('globalMenu.moreActions')}
                 aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
                 aria-haspopup="true"
                 onClick={handleGlobalMenuOpen}
                 sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
               >
-                <MoreVertIcon />
+                {/* The compact topbar has no room for its own bell, so the
+                    unread signal rides on the menu that holds the entries. */}
+                <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
+                  <MoreVertIcon />
+                </Badge>
               </IconButton>
               <GlobalMenu
                 anchorEl={globalMenuAnchor}
@@ -1710,6 +1767,7 @@ function RootLayout() {
                 historyLoading={historyLoading}
                 userLabel={user?.email ? `(${user.email})` : (user?.display_label ? `(${user.display_label})` : '')}
                 isMobile={isCompactTopbar}
+                notificationItems={isCompactTopbar ? notificationMenuItems : undefined}
                 onClose={handleGlobalMenuClose}
                 onOpenProjectSwitcher={handleOpenMobileProjectSwitcher}
                 onOpenCreateProject={handleOpenCreateProject}

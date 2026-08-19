@@ -29,6 +29,7 @@ backend/
   accounts/     # User account lifecycle: activation, password reset, deletion, consent
   farm/         # The core domain app: locations/fields/beds, cultures, planting plans, seed demand, history
   crops/        # Public Crop Library boundary: official species list, translations, moderation (see crop-library-architecture.md)
+  notifications/ # Generic per-user in-app notifications (see notifications.md)
   config/       # Django settings, URL roots
 frontend/
   src/
@@ -38,6 +39,7 @@ frontend/
     auth/              # Session/auth context, CSRF handling, ProtectedRoute
     focus/, commands/  # Keyboard focus regions and the command/shortcut system
     cultures/, crops/  # Culture domain UI vs. the (not yet public) Crop Library UI
+    notifications/     # Topbar bell (full layout) / "Mehr"-menu entries (compact) + API client
     i18n/              # Translation resources + language resolution/switcher (German, English)
     gantt-chart/       # Vendored third-party Gantt component (MIT, see its own README)
   e2e/                 # Playwright end-to-end tests
@@ -86,6 +88,11 @@ docs/                  # This documentation
   [crop-library-architecture.md](./crop-library-architecture.md) §3.
   `/api/crops/` exists *alongside* the older `/api/public-cultures/` endpoint,
   which is still the one the frontend actually uses.
+- **`notifications`** is a small, domain-agnostic app: one `Notification`
+  model plus `/api/notifications/`. It knows nothing about crops or projects —
+  producers pass a type, a context payload and an optional target reference,
+  and the frontend decides what to render and where to link. See
+  [notifications.md](./notifications.md).
 - Views follow a thin-view convention (CLAUDE.md): business logic goes into
   `backend/farm/services/*.py` (e.g. `services_area.py` for bed-area
   math, `services/seed_packages.py` for the seed-package optimizer,
@@ -112,7 +119,7 @@ docs/                  # This documentation
   | Page | Route | Purpose |
   |---|---|---|
   | `Dashboard.tsx` | `/app/dashboard` | Landing page / setup checklist |
-  | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte) |
+  | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte). **Not linked in the navbar** — route and component still exist, kept for potential future use, but there is currently no in-app way to reach this page. |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
   | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
   | `crops/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` (alias `/app/crops`) | Full public Crop Library workspace: browse, import, discuss, edit, version history |

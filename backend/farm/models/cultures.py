@@ -301,10 +301,15 @@ class Culture(TimestampedModel):
         help_text="Crop family for rotation planning",
     )
     nutrient_demand = models.CharField(
-        max_length=20, 
-        choices=NUTRIENT_DEMAND_CHOICES, 
+        max_length=20,
+        choices=NUTRIENT_DEMAND_CHOICES,
         blank=True,
         help_text="Nutrient demand level"
+    )
+    rotation_break_years = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Recommended crop rotation break in years before growing this crop family again",
     )
     cultivation_types = models.JSONField(default=list, blank=True)
     cultivation_type = models.CharField(
@@ -491,6 +496,7 @@ class Culture(TimestampedModel):
             ('harvest_duration_days', 'Harvest duration must be non-negative.'),
             ('propagation_duration_days', 'Propagation duration must be non-negative.'),
             ('expected_yield', 'Expected yield must be non-negative.'),
+            ('rotation_break_years', 'Rotation break must be non-negative.'),
         )
         for field_name, message in non_negative_fields:
             value = getattr(self, field_name)
@@ -847,6 +853,7 @@ class PublicCulture(TimestampedModel):
     REMOVAL_REASON_DUPLICATE = 'duplicate'
     REMOVAL_REASON_WRONG_MAPPING = 'wrong_mapping'
     REMOVAL_REASON_UNLAWFUL_CONTENT = 'unlawful_content'
+    REMOVAL_REASON_SPECIES_REJECTED = 'species_rejected'
     REMOVAL_REASON_OTHER = 'other'
     REMOVAL_REASON_CHOICES = [
         (REMOVAL_REASON_ACCIDENTAL, 'Accidental publication'),
@@ -854,6 +861,10 @@ class PublicCulture(TimestampedModel):
         (REMOVAL_REASON_DUPLICATE, 'Duplicate'),
         (REMOVAL_REASON_WRONG_MAPPING, 'Wrong mapping'),
         (REMOVAL_REASON_UNLAWFUL_CONTENT, 'Unlawful content'),
+        # System-applied only (never offered in the manual removal dialog): set
+        # when a moderator rejects the crop species a culture is published
+        # under, see crops.services.remove_public_cultures_for_rejected_species.
+        (REMOVAL_REASON_SPECIES_REJECTED, 'Crop species rejected'),
         (REMOVAL_REASON_OTHER, 'Other'),
     ]
 

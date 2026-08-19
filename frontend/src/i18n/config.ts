@@ -52,6 +52,8 @@ import accountDE from './locales/de/account.json';
 import accountEN from './locales/en/account.json';
 import projectInvitationsDE from './locales/de/projectInvitations.json';
 import projectInvitationsEN from './locales/en/projectInvitations.json';
+import notificationsDE from './locales/de/notifications.json';
+import notificationsEN from './locales/en/notifications.json';
 import helpEN from './locales/en/help.json';
 
 // Configure i18next
@@ -68,7 +70,7 @@ i18n
     debug: import.meta.env.DEV && import.meta.env.MODE !== 'test',
     
     // Namespaces for organizing translations
-    ns: ['common', 'navigation', 'home', 'dashboard', 'locations', 'cultures', 'plantingPlans', 'fields', 'beds', 'hierarchy', 'ganttChart', 'yieldOverview', 'suppliers', 'help', 'auth', 'account', 'projectInvitations'],
+    ns: ['common', 'navigation', 'home', 'dashboard', 'locations', 'cultures', 'plantingPlans', 'fields', 'beds', 'hierarchy', 'ganttChart', 'yieldOverview', 'suppliers', 'help', 'auth', 'account', 'projectInvitations', 'notifications'],
     defaultNS: 'common',
     
     // Translation resources
@@ -91,6 +93,7 @@ i18n
         auth: authDE,
         account: accountDE,
         projectInvitations: projectInvitationsDE,
+        notifications: notificationsDE,
       },
       en: {
         common: commonEN,
@@ -110,6 +113,7 @@ i18n
         auth: authEN,
         account: accountEN,
         projectInvitations: projectInvitationsEN,
+        notifications: notificationsEN,
       },
     },
     

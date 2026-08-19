@@ -75,6 +75,15 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         default='',
     )
     crop_species_translations = serializers.SerializerMethodField()
+    # A `proposed` species is one a user suggested and no moderator has
+    # reviewed yet. Entries published under it are usable but provisional, so
+    # the UI marks them and blocks import/update/discussion until it is
+    # reviewed — see docs/crop-library-architecture.md.
+    crop_species_status = serializers.CharField(
+        source='crop_species.status',
+        read_only=True,
+        default='',
+    )
     display_name = serializers.SerializerMethodField()
     display_language_code = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
@@ -102,6 +111,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'crop_species_name',
             'crop_species_canonical_name',
             'crop_species_translations',
+            'crop_species_status',
             'display_name',
             'display_language_code',
             'description',

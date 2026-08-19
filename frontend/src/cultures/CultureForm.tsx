@@ -268,12 +268,20 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
 
   const normalizedNotes = culture.notes ? stripCitationMarkers(culture.notes) : culture.notes;
 
+  // `culture.name` is free text and never cascades a later crop_species rename
+  // (see culture_display.py) — `culture_display_name` is the field that already
+  // resolves to the species' current name, and it falls back to `culture.name`
+  // itself when there is no linked species, so preferring it here can only
+  // correct a stale value, never lose one.
+  const normalizedName = culture.culture_display_name ?? culture.name;
+
   if (culture.supplier || !culture.seed_supplier) {
     return {
       ...culture,
       ...normalizedSpacingValues,
       ...normalizedSeedRateUnits,
       notes: normalizedNotes,
+      name: normalizedName,
     };
   }
 
@@ -282,6 +290,7 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
     ...normalizedSpacingValues,
     ...normalizedSeedRateUnits,
     notes: normalizedNotes,
+    name: normalizedName,
     supplier: {
       name: culture.seed_supplier,
       allowed_domains: [],
@@ -329,6 +338,16 @@ export function CultureForm({
     const dataToSave: Culture = {
       ...(draft as Culture),
     };
+    // The Name field displays the species' current translated name
+    // (culture_display_name) so a rename elsewhere shows up immediately, but
+    // that translation is language-dependent — submitting it verbatim would
+    // silently overwrite the canonical Culture.name with whatever language
+    // the viewer's UI happens to be in. Only accept it as an edit if it
+    // actually changed from what was displayed; otherwise keep the
+    // untouched stored name.
+    if (culture?.crop_species && dataToSave.name === (culture.culture_display_name ?? culture.name)) {
+      dataToSave.name = culture.name;
+    }
     const trimmedFirstVarietyName = firstVarietyName.trim();
     const firstVariety: FirstVarietyDraft | undefined = showFirstVarietyField && trimmedFirstVarietyName
       ? {
@@ -528,7 +547,10 @@ export function CultureForm({
     const name = formData.name ?? '';
     const variety = formData.variety ?? '';
     const identityKey = buildCultureIdentityKey(name, variety);
-    const originalIdentityKey = buildCultureIdentityKey(culture?.name, culture?.variety);
+    const originalIdentityKey = buildCultureIdentityKey(
+      culture?.culture_display_name ?? culture?.name,
+      culture?.variety,
+    );
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
     queueMicrotask(() => setDuplicateErrorKey(''));
@@ -580,7 +602,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {

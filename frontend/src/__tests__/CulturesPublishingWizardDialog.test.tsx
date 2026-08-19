@@ -96,7 +96,7 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
   });
 
-  it('offers an inline crop species proposal when the search has no matches, and lets the variety publish right away', async () => {
+  it('submits the species proposal together with the publication, not when the option is picked', async () => {
     cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
 
     renderWizard();
@@ -105,25 +105,63 @@ describe('CulturesPublishingWizardDialog', () => {
     const user = userEvent.setup();
     await user.type(speciesInput, 'Kürbis');
 
-    const proposeButton = await screen.findByRole('button', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    const proposeOption = await screen.findByRole('option', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
+
+    // Picking the option only arms the dialog: no request yet, the typed text
+    // stays in the field, and the main button explains what will happen.
+    expect(cropSpeciesProposeMock).not.toHaveBeenCalled();
+    expect(await screen.findByDisplayValue('Kürbis')).toBeInTheDocument();
+    expect(screen.getByText(/Deine Sorte wird vorläufig unter „Kürbis“ veröffentlicht/)).toBeInTheDocument();
+
+    const proposeButton = screen.getByRole('button', { name: 'Kulturart vorschlagen' });
+    expect(proposeButton).toBeEnabled();
     fireEvent.click(proposeButton);
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
-
-    // The freshly proposed (pending) species is immediately usable: it
-    // becomes the selected value, a notice explains the provisional state,
-    // and "Publish now" is enabled rather than staying blocked on moderation.
-    expect(await screen.findByDisplayValue('Kürbis')).toBeInTheDocument();
-    expect(screen.getByText(/Dein Vorschlag für die neue Kulturart „Kürbis“ wurde zur Prüfung eingereicht/)).toBeInTheDocument();
-
-    const publishButton = screen.getByRole('button', { name: 'Jetzt veröffentlichen' });
-    expect(publishButton).toBeEnabled();
-    fireEvent.click(publishButton);
-
+    // The freshly proposed (pending) species is used for this publication
+    // right away instead of blocking the user until a moderator reviews it.
     await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
       CULTURE.id,
       expect.objectContaining({ crop_species_id: 2 }),
     ));
+    expect(await screen.findByText(/Dein Vorschlag für die neue Kulturart „Kürbis“ wurde zur Prüfung eingereicht/)).toBeInTheDocument();
+  });
+
+  it('keeps showing the proposed name after picking it while an existing species was already selected', async () => {
+    // Regression test: the culture's name ("Tomate") matches an existing
+    // species in the default beforeEach mock, so the Autocomplete's
+    // `selectedSpecies` (its controlled `value`) starts out as that real
+    // CropSpecies, not null. Retyping a different name and picking "propose
+    // as new species" clears `selectedSpecies` to null, which is a genuine
+    // value change — unlike the case where nothing was ever selected — and
+    // is what triggers MUI's internal input-value reset. The field must
+    // still show the proposed name afterward, not go blank.
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    await waitFor(() => expect(speciesInput).toHaveValue('Tomate'));
+
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Ackerbohne test');
+
+    const proposeOption = await screen.findByRole('option', { name: /Ackerbohne test.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
+
+    expect(await screen.findByDisplayValue('Ackerbohne test')).toBeInTheDocument();
+    expect(screen.getByText(/Deine Sorte wird vorläufig unter „Ackerbohne test“ veröffentlicht/)).toBeInTheDocument();
+
+    // Switching back to an existing species afterward must not leave any
+    // stale "propose" state behind.
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Tomate');
+    const tomatoOption = await screen.findByRole('option', { name: 'Tomate' });
+    fireEvent.click(tomatoOption);
+
+    expect(await screen.findByDisplayValue('Tomate')).toBeInTheDocument();
+    expect(screen.queryByText(/Deine Sorte wird vorläufig unter/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Jetzt veröffentlichen' })).toBeInTheDocument();
   });
 
   it('matches an existing species by its localized display name, not just the canonical name', async () => {
@@ -149,7 +187,69 @@ describe('CulturesPublishingWizardDialog', () => {
     await user.type(speciesInput, 'Kürbis');
 
     expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the "propose a new crop species" entry as the last option even when the search matches', async () => {
+    cropSpeciesListMock.mockResolvedValue({
+      data: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          { id: 9, name: 'Pumpkin', display_name: 'Kürbis', status: 'published' },
+          { id: 10, name: 'Butternut squash', display_name: 'Kürbis Butternut', status: 'published' },
+        ],
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Kürb');
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Kürbis',
+      'Kürbis Butternut',
+      '„Kürb“ als neue Kulturart vorschlagen',
+    ]);
+  });
+
+  it('hides the proposal entry while the species field is empty', async () => {
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.click(speciesInput);
+
+    expect(screen.queryByRole('option', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
+  });
+
+  it('hides the proposal entry when the typed text already names an existing species', async () => {
+    // Proposing an exact duplicate can only be rejected server-side, so the
+    // escape hatch disappears once the typed name *is* an existing one —
+    // case-insensitively, since that is how the backend compares.
+    cropSpeciesListMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [{ id: 9, name: 'Pumpkin', display_name: 'Kürbis', status: 'published' }],
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'kürbis');
+
+    expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
   });
 
   it('shows an inline error when proposing a species fails', async () => {
@@ -168,12 +268,16 @@ describe('CulturesPublishingWizardDialog', () => {
     const user = userEvent.setup();
     await user.type(speciesInput, 'Kürbis');
 
-    const proposeButton = await screen.findByRole('button', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
-    fireEvent.click(proposeButton);
+    const proposeOption = await screen.findByRole('option', { name: /Kürbis.*als neue Kulturart vorschlagen/i });
+    fireEvent.click(proposeOption);
+    fireEvent.click(await screen.findByRole('button', { name: 'Kulturart vorschlagen' }));
 
     await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
     expect(await screen.findByText(/existiert bereits oder wurde schon vorgeschlagen/)).toBeInTheDocument();
     expect(screen.queryByText(/wurde zur Prüfung eingereicht/)).not.toBeInTheDocument();
+    // A failed proposal must not publish the variety under a species that
+    // does not exist.
+    expect(publishPreviewMock).not.toHaveBeenCalled();
   });
 
   it('pre-selects the existing public variety that already matches the local variety name', async () => {
