@@ -2,6 +2,7 @@ import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
+import { darkenForGrowthPhase } from '../utils/colorContrast';
 
 export interface GanttTask {
   id: string;
@@ -339,7 +340,7 @@ export function buildFieldOccupancyTaskGroups({
             name: cultureLabel,
             startDate: plantingDate,
             endDate: harvestStartDate,
-            color: baseColor,
+            color: darkenForGrowthPhase(baseColor),
             percent: 100,
             plantingPlanId: plan.id,
             cultureName: cultureDisplayName || undefined,
@@ -505,7 +506,7 @@ export function buildFieldOccupancyHierarchy({
         name: cultureLabel,
         startDate: plantingDate,
         endDate: harvestStartDate,
-        color: baseColor,
+        color: darkenForGrowthPhase(baseColor),
         percent: 100,
         plantingPlanId: plan.id,
         cultureName: cultureDisplayName || undefined,

@@ -655,4 +655,37 @@ describe('buildFieldOccupancyHierarchy', () => {
 
     expect(nodes).toEqual([]);
   });
+
+  it('renders the growth phase in a darker tone than the harvest phase while keeping the harvest color unchanged', () => {
+    const baseColor = '#93c5fd';
+    const groups = buildFieldOccupancyTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [
+        {
+          id: 42,
+          name: 'Kohlrabi',
+          display_color: baseColor,
+        },
+      ],
+      plantingPlans: [
+        {
+          id: 30,
+          culture: 42,
+          culture_name: 'Kohlrabi',
+          bed: 100,
+          planting_date: '2026-03-01',
+          harvest_date: '2026-04-15',
+          harvest_end_date: '2026-04-30',
+        },
+      ],
+    });
+
+    const [growthTask, harvestTask] = groups[0].tasks;
+    expect(harvestTask.color).toBe(`${baseColor}CC`);
+    expect(growthTask.color).not.toBe(baseColor);
+    expect(growthTask.color).not.toBe(harvestTask.color);
+  });
 });
