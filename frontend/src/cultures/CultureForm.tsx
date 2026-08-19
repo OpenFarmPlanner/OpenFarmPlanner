@@ -338,6 +338,16 @@ export function CultureForm({
     const dataToSave: Culture = {
       ...(draft as Culture),
     };
+    // The Name field displays the species' current translated name
+    // (culture_display_name) so a rename elsewhere shows up immediately, but
+    // that translation is language-dependent — submitting it verbatim would
+    // silently overwrite the canonical Culture.name with whatever language
+    // the viewer's UI happens to be in. Only accept it as an edit if it
+    // actually changed from what was displayed; otherwise keep the
+    // untouched stored name.
+    if (culture?.crop_species && dataToSave.name === (culture.culture_display_name ?? culture.name)) {
+      dataToSave.name = culture.name;
+    }
     const trimmedFirstVarietyName = firstVarietyName.trim();
     const firstVariety: FirstVarietyDraft | undefined = showFirstVarietyField && trimmedFirstVarietyName
       ? {

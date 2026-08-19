@@ -203,6 +203,48 @@ describe('CultureForm', () => {
     expect(screen.getByLabelText('name-input')).toHaveValue('2');
   });
 
+  it('saves the untouched canonical name, not the displayed translation, when the Name field was not edited', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Kürbis', crop_species: 5, culture_display_name: 'Pumpkin' }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Pumpkin');
+    // Touch an unrelated field so the form is dirty and actually submits,
+    // without going through the name/variety duplicate-check debounce.
+    fireEvent.change(screen.getByLabelText('thousand-kernel-input'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Kürbis' }), undefined);
+  });
+
+  it('saves an actual edit to the Name field verbatim', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Kürbis', crop_species: 5, culture_display_name: 'Pumpkin' }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Butternut' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Butternut', variety: 'Nantaise', exclude_id: 1 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Butternut' }), undefined);
+  });
+
   it('falls back to culture.name when there is no linked species', async () => {
     render(
       <CultureForm
