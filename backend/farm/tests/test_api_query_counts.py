@@ -162,8 +162,10 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
         self.assert_list_query_count('/openfarmplanner/api/seed-packages/', 5)
 
     def test_planting_plans_list_query_count(self):
-        """Culture, species translations, bed and both audit users per row."""
-        self.assert_list_query_count('/openfarmplanner/api/planting-plans/', 6)
+        """Culture, species translations, bed and both audit users per row, plus
+        one page-wide lookup of the general Kulturen the plans' Sorten inherit
+        their timing from."""
+        self.assert_list_query_count('/openfarmplanner/api/planting-plans/', 7)
 
     def test_tasks_list_query_count(self):
         """`planting_plan_name` renders `PlantingPlan.__str__`, which reads the

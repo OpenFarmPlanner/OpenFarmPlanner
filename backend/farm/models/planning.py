@@ -78,6 +78,17 @@ class PlantingPlan(TimestampedModel):
     )
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='planting_plans')
 
+    def _effective_culture_days(self, field: str) -> int | None:
+        """A culture timing value, resolved through the Sorte -> Kultur fallback.
+
+        Imported here rather than at module level: the resolver lives in the
+        services layer and imports `farm.models`, so a top-level import would
+        close the cycle.
+        """
+        from farm.services.culture_inheritance import resolve_culture_field
+
+        return resolve_culture_field(self.culture, field)
+
     def _get_active_period(self) -> tuple[date, date] | None:
         """Return inclusive active period used for overlap validations."""
         if self.planting_date is None:
@@ -87,13 +98,15 @@ class PlantingPlan(TimestampedModel):
         active_end = self.harvest_end_date
 
         if active_end is None and self.culture_id:
-            if self.culture.growth_duration_days is None:
+            growth_duration_days = self._effective_culture_days('growth_duration_days')
+            if growth_duration_days is None:
                 return None
 
-            harvest_date = active_start + timedelta(days=self.culture.growth_duration_days)
+            harvest_date = active_start + timedelta(days=growth_duration_days)
 
-            if self.culture.harvest_duration_days is not None:
-                active_end = harvest_date + timedelta(days=self.culture.harvest_duration_days)
+            harvest_duration_days = self._effective_culture_days('harvest_duration_days')
+            if harvest_duration_days is not None:
+                active_end = harvest_date + timedelta(days=harvest_duration_days)
             else:
                 return None
 
@@ -131,21 +144,25 @@ class PlantingPlan(TimestampedModel):
         super().save(*args, **kwargs)
 
     def recalculate_harvest_dates(self) -> None:
-        """Calculate stored harvest dates from the current culture timing values."""
+        """Calculate stored harvest dates from the culture's effective timing.
+
+        "Effective" means a Sorte without its own duration uses the one from its
+        general Kultur (see farm/services/culture_inheritance.py). The dates
+        stay a snapshot taken at save time: already-stored plans are not
+        recalculated just because a value became resolvable.
+        """
         if not self.planting_date or not self.culture:
             return
 
-        if self.culture.growth_duration_days is not None:
-            self.harvest_date = self.planting_date + timedelta(
-                days=self.culture.growth_duration_days
-            )
+        growth_duration_days = self._effective_culture_days('growth_duration_days')
+        if growth_duration_days is not None:
+            self.harvest_date = self.planting_date + timedelta(days=growth_duration_days)
         else:
             self.harvest_date = None
 
-        if self.harvest_date is not None and self.culture.harvest_duration_days is not None:
-            self.harvest_end_date = self.harvest_date + timedelta(
-                days=self.culture.harvest_duration_days
-            )
+        harvest_duration_days = self._effective_culture_days('harvest_duration_days')
+        if self.harvest_date is not None and harvest_duration_days is not None:
+            self.harvest_end_date = self.harvest_date + timedelta(days=harvest_duration_days)
         else:
             self.harvest_end_date = None
 

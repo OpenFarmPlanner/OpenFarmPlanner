@@ -305,6 +305,29 @@ query: the serializer builds a per-request `crop_species → general Kultur` ind
 for the active project (`build_general_culture_index`) instead of looking up a
 sibling per row.
 
+**Planning reads effective values.** `PlantingPlan.recalculate_harvest_dates()`
+and `_get_active_period()`, the `PlantingPlanSerializer` gates behind
+`harvest_date`/`harvest_end_date`, the `culture_*` timing/cultivation fields the
+Gantt calendar plans from, and the plant-count conversions all resolve through
+the service, so a Sorte with no own harvest duration still gets a computed
+Erntende from its Kultur. On the frontend the same is true of
+`ganttChartUtils.ts`, `locationDerivedTasks.ts` and the "missing duration"
+tooltip in Anbaupläne, via `getEffectiveCultureValue`.
+
+Stored harvest dates stay a **snapshot**: they are recomputed when a plan is
+saved (and when the culture's *own* timing changes, which already triggered
+`_recalculate_related_planting_plan_dates`). Existing plans are deliberately not
+bulk-recalculated just because a value became resolvable through inheritance.
+
+**The edit dialog.** `CultureForm` merges the resolved values into the form
+(`buildInheritedValueBaseline`), so a field the Sorte does not override shows
+the Kultur's value rather than an empty input. Those values equal the Kultur's,
+so `getVarietyOwnValueSource` reports no override and the green highlight keeps
+marking genuine per-Sorte values only. On save, anything still matching the
+baseline is cleared again (`stripValuesMatchingBaseline`, the same mechanism the
+add-variety prefill uses), so displaying an inherited value never freezes it as
+an override, and clearing a field simply removes the override.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational

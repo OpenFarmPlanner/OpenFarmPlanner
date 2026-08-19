@@ -97,6 +97,45 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].plantingPlanCount).toBe(1);
   });
 
+  it('builds a propagation window from timing a Sorte inherits from its general Kultur', () => {
+    const groups = buildSeedlingTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [
+        {
+          id: 9,
+          name: 'Tomate',
+          variety: 'Berner Rose',
+          crop_species: 4,
+          general_culture: 8,
+          inherited_fields: ['propagation_duration_days', 'cultivation_type'],
+          effective_values: {
+            propagation_duration_days: 21,
+            cultivation_type: 'pre_cultivation',
+          },
+          display_color: '#ff0000',
+        },
+      ],
+      plantingPlans: [
+        {
+          id: 6,
+          culture: 9,
+          culture_name: 'Tomate',
+          bed: 100,
+          bed_name: 'Beet A',
+          planting_date: '2026-05-10',
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].tasks).toHaveLength(1);
+    expect(groups[0].tasks[0].startDate.toISOString()).toContain('2026-04-19');
+    expect(groups[0].tasks[0].endDate.toISOString()).toContain('2026-05-10');
+  });
+
   it('aggregates seedling requirements by culture, start date and transplant date independent of beds', () => {
     const groups = buildSeedlingTaskGroups({
       locations: [

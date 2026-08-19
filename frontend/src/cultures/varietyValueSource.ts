@@ -1,4 +1,4 @@
-import type { Culture } from '../api/types';
+import type { Culture, CultureInheritableField } from '../api/types';
 
 export type CropValueSource = 'ownValue' | null;
 
@@ -128,6 +128,21 @@ export function buildInheritedValueBaseline(
     }
   }
   return baseline;
+}
+
+/**
+ * The value a culture effectively plans with: its own, or — for a Sorte that
+ * leaves the field unset — the one the backend resolved from its general
+ * Kultur. Falls back to the raw field for cultures with nothing to inherit
+ * from (a general Kultur, a free-text Sorte, or a stale client-side object
+ * that predates the inheritance payload).
+ */
+export function getEffectiveCultureValue<TField extends CultureInheritableField>(
+  culture: Partial<Culture> | null | undefined,
+  field: TField,
+): Culture[TField] {
+  const effectiveValue = culture?.effective_values?.[field];
+  return (effectiveValue ?? culture?.[field]) as Culture[TField];
 }
 
 export function getVarietyOwnValueSource(

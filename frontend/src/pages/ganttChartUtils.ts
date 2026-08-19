@@ -2,6 +2,7 @@ import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
+import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
 import { darkenForGrowthPhase } from '../utils/colorContrast';
 
 export interface GanttTask {
@@ -651,15 +652,20 @@ export function buildSeedlingTaskGroups({
     }
 
     const culture = cultureById.get(plan.culture);
-    const propagationDurationDays = culture?.propagation_duration_days
+    // Effective values throughout: a Sorte inherits any timing/cultivation
+    // field it does not set from its general Kultur, and the plan row already
+    // carries the same resolved values as a fallback.
+    const propagationDurationDays = getEffectiveCultureValue(culture, 'propagation_duration_days')
       ?? plan.culture_propagation_duration_days
       ?? undefined;
     if (!propagationDurationDays || propagationDurationDays <= 0) {
       return;
     }
 
-    const cultureCultivationType = culture?.cultivation_type || plan.culture_cultivation_type || '';
-    const cultureCultivationTypes = culture?.cultivation_types || plan.culture_cultivation_types || [];
+    const cultureCultivationType = getEffectiveCultureValue(culture, 'cultivation_type')
+      || plan.culture_cultivation_type || '';
+    const cultureCultivationTypes = getEffectiveCultureValue(culture, 'cultivation_types')
+      || plan.culture_cultivation_types || [];
     const isPreCultivation = plan.cultivation_type === 'pre_cultivation'
       || (!plan.cultivation_type && (
         cultureCultivationType === 'pre_cultivation'

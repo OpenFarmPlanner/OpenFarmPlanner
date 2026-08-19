@@ -102,4 +102,42 @@ describe('deriveLocationTasks', () => {
 
     expect(tasks[1]).toHaveLength(1);
   });
+
+  it('uses the timing a Sorte inherits from its general Kultur', () => {
+    const cultures: Culture[] = [
+      {
+        id: 7,
+        name: 'Pastinake',
+        variety: 'Halblange',
+        crop_species: 3,
+        general_culture: 8,
+        inherited_fields: ['cultivation_types', 'propagation_duration_days', 'growth_duration_days'],
+        effective_values: {
+          cultivation_types: ['pre_cultivation'],
+          propagation_duration_days: 21,
+          growth_duration_days: 35,
+        },
+      },
+    ];
+    const plans: PlantingPlan[] = [
+      { id: 1001, culture: 7, bed: 100, planting_date: '2026-05-03', cultivation_type: 'pre_cultivation' },
+    ];
+
+    const tasks = deriveLocationTasks({
+      locations,
+      fields,
+      beds,
+      plantingPlans: plans,
+      cultures,
+      today: new Date('2026-04-01'),
+    });
+
+    expect(tasks[1].map((task) => task.type)).toEqual([
+      'propagationStart',
+      'planting',
+      'harvestStart',
+    ]);
+    expect(tasks[1][0].date).toBe('2026-04-12');
+    expect(tasks[1][2].date).toBe('2026-06-07');
+  });
 });

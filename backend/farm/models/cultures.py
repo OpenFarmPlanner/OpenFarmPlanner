@@ -165,6 +165,28 @@ def format_culture_display_name(name: str | None, variety: str | None) -> str | 
     return None
 
 
+def compute_plants_per_m2(
+    row_spacing_m: float | None,
+    distance_within_row_m: float | None,
+) -> Decimal | None:
+    """Plants per square meter for a spacing pair given in meters.
+
+    Formula: 10000 cm² per m² / (row_spacing_cm * plant_spacing_cm). Returns
+    None when either spacing is missing or not positive. Shared by
+    `Culture.plants_per_m2` and the inheritance resolver, which feeds it the
+    effective spacing of a Sorte rather than its own.
+    """
+    row_spacing_cm = row_spacing_m * 100 if row_spacing_m else None
+    plant_spacing_cm = distance_within_row_m * 100 if distance_within_row_m else None
+
+    if not row_spacing_cm or not plant_spacing_cm:
+        return None
+    if row_spacing_cm <= 0 or plant_spacing_cm <= 0:
+        return None
+
+    return Decimal("10000") / (Decimal(str(row_spacing_cm)) * Decimal(str(plant_spacing_cm)))
+
+
 def is_supplier_domain(url: str, supplier: Supplier | None) -> bool:
     """Return True when URL host matches supplier allowed domains."""
     if not supplier or not url:
@@ -749,25 +771,8 @@ class Culture(TimestampedModel):
 
     @property
     def plants_per_m2(self) -> Decimal | None:
-        """
-        Calculate plants per square meter based on spacing.
-        
-        Formula: plants_per_m2 = 10000 / (row_spacing_cm * plant_spacing_cm)
-        
-        :return: Plants per m² as Decimal, or None if spacing data is missing or invalid
-        """
-        # Convert meters to centimeters for calculation
-        row_spacing_cm = self.row_spacing_m * 100 if self.row_spacing_m else None
-        plant_spacing_cm = self.distance_within_row_m * 100 if self.distance_within_row_m else None
-        
-        # Return None if either spacing is missing or invalid (<= 0)
-        if not row_spacing_cm or not plant_spacing_cm:
-            return None
-        if row_spacing_cm <= 0 or plant_spacing_cm <= 0:
-            return None
-        
-        # Calculate plants per m²: 10000 cm² per m² / (row_spacing * plant_spacing)
-        return Decimal("10000") / (Decimal(str(row_spacing_cm)) * Decimal(str(plant_spacing_cm)))
+        """Plants per square meter from this row's own spacing values."""
+        return compute_plants_per_m2(self.row_spacing_m, self.distance_within_row_m)
 
     def __str__(self) -> str:
         """Return the culture name, with variety in parentheses if set."""

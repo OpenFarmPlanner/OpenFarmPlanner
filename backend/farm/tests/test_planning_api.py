@@ -545,11 +545,12 @@ class PlantingPlanAttachmentCountApiTest(DRFAPITestCase):
         self.assertEqual(by_id[self.plan_with_attachments.id]['note_attachment_count'], 2)
 
     def test_planting_plan_list_query_count_stays_stable(self):
-        # 5 queries: 1 SAVEPOINT + 1 project membership lookup + 1 COUNT (pagination)
-        # + 1 SELECT with annotation + 1 RELEASE SAVEPOINT (ATOMIC_REQUESTS wraps each
-        # request in its own transaction, nested as a savepoint under the test's outer
-        # transaction).
-        with self.assertNumQueries(5):
+        # 6 queries: 1 SAVEPOINT + 1 project membership lookup + 1 COUNT (pagination)
+        # + 1 SELECT with annotation + 1 general-Kultur index for the whole page
+        # (see PlantingPlanSerializer._general_culture_index) + 1 RELEASE SAVEPOINT
+        # (ATOMIC_REQUESTS wraps each request in its own transaction, nested as a
+        # savepoint under the test's outer transaction).
+        with self.assertNumQueries(6):
             response = self.client.get('/openfarmplanner/api/planting-plans/')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
 

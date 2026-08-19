@@ -13,9 +13,11 @@ and therefore always resolve to their own values.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 from farm.models import Culture
+from farm.models.cultures import compute_plants_per_m2
 
 # Culture fields a Sorte inherits from its general Kultur. Kept in sync with the
 # frontend's `VARIETY_INHERITABLE_FIELDS` (frontend/src/cultures/varietyValueSource.ts),
@@ -193,3 +195,16 @@ def build_effective_culture_values(
         field: inherited.get(field, getattr(culture, field))
         for field in CULTURE_INHERITABLE_FIELDS
     }
+
+
+def resolve_plants_per_m2(
+    culture: Culture | None,
+    index: GeneralCultureIndex | None = None,
+) -> Decimal | None:
+    """Plants per m² from the culture's effective spacing, not only its own."""
+    if culture is None:
+        return None
+    return compute_plants_per_m2(
+        resolve_culture_field(culture, 'row_spacing_m', index),
+        resolve_culture_field(culture, 'distance_within_row_m', index),
+    )
