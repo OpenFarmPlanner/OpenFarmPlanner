@@ -1,6 +1,7 @@
-import { Box, Chip } from '@mui/material';
+import { Box } from '@mui/material';
 import HourglassEmptyOutlinedIcon from '@mui/icons-material/HourglassEmptyOutlined';
 import { AppTooltip } from '../components/AppTooltip';
+import { AppIconChip } from '../components/AppIconChip';
 import { useTranslation } from '../i18n';
 
 interface CropSpeciesPendingChipProps {
@@ -38,14 +39,11 @@ export function CropSpeciesPendingChip({ iconOnly = false }: CropSpeciesPendingC
   }
 
   return (
-    <AppTooltip title={t('library.badges.speciesPendingChipTooltip')}>
-      <Chip
-        size="small"
-        color="warning"
-        variant="outlined"
-        icon={<HourglassEmptyOutlinedIcon fontSize="small" />}
-        label={label}
-      />
-    </AppTooltip>
+    <AppIconChip
+      tooltip={t('library.badges.speciesPendingChipTooltip')}
+      color="warning"
+      icon={<HourglassEmptyOutlinedIcon fontSize="small" />}
+      label={label}
+    />
   );
 }

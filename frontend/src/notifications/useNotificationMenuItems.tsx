@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Box, ListItemIcon, MenuItem, Typography } from '@mui/material';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { useTranslation } from '../i18n';
@@ -29,44 +29,51 @@ export function useNotificationMenuItems(
   const { notifications, hasError } = controller;
   const language = i18n.resolvedLanguage ?? i18n.language;
 
-  if (hasError) {
-    return [
-      <MenuItem key="notifications-error" disabled sx={{ opacity: 1 }}>
-        <Typography variant="body2" color="error.main" sx={{ whiteSpace: 'normal' }}>
-          {t('bell.loadError')}
-        </Typography>
-      </MenuItem>,
-    ];
-  }
+  // RootLayout calls this hook unconditionally on every render (MUI's Menu
+  // needs the items as direct children, so this can't be skipped based on
+  // isCompactTopbar), including on desktop where the result is thrown away
+  // entirely — memoizing keeps that a no-op instead of rebuilding N MenuItem
+  // elements with fresh inline closures each time.
+  return useMemo(() => {
+    if (hasError) {
+      return [
+        <MenuItem key="notifications-error" disabled sx={{ opacity: 1 }}>
+          <Typography variant="body2" color="error.main" sx={{ whiteSpace: 'normal' }}>
+            {t('bell.loadError')}
+          </Typography>
+        </MenuItem>,
+      ];
+    }
 
-  if (notifications.length === 0) {
-    return [
-      <MenuItem key="notifications-empty" disabled sx={{ opacity: 1 }}>
-        <Typography variant="body2" color="text.secondary">{t('bell.empty')}</Typography>
-      </MenuItem>,
-    ];
-  }
+    if (notifications.length === 0) {
+      return [
+        <MenuItem key="notifications-empty" disabled sx={{ opacity: 1 }}>
+          <Typography variant="body2" color="text.secondary">{t('bell.empty')}</Typography>
+        </MenuItem>,
+      ];
+    }
 
-  return notifications.map((notification) => (
-    <MenuItem
-      key={`notification-${notification.id}`}
-      onClick={() => { onClose(); selectNotification(notification); }}
-      sx={{ alignItems: 'flex-start', maxWidth: 320 }}
-    >
-      <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}>
-        <NotificationsNoneOutlinedIcon {...ACTION_MENU_ICON_PROPS} />
-      </ListItemIcon>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          variant="body2"
-          sx={{ whiteSpace: 'normal', fontWeight: notification.is_read ? 400 : 600 }}
-        >
-          {getNotificationMessage(notification, t)}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {formatRelativeTime(notification.created_at, language)}
-        </Typography>
-      </Box>
-    </MenuItem>
-  ));
+    return notifications.map((notification) => (
+      <MenuItem
+        key={`notification-${notification.id}`}
+        onClick={() => { onClose(); selectNotification(notification); }}
+        sx={{ alignItems: 'flex-start', maxWidth: 320 }}
+      >
+        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}>
+          <NotificationsNoneOutlinedIcon {...ACTION_MENU_ICON_PROPS} />
+        </ListItemIcon>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="body2"
+            sx={{ whiteSpace: 'normal', fontWeight: notification.is_read ? 400 : 600 }}
+          >
+            {getNotificationMessage(notification, t)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatRelativeTime(notification.created_at, language)}
+          </Typography>
+        </Box>
+      </MenuItem>
+    ));
+  }, [hasError, notifications, onClose, selectNotification, t, language]);
 }

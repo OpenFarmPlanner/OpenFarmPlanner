@@ -11,10 +11,9 @@
  * sync indicator instead of the control silently disappearing.
  */
 
-import { Chip } from '@mui/material';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import { useTranslation } from '../i18n';
-import { AppTooltip } from '../components/AppTooltip';
+import { AppIconChip } from '../components/AppIconChip';
 import type { PublicCultureUpdateController } from './usePublicCultureUpdate';
 
 interface PublicCultureUpdateMarkerProps {
@@ -45,18 +44,15 @@ export function PublicCultureUpdateMarker({ controller, disabledReason }: Public
   const isDisabled = isUpToDate || isLoading || Boolean(disabledReason);
 
   return (
-    <AppTooltip title={tooltip}>
-      <Chip
-        size="small"
-        variant="outlined"
-        color="info"
-        clickable={!isDisabled}
-        disabled={isDisabled}
-        onClick={isDisabled ? undefined : openDiff}
-        icon={<SyncOutlinedIcon fontSize="small" />}
-        label={label}
-        data-testid="culture-public-update-marker"
-      />
-    </AppTooltip>
+    <AppIconChip
+      tooltip={tooltip}
+      color="info"
+      clickable={!isDisabled}
+      disabled={isDisabled}
+      onClick={isDisabled ? undefined : openDiff}
+      icon={<SyncOutlinedIcon fontSize="small" />}
+      label={label}
+      data-testid="culture-public-update-marker"
+    />
   );
 }

@@ -15,6 +15,7 @@ import { useTranslation } from '../i18n';
 import { formatRelativeTime } from '../utils/relativeTime';
 import { getNotificationMessage } from './notificationDisplay';
 import { useNotificationSelection, type NotificationsController } from './useNotifications';
+import { TOPBAR_BADGE_SX } from '../navigation/topbarMenuStyles';
 import type { AppNotification } from '../api/types';
 
 interface NotificationBellProps {
@@ -74,7 +75,7 @@ export function NotificationBell({ controller, buttonSize }: NotificationBellPro
             ...(buttonSize ? { width: buttonSize, height: buttonSize } : {}),
           }}
         >
-          <Badge badgeContent={unreadCount} color="error" overlap="circular">
+          <Badge badgeContent={unreadCount} color="error" overlap="circular" sx={TOPBAR_BADGE_SX}>
             <NotificationsNoneOutlinedIcon fontSize="small" />
           </Badge>
         </IconButton>

@@ -7,7 +7,7 @@
  * per interval for every open tab.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationAPI } from '../api/api';
 import type { AppNotification } from '../api/types';
@@ -74,7 +74,14 @@ export function useNotifications(enabled: boolean): NotificationsController {
     void notificationAPI.markRead(id).catch(() => undefined);
   }, [notifications]);
 
-  return { notifications, unreadCount, isLoading, hasError, reload, markRead };
+  // Stable identity across renders that don't actually change any of these
+  // fields, so consumers (NotificationBell, useNotificationMenuItems) can
+  // memoize off the controller instead of re-deriving on every RootLayout
+  // render.
+  return useMemo(
+    () => ({ notifications, unreadCount, isLoading, hasError, reload, markRead }),
+    [notifications, unreadCount, isLoading, hasError, reload, markRead],
+  );
 }
 
 /**

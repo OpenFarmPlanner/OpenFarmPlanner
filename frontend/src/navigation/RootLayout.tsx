@@ -111,6 +111,7 @@ import {
 import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
 import { AppTooltip } from '../components/AppTooltip';
+import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
@@ -252,9 +253,12 @@ function RootLayout() {
     setGlobalMenuAnchor(event.currentTarget);
   };
 
-  const handleGlobalMenuClose = () => {
+  // Stable identity so useNotificationMenuItems (which takes this as a dep)
+  // can actually memoize instead of rebuilding its menu-item array whenever
+  // RootLayout re-renders for an unrelated reason.
+  const handleGlobalMenuClose = useCallback(() => {
     setGlobalMenuAnchor(null);
-  };
+  }, []);
   // Built here rather than inside GlobalMenu so that menu keeps needing no
   // router context — see its `notificationItems` prop.
   const notificationMenuItems = useNotificationMenuItems(notifications, handleGlobalMenuClose);
@@ -405,7 +409,7 @@ function RootLayout() {
       console.error('Error leaving demo project:', error);
       showSnackbar(t('commandPalette.feedback.leaveDemoError'), 'error');
     }
-  }, [endGuestDemo, navigate, showSnackbar, t]);
+  }, [endGuestDemo, handleGlobalMenuClose, navigate, showSnackbar, t]);
 
   const handleLogout = useCallback(async (): Promise<void> => {
     try {
@@ -416,7 +420,7 @@ function RootLayout() {
       console.error('Error logging out:', error);
       showSnackbar(t('commandPalette.feedback.logoutError'), 'error');
     }
-  }, [logout, navigate, showSnackbar, t]);
+  }, [handleGlobalMenuClose, logout, navigate, showSnackbar, t]);
 
   const refreshDeletedProjectsCount = useCallback(async (): Promise<void> => {
     if (!user) {
@@ -1185,13 +1189,7 @@ function RootLayout() {
                 overlap="rectangular"
                 sx={{
                   flexShrink: 0,
-                  // The button sits only ~8px below the very top of the page,
-                  // so the badge's default anchor (centered on the button's
-                  // top edge) pokes ~2px above the viewport itself — outside
-                  // any container's box, so no overflow fix can reach it.
-                  // Nudging the anchor down clears that without pulling the
-                  // badge back inside the button.
-                  '& .MuiBadge-badge': { top: 6 },
+                  ...TOPBAR_BADGE_SX,
                 }}
               >
                 <Button
@@ -1551,7 +1549,7 @@ function RootLayout() {
                           badgeContent={publicLibraryModerationAction.badgeContent}
                           color="error"
                           overlap="circular"
-                          sx={{ '& .MuiBadge-badge': { top: 6 } }}
+                          sx={TOPBAR_BADGE_SX}
                         >
                           <GavelIcon />
                         </Badge>
