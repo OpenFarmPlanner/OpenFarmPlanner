@@ -119,7 +119,7 @@ docs/                  # This documentation
   | Page | Route | Purpose |
   |---|---|---|
   | `Dashboard.tsx` | `/app/dashboard` | Landing page / setup checklist |
-  | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte) |
+  | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte). **Not linked in the navbar** — route and component still exist, kept for potential future use, but there is currently no in-app way to reach this page. |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
   | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
   | `crops/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` (alias `/app/crops`) | Full public Crop Library workspace: browse, import, discuss, edit, version history |
