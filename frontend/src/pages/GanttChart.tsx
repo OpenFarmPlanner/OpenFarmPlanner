@@ -1790,7 +1790,7 @@ function GanttChartPage() {
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.25 }}>
         {formatSeedlingTooltipTitle(task)}
       </Typography>
-      <Typography variant="caption" sx={{ display: 'block', mb: 0.75, color: 'text.secondary' }}>
+      <Typography variant="caption" sx={{ display: 'block', mb: 0.75, opacity: 0.7 }}>
         {t(`ganttChart:tooltip.phase.${getOccupancyTaskPhase(task)}`)}
       </Typography>
       {buildOccupancyTooltipDetails(task).map((detail) => (
