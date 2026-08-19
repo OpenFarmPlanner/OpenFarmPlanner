@@ -56,7 +56,8 @@
     "collapseSidebar": "Sidebar einklappen",
     "expandSidebar": "Sidebar ausklappen",
     "dashboardLink": "Zur Übersicht",
-    "openMobileMenu": "Menü öffnen"
+    "openMobileMenu": "Menü öffnen",
+    "moreActions": "Mehr"
   },
   "pageHelp": {
     "dashboard": "Hilfe zu Übersicht",

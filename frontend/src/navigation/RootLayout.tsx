@@ -1751,7 +1751,7 @@ function RootLayout() {
               <IconButton
                 aria-label={notifications.unreadCount > 0
                   ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
-                  : 'Mehr'}
+                  : t('globalMenu.moreActions')}
                 aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
                 aria-haspopup="true"
                 onClick={handleGlobalMenuOpen}
