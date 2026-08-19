@@ -51,7 +51,11 @@
     "plantingPlanCount": "Number of planting plans",
     "involvedLocations": "Involved locations",
     "seedRequirement": "Seed demand",
-    "notes": "Note"
+    "notes": "Note",
+    "phase": {
+      "growth": "Growth phase",
+      "harvest": "Harvest phase"
+    }
   },
   "noData": "No planting plans available",
   "modeLabel": "Mode",

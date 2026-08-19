@@ -103,6 +103,7 @@ import {
   buildSeedlingTooltipDetails,
   formatSeedlingTooltipTitle,
   formatPlantCount,
+  getOccupancyTaskPhase,
   parseDateString,
   type GanttTask,
   type GanttTaskGroup,
@@ -1786,8 +1787,11 @@ function GanttChartPage() {
 
   const renderOccupancyTooltip = useCallback(({ task }: { task: GanttTask }) => (
     <Box sx={{ p: 0.5 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.25 }}>
         {formatSeedlingTooltipTitle(task)}
+      </Typography>
+      <Typography variant="caption" sx={{ display: 'block', mb: 0.75, color: 'text.secondary' }}>
+        {t(`ganttChart:tooltip.phase.${getOccupancyTaskPhase(task)}`)}
       </Typography>
       {buildOccupancyTooltipDetails(task).map((detail) => (
         <Typography key={`${task.id}-${detail.labelKey}`} variant="body2" sx={{ display: 'block', lineHeight: 1.4 }}>

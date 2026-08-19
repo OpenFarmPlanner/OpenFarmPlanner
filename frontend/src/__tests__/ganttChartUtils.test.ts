@@ -5,11 +5,22 @@ import {
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
   formatCultureDisplayLabel,
+  getOccupancyTaskPhase,
 } from '../pages/ganttChartUtils';
 
 const locations = [{ id: 1, name: 'Hof' }];
 const fields = [{ id: 10, name: 'Nordfeld', location: 1 }];
 const beds = [{ id: 100, name: 'Beet A', field: 10 }];
+
+describe('getOccupancyTaskPhase', () => {
+  it('identifies growth tasks by id suffix', () => {
+    expect(getOccupancyTaskPhase({ id: 'plan-1-growth' })).toBe('growth');
+  });
+
+  it('identifies harvest tasks by id suffix', () => {
+    expect(getOccupancyTaskPhase({ id: 'plan-1-harvest' })).toBe('harvest');
+  });
+});
 
 describe('buildSeedlingTaskGroups', () => {
 
