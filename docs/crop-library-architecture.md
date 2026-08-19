@@ -347,6 +347,14 @@ Erntende from its Kultur. On the frontend the same is true of
 `ganttChartUtils.ts`, `locationDerivedTasks.ts` and the "missing duration"
 tooltip in Anbaupläne, via `getEffectiveCultureValue`.
 
+`Culture.plants_per_m2` is part of that: the model property still computes from
+the row's own spacing, but the serializer publishes the **effective** value.
+Both sides of the plants/area coupling have to agree — the Anbaupläne grid
+decides whether the "Pflanzen" cell is editable from `culture.plants_per_m2`
+while the row's `plants_count` comes from the plan serializer, so leaving the
+culture field on own spacing makes an inheriting Sorte show a plant count the
+grid then refuses to let the user edit (and Tab skips the cell).
+
 Stored harvest dates stay a **snapshot**: they are recomputed when a plan is
 saved (and when the culture's *own* timing changes, which already triggered
 `_recalculate_related_planting_plan_dates`). Existing plans are deliberately not

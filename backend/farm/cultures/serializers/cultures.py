@@ -38,6 +38,7 @@ from farm.services.culture_inheritance import (
     build_general_culture_index,
     build_inherited_culture_values,
     get_general_culture,
+    resolve_plants_per_m2,
 )
 from farm.services.public_cultures import (
     has_open_public_culture_update,
@@ -219,7 +220,10 @@ class CultureSerializer(serializers.ModelSerializer):
         max_digits=10,
         decimal_places=2,
         read_only=True,
-        help_text='Calculated plants per square meter based on spacing (read-only)'
+        help_text=(
+            'Calculated plants per square meter from the effective spacing — a Sorte '
+            'without its own spacing uses the general Kultur\'s (read-only)'
+        ),
     )
     general_culture = serializers.SerializerMethodField(
         read_only=True,
@@ -467,6 +471,12 @@ class CultureSerializer(serializers.ModelSerializer):
         for field_name in _SEED_RATE_UNIT_FIELDS:
             data[field_name] = _normalized_seed_rate_unit_representation(data.get(field_name))
         data['seed_requirements'] = self._build_seed_requirements_representation(data)
+        # Plant counts must agree with the planting-plan side, which plans from
+        # the effective spacing; leaving this on the row's own spacing would let
+        # a Sorte show a plant count the grid then refuses to edit.
+        data['plants_per_m2'] = self._api_representation(
+            'plants_per_m2', resolve_plants_per_m2(instance, self._general_culture_index(instance)),
+        )
         return data
 
     def _build_seed_requirements_representation(self, data: dict[str, Any]) -> dict[str, Any]:

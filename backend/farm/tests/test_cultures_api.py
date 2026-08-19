@@ -723,6 +723,7 @@ class CultureInheritanceApiTest(ProjectApiTestCase):
             growth_duration_days=70,
             harvest_duration_days=21,
             row_spacing_m=0.3,
+            distance_within_row_m=0.05,
             crop_family='Apiaceae',
             seed_rate_direct_value=2.0,
             seed_rate_direct_unit='g/m²',
@@ -758,6 +759,22 @@ class CultureInheritanceApiTest(ProjectApiTestCase):
         self.assertIn('row_spacing_cm', row['inherited_fields'])
         # Units go through the same normalization as the own-value field.
         self.assertEqual(row['effective_values']['seed_rate_direct_unit'], 'g_per_m2')
+
+    def test_plants_per_m2_is_computed_from_the_effective_spacing(self):
+        """A Sorte with inherited spacing must report the same plants/m² the
+        planting-plan side plans with — otherwise the grid shows a plant count
+        it then refuses to let the user edit."""
+        row = self._row(self.sorte)
+        self.assertIsNone(row['row_spacing_cm'])
+        # 30 cm x 5 cm -> 10000 / 150.
+        self.assertEqual(float(row['plants_per_m2']), 66.67)
+
+    def test_an_own_spacing_value_still_drives_plants_per_m2(self):
+        self.sorte.row_spacing_m = 0.5
+        self.sorte.save(update_fields=['row_spacing_m'])
+        row = self._row(self.sorte)
+        # 50 cm x the inherited 5 cm -> 10000 / 250.
+        self.assertEqual(float(row['plants_per_m2']), 40.0)
 
     def test_general_kultur_has_no_inheritance_payload(self):
         row = self._row(self.general)
