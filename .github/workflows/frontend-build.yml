@@ -42,7 +42,7 @@ jobs:
       # before `npm run build` runs — see e2e.yml for the same requirement.
       # The retry and apt-lock handling lives in the shared script.
       - name: Install Playwright browser (Chrome)
-        timeout-minutes: 20
+        timeout-minutes: 25
         env:
           PLAYWRIGHT_DOWNLOAD_HOST: https://cdn.playwright.dev
         run: "$GITHUB_WORKSPACE/scripts/ci/install-playwright-chrome.sh"

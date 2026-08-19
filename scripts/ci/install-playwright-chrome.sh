@@ -6,44 +6,66 @@
 # the browser before `npm run build` (the frontend's `postbuild` script,
 # build/prerender.ts, launches Chrome itself).
 #
-# Two failure modes this guards against, both observed in CI:
+# The failure this guards against, observed repeatedly in CI: the Ubuntu
+# mirror the runner is pinned to (azure.archive.ubuntu.com) goes unreachable,
+# apt sits in its own retry loop for minutes, and the `timeout` around the
+# attempt kills `npx` — but the apt-get it spawned as root survives as an
+# orphan and keeps /var/lib/apt/lists/lock held. That orphan never recovers,
+# so every later attempt dies on the lock instead of installing anything.
 #
-# 1. The Playwright CDN download (especially the bundled FFmpeg) can stall
-#    indefinitely after reaching 100% instead of erroring out, silently burning
-#    the whole job timeout. PLAYWRIGHT_DOWNLOAD_HOST (set by the caller) forces
-#    the direct storage-bucket mirror, and each attempt is bounded by `timeout`.
+# Three layers deal with that:
 #
-# 2. `--with-deps` shells out to apt-get as root. When `timeout` kills an
-#    attempt mid-apt, that apt-get survives as an orphan and keeps holding
-#    /var/lib/apt/lists/lock and /var/lib/dpkg/lock-frontend. A retry fired
-#    immediately dies on that lock in under a second, so all remaining attempts
-#    are burnt within seconds of the first one — which is exactly how a single
-#    slow apt mirror took out a whole run. Hence: wait for the locks to clear
-#    before each attempt, and back off between attempts. The orphan often
-#    completes the install on its own, in which case the next attempt is a
-#    fast no-op.
+# 1. Fail fast. A drop-in apt config caps the per-mirror timeout and retries,
+#    so apt gives up on a dead mirror in seconds and falls through to the
+#    working archive.ubuntu.com entry instead of hanging.
+# 2. Clear the way. Before each attempt, briefly wait for any apt lock to be
+#    released, then kill whatever still holds it and repair dpkg. Waiting
+#    alone is not enough: the wedged orphan is stuck on network I/O and holds
+#    the lock until the job dies.
+# 3. Fall back. If all attempts fail, install the browser without
+#    `--with-deps` and verify it actually launches. `--with-deps` only adds OS
+#    libraries that the GitHub runner image already ships (it comes with
+#    Chrome preinstalled), so a browser that launches is a genuine success,
+#    not a masked failure — the original outages had a working Chrome on disk
+#    while the job failed on apt.
 #
-# The caller's step timeout must exceed the worst case here
-# (max_attempts * (lock_wait_seconds + attempt_timeout_seconds) + backoff),
-# or a stuck last attempt gets killed by the step timeout before this script
-# can report the failure itself.
+# The caller's step timeout must exceed this script's worst case
+# (max_attempts * (lock_wait + attempt_timeout) + backoff + fallback).
 set -euo pipefail
 
 max_attempts=3
 attempt_timeout_seconds=240
-lock_wait_seconds=90
+lock_wait_seconds=30
 lock_poll_seconds=5
+
+apt_lock_files=(/var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock)
+
+configure_apt_to_fail_fast() {
+  sudo tee /etc/apt/apt.conf.d/99-ci-fail-fast >/dev/null <<'APTCONF'
+Acquire::http::Timeout "15";
+Acquire::https::Timeout "15";
+Acquire::ftp::Timeout "15";
+Acquire::Retries "1";
+APTCONF
+}
 
 apt_locks_held() {
   command -v fuser >/dev/null 2>&1 || return 1
-  sudo fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1
+  sudo fuser "${apt_lock_files[@]}" >/dev/null 2>&1
 }
 
-wait_for_apt_locks() {
+clear_apt_locks() {
   local waited=0
   while apt_locks_held; do
     if [ "$waited" -ge "$lock_wait_seconds" ]; then
-      echo "apt locks still held after ${waited}s, attempting the install anyway" >&2
+      echo "apt locks still held after ${waited}s, terminating the stuck apt process" >&2
+      # SIGKILL rather than SIGTERM: the process is blocked on network I/O
+      # from a mirror that never answers and does not act on TERM.
+      sudo fuser -k -KILL "${apt_lock_files[@]}" >/dev/null 2>&1 || true
+      sleep "$lock_poll_seconds"
+      # Killing apt mid-transaction can leave dpkg half-configured; repair it
+      # so the next attempt starts from a consistent state.
+      sudo dpkg --configure -a >/dev/null 2>&1 || true
       return 0
     fi
     if [ "$waited" -eq 0 ]; then
@@ -52,13 +74,24 @@ wait_for_apt_locks() {
     sleep "$lock_poll_seconds"
     waited=$((waited + lock_poll_seconds))
   done
-  if [ "$waited" -gt 0 ]; then
-    echo "apt locks released after ${waited}s" >&2
-  fi
 }
 
+install_without_deps_and_verify() {
+  echo "Falling back to installing the browser without OS dependencies..." >&2
+  timeout "$attempt_timeout_seconds" npx playwright install chrome || return 1
+  echo "Verifying that the browser launches..." >&2
+  node -e "
+    const { chromium } = require('playwright-core');
+    chromium.launch({ channel: 'chrome' })
+      .then((browser) => browser.close())
+      .catch((error) => { console.error(error.message); process.exit(1); });
+  "
+}
+
+configure_apt_to_fail_fast
+
 for attempt in $(seq 1 "$max_attempts"); do
-  wait_for_apt_locks
+  clear_apt_locks
   if timeout "$attempt_timeout_seconds" npx playwright install --with-deps chrome; then
     exit 0
   fi
@@ -71,4 +104,11 @@ for attempt in $(seq 1 "$max_attempts"); do
 done
 
 echo "Playwright browser install failed after $max_attempts attempts" >&2
+clear_apt_locks
+if install_without_deps_and_verify; then
+  echo "Browser installed and verified without the apt dependency step." >&2
+  exit 0
+fi
+
+echo "Could not install a working browser" >&2
 exit 1

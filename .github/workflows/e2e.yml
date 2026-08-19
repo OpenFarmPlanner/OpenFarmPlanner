@@ -50,7 +50,7 @@ jobs:
         # of the default Azure-routed ones (both prefixed /dbazure/), which is where
         # the download stalls were observed. The retry/lock handling lives in the
         # script; the timeout below must stay above its documented worst case.
-        timeout-minutes: 20
+        timeout-minutes: 25
         working-directory: frontend
         env:
           PLAYWRIGHT_DOWNLOAD_HOST: https://cdn.playwright.dev
