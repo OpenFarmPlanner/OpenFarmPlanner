@@ -51,7 +51,11 @@
     "plantingPlanCount": "Anzahl Anbaupläne",
     "involvedLocations": "Beteiligte Standorte",
     "seedRequirement": "Saatgutbedarf",
-    "notes": "Notizen"
+    "notes": "Notizen",
+    "phase": {
+      "growth": "Wachstumsphase",
+      "harvest": "Erntephase"
+    }
   },
   "noData": "Keine Anbaupläne vorhanden",
   "modeLabel": "Modus",

@@ -183,11 +183,15 @@ function formatCultureLabel(culture?: Culture, fallbackName?: string | null, fal
   });
 }
 
+export function getOccupancyTaskPhase(task: Pick<GanttTask, 'id'>): 'growth' | 'harvest' {
+  return task.id.endsWith('-harvest') ? 'harvest' : 'growth';
+}
+
 export function buildOccupancyTooltipDetails(task: Pick<
   GanttTask,
   'id' | 'startDate' | 'harvestStartDate' | 'harvestEndDate' | 'areaUsage' | 'notes'
 >): OccupancyTooltipDetail[] {
-  const isHarvestTask = task.id.endsWith('-harvest');
+  const isHarvestTask = getOccupancyTaskPhase(task) === 'harvest';
   const hasHarvestRange = Boolean(
     task.harvestStartDate
     && task.harvestEndDate
