@@ -315,7 +315,7 @@ export function BasicInfoSection({
         <Box sx={fieldRowSx}>{firstVarietySourceHint}</Box>
       ) : null}
       {identityHint}
-      <Box sx={fieldRowSx}>
+      <Box sx={{ ...fieldRowSx, alignItems: 'flex-end' }}>
         <VarietyFieldTooltip tooltipTitle={cropFamilyVariety?.tooltipTitle}>
           <TextField
             sx={mergeVarietyFieldSx(mediumFieldSx, cropFamilyVariety?.sx)}
@@ -325,8 +325,6 @@ export function BasicInfoSection({
             onChange={e => onChange('crop_family', e.target.value)}
           />
         </VarietyFieldTooltip>
-      </Box>
-      <Box sx={fieldRowSx}>
         <VarietyFieldTooltip tooltipTitle={nutrientDemandVariety?.tooltipTitle}>
           <FormControl sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}>
             <InputLabel>{t('form.nutrientDemand')}</InputLabel>
@@ -343,8 +341,6 @@ export function BasicInfoSection({
             </Select>
           </FormControl>
         </VarietyFieldTooltip>
-      </Box>
-      <Box sx={fieldRowSx}>
         <VarietyFieldTooltip tooltipTitle={rotationBreakYearsVariety?.tooltipTitle}>
           <TextField
             type="number"
