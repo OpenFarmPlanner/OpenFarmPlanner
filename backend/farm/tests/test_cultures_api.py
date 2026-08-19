@@ -51,7 +51,9 @@ class CultureApiTest(ProjectApiTestCase):
                 supplier=self.supplier,
             )
 
-        with self.assertNumQueries(8):
+        # One of the queries resolves the project's general Kulturen for the
+        # whole page (see CultureSerializer._general_culture_index).
+        with self.assertNumQueries(9):
             response = self.client.get('/openfarmplanner/api/cultures/')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 6)
@@ -705,3 +707,97 @@ class CultureApiTest(ProjectApiTestCase):
         response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('supplier_product_url', response.data)
+
+
+class CultureInheritanceApiTest(ProjectApiTestCase):
+    """A Sorte's API row exposes its own values and the resolved effective ones."""
+
+    def setUp(self):
+        super().setUp()
+        self.species = CropSpecies.objects.create(name='Daucus carota')
+        self.general = Culture.objects.create(
+            name='Karotte',
+            variety='',
+            project=self.project,
+            crop_species=self.species,
+            growth_duration_days=70,
+            harvest_duration_days=21,
+            row_spacing_m=0.3,
+            crop_family='Apiaceae',
+            seed_rate_direct_value=2.0,
+            seed_rate_direct_unit='g/m²',
+        )
+        self.sorte = Culture.objects.create(
+            name='Karotte',
+            variety='Nantaise',
+            project=self.project,
+            crop_species=self.species,
+            growth_duration_days=65,
+        )
+
+    def _row(self, culture: Culture) -> dict:
+        response = self.client.get(f'/openfarmplanner/api/cultures/{culture.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data
+
+    def test_sorte_exposes_raw_and_effective_values_per_field(self):
+        row = self._row(self.sorte)
+        self.assertEqual(row['general_culture'], self.general.id)
+        # Raw own values stay untouched, so the client can still tell them apart.
+        self.assertEqual(row['growth_duration_days'], 65)
+        self.assertIsNone(row['harvest_duration_days'])
+        self.assertEqual(row['effective_values']['growth_duration_days'], 65)
+        self.assertEqual(row['effective_values']['harvest_duration_days'], 21)
+        self.assertEqual(row['inherited_fields'].count('harvest_duration_days'), 1)
+        self.assertNotIn('growth_duration_days', row['inherited_fields'])
+
+    def test_effective_values_use_the_api_units_of_the_own_fields(self):
+        row = self._row(self.sorte)
+        self.assertIsNone(row['row_spacing_cm'])
+        self.assertEqual(row['effective_values']['row_spacing_cm'], 30.0)
+        self.assertIn('row_spacing_cm', row['inherited_fields'])
+        # Units go through the same normalization as the own-value field.
+        self.assertEqual(row['effective_values']['seed_rate_direct_unit'], 'g_per_m2')
+
+    def test_general_kultur_has_no_inheritance_payload(self):
+        row = self._row(self.general)
+        self.assertIsNone(row['general_culture'])
+        self.assertEqual(row['effective_values'], {})
+        self.assertEqual(row['inherited_fields'], [])
+
+    def test_free_text_sorte_without_species_keeps_its_own_values_only(self):
+        free_text = Culture.objects.create(
+            name='Karotte', variety='Freitext', project=self.project,
+        )
+        row = self._row(free_text)
+        self.assertIsNone(row['general_culture'])
+        self.assertEqual(row['effective_values'], {})
+        self.assertEqual(row['inherited_fields'], [])
+
+    def test_clearing_an_own_value_falls_back_to_the_general_value(self):
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{self.sorte.id}/',
+            {'growth_duration_days': None},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = self._row(self.sorte)
+        self.assertIsNone(row['growth_duration_days'])
+        self.assertEqual(row['effective_values']['growth_duration_days'], 70)
+        self.assertIn('growth_duration_days', row['inherited_fields'])
+
+    def test_inheritance_payload_costs_one_query_for_a_whole_list_page(self):
+        for index in range(5):
+            Culture.objects.create(
+                name='Karotte', variety=f'Sorte {index}',
+                project=self.project, crop_species=self.species,
+            )
+        with self.assertNumQueries(10):
+            response = self.client.get('/openfarmplanner/api/cultures/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        inherited_rows = [
+            item for item in response.data['results'] if item['general_culture'] == self.general.id
+        ]
+        self.assertEqual(len(inherited_rows), 6)
+        for item in inherited_rows:
+            self.assertEqual(item['effective_values']['harvest_duration_days'], 21)

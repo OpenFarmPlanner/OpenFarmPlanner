@@ -161,10 +161,50 @@ export interface Culture {
   
   // Computed, read-only.
   plants_per_m2?: number | null;
-  
+
+  /**
+   * Read-only inheritance data for a Sorte: the general Kultur it falls back to
+   * (same project, same crop species, no variety) and the resolved value of
+   * every inheritable field. The plain fields above always stay the row's *own*
+   * values, so a field is inherited exactly when it appears in
+   * `inherited_fields`. All three are absent/empty when there is nothing to
+   * inherit from — a general Kultur, or a free-text Sorte without a species.
+   */
+  general_culture?: number | null;
+  inherited_fields?: CultureInheritableField[];
+  effective_values?: Partial<Culture>;
+
   created_at?: string;
   updated_at?: string;
 }
+
+/**
+ * Culture fields a Sorte inherits from its general Kultur. Mirrors
+ * `CULTURE_INHERITABLE_FIELDS` in backend/farm/services/culture_inheritance.py.
+ */
+export type CultureInheritableField =
+  | 'crop_family'
+  | 'nutrient_demand'
+  | 'cultivation_type'
+  | 'cultivation_types'
+  | 'growth_duration_days'
+  | 'harvest_duration_days'
+  | 'propagation_duration_days'
+  | 'harvest_method'
+  | 'expected_yield'
+  | 'distance_within_row_cm'
+  | 'row_spacing_cm'
+  | 'sowing_depth_cm'
+  | 'sowing_calculation_safety_percent'
+  | 'sowing_calculation_safety_percent_direct'
+  | 'sowing_calculation_safety_percent_pre_cultivation'
+  | 'thousand_kernel_weight_g'
+  | 'seeding_requirement'
+  | 'seeding_requirement_type'
+  | 'seed_rate_direct_value'
+  | 'seed_rate_direct_unit'
+  | 'seed_rate_pre_cultivation_value'
+  | 'seed_rate_pre_cultivation_unit';
 
 export interface CultureSupplierData {
   id?: number;

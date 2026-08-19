@@ -32,6 +32,12 @@ from farm.seed_units import (
     SEED_RATE_UNITS,
 )
 from farm.services.culture_display import resolve_culture_display_name
+from farm.services.culture_inheritance import (
+    CULTURE_INHERITABLE_FIELDS,
+    build_general_culture_index,
+    build_inherited_culture_values,
+    get_general_culture,
+)
 from farm.services.public_cultures import (
     has_open_public_culture_update,
     is_public_culture_contributor,
@@ -56,6 +62,27 @@ from .suppliers import (
 
 # Sentinel so a resolved `None` is cached instead of re-queried per field.
 _UNRESOLVED = object()
+
+# The inheritable model fields whose API name differs from the model field name
+# (distances are stored in meters and exposed in centimeters).
+_INHERITABLE_API_FIELD_NAMES = {
+    'distance_within_row_m': 'distance_within_row_cm',
+    'row_spacing_m': 'row_spacing_cm',
+    'sowing_depth_m': 'sowing_depth_cm',
+}
+
+_SEED_RATE_UNIT_FIELDS = (
+    'seed_rate_unit',
+    'seed_rate_direct_unit',
+    'seed_rate_pre_cultivation_unit',
+)
+
+
+def _normalized_seed_rate_unit_representation(raw_value: Any) -> Any:
+    """Apply the same unit normalization the own-value representation uses."""
+    if raw_value in EMPTY_SEED_RATE_UNIT_VALUES:
+        return None
+    return normalize_seed_rate_unit(raw_value) or raw_value
 
 
 class CultureSerializer(serializers.ModelSerializer):
@@ -193,6 +220,27 @@ class CultureSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text='Calculated plants per square meter based on spacing (read-only)'
     )
+    general_culture = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'ID of the general Kultur this Sorte inherits unset field values from '
+            '(same project, same crop species, no variety), or null.'
+        ),
+    )
+    inherited_fields = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'Fields whose effective value comes from the general Kultur, not from this row.'
+        ),
+    )
+    effective_values = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'Effective value per inheritable field: this row\'s own value when set, '
+            'otherwise the general Kultur\'s. Empty when there is no general Kultur '
+            'to inherit from, in which case the raw fields already are the effective values.'
+        ),
+    )
     owned_public_culture_id = serializers.SerializerMethodField()
     owned_public_culture_role = serializers.SerializerMethodField()
     public_update_available = serializers.SerializerMethodField()
@@ -246,6 +294,69 @@ class CultureSerializer(serializers.ModelSerializer):
         if species is None:
             return {}
         return species.translations_by_language()
+
+    def _general_culture_index(self, obj: Culture) -> dict[int, Culture]:
+        """The active project's general Kulturen, built once per request.
+
+        A list response would otherwise cost one sibling lookup per Sorte; the
+        index turns that into a single query for the whole page.
+        """
+        cache = self.context.setdefault('_general_culture_index_by_project', {})
+        if obj.project_id not in cache:
+            cache[obj.project_id] = build_general_culture_index(obj.project_id)
+        return cache[obj.project_id]
+
+    def _resolve_general_culture(self, obj: Culture) -> Culture | None:
+        cached = getattr(obj, '_serialized_general_culture', _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+        resolved = get_general_culture(obj, self._general_culture_index(obj))
+        obj._serialized_general_culture = resolved
+        return resolved
+
+    def _inherited_values(self, obj: Culture) -> dict[str, Any]:
+        """Inherited values keyed by model field name (see the resolver service)."""
+        cached = getattr(obj, '_serialized_inherited_values', None)
+        if cached is not None:
+            return cached
+        if self._resolve_general_culture(obj) is None:
+            resolved: dict[str, Any] = {}
+        else:
+            resolved = build_inherited_culture_values(obj, self._general_culture_index(obj))
+        obj._serialized_inherited_values = resolved
+        return resolved
+
+    def _api_representation(self, model_field: str, value: Any) -> Any:
+        """Render a raw model value the way this serializer renders the own value."""
+        api_field = _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field)
+        if value is None:
+            return None
+        representation = self.fields[api_field].to_representation(value)
+        if api_field in _SEED_RATE_UNIT_FIELDS:
+            return _normalized_seed_rate_unit_representation(representation)
+        return representation
+
+    def get_general_culture(self, obj: Culture) -> int | None:
+        general_culture = self._resolve_general_culture(obj)
+        return general_culture.pk if general_culture else None
+
+    def get_inherited_fields(self, obj: Culture) -> list[str]:
+        return [
+            _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field)
+            for model_field in CULTURE_INHERITABLE_FIELDS
+            if model_field in self._inherited_values(obj)
+        ]
+
+    def get_effective_values(self, obj: Culture) -> dict[str, Any]:
+        if self._resolve_general_culture(obj) is None:
+            return {}
+        inherited = self._inherited_values(obj)
+        return {
+            _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field): self._api_representation(
+                model_field, inherited.get(model_field, getattr(obj, model_field)),
+            )
+            for model_field in CULTURE_INHERITABLE_FIELDS
+        }
     
     def _resolve_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
         """The published public-library entry the requesting user may act on for this culture."""
@@ -352,17 +463,8 @@ class CultureSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        for field_name in (
-            'seed_rate_unit',
-            'seed_rate_direct_unit',
-            'seed_rate_pre_cultivation_unit',
-        ):
-            raw_value = data.get(field_name)
-            data[field_name] = (
-                None
-                if raw_value in EMPTY_SEED_RATE_UNIT_VALUES
-                else normalize_seed_rate_unit(raw_value) or raw_value
-            )
+        for field_name in _SEED_RATE_UNIT_FIELDS:
+            data[field_name] = _normalized_seed_rate_unit_representation(data.get(field_name))
         data['seed_requirements'] = self._build_seed_requirements_representation(data)
         return data
 

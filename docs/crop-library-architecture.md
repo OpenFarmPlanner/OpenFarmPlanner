@@ -264,6 +264,47 @@ future `CropVariety` entity and persisted nullable override chain exist,
 value-source cues are resolved from the current row plus the matching
 no-variety general crop row.
 
+### Sorte → Kultur value inheritance
+
+That same pairing is also the **value** fallback for project cultures, not only
+a display cue. `backend/farm/services/culture_inheritance.py` owns the rule so
+the API, the planning calculations and the UI resolve it identically:
+
+- A Sorte (`variety` set) with a `crop_species` inherits from the general
+  Kultur — same project, same `crop_species`, empty `variety`, not soft-deleted.
+  A free-text Sorte without a `crop_species` has nothing to fall back to and
+  always resolves to its own values.
+- `CULTURE_INHERITABLE_FIELDS` lists the planning fields that participate. It
+  mirrors the frontend's `VARIETY_INHERITABLE_FIELDS`
+  (`frontend/src/cultures/varietyValueSource.ts`), which prefills a *new*
+  Sorte from the same set, minus `allow_deviation_delivery_weeks` (a non-null
+  boolean has no unset state to fall back from) and minus the legacy
+  `seed_rate_value`/`seed_rate_unit` pair and the derived
+  `seed_rate_by_cultivation` map (validated as a subset of the row's own
+  `cultivation_types`, so inheriting it separately could produce a combination
+  the model rejects).
+- "Unset" means `None`, blank text, the legacy `'-'` unit placeholder, or an
+  empty collection. `0` and `False` are real values and are never replaced.
+- Nothing is copied onto the Sorte. Clearing a field removes the override, and
+  the Sorte follows later edits of the general Kultur automatically.
+
+`CultureSerializer` exposes the raw and the resolved value side by side, so a
+client can tell them apart per field:
+
+| Field | Meaning |
+|---|---|
+| the plain culture fields | always the row's **own** stored values |
+| `general_culture` | id of the Kultur this Sorte inherits from, else `null` |
+| `inherited_fields` | API field names whose effective value comes from that Kultur |
+| `effective_values` | effective value per inheritable field, in the same API units as the plain fields (centimeters, normalized seed-rate units) |
+
+`effective_values` and `inherited_fields` are empty whenever `general_culture`
+is `null` — for a general Kultur or a free-text Sorte the plain fields already
+*are* the effective values. Resolving a whole list page costs **one** extra
+query: the serializer builds a per-request `crop_species → general Kultur` index
+for the active project (`build_general_culture_index`) instead of looking up a
+sibling per row.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational
