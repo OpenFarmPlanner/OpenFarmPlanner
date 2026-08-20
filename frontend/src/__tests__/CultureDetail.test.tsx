@@ -541,7 +541,12 @@ describe('CultureDetail Component', () => {
       />
     );
     
-    expect(screen.getByText('Frisch und süß.')).toBeInTheDocument();
+    const notesHeading = screen.getByRole('heading', { level: 6, name: 'Notizen' });
+    const notesContent = screen.getByText('Frisch und süß.');
+
+    expect(notesContent).toBeInTheDocument();
+    expect(notesHeading.nextElementSibling).toContainElement(notesContent);
+    expect(notesHeading).not.toContainElement(notesContent);
   });
 
   it('renders supplier homepage as clickable link', () => {
