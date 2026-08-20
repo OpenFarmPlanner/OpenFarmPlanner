@@ -247,6 +247,18 @@ class SeedRateCouplingTests(ImportAnalysisTestCase):
         self.assertEqual(preview['items'][0]['action'], ACTION_CREATE)
         self.assertEqual(preview['items'][0]['errors'], [])
 
+    def test_seeds_per_plant_requires_whole_number_value(self):
+        preview = self.analyze({
+            'name': 'Aubergine',
+            'cultivation_types': ['pre_cultivation'],
+            'seed_rate_pre_cultivation_value': 1.1,
+            'seed_rate_pre_cultivation_unit': 'seeds_per_plant',
+        })
+        entry = self.field_of(preview, 0, 'seed_rate_pre_cultivation_value')
+
+        self.assertIn('whole_number_required', {error['code'] for error in entry['errors']})
+        self.assertEqual(preview['items'][0]['action'], ACTION_BLOCKED)
+
     def test_unknown_seed_rate_unit_is_rejected(self):
         preview = self.analyze({
             'name': 'Karotte',

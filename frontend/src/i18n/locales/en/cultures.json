@@ -267,6 +267,7 @@
     "seedRateUnit": "Seed quantity unit",
     "seedRateUnitRequired": "If a quantity is given, a unit must be selected as well.",
     "seedRateValueRequired": "The quantity must be greater than 0.",
+    "seedRateValueWholeNumberRequired": "The quantity must be a whole number for this unit.",
     "thousandKernelWeightLabel": "Thousand-kernel weight (g)",
     "seedPackagesLabel": "Package sizes at the supplier",
     "thousandKernelWeightHelp": "Weight of 1,000 seeds in grams. Needed to convert between seeds and grams.",

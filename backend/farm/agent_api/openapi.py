@@ -20,6 +20,7 @@ from farm.services.culture_import.field_specs import (
     KIND_NUMBER,
     KIND_STRING,
     FieldSpec,
+    seed_rate_unit_constraints_payload,
 )
 
 OPENAPI_VERSION = '3.1.0'
@@ -57,6 +58,8 @@ def _field_schema(spec: FieldSpec) -> dict[str, Any]:
     _apply_numeric_bounds(spec, schema)
     if spec.requires:
         schema['x-requires'] = spec.requires
+    if spec.name in {'seed_rate_direct_value', 'seed_rate_pre_cultivation_value'}:
+        schema['x-unit-value-constraints'] = seed_rate_unit_constraints_payload()
     if spec.accepted_keys[1:]:
         schema['x-accepted-input-keys'] = list(spec.accepted_keys)
     return schema
@@ -116,6 +119,7 @@ def _seed_requirements_schema() -> dict[str, Any]:
         'type': 'object',
         'required': ['value', 'unit'],
         'additionalProperties': False,
+        'x-unit-value-constraints': seed_rate_unit_constraints_payload(),
         'properties': {
             'value': {
                 'type': 'number',
@@ -153,7 +157,9 @@ def _seed_requirements_schema() -> dict[str, Any]:
             'Preferred agent-facing seed-rate object. Keys are cultivation methods; '
             'values describe seed rate per area, row metre, or target plant. '
             'Use this instead of legacy seeding_requirement fields. Total seed '
-            'demand is calculated later from planting area or plant count.'
+            'demand is calculated later from planting area or plant count. '
+            'Unit-specific value constraints are published in x-unit-value-constraints; '
+            'for example, seeds_per_plant requires a whole-number value.'
         ),
         'additionalProperties': False,
         'properties': {

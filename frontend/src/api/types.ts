@@ -72,6 +72,18 @@ export interface SupplierRestoreUnlinkedDeleteResponse {
 export type SeedRateUnit = 'g_per_m2' | 'g_per_lfm' | 'seeds_per_m2' | 'seeds_per_lfm' | 'seeds_per_plant';
 export type CultivationType = 'pre_cultivation' | 'direct_sowing';
 
+export interface SeedRateUnitConstraint {
+  value_type: 'number' | 'integer';
+  step: number;
+  minimum: number;
+}
+
+export type SeedRateUnitConstraints = Record<SeedRateUnit, SeedRateUnitConstraint>;
+
+export interface SeedRateConstraintsResponse {
+  units: SeedRateUnitConstraints;
+}
+
 export interface SeedRateByCultivationEntry {
   value: number;
   unit: SeedRateUnit;

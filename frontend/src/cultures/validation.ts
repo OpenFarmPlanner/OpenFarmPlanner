@@ -3,8 +3,9 @@
  *
  * Exports a pure function for validating a draft culture object.
  */
-import type { Culture } from '../api/types';
+import type { Culture, SeedRateUnitConstraints } from '../api/types';
 import type { TFunction } from 'i18next';
+import { seedRateValueViolatesConstraint } from './seedRateConstraints';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -46,6 +47,7 @@ const validateSeedRateFields = (
   mode: CultureValidationMode,
   valueField: 'seed_rate_direct_value' | 'seed_rate_pre_cultivation_value',
   unitField: 'seed_rate_direct_unit' | 'seed_rate_pre_cultivation_unit',
+  seedRateUnitConstraints?: Partial<SeedRateUnitConstraints> | null,
 ): void => {
   const value = draft[valueField];
   const unit = draft[unitField];
@@ -58,6 +60,9 @@ const validateSeedRateFields = (
 
   if (valueIsPresent && Number(value) <= 0) {
     errors[valueField] = t('form.seedRateValueRequired');
+  }
+  if (seedRateValueViolatesConstraint(value, unit, seedRateUnitConstraints)) {
+    errors[valueField] = t('form.seedRateValueWholeNumberRequired');
   }
 
   if (mode !== 'submit') {
@@ -81,6 +86,7 @@ export function validateCulture(
   t: TFunction,
   mode: CultureValidationMode = 'submit',
   requireVariety: boolean = true,
+  seedRateUnitConstraints?: Partial<SeedRateUnitConstraints> | null,
 ): ValidationResult {
   const errors: Record<string, string> = {};
 
@@ -89,11 +95,27 @@ export function validateCulture(
   const hasPreCultivation = cultivationTypes.includes('pre_cultivation');
 
   if (hasDirect) {
-    validateSeedRateFields(draft, errors, t, mode, 'seed_rate_direct_value', 'seed_rate_direct_unit');
+    validateSeedRateFields(
+      draft,
+      errors,
+      t,
+      mode,
+      'seed_rate_direct_value',
+      'seed_rate_direct_unit',
+      seedRateUnitConstraints,
+    );
   }
 
   if (hasPreCultivation) {
-    validateSeedRateFields(draft, errors, t, mode, 'seed_rate_pre_cultivation_value', 'seed_rate_pre_cultivation_unit');
+    validateSeedRateFields(
+      draft,
+      errors,
+      t,
+      mode,
+      'seed_rate_pre_cultivation_value',
+      'seed_rate_pre_cultivation_unit',
+      seedRateUnitConstraints,
+    );
   }
 
   // Required fields: name always; variety only when the form is for a
