@@ -354,9 +354,11 @@ const detailSectionGridSx = {
       const displayName = getCultureDisplayName(culture);
       const cultureName = displayName.toLowerCase();
       const storedCultureName = culture.name?.toLowerCase() ?? '';
+      const varietyName = culture.variety?.toLowerCase() ?? '';
       const nameMatches = normalizedQuery.length === 0
         || cultureName.includes(normalizedQuery)
-        || storedCultureName.includes(normalizedQuery);
+        || storedCultureName.includes(normalizedQuery)
+        || varietyName.includes(normalizedQuery);
       const familyMatches = filters.selectedFamilyFilter.length === 0 || culture.crop_family === filters.selectedFamilyFilter;
       const cultivationValues = culture.cultivation_types && culture.cultivation_types.length > 0
         ? culture.cultivation_types

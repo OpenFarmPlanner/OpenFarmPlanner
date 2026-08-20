@@ -160,6 +160,24 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('button', { name: 'Suche und Filter zurücksetzen' })).toBeInTheDocument();
   });
 
+  it('keeps variety matches in the culture search dropdown', async () => {
+    const user = userEvent.setup();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        onCultureSelect={vi.fn()}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText(translations.cultures.searchPlaceholder);
+    await user.click(searchInput);
+    await user.type(searchInput, 'Cherry');
+
+    expect(screen.queryByText('Keine Kulturen gefunden')).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Tomato – Cherry' })).toBeInTheDocument();
+  });
+
   it('collapses a crop group without changing the selected detail view', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
