@@ -18,6 +18,7 @@ import type {
   CultureHistoryEntry,
   CultureDuplicateCheckResponse,
   CulturePublicUpdate,
+  SeedRateConstraintsResponse,
   ImportPublicCultureResponse,
   MediaFileRef,
   PublicCulture,
@@ -106,6 +107,7 @@ export const cultureAPI = {
   get: (id: number) => http.get<Culture>(`/cultures/${id}/`),
   duplicateCheck: (params: { name: string; variety: string; exclude_id?: number }, signal?: AbortSignal) =>
     http.get<CultureDuplicateCheckResponse>('/cultures/duplicate-check/', { params, signal }),
+  seedRateConstraints: () => http.get<SeedRateConstraintsResponse>('/cultures/seed-rate-constraints/'),
   create: (data: Culture) => http.post<Culture>('/cultures/', withActiveProject(data)),
   update: (id: number, data: Culture) => http.put<Culture>(`/cultures/${id}/`, withActiveProject(data)),
   delete: (id: number) => http.delete(`/cultures/${id}/`),

@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n';
-import type { Culture, PublicCulture, Supplier } from '../api/types';
+import type { Culture, PublicCulture, SeedRateUnitConstraints, Supplier } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import {
   Dialog,
@@ -417,6 +417,7 @@ export function CultureForm({
   const [varietyOptionsLoading, setVarietyOptionsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([]);
+  const [seedRateUnitConstraints, setSeedRateUnitConstraints] = useState<SeedRateUnitConstraints | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isValid, setIsValid] = useState(true);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -541,13 +542,31 @@ export function CultureForm({
     return () => window.removeEventListener('focus', onWindowFocus);
   }, [loadSuppliers, showSupplierDataSection]);
 
+  useEffect(() => {
+    let cancelled = false;
+    cultureAPI.seedRateConstraints()
+      .then((response) => {
+        if (!cancelled) {
+          setSeedRateUnitConstraints(response.data.units);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSeedRateUnitConstraints(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Validate on every change
   const validateAndSet = useCallback((draft: Partial<Culture>, mode: 'live' | 'submit' = hasSubmitted ? 'submit' : 'live') => {
-    const result = validateCulture(draft, t, mode, requireVariety);
+    const result = validateCulture(draft, t, mode, requireVariety, seedRateUnitConstraints);
     setErrors(result.errors);
     setIsValid(result.isValid);
     return result.isValid;
-  }, [hasSubmitted, requireVariety, t]);
+  }, [hasSubmitted, requireVariety, seedRateUnitConstraints, t]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -1328,7 +1347,14 @@ export function CultureForm({
             <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
-            <SeedingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
+            <SeedingSection
+              formData={formData}
+              errors={errors}
+              onChange={handleChange}
+              t={t}
+              getFieldTooltipProps={getFieldTooltipProps}
+              seedRateUnitConstraints={seedRateUnitConstraints}
+            />
             <ColorSection formData={formData} errors={errors} onChange={handleChange} t={t} defaultColor={DEFAULT_DISPLAY_COLOR} />
             {isProjectForm ? (
               <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />

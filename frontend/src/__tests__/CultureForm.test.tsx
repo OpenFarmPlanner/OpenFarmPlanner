@@ -11,8 +11,19 @@ vi.mock('../i18n', () => ({
   }),
 }));
 
-const { cultureDuplicateCheckMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
+const { cultureDuplicateCheckMock, seedRateConstraintsMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
   cultureDuplicateCheckMock: vi.fn().mockResolvedValue({ data: { exists: false } }),
+  seedRateConstraintsMock: vi.fn().mockResolvedValue({
+    data: {
+      units: {
+        g_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        g_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_plant: { value_type: 'integer', step: 1, minimum: 1 },
+      },
+    },
+  }),
   publicCultureListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
   supplierCreateMock: vi.fn(),
   supplierListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
@@ -25,6 +36,7 @@ vi.mock('../api/api', async () => {
     cultureAPI: {
       ...actual.cultureAPI,
       duplicateCheck: cultureDuplicateCheckMock,
+      seedRateConstraints: seedRateConstraintsMock,
     },
     publicCultureAPI: {
       ...actual.publicCultureAPI,
@@ -181,6 +193,18 @@ describe('CultureForm', () => {
   beforeEach(() => {
     cultureDuplicateCheckMock.mockReset();
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
+    seedRateConstraintsMock.mockReset();
+    seedRateConstraintsMock.mockResolvedValue({
+      data: {
+        units: {
+          g_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          g_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_plant: { value_type: 'integer', step: 1, minimum: 1 },
+        },
+      },
+    });
     publicCultureListMock.mockReset();
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });
     supplierCreateMock.mockReset();

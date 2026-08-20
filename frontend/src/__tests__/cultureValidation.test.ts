@@ -2,6 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { validateCulture } from '../cultures/validation';
 
 const t = (key: string) => key;
+const seedRateUnitConstraints = {
+  g_per_m2: { value_type: 'number' as const, step: 0.001, minimum: 0.001 },
+  g_per_lfm: { value_type: 'number' as const, step: 0.001, minimum: 0.001 },
+  seeds_per_m2: { value_type: 'number' as const, step: 0.001, minimum: 0.001 },
+  seeds_per_lfm: { value_type: 'number' as const, step: 0.001, minimum: 0.001 },
+  seeds_per_plant: { value_type: 'integer' as const, step: 1, minimum: 1 },
+};
 
 describe('validateCulture', () => {
   it('returns required field errors for missing mandatory values', () => {
@@ -85,6 +92,24 @@ describe('validateCulture', () => {
 
     expect(result.errors.seed_rate_direct_value).toBeUndefined();
     expect(result.errors.seed_rate_pre_cultivation_value).toBeUndefined();
+  });
+
+  it('rejects fractional seed rate values when the selected unit requires whole numbers', () => {
+    const result = validateCulture(
+      {
+        name: 'Aubergine',
+        variety: 'Nala',
+        cultivation_types: ['pre_cultivation'],
+        seed_rate_pre_cultivation_value: 1.1,
+        seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+      },
+      t,
+      'submit',
+      true,
+      seedRateUnitConstraints,
+    );
+
+    expect(result.errors.seed_rate_pre_cultivation_value).toBe('form.seedRateValueWholeNumberRequired');
   });
 
   it('keeps empty seed rate partner fields neutral during live validation', () => {

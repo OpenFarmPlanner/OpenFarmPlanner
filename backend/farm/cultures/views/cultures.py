@@ -30,6 +30,7 @@ from farm.models import (
     format_culture_display_name,
 )
 from farm.project_context import get_active_project_or_400
+from farm.services.culture_import.field_specs import seed_rate_unit_constraints_payload
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
     PublicCulturePublishingValidationError,
@@ -84,6 +85,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         'partial_update',
         'destroy',
         'duplicate_check',
+        'seed_rate_constraints',
         'history',
         'undelete',
     }
@@ -153,6 +155,11 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 pass
 
         return Response({'exists': queryset.exists()})
+
+    @action(detail=False, methods=['get'], url_path='seed-rate-constraints')
+    def seed_rate_constraints(self, request):
+        """Return backend-owned seed-rate value constraints for culture forms."""
+        return Response({'units': seed_rate_unit_constraints_payload()})
 
     def _resolve_supplier(self, culture_data: dict) -> Supplier | None:
         """Resolve supplier from culture data using supplier_id or supplier_name.

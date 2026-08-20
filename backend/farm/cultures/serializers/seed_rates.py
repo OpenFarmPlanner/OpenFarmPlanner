@@ -11,6 +11,7 @@ from farm.seed_units import (
     SEED_RATE_UNIT_SEEDS_PER_PLANT,
     SEED_RATE_UNITS,
 )
+from farm.services.culture_import.field_specs import seed_rate_value_constraint_error
 
 EMPTY_SEED_RATE_UNIT_VALUES = {None, '', '-'}
 
@@ -38,6 +39,11 @@ def _seed_rate_entry_error(method: str, payload: object) -> str | None:
         return 'Pre-cultivation seed rate unit is unsupported.'
     if method == 'direct_sowing' and unit not in SEED_RATE_UNITS:
         return 'Direct sowing seed rate unit is unsupported.'
+    constraint_error = seed_rate_value_constraint_error(parsed_value, unit)
+    if constraint_error == 'whole_number_required':
+        return 'Seed rate value must be a whole number for this unit.'
+    if constraint_error == 'below_unit_minimum':
+        return 'Seed rate value is below the minimum for this unit.'
     return None
 
 

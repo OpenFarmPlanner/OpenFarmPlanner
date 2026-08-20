@@ -55,4 +55,31 @@ describe('HarvestSection and SeedingSection', () => {
     expect(screen.getByText('invalid')).toBeInTheDocument();
   });
 
+  it('uses backend seed-rate constraints for seeds per plant inputs', () => {
+    render(
+      <SeedingSection
+        formData={{
+          cultivation_types: ['pre_cultivation'],
+          seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+          seed_rate_pre_cultivation_value: 1,
+        }}
+        errors={{}}
+        onChange={vi.fn()}
+        t={t}
+        seedRateUnitConstraints={{
+          g_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          g_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_plant: { value_type: 'integer', step: 1, minimum: 1 },
+        }}
+      />
+    );
+
+    const amountInput = screen.getByLabelText('Menge');
+    expect(amountInput).toHaveAttribute('min', '1');
+    expect(amountInput).toHaveAttribute('step', '1');
+    expect(amountInput).toHaveAttribute('inputmode', 'numeric');
+  });
+
 });

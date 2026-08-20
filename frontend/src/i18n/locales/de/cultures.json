@@ -267,6 +267,7 @@
     "seedRateUnit": "Einheit der Saatgutmenge",
     "seedRateUnitRequired": "Wenn eine Menge angegeben wird, muss auch eine Einheit gewählt werden.",
     "seedRateValueRequired": "Die Menge muss größer als 0 sein.",
+    "seedRateValueWholeNumberRequired": "Die Menge muss für diese Einheit eine ganze Zahl sein.",
     "thousandKernelWeightLabel": "1000-Korn-Gewicht (g)",
     "seedPackagesLabel": "Verpackungsgrößen beim Lieferanten",
     "thousandKernelWeightHelp": "Gewicht von 1.000 Körnern in Gramm. Wird für die Umrechnung zwischen Korn und Gramm benötigt.",

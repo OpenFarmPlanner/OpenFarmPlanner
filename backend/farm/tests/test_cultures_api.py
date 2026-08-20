@@ -135,6 +135,56 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(update_response.data['growth_duration_days'], 90)
         self.assertEqual(update_response.data['notes'], 'General baseline')
 
+    def test_seed_rate_constraints_endpoint_returns_backend_owned_unit_rules(self):
+        response = self.client.get('/openfarmplanner/api/cultures/seed-rate-constraints/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['units']['seeds_per_plant'],
+            {'value_type': 'integer', 'step': 1, 'minimum': 1},
+        )
+        self.assertEqual(response.data['units']['g_per_m2']['value_type'], 'number')
+
+    def test_culture_create_rejects_fractional_seeds_per_plant_requirement(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Aubergine',
+                'variety': '',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_requirements': {
+                    'pre_cultivation': {
+                        'value': 1.1,
+                        'unit': 'seeds_per_plant',
+                    },
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('seed_requirements', response.data)
+
+    def test_culture_create_accepts_whole_number_seeds_per_plant_requirement(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Aubergine',
+                'variety': '',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_requirements': {
+                    'pre_cultivation': {
+                        'value': 1,
+                        'unit': 'seeds_per_plant',
+                    },
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['seed_requirements']['pre_cultivation']['value'], 1.0)
+
     def test_culture_create_rejects_duplicate_name_and_variety(self):
         existing = Culture.objects.create(
             name='Duplicate Test Culture',
