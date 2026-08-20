@@ -6,7 +6,6 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-
 SUPPORTED_REGIONAL_NAME_KEYS = {'austria', 'switzerland'}
 
 
@@ -86,7 +85,36 @@ class CropSpecies(models.Model):
             if translation.common_name
         }
 
-    def localized_name(self, language_code: str | None, region: str | None = None) -> tuple[str, str]:
+    def search_names(self) -> list[str]:
+        """Every user-facing name that may resolve to this species.
+
+        This is deliberately broader than ``translations_by_language``:
+        regional names and synonyms are aliases for matching, not independent
+        display translations, but autocomplete UIs still need to show which
+        alias made a canonical species appear.
+        """
+        names = [self.name]
+        for translation in self.translations.all():
+            names.append(translation.common_name)
+            names.extend(translation.synonyms)
+            names.extend(
+                value
+                for value in translation.regional_names.values()
+                if isinstance(value, str)
+            )
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for name in names:
+            normalized = ' '.join((name or '').split())
+            key = normalized.casefold()
+            if normalized and key not in seen:
+                cleaned.append(normalized)
+                seen.add(key)
+        return cleaned
+
+    def localized_name(
+        self, language_code: str | None, region: str | None = None,
+    ) -> tuple[str, str]:
         """Best available common name plus the language it came from.
 
         Fallback order is the project-wide one (requested → English → any

@@ -18,6 +18,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
+
 from . import services
 from .models import CropSpecies, PublicLibraryModeratorRequest
 from .permissions import (
@@ -115,7 +116,8 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
                 return self._proposal_status_error()
             duplicate = CropSpecies.objects.filter(
                 status=CropSpecies.STATUS_PUBLISHED,
-                name_normalized=species.name_normalized,
+            ).filter(
+                services.build_exact_species_identity_query(species.name_normalized),
             ).exclude(pk=species.pk).first()
             if duplicate is not None:
                 return Response(

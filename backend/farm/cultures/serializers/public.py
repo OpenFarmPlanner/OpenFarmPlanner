@@ -76,6 +76,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         default='',
     )
     crop_species_translations = serializers.SerializerMethodField()
+    crop_species_search_names = serializers.SerializerMethodField()
     # A `proposed` species is one a user suggested and no moderator has
     # reviewed yet. Entries published under it are usable but provisional, so
     # the UI marks them and blocks import/update/discussion until it is
@@ -112,6 +113,7 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'crop_species_name',
             'crop_species_canonical_name',
             'crop_species_translations',
+            'crop_species_search_names',
             'crop_species_status',
             'display_name',
             'display_language_code',
@@ -211,6 +213,11 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         if obj.crop_species is None:
             return {}
         return obj.crop_species.translations_by_language()
+
+    def get_crop_species_search_names(self, obj: PublicCulture) -> list[str]:
+        if obj.crop_species is None:
+            return []
+        return obj.crop_species.search_names()
 
     def get_imported_cultures_count(self, obj: PublicCulture) -> int:
         """How many project cultures (across all projects) are linked to this entry.

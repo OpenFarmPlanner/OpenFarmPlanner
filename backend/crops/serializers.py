@@ -137,7 +137,9 @@ class CropSpeciesTranslationSerializer(serializers.ModelSerializer):
             region = str(key or '').strip().lower()
             if region not in SUPPORTED_REGIONAL_NAME_KEYS:
                 allowed = ', '.join(sorted(SUPPORTED_REGIONAL_NAME_KEYS))
-                raise serializers.ValidationError(f'Unsupported region "{key}". Allowed values: {allowed}.')
+                raise serializers.ValidationError(
+                    f'Unsupported region "{key}". Allowed values: {allowed}.',
+                )
             if not isinstance(raw_name, str):
                 raise serializers.ValidationError('Regional names must be strings.')
             name = ' '.join(raw_name.split())
@@ -160,6 +162,7 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
     translations = CropSpeciesTranslationSerializer(many=True, required=False)
     display_name = serializers.SerializerMethodField()
     display_language_code = serializers.SerializerMethodField()
+    search_names = serializers.SerializerMethodField()
 
     class Meta:
         model = CropSpecies
@@ -175,6 +178,7 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
             'translations',
             'display_name',
             'display_language_code',
+            'search_names',
         ]
         read_only_fields = [
             'id',
@@ -186,10 +190,14 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
             'similar_species',
             'display_name',
             'display_language_code',
+            'search_names',
         ]
 
     def get_display_name(self, obj: CropSpecies) -> str:
-        return obj.localized_name(get_request_language(self.context), get_request_region(self.context))[0]
+        return obj.localized_name(
+            get_request_language(self.context),
+            get_request_region(self.context),
+        )[0]
 
     def get_display_language_code(self, obj: CropSpecies) -> str:
         """The language actually rendered — '' when only the canonical name existed.
@@ -197,7 +205,13 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
         The UI uses this to note "only available in another language" instead
         of passing a German name off as an English one.
         """
-        return obj.localized_name(get_request_language(self.context), get_request_region(self.context))[1]
+        return obj.localized_name(
+            get_request_language(self.context),
+            get_request_region(self.context),
+        )[1]
+
+    def get_search_names(self, obj: CropSpecies) -> list[str]:
+        return obj.search_names()
 
     def create(self, validated_data: dict) -> CropSpecies:
         translations = validated_data.pop('translations', [])
@@ -294,7 +308,8 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
                 if candidate.id in seen_ids:
                     continue
                 if any(
-                    _species_fuzzy_distance(obj.name_normalized, term) <= (1 if min(len(obj.name_normalized), len(term)) < 8 else 2)
+                    _species_fuzzy_distance(obj.name_normalized, term)
+                    <= (1 if min(len(obj.name_normalized), len(term)) < 8 else 2)
                     for term in _species_search_terms(candidate)
                 ):
                     similar_items.append(candidate)
@@ -322,7 +337,8 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
         # same species — reject it rather than creating a parallel record.
         clashes = CropSpecies.objects.filter(
             Q(name_normalized=normalized)
-            | Q(translations__common_name_normalized=normalized),
+            | Q(translations__common_name_normalized=normalized)
+            | Q(translations__search_text_normalized__icontains=f'\n{normalized}\n'),
         )
         if self.instance is not None:
             clashes = clashes.exclude(pk=self.instance.pk)
@@ -391,6 +407,7 @@ class CropSerializer(serializers.ModelSerializer):
     description = serializers.SerializerMethodField()
     description_language_code = serializers.SerializerMethodField()
     crop_species_translations = serializers.SerializerMethodField()
+    crop_species_search_names = serializers.SerializerMethodField()
     # Mirrors `PublicCultureSerializer.crop_species_status`: `proposed` marks a
     # species that is still awaiting moderation, which the UI shows as pending.
     crop_species_status = serializers.CharField(
@@ -443,6 +460,7 @@ class CropSerializer(serializers.ModelSerializer):
             'description',
             'description_language_code',
             'crop_species_translations',
+            'crop_species_search_names',
         ]
         read_only_fields = fields
 
@@ -456,10 +474,16 @@ class CropSerializer(serializers.ModelSerializer):
         return obj.created_by_label
 
     def get_display_name(self, obj: PublicCulture) -> str:
-        return obj.display_name(get_request_language(self.context), get_request_region(self.context))[0]
+        return obj.display_name(
+            get_request_language(self.context),
+            get_request_region(self.context),
+        )[0]
 
     def get_display_language_code(self, obj: PublicCulture) -> str:
-        return obj.display_name(get_request_language(self.context), get_request_region(self.context))[1]
+        return obj.display_name(
+            get_request_language(self.context),
+            get_request_region(self.context),
+        )[1]
 
     def get_description(self, obj: PublicCulture) -> str:
         return obj.localized_description(get_request_language(self.context))[0]
@@ -472,3 +496,8 @@ class CropSerializer(serializers.ModelSerializer):
         if obj.crop_species is None:
             return {}
         return obj.crop_species.translations_by_language()
+
+    def get_crop_species_search_names(self, obj: PublicCulture) -> list[str]:
+        if obj.crop_species is None:
+            return []
+        return obj.crop_species.search_names()
