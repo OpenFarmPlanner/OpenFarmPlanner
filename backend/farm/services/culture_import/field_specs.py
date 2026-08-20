@@ -18,6 +18,7 @@ stores them unnoticed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from farm.models import Culture
@@ -65,6 +66,85 @@ SEED_RATE_PLAUSIBILITY: dict[str, tuple[float, float]] = {
     SEED_RATE_UNIT_SEEDS_PER_LFM: (0.1, 500.0),
     SEED_RATE_UNIT_SEEDS_PER_PLANT: (1.0, 10.0),
 }
+
+
+@dataclass(frozen=True)
+class SeedRateUnitConstraint:
+    """UI/API value constraints for one seed-rate unit."""
+
+    value_type: str
+    step: float
+    minimum: float
+
+    def as_dict(self) -> dict[str, str | float]:
+        """Return the machine-readable representation used by API clients."""
+        return {
+            'value_type': self.value_type,
+            'step': self.step,
+            'minimum': self.minimum,
+        }
+
+
+SEED_RATE_VALUE_TYPE_NUMBER = 'number'
+SEED_RATE_VALUE_TYPE_INTEGER = 'integer'
+
+# Per-unit value constraints. These are stricter than the generic numeric
+# parser when the UI and domain model require it; clients should read this
+# instead of hardcoding input steps.
+SEED_RATE_UNIT_CONSTRAINTS: dict[str, SeedRateUnitConstraint] = {
+    SEED_RATE_UNIT_G_PER_M2: SeedRateUnitConstraint(
+        value_type=SEED_RATE_VALUE_TYPE_NUMBER,
+        step=0.001,
+        minimum=0.001,
+    ),
+    SEED_RATE_UNIT_G_PER_LFM: SeedRateUnitConstraint(
+        value_type=SEED_RATE_VALUE_TYPE_NUMBER,
+        step=0.001,
+        minimum=0.001,
+    ),
+    SEED_RATE_UNIT_SEEDS_PER_M2: SeedRateUnitConstraint(
+        value_type=SEED_RATE_VALUE_TYPE_NUMBER,
+        step=0.001,
+        minimum=0.001,
+    ),
+    SEED_RATE_UNIT_SEEDS_PER_LFM: SeedRateUnitConstraint(
+        value_type=SEED_RATE_VALUE_TYPE_NUMBER,
+        step=0.001,
+        minimum=0.001,
+    ),
+    SEED_RATE_UNIT_SEEDS_PER_PLANT: SeedRateUnitConstraint(
+        value_type=SEED_RATE_VALUE_TYPE_INTEGER,
+        step=1,
+        minimum=1,
+    ),
+}
+
+
+def seed_rate_unit_constraints_payload() -> dict[str, dict[str, str | float]]:
+    """Return all seed-rate unit constraints for API clients."""
+    return {
+        unit: constraint.as_dict()
+        for unit, constraint in SEED_RATE_UNIT_CONSTRAINTS.items()
+    }
+
+
+def seed_rate_value_constraint_error(value: object, unit: object) -> str | None:
+    """Return a stable error code when a seed-rate value violates its unit constraint."""
+    constraint = SEED_RATE_UNIT_CONSTRAINTS.get(str(unit))
+    if constraint is None:
+        return None
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if (
+        constraint.value_type == SEED_RATE_VALUE_TYPE_INTEGER
+        and decimal_value != decimal_value.to_integral_value()
+    ):
+        return 'whole_number_required'
+    if decimal_value < Decimal(str(constraint.minimum)):
+        return 'below_unit_minimum'
+    return None
 
 
 @dataclass(frozen=True)

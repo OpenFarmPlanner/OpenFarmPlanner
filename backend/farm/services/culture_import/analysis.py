@@ -29,6 +29,7 @@ from .field_specs import (
     KIND_STRING,
     SEED_RATE_PLAUSIBILITY,
     FieldSpec,
+    seed_rate_value_constraint_error,
 )
 from .units import (
     CONFIDENCE_EXACT,
@@ -73,6 +74,8 @@ MESSAGES: dict[str, str] = {
     'seed_rate_without_cultivation_type': (
         'A seed rate was given for a cultivation type the culture does not use.'
     ),
+    'whole_number_required': 'This seed-rate unit requires a whole-number value.',
+    'below_unit_minimum': 'Value is below the minimum for this seed-rate unit.',
     'duplicate_in_payload': 'Another row in this import refers to the same culture.',
 }
 
@@ -424,6 +427,30 @@ def _warn_seed_rate_plausibility(analyses: dict[str, FieldAnalysis]) -> None:
             )
 
 
+def _validate_seed_rate_unit_constraints(analyses: dict[str, FieldAnalysis]) -> None:
+    """Reject seed-rate values that violate unit-specific value constraints."""
+    for value_field, unit_field in (
+        ('seed_rate_direct_value', 'seed_rate_direct_unit'),
+        ('seed_rate_pre_cultivation_value', 'seed_rate_pre_cultivation_unit'),
+    ):
+        value_analysis = analyses.get(value_field)
+        unit_analysis = analyses.get(unit_field)
+        if value_analysis is None or unit_analysis is None:
+            continue
+        if value_analysis.errors or unit_analysis.errors:
+            continue
+        if value_analysis.api_value is None or unit_analysis.api_value is None:
+            continue
+        error_code = seed_rate_value_constraint_error(
+            value_analysis.api_value,
+            unit_analysis.api_value,
+        )
+        if error_code is None:
+            continue
+        value_analysis.errors.append(_issue(error_code, f'Unit: {unit_analysis.api_value}.'))
+        value_analysis.confidence = CONFIDENCE_INVALID
+
+
 def _warn_unused_cultivation_types(
     analyses: dict[str, FieldAnalysis],
     existing: Culture | None,
@@ -584,6 +611,7 @@ def analyze_item(
         row_errors.append(_issue('missing_name'))
 
     _validate_coupled_seed_rates(analyses)
+    _validate_seed_rate_unit_constraints(analyses)
     _warn_seed_rate_plausibility(analyses)
 
     existing = None

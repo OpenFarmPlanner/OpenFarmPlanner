@@ -1304,40 +1304,42 @@ const detailSectionGridSx = {
             <Divider sx={{ mb: 3 }} />
 
             {/* Notes Section */}
-            <Box sx={{ p: { xs: 1.5, sm: 2.5 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+            <Box component="section">
               <Typography variant="h6" gutterBottom>
                 {t('detail.sections.notes')}
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
-                {selectedCulture.notes && (
-                  <Box>
-                    <Box
-                      sx={{
-                        '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
-                        '& p': { mb: 1, maxWidth: '95ch' },
-                        '& ul': { pl: 3, mb: 1 },
-                        '& li': { mb: 0.5 },
-                        '& a': { color: 'primary.main' },
-                        '& em': { color: 'text.secondary' },
-                      }}
-                    >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ children, ...props }) => (
-                            <Link target="_blank" rel="noreferrer" {...props}>
-                              {children}
-                            </Link>
-                          ),
+              <Box sx={{ p: { xs: 1.5, sm: 2.5 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
+                  {selectedCulture.notes && (
+                    <Box>
+                      <Box
+                        sx={{
+                          '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
+                          '& p': { mb: 1, maxWidth: '95ch' },
+                          '& ul': { pl: 3, mb: 1 },
+                          '& li': { mb: 0.5 },
+                          '& a': { color: 'primary.main' },
+                          '& em': { color: 'text.secondary' },
                         }}
                       >
-                        {stripCitationMarkers(selectedCulture.notes)}
-                      </ReactMarkdown>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({ children, ...props }) => (
+                              <Link target="_blank" rel="noreferrer" {...props}>
+                                {children}
+                              </Link>
+                            ),
+                          }}
+                        >
+                          {stripCitationMarkers(selectedCulture.notes)}
+                        </ReactMarkdown>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  )}
+                </Box>
               </Box>
-                  </Box>
+            </Box>
                 </CardContent>
               </Card>
             ) : (

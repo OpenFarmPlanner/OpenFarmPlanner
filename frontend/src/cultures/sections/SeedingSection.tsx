@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Box, Typography, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
-import type { Culture, SeedRateUnit } from '../../api/types';
+import type { Culture, SeedRateUnit, SeedRateUnitConstraints } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { compactFieldSx, fieldRowSx, mediumFieldSx, smallFieldSx } from './styles.tsx';
 import { DropdownAwareTooltip } from '../../components/DropdownAwareTooltip';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
 import { mergeVarietyFieldSx } from '../varietyValueAccent';
+import { getSeedRateValueInputProps } from '../seedRateConstraints';
 
 interface SeedingSectionProps {
   formData: Partial<Culture>;
@@ -14,6 +15,7 @@ interface SeedingSectionProps {
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
+  seedRateUnitConstraints?: Partial<SeedRateUnitConstraints> | null;
 }
 
 const seedRateUnitOptions: Array<{ value: SeedRateUnit; labelKey: string }> = [
@@ -41,6 +43,7 @@ function SeedRateBlock({
   onChange,
   t,
   getFieldTooltipProps,
+  seedRateUnitConstraints,
 }: {
   title: string;
   valueField: 'seed_rate_direct_value' | 'seed_rate_pre_cultivation_value';
@@ -51,10 +54,13 @@ function SeedRateBlock({
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
   t: TFunction;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
+  seedRateUnitConstraints?: Partial<SeedRateUnitConstraints> | null;
 }) {
   const [unitSelectOpen, setUnitSelectOpen] = useState(false);
   const rateVariety = getFieldTooltipProps?.([valueField, unitField], t('form.seedRateHelp'));
   const safetyVariety = getFieldTooltipProps?.(safetyField, t('form.sowingCalculationSafetyPercentHelp'));
+  const selectedUnit = toSeedRateUnitSelectValue(formData[unitField]);
+  const valueInputProps = getSeedRateValueInputProps(selectedUnit || null, seedRateUnitConstraints);
 
   return (
     <>
@@ -69,7 +75,7 @@ function SeedRateBlock({
             onChange={(e) => onChange(valueField, e.target.value ? parseFloat(e.target.value) : null)}
             error={Boolean(errors[valueField])}
             helperText={errors[valueField]}
-            slotProps={{ htmlInput: { min: 0.001, step: 0.001 } }}
+            slotProps={{ htmlInput: valueInputProps }}
           />
         </DropdownAwareTooltip>
 
@@ -123,7 +129,14 @@ function SeedRateBlock({
   );
 }
 
-export function SeedingSection({ formData, errors, onChange, t, getFieldTooltipProps }: SeedingSectionProps) {
+export function SeedingSection({
+  formData,
+  errors,
+  onChange,
+  t,
+  getFieldTooltipProps,
+  seedRateUnitConstraints,
+}: SeedingSectionProps) {
   const cultivationTypes = formData.cultivation_types ?? (formData.cultivation_type ? [formData.cultivation_type] : []);
   const showsDirect = cultivationTypes.includes('direct_sowing');
   const showsPreCultivation = cultivationTypes.includes('pre_cultivation');
@@ -157,6 +170,7 @@ export function SeedingSection({ formData, errors, onChange, t, getFieldTooltipP
           onChange={onChange}
           t={t}
           getFieldTooltipProps={getFieldTooltipProps}
+          seedRateUnitConstraints={seedRateUnitConstraints}
         />
       )}
 
@@ -171,6 +185,7 @@ export function SeedingSection({ formData, errors, onChange, t, getFieldTooltipP
           onChange={onChange}
           t={t}
           getFieldTooltipProps={getFieldTooltipProps}
+          seedRateUnitConstraints={seedRateUnitConstraints}
         />
       )}
 

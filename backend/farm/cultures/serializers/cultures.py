@@ -87,6 +87,21 @@ def _normalized_seed_rate_unit_representation(raw_value: Any) -> Any:
     return normalize_seed_rate_unit(raw_value) or raw_value
 
 
+def _add_seed_rate_unit_constraint_error(
+    errors: dict[str, str],
+    error_field: str,
+    method: str,
+    value: object,
+    unit: object,
+) -> None:
+    """Add a unit-specific seed-rate error for flat culture fields."""
+    if value is None or not unit or error_field in errors:
+        return
+    entry_error = _seed_rate_entry_error(method, {'value': value, 'unit': unit})
+    if entry_error:
+        errors[error_field] = entry_error
+
+
 class CultureSerializer(serializers.ModelSerializer):
     """Serializer for culture data with unit conversion and supplier helpers."""
     culture_display_name = serializers.SerializerMethodField(read_only=True)
@@ -1056,6 +1071,13 @@ class CultureSerializer(serializers.ModelSerializer):
             errors['seed_rate_direct_value'] = 'Direct sowing seed rate value must be greater than zero.'
         if direct_value is not None and direct_unit and direct_unit not in SEED_RATE_UNITS:
             errors['seed_rate_direct_unit'] = 'Direct sowing seed rate unit is unsupported.'
+        _add_seed_rate_unit_constraint_error(
+            errors,
+            'seed_rate_direct_value',
+            'direct_sowing',
+            direct_value,
+            direct_unit,
+        )
 
         if 'pre_cultivation' in active_types and pre_value is not None and not pre_unit:
             errors['seed_rate_pre_cultivation_unit'] = 'Pre-cultivation seed rate unit is required when pre-cultivation value is set.'
@@ -1063,6 +1085,13 @@ class CultureSerializer(serializers.ModelSerializer):
             errors['seed_rate_pre_cultivation_value'] = 'Pre-cultivation seed rate value must be greater than zero.'
         if pre_value is not None and pre_unit and pre_unit not in PRE_CULTIVATION_SEED_RATE_UNITS:
             errors['seed_rate_pre_cultivation_unit'] = 'Pre-cultivation seed rate unit is unsupported.'
+        _add_seed_rate_unit_constraint_error(
+            errors,
+            'seed_rate_pre_cultivation_value',
+            'pre_cultivation',
+            pre_value,
+            pre_unit,
+        )
 
     def _validate_supplier_data_rows(self, attrs, errors):
         """Require a supplier on any non-empty supplier_data_input row."""
