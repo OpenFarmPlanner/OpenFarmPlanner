@@ -34,7 +34,7 @@ import {
   formatCropSpeciesMatchLabel,
   getCropSpeciesCanonicalName,
   getCropSpeciesSearchNames,
-  hasAnyCropSpeciesMatch,
+  hasStrongCropSpeciesIdentityMatch,
   isCropSpeciesSearchMatch,
   normalizeCropSpeciesSearchValue,
 } from '../cultures/cropSpeciesMatching';
@@ -475,13 +475,13 @@ export function CulturesPublishingWizardDialog({
                       ))
                       : [];
                     const filtered = [...baseFiltered, ...fuzzyMatches];
-                    const matchesExistingSpecies = filtered.length > 0 || hasAnyCropSpeciesMatch(
+                    const hasStrongExistingSpeciesMatch = hasStrongCropSpeciesIdentityMatch(
                       proposeName,
                       options
                         .filter((option): option is CropSpecies => !isProposeSpeciesOption(option))
                         .map((option) => ({ searchNames: getCropSpeciesSearchNames(option) })),
                     );
-                    if (!proposeName || speciesLoading || matchesExistingSpecies) {
+                    if (!proposeName || speciesLoading || hasStrongExistingSpeciesMatch) {
                       return filtered;
                     }
                     return [...filtered, { proposeName, dividerAbove: filtered.length > 0 }];

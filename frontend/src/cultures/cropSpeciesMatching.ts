@@ -37,6 +37,14 @@ const isCloseCropSpeciesMatch = (query: string, candidate: string): boolean => {
   return boundedLevenshtein(query, candidate, maxDistance) <= maxDistance;
 };
 
+const isWholeTermCropSpeciesMatch = (query: string, candidate: string): boolean => {
+  if (!query || !candidate) return false;
+  if (query === candidate) return true;
+  if (candidate.includes(query) || query.includes(candidate)) return false;
+  const maxDistance = Math.min(query.length, candidate.length) < 8 ? 1 : 2;
+  return boundedLevenshtein(query, candidate, maxDistance) <= maxDistance;
+};
+
 const uniqueNames = (names: Array<string | undefined | null>): string[] => {
   const result: string[] = [];
   const seen = new Set<string>();
@@ -120,11 +128,16 @@ export const formatCropSpeciesMatchLabel = (
   matchedAlias ? `${canonicalName} (${matchedAlias})` : canonicalName
 );
 
-export const hasAnyCropSpeciesMatch = (searchValue: string, options: Array<{ searchNames: string[] }>): boolean => {
+export const hasStrongCropSpeciesIdentityMatch = (
+  searchValue: string,
+  options: Array<{ searchNames: string[] }>,
+): boolean => {
   const normalizedSearch = normalizeCropSpeciesSearchValue(searchValue);
   if (!normalizedSearch) return false;
   return options.some((option) => (
-    option.searchNames.some((name) => isCloseCropSpeciesMatch(normalizedSearch, normalizedCropSpeciesNameKey(name)))
+    option.searchNames.some((name) => (
+      isWholeTermCropSpeciesMatch(normalizedSearch, normalizedCropSpeciesNameKey(name))
+    ))
   ));
 };
 
