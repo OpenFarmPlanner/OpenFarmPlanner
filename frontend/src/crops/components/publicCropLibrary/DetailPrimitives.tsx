@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Divider, Stack, Typography } from '@mui/material';
 import { varietySpecificValueHighlightSx } from '../../../cultures/varietyValueAccent';
 
 export interface DetailRowProps {
@@ -27,15 +27,32 @@ export interface DetailSectionProps {
   title: string;
   children: ReactNode;
   outlined?: boolean;
+  showHeaderDivider?: boolean;
 }
 
-export function DetailSection({ title, children, outlined = false }: DetailSectionProps) {
+export function DetailSection({ title, children, outlined = false, showHeaderDivider = false }: DetailSectionProps) {
+  const titleElement = (
+    <Typography variant="h6" gutterBottom={!showHeaderDivider}>
+      {title}
+    </Typography>
+  );
+
   return (
     <Box sx={outlined ? { p: { xs: 1.25, sm: 2 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 } : undefined}>
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
-      {children}
+      {showHeaderDivider ? (
+        <Stack spacing={2}>
+          <Box>
+            {titleElement}
+            <Divider />
+          </Box>
+          <Box>{children}</Box>
+        </Stack>
+      ) : (
+        <>
+          {titleElement}
+          {children}
+        </>
+      )}
     </Box>
   );
 }

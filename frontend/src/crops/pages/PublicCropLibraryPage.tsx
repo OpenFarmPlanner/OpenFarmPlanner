@@ -1851,7 +1851,7 @@ export default function PublicCropLibraryPage() {
 
                       <Divider />
 
-                      <DetailSection title={t('library.page.sections.notes')} outlined>
+                      <DetailSection title={t('library.page.sections.notes')} outlined showHeaderDivider>
                         {/* The public description is translatable; when only
                             another language exists, say so instead of showing
                             it as if it were this language. */}
