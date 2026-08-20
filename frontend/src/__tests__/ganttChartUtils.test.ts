@@ -706,7 +706,7 @@ describe('buildFieldOccupancyHierarchy', () => {
     expect(nodes).toEqual([]);
   });
 
-  it('renders the growth phase in a darker tone than the harvest phase while keeping the harvest color unchanged', () => {
+  it('renders growth and harvest phase colors without alpha blending', () => {
     const baseColor = '#93c5fd';
     const groups = buildFieldOccupancyTaskGroups({
       locations,
@@ -734,8 +734,8 @@ describe('buildFieldOccupancyHierarchy', () => {
     });
 
     const [growthTask, harvestTask] = groups[0].tasks;
-    expect(harvestTask.color).toBe(`${baseColor}CC`);
     expect(growthTask.color).not.toBe(baseColor);
     expect(growthTask.color).not.toBe(harvestTask.color);
+    expect(harvestTask.color).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });

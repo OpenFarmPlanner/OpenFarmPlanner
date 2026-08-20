@@ -3,7 +3,7 @@ import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
 import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
-import { darkenForGrowthPhase } from '../utils/colorContrast';
+import { getGanttPhaseColors } from '../utils/colorContrast';
 
 export interface GanttTask {
   id: string;
@@ -335,6 +335,7 @@ export function buildFieldOccupancyTaskGroups({
             : harvestStartDate;
           const cultureDisplayName = getPlanCultureDisplayName(plan);
           const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+          const phaseColors = getGanttPhaseColors(baseColor);
           const cultureLabel = formatCultureDisplayLabel(
             cultureDisplayName || `Culture ${plan.culture}`,
             plan.culture_variety,
@@ -345,7 +346,7 @@ export function buildFieldOccupancyTaskGroups({
             name: cultureLabel,
             startDate: plantingDate,
             endDate: harvestStartDate,
-            color: darkenForGrowthPhase(baseColor),
+            color: phaseColors.growth,
             percent: 100,
             plantingPlanId: plan.id,
             cultureName: cultureDisplayName || undefined,
@@ -362,7 +363,7 @@ export function buildFieldOccupancyTaskGroups({
               name: `${cultureLabel} (Ernte)`,
               startDate: harvestStartDate,
               endDate: harvestEndDate,
-              color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
+              color: phaseColors.harvest,
               percent: 100,
               plantingPlanId: plan.id,
               cultureName: cultureDisplayName || undefined,
@@ -501,6 +502,7 @@ export function buildFieldOccupancyHierarchy({
         : harvestStartDate;
       const cultureDisplayName = getPlanCultureDisplayName(plan);
       const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+      const phaseColors = getGanttPhaseColors(baseColor);
       const cultureLabel = formatCultureDisplayLabel(
         cultureDisplayName || `Culture ${plan.culture}`,
         plan.culture_variety,
@@ -511,7 +513,7 @@ export function buildFieldOccupancyHierarchy({
         name: cultureLabel,
         startDate: plantingDate,
         endDate: harvestStartDate,
-        color: darkenForGrowthPhase(baseColor),
+        color: phaseColors.growth,
         percent: 100,
         plantingPlanId: plan.id,
         cultureName: cultureDisplayName || undefined,
@@ -528,7 +530,7 @@ export function buildFieldOccupancyHierarchy({
           name: `${cultureLabel} (Ernte)`,
           startDate: harvestStartDate,
           endDate: harvestEndDate,
-          color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
+          color: phaseColors.harvest,
           percent: 100,
           plantingPlanId: plan.id,
           cultureName: cultureDisplayName || undefined,

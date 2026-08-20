@@ -115,7 +115,8 @@ export function contrastRatio(hexA: string, hexB: string): number | null {
 
 const WHITE_TEXT_HEX = '#ffffff';
 const WHITE_TEXT_MIN_CONTRAST_RATIO = 4.5;
-const LIGHTNESS_DROP = 0.16;
+const LIGHTNESS_DROP = 0.05;
+const PHASE_LIGHTNESS_DELTA = 0.06;
 const LIGHTNESS_STEP = 0.05;
 
 /**
@@ -163,4 +164,23 @@ export function darkenForGrowthPhase(baseColor: string): string {
   }
 
   return candidateHex;
+}
+
+/**
+ * Returns paired Gantt colors for a planting plan's growth and harvest phases,
+ * with the original culture color centered between them. Both colors are
+ * derived in HSL space so the lightness offset stays consistent instead of
+ * depending on alpha blending against the timeline background.
+ */
+export function getGanttPhaseColors(baseColor: string): { growth: string; harvest: string } {
+  const rgb = hexToRgb(baseColor);
+  if (!rgb) {
+    return { growth: baseColor, harvest: baseColor };
+  }
+
+  const hsl = rgbToHsl(rgb);
+  return {
+    growth: rgbToHex(hslToRgb({ ...hsl, l: Math.max(0, hsl.l - PHASE_LIGHTNESS_DELTA) })),
+    harvest: rgbToHex(hslToRgb({ ...hsl, l: Math.min(1, hsl.l + PHASE_LIGHTNESS_DELTA) })),
+  };
 }
