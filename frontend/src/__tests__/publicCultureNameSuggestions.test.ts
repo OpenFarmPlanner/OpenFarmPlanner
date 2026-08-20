@@ -32,8 +32,8 @@ describe('dedupePublicCulturesBySpecies', () => {
     ]);
 
     expect(options).toEqual([
-      { key: 7, cropSpeciesId: 7, name: 'Tomate' },
-      { key: 8, cropSpeciesId: 8, name: 'Karotte' },
+      { key: 7, cropSpeciesId: 7, canonicalName: 'Tomate', name: 'Tomate', matchedAlias: null, searchNames: ['Tomate'] },
+      { key: 8, cropSpeciesId: 8, canonicalName: 'Karotte', name: 'Karotte', matchedAlias: null, searchNames: ['Karotte'] },
     ]);
   });
 
@@ -51,7 +51,35 @@ describe('dedupePublicCulturesBySpecies', () => {
       culture({ id: 2, crop_species: null, name: 'kohlrabi', variety: 'Weißer' }),
     ]);
 
-    expect(options).toEqual([{ key: 'kohlrabi', cropSpeciesId: null, name: ' Kohlrabi ' }]);
+    expect(options).toEqual([{
+      key: 'kohlrabi',
+      cropSpeciesId: null,
+      canonicalName: ' Kohlrabi ',
+      name: ' Kohlrabi ',
+      matchedAlias: null,
+      searchNames: ['Kohlrabi'],
+    }]);
+  });
+
+  it('shows the matched alias next to the canonical species name', () => {
+    const options = dedupePublicCulturesBySpecies([
+      culture({
+        id: 1,
+        name: 'Aubergine',
+        crop_species: 7,
+        crop_species_canonical_name: 'Aubergine',
+        crop_species_search_names: ['Aubergine', 'Melanzani'],
+      }),
+    ], 'mela');
+
+    expect(options).toEqual([{
+      key: 7,
+      cropSpeciesId: 7,
+      canonicalName: 'Aubergine',
+      name: 'Aubergine (Melanzani)',
+      matchedAlias: 'Melanzani',
+      searchNames: ['Aubergine', 'Melanzani'],
+    }]);
   });
 });
 

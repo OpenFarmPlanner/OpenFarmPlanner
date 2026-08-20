@@ -61,6 +61,7 @@ import {
   isLikelyTestPublicCultureEntry,
   normalizeIdentityValue,
 } from './publicCultureNameSuggestions';
+import { normalizeCropSpeciesSearchValue } from './cropSpeciesMatching';
 import {
   buildInheritedValueBaseline,
   getVarietyOwnValueSource,
@@ -668,16 +669,21 @@ export function CultureForm({
 
   // "Name" suggestions must be unique crop species, never "Species · Variety"
   // combinations — the Variety field below covers the sorte-specific part.
-  const nameOptions = useMemo(() => dedupePublicCulturesBySpecies(publicCultureOptions), [publicCultureOptions]);
+  const nameOptions = useMemo(
+    () => dedupePublicCulturesBySpecies(publicCultureOptions, publicCultureSearchTerm),
+    [publicCultureOptions, publicCultureSearchTerm],
+  );
 
   // The library entry the typed Name text matches exactly, regardless of how
   // it got there (dropdown pick or free text). Used both to fetch Variety
   // suggestions below and to offer an explicit "apply values" hint when the
   // match wasn't picked from the dropdown (see nameApplyHintOption).
   const matchedNameOption = useMemo(() => {
-    const normalizedName = normalizeIdentityValue(formData.name);
+    const normalizedName = normalizeCropSpeciesSearchValue(formData.name);
     return normalizedName
-      ? nameOptions.find((option) => normalizeIdentityValue(option.name) === normalizedName)
+      ? nameOptions.find((option) => (
+        option.searchNames.some((name) => normalizeCropSpeciesSearchValue(name) === normalizedName)
+      ))
       : undefined;
   }, [formData.name, nameOptions]);
 

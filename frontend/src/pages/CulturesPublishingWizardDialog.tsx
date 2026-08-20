@@ -29,6 +29,15 @@ import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
 import { buildPublicCultureComparison } from './publicCultureComparison';
+import {
+  findMatchedCropSpeciesAlias,
+  formatCropSpeciesMatchLabel,
+  getCropSpeciesCanonicalName,
+  getCropSpeciesSearchNames,
+  hasAnyCropSpeciesMatch,
+  isCropSpeciesSearchMatch,
+  normalizeCropSpeciesSearchValue,
+} from '../cultures/cropSpeciesMatching';
 
 interface CulturesPublishingWizardDialogProps {
   open: boolean;
@@ -48,25 +57,20 @@ const getDefaultLanguageCode = (): string => {
   return LANGUAGE_CODES.includes(language as (typeof LANGUAGE_CODES)[number]) ? language : 'de';
 };
 
-const normalizeSpeciesName = (value: string | undefined | null): string => (
-  (value || '').split(/\s+/).filter(Boolean).join(' ').toLocaleLowerCase('de')
-);
-
-// The picker must match on the name the user actually sees and types, not
-// the (possibly differently-languaged) canonical `name` — otherwise a
-// species that already exists only under a translation (e.g. "Kürbis" for
-// canonical "Pumpkin") looks missing, and proposing it as new fails
-// server-side because that translation already exists.
-const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+const getCropSpeciesOptionLabel = (option: CropSpecies, searchValue = ''): string => {
+  const canonicalName = getCropSpeciesCanonicalName(option);
+  return formatCropSpeciesMatchLabel(
+    canonicalName,
+    findMatchedCropSpeciesAlias(searchValue, canonicalName, getCropSpeciesSearchNames(option)),
+  );
+};
 
 /**
  * Sentinel option that lets the user propose their own typed name as a new
  * crop species. It is appended to the species dropdown as the last entry
- * whenever something is typed — also when the search *does* match official
- * species, because a partial match ("Kürbis" matching "Kürbisgewächse") must
- * not hide the escape hatch. The one case it is suppressed in is an exact hit
- * on the visible/canonical species label: aliases still show the existing
- * match and keep the explicit "propose" escape hatch available.
+ * only when the typed value does not match any official species name,
+ * synonym, or regional name. Matches must be explicit instead of silent:
+ * if an alias made the canonical species appear, the option label includes it.
  *
  * Picking it does not talk to the server. It puts the dialog into
  * "propose a new species" mode and the proposal is submitted together with the
@@ -89,16 +93,7 @@ const getCropSpeciesSearchText = (option: SpeciesPickerOption): string => {
   if (isProposeSpeciesOption(option)) {
     return option.proposeName;
   }
-  const values = [
-    option.name,
-    option.display_name,
-    ...(option.translations ?? []).flatMap((translation) => [
-      translation.common_name,
-      ...(translation.synonyms ?? []),
-      ...Object.values(translation.regional_names ?? {}),
-    ]),
-  ];
-  return values.filter(Boolean).join(' ');
+  return getCropSpeciesSearchNames(option).join(' ');
 };
 
 const getSpeciesPickerOptionLabel = (option: SpeciesPickerOption): string => (
@@ -115,13 +110,12 @@ const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined):
     return items.find((item) => item.id === cultureSpeciesId) ?? null;
   }
 
-  const normalizedCultureName = normalizeSpeciesName(culture?.name);
+  const normalizedCultureName = normalizeCropSpeciesSearchValue(culture?.name);
   if (!normalizedCultureName) {
     return null;
   }
   return items.find((item) => (
-    normalizeSpeciesName(item.name) === normalizedCultureName
-    || normalizeSpeciesName(getCropSpeciesOptionLabel(item)) === normalizedCultureName
+    getCropSpeciesSearchNames(item).some((name) => normalizeCropSpeciesSearchValue(name) === normalizedCultureName)
   )) ?? null;
 };
 
@@ -246,9 +240,9 @@ export function CulturesPublishingWizardDialog({
           // If the local variety already has a matching public entry,
           // recognize it immediately instead of leaving the field empty —
           // mirrors the species field's own-name prefill above.
-          const normalizedLocalVariety = normalizeSpeciesName(culture?.variety);
+          const normalizedLocalVariety = normalizeCropSpeciesSearchValue(culture?.variety);
           const match = normalizedLocalVariety
-            ? filtered.find((entry) => normalizeSpeciesName(entry.variety) === normalizedLocalVariety)
+            ? filtered.find((entry) => normalizeCropSpeciesSearchValue(entry.variety) === normalizedLocalVariety)
             : undefined;
           if (match) {
             setSelectedPublicCulture((prevSelected) => prevSelected ?? match);
@@ -466,10 +460,26 @@ export function CulturesPublishingWizardDialog({
                   )}
                   getOptionDisabled={(option) => isProposeSpeciesOption(option) && proposingSpecies}
                   filterOptions={(options, params) => {
-                    const filtered = filterSpeciesOptions(options, params);
+                    const baseFiltered = filterSpeciesOptions(options, params);
                     const proposeName = params.inputValue.trim();
-                    const matchesExistingSpecies = filtered.some(
-                      (option) => normalizeSpeciesName(getSpeciesPickerOptionLabel(option)) === normalizeSpeciesName(proposeName),
+                    const filteredIds = new Set(
+                      baseFiltered
+                        .filter((option): option is CropSpecies => !isProposeSpeciesOption(option))
+                        .map((option) => option.id),
+                    );
+                    const fuzzyMatches = proposeName
+                      ? options.filter((option): option is CropSpecies => (
+                        !isProposeSpeciesOption(option)
+                        && !filteredIds.has(option.id)
+                        && isCropSpeciesSearchMatch(proposeName, getCropSpeciesSearchNames(option))
+                      ))
+                      : [];
+                    const filtered = [...baseFiltered, ...fuzzyMatches];
+                    const matchesExistingSpecies = filtered.length > 0 || hasAnyCropSpeciesMatch(
+                      proposeName,
+                      options
+                        .filter((option): option is CropSpecies => !isProposeSpeciesOption(option))
+                        .map((option) => ({ searchNames: getCropSpeciesSearchNames(option) })),
                     );
                     if (!proposeName || speciesLoading || matchesExistingSpecies) {
                       return filtered;
@@ -500,7 +510,7 @@ export function CulturesPublishingWizardDialog({
                     }
                     return (
                       <li {...optionProps} key={key}>
-                        {getCropSpeciesOptionLabel(option)}
+                        {getCropSpeciesOptionLabel(option, speciesInputValue)}
                       </li>
                     );
                   }}

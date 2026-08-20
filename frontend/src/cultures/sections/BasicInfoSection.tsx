@@ -134,7 +134,7 @@ export function BasicInfoSection({
                   return;
                 }
                 if (value) {
-                  onChange('name', value.name);
+                  onChange('name', value.canonicalName);
                   nameAutocomplete.onSelect(value);
                   return;
                 }

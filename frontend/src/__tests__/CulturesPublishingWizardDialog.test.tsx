@@ -186,10 +186,10 @@ describe('CulturesPublishingWizardDialog', () => {
     await user.clear(speciesInput);
     await user.type(speciesInput, 'Kürbis');
 
-    expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Pumpkin (Kürbis)' })).toBeInTheDocument();
   });
 
-  it('keeps the "propose a new crop species" entry as the last option even when the search matches', async () => {
+  it('hides the proposal entry when the search already matches existing species', async () => {
     cropSpeciesListMock.mockResolvedValue({
       data: {
         count: 2,
@@ -211,9 +211,8 @@ describe('CulturesPublishingWizardDialog', () => {
 
     const options = await screen.findAllByRole('option');
     expect(options.map((option) => option.textContent)).toEqual([
-      'Kürbis',
-      'Kürbis Butternut',
-      '„Kürb“ als neue Kulturart vorschlagen',
+      'Pumpkin (Kürbis)',
+      'Butternut squash (Kürbis Butternut)',
     ]);
   });
 
@@ -248,11 +247,11 @@ describe('CulturesPublishingWizardDialog', () => {
     await user.clear(speciesInput);
     await user.type(speciesInput, 'kürbis');
 
-    expect(await screen.findByRole('option', { name: 'Kürbis' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Pumpkin (Kürbis)' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
   });
 
-  it('matches regional species aliases and keeps the explicit proposal option available', async () => {
+  it('matches regional species aliases and hides the proposal option', async () => {
     cropSpeciesListMock.mockResolvedValue({
       data: {
         count: 1,
@@ -263,6 +262,7 @@ describe('CulturesPublishingWizardDialog', () => {
           name: 'Tomate',
           display_name: 'Tomate',
           status: 'published',
+          search_names: ['Tomate', 'Paradeis', 'Paradeiser'],
           translations: [{
             language_code: 'de',
             common_name: 'Tomate',
@@ -280,8 +280,8 @@ describe('CulturesPublishingWizardDialog', () => {
     await user.clear(speciesInput);
     await user.type(speciesInput, 'Paradeiser');
 
-    expect(await screen.findByRole('option', { name: 'Tomate' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Paradeiser.*als neue Kulturart vorschlagen/i })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Tomate (Paradeiser)' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Paradeiser.*als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
   });
 
   it('shows an inline error when proposing a species fails', async () => {

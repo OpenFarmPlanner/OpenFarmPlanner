@@ -256,6 +256,8 @@ export interface PublicCulture {
   crop_species_canonical_name?: string;
   /** Every stored species name, keyed by language code. */
   crop_species_translations?: Record<string, string>;
+  /** Canonical name, translations, synonyms, and regional names used for Kulturart matching. */
+  crop_species_search_names?: string[];
   /** Moderation state of the linked species; 'proposed' means still awaiting review. */
   crop_species_status?: CropSpecies['status'] | '';
   /** Species name in the request language, after the fallback chain. */
@@ -498,6 +500,8 @@ export interface CropSpecies {
     synonyms?: string[];
     regional_names?: Record<string, string>;
   }>;
+  /** Canonical name, translations, synonyms, and regional names used for Kulturart matching. */
+  search_names?: string[];
   status: 'published' | 'proposed' | 'rejected';
   proposed_by_label?: string;
   reviewed_by_label?: string;
