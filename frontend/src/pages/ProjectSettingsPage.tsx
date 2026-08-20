@@ -2,7 +2,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload } from '../api/api';
+import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload, type ProjectRegion } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
@@ -36,6 +36,7 @@ export default function ProjectSettingsPage() {
   const [projectNameDraft, setProjectNameDraft] = useState('');
   const [projectNameError, setProjectNameError] = useState<string | null>(null);
   const [isSavingProjectName, setIsSavingProjectName] = useState(false);
+  const [isSavingRegion, setIsSavingRegion] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -44,6 +45,7 @@ export default function ProjectSettingsPage() {
   const canManageMembers = isProjectAdmin;
   const normalizedProjectName = projectNameDraft.trim();
   const hasProjectNameChanges = normalizedProjectName !== (activeMembership?.project_name ?? '');
+  const activeProjectRegion = activeMembership?.project_region ?? 'germany';
   const canDeleteProject = deleteConfirmationText === (activeMembership?.project_name ?? '');
   const canQuickDeleteProjectInDev = import.meta.env.DEV && isProjectAdmin;
 
@@ -194,6 +196,24 @@ export default function ProjectSettingsPage() {
       setFeedback({ severity: 'error', text: t('projectRename.error') });
     } finally {
       setIsSavingProjectName(false);
+    }
+  };
+
+  const handleProjectRegionChange = async (nextRegion: ProjectRegion): Promise<void> => {
+    if (!activeMembership || !isProjectAdmin || isSavingRegion || nextRegion === activeProjectRegion) {
+      return;
+    }
+
+    setIsSavingRegion(true);
+    setFeedback(null);
+    try {
+      await projectAPI.update(activeMembership.project_id, { region: nextRegion });
+      await refreshUser();
+      setFeedback({ severity: 'success', text: t('projectRegion.success') });
+    } catch {
+      setFeedback({ severity: 'error', text: t('projectRegion.error') });
+    } finally {
+      setIsSavingRegion(false);
     }
   };
 
@@ -354,6 +374,27 @@ export default function ProjectSettingsPage() {
                 {t('projectRename.save')}
               </Button>
             </Stack>
+            <Divider sx={{ my: 2 }} />
+            <FormControl
+              disabled={!isProjectAdmin || isSavingRegion}
+              sx={wideFieldSx}
+            >
+              <InputLabel id="project-region-label">{t('projectRegion.label')}</InputLabel>
+              <Select
+                fullWidth
+                labelId="project-region-label"
+                label={t('projectRegion.label')}
+                value={activeProjectRegion}
+                onChange={(event) => void handleProjectRegionChange(event.target.value as ProjectRegion)}
+              >
+                <MenuItem value="germany">{t('projectRegion.options.germany')}</MenuItem>
+                <MenuItem value="austria">{t('projectRegion.options.austria')}</MenuItem>
+                <MenuItem value="switzerland">{t('projectRegion.options.switzerland')}</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {t('projectRegion.help')}
+            </Typography>
           </CardContent>
         </Card>
 

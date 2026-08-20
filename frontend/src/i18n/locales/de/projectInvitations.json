@@ -12,6 +12,17 @@
     "empty": "Projektname darf nicht leer sein.",
     "minLength": "Mindestens 2 Zeichen."
   },
+  "projectRegion": {
+    "label": "Regionale Begriffe",
+    "help": "Legt fest, welche regionalen Kulturart-Namen dieses Projekt in Bibliothek und Planung sieht. Diese Einstellung ist unabhängig von der UI-Sprache.",
+    "success": "Regionale Begriffe aktualisiert.",
+    "error": "Regionale Begriffe konnten nicht aktualisiert werden.",
+    "options": {
+      "germany": "Deutschland",
+      "austria": "Österreich",
+      "switzerland": "Schweiz"
+    }
+  },
   "projectDelete": {
     "managementTitle": "Projekt verwalten",
     "managementDescription": "Zusätzliche Aktionen für dieses Projekt.",
