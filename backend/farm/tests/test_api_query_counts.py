@@ -145,12 +145,13 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
 
     def test_cultures_list_query_count(self):
         """The heaviest project list: supplier rows, seed packages, species
-        translations, the owned-public-culture lookup and that entry's species
-        status are all per-row data that the viewset resolves with prefetches."""
+        translations, the owned-public-culture lookup, that entry's species
+        status and the general Kultur a Sorte inherits from are all per-row data
+        that the viewset resolves for the whole page."""
         # Each culture created above also has an imported sibling row, so the
         # project holds twice ROW_COUNT cultures.
         self.assert_list_query_count(
-            '/openfarmplanner/api/cultures/', 10, expected_rows=ROW_COUNT * 2,
+            '/openfarmplanner/api/cultures/', 11, expected_rows=ROW_COUNT * 2,
         )
 
     def test_culture_supplier_data_list_query_count(self):
@@ -161,8 +162,10 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
         self.assert_list_query_count('/openfarmplanner/api/seed-packages/', 5)
 
     def test_planting_plans_list_query_count(self):
-        """Culture, species translations, bed and both audit users per row."""
-        self.assert_list_query_count('/openfarmplanner/api/planting-plans/', 6)
+        """Culture, species translations, bed and both audit users per row, plus
+        one page-wide lookup of the general Kulturen the plans' Sorten inherit
+        their timing from."""
+        self.assert_list_query_count('/openfarmplanner/api/planting-plans/', 7)
 
     def test_tasks_list_query_count(self):
         """`planting_plan_name` renders `PlantingPlan.__str__`, which reads the

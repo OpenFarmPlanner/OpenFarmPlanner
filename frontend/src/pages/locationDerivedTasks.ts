@@ -1,5 +1,6 @@
 import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
+import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 
 export type DerivedTaskType =
@@ -30,7 +31,9 @@ const isDirectSowingPlan = (plan: PlantingPlan, culture?: Culture): boolean => {
   if (planType === DIRECT_SOWING) return true;
   if (planType === PRE_CULTIVATION) return false;
 
-  const supported = plan.culture_cultivation_types ?? culture?.cultivation_types ?? [];
+  const supported = plan.culture_cultivation_types
+    ?? getEffectiveCultureValue(culture, 'cultivation_types')
+    ?? [];
   if (supported.includes(DIRECT_SOWING) && !supported.includes(PRE_CULTIVATION)) {
     return true;
   }
@@ -92,7 +95,9 @@ export function deriveLocationTasks({
       fieldName: field.name,
     });
 
-    const propagationDuration = plan.culture_propagation_duration_days ?? culture?.propagation_duration_days ?? null;
+    const propagationDuration = plan.culture_propagation_duration_days
+      ?? getEffectiveCultureValue(culture, 'propagation_duration_days')
+      ?? null;
     if (propagationDuration && propagationDuration > 0) {
       pushTask({
         type: 'propagationStart',
@@ -105,7 +110,7 @@ export function deriveLocationTasks({
       });
     }
 
-    const growthDuration = culture?.growth_duration_days ?? null;
+    const growthDuration = getEffectiveCultureValue(culture, 'growth_duration_days') ?? null;
     if (growthDuration && growthDuration > 0) {
       pushTask({
         type: 'harvestStart',

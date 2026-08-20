@@ -2,7 +2,8 @@ import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
-import { darkenForGrowthPhase } from '../utils/colorContrast';
+import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
+import { getGanttPhaseColors } from '../utils/colorContrast';
 
 export interface GanttTask {
   id: string;
@@ -334,6 +335,7 @@ export function buildFieldOccupancyTaskGroups({
             : harvestStartDate;
           const cultureDisplayName = getPlanCultureDisplayName(plan);
           const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+          const phaseColors = getGanttPhaseColors(baseColor);
           const cultureLabel = formatCultureDisplayLabel(
             cultureDisplayName || `Culture ${plan.culture}`,
             plan.culture_variety,
@@ -344,7 +346,7 @@ export function buildFieldOccupancyTaskGroups({
             name: cultureLabel,
             startDate: plantingDate,
             endDate: harvestStartDate,
-            color: darkenForGrowthPhase(baseColor),
+            color: phaseColors.growth,
             percent: 100,
             plantingPlanId: plan.id,
             cultureName: cultureDisplayName || undefined,
@@ -361,7 +363,7 @@ export function buildFieldOccupancyTaskGroups({
               name: `${cultureLabel} (Ernte)`,
               startDate: harvestStartDate,
               endDate: harvestEndDate,
-              color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
+              color: phaseColors.harvest,
               percent: 100,
               plantingPlanId: plan.id,
               cultureName: cultureDisplayName || undefined,
@@ -500,6 +502,7 @@ export function buildFieldOccupancyHierarchy({
         : harvestStartDate;
       const cultureDisplayName = getPlanCultureDisplayName(plan);
       const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+      const phaseColors = getGanttPhaseColors(baseColor);
       const cultureLabel = formatCultureDisplayLabel(
         cultureDisplayName || `Culture ${plan.culture}`,
         plan.culture_variety,
@@ -510,7 +513,7 @@ export function buildFieldOccupancyHierarchy({
         name: cultureLabel,
         startDate: plantingDate,
         endDate: harvestStartDate,
-        color: darkenForGrowthPhase(baseColor),
+        color: phaseColors.growth,
         percent: 100,
         plantingPlanId: plan.id,
         cultureName: cultureDisplayName || undefined,
@@ -527,7 +530,7 @@ export function buildFieldOccupancyHierarchy({
           name: `${cultureLabel} (Ernte)`,
           startDate: harvestStartDate,
           endDate: harvestEndDate,
-          color: baseColor.startsWith('#') ? `${baseColor}CC` : baseColor,
+          color: phaseColors.harvest,
           percent: 100,
           plantingPlanId: plan.id,
           cultureName: cultureDisplayName || undefined,
@@ -651,15 +654,20 @@ export function buildSeedlingTaskGroups({
     }
 
     const culture = cultureById.get(plan.culture);
-    const propagationDurationDays = culture?.propagation_duration_days
+    // Effective values throughout: a Sorte inherits any timing/cultivation
+    // field it does not set from its general Kultur, and the plan row already
+    // carries the same resolved values as a fallback.
+    const propagationDurationDays = getEffectiveCultureValue(culture, 'propagation_duration_days')
       ?? plan.culture_propagation_duration_days
       ?? undefined;
     if (!propagationDurationDays || propagationDurationDays <= 0) {
       return;
     }
 
-    const cultureCultivationType = culture?.cultivation_type || plan.culture_cultivation_type || '';
-    const cultureCultivationTypes = culture?.cultivation_types || plan.culture_cultivation_types || [];
+    const cultureCultivationType = getEffectiveCultureValue(culture, 'cultivation_type')
+      || plan.culture_cultivation_type || '';
+    const cultureCultivationTypes = getEffectiveCultureValue(culture, 'cultivation_types')
+      || plan.culture_cultivation_types || [];
     const isPreCultivation = plan.cultivation_type === 'pre_cultivation'
       || (!plan.cultivation_type && (
         cultureCultivationType === 'pre_cultivation'

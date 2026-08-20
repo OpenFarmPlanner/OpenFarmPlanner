@@ -94,6 +94,7 @@ import {
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
 import EmptyStateCard from "../components/project/EmptyStateCard";
 import { formatCultureDisplayName } from "../cultures/cultureDisplay";
+import { getEffectiveCultureValue } from "../cultures/varietyValueSource";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
@@ -429,8 +430,10 @@ function PlantingPlans() {
     const row = params.row as PlantingPlanRow;
     const value = params.field === "harvest_end_date" ? row.harvest_end_date : row.harvest_date;
     const culture = cultures.find((item) => item.id === row.culture);
-    const hasGrowthDuration = typeof culture?.growth_duration_days === "number";
-    const hasHarvestDuration = typeof culture?.harvest_duration_days === "number";
+    // Effective values: a Sorte that inherits its timing from the general
+    // Kultur has complete timing, so it must not be reported as missing.
+    const hasGrowthDuration = typeof getEffectiveCultureValue(culture, "growth_duration_days") === "number";
+    const hasHarvestDuration = typeof getEffectiveCultureValue(culture, "harvest_duration_days") === "number";
     let missingDurationTooltip = t("plantingPlans:tooltips.missingGrowthDuration");
     if (params.field === "harvest_end_date") {
       if (!hasGrowthDuration && !hasHarvestDuration) {

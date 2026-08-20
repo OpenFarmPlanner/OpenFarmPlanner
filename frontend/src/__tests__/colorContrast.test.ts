@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, darkenForGrowthPhase } from '../utils/colorContrast';
+import { contrastRatio, darkenForGrowthPhase, getGanttPhaseColors } from '../utils/colorContrast';
 
 describe('contrastRatio', () => {
   it('returns 21 for black on white', () => {
@@ -103,4 +103,29 @@ describe('darkenForGrowthPhase', () => {
       expect(ratio as number).toBeGreaterThanOrEqual(4.5);
     }
   });
+});
+
+describe('getGanttPhaseColors', () => {
+  const getLightness = (hex: string): number => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+  };
+
+  it('returns non-hex colors unchanged for both phases', () => {
+    const color = 'rgba(59, 130, 246, 0.8)';
+    expect(getGanttPhaseColors(color)).toEqual({ growth: color, harvest: color });
+  });
+
+  it('keeps the base color centered between growth and harvest lightness', () => {
+    ['#1d4ed8', '#166534', '#c2410c', '#be123c', '#6d28d9'].forEach((baseColor) => {
+      const { growth, harvest } = getGanttPhaseColors(baseColor);
+      const baseLightness = getLightness(baseColor);
+      expect(growth).not.toBe(harvest);
+      expect(baseLightness - getLightness(growth)).toBeCloseTo(0.05, 1);
+      expect(getLightness(harvest) - baseLightness).toBeCloseTo(0.05, 1);
+    });
+  });
+
 });

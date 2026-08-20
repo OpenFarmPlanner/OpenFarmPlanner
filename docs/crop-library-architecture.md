@@ -295,6 +295,85 @@ wrappers in `frontend/src/api/api.ts` all still exist — only the components
 that used to call them are gone. Treat it as dead-but-live surface: don't build
 on it, and don't assume removing it is a no-op for API clients.
 
+### Sorte → Kultur value inheritance
+
+The species → variety pairing described above (a general "no variety" row plus
+the rows that carry a variety) is also the **value** fallback for project
+cultures, not only a display cue.
+`backend/farm/services/culture_inheritance.py` owns the rule so the API, the
+planning calculations and the UI resolve it identically:
+
+- A Sorte (`variety` set) with a `crop_species` inherits from the general
+  Kultur — same project, same `crop_species`, empty `variety`, not soft-deleted.
+  A free-text Sorte without a `crop_species` has nothing to fall back to and
+  always resolves to its own values.
+- `CULTURE_INHERITABLE_FIELDS` lists the planning fields that participate. It
+  mirrors the frontend's `VARIETY_INHERITABLE_FIELDS`
+  (`frontend/src/cultures/varietyValueSource.ts`), which prefills a *new*
+  Sorte from the same set, minus `allow_deviation_delivery_weeks` (a non-null
+  boolean has no unset state to fall back from) and minus the legacy
+  `seed_rate_value`/`seed_rate_unit` pair and the derived
+  `seed_rate_by_cultivation` map (validated as a subset of the row's own
+  `cultivation_types`, so inheriting it separately could produce a combination
+  the model rejects).
+- "Unset" means `None`, blank text, the legacy `'-'` unit placeholder, or an
+  empty collection. `0` and `False` are real values and are never replaced.
+- Nothing is copied onto the Sorte. Clearing a field removes the override, and
+  the Sorte follows later edits of the general Kultur automatically.
+
+`CultureSerializer` exposes the raw and the resolved value side by side, so a
+client can tell them apart per field:
+
+| Field | Meaning |
+|---|---|
+| the plain culture fields | always the row's **own** stored values |
+| `general_culture` | id of the Kultur this Sorte inherits from, else `null` |
+| `inherited_fields` | API field names whose effective value comes from that Kultur |
+| `effective_values` | effective value per inheritable field, in the same API units as the plain fields (centimeters, normalized seed-rate units) |
+
+`effective_values` and `inherited_fields` are empty whenever `general_culture`
+is `null` — for a general Kultur or a free-text Sorte the plain fields already
+*are* the effective values. Resolving a whole list page costs **one** extra
+query: the serializer builds a per-request `crop_species → general Kultur` index
+for the active project (`build_general_culture_index`) instead of looking up a
+sibling per row.
+
+**Planning reads effective values.** `PlantingPlan.calculate_effective_harvest_dates()`
+is the shared side-effect-free calculation behind
+`recalculate_harvest_dates()` and `_get_active_period()`. The
+`PlantingPlanSerializer` uses the same calculation as a read-time fallback when
+the stored `harvest_date`/`harvest_end_date` snapshot is empty, so old plans
+also show a computed Erntende once their Sorte can inherit the missing timing
+from its Kultur. The `culture_*` timing/cultivation fields the Gantt calendar
+plans from and the plant-count conversions also resolve through the service. On
+the frontend the same is true of `ganttChartUtils.ts`,
+`locationDerivedTasks.ts` and the "missing duration" tooltip in Anbaupläne, via
+`getEffectiveCultureValue`.
+
+`Culture.plants_per_m2` is part of that: the model property still computes from
+the row's own spacing, but the serializer publishes the **effective** value.
+Both sides of the plants/area coupling have to agree — the Anbaupläne grid
+decides whether the "Pflanzen" cell is editable from `culture.plants_per_m2`
+while the row's `plants_count` comes from the plan serializer, so leaving the
+culture field on own spacing makes an inheriting Sorte show a plant count the
+grid then refuses to let the user edit (and Tab skips the cell).
+
+Stored harvest dates remain a **write-time snapshot**, but reads can derive a
+missing date from the current effective timing without writing it back. The
+snapshot is recomputed when a plan is saved, when its own culture timing
+changes, and when a general Kultur timing change affects Sorten that inherit
+that exact field. Existing plans are not bulk-recalculated during deployment or
+from GET endpoints just because a value became resolvable through inheritance.
+
+**The edit dialog.** `CultureForm` merges the resolved values into the form
+(`buildInheritedValueBaseline`), so a field the Sorte does not override shows
+the Kultur's value rather than an empty input. Those values equal the Kultur's,
+so `getVarietyOwnValueSource` reports no override and the green highlight keeps
+marking genuine per-Sorte values only. On save, anything still matching the
+baseline is cleared again (`stripValuesMatchingBaseline`, the same mechanism the
+add-variety prefill uses), so displaying an inherited value never freezes it as
+an override, and clearing a field simply removes the override.
+
 ## 1. The current situation (before this pass)
 
 The domain split the long-term vision asks for — a public Crop Library

@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 
 from accounts.models import PublicProfile
+from crops.models import CropSpecies
 from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, PublicCulture, Supplier, Task, is_supplier_domain
 
 User = get_user_model()
@@ -481,6 +482,53 @@ class PlantingPlanModelTest(TestCase):
         expected_harvest_start = planting_date + timedelta(days=80)
         self.assertEqual(plan.harvest_date, expected_harvest_start)
         self.assertEqual(plan.harvest_end_date, expected_harvest_start + timedelta(days=5))
+
+    def test_inheriting_sorte_harvest_dates_recalculate_when_general_culture_timing_changes(self):
+        species = CropSpecies.objects.create(name='Carrot')
+        general_culture = Culture.objects.create(
+            name='Carrot',
+            variety='',
+            crop_species=species,
+            growth_duration_days=70,
+            harvest_duration_days=21,
+            project=self.project,
+        )
+        sorte = Culture.objects.create(
+            name='Carrot',
+            variety='Nantaise',
+            crop_species=species,
+            project=self.project,
+        )
+        own_harvest_sorte = Culture.objects.create(
+            name='Carrot',
+            variety='Nantaise Early',
+            crop_species=species,
+            harvest_duration_days=5,
+            project=self.project,
+        )
+        planting_date = date(2024, 3, 1)
+        inherited_plan = PlantingPlan.objects.create(
+            culture=sorte,
+            bed=self.bed,
+            planting_date=planting_date,
+            quantity=100,
+            project=self.project,
+        )
+        own_harvest_plan = PlantingPlan.objects.create(
+            culture=own_harvest_sorte,
+            bed=self.bed,
+            planting_date=planting_date,
+            quantity=100,
+            project=self.project,
+        )
+
+        general_culture.harvest_duration_days = 30
+        general_culture.save(update_fields=['harvest_duration_days'])
+
+        inherited_plan.refresh_from_db()
+        own_harvest_plan.refresh_from_db()
+        self.assertEqual(inherited_plan.harvest_end_date, planting_date + timedelta(days=100))
+        self.assertEqual(own_harvest_plan.harvest_end_date, planting_date + timedelta(days=75))
     
     def test_harvest_end_date_with_growth_and_harvest_duration(self):
         """Test that harvest_end_date is calculated from growth + harvest duration."""

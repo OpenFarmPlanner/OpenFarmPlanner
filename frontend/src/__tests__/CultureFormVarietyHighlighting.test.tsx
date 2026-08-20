@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CultureForm } from '../cultures/CultureForm';
@@ -41,6 +41,33 @@ const SPECIES_CULTURE: Culture = {
   crop_family: 'Doldenblütler',
   nutrient_demand: 'medium',
   row_spacing_cm: 30,
+};
+
+// A species-linked pair: the general Kultur plus a Sorte that overrides nothing,
+// so the API reports every value as resolved from the Kultur
+// (see CultureSerializer.effective_values).
+const LINKED_SPECIES_CULTURE: Culture = {
+  id: 3,
+  name: 'Pastinake',
+  variety: '',
+  crop_species: 7,
+  crop_family: 'Doldenblütler',
+  nutrient_demand: 'medium',
+  row_spacing_cm: 30,
+};
+
+const INHERITING_VARIETY_CULTURE: Culture = {
+  id: 4,
+  name: 'Pastinake',
+  variety: 'Halblange',
+  crop_species: 7,
+  general_culture: LINKED_SPECIES_CULTURE.id,
+  inherited_fields: ['crop_family', 'nutrient_demand', 'row_spacing_cm'],
+  effective_values: {
+    crop_family: 'Doldenblütler',
+    nutrient_demand: 'medium',
+    row_spacing_cm: 30,
+  },
 };
 
 const VARIETY_CULTURE: Culture = {
@@ -131,5 +158,81 @@ describe('CultureForm variety override highlighting', () => {
     await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
 
     expect(screen.queryByText('hierarchy.ownValueLegendSample')).not.toBeInTheDocument();
+  });
+
+  it('shows the general crop value in a field the variety does not override, without highlighting it', async () => {
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <CultureForm
+        culture={INHERITING_VARIETY_CULTURE}
+        cultures={[LINKED_SPECIES_CULTURE, INHERITING_VARIETY_CULTURE]}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
+
+    const cropFamilyField = screen.getByLabelText('form.cropFamily');
+    expect(cropFamilyField).toHaveValue('Doldenblütler');
+    expect(screen.getByLabelText('form.rowSpacingCm')).toHaveValue(30);
+
+    await user.click(cropFamilyField);
+    await user.hover(cropFamilyField);
+    expect(await screen.findByRole('tooltip', {}, { timeout: 5000 })).toHaveTextContent('hierarchy.inheritedFieldTooltip');
+  }, 20000);
+
+  it('does not turn a displayed inherited value into an own override on save', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <CultureForm
+        culture={INHERITING_VARIETY_CULTURE}
+        cultures={[LINKED_SPECIES_CULTURE, INHERITING_VARIETY_CULTURE]}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
+
+    // Set an own value in a field the Kultur does not supply, so the form is
+    // dirty and actually submits.
+    fireEvent.change(screen.getByLabelText('form.propagationDurationDays'), { target: { value: '14' } });
+    const saveButton = screen.getByRole('button', { name: 'form.save' });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({
+      propagation_duration_days: 14,
+      crop_family: '',
+      nutrient_demand: '',
+      row_spacing_cm: undefined,
+    }));
+  });
+
+  it('keeps an edited inherited field as the variety\'s own value', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <CultureForm
+        culture={INHERITING_VARIETY_CULTURE}
+        cultures={[LINKED_SPECIES_CULTURE, INHERITING_VARIETY_CULTURE]}
+        onSave={onSave}
+        onCancel={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('form.cropFamily'), { target: { value: 'Sonderfamilie' } });
+    const saveButton = screen.getByRole('button', { name: 'form.save' });
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ crop_family: 'Sonderfamilie' }));
   });
 });
