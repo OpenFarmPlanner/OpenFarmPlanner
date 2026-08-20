@@ -120,7 +120,6 @@ export function CultureDetail({
   const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
-  const isTabletLayout = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileLandscapeLayout = useMediaQuery(
     `${theme.breakpoints.between('sm', 'md')} and (orientation: landscape) and (max-height: 560px)`,
@@ -819,21 +818,6 @@ const detailSectionGridSx = {
             >
               {visibleCropRows.map(({ node, depth, hasChildren }) => {
                 const culture = node.culture;
-                const cultivationValues = culture?.cultivation_types && culture.cultivation_types.length > 0
-                  ? culture.cultivation_types
-                  : (culture?.cultivation_type ? [culture.cultivation_type] : []);
-                const cultivationLabel = cultivationValues.includes('direct_sowing') && cultivationValues.includes('pre_cultivation')
-                  ? t('filters.both')
-                  : cultivationValues.includes('direct_sowing')
-                    ? t('filters.directSowing')
-                    : cultivationValues.includes('pre_cultivation')
-                      ? t('filters.preCultivation')
-                      : '';
-                const secondary = node.kind === 'species'
-                  ? undefined
-                  : isTabletLayout
-                    ? undefined
-                    : [cultivationLabel, culture?.seed_supplier].filter(Boolean).join(' • ') || undefined;
                 // A species row with no dedicated varietyless entry has nothing of its
                 // own to select — but it always has at least one variety underneath it,
                 // so clicking it selects that first variety instead of leaving the row
@@ -862,7 +846,7 @@ const detailSectionGridSx = {
                     ariaLabel={node.kind === 'species' ? node.label : undefined}
                     primary={node.label}
                     isPrimaryEmphasized={node.kind === 'species'}
-                    secondary={secondary}
+                    secondary={undefined}
                     varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
                     onClick={() => {
                       if (culture) {
