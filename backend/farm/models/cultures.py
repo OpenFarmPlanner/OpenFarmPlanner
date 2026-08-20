@@ -1018,14 +1018,14 @@ class PublicCulture(TimestampedModel):
             return text, used
         return self.notes or '', (self.original_language_code or '')
 
-    def display_name(self, language_code: str | None) -> tuple[str, str]:
+    def display_name(self, language_code: str | None, region: str | None = None) -> tuple[str, str]:
         """Species common name in the requested language, plus that language.
 
         ``variety`` is deliberately not part of this: variety names are proper
         names and are never translated. Callers combine the two themselves.
         """
         if self.crop_species_id and self.crop_species is not None:
-            return self.crop_species.localized_name(language_code)
+            return self.crop_species.localized_name(language_code, region)
         # Pre-species legacy entries only ever had their own single-language
         # name; surfacing it unchanged beats showing an empty cell.
         return self.name, (self.original_language_code or '')

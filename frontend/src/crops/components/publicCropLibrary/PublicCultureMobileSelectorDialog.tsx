@@ -198,15 +198,8 @@ export function PublicCultureMobileSelectorDialog({
                     primary={node.kind === 'species'
                       ? node.label
                       : node.label || (culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : '')}
-                    secondary={node.kind === 'species'
-                      ? [
-                        culture?.crop_family,
-                        node.varietyCount > 0 ? t('hierarchy.varietyCount', { count: node.varietyCount }) : '',
-                      ].filter(Boolean).join(' • ') || undefined
-                      : undefined}
                     slotProps={{
                       primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500, lineHeight: 1.2 } },
-                      secondary: { sx: { fontSize: '0.8rem', color: 'text.secondary' } }
                     }}
                     sx={{ my: 0 }}
                   />

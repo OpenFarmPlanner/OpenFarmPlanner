@@ -76,6 +76,7 @@ def build_public_crop_search_query(value: str, *, include_variety: bool = True) 
             Q(name_normalized__icontains=term)
             | Q(crop_species__name_normalized__icontains=term)
             | Q(crop_species__translations__common_name_normalized__icontains=term)
+            | Q(crop_species__translations__search_text_normalized__icontains=term)
         )
     return query
 
@@ -85,9 +86,16 @@ def build_species_search_query(value: str) -> Q:
     query = Q()
     stripped_value = value.strip()
     if stripped_value:
-        query |= Q(name__icontains=stripped_value) | Q(translations__common_name__icontains=stripped_value)
+        query |= (
+            Q(name__icontains=stripped_value)
+            | Q(translations__common_name__icontains=stripped_value)
+        )
     for term in build_crop_search_terms(value):
-        query |= Q(name_normalized__icontains=term) | Q(translations__common_name_normalized__icontains=term)
+        query |= (
+            Q(name_normalized__icontains=term)
+            | Q(translations__common_name_normalized__icontains=term)
+            | Q(translations__search_text_normalized__icontains=term)
+        )
     return query
 
 
@@ -143,7 +151,9 @@ def find_species_by_common_name(name: str | None) -> CropSpecies | None:
     if not normalized:
         return None
     return CropSpecies.objects.filter(
-        Q(name_normalized=normalized) | Q(translations__common_name_normalized=normalized),
+        Q(name_normalized=normalized)
+        | Q(translations__common_name_normalized=normalized)
+        | Q(translations__search_text_normalized__icontains=f'\n{normalized}\n'),
     ).distinct().first()
 
 

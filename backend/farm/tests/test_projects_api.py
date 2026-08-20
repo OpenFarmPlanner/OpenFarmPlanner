@@ -164,7 +164,24 @@ class ProjectsApiTests(APITestCase):
         response = self.client.post('/openfarmplanner/api/projects/', {'name': 'Neues Projekt', 'description': ''}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'Neues Projekt')
+        self.assertEqual(response.data['region'], Project.REGION_GERMANY)
         self.assertTrue(response.data['slug'])
+
+    def test_updates_project_region_and_exposes_it_on_auth_memberships(self) -> None:
+        response = self.client.patch(
+            f'/openfarmplanner/api/projects/{self.project.id}/',
+            {'region': Project.REGION_AUSTRIA},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['region'], Project.REGION_AUSTRIA)
+        me_response = self.client.get('/openfarmplanner/api/auth/me/')
+        membership = next(
+            row for row in me_response.data['memberships']
+            if row['project_id'] == self.project.id
+        )
+        self.assertEqual(membership['project_region'], Project.REGION_AUSTRIA)
 
     def test_create_project_with_duplicate_name_assigns_unique_slug(self) -> None:
         Project.objects.create(name='Neues Projekt', slug='neues-projekt')

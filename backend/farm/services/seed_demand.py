@@ -341,7 +341,11 @@ def _aggregate_requirements_by_culture(project: Project, language_code: str) -> 
     grouped: dict[int, dict] = {}
     for plan in plans:
         culture = plan.culture
-        culture_display_name, culture_display_language_code = resolve_culture_display_name(culture, language_code)
+        culture_display_name, culture_display_language_code = resolve_culture_display_name(
+            culture,
+            language_code,
+            project.region,
+        )
         entry = grouped.setdefault(
             culture.id,
             {

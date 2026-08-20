@@ -82,6 +82,19 @@ class CropSpeciesTranslationModelTest(DRFAPITestCase):
         self.assertEqual(species.localized_name('de'), ('Tomate', 'de'))
         self.assertEqual(species.localized_name('en'), ('Tomato', 'en'))
 
+    def test_localized_name_uses_regional_override_for_requested_language(self):
+        species = create_tomato_species()
+        translation = species.translations.get(language_code='de')
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.synonyms = ['Paradeis']
+        translation.save()
+
+        self.assertEqual(species.localized_name('de', 'austria'), ('Paradeiser', 'de'))
+        self.assertEqual(species.localized_name('de', 'germany'), ('Tomate', 'de'))
+        self.assertEqual(species.localized_name('en', 'austria'), ('Tomato', 'en'))
+        self.assertIn('\nparadeiser\n', translation.search_text_normalized)
+        self.assertIn('\nparadeis\n', translation.search_text_normalized)
+
     def test_localized_name_falls_back_and_reports_the_language_used(self):
         species = CropSpecies.objects.create(name='Testart Fallback')
         CropSpeciesTranslation.objects.create(
@@ -164,6 +177,16 @@ class CropSpeciesApiTest(DRFAPITestCase):
         results = response.data['results'] if isinstance(response.data, dict) else response.data
         self.assertIn(self.species.id, [item['id'] for item in results])
 
+    def test_finds_a_species_by_regional_name(self):
+        translation = self.species.translations.get(language_code='de')
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.synonyms = ['Paradeis']
+        translation.save()
+
+        response = self.client.get('/openfarmplanner/api/crop-species/', {'q': 'Paradeiser'})
+        results = response.data['results'] if isinstance(response.data, dict) else response.data
+        self.assertIn(self.species.id, [item['id'] for item in results])
+
     def test_rejects_a_proposal_that_duplicates_another_languages_name(self):
         # "Tomato" is already the English name of the Tomate species: proposing
         # it must not create a second, parallel species.
@@ -171,6 +194,28 @@ class CropSpeciesApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(CropSpecies.objects.filter(name='Tomato').count(), 0)
+
+    def test_regional_name_proposal_surfaces_an_exact_match_hint(self):
+        translation = self.species.translations.get(language_code='de')
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.save()
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Paradeiser'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['similar_species'][0]['id'], self.species.id)
+        self.assertEqual(response.data['similar_species'][0]['match_type'], 'exact')
+
+    def test_typo_in_regional_name_proposal_surfaces_a_similar_match_hint(self):
+        translation = self.species.translations.get(language_code='de')
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.save()
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Paradeisser'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['similar_species'][0]['id'], self.species.id)
+        self.assertEqual(response.data['similar_species'][0]['match_type'], 'similar')
 
     def test_creates_translations_supplied_with_a_proposal(self):
         response = self.client.post(
@@ -251,6 +296,16 @@ class CropSearchTest(DRFAPITestCase):
                 results = response.data['results'] if isinstance(response.data, dict) else response.data
 
                 self.assertIn(self.crop.id, [item['id'] for item in results])
+
+    def test_public_culture_endpoint_searches_regional_names(self):
+        translation = self.species.translations.get(language_code='de')
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.save()
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': 'Paradeiser'})
+        results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+        self.assertIn(self.crop.id, [item['id'] for item in results])
 
     def test_species_endpoint_uses_fuzzy_species_terms(self):
         for query in ('Tomaten', 'Paradeiser'):

@@ -27,9 +27,19 @@ class MediaFile(models.Model):
 class Project(TimestampedModel):
     """A collaborative workspace that owns farm planning data."""
 
+    REGION_GERMANY = 'germany'
+    REGION_AUSTRIA = 'austria'
+    REGION_SWITZERLAND = 'switzerland'
+    REGION_CHOICES = [
+        (REGION_GERMANY, 'Germany'),
+        (REGION_AUSTRIA, 'Austria'),
+        (REGION_SWITZERLAND, 'Switzerland'),
+    ]
+
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
     description = models.TextField(blank=True)
+    region = models.CharField(max_length=20, choices=REGION_CHOICES, default=REGION_GERMANY)
     is_active = models.BooleanField(default=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 

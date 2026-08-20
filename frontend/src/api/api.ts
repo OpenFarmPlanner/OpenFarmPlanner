@@ -336,11 +336,14 @@ export interface ProjectPayload {
   name: string;
   slug: string;
   description: string;
+  region: ProjectRegion;
   is_active: boolean;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ProjectRegion = 'germany' | 'austria' | 'switzerland';
 
 export interface ProjectInvitationPayload {
   id: number;
@@ -394,7 +397,7 @@ export const projectAPI = {
     http.post<ProjectPayload>('/projects/', data),
   createDemo: () =>
     http.post<ProjectPayload>('/projects/create-demo/', {}),
-  update: (projectId: number, data: { name: string }) =>
+  update: (projectId: number, data: { name?: string; region?: ProjectRegion }) =>
     http.patch<ProjectPayload>(`/projects/${projectId}/`, data),
   delete: (projectId: number) =>
     http.delete(`/projects/${projectId}/`),

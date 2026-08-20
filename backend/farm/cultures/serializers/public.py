@@ -20,6 +20,7 @@ from farm.models import (
     PublicCultureRevision,
     format_culture_display_name,
 )
+from farm.project_context import get_active_project_optional
 from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
 PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
@@ -177,16 +178,25 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return resolve_request_language(request) if request is not None else DEFAULT_LANGUAGE_CODE
 
+    def _region(self) -> str:
+        request = self.context.get('request')
+        if request is None:
+            return ''
+        active_project = getattr(request, 'active_project', None)
+        if active_project is None:
+            active_project = get_active_project_optional(request)
+        return getattr(active_project, 'region', '') if active_project is not None else ''
+
     def get_crop_species_name(self, obj: PublicCulture) -> str:
         """Species name in the caller's language; never empty, never an id."""
-        return obj.display_name(self._language())[0]
+        return obj.display_name(self._language(), self._region())[0]
 
     def get_display_name(self, obj: PublicCulture) -> str:
-        return obj.display_name(self._language())[0]
+        return obj.display_name(self._language(), self._region())[0]
 
     def get_display_language_code(self, obj: PublicCulture) -> str:
         """Language the name came from — '' means "no real translation exists"."""
-        return obj.display_name(self._language())[1]
+        return obj.display_name(self._language(), self._region())[1]
 
     def get_description(self, obj: PublicCulture) -> str:
         return obj.localized_description(self._language())[0]

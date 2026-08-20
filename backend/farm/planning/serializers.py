@@ -98,6 +98,14 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
             return DEFAULT_LANGUAGE_CODE
         return resolve_request_language(request)
 
+    def _request_region(self) -> str:
+        request = self.context.get('request')
+        active_project = getattr(request, 'active_project', None) if request is not None else None
+        if active_project is not None:
+            return getattr(active_project, 'region', '') or ''
+        plan_project = self.context.get('project')
+        return getattr(plan_project, 'region', '') if plan_project is not None else ''
+
     def _get_culture_species(self, culture: Culture) -> CropSpecies | None:
         if culture.crop_species_id:
             return culture.crop_species
@@ -114,11 +122,11 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         if culture is None:
             return None, ''
         if culture.crop_species_id:
-            return resolve_culture_display_name(culture, self._request_language())
+            return resolve_culture_display_name(culture, self._request_language(), self._request_region())
         species = self._get_culture_species(culture)
         if species is None:
             return culture.name, ''
-        return species.localized_name(self._request_language())
+        return species.localized_name(self._request_language(), self._request_region())
 
     def get_culture_display_name(self, obj: PlantingPlan) -> str | None:
         return self._get_localized_culture_name(obj)[0]

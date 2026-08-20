@@ -142,6 +142,7 @@ export default function PublicCropLibraryPage() {
   const activeTab = getPublicCultureTabIndex(searchParams.get('tab'), selectedTopicIdFromUrl);
   const selectedTopicId = activeTab === PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion ? selectedTopicIdFromUrl : null;
   const [query, setQuery] = useState(() => storedViewState?.query ?? '');
+  const [isSearchInputFocused, setIsSearchInputFocused] = useState(false);
   const [cultures, setCultures] = useState<PublicCulture[]>([]);
   const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => (
     selectedCultureIdFromUrl ?? storedViewState?.cultureId ?? getStoredPublicCultureId()
@@ -1461,6 +1462,8 @@ export default function PublicCropLibraryPage() {
                   inputRef={searchInputRef}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  onFocus={() => setIsSearchInputFocused(true)}
+                  onBlur={() => setIsSearchInputFocused(false)}
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
@@ -1524,7 +1527,7 @@ export default function PublicCropLibraryPage() {
                   isSpeciesView={isSpeciesView}
                   storageKey="publicCropLibrary"
                   searchQuery={query}
-                  autoFocusSelected={!useCompactLibraryLayout}
+                  autoFocusSelected={!useCompactLibraryLayout && !isSearchInputFocused}
                   dense
                   ariaLabel={t('library.page.title')}
                   onScroll={handleCultureListScroll}

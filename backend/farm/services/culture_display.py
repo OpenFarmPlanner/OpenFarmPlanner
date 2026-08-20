@@ -4,7 +4,11 @@ from crops.models import CropSpecies
 from farm.models import Culture
 
 
-def resolve_culture_display_name(culture: Culture, language_code: str) -> tuple[str | None, str]:
+def resolve_culture_display_name(
+    culture: Culture,
+    language_code: str,
+    region: str | None = None,
+) -> tuple[str | None, str]:
     """Return the localized display name for a project culture.
 
     Project culture identity stays stored on ``Culture.name``. When the culture
@@ -14,4 +18,4 @@ def resolve_culture_display_name(culture: Culture, language_code: str) -> tuple[
     species: CropSpecies | None = culture.crop_species
     if species is None:
         return culture.name, ''
-    return species.localized_name(language_code)
+    return species.localized_name(language_code, region)
