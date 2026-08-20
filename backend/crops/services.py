@@ -99,7 +99,18 @@ def build_species_search_query(value: str) -> Q:
     return query
 
 
-def list_published_crops(*, query: str = '', name: str = '', variety: str = '') -> QuerySet[PublicCulture]:
+def build_exact_species_identity_query(normalized_name: str) -> Q:
+    """Exact species identity match across canonical names, translations, and aliases."""
+    return (
+        Q(name_normalized=normalized_name)
+        | Q(translations__common_name_normalized=normalized_name)
+        | Q(translations__search_text_normalized__icontains=f'\n{normalized_name}\n')
+    )
+
+
+def list_published_crops(
+    *, query: str = '', name: str = '', variety: str = '',
+) -> QuerySet[PublicCulture]:
     """Published crops, optionally filtered by a free-text query and/or exact-field substrings.
 
     Free-text and name search deliberately span **every** stored species
@@ -126,7 +137,9 @@ def list_published_crops(*, query: str = '', name: str = '', variety: str = '') 
     if query:
         queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
     if name:
-        queryset = queryset.filter(build_public_crop_search_query(name, include_variety=False)).distinct()
+        queryset = queryset.filter(
+            build_public_crop_search_query(name, include_variety=False),
+        ).distinct()
     if variety:
         # Variety names are proper names: never translated, matched verbatim.
         queryset = queryset.filter(variety__icontains=variety)
@@ -134,7 +147,10 @@ def list_published_crops(*, query: str = '', name: str = '', variety: str = '') 
 
 
 def get_published_crop(pk: int) -> PublicCulture:
-    """A single published crop by id. Raises `PublicCulture.DoesNotExist` if not found or unpublished."""
+    """A single published crop by id.
+
+    Raises `PublicCulture.DoesNotExist` if not found or unpublished.
+    """
     return PublicCulture.objects.get(pk=pk, status=PublicCulture.STATUS_PUBLISHED)
 
 
