@@ -193,6 +193,15 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+Crop species display names are language- and region-aware at the API boundary.
+The canonical German translation is standard Germany terminology; Austria and
+Switzerland are explicit regional overrides on `CropSpeciesTranslation`, while
+free synonyms are search/matching aliases only. Project-scoped requests resolve
+the active `Project.region` from the normal project context (`X-Project-Id` /
+`request.active_project`) and pass it through shared display helpers, so Gantt,
+planning, culture detail, public-library and import surfaces render the same
+name without frontend-specific region logic.
+
 Private project cultures are intentionally independent from that public master
 data. `Culture.crop_species` stays nullable and the "Add crop" dialog never
 requires linking to a public entry — free text remains valid at all times and
@@ -427,7 +436,8 @@ backend/crops/
   models.py        CropSpecies              official species list (published /
                                              proposed / rejected), used by the
                                              Publishing Wizard
-                   CropSpeciesTranslation   (species, language_code) → common_name
+                   CropSpeciesTranslation   (species, language_code) → common_name,
+                                             regional_names, synonyms/search index
                    PublicLibraryModeratorRequest  moderator-access requests
   permissions.py   is_public_library_moderator() / is_public_library_admin(),
                     the `Public Library Moderators` group and the

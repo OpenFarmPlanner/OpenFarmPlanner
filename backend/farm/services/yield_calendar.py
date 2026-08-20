@@ -44,7 +44,7 @@ def build_yield_calendar(project: Project, iso_year: int, language_code: str) ->
 
     weekly_data: dict[str, dict[str, object]] = {}
     for plan in plans:
-        _accumulate_plan_yield(weekly_data, plan, iso_year, language_code)
+        _accumulate_plan_yield(weekly_data, plan, iso_year, language_code, project.region)
 
     return _build_response_rows(weekly_data)
 
@@ -54,6 +54,7 @@ def _accumulate_plan_yield(
     plan: PlantingPlan,
     iso_year: int,
     language_code: str,
+    project_region: str,
 ) -> None:
     """Distribute one plan's expected yield over the ISO weeks it overlaps."""
     harvest_start = plan.harvest_date
@@ -88,7 +89,11 @@ def _accumulate_plan_yield(
                         'cultures': defaultdict(Decimal),
                     },
                 )
-                culture_display_name, culture_display_language_code = resolve_culture_display_name(plan.culture, language_code)
+                culture_display_name, culture_display_language_code = resolve_culture_display_name(
+                    plan.culture,
+                    language_code,
+                    project_region,
+                )
                 culture_key = (
                     plan.culture_id,
                     plan.culture.name,

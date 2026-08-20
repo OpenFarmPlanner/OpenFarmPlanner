@@ -280,13 +280,20 @@ class CultureSerializer(serializers.ModelSerializer):
             return DEFAULT_LANGUAGE_CODE
         return resolve_request_language(request)
 
+    def _request_region(self) -> str:
+        request = self.context.get('request')
+        active_project = getattr(request, 'active_project', None) if request is not None else None
+        if active_project is None:
+            active_project = _resolve_active_project_from_serializer(self)
+        return getattr(active_project, 'region', '') if active_project is not None else ''
+
     def _get_culture_species(self, obj: Culture) -> CropSpecies | None:
         if obj.crop_species_id:
             return obj.crop_species
         return None
 
     def _get_localized_culture_name(self, obj: Culture) -> tuple[str | None, str]:
-        return resolve_culture_display_name(obj, self._request_language())
+        return resolve_culture_display_name(obj, self._request_language(), self._request_region())
 
     def get_culture_display_name(self, obj: Culture) -> str | None:
         return self._get_localized_culture_name(obj)[0]
