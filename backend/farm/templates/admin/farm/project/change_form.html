@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+  {% if request.user.is_superuser %}
+    <li><a href="{% url 'admin:farm_project_engagement' %}">{% translate "Nutzungsübersicht" %}</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
