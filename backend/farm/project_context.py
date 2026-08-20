@@ -53,6 +53,10 @@ def resolve_project_for_user(user) -> tuple[Project | None, bool]:
 
 def get_active_project_or_400(request: Request) -> Project:
     """Resolve and validate active project from request header for authenticated users."""
+    cached_project = getattr(request, 'active_project', None)
+    if cached_project is not None:
+        return cached_project
+
     # API tokens are bound to exactly one project at creation time. That
     # binding is read from the token row, never from the request, so no
     # X-Project-Id header, query parameter, or body field can point a token at
@@ -64,7 +68,8 @@ def get_active_project_or_400(request: Request) -> Project:
         requested_header = request.META.get(PROJECT_HEADER)
         if requested_header and str(requested_header) != str(api_token.project_id):
             raise exceptions.PermissionDenied('This API token is bound to a different project.')
-        return api_token.project
+        request.active_project = api_token.project
+        return request.active_project
 
     agent_mode = bool(request.session.get('agent_mode'))
     agent_project_id = request.session.get('agent_project_id')
@@ -83,12 +88,13 @@ def get_active_project_or_400(request: Request) -> Project:
         requested_header = request.META.get(PROJECT_HEADER)
         if requested_header and str(requested_header) != str(bound_project_id):
             raise exceptions.PermissionDenied('Agent session is restricted to a single project.')
-        return get_object_or_404(
+        request.active_project = get_object_or_404(
             Project,
             id=bound_project_id,
             is_active=True,
             deleted_at__isnull=True,
         )
+        return request.active_project
 
     raw = request.META.get(PROJECT_HEADER)
     if not raw:
@@ -110,7 +116,8 @@ def get_active_project_or_400(request: Request) -> Project:
     if membership is None:
         raise exceptions.PermissionDenied('You are not a member of this project.')
     _cache_user_project_settings(request.user, membership)
-    return membership.project
+    request.active_project = membership.project
+    return request.active_project
 
 
 def get_active_project_optional(request: Request) -> Project | None:
