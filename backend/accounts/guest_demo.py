@@ -15,6 +15,7 @@ from farm.services.demo_project import (
 )
 
 from .models import GuestDemoSession, UserProjectSettings
+from .signals import suppress_registration_notification
 
 User = get_user_model()
 GUEST_DEMO_RETENTION = timedelta(hours=8)
@@ -27,12 +28,13 @@ def create_guest_demo_session(*, language_code: str | None = None) -> GuestDemoS
     project_name = get_demo_project_name(language)
     project_description = get_demo_project_description(language)
     with transaction.atomic():
-        user = User.objects.create_user(
-            username=f'demo_{suffix}',
-            email=f'demo-{suffix}@example.invalid',
-            password=None,
-            is_active=True,
-        )
+        with suppress_registration_notification():
+            user = User.objects.create_user(
+                username=f'demo_{suffix}',
+                email=f'demo-{suffix}@example.invalid',
+                password=None,
+                is_active=True,
+            )
         project = Project.objects.create(
             name=project_name,
             slug=f'guest-demo-{suffix}',
@@ -54,4 +56,3 @@ def delete_guest_demo_session(session: GuestDemoSession) -> None:
     user = session.user
     project.delete()
     user.delete()
-
