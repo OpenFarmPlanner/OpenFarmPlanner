@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase, override_settings
 
+from accounts.guest_demo import create_guest_demo_session
+
 User = get_user_model()
 
 
@@ -50,3 +52,10 @@ class RegistrationNotificationTests(TestCase):
         )
 
         self.assertEqual(mail.outbox, [])
+
+    @patch('accounts.guest_demo.populate_demo_project')
+    def test_guest_demo_user_does_not_send_notification(self, mocked_populate_demo_project) -> None:
+        create_guest_demo_session()
+
+        self.assertEqual(mail.outbox, [])
+        mocked_populate_demo_project.assert_called_once()

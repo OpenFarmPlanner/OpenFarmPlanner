@@ -174,7 +174,8 @@ Authentication endpoints are available under:
 
 ### New user registration notifications
 
-The backend sends an informational email whenever a Django user is created.
+The backend sends an informational email whenever a real Django user is
+created; short-lived guest demo users are excluded.
 Set `ADMIN_NOTIFICATION_EMAIL` to choose the recipient; it defaults to
 `info@openfarmplanner.org`. Set it to an empty value to disable these
 notifications. Delivery uses the existing Django email backend and a delivery
