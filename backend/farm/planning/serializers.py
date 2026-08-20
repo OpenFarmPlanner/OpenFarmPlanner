@@ -126,20 +126,26 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     def get_culture_display_language_code(self, obj: PlantingPlan) -> str:
         return self._get_localized_culture_name(obj)[1]
 
+    def _calculated_harvest_dates(self, obj: PlantingPlan) -> tuple[date | None, date | None]:
+        cache = self.context.setdefault('_calculated_harvest_dates_by_plan', {})
+        cache_key = obj.pk or id(obj)
+        if cache_key not in cache:
+            cache[cache_key] = obj.calculate_effective_harvest_dates(self._general_culture_index(obj))
+        return cache[cache_key]
+
     def get_harvest_date(self, obj: PlantingPlan) -> date | None:
         """Return harvest start only when culture growth timing is known."""
-        if self._effective_culture_value(obj, 'growth_duration_days') is None:
+        calculated_harvest_date, _ = self._calculated_harvest_dates(obj)
+        if calculated_harvest_date is None:
             return None
-        return obj.harvest_date
+        return obj.harvest_date or calculated_harvest_date
 
     def get_harvest_end_date(self, obj: PlantingPlan) -> date | None:
         """Return harvest end only when both growth and harvest timing are known."""
-        if (
-            self._effective_culture_value(obj, 'growth_duration_days') is None
-            or self._effective_culture_value(obj, 'harvest_duration_days') is None
-        ):
+        _, calculated_harvest_end_date = self._calculated_harvest_dates(obj)
+        if calculated_harvest_end_date is None:
             return None
-        return obj.harvest_end_date
+        return obj.harvest_end_date or calculated_harvest_end_date
 
     class Meta:
         model = PlantingPlan

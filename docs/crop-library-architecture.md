@@ -338,14 +338,17 @@ query: the serializer builds a per-request `crop_species → general Kultur` ind
 for the active project (`build_general_culture_index`) instead of looking up a
 sibling per row.
 
-**Planning reads effective values.** `PlantingPlan.recalculate_harvest_dates()`
-and `_get_active_period()`, the `PlantingPlanSerializer` gates behind
-`harvest_date`/`harvest_end_date`, the `culture_*` timing/cultivation fields the
-Gantt calendar plans from, and the plant-count conversions all resolve through
-the service, so a Sorte with no own harvest duration still gets a computed
-Erntende from its Kultur. On the frontend the same is true of
-`ganttChartUtils.ts`, `locationDerivedTasks.ts` and the "missing duration"
-tooltip in Anbaupläne, via `getEffectiveCultureValue`.
+**Planning reads effective values.** `PlantingPlan.calculate_effective_harvest_dates()`
+is the shared side-effect-free calculation behind
+`recalculate_harvest_dates()` and `_get_active_period()`. The
+`PlantingPlanSerializer` uses the same calculation as a read-time fallback when
+the stored `harvest_date`/`harvest_end_date` snapshot is empty, so old plans
+also show a computed Erntende once their Sorte can inherit the missing timing
+from its Kultur. The `culture_*` timing/cultivation fields the Gantt calendar
+plans from and the plant-count conversions also resolve through the service. On
+the frontend the same is true of `ganttChartUtils.ts`,
+`locationDerivedTasks.ts` and the "missing duration" tooltip in Anbaupläne, via
+`getEffectiveCultureValue`.
 
 `Culture.plants_per_m2` is part of that: the model property still computes from
 the row's own spacing, but the serializer publishes the **effective** value.
@@ -355,10 +358,12 @@ while the row's `plants_count` comes from the plan serializer, so leaving the
 culture field on own spacing makes an inheriting Sorte show a plant count the
 grid then refuses to let the user edit (and Tab skips the cell).
 
-Stored harvest dates stay a **snapshot**: they are recomputed when a plan is
-saved (and when the culture's *own* timing changes, which already triggered
-`_recalculate_related_planting_plan_dates`). Existing plans are deliberately not
-bulk-recalculated just because a value became resolvable through inheritance.
+Stored harvest dates remain a **write-time snapshot**, but reads can derive a
+missing date from the current effective timing without writing it back. The
+snapshot is recomputed when a plan is saved, when its own culture timing
+changes, and when a general Kultur timing change affects Sorten that inherit
+that exact field. Existing plans are not bulk-recalculated during deployment or
+from GET endpoints just because a value became resolvable through inheritance.
 
 **The edit dialog.** `CultureForm` merges the resolved values into the form
 (`buildInheritedValueBaseline`), so a field the Sorte does not override shows

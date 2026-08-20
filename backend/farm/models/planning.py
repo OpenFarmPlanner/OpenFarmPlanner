@@ -78,7 +78,11 @@ class PlantingPlan(TimestampedModel):
     )
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='planting_plans')
 
-    def _effective_culture_days(self, field: str) -> int | None:
+    def _effective_culture_days(
+        self,
+        field: str,
+        general_culture_index: dict[int, Culture] | None = None,
+    ) -> int | None:
         """A culture timing value, resolved through the Sorte -> Kultur fallback.
 
         Imported here rather than at module level: the resolver lives in the
@@ -87,7 +91,32 @@ class PlantingPlan(TimestampedModel):
         """
         from farm.services.culture_inheritance import resolve_culture_field
 
-        return resolve_culture_field(self.culture, field)
+        return resolve_culture_field(self.culture, field, general_culture_index)
+
+    def calculate_effective_harvest_dates(
+        self,
+        general_culture_index: dict[int, Culture] | None = None,
+    ) -> tuple[date | None, date | None]:
+        """Return harvest dates from planting date and effective culture timing."""
+        if not self.planting_date or not self.culture:
+            return None, None
+
+        growth_duration_days = self._effective_culture_days(
+            'growth_duration_days',
+            general_culture_index,
+        )
+        if growth_duration_days is None:
+            return None, None
+
+        harvest_date = self.planting_date + timedelta(days=growth_duration_days)
+        harvest_duration_days = self._effective_culture_days(
+            'harvest_duration_days',
+            general_culture_index,
+        )
+        if harvest_duration_days is None:
+            return harvest_date, None
+
+        return harvest_date, harvest_date + timedelta(days=harvest_duration_days)
 
     def _get_active_period(self) -> tuple[date, date] | None:
         """Return inclusive active period used for overlap validations."""
@@ -98,17 +127,7 @@ class PlantingPlan(TimestampedModel):
         active_end = self.harvest_end_date
 
         if active_end is None and self.culture_id:
-            growth_duration_days = self._effective_culture_days('growth_duration_days')
-            if growth_duration_days is None:
-                return None
-
-            harvest_date = active_start + timedelta(days=growth_duration_days)
-
-            harvest_duration_days = self._effective_culture_days('harvest_duration_days')
-            if harvest_duration_days is not None:
-                active_end = harvest_date + timedelta(days=harvest_duration_days)
-            else:
-                return None
+            _, active_end = self.calculate_effective_harvest_dates()
 
         if active_end is None:
             return None
@@ -151,20 +170,7 @@ class PlantingPlan(TimestampedModel):
         stay a snapshot taken at save time: already-stored plans are not
         recalculated just because a value became resolvable.
         """
-        if not self.planting_date or not self.culture:
-            return
-
-        growth_duration_days = self._effective_culture_days('growth_duration_days')
-        if growth_duration_days is not None:
-            self.harvest_date = self.planting_date + timedelta(days=growth_duration_days)
-        else:
-            self.harvest_date = None
-
-        harvest_duration_days = self._effective_culture_days('harvest_duration_days')
-        if self.harvest_date is not None and harvest_duration_days is not None:
-            self.harvest_end_date = self.harvest_date + timedelta(days=harvest_duration_days)
-        else:
-            self.harvest_end_date = None
+        self.harvest_date, self.harvest_end_date = self.calculate_effective_harvest_dates()
 
     def __str__(self) -> str:
         """Return a string combining culture, bed, and planting date."""

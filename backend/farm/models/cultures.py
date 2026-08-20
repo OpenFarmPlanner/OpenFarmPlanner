@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from farm.seed_units import (
@@ -648,8 +649,12 @@ class Culture(TimestampedModel):
         changed_fields = self._compute_changed_fields(previous, current)
         self._record_save_revision(current, previous, changed_fields)
 
-        if any(field in changed_fields for field in ('growth_duration_days', 'harvest_duration_days')):
-            self._recalculate_related_planting_plan_dates()
+        timing_changed_fields = [
+            field for field in ('growth_duration_days', 'harvest_duration_days')
+            if field in changed_fields
+        ]
+        if timing_changed_fields:
+            self._recalculate_related_planting_plan_dates(timing_changed_fields)
 
     def _flag_source_divergence(self, previous: dict[str, Any] | None) -> None:
         """Mark an imported, still-pristine culture as modified if a tracked field changed."""
@@ -692,15 +697,21 @@ class Culture(TimestampedModel):
             changed_fields=changed_fields,
         )
 
-    def _recalculate_related_planting_plan_dates(self) -> None:
+    def _recalculate_related_planting_plan_dates(self, changed_timing_fields: list[str]) -> None:
         """Update stored planting-plan harvest dates after culture timing changes."""
+        from .planning import PlantingPlan
+
         plans_to_update = []
         now = timezone.now()
-        for plan in self.planting_plans.all():
+        plans = self._planting_plans_affected_by_timing_change(changed_timing_fields)
+        for plan in plans:
             # These plans are this culture's by definition. Handing them the
             # already-loaded instance saves a culture fetch per plan and lets
             # them share this instance's cached general-Kultur lookup.
-            plan.culture = self
+            if plan.culture_id == self.pk:
+                plan.culture = self
+            elif plan.culture is not None:
+                plan.culture._resolved_general_culture = self
             previous_harvest_date = plan.harvest_date
             previous_harvest_end_date = plan.harvest_end_date
             plan.recalculate_harvest_dates()
@@ -712,11 +723,39 @@ class Culture(TimestampedModel):
                 plans_to_update.append(plan)
 
         if plans_to_update:
-            from .planning import PlantingPlan
             PlantingPlan.objects.bulk_update(
                 plans_to_update,
                 ['harvest_date', 'harvest_end_date', 'updated_at'],
             )
+
+    def _planting_plans_affected_by_timing_change(self, changed_timing_fields: list[str]) -> models.QuerySet:
+        """Return direct plans plus Sorte plans inheriting the changed timing."""
+        from .planning import PlantingPlan
+
+        direct_plans = Q(culture_id=self.pk)
+        inherited_plans = Q()
+        is_general_culture = self.crop_species_id is not None and self.variety_normalized is None
+        if is_general_culture:
+            inherited_timing = Q()
+            if 'growth_duration_days' in changed_timing_fields:
+                inherited_timing |= Q(culture__growth_duration_days__isnull=True)
+            if 'harvest_duration_days' in changed_timing_fields:
+                inherited_timing |= Q(culture__harvest_duration_days__isnull=True)
+            if inherited_timing:
+                inherited_plans = (
+                    Q(
+                        culture__project_id=self.project_id,
+                        culture__crop_species_id=self.crop_species_id,
+                        culture__variety_normalized__isnull=False,
+                    )
+                    & inherited_timing
+                )
+
+        return (
+            PlantingPlan.objects
+            .filter(direct_plans | inherited_plans)
+            .select_related('culture')
+        )
 
     def _generate_display_color(self) -> str:
         """Generate a display color using a Golden Angle HSL strategy."""

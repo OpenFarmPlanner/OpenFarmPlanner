@@ -422,6 +422,69 @@ def test_plan_list_serves_inherited_timing_and_cultivation_metadata():
 
 
 @pytest.mark.django_db
+def test_plan_list_derives_missing_stored_harvest_dates_from_inherited_timing():
+    client, project, sorte, bed = _inheritance_fixture('inherit-derived-snapshot')
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(harvest_date=None, harvest_end_date=None)
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-10'
+    assert row['harvest_end_date'] == '2026-07-01'
+
+
+@pytest.mark.django_db
+def test_plan_list_keeps_harvest_dates_null_when_effective_timing_is_missing():
+    client, project, sorte, bed = _inheritance_fixture('inherit-missing-effective')
+    general = Culture.objects.get(project=project, crop_species=sorte.crop_species, variety='')
+    general.harvest_duration_days = None
+    general.save(update_fields=['harvest_duration_days'])
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2026, 7, 1))
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-10'
+    assert row['harvest_end_date'] is None
+
+
+@pytest.mark.django_db
+def test_plan_list_preserves_stored_harvest_dates_over_derived_values():
+    client, project, sorte, bed = _inheritance_fixture('inherit-stored-wins')
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(
+        harvest_date=date(2026, 6, 15),
+        harvest_end_date=date(2026, 7, 10),
+    )
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-15'
+    assert row['harvest_end_date'] == '2026-07-10'
+
+
+@pytest.mark.django_db
 def test_an_own_sorte_value_still_wins_over_the_general_kultur():
     client, project, sorte, bed = _inheritance_fixture('inherit-override')
     sorte.harvest_duration_days = 3
