@@ -252,6 +252,38 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(screen.queryByRole('option', { name: /als neue Kulturart vorschlagen/i })).not.toBeInTheDocument();
   });
 
+  it('matches regional species aliases and keeps the explicit proposal option available', async () => {
+    cropSpeciesListMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [{
+          id: 9,
+          name: 'Tomate',
+          display_name: 'Tomate',
+          status: 'published',
+          translations: [{
+            language_code: 'de',
+            common_name: 'Tomate',
+            synonyms: ['Paradeis'],
+            regional_names: { austria: 'Paradeiser' },
+          }],
+        }],
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.clear(speciesInput);
+    await user.type(speciesInput, 'Paradeiser');
+
+    expect(await screen.findByRole('option', { name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Paradeiser.*als neue Kulturart vorschlagen/i })).toBeInTheDocument();
+  });
+
   it('shows an inline error when proposing a species fails', async () => {
     cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
     cropSpeciesProposeMock.mockRejectedValue({

@@ -64,9 +64,9 @@ const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.displa
  * crop species. It is appended to the species dropdown as the last entry
  * whenever something is typed — also when the search *does* match official
  * species, because a partial match ("Kürbis" matching "Kürbisgewächse") must
- * not hide the escape hatch. The one case it is suppressed in is an exact
- * (case-insensitive) hit: proposing a name that already exists can only be
- * rejected server-side.
+ * not hide the escape hatch. The one case it is suppressed in is an exact hit
+ * on the visible/canonical species label: aliases still show the existing
+ * match and keep the explicit "propose" escape hatch available.
  *
  * Picking it does not talk to the server. It puts the dialog into
  * "propose a new species" mode and the proposal is submitted together with the
@@ -85,11 +85,29 @@ const isProposeSpeciesOption = (option: SpeciesPickerOption): option is ProposeS
   'proposeName' in option
 );
 
+const getCropSpeciesSearchText = (option: SpeciesPickerOption): string => {
+  if (isProposeSpeciesOption(option)) {
+    return option.proposeName;
+  }
+  const values = [
+    option.name,
+    option.display_name,
+    ...(option.translations ?? []).flatMap((translation) => [
+      translation.common_name,
+      ...(translation.synonyms ?? []),
+      ...Object.values(translation.regional_names ?? {}),
+    ]),
+  ];
+  return values.filter(Boolean).join(' ');
+};
+
 const getSpeciesPickerOptionLabel = (option: SpeciesPickerOption): string => (
   isProposeSpeciesOption(option) ? option.proposeName : getCropSpeciesOptionLabel(option)
 );
 
-const filterSpeciesOptions = createFilterOptions<SpeciesPickerOption>();
+const filterSpeciesOptions = createFilterOptions<SpeciesPickerOption>({
+  stringify: getCropSpeciesSearchText,
+});
 
 const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined): CropSpecies | null => {
   const cultureSpeciesId = culture?.crop_species ?? null;

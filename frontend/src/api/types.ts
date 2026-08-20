@@ -492,7 +492,12 @@ export interface CropSpecies {
   name: string;
   display_name?: string;
   display_language_code?: string;
-  translations?: Array<{ language_code: string; common_name: string }>;
+  translations?: Array<{
+    language_code: string;
+    common_name: string;
+    synonyms?: string[];
+    regional_names?: Record<string, string>;
+  }>;
   status: 'published' | 'proposed' | 'rejected';
   proposed_by_label?: string;
   reviewed_by_label?: string;

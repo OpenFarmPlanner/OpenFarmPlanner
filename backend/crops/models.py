@@ -7,6 +7,9 @@ from django.db import models
 from django.db.models import Q
 
 
+SUPPORTED_REGIONAL_NAME_KEYS = {'austria', 'switzerland'}
+
+
 class CropSpecies(models.Model):
     """Official language-independent species used at the publishing boundary.
 
@@ -83,7 +86,7 @@ class CropSpecies(models.Model):
             if translation.common_name
         }
 
-    def localized_name(self, language_code: str | None) -> tuple[str, str]:
+    def localized_name(self, language_code: str | None, region: str | None = None) -> tuple[str, str]:
         """Best available common name plus the language it came from.
 
         Fallback order is the project-wide one (requested → English → any
@@ -94,11 +97,13 @@ class CropSpecies(models.Model):
         """
         from config.languages import resolve_translation
 
-        return resolve_translation(
-            self.translations_by_language(),
-            language_code,
-            fallback=self.name,
-        )
+        translations = list(self.translations.all())
+        values_by_language = {
+            translation.language_code: translation.display_name_for_region(region)
+            for translation in translations
+            if translation.common_name
+        }
+        return resolve_translation(values_by_language, language_code, fallback=self.name)
 
     def __str__(self) -> str:
         return self.name
@@ -121,6 +126,9 @@ class CropSpeciesTranslation(models.Model):
     language_code = models.CharField(max_length=10, db_index=True)
     common_name = models.CharField(max_length=200)
     common_name_normalized = models.CharField(max_length=200, db_index=True, editable=False)
+    synonyms = models.JSONField(default=list, blank=True)
+    regional_names = models.JSONField(default=dict, blank=True)
+    search_text_normalized = models.TextField(blank=True, db_index=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -141,7 +149,78 @@ class CropSpeciesTranslation(models.Model):
         self.language_code = (self.language_code or '').strip().lower()
         self.common_name = ' '.join((self.common_name or '').split())
         self.common_name_normalized = normalize_text(self.common_name) or ''
+        self.synonyms = self._clean_synonyms(self.synonyms)
+        self.regional_names = self._clean_regional_names(self.regional_names)
+        self.search_text_normalized = self._build_search_text_normalized()
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {
+                'common_name',
+                'common_name_normalized',
+                'language_code',
+                'regional_names',
+                'search_text_normalized',
+                'synonyms',
+            }
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def _clean_synonyms(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for entry in value:
+            if not isinstance(entry, str):
+                continue
+            synonym = ' '.join(entry.split())
+            key = synonym.casefold()
+            if synonym and key not in seen:
+                cleaned.append(synonym)
+                seen.add(key)
+        return cleaned
+
+    @staticmethod
+    def _clean_regional_names(value: Any) -> dict[str, str]:
+        if not isinstance(value, dict):
+            return {}
+        cleaned: dict[str, str] = {}
+        for key, raw_name in value.items():
+            region = str(key or '').strip().lower()
+            if region not in SUPPORTED_REGIONAL_NAME_KEYS or not isinstance(raw_name, str):
+                continue
+            name = ' '.join(raw_name.split())
+            if name:
+                cleaned[region] = name
+        return cleaned
+
+    def display_name_for_region(self, region: str | None) -> str:
+        """Return the region-specific display name, falling back to the canonical name."""
+        region_key = (region or '').strip().lower()
+        if region_key in SUPPORTED_REGIONAL_NAME_KEYS:
+            regional_name = self.regional_names.get(region_key)
+            if isinstance(regional_name, str) and regional_name:
+                return regional_name
+        return self.common_name
+
+    def _build_search_text_normalized(self) -> str:
+        from farm.utils import normalize_text
+
+        terms = [
+            self.common_name,
+            *self.synonyms,
+            *[
+                value
+                for value in self.regional_names.values()
+                if isinstance(value, str)
+            ],
+        ]
+        normalized_terms = []
+        for term in terms:
+            normalized = normalize_text(term)
+            if normalized:
+                normalized_terms.append(normalized)
+        return '\n' + '\n'.join(dict.fromkeys(normalized_terms)) + '\n' if normalized_terms else ''
 
     def __str__(self) -> str:
         return f'{self.language_code}: {self.common_name}'
