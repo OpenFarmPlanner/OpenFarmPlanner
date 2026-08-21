@@ -178,6 +178,7 @@
     "cultureNameConflict": "Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.",
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
     "existingCropHint": "Die Kultur „{{name}}“ gibt es in diesem Projekt bereits. Du kannst ihr stattdessen eine neue Sorte hinzufügen.",
+    "existingCropFirstVarietyHint": "„{{variety}}“ wird als neue Sorte zur bestehenden Kultur „{{name}}“ hinzugefügt.",
     "existingCropAddVarietyAction": "Sorte hinzufügen",
     "publicCultureAutocompleteHelp": "Öffentliche Kulturen werden vorgeschlagen, Freitext ist jederzeit möglich.",
     "publicCultureSourceHint": "Basiswerte wurden aus der Kulturbibliothek übernommen und können in dieser Kultur angepasst werden.",

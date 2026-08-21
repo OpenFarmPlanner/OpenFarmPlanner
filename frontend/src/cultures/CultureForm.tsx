@@ -1337,17 +1337,22 @@ export function CultureForm({
                 <PublicCultureSourceHint text={t('form.firstVarietySourceHint')} />
               ) : null}
               existingCropHint={existingPrivateCrop ? (
-                <Alert
-                  severity="info"
-                  data-testid="culture-existing-crop-hint"
-                  action={(
-                    <Button color="inherit" size="small" onClick={handleSwitchToAddVariety}>
-                      {t('form.existingCropAddVarietyAction')}
-                    </Button>
-                  )}
-                >
-                  {t('form.existingCropHint', { name: existingPrivateCrop.name })}
-                </Alert>
+	                <Alert
+	                  severity="info"
+	                  data-testid="culture-existing-crop-hint"
+	                  action={!hasFirstVarietyName ? (
+	                    <Button color="inherit" size="small" onClick={handleSwitchToAddVariety}>
+	                      {t('form.existingCropAddVarietyAction')}
+	                    </Button>
+	                  ) : undefined}
+	                >
+	                  {hasFirstVarietyName
+	                    ? t('form.existingCropFirstVarietyHint', {
+	                      variety: firstVarietyName.trim(),
+	                      name: existingPrivateCrop.name,
+	                    })
+	                    : t('form.existingCropHint', { name: existingPrivateCrop.name })}
+	                </Alert>
               ) : null}
               nameOptions={isProjectForm ? nameOptions : undefined}
               nameOptionsLoading={publicCultureOptionsLoading}

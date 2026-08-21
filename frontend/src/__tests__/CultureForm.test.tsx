@@ -988,8 +988,8 @@ describe('CultureForm', () => {
     expect(screen.getByLabelText('first-variety-input')).toBeInTheDocument();
   });
 
-  it('offers switching to the add-variety flow when the crop name already exists privately', async () => {
-    const onSwitchToAddVariety = vi.fn();
+	  it('offers switching to the add-variety flow when the crop name already exists privately', async () => {
+	    const onSwitchToAddVariety = vi.fn();
 
     render(
       <CultureForm
@@ -1003,13 +1003,42 @@ describe('CultureForm', () => {
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: ' karotte ' } });
 
-    const hint = await screen.findByTestId('culture-existing-crop-hint');
-    expect(hint).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' }));
+	    const hint = await screen.findByTestId('culture-existing-crop-hint');
+	    expect(hint).toBeInTheDocument();
+	    expect(hint).toHaveTextContent('form.existingCropHint');
+	    fireEvent.click(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' }));
 
-    // The species-level row is the correct parent for the add-variety flow.
-    expect(onSwitchToAddVariety).toHaveBeenCalledWith(expect.objectContaining({ id: 9, variety: '' }));
-  });
+	    // The species-level row is the correct parent for the add-variety flow.
+	    expect(onSwitchToAddVariety).toHaveBeenCalledWith(expect.objectContaining({ id: 9, variety: '' }));
+	  });
+
+	  it('turns the existing-crop hint into confirmation once a first variety is entered', async () => {
+	    render(
+	      <CultureForm
+	        formKind="crop"
+	        cultures={[{ id: 9, name: 'Karotte', variety: '' } as Culture]}
+	        onSave={vi.fn()}
+	        onCancel={() => {}}
+	        onSwitchToAddVariety={vi.fn()}
+	      />
+	    );
+
+	    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+
+	    const hint = await screen.findByTestId('culture-existing-crop-hint');
+	    expect(hint).toHaveTextContent('form.existingCropHint');
+	    expect(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' })).toBeInTheDocument();
+
+	    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Faraday' } });
+
+	    expect(await screen.findByTestId('culture-existing-crop-hint')).toHaveTextContent('form.existingCropFirstVarietyHint');
+	    expect(screen.queryByRole('button', { name: 'form.existingCropAddVarietyAction' })).not.toBeInTheDocument();
+
+	    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: '' } });
+
+	    expect(await screen.findByTestId('culture-existing-crop-hint')).toHaveTextContent('form.existingCropHint');
+	    expect(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' })).toBeInTheDocument();
+	  });
 
   it('shows no existing-crop hint for a name the project does not use yet', async () => {
     render(
