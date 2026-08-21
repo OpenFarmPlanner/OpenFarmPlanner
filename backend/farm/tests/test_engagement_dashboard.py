@@ -58,6 +58,15 @@ class EngagementDashboardTests(TestCase):
         self.assertContains(response, 'Nutzungsübersicht')
         self.assertContains(response, self.active_project.name)
 
+    def test_dashboard_link_is_on_project_list_for_superusers(self) -> None:
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(reverse('admin:farm_project_changelist'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('admin:farm_project_engagement'))
+        self.assertContains(response, 'Nutzungsübersicht')
+
     def test_dashboard_rejects_non_superusers(self) -> None:
         staff_user = get_user_model().objects.create_user(
             username='staff',
