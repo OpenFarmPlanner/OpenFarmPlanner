@@ -1388,7 +1388,7 @@ export function CultureForm({
                   </Box>
                 </AppTooltip>
               ) : null}
-              identityHint={isProjectForm && formData.source_public_culture ? (
+              identityHint={isProjectForm && formData.source_public_culture && !hasFirstVarietyName ? (
                 <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />

@@ -172,7 +172,7 @@
     "varietyRequired": "Variety is required",
     "firstVarietyLabel": "Variety (optional)",
     "firstVarietyPlaceholder": "e.g. cherry tomato",
-    "firstVarietyHelperText": "If you enter a variety name, a first variety is created together with the crop, using the values entered above as its starting values.",
+    "firstVarietyHelperText": "If you enter a variety name, a separate variety is created.",
     "copyValuesToCulture": "Also use values as general crop defaults",
     "copyValuesToCultureDisabledTooltip": "Only relevant when a variety is specified.",
     "duplicateNameVariety": "A crop with this name and variety already exists in this project.",

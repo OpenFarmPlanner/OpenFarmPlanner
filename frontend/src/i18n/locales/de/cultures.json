@@ -172,7 +172,7 @@
     "varietyRequired": "Sorte ist erforderlich",
     "firstVarietyLabel": "Sorte (optional)",
     "firstVarietyPlaceholder": "z.B. Cherrytomate",
-    "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird zusammen mit der Kultur eine erste Sorte angelegt, die die oben eingegebenen Werte als Startwerte übernimmt.",
+    "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird eine eigene Sorte angelegt.",
     "copyValuesToCulture": "Werte auch als allgemeine Kulturwerte übernehmen",
     "copyValuesToCultureDisabledTooltip": "Nur relevant, wenn eine Sorte angegeben ist.",
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
