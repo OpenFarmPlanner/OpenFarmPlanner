@@ -62,7 +62,11 @@ def cleanup_local_test_data() -> LocalTestDataCleanupPlan:
     plan = build_local_test_data_cleanup_plan()
     with transaction.atomic():
         _local_e2e_public_cultures().delete()
-        for demo_session in GuestDemoSession.objects.select_related('user', 'project').iterator():
+        # Materialized up front: delete_guest_demo_session() cascades through
+        # `user`/`project` (both OneToOneField(on_delete=CASCADE)), which deletes
+        # the very GuestDemoSession row an open .iterator() cursor would still be
+        # reading, risking skipped rows.
+        for demo_session in list(GuestDemoSession.objects.select_related('user', 'project')):
             delete_guest_demo_session(demo_session)
         _local_test_projects().delete()
         _local_test_users().delete()

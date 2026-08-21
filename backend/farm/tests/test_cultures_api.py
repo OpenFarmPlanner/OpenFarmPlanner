@@ -8,6 +8,7 @@ from crops.models import CropSpecies
 from farm.models import (
     Culture,
     CultureSupplierData,
+    EntityRevision,
     PlantingPlan,
     Project,
     PublicCulture,
@@ -284,6 +285,73 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(general.nutrient_demand, 'high')
         self.assertEqual(general.rotation_break_years, 6)
 
+    def test_creating_first_variety_skips_auto_general_when_name_taken_by_other_species(self):
+        tomato_species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        pepper_species = CropSpecies.objects.create(name='Capsicum annuum')
+        Culture.objects.create(name='Tomate', variety='', project=self.project, crop_species=None)
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomate',
+                'variety': 'San Marzano',
+                'crop_species': tomato_species.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(
+            Culture.objects.filter(
+                project=self.project,
+                crop_species=tomato_species,
+                variety_normalized__isnull=True,
+            ).exists()
+        )
+        # Sanity check: a differently-named variety for an unrelated species
+        # still gets its own auto-created general culture as usual.
+        other_response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Paprika',
+                'variety': 'Sweet',
+                'crop_species': pepper_species.id,
+            },
+            format='json',
+        )
+        self.assertEqual(other_response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            Culture.objects.filter(
+                project=self.project,
+                crop_species=pepper_species,
+                variety_normalized__isnull=True,
+            ).exists()
+        )
+
+    def test_creating_first_variety_attributes_actor_to_auto_created_general_culture(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {'name': 'Tomato', 'variety': 'Matina', 'crop_species': species.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        revision = (
+            EntityRevision.objects
+            .filter(project=self.project, entity_type='culture', object_id=general.id)
+            .order_by('-id')
+            .first()
+        )
+        self.assertIsNotNone(revision)
+        self.assertTrue(revision.user_name)
+
     def test_updating_linked_variety_copies_species_fields_only(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
         general = Culture.objects.create(
@@ -360,6 +428,25 @@ class CultureApiTest(ProjectApiTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['code'], 'culture_name_conflict')
+
+    def test_culture_create_aggregates_name_conflict_with_other_validation_errors(self):
+        existing = Culture.objects.create(
+            name='General Duplicate Culture',
+            variety='',
+            project=self.project,
+        )
+        data = {
+            'name': existing.name,
+            'variety': '',
+            'project': self.project.id,
+            'cultivation_types': ['not_a_real_type'],
+        }
+
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('name', response.data)
+        self.assertIn('cultivation_types', response.data)
 
     def test_culture_create_and_update_general_data_with_null_variety(self):
         response = self.client.post(
@@ -469,18 +556,18 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('name', response.data)
 
     def test_culture_duplicate_check_is_project_scoped_and_excludes_public_cultures(self):
-        Culture.objects.create(name='Tomate', variety='Roma', project=self.project)
+        Culture.objects.create(name='Tomate', variety='', project=self.project)
         other_project = Project.objects.create(name='Other Project', slug='other-project')
-        Culture.objects.create(name='Paprika', variety='Sweet', project=other_project)
+        Culture.objects.create(name='Paprika', variety='', project=other_project)
         PublicCulture.objects.create(name='Bohne', variety='Neckargold', status='published')
 
         matching_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
-            {'name': ' tomate ', 'variety': 'ROMA'},
+            {'name': ' tomate ', 'variety': ''},
         )
         other_project_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
-            {'name': 'Paprika', 'variety': 'Sweet'},
+            {'name': 'Paprika', 'variety': ''},
         )
         public_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
@@ -505,6 +592,19 @@ class CultureApiTest(ProjectApiTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['exists'])
+
+    def test_culture_duplicate_check_name_exists_ignores_variety_only_matches(self):
+        Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project)
+        Culture.objects.create(name='Karotte', variety='Milan', project=self.project)
+
+        response = self.client.get(
+            '/openfarmplanner/api/cultures/duplicate-check/',
+            {'name': 'Karotte', 'variety': ''},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['exists'])
+        self.assertFalse(response.data['name_exists'])
 
     def test_public_culture_match_returns_exact_normalized_match(self):
         PublicCulture.objects.create(name='Tomate', variety='Roma', status='published')

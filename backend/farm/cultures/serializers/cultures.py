@@ -596,7 +596,7 @@ class CultureSerializer(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 culture = super().create(validated_data)
-                ensure_general_culture_for_variety(
+                culture._auto_general_culture = ensure_general_culture_for_variety(
                     culture,
                     copy_values=copy_values_to_culture,
                 )
@@ -631,7 +631,7 @@ class CultureSerializer(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 culture = super().update(instance, validated_data)
-                ensure_general_culture_for_variety(culture)
+                culture._auto_general_culture = ensure_general_culture_for_variety(culture)
         except IntegrityError as exc:
             self._raise_name_conflict_if_general_name_constraint(exc)
             raise
@@ -750,7 +750,7 @@ class CultureSerializer(serializers.ModelSerializer):
         """
         errors = {}
 
-        self._validate_name_and_duplicates(attrs, errors)
+        general_name_conflict = self._validate_name_and_duplicates(attrs, errors)
         cultivation_types = self._validate_cultivation_types(attrs, errors)
         self._apply_seed_requirements_alias(attrs, errors, cultivation_types)
         self._validate_seed_rate_by_cultivation(attrs, errors, cultivation_types)
@@ -758,6 +758,8 @@ class CultureSerializer(serializers.ModelSerializer):
         self._validate_supplier_data_rows(attrs, errors)
         self._resolve_supplier_from_name(attrs)
         self._normalize_variety(attrs)
+        if general_name_conflict and set(errors) == {'name'}:
+            raise CultureNameConflict()
         if errors:
             raise serializers.ValidationError(errors)
 
@@ -794,8 +796,15 @@ class CultureSerializer(serializers.ModelSerializer):
             project = self.instance.project
         return project
 
-    def _validate_name_and_duplicates(self, attrs, errors):
-        """Require a name and reject duplicate culture identities per project."""
+    def _validate_name_and_duplicates(self, attrs, errors) -> bool:
+        """Require a name and reject duplicate culture identities per project.
+
+        Returns whether the only problem found was a general-culture name
+        conflict, so ``validate()`` can still raise the dedicated
+        ``CultureNameConflict`` (409) for that case alone, while any other
+        validation errors discovered by later phases get aggregated into the
+        normal ``errors`` dict instead of being swallowed by an early raise.
+        """
         from farm.utils import normalize_text
 
         raw_name = attrs.get(
@@ -810,12 +819,12 @@ class CultureSerializer(serializers.ModelSerializer):
         normalized_variety = normalize_text(raw_variety)
         if not normalized_name:
             errors['name'] = 'Name is required.'
-            return
+            return False
         attrs['name'] = ' '.join(str(raw_name).split())
         attrs['variety'] = ' '.join(str(raw_variety or '').split())
         project = self._resolve_project(attrs, instance_first=False)
         if project is None:
-            return
+            return False
 
         # Keep existing duplicate records editable when the normalized identity is
         # unchanged on update. This preserves compatibility with legacy data that
@@ -825,7 +834,7 @@ class CultureSerializer(serializers.ModelSerializer):
             and normalize_text(getattr(self.instance, 'name', None)) == normalized_name
             and normalize_text(getattr(self.instance, 'variety', None)) == normalized_variety
         ):
-            return
+            return False
         if normalized_variety is None:
             existing_general_query = Culture.all_objects.filter(
                 project=project,
@@ -835,7 +844,8 @@ class CultureSerializer(serializers.ModelSerializer):
             if self.instance is not None:
                 existing_general_query = existing_general_query.exclude(pk=self.instance.pk)
             if existing_general_query.exists():
-                raise CultureNameConflict()
+                errors['name'] = 'A general culture with this name already exists in this project.'
+                return True
         existing_name_query = Culture.all_objects.filter(
             project=project,
             deleted_at__isnull=True,
@@ -846,6 +856,7 @@ class CultureSerializer(serializers.ModelSerializer):
             existing_name_query = existing_name_query.exclude(pk=self.instance.pk)
         if existing_name_query.exists():
             errors['name'] = 'A culture with this name and variety already exists.'
+        return False
 
     @staticmethod
     def _raise_name_conflict_if_general_name_constraint(exc: IntegrityError) -> None:

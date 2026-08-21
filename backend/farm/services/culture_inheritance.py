@@ -16,6 +16,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from django.db.models import Q
+
 from farm.models import Culture
 from farm.models.cultures import compute_plants_per_m2
 
@@ -111,17 +113,35 @@ def ensure_general_culture_for_variety(
         CULTURE_SPECIES_INVARIANT_FIELDS
         + (CULTURE_OPTIONAL_GENERAL_COPY_FIELDS if copy_values else ())
     )
+    general_row_q = Q(variety_normalized__isnull=True) | Q(variety_normalized='')
     general = (
         Culture.objects
         .filter(
+            general_row_q,
             project_id=variety.project_id,
             crop_species_id=variety.crop_species_id,
-            variety_normalized__isnull=True,
         )
         .order_by('pk')
         .first()
     )
     if general is None:
+        # unique_general_culture_name_per_project scopes by name alone, not by
+        # crop_species, so a general Kultur for an unrelated species can already
+        # own this name. Creating one here would collide with that constraint;
+        # skip auto-creation instead of failing the variety save over a name
+        # that isn't this variety's to claim.
+        name_taken_by_other_species = (
+            Culture.objects
+            .filter(
+                general_row_q,
+                project_id=variety.project_id,
+                name_normalized=variety.name_normalized,
+            )
+            .exclude(crop_species_id=variety.crop_species_id)
+            .exists()
+        )
+        if name_taken_by_other_species:
+            return None
         defaults: dict[str, Any] = {
             field: getattr(variety, field)
             for field in fields_to_copy

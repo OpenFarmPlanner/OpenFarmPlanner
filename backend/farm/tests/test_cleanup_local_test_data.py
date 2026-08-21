@@ -50,6 +50,18 @@ class CleanupLocalTestDataCommandTests(TestCase):
         self.assertFalse(PublicCulture.objects.exists())
         self.assertFalse(GuestDemoSession.objects.exists())
 
+    def test_confirm_deletes_all_guest_demo_sessions_despite_cascading_deletes(self) -> None:
+        # Regression test: cleanup_local_test_data() used to iterate
+        # GuestDemoSession.objects.iterator() while the loop body cascade-deleted
+        # rows from that same table, risking a skipped row under the open
+        # cursor. Several sessions make that skip observable.
+        sessions = [self._create_guest_demo_fixture(str(index)) for index in range(5)]
+
+        output = StringIO()
+        call_command('cleanup_local_test_data', '--confirm', stdout=output)
+
+        self.assertFalse(GuestDemoSession.objects.filter(id__in=[session.id for session in sessions]).exists())
+
     @override_settings(DEBUG=True, DJANGO_ENV='test')
     def test_command_is_blocked_outside_development_settings(self) -> None:
         with self.assertRaisesMessage(RuntimeError, 'only allowed'):
@@ -101,13 +113,13 @@ class CleanupLocalTestDataCommandTests(TestCase):
         ProjectMembership.objects.create(user=user, project=project, role=ProjectMembership.ROLE_ADMIN)
         return project, user
 
-    def _create_guest_demo_fixture(self) -> GuestDemoSession:
+    def _create_guest_demo_fixture(self, suffix: str = '') -> GuestDemoSession:
         user = User.objects.create_user(
-            username='demo_cleanup',
-            email='demo-cleanup@example.invalid',
+            username=f'demo_cleanup{suffix}',
+            email=f'demo-cleanup{suffix}@example.invalid',
             password=None,
         )
-        project = Project.objects.create(name='Guest Demo', slug='guest-demo-cleanup')
+        project = Project.objects.create(name=f'Guest Demo{suffix}', slug=f'guest-demo-cleanup{suffix}')
         ProjectMembership.objects.create(user=user, project=project, role=ProjectMembership.ROLE_ADMIN)
         return GuestDemoSession.objects.create(
             user=user,

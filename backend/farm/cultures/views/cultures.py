@@ -158,6 +158,9 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         instance = serializer.save(project=self.request.active_project)
         self._set_latest_revision_actor(instance)
+        auto_general_culture = getattr(instance, '_auto_general_culture', None)
+        if auto_general_culture is not None:
+            self._set_latest_revision_actor(auto_general_culture)
 
     def get_queryset(self):
         include_deleted = self.request.query_params.get('include_deleted') in {'1', 'true', 'True'}
@@ -203,10 +206,21 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
 
         name_queryset = queryset.filter(name_normalized=normalized_name)
         identity_queryset = name_queryset.filter(variety_normalized=normalized_variety)
+        # `name_exists` drives the "a general culture with this name already
+        # exists" warning for crop creation, which mirrors what
+        # `unique_general_culture_name_per_project` actually forbids — a
+        # varietyless row with this name. It must not fire just because
+        # variety-only rows (no general entry) happen to share the name, or
+        # creating a general culture over an existing variety-only group
+        # (see the cascade-delete "group without general" case) would be
+        # blocked even though the backend allows it.
+        general_name_queryset = name_queryset.filter(
+            Q(variety_normalized__isnull=True) | Q(variety_normalized='')
+        )
 
         return Response({
             'exists': identity_queryset.exists(),
-            'name_exists': name_queryset.exists(),
+            'name_exists': general_name_queryset.exists(),
         })
 
     @action(detail=False, methods=['get'], url_path='seed-rate-constraints')
@@ -563,6 +577,9 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             updated = serializer.save()
             self._set_latest_revision_actor(updated)
+            auto_general_culture = getattr(updated, '_auto_general_culture', None)
+            if auto_general_culture is not None:
+                self._set_latest_revision_actor(auto_general_culture)
             if updated.name != old_name:
                 self._rename_sibling_cultures(updated, old_name, old_crop_species_id)
         if previous_media_id and previous_media_id != updated.image_file_id:
