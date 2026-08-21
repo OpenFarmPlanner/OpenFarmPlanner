@@ -42,6 +42,25 @@ pdm run createsuperuser
 pdm run compilemessages
 ```
 
+### Cleaning Local Test Data
+
+Local E2E and demo runs can leave many projects and users in the development
+database. Preview the cleanup first:
+
+```bash
+DEBUG=True DJANGO_ENV=development pdm run python manage.py cleanup_local_test_data
+```
+
+Then delete the selected local fixtures explicitly:
+
+```bash
+DEBUG=True DJANGO_ENV=development pdm run python manage.py cleanup_local_test_data --confirm
+```
+
+The command is intentionally limited to development settings and only targets
+known local fixture markers such as E2E users, guest demo sessions, and
+reproducible demo/hint projects. It is not production retention automation.
+
 ### Making Model Changes
 1. Edit models in `farm/models/` (one module per domain)
 2. Create migrations:
