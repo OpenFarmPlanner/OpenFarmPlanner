@@ -833,6 +833,17 @@ class Culture(TimestampedModel):
                 violation_error_message=(
                     'A culture with this name, variety, and supplier already exists.'
                 )
+            ),
+            models.UniqueConstraint(
+                fields=['project', 'name_normalized'],
+                condition=(
+                    models.Q(deleted_at__isnull=True)
+                    & (models.Q(variety_normalized__isnull=True) | models.Q(variety_normalized=''))
+                ),
+                name='unique_general_culture_name_per_project',
+                violation_error_message=(
+                    'A general culture with this name already exists in this project.'
+                )
             )
         ]
 

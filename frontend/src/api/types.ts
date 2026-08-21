@@ -469,6 +469,7 @@ export interface GeneralCropNotice {
 
 export interface CultureDuplicateCheckResponse {
   exists: boolean;
+  name_exists?: boolean;
 }
 
 export interface PublicCultureMatchResponse {

@@ -45,7 +45,7 @@ import { AppTooltip } from '../components/AppTooltip';
 import { hasEffectiveCultureFormChanges } from './cultureFormChangeDetection';
 import { validateCulture } from './validation';
 import { normalizeSeedRateUnit } from './enumNormalization';
-import { buildCultureIdentityKey } from './cultureIdentity';
+import { buildCultureIdentityKey, normalizeCultureIdentityValue } from './cultureIdentity';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import { BasicInfoSection } from './sections/BasicInfoSection';
 import { TimingSection } from './sections/TimingSection';
@@ -597,11 +597,15 @@ export function CultureForm({
 
     const name = formData.name ?? '';
     const variety = formData.variety ?? '';
-    const identityKey = buildCultureIdentityKey(name, variety);
-    const originalIdentityKey = buildCultureIdentityKey(
-      culture?.culture_display_name ?? culture?.name,
-      culture?.variety,
-    );
+    const identityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(name)
+      : buildCultureIdentityKey(name, variety);
+    const originalIdentityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(culture?.culture_display_name ?? culture?.name)
+      : buildCultureIdentityKey(
+        culture?.culture_display_name ?? culture?.name,
+        culture?.variety,
+      );
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
     queueMicrotask(() => setDuplicateErrorKey(''));
@@ -631,6 +635,10 @@ export function CultureForm({
           if (duplicateCheckSequenceRef.current !== currentSequence) {
             return;
           }
+          if (formKind === 'crop' && response.data.name_exists) {
+            setDuplicateErrorKey('form.cultureNameConflict');
+            return;
+          }
           setDuplicateErrorKey(response.data.exists ? 'form.duplicateNameVariety' : '');
         })
         .catch(() => {
@@ -653,7 +661,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, formKind, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -1102,10 +1110,14 @@ export function CultureForm({
   };
 
   const supplierRows = formData.supplier_data ?? [];
+  const duplicateErrorField = duplicateErrorKey === 'form.cultureNameConflict' ? 'name' : 'variety';
   const displayErrors = duplicateErrorKey
-    ? { ...errors, variety: errors.variety || t(duplicateErrorKey) }
+    ? { ...errors, [duplicateErrorField]: errors[duplicateErrorField] || t(duplicateErrorKey) }
     : errors;
   const isSaveDisabled = isSaving || !isValid || Boolean(duplicateErrorKey) || isDuplicateChecking;
+  const saveDisabledTooltip = duplicateErrorKey === 'form.cultureNameConflict'
+    ? t('form.cultureNameConflict')
+    : '';
   const isSupplierCreateDialogOpen = supplierCreateTargetIndex !== null;
 
   const handleCreateSupplierClick = useCallback((supplierIndex: number): void => {
@@ -1617,15 +1629,19 @@ export function CultureForm({
           }} disabled={isSaving}>
             {t('form.cancel')}
           </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSaveDisabled}
-          >
-            {isSaving
-              ? t('messages.saving')
-              : isEdit ? t('form.save') : t('form.create')}
-          </Button>
+          <AppTooltip title={saveDisabledTooltip}>
+            <Box component="span">
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={isSaveDisabled}
+              >
+                {isSaving
+                  ? t('messages.saving')
+                  : isEdit ? t('form.save') : t('form.create')}
+              </Button>
+            </Box>
+          </AppTooltip>
         </DialogActions>
       </form>
       <ConfirmationDialog

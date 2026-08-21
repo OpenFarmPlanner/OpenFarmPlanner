@@ -143,10 +143,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         if not normalized_name:
             return Response({'exists': False})
 
-        queryset = self.get_queryset().filter(
-            name_normalized=normalized_name,
-            variety_normalized=normalized_variety,
-        )
+        queryset = self.get_queryset()
         exclude_id = request.query_params.get('exclude_id')
         if exclude_id:
             try:
@@ -154,7 +151,13 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             except (TypeError, ValueError):
                 pass
 
-        return Response({'exists': queryset.exists()})
+        name_queryset = queryset.filter(name_normalized=normalized_name)
+        identity_queryset = name_queryset.filter(variety_normalized=normalized_variety)
+
+        return Response({
+            'exists': identity_queryset.exists(),
+            'name_exists': name_queryset.exists(),
+        })
 
     @action(detail=False, methods=['get'], url_path='seed-rate-constraints')
     def seed_rate_constraints(self, request):

@@ -683,6 +683,25 @@ describe('CultureForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('disables saving a crop while its name already exists in the project', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: false, name_exists: true } });
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Bohne' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Bohne', variety: '', exclude_id: undefined },
+      expect.any(AbortSignal),
+    ));
+    expect(await screen.findByText('form.cultureNameConflict')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'form.create' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('keeps free-text culture names private without requiring a public match', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });
@@ -838,6 +857,7 @@ describe('CultureForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
 
     await waitFor(() => expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -879,6 +899,7 @@ describe('CultureForm', () => {
       { crop_species: 7 },
       expect.any(AbortSignal),
     ));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -909,6 +930,7 @@ describe('CultureForm', () => {
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomate' } });
     await screen.findByRole('button', { name: 'select-first-variety-option' });
     fireEvent.click(screen.getByRole('button', { name: 'select-first-variety-option' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
