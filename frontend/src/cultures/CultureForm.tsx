@@ -635,7 +635,7 @@ export function CultureForm({
           if (duplicateCheckSequenceRef.current !== currentSequence) {
             return;
           }
-          if (formKind === 'crop' && response.data.name_exists) {
+          if (formKind === 'crop' && !hasFirstVarietyName && response.data.name_exists) {
             setDuplicateErrorKey('form.cultureNameConflict');
             return;
           }
@@ -661,7 +661,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, formKind, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, formKind, hasFirstVarietyName, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {

@@ -547,6 +547,56 @@ describe('Cultures save payload', () => {
     expect(varietyPayload.copy_values_to_culture).toBe(true);
   });
 
+  it('creates only the first variety when the crop name already exists', async () => {
+    listMock
+      .mockResolvedValueOnce({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [{ id: 10, name: 'Bohne', variety: '', crop_species: 6 }],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          count: 2,
+          next: null,
+          previous: null,
+          results: [
+            { id: 10, name: 'Bohne', variety: '', crop_species: 6 },
+            { id: 11, name: 'Bohne', variety: 'Faraday', crop_species: 6 },
+          ],
+        },
+      });
+    createMock.mockResolvedValueOnce({ data: { id: 11, name: 'Bohne', variety: 'Faraday', crop_species: 6 } });
+    saveCultureMock.mockReturnValue({
+      name: 'Bohne',
+      variety: '',
+      crop_species: 6,
+      row_spacing_cm: 30,
+    } as Culture);
+    saveFirstVarietyMock.mockReturnValueOnce({ name: 'Faraday' });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <Cultures />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kultur hinzufügen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'submit-edit' }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
+    const varietyPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(varietyPayload.name).toBe('Bohne');
+    expect(varietyPayload.variety).toBe('Faraday');
+    expect(varietyPayload.crop_species).toBe(6);
+    expect(varietyPayload.row_spacing_cm).toBe(30);
+    await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Bohne, Bohne'));
+  });
+
   it('applies the library draft to the first variety when one was picked from the suggestions', async () => {
     listMock
       .mockResolvedValueOnce({

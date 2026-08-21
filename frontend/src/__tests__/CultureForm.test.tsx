@@ -702,6 +702,26 @@ describe('CultureForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('allows saving an existing crop name when a first variety is entered', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: false, name_exists: true } });
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Bohne' } });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Faraday' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Bohne', variety: '', exclude_id: undefined },
+      expect.any(AbortSignal),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
+    expect(screen.queryByText('form.cultureNameConflict')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
   it('keeps free-text culture names private without requiring a public match', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });

@@ -192,6 +192,24 @@ class CultureApiTest(ProjectApiTestCase):
         response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    def test_culture_create_allows_new_variety_for_existing_general_culture(self):
+        Culture.objects.create(
+            name='Bean',
+            variety='',
+            project=self.project,
+        )
+        data = {
+            'name': 'Bean',
+            'variety': 'Faraday',
+            'project': self.project.id,
+        }
+
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Bean')
+        self.assertEqual(response.data['variety'], 'Faraday')
+
     def test_culture_create_rejects_duplicate_general_name_with_conflict_code(self):
         existing = Culture.objects.create(
             name='General Duplicate Culture',

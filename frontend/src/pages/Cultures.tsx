@@ -54,6 +54,7 @@ import {
 } from '../components/data-grid';
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
 import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
+import { normalizeCultureIdentityValue } from '../cultures/cultureIdentity';
 
 // Stable identity so the memos downstream do not see a new array on every
 // render while no project is selected.
@@ -427,6 +428,13 @@ function Cultures() {
   const handleSave = async (culture: Culture, firstVariety?: FirstVarietyDraft) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
+      const normalizedCultureName = normalizeCultureIdentityValue(culture.name);
+      const existingGeneralCulture = firstVariety && normalizedCultureName
+        ? cultures.find((candidate) => (
+          normalizeCultureIdentityValue(candidate.name) === normalizedCultureName
+          && !(candidate.variety ?? '').trim()
+        ))
+        : undefined;
 
       let savedCulture: Culture;
       if (editingCulture) {
@@ -434,10 +442,15 @@ function Cultures() {
         savedCulture = response.data;
         showSnackbar(t('messages.updateSuccess'), 'success');
       } else {
-        const response = await cultureAPI.create(savePayload as Culture);
-        savedCulture = response.data;
-        // Auto-select the newly created culture
-        updateSelectedCultureId(savedCulture.id, 'internal');
+        if (existingGeneralCulture) {
+          savedCulture = existingGeneralCulture;
+          updateSelectedCultureId(savedCulture.id, 'internal');
+        } else {
+          const response = await cultureAPI.create(savePayload as Culture);
+          savedCulture = response.data;
+          // Auto-select the newly created culture
+          updateSelectedCultureId(savedCulture.id, 'internal');
+        }
 
         if (firstVariety) {
           try {
