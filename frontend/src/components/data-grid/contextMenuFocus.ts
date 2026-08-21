@@ -196,11 +196,15 @@ export function useContextMenuFocus(open: boolean, onClose?: () => void) {
       (firstMenuItem ?? menuList).focus({ preventScroll: true });
     };
 
-    window.requestAnimationFrame(focusFirstMenuItem);
-    window.setTimeout(focusFirstMenuItem, 0);
-    window.setTimeout(focusFirstMenuItem, 40);
+    const animationFrame = window.requestAnimationFrame(focusFirstMenuItem);
+    const immediateTimeout = window.setTimeout(focusFirstMenuItem, 0);
+    const settleTimeout = window.setTimeout(focusFirstMenuItem, 40);
 
-    return undefined;
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(immediateTimeout);
+      window.clearTimeout(settleTimeout);
+    };
   }, [open]);
 
   useEffect(() => {
