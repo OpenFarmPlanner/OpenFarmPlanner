@@ -66,6 +66,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     onVarietyCommit,
     firstVarietyOptions = [],
     onFirstVarietyCommit,
+    identityRowControl,
     existingCropHint,
   }: {
     formData: Partial<Culture>;
@@ -83,6 +84,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     onVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
     firstVarietyOptions?: string[];
     onFirstVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
+    identityRowControl?: ReactNode;
     existingCropHint?: ReactNode;
   }) => (
     <div>
@@ -132,10 +134,11 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
           select-first-variety-option
         </button>
       ) : null}
+      {identityRowControl}
       {showFirstVarietyField ? existingCropHint : null}
       {identityHint}
     </div>
-  ),
+	  ),
 }));
 
 vi.mock('../cultures/sections/SpacingSection', () => ({
@@ -1060,16 +1063,19 @@ describe('CultureForm', () => {
     );
   });
 
-  it('shows the copy-defaults checkbox in the crop form only after a first variety was entered', async () => {
+  it('keeps the copy-defaults checkbox disabled in the crop form until a first variety was entered', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
 
     render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
 
-    expect(screen.queryByRole('checkbox', { name: 'form.copyValuesToCulture' })).not.toBeInTheDocument();
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).toBeDisabled();
+    fireEvent.mouseOver(screen.getByText('form.copyValuesToCulture'));
+    expect(await screen.findByText('form.copyValuesToCultureDisabledTooltip')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
 
-    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).not.toBeDisabled();
     expect(copyCheckbox).not.toBeChecked();
     fireEvent.click(copyCheckbox);
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
@@ -1080,6 +1086,20 @@ describe('CultureForm', () => {
       expect.objectContaining({ name: 'Karotte', variety: '' }),
       { name: 'Nantaise', draft: undefined, copyValuesToCulture: true },
     );
+  });
+
+  it('preserves the checked copy-defaults value when the first variety is cleared', () => {
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(copyCheckbox);
+    expect(copyCheckbox).toBeChecked();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: '' } });
+
+    expect(copyCheckbox).toBeDisabled();
+    expect(copyCheckbox).toBeChecked();
   });
 
   it('shows and still requires the variety field when formKind is variety', async () => {
@@ -1103,9 +1123,11 @@ describe('CultureForm', () => {
 
     const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
     expect(copyCheckbox).not.toBeChecked();
+    expect(copyCheckbox).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    expect(copyCheckbox).not.toBeDisabled();
     fireEvent.click(copyCheckbox);
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
-    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
     await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 

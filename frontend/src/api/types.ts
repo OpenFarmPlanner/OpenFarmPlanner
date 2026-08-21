@@ -199,6 +199,7 @@ export interface Culture {
 export type CultureInheritableField =
   | 'crop_family'
   | 'nutrient_demand'
+  | 'rotation_break_years'
   | 'cultivation_type'
   | 'cultivation_types'
   | 'growth_duration_days'

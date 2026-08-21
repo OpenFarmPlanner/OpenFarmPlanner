@@ -110,6 +110,7 @@ class CultureApiTest(ProjectApiTestCase):
                 'crop_species': species.id,
                 'growth_duration_days': 65,
                 'crop_family': 'Solanaceae',
+                'rotation_break_years': 4,
             },
             format='json',
         )
@@ -122,6 +123,7 @@ class CultureApiTest(ProjectApiTestCase):
         )
         self.assertIsNone(general.growth_duration_days)
         self.assertEqual(general.crop_family, '')
+        self.assertIsNone(general.rotation_break_years)
 
     def test_creating_linked_variety_can_fill_empty_general_culture_fields(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
@@ -134,6 +136,7 @@ class CultureApiTest(ProjectApiTestCase):
                 'crop_species': species.id,
                 'growth_duration_days': 65,
                 'crop_family': 'Solanaceae',
+                'rotation_break_years': 4,
                 'copy_values_to_culture': True,
             },
             format='json',
@@ -147,6 +150,7 @@ class CultureApiTest(ProjectApiTestCase):
         )
         self.assertEqual(general.growth_duration_days, 65)
         self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.rotation_break_years, 4)
 
     def test_copying_variety_values_never_overwrites_general_culture_fields(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
@@ -156,6 +160,7 @@ class CultureApiTest(ProjectApiTestCase):
             project=self.project,
             crop_species=species,
             growth_duration_days=80,
+            rotation_break_years=6,
         )
 
         response = self.client.post(
@@ -166,6 +171,7 @@ class CultureApiTest(ProjectApiTestCase):
                 'crop_species': species.id,
                 'growth_duration_days': 65,
                 'crop_family': 'Solanaceae',
+                'rotation_break_years': 4,
                 'copy_values_to_culture': True,
             },
             format='json',
@@ -175,6 +181,7 @@ class CultureApiTest(ProjectApiTestCase):
         general.refresh_from_db()
         self.assertEqual(general.growth_duration_days, 80)
         self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.rotation_break_years, 6)
 
     def test_culture_create_allows_same_name_with_different_variety(self):
         data = {

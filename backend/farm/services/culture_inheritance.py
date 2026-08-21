@@ -34,6 +34,7 @@ from farm.models.cultures import compute_plants_per_m2
 CULTURE_INHERITABLE_FIELDS: tuple[str, ...] = (
     'crop_family',
     'nutrient_demand',
+    'rotation_break_years',
     'cultivation_type',
     'cultivation_types',
     'growth_duration_days',

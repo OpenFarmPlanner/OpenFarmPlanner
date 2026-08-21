@@ -41,6 +41,7 @@ import { cultureAPI, publicCultureAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
 import { useDialogKeyboardScroll } from '../hooks/useDialogKeyboardScroll';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
+import { AppTooltip } from '../components/AppTooltip';
 import { hasEffectiveCultureFormChanges } from './cultureFormChangeDetection';
 import { validateCulture } from './validation';
 import { normalizeSeedRateUnit } from './enumNormalization';
@@ -349,10 +350,6 @@ export function CultureForm({
   // suggestion, so that variety gets the same source linking as an import.
   const [firstVarietyPublicCulture, setFirstVarietyPublicCulture] = useState<PublicCulture | null>(null);
   const hasFirstVarietyName = firstVarietyName.trim().length > 0;
-  const showCopyValuesToCultureCheckbox = isProjectForm && !isEdit && (
-    formKind === 'variety'
-    || (showFirstVarietyField && hasFirstVarietyName)
-  );
 
   // --- Validation now imported from ../cultures/validation ---
 
@@ -360,7 +357,7 @@ export function CultureForm({
   const saveCulture = async (draft: Partial<Culture>): Promise<Partial<Culture>> => {
     const dataToSave: Culture = {
       ...(draft as Culture),
-      ...(isProjectForm && formKind === 'variety' && !isEdit
+      ...(isProjectForm && formKind === 'variety' && !isEdit && Boolean((draft.variety ?? '').trim())
         ? { copy_values_to_culture: copyValuesToCulture }
         : {}),
     };
@@ -392,6 +389,13 @@ export function CultureForm({
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture, initialDraft));
   const cropIdentityLabel = formData.name ?? '';
+  const hasDirectVarietyName = Boolean((formData.variety ?? '').trim());
+  const hasCopyValuesToCultureTarget = formKind === 'variety' ? hasDirectVarietyName : hasFirstVarietyName;
+  const showCopyValuesToCultureCheckbox = isProjectForm && !isEdit && (
+    formKind === 'variety'
+    || showFirstVarietyField
+  );
+  const copyValuesToCultureDisabled = !hasCopyValuesToCultureTarget;
 
   const selectedSpeciesCulture = useMemo(
     () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
@@ -1354,25 +1358,40 @@ export function CultureForm({
                   onApply={handleApplyVarietySuggestion}
                 />
               ) : null}
+              identityRowControl={showCopyValuesToCultureCheckbox ? (
+                <AppTooltip
+                  title={copyValuesToCultureDisabled ? t('form.copyValuesToCultureDisabledTooltip') : ''}
+                  placement="top-start"
+                >
+                  <Box
+                    component="span"
+                    sx={(theme) => ({
+                      alignSelf: 'flex-start',
+                      opacity: copyValuesToCultureDisabled ? theme.palette.action.disabledOpacity : 1,
+                    })}
+                  >
+                    <FormControlLabel
+                      disabled={copyValuesToCultureDisabled}
+                      control={(
+                        <Checkbox
+                          checked={copyValuesToCulture}
+                          disabled={copyValuesToCultureDisabled}
+                          onChange={(event) => {
+                            setCopyValuesToCulture(event.target.checked);
+                            setIsDirty(true);
+                            setUserInteracted(true);
+                          }}
+                        />
+                      )}
+                      label={t('form.copyValuesToCulture')}
+                    />
+                  </Box>
+                </AppTooltip>
+              ) : null}
               identityHint={isProjectForm && formData.source_public_culture ? (
                 <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />
-            {showCopyValuesToCultureCheckbox ? (
-              <FormControlLabel
-                control={(
-                  <Checkbox
-                    checked={copyValuesToCulture}
-                    onChange={(event) => {
-                      setCopyValuesToCulture(event.target.checked);
-                      setIsDirty(true);
-                      setUserInteracted(true);
-                    }}
-                  />
-                )}
-                label={t('form.copyValuesToCulture')}
-              />
-            ) : null}
             <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
