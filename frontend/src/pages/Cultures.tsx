@@ -123,7 +123,9 @@ function Cultures() {
 
   const {
     deleteDialogCulture,
+    deleteDialogImpact,
     setDeleteDialogCulture,
+    setDeleteDialogImpact,
     pendingCultureDeletions,
     handleDelete,
     handleDeleteConfirm,
@@ -136,6 +138,40 @@ function Cultures() {
     updateSelectedCultureId,
     showSnackbar,
   });
+
+  const deleteDialogMessage = useMemo(() => {
+    if (!deleteDialogCulture) {
+      return '';
+    }
+    const cultureName = getCultureDisplayName(deleteDialogCulture);
+    if (!deleteDialogImpact || deleteDialogImpact.variety_count === 0) {
+      return t('deleteDialog.confirmation', { name: cultureName });
+    }
+
+    const varietyNames = deleteDialogImpact.varieties.map((variety) => variety.name).join(', ');
+    const baseMessage = deleteDialogImpact.group_without_general
+      ? t('deleteDialog.groupOnlyConfirmation', {
+        count: deleteDialogImpact.variety_count,
+        varieties: varietyNames,
+      })
+      : t('deleteDialog.cascadeConfirmation', {
+        name: cultureName,
+        count: deleteDialogImpact.variety_count,
+        varieties: varietyNames,
+      });
+    const planningMessage = deleteDialogImpact.planning_data_count > 0
+      ? t('deleteDialog.planningDataWarning', { count: deleteDialogImpact.planning_data_count })
+      : null;
+
+    return (
+      <>
+        <Box component="span" sx={{ display: 'block' }}>{baseMessage}</Box>
+        {planningMessage ? (
+          <Box component="span" sx={{ display: 'block', mt: 1 }}>{planningMessage}</Box>
+        ) : null}
+      </>
+    );
+  }, [deleteDialogCulture, deleteDialogImpact, t]);
 
   const replaceSavedCulture = useCallback((savedCulture: Culture): void => {
     setCultures((currentCultures) => {
@@ -700,10 +736,13 @@ function Cultures() {
         open={Boolean(deleteDialogCulture)}
         fullWidth
         title={t('deleteDialog.title')}
-        message={t('deleteDialog.confirmation', { name: deleteDialogCulture ? getCultureDisplayName(deleteDialogCulture) : '' })}
+        message={deleteDialogMessage}
         cancelLabel={t('common:actions.cancel')}
         confirmLabel={t('buttons.delete')}
-        onCancel={() => setDeleteDialogCulture(null)}
+        onCancel={() => {
+          setDeleteDialogCulture(null);
+          setDeleteDialogImpact(null);
+        }}
         onConfirm={handleDeleteConfirm}
         titleSx={{ pb: 1 }}
         contentSx={{ pt: 1 }}

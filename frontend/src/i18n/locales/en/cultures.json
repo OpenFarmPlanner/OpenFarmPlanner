@@ -317,12 +317,19 @@
     "exportSuccess": "JSON exported",
     "deleted": "Crop deleted",
     "varietyDeleted": "Variety deleted",
+    "varietiesDeleted": "Varieties deleted",
     "restoreSuccess": "Version restored",
     "restoreError": "Version could not be restored"
   },
   "deleteDialog": {
     "title": "Delete project culture?",
-    "confirmation": "Do you really want to delete the project culture “{{name}}”?"
+    "confirmation": "Do you really want to delete the project culture “{{name}}”?",
+    "cascadeConfirmation_one": "“{{name}}” will be deleted with {{count}} variety: {{varieties}}.",
+    "cascadeConfirmation_other": "“{{name}}” will be deleted with {{count}} varieties: {{varieties}}.",
+    "groupOnlyConfirmation_one": "{{count}} variety will be deleted: {{varieties}}.",
+    "groupOnlyConfirmation_other": "{{count}} varieties will be deleted: {{varieties}}.",
+    "planningDataWarning_one": "{{count}} planning record is affected.",
+    "planningDataWarning_other": "{{count}} planning records are affected."
   },
   "seedDemand": {
     "title": "Seed demand",

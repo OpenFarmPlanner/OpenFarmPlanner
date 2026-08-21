@@ -317,12 +317,19 @@
     "exportSuccess": "JSON exportiert",
     "deleted": "Kultur gelöscht",
     "varietyDeleted": "Sorte gelöscht",
+    "varietiesDeleted": "Sorten gelöscht",
     "restoreSuccess": "Version wiederhergestellt",
     "restoreError": "Version konnte nicht wiederhergestellt werden"
   },
   "deleteDialog": {
     "title": "Projektkultur löschen?",
-    "confirmation": "Möchtest du die Projektkultur „{{name}}“ wirklich löschen?"
+    "confirmation": "Möchtest du die Projektkultur „{{name}}“ wirklich löschen?",
+    "cascadeConfirmation_one": "„{{name}}“ wird mit {{count}} Sorte gelöscht: {{varieties}}.",
+    "cascadeConfirmation_other": "„{{name}}“ wird mit {{count}} Sorten gelöscht: {{varieties}}.",
+    "groupOnlyConfirmation_one": "{{count}} Sorte wird gelöscht: {{varieties}}.",
+    "groupOnlyConfirmation_other": "{{count}} Sorten werden gelöscht: {{varieties}}.",
+    "planningDataWarning_one": "Davon ist {{count}} Planungsdatum betroffen.",
+    "planningDataWarning_other": "Davon sind {{count}} Planungsdaten betroffen."
   },
   "seedDemand": {
     "title": "Saatgutbedarf",

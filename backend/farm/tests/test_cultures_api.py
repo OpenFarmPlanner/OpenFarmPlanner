@@ -99,6 +99,80 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('display_color', response.data)
         self.assertTrue(response.data['display_color'].startswith('#'))
 
+    def test_delete_preview_reports_cascaded_varieties_and_planning_data(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+        PlantingPlan.objects.create(project=self.project, culture=nantaise, bed=self.bed, planting_date=date(2026, 3, 1))
+        PlantingPlan.objects.create(project=self.project, culture=milan, bed=self.bed, planting_date=date(2026, 3, 2))
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{general.id}/delete-preview/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(set(response.data['culture_ids']), {general.id, nantaise.id, milan.id})
+        self.assertEqual(response.data['variety_count'], 2)
+        self.assertEqual(
+            [variety['name'] for variety in response.data['varieties']],
+            ['Nantaise 2', 'Milan'],
+        )
+        self.assertEqual(response.data['planning_data_count'], 2)
+        self.assertTrue(response.data['deletes_general_culture'])
+        self.assertFalse(response.data['group_without_general'])
+
+    def test_deleting_general_culture_cascades_to_its_varieties_and_undo_restores_all(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{general.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        for culture in (general, nantaise, milan):
+            culture.refresh_from_db()
+            self.assertIsNotNone(culture.deleted_at)
+        self.assertEqual(Culture.objects.filter(crop_species=species).count(), 0)
+
+        restore_response = self.client.post(f'/openfarmplanner/api/cultures/{general.id}/undelete/')
+
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
+        for culture in (general, nantaise, milan):
+            culture.refresh_from_db()
+            self.assertIsNone(culture.deleted_at)
+        self.assertEqual(Culture.objects.filter(crop_species=species).count(), 3)
+
+    def test_deleting_variety_group_without_general_cascades_to_sibling_varieties(self):
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project)
+        other = Culture.objects.create(name='Pastinake', variety='Halblange', project=self.project)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{nantaise.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        nantaise.refresh_from_db()
+        milan.refresh_from_db()
+        other.refresh_from_db()
+        self.assertIsNotNone(nantaise.deleted_at)
+        self.assertIsNotNone(milan.deleted_at)
+        self.assertIsNone(other.deleted_at)
+
+    def test_deleting_single_variety_with_general_keeps_sibling_varieties(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{nantaise.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        general.refresh_from_db()
+        nantaise.refresh_from_db()
+        milan.refresh_from_db()
+        self.assertIsNone(general.deleted_at)
+        self.assertIsNotNone(nantaise.deleted_at)
+        self.assertIsNone(milan.deleted_at)
+
     def test_creating_linked_variety_copies_species_fields_only_by_default(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
 

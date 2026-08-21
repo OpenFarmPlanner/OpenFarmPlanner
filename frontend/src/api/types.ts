@@ -472,6 +472,15 @@ export interface CultureDuplicateCheckResponse {
   name_exists?: boolean;
 }
 
+export interface CultureDeletePreview {
+  culture_ids: number[];
+  varieties: Array<{ id: number; name: string }>;
+  variety_count: number;
+  planning_data_count: number;
+  deletes_general_culture: boolean;
+  group_without_general: boolean;
+}
+
 export interface PublicCultureMatchResponse {
   exists: boolean;
   culture: Pick<PublicCulture, 'id' | 'name' | 'variety'> | null;
