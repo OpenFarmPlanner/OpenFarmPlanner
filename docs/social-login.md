@@ -159,6 +159,10 @@ through "Passwort vergessen" first.
 - **Activation and confirmed email changes** additionally record the
   address as verified, which is what keeps linking correct after an email
   change.
+- **Django's user admin** shows whether the user's current primary email is
+  verified, using the existing allauth `EmailAddress` record. allauth stores
+  only the boolean verification flag in the version used by this project; no
+  verification timestamp is currently available to display.
 - **Email change and account deletion** skip the password confirmation for
   accounts that have no usable password — there is nothing to re-enter, and
   the alternative would be that Google/Microsoft users could never delete

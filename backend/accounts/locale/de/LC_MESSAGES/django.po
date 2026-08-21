@@ -13,6 +13,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: accounts/admin.py
+msgid "Primary email verified"
+msgstr "Primäre E-Mail-Adresse bestätigt"
+
 #: accounts/serializers.py:79
 msgid "An account with this email already exists."
 msgstr "Ein Konto mit dieser E-Mail-Adresse existiert bereits."
