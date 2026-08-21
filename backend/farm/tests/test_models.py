@@ -484,9 +484,9 @@ class PlantingPlanModelTest(TestCase):
         self.assertEqual(plan.harvest_end_date, expected_harvest_start + timedelta(days=5))
 
     def test_inheriting_sorte_harvest_dates_recalculate_when_general_culture_timing_changes(self):
-        species = CropSpecies.objects.create(name='Carrot')
+        species = CropSpecies.objects.create(name='Parsnip')
         general_culture = Culture.objects.create(
-            name='Carrot',
+            name='Parsnip',
             variety='',
             crop_species=species,
             growth_duration_days=70,
@@ -494,13 +494,13 @@ class PlantingPlanModelTest(TestCase):
             project=self.project,
         )
         sorte = Culture.objects.create(
-            name='Carrot',
+            name='Parsnip',
             variety='Nantaise',
             crop_species=species,
             project=self.project,
         )
         own_harvest_sorte = Culture.objects.create(
-            name='Carrot',
+            name='Parsnip',
             variety='Nantaise Early',
             crop_species=species,
             harvest_duration_days=5,

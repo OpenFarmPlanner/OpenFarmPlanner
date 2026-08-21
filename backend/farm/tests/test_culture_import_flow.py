@@ -276,7 +276,7 @@ class TransactionalExecutionTests(CultureImportFlowTestCase):
     def test_a_serializer_rejection_rolls_back_earlier_rows(self):
         draft = self.preview(
             {'name': 'Guter Datensatz', 'row_spacing_cm': 50},
-            {'name': 'Schlechter Datensatz', 'supplier_name': 'Neuer Lieferant'},
+            {'name': 'Schlechter Datensatz', 'variety': 'Rot', 'supplier_name': 'Neuer Lieferant'},
         ).data
 
         # Make the second row fail at write time only: the culture the draft
@@ -287,7 +287,7 @@ class TransactionalExecutionTests(CultureImportFlowTestCase):
             project=self.project,
         )
         Culture.objects.create(
-            name='Schlechter Datensatz', variety='', project=self.project, supplier=supplier
+            name='Schlechter Datensatz', variety='Rot', project=self.project, supplier=supplier
         )
 
         response = self.apply(draft)
