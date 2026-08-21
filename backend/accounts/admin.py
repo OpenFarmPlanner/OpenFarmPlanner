@@ -1,9 +1,13 @@
 """Accounts admin module."""
 
+from allauth.account.models import EmailAddress
 from django.contrib import admin
 from django.contrib.admin.sites import NotRegistered
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.db.models import Exists, OuterRef, QuerySet
+from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from .models import UserProjectSettings
 
@@ -18,8 +22,46 @@ except NotRegistered:
 class OpenFarmPlannerUserAdmin(DjangoUserAdmin):
     """Custom admin interface configuration for the built-in Django user model."""
 
-    list_display = [*DjangoUserAdmin.list_display, 'date_joined', 'last_login']
-    readonly_fields = [*DjangoUserAdmin.readonly_fields, 'date_joined', 'last_login']
+    list_display = [
+        *DjangoUserAdmin.list_display,
+        'primary_email_verified',
+        'date_joined',
+        'last_login',
+    ]
+    readonly_fields = [
+        *DjangoUserAdmin.readonly_fields,
+        'primary_email_verified',
+        'date_joined',
+        'last_login',
+    ]
+    fieldsets = tuple(
+        (
+            name,
+            {
+                **options,
+                'fields': (*options['fields'], 'primary_email_verified'),
+            },
+        )
+        if 'email' in options['fields']
+        else (name, options)
+        for name, options in DjangoUserAdmin.fieldsets
+    )
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet:
+        """Annotate users with their allauth primary-email verification state."""
+        queryset = super().get_queryset(request)
+        verified_primary_email = EmailAddress.objects.filter(
+            user_id=OuterRef('pk'),
+            email__iexact=OuterRef('email'),
+            primary=True,
+            verified=True,
+        )
+        return queryset.annotate(_primary_email_verified=Exists(verified_primary_email))
+
+    @admin.display(boolean=True, description=_('Primary email verified'))
+    def primary_email_verified(self, obj: User) -> bool:
+        """Return whether allauth marks the user's current primary email as verified."""
+        return bool(obj._primary_email_verified)
 
 
 admin.site.register(User, OpenFarmPlannerUserAdmin)
