@@ -64,6 +64,61 @@ _UNRESOLVED = object()
 GeneralCultureIndex = dict[int, Culture]
 
 
+def ensure_general_culture_for_variety(
+    variety: Culture,
+    *,
+    copy_values: bool = False,
+) -> Culture | None:
+    """Ensure a linked Sorte has a general Kultur and optionally seed its gaps.
+
+    Creation is intentionally empty by default.  Copying is an explicit
+    create-time choice and only fills inheritable fields that are still unset
+    on an existing general Kultur; it never replaces project defaults.
+    """
+    if not inherits_from_general_culture(variety):
+        return None
+
+    general = (
+        Culture.objects
+        .filter(
+            project_id=variety.project_id,
+            crop_species_id=variety.crop_species_id,
+            variety_normalized__isnull=True,
+        )
+        .order_by('pk')
+        .first()
+    )
+    if general is None:
+        defaults: dict[str, Any] = {}
+        if copy_values:
+            defaults = {
+                field: getattr(variety, field)
+                for field in CULTURE_INHERITABLE_FIELDS
+                if not is_unset_culture_value(getattr(variety, field))
+            }
+        return Culture.objects.create(
+            project_id=variety.project_id,
+            crop_species_id=variety.crop_species_id,
+            name=variety.name,
+            variety='',
+            **defaults,
+        )
+
+    if not copy_values:
+        return general
+
+    changed_fields: list[str] = []
+    for field in CULTURE_INHERITABLE_FIELDS:
+        general_value = getattr(general, field)
+        variety_value = getattr(variety, field)
+        if is_unset_culture_value(general_value) and not is_unset_culture_value(variety_value):
+            setattr(general, field, variety_value)
+            changed_fields.append(field)
+    if changed_fields:
+        general.save(update_fields=changed_fields)
+    return general
+
+
 def is_unset_culture_value(value: Any) -> bool:
     """Whether a culture field holds no value and may fall back to the Kultur.
 

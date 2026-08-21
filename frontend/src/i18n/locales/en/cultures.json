@@ -173,6 +173,7 @@
     "firstVarietyLabel": "Variety (optional)",
     "firstVarietyPlaceholder": "e.g. cherry tomato",
     "firstVarietyHelperText": "If you enter a variety name, a first variety is created together with the crop, using the values entered above as its starting values.",
+    "copyValuesToCulture": "Also use values as general crop defaults",
     "duplicateNameVariety": "A crop with this name and variety already exists in this project.",
     "existingCropHint": "The crop \"{{name}}\" already exists in this project. You can add a new variety to it instead.",
     "existingCropAddVarietyAction": "Add variety",

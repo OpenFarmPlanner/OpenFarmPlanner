@@ -37,6 +37,7 @@ from farm.services.culture_inheritance import (
     build_effective_culture_values,
     build_general_culture_index,
     build_inherited_culture_values,
+    ensure_general_culture_for_variety,
     get_general_culture,
     resolve_plants_per_m2,
 )
@@ -229,6 +230,15 @@ class CultureSerializer(serializers.ModelSerializer):
         child=serializers.DictField(),
         write_only=True,
         required=False,
+    )
+    copy_values_to_culture = serializers.BooleanField(
+        write_only=True,
+        required=False,
+        default=False,
+        help_text=(
+            'When creating a linked variety, also fill currently empty fields '
+            'on its general culture from the variety values.'
+        ),
     )
 
     plants_per_m2 = serializers.DecimalField(
@@ -568,9 +578,15 @@ class CultureSerializer(serializers.ModelSerializer):
         return normalized_packages
 
     def create(self, validated_data):
+        copy_values_to_culture = validated_data.pop('copy_values_to_culture', False)
         supplier_data_input = validated_data.pop('supplier_data_input', [])
         seed_packages = validated_data.pop('seed_packages', [])
-        culture = super().create(validated_data)
+        with transaction.atomic():
+            culture = super().create(validated_data)
+            ensure_general_culture_for_variety(
+                culture,
+                copy_values=copy_values_to_culture,
+            )
         if isinstance(supplier_data_input, list):
             for row in supplier_data_input:
                 if not isinstance(row, dict):

@@ -1060,6 +1060,28 @@ describe('CultureForm', () => {
     );
   });
 
+  it('shows the copy-defaults checkbox in the crop form only after a first variety was entered', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    expect(screen.queryByRole('checkbox', { name: 'form.copyValuesToCulture' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).not.toBeChecked();
+    fireEvent.click(copyCheckbox);
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Karotte', variety: '' }),
+      { name: 'Nantaise', draft: undefined, copyValuesToCulture: true },
+    );
+  });
+
   it('shows and still requires the variety field when formKind is variety', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
 
@@ -1072,6 +1094,26 @@ describe('CultureForm', () => {
 
     expect(onSave).not.toHaveBeenCalled();
     expect(await screen.findByText('form.varietyRequired')).toBeInTheDocument();
+  });
+
+  it('only requests copying variety values to the general culture after explicit opt-in', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="variety" onSave={onSave} onCancel={() => {}} />);
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).not.toBeChecked();
+    fireEvent.click(copyCheckbox);
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ copy_values_to_culture: true }),
+      undefined,
+    );
   });
 
   it('pre-fills crop_species and name from initialDraft when adding a variety', () => {

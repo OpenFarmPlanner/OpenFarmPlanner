@@ -31,6 +31,8 @@ import {
   InputLabel,
   MenuItem,
   IconButton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { alpha } from '@mui/material/styles';
@@ -87,6 +89,7 @@ import {
 export interface FirstVarietyDraft {
   name: string;
   draft?: Partial<Culture>;
+  copyValuesToCulture?: boolean;
 }
 
 interface CultureFormProps {
@@ -341,9 +344,15 @@ export function CultureForm({
   const showFirstVarietyField = isProjectForm && formKind === 'crop' && !isEdit;
   const [saveError, setSaveError] = useState<string>('');
   const [firstVarietyName, setFirstVarietyName] = useState<string>('');
+  const [copyValuesToCulture, setCopyValuesToCulture] = useState(false);
   // Set only when the first-variety name was picked from a public-library
   // suggestion, so that variety gets the same source linking as an import.
   const [firstVarietyPublicCulture, setFirstVarietyPublicCulture] = useState<PublicCulture | null>(null);
+  const hasFirstVarietyName = firstVarietyName.trim().length > 0;
+  const showCopyValuesToCultureCheckbox = isProjectForm && !isEdit && (
+    formKind === 'variety'
+    || (showFirstVarietyField && hasFirstVarietyName)
+  );
 
   // --- Validation now imported from ../cultures/validation ---
 
@@ -351,6 +360,9 @@ export function CultureForm({
   const saveCulture = async (draft: Partial<Culture>): Promise<Partial<Culture>> => {
     const dataToSave: Culture = {
       ...(draft as Culture),
+      ...(isProjectForm && formKind === 'variety' && !isEdit
+        ? { copy_values_to_culture: copyValuesToCulture }
+        : {}),
     };
     // The Name field displays the species' current translated name
     // (culture_display_name) so a rename elsewhere shows up immediately, but
@@ -363,12 +375,14 @@ export function CultureForm({
       dataToSave.name = culture.name;
     }
     const trimmedFirstVarietyName = firstVarietyName.trim();
+    const firstVarietyDraft = firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
+      ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
+      : undefined;
     const firstVariety: FirstVarietyDraft | undefined = showFirstVarietyField && trimmedFirstVarietyName
       ? {
         name: trimmedFirstVarietyName,
-        draft: firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
-          ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
-          : undefined,
+        draft: firstVarietyDraft,
+        ...(copyValuesToCulture ? { copyValuesToCulture: true } : {}),
       }
       : undefined;
     await onSave(dataToSave, firstVariety);
@@ -1344,6 +1358,21 @@ export function CultureForm({
                 <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />
+            {showCopyValuesToCultureCheckbox ? (
+              <FormControlLabel
+                control={(
+                  <Checkbox
+                    checked={copyValuesToCulture}
+                    onChange={(event) => {
+                      setCopyValuesToCulture(event.target.checked);
+                      setIsDirty(true);
+                      setUserInteracted(true);
+                    }}
+                  />
+                )}
+                label={t('form.copyValuesToCulture')}
+              />
+            ) : null}
             <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />

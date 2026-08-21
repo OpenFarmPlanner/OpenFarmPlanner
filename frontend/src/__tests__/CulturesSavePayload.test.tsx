@@ -497,6 +497,56 @@ describe('Cultures save payload', () => {
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
   });
 
+  it('passes the explicit copy-defaults opt-in to the first variety create request', async () => {
+    listMock
+      .mockResolvedValueOnce({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [{ id: 1, name: 'Karotte', variety: 'Nantaise' }],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          count: 3,
+          next: null,
+          previous: null,
+          results: [
+            { id: 1, name: 'Karotte', variety: 'Nantaise' },
+            { id: 2, name: 'Neue Kultur', variety: '' },
+            { id: 3, name: 'Neue Kultur', variety: 'Nova' },
+          ],
+        },
+      });
+    createMock
+      .mockResolvedValueOnce({ data: { id: 2, name: 'Neue Kultur', variety: '', crop_species: null } })
+      .mockResolvedValueOnce({ data: { id: 3, name: 'Neue Kultur', variety: 'Nova' } });
+    saveCultureMock.mockReturnValue({
+      name: 'Neue Kultur',
+      variety: '',
+      row_spacing_cm: 30,
+    } as Culture);
+    saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova', copyValuesToCulture: true });
+
+    render(
+      <MemoryRouter>
+        <FocusManagerProvider><CommandProvider>
+          <Cultures />
+        </CommandProvider></FocusManagerProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Kultur hinzufügen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'submit-edit' }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalledTimes(2));
+    const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
+    const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
+    expect(cropPayload.copy_values_to_culture).toBeUndefined();
+    expect(varietyPayload.copy_values_to_culture).toBe(true);
+  });
+
   it('applies the library draft to the first variety when one was picked from the suggestions', async () => {
     listMock
       .mockResolvedValueOnce({

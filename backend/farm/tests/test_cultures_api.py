@@ -99,6 +99,83 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('display_color', response.data)
         self.assertTrue(response.data['display_color'].startswith('#'))
 
+    def test_creating_linked_variety_ensures_empty_general_culture_by_default(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'crop_family': 'Solanaceae',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        self.assertIsNone(general.growth_duration_days)
+        self.assertEqual(general.crop_family, '')
+
+    def test_creating_linked_variety_can_fill_empty_general_culture_fields(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'crop_family': 'Solanaceae',
+                'copy_values_to_culture': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        self.assertEqual(general.growth_duration_days, 65)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+
+    def test_copying_variety_values_never_overwrites_general_culture_fields(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        general = Culture.objects.create(
+            name='Tomato',
+            variety='',
+            project=self.project,
+            crop_species=species,
+            growth_duration_days=80,
+        )
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'crop_family': 'Solanaceae',
+                'copy_values_to_culture': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general.refresh_from_db()
+        self.assertEqual(general.growth_duration_days, 80)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+
     def test_culture_create_allows_same_name_with_different_variety(self):
         data = {
             'name': self.culture.name,

@@ -451,6 +451,7 @@ function Cultures() {
               name: culture.name,
               crop_species: savedCulture.crop_species ?? culture.crop_species,
               variety: firstVariety.name,
+              copy_values_to_culture: firstVariety.copyValuesToCulture,
             });
             await cultureAPI.create(varietyPayload as Culture);
             showSnackbar(t('messages.createWithVarietySuccess'), 'success');

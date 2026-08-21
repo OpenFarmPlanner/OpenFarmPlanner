@@ -100,6 +100,8 @@ export interface SeedRequirementEntry {
 export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
 
 export interface Culture {
+  /** Explicitly seed empty general-culture fields when creating this variety. */
+  copy_values_to_culture?: boolean;
   source_public_culture?: number | null;
   source_public_version?: number | null;
   origin_type?: 'manual' | 'imported';
