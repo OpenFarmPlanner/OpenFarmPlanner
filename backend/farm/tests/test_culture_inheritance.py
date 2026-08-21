@@ -42,6 +42,7 @@ class CultureInheritanceTest(TestCase):
             sowing_depth_m=0.02,
             crop_family='Apiaceae',
             nutrient_demand='medium',
+            rotation_break_years=4,
             thousand_kernel_weight_g=Decimal('1.20'),
             seed_rate_direct_value=2.0,
             seed_rate_direct_unit='g/m²',
@@ -103,6 +104,7 @@ class CultureInheritanceTest(TestCase):
         self.assertEqual(resolve_culture_field(variety, 'harvest_duration_days'), 21)
         self.assertEqual(resolve_culture_field(variety, 'row_spacing_m'), 0.3)
         self.assertEqual(resolve_culture_field(variety, 'crop_family'), 'Apiaceae')
+        self.assertEqual(resolve_culture_field(variety, 'rotation_break_years'), 4)
 
     def test_own_field_wins_over_the_general_value(self):
         variety = self._variety(harvest_duration_days=7, crop_family='Own family')

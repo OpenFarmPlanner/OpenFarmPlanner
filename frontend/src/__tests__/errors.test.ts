@@ -129,6 +129,21 @@ describe('extractApiErrorMessage', () => {
     expect(result).toBe('Name: Eine Kultur mit diesem Namen existiert bereits.');
   });
 
+  it('maps culture name conflict responses to the crop form hint', () => {
+    const t = createT({
+      'form.cultureNameConflict': 'Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.',
+    });
+
+    const error = createAxiosError(409, {
+      code: 'culture_name_conflict',
+      detail: 'A general culture with this name already exists in this project.',
+    });
+
+    const result = extractApiErrorMessage(error, t, fallbackMessage);
+
+    expect(result).toBe('Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.');
+  });
+
   it('maps duplicate supplier-data backend codes to localized text', () => {
     const t = createT({
       'fields.supplier_id': 'Lieferant',

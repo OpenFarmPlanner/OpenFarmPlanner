@@ -21,7 +21,6 @@ from .structure.views import (
 )
 from .cultures.views import (
     CultureSupplierDataViewSet,
-    CultureUndeleteView,
     CultureViewSet,
     PublicCultureViewSet,
     SeedDemandListView,
@@ -80,7 +79,6 @@ urlpatterns = [
     path('culture-imports/<uuid:draft_id>/apply/', CultureImportApplyView.as_view(), name='culture-import-apply'),
     path('history/project/', ProjectHistoryListView.as_view(), name='project-history-list'),
     path('history/project/restore/', ProjectHistoryRestoreView.as_view(), name='project-history-restore'),
-    path('cultures/<int:pk>/undelete/', CultureUndeleteView.as_view(), name='culture-undelete'),
     path('history/global/', GlobalHistoryListView.as_view(), name='global-history-list'),
     path('history/global/restore/', GlobalHistoryRestoreView.as_view(), name='global-history-restore'),
     path('media-files/upload/', MediaFileUploadView.as_view(), name='media-file-upload'),

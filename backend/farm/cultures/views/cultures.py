@@ -3,14 +3,13 @@
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.consent import has_accepted_current, record_acceptance
@@ -25,11 +24,11 @@ from farm.models import (
     Culture,
     EntityRevision,
     MediaFile,
+    PlantingPlan,
     PublicCulture,
     Supplier,
     format_culture_display_name,
 )
-from farm.project_context import get_active_project_or_400
 from farm.services.culture_import.field_specs import seed_rate_unit_constraints_payload
 from farm.services.public_cultures import (
     DuplicatePublicCultureError,
@@ -84,6 +83,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         'update',
         'partial_update',
         'destroy',
+        'delete_preview',
         'duplicate_check',
         'seed_rate_constraints',
         'history',
@@ -105,9 +105,62 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             latest_revision.user_name = actor_label[:150]
             latest_revision.save(update_fields=['user_name'])
 
+    def _culture_group_q(self, culture: Culture) -> Q:
+        if culture.crop_species_id is not None:
+            return Q(project_id=culture.project_id, crop_species_id=culture.crop_species_id)
+        return Q(project_id=culture.project_id, crop_species_id__isnull=True, name_normalized=culture.name_normalized)
+
+    def _active_culture_group(self, culture: Culture):
+        return (
+            Culture.objects
+            .filter(self._culture_group_q(culture))
+            .select_related('crop_species')
+            .order_by('id')
+        )
+
+    def _cultures_affected_by_delete(self, culture: Culture) -> list[Culture]:
+        group = list(self._active_culture_group(culture))
+        has_general_entry = any(candidate.variety_normalized is None for candidate in group)
+        deletes_whole_group = culture.variety_normalized is None or not has_general_entry
+        if deletes_whole_group:
+            return group
+        return [culture]
+
+    def _delete_preview_payload(self, culture: Culture) -> dict[str, object]:
+        affected_cultures = self._cultures_affected_by_delete(culture)
+        affected_ids = [affected.id for affected in affected_cultures]
+        varieties = [
+            {
+                'id': affected.id,
+                'name': affected.variety or affected.name,
+            }
+            for affected in affected_cultures
+            if affected.variety_normalized is not None
+        ]
+        has_general_entry = any(
+            candidate.variety_normalized is None
+            for candidate in self._active_culture_group(culture)
+        )
+        planning_data_count = (
+            PlantingPlan.objects
+            .filter(project_id=culture.project_id, culture_id__in=affected_ids)
+            .count()
+        )
+        return {
+            'culture_ids': affected_ids,
+            'varieties': varieties,
+            'variety_count': len(varieties),
+            'planning_data_count': planning_data_count,
+            'deletes_general_culture': culture.variety_normalized is None,
+            'group_without_general': culture.variety_normalized is not None and not has_general_entry,
+        }
+
     def perform_create(self, serializer):
         instance = serializer.save(project=self.request.active_project)
         self._set_latest_revision_actor(instance)
+        auto_general_culture = getattr(instance, '_auto_general_culture', None)
+        if auto_general_culture is not None:
+            self._set_latest_revision_actor(auto_general_culture)
 
     def get_queryset(self):
         include_deleted = self.request.query_params.get('include_deleted') in {'1', 'true', 'True'}
@@ -143,10 +196,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         if not normalized_name:
             return Response({'exists': False})
 
-        queryset = self.get_queryset().filter(
-            name_normalized=normalized_name,
-            variety_normalized=normalized_variety,
-        )
+        queryset = self.get_queryset()
         exclude_id = request.query_params.get('exclude_id')
         if exclude_id:
             try:
@@ -154,7 +204,24 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             except (TypeError, ValueError):
                 pass
 
-        return Response({'exists': queryset.exists()})
+        name_queryset = queryset.filter(name_normalized=normalized_name)
+        identity_queryset = name_queryset.filter(variety_normalized=normalized_variety)
+        # `name_exists` drives the "a general culture with this name already
+        # exists" warning for crop creation, which mirrors what
+        # `unique_general_culture_name_per_project` actually forbids — a
+        # varietyless row with this name. It must not fire just because
+        # variety-only rows (no general entry) happen to share the name, or
+        # creating a general culture over an existing variety-only group
+        # (see the cascade-delete "group without general" case) would be
+        # blocked even though the backend allows it.
+        general_name_queryset = name_queryset.filter(
+            Q(variety_normalized__isnull=True) | Q(variety_normalized='')
+        )
+
+        return Response({
+            'exists': identity_queryset.exists(),
+            'name_exists': general_name_queryset.exists(),
+        })
 
     @action(detail=False, methods=['get'], url_path='seed-rate-constraints')
     def seed_rate_constraints(self, request):
@@ -458,25 +525,48 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         if culture.deleted_at is not None:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        culture.deleted_at = timezone.now()
-        culture._history_action = EntityRevision.ACTION_DELETED
-        culture.save()
-        self._set_latest_revision_actor(culture)
-
-        if culture.image_file_id:
-            MediaFile.objects.filter(id=culture.image_file_id, orphaned_at__isnull=True).update(orphaned_at=timezone.now())
+        deleted_at = timezone.now()
+        with transaction.atomic():
+            for affected_culture in self._cultures_affected_by_delete(culture):
+                affected_culture.deleted_at = deleted_at
+                affected_culture._history_action = EntityRevision.ACTION_DELETED
+                affected_culture.save(update_fields=['deleted_at', 'updated_at'])
+                self._set_latest_revision_actor(affected_culture)
+                if affected_culture.image_file_id:
+                    MediaFile.objects.filter(
+                        id=affected_culture.image_file_id,
+                        orphaned_at__isnull=True,
+                    ).update(orphaned_at=deleted_at)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['get'], url_path='delete-preview')
+    def delete_preview(self, request, pk=None):
+        culture = self.get_object()
+        return Response(self._delete_preview_payload(culture), status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='undelete')
     def undelete(self, request, pk=None):
-        culture = self.get_object()
-        culture.deleted_at = None
-        culture._history_action = EntityRevision.ACTION_RESTORED
-        culture.save()
-        self._set_latest_revision_actor(culture)
-        if culture.image_file_id:
-            MediaFile.objects.filter(id=culture.image_file_id).update(orphaned_at=None)
+        culture = get_object_or_404(
+            Culture.all_objects.filter(project=self.request.active_project),
+            pk=pk,
+        )
+        deleted_at = culture.deleted_at
+        cultures_to_restore = [culture]
+        if deleted_at is not None:
+            cultures_to_restore = list(
+                Culture.all_objects
+                .filter(self._culture_group_q(culture), deleted_at=deleted_at)
+                .order_by('id')
+            )
+        with transaction.atomic():
+            for restored_culture in cultures_to_restore:
+                restored_culture.deleted_at = None
+                restored_culture._history_action = EntityRevision.ACTION_RESTORED
+                restored_culture.save(update_fields=['deleted_at', 'updated_at'])
+                self._set_latest_revision_actor(restored_culture)
+                if restored_culture.image_file_id:
+                    MediaFile.objects.filter(id=restored_culture.image_file_id).update(orphaned_at=None)
         return Response(self.get_serializer(culture).data, status=status.HTTP_200_OK)
 
     def perform_update(self, serializer):
@@ -487,6 +577,9 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             updated = serializer.save()
             self._set_latest_revision_actor(updated)
+            auto_general_culture = getattr(updated, '_auto_general_culture', None)
+            if auto_general_culture is not None:
+                self._set_latest_revision_actor(auto_general_culture)
             if updated.name != old_name:
                 self._rename_sibling_cultures(updated, old_name, old_crop_species_id)
         if previous_media_id and previous_media_id != updated.image_file_id:
@@ -772,20 +865,3 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
                 else None
             ),
         }
-
-
-class CultureUndeleteView(APIView):
-    """Undelete a soft-deleted culture by ID."""
-
-    api_token_actions = {'post'}
-    api_token_delete_actions = {'post'}
-
-    def post(self, request, pk: int):
-        active_project = get_active_project_or_400(request)
-        culture = get_object_or_404(Culture.all_objects.filter(project=active_project), pk=pk)
-        culture.deleted_at = None
-        culture._history_action = EntityRevision.ACTION_RESTORED
-        culture.save()
-        if culture.image_file_id:
-            MediaFile.objects.filter(id=culture.image_file_id).update(orphaned_at=None)
-        return Response(CultureSerializer(culture).data, status=status.HTTP_200_OK)

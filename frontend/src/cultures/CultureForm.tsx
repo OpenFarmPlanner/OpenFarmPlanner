@@ -31,6 +31,8 @@ import {
   InputLabel,
   MenuItem,
   IconButton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { alpha } from '@mui/material/styles';
@@ -39,10 +41,11 @@ import { cultureAPI, publicCultureAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
 import { useDialogKeyboardScroll } from '../hooks/useDialogKeyboardScroll';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
+import { AppTooltip } from '../components/AppTooltip';
 import { hasEffectiveCultureFormChanges } from './cultureFormChangeDetection';
 import { validateCulture } from './validation';
 import { normalizeSeedRateUnit } from './enumNormalization';
-import { buildCultureIdentityKey } from './cultureIdentity';
+import { buildCultureIdentityKey, normalizeCultureIdentityValue } from './cultureIdentity';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import { BasicInfoSection } from './sections/BasicInfoSection';
 import { TimingSection } from './sections/TimingSection';
@@ -87,6 +90,7 @@ import {
 export interface FirstVarietyDraft {
   name: string;
   draft?: Partial<Culture>;
+  copyValuesToCulture?: boolean;
 }
 
 interface CultureFormProps {
@@ -341,9 +345,11 @@ export function CultureForm({
   const showFirstVarietyField = isProjectForm && formKind === 'crop' && !isEdit;
   const [saveError, setSaveError] = useState<string>('');
   const [firstVarietyName, setFirstVarietyName] = useState<string>('');
+  const [copyValuesToCulture, setCopyValuesToCulture] = useState(false);
   // Set only when the first-variety name was picked from a public-library
   // suggestion, so that variety gets the same source linking as an import.
   const [firstVarietyPublicCulture, setFirstVarietyPublicCulture] = useState<PublicCulture | null>(null);
+  const hasFirstVarietyName = firstVarietyName.trim().length > 0;
 
   // --- Validation now imported from ../cultures/validation ---
 
@@ -351,6 +357,9 @@ export function CultureForm({
   const saveCulture = async (draft: Partial<Culture>): Promise<Partial<Culture>> => {
     const dataToSave: Culture = {
       ...(draft as Culture),
+      ...(isProjectForm && formKind === 'variety' && !isEdit && Boolean((draft.variety ?? '').trim())
+        ? { copy_values_to_culture: copyValuesToCulture }
+        : {}),
     };
     // The Name field displays the species' current translated name
     // (culture_display_name) so a rename elsewhere shows up immediately, but
@@ -363,12 +372,14 @@ export function CultureForm({
       dataToSave.name = culture.name;
     }
     const trimmedFirstVarietyName = firstVarietyName.trim();
+    const firstVarietyDraft = firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
+      ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
+      : undefined;
     const firstVariety: FirstVarietyDraft | undefined = showFirstVarietyField && trimmedFirstVarietyName
       ? {
         name: trimmedFirstVarietyName,
-        draft: firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
-          ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
-          : undefined,
+        draft: firstVarietyDraft,
+        ...(copyValuesToCulture ? { copyValuesToCulture: true } : {}),
       }
       : undefined;
     await onSave(dataToSave, firstVariety);
@@ -378,6 +389,13 @@ export function CultureForm({
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture, initialDraft));
   const cropIdentityLabel = formData.name ?? '';
+  const hasDirectVarietyName = Boolean((formData.variety ?? '').trim());
+  const hasCopyValuesToCultureTarget = formKind === 'variety' ? hasDirectVarietyName : hasFirstVarietyName;
+  const showCopyValuesToCultureCheckbox = isProjectForm && !isEdit && (
+    formKind === 'variety'
+    || showFirstVarietyField
+  );
+  const copyValuesToCultureDisabled = !hasCopyValuesToCultureTarget;
 
   const selectedSpeciesCulture = useMemo(
     () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
@@ -579,11 +597,15 @@ export function CultureForm({
 
     const name = formData.name ?? '';
     const variety = formData.variety ?? '';
-    const identityKey = buildCultureIdentityKey(name, variety);
-    const originalIdentityKey = buildCultureIdentityKey(
-      culture?.culture_display_name ?? culture?.name,
-      culture?.variety,
-    );
+    const identityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(name)
+      : buildCultureIdentityKey(name, variety);
+    const originalIdentityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(culture?.culture_display_name ?? culture?.name)
+      : buildCultureIdentityKey(
+        culture?.culture_display_name ?? culture?.name,
+        culture?.variety,
+      );
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
     queueMicrotask(() => setDuplicateErrorKey(''));
@@ -613,6 +635,10 @@ export function CultureForm({
           if (duplicateCheckSequenceRef.current !== currentSequence) {
             return;
           }
+          if (formKind === 'crop' && !hasFirstVarietyName && response.data.name_exists) {
+            setDuplicateErrorKey('form.cultureNameConflict');
+            return;
+          }
           setDuplicateErrorKey(response.data.exists ? 'form.duplicateNameVariety' : '');
         })
         .catch(() => {
@@ -635,7 +661,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, formKind, hasFirstVarietyName, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -1084,10 +1110,14 @@ export function CultureForm({
   };
 
   const supplierRows = formData.supplier_data ?? [];
+  const duplicateErrorField = duplicateErrorKey === 'form.cultureNameConflict' ? 'name' : 'variety';
   const displayErrors = duplicateErrorKey
-    ? { ...errors, variety: errors.variety || t(duplicateErrorKey) }
+    ? { ...errors, [duplicateErrorField]: errors[duplicateErrorField] || t(duplicateErrorKey) }
     : errors;
   const isSaveDisabled = isSaving || !isValid || Boolean(duplicateErrorKey) || isDuplicateChecking;
+  const saveDisabledTooltip = duplicateErrorKey === 'form.cultureNameConflict'
+    ? t('form.cultureNameConflict')
+    : '';
   const isSupplierCreateDialogOpen = supplierCreateTargetIndex !== null;
 
   const handleCreateSupplierClick = useCallback((supplierIndex: number): void => {
@@ -1310,13 +1340,18 @@ export function CultureForm({
                 <Alert
                   severity="info"
                   data-testid="culture-existing-crop-hint"
-                  action={(
+                  action={!hasFirstVarietyName ? (
                     <Button color="inherit" size="small" onClick={handleSwitchToAddVariety}>
                       {t('form.existingCropAddVarietyAction')}
                     </Button>
-                  )}
+                  ) : undefined}
                 >
-                  {t('form.existingCropHint', { name: existingPrivateCrop.name })}
+                  {hasFirstVarietyName
+                    ? t('form.existingCropFirstVarietyHint', {
+                      variety: firstVarietyName.trim(),
+                      name: existingPrivateCrop.name,
+                    })
+                    : t('form.existingCropHint', { name: existingPrivateCrop.name })}
                 </Alert>
               ) : null}
               nameOptions={isProjectForm ? nameOptions : undefined}
@@ -1340,7 +1375,37 @@ export function CultureForm({
                   onApply={handleApplyVarietySuggestion}
                 />
               ) : null}
-              identityHint={isProjectForm && formData.source_public_culture ? (
+              identityRowControl={showCopyValuesToCultureCheckbox ? (
+                <AppTooltip
+                  title={copyValuesToCultureDisabled ? t('form.copyValuesToCultureDisabledTooltip') : ''}
+                  placement="top-start"
+                >
+                  <Box
+                    component="span"
+                    sx={(theme) => ({
+                      alignSelf: 'flex-start',
+                      opacity: copyValuesToCultureDisabled ? theme.palette.action.disabledOpacity : 1,
+                    })}
+                  >
+                    <FormControlLabel
+                      disabled={copyValuesToCultureDisabled}
+                      control={(
+                        <Checkbox
+                          checked={copyValuesToCulture}
+                          disabled={copyValuesToCultureDisabled}
+                          onChange={(event) => {
+                            setCopyValuesToCulture(event.target.checked);
+                            setIsDirty(true);
+                            setUserInteracted(true);
+                          }}
+                        />
+                      )}
+                      label={t('form.copyValuesToCulture')}
+                    />
+                  </Box>
+                </AppTooltip>
+              ) : null}
+              identityHint={isProjectForm && formData.source_public_culture && !hasFirstVarietyName ? (
                 <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />
@@ -1569,15 +1634,19 @@ export function CultureForm({
           }} disabled={isSaving}>
             {t('form.cancel')}
           </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSaveDisabled}
-          >
-            {isSaving
-              ? t('messages.saving')
-              : isEdit ? t('form.save') : t('form.create')}
-          </Button>
+          <AppTooltip title={saveDisabledTooltip}>
+            <Box component="span">
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={isSaveDisabled}
+              >
+                {isSaving
+                  ? t('messages.saving')
+                  : isEdit ? t('form.save') : t('form.create')}
+              </Button>
+            </Box>
+          </AppTooltip>
         </DialogActions>
       </form>
       <ConfirmationDialog

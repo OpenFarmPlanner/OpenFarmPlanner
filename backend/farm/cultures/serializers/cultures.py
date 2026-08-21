@@ -4,8 +4,9 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from rest_framework import serializers
+from rest_framework.exceptions import APIException
 
 from config.languages import DEFAULT_LANGUAGE_CODE, resolve_request_language
 from crops.models import CropSpecies
@@ -37,6 +38,7 @@ from farm.services.culture_inheritance import (
     build_effective_culture_values,
     build_general_culture_index,
     build_inherited_culture_values,
+    ensure_general_culture_for_variety,
     get_general_culture,
     resolve_plants_per_m2,
 )
@@ -64,6 +66,17 @@ from .suppliers import (
 
 # Sentinel so a resolved `None` is cached instead of re-queried per field.
 _UNRESOLVED = object()
+
+
+class CultureNameConflict(APIException):
+    status_code = 409
+    default_code = 'culture_name_conflict'
+
+    def __init__(self) -> None:
+        super().__init__({
+            'code': self.default_code,
+            'detail': 'A general culture with this name already exists in this project.',
+        })
 
 # The inheritable model fields whose API name differs from the model field name
 # (distances are stored in meters and exposed in centimeters).
@@ -229,6 +242,15 @@ class CultureSerializer(serializers.ModelSerializer):
         child=serializers.DictField(),
         write_only=True,
         required=False,
+    )
+    copy_values_to_culture = serializers.BooleanField(
+        write_only=True,
+        required=False,
+        default=False,
+        help_text=(
+            'When creating a linked variety, also fill currently empty timing, '
+            'yield, and seed fields on its general culture from the variety values.'
+        ),
     )
 
     plants_per_m2 = serializers.DecimalField(
@@ -568,9 +590,19 @@ class CultureSerializer(serializers.ModelSerializer):
         return normalized_packages
 
     def create(self, validated_data):
+        copy_values_to_culture = validated_data.pop('copy_values_to_culture', False)
         supplier_data_input = validated_data.pop('supplier_data_input', [])
         seed_packages = validated_data.pop('seed_packages', [])
-        culture = super().create(validated_data)
+        try:
+            with transaction.atomic():
+                culture = super().create(validated_data)
+                culture._auto_general_culture = ensure_general_culture_for_variety(
+                    culture,
+                    copy_values=copy_values_to_culture,
+                )
+        except IntegrityError as exc:
+            self._raise_name_conflict_if_general_name_constraint(exc)
+            raise
         if isinstance(supplier_data_input, list):
             for row in supplier_data_input:
                 if not isinstance(row, dict):
@@ -596,7 +628,13 @@ class CultureSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         supplier_data_input = validated_data.pop('supplier_data_input', None)
         seed_packages = validated_data.pop('seed_packages', None)
-        culture = super().update(instance, validated_data)
+        try:
+            with transaction.atomic():
+                culture = super().update(instance, validated_data)
+                culture._auto_general_culture = ensure_general_culture_for_variety(culture)
+        except IntegrityError as exc:
+            self._raise_name_conflict_if_general_name_constraint(exc)
+            raise
         if supplier_data_input is not None:
             self._sync_supplier_data_rows(culture, supplier_data_input)
         if seed_packages is not None:
@@ -712,7 +750,7 @@ class CultureSerializer(serializers.ModelSerializer):
         """
         errors = {}
 
-        self._validate_name_and_duplicates(attrs, errors)
+        general_name_conflict = self._validate_name_and_duplicates(attrs, errors)
         cultivation_types = self._validate_cultivation_types(attrs, errors)
         self._apply_seed_requirements_alias(attrs, errors, cultivation_types)
         self._validate_seed_rate_by_cultivation(attrs, errors, cultivation_types)
@@ -720,6 +758,8 @@ class CultureSerializer(serializers.ModelSerializer):
         self._validate_supplier_data_rows(attrs, errors)
         self._resolve_supplier_from_name(attrs)
         self._normalize_variety(attrs)
+        if general_name_conflict and set(errors) == {'name'}:
+            raise CultureNameConflict()
         if errors:
             raise serializers.ValidationError(errors)
 
@@ -756,8 +796,15 @@ class CultureSerializer(serializers.ModelSerializer):
             project = self.instance.project
         return project
 
-    def _validate_name_and_duplicates(self, attrs, errors):
-        """Require a name and reject duplicate name/variety pairs per project."""
+    def _validate_name_and_duplicates(self, attrs, errors) -> bool:
+        """Require a name and reject duplicate culture identities per project.
+
+        Returns whether the only problem found was a general-culture name
+        conflict, so ``validate()`` can still raise the dedicated
+        ``CultureNameConflict`` (409) for that case alone, while any other
+        validation errors discovered by later phases get aggregated into the
+        normal ``errors`` dict instead of being swallowed by an early raise.
+        """
         from farm.utils import normalize_text
 
         raw_name = attrs.get(
@@ -772,22 +819,33 @@ class CultureSerializer(serializers.ModelSerializer):
         normalized_variety = normalize_text(raw_variety)
         if not normalized_name:
             errors['name'] = 'Name is required.'
-            return
+            return False
         attrs['name'] = ' '.join(str(raw_name).split())
         attrs['variety'] = ' '.join(str(raw_variety or '').split())
         project = self._resolve_project(attrs, instance_first=False)
         if project is None:
-            return
+            return False
 
-        # Keep existing duplicate records editable when the normalized
-        # identity is unchanged on update. This preserves compatibility
-        # with legacy data that may already contain duplicates.
+        # Keep existing duplicate records editable when the normalized identity is
+        # unchanged on update. This preserves compatibility with legacy data that
+        # may already contain duplicates.
         if (
             self.instance is not None
             and normalize_text(getattr(self.instance, 'name', None)) == normalized_name
             and normalize_text(getattr(self.instance, 'variety', None)) == normalized_variety
         ):
-            return
+            return False
+        if normalized_variety is None:
+            existing_general_query = Culture.all_objects.filter(
+                project=project,
+                deleted_at__isnull=True,
+                name_normalized=normalized_name,
+            ).filter(models.Q(variety_normalized__isnull=True) | models.Q(variety_normalized=''))
+            if self.instance is not None:
+                existing_general_query = existing_general_query.exclude(pk=self.instance.pk)
+            if existing_general_query.exists():
+                errors['name'] = 'A general culture with this name already exists in this project.'
+                return True
         existing_name_query = Culture.all_objects.filter(
             project=project,
             deleted_at__isnull=True,
@@ -798,6 +856,12 @@ class CultureSerializer(serializers.ModelSerializer):
             existing_name_query = existing_name_query.exclude(pk=self.instance.pk)
         if existing_name_query.exists():
             errors['name'] = 'A culture with this name and variety already exists.'
+        return False
+
+    @staticmethod
+    def _raise_name_conflict_if_general_name_constraint(exc: IntegrityError) -> None:
+        if 'unique_general_culture_name_per_project' in str(exc):
+            raise CultureNameConflict() from exc
 
     def _validate_cultivation_types(self, attrs, errors):
         """Normalize cultivation_types; returns the resolved raw value."""

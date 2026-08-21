@@ -29,7 +29,10 @@ import {
   type SnackbarState,
 } from './culturesPageUtils';
 import { createCulturesCommandSpecs } from './culturesCommandSpecs';
-import { buildCultureSavePayload } from './culturesSaveUtils';
+import {
+  buildCultureSavePayload,
+  buildGeneralCultureDraftForFirstVariety,
+} from './culturesSaveUtils';
 import { type HistoryScope } from './culturesHistoryUtils';
 import { useSelectedCultureSync } from './useSelectedCultureSync';
 import { useAuth } from '../auth/useAuth';
@@ -54,6 +57,7 @@ import {
 } from '../components/data-grid';
 import { getCultureDisplayName } from '../cultures/cultureDisplay';
 import { buildVarietyInheritanceBaseline } from '../cultures/varietyValueSource';
+import { normalizeCultureIdentityValue } from '../cultures/cultureIdentity';
 
 // Stable identity so the memos downstream do not see a new array on every
 // render while no project is selected.
@@ -119,7 +123,9 @@ function Cultures() {
 
   const {
     deleteDialogCulture,
+    deleteDialogImpact,
     setDeleteDialogCulture,
+    setDeleteDialogImpact,
     pendingCultureDeletions,
     handleDelete,
     handleDeleteConfirm,
@@ -132,6 +138,40 @@ function Cultures() {
     updateSelectedCultureId,
     showSnackbar,
   });
+
+  const deleteDialogMessage = useMemo(() => {
+    if (!deleteDialogCulture) {
+      return '';
+    }
+    const cultureName = getCultureDisplayName(deleteDialogCulture);
+    if (!deleteDialogImpact || deleteDialogImpact.variety_count === 0) {
+      return t('deleteDialog.confirmation', { name: cultureName });
+    }
+
+    const varietyNames = deleteDialogImpact.varieties.map((variety) => variety.name).join(', ');
+    const baseMessage = deleteDialogImpact.group_without_general
+      ? t('deleteDialog.groupOnlyConfirmation', {
+        count: deleteDialogImpact.variety_count,
+        varieties: varietyNames,
+      })
+      : t('deleteDialog.cascadeConfirmation', {
+        name: cultureName,
+        count: deleteDialogImpact.variety_count,
+        varieties: varietyNames,
+      });
+    const planningMessage = deleteDialogImpact.planning_data_count > 0
+      ? t('deleteDialog.planningDataWarning', { count: deleteDialogImpact.planning_data_count })
+      : null;
+
+    return (
+      <>
+        <Box component="span" sx={{ display: 'block' }}>{baseMessage}</Box>
+        {planningMessage ? (
+          <Box component="span" sx={{ display: 'block', mt: 1 }}>{planningMessage}</Box>
+        ) : null}
+      </>
+    );
+  }, [deleteDialogCulture, deleteDialogImpact, t]);
 
   const replaceSavedCulture = useCallback((savedCulture: Culture): void => {
     setCultures((currentCultures) => {
@@ -427,6 +467,13 @@ function Cultures() {
   const handleSave = async (culture: Culture, firstVariety?: FirstVarietyDraft) => {
     try {
       const savePayload = buildCultureSavePayload(culture);
+      const normalizedCultureName = normalizeCultureIdentityValue(culture.name);
+      const existingGeneralCulture = firstVariety && normalizedCultureName
+        ? cultures.find((candidate) => (
+          normalizeCultureIdentityValue(candidate.name) === normalizedCultureName
+          && !(candidate.variety ?? '').trim()
+        ))
+        : undefined;
 
       let savedCulture: Culture;
       if (editingCulture) {
@@ -434,10 +481,18 @@ function Cultures() {
         savedCulture = response.data;
         showSnackbar(t('messages.updateSuccess'), 'success');
       } else {
-        const response = await cultureAPI.create(savePayload as Culture);
-        savedCulture = response.data;
-        // Auto-select the newly created culture
-        updateSelectedCultureId(savedCulture.id, 'internal');
+        if (existingGeneralCulture) {
+          savedCulture = existingGeneralCulture;
+          updateSelectedCultureId(savedCulture.id, 'internal');
+        } else {
+          const generalCulturePayload = firstVariety
+            ? buildCultureSavePayload(buildGeneralCultureDraftForFirstVariety(culture) as Culture)
+            : savePayload;
+          const response = await cultureAPI.create(generalCulturePayload as Culture);
+          savedCulture = response.data;
+          // Auto-select the newly created culture
+          updateSelectedCultureId(savedCulture.id, 'internal');
+        }
 
         if (firstVariety) {
           try {
@@ -451,8 +506,11 @@ function Cultures() {
               name: culture.name,
               crop_species: savedCulture.crop_species ?? culture.crop_species,
               variety: firstVariety.name,
+              copy_values_to_culture: firstVariety.copyValuesToCulture,
             });
-            await cultureAPI.create(varietyPayload as Culture);
+            const varietyResponse = await cultureAPI.create(varietyPayload as Culture);
+            savedCulture = varietyResponse.data;
+            updateSelectedCultureId(savedCulture.id, 'internal');
             showSnackbar(t('messages.createWithVarietySuccess'), 'success');
           } catch (varietyError) {
             console.error('Error creating initial variety:', varietyError);
@@ -678,10 +736,13 @@ function Cultures() {
         open={Boolean(deleteDialogCulture)}
         fullWidth
         title={t('deleteDialog.title')}
-        message={t('deleteDialog.confirmation', { name: deleteDialogCulture ? getCultureDisplayName(deleteDialogCulture) : '' })}
+        message={deleteDialogMessage}
         cancelLabel={t('common:actions.cancel')}
         confirmLabel={t('buttons.delete')}
-        onCancel={() => setDeleteDialogCulture(null)}
+        onCancel={() => {
+          setDeleteDialogCulture(null);
+          setDeleteDialogImpact(null);
+        }}
         onConfirm={handleDeleteConfirm}
         titleSx={{ pb: 1 }}
         contentSx={{ pt: 1 }}
@@ -776,7 +837,7 @@ function Cultures() {
         <DeleteUndoSnackbar
           key={deletion.id}
           open={deletion.visible}
-          message={t('messages.deleted')}
+          message={deletion.message}
           undoLabel={t('common:actions.undo')}
           offsetIndex={index}
           testId="culture-delete-snackbar"

@@ -16,6 +16,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from django.db.models import Q
+
 from farm.models import Culture
 from farm.models.cultures import compute_plants_per_m2
 
@@ -34,8 +36,36 @@ from farm.models.cultures import compute_plants_per_m2
 CULTURE_INHERITABLE_FIELDS: tuple[str, ...] = (
     'crop_family',
     'nutrient_demand',
+    'rotation_break_years',
     'cultivation_type',
     'cultivation_types',
+    'growth_duration_days',
+    'harvest_duration_days',
+    'propagation_duration_days',
+    'harvest_method',
+    'expected_yield',
+    'distance_within_row_m',
+    'row_spacing_m',
+    'sowing_depth_m',
+    'sowing_calculation_safety_percent',
+    'sowing_calculation_safety_percent_direct',
+    'sowing_calculation_safety_percent_pre_cultivation',
+    'thousand_kernel_weight_g',
+    'seeding_requirement',
+    'seeding_requirement_type',
+    'seed_rate_direct_value',
+    'seed_rate_direct_unit',
+    'seed_rate_pre_cultivation_value',
+    'seed_rate_pre_cultivation_unit',
+)
+
+CULTURE_SPECIES_INVARIANT_FIELDS: tuple[str, ...] = (
+    'crop_family',
+    'nutrient_demand',
+    'rotation_break_years',
+)
+
+CULTURE_OPTIONAL_GENERAL_COPY_FIELDS: tuple[str, ...] = (
     'growth_duration_days',
     'harvest_duration_days',
     'propagation_duration_days',
@@ -62,6 +92,79 @@ _EMPTY_UNIT_PLACEHOLDER = '-'
 _UNRESOLVED = object()
 
 GeneralCultureIndex = dict[int, Culture]
+
+
+def ensure_general_culture_for_variety(
+    variety: Culture,
+    *,
+    copy_values: bool = False,
+) -> Culture | None:
+    """Ensure a linked Sorte has a general Kultur and seed eligible gaps.
+
+    Species-invariant fields are promoted to empty general Kultur fields
+    automatically. Variety-variable defaults are promoted only through the
+    explicit create-time choice. Neither path replaces existing project
+    defaults.
+    """
+    if not inherits_from_general_culture(variety):
+        return None
+
+    fields_to_copy = (
+        CULTURE_SPECIES_INVARIANT_FIELDS
+        + (CULTURE_OPTIONAL_GENERAL_COPY_FIELDS if copy_values else ())
+    )
+    general_row_q = Q(variety_normalized__isnull=True) | Q(variety_normalized='')
+    general = (
+        Culture.objects
+        .filter(
+            general_row_q,
+            project_id=variety.project_id,
+            crop_species_id=variety.crop_species_id,
+        )
+        .order_by('pk')
+        .first()
+    )
+    if general is None:
+        # unique_general_culture_name_per_project scopes by name alone, not by
+        # crop_species, so a general Kultur for an unrelated species can already
+        # own this name. Creating one here would collide with that constraint;
+        # skip auto-creation instead of failing the variety save over a name
+        # that isn't this variety's to claim.
+        name_taken_by_other_species = (
+            Culture.objects
+            .filter(
+                general_row_q,
+                project_id=variety.project_id,
+                name_normalized=variety.name_normalized,
+            )
+            .exclude(crop_species_id=variety.crop_species_id)
+            .exists()
+        )
+        if name_taken_by_other_species:
+            return None
+        defaults: dict[str, Any] = {
+            field: getattr(variety, field)
+            for field in fields_to_copy
+            if not is_unset_culture_value(getattr(variety, field))
+        }
+        return Culture.objects.create(
+            project_id=variety.project_id,
+            crop_species_id=variety.crop_species_id,
+            name=variety.name,
+            variety='',
+            **defaults,
+        )
+
+    changed_fields: list[str] = []
+    for field in fields_to_copy:
+        general_value = getattr(general, field)
+        variety_value = getattr(variety, field)
+        if is_unset_culture_value(general_value) and not is_unset_culture_value(variety_value):
+            setattr(general, field, variety_value)
+            changed_fields.append(field)
+    if changed_fields:
+        general.save(update_fields=changed_fields)
+    return general
 
 
 def is_unset_culture_value(value: Any) -> bool:

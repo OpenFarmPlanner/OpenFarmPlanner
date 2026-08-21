@@ -36,6 +36,7 @@ export const areCropValuesEqual = (left: unknown, right: unknown): boolean => {
 export const VARIETY_INHERITABLE_FIELDS: (keyof Culture)[] = [
   'crop_family',
   'nutrient_demand',
+  'rotation_break_years',
   'cultivation_type',
   'cultivation_types',
   'growth_duration_days',

@@ -100,6 +100,8 @@ export interface SeedRequirementEntry {
 export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
 
 export interface Culture {
+  /** Explicitly seed empty general-culture fields when creating this variety. */
+  copy_values_to_culture?: boolean;
   source_public_culture?: number | null;
   source_public_version?: number | null;
   origin_type?: 'manual' | 'imported';
@@ -197,6 +199,7 @@ export interface Culture {
 export type CultureInheritableField =
   | 'crop_family'
   | 'nutrient_demand'
+  | 'rotation_break_years'
   | 'cultivation_type'
   | 'cultivation_types'
   | 'growth_duration_days'
@@ -466,6 +469,16 @@ export interface GeneralCropNotice {
 
 export interface CultureDuplicateCheckResponse {
   exists: boolean;
+  name_exists?: boolean;
+}
+
+export interface CultureDeletePreview {
+  culture_ids: number[];
+  varieties: Array<{ id: number; name: string }>;
+  variety_count: number;
+  planning_data_count: number;
+  deletes_general_culture: boolean;
+  group_without_general: boolean;
 }
 
 export interface PublicCultureMatchResponse {
