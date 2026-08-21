@@ -949,7 +949,17 @@ describe('CultureForm', () => {
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomate' } });
     await screen.findByRole('button', { name: 'select-first-variety-option' });
+    const duplicateCheckCallsBeforeVarietySelect = cultureDuplicateCheckMock.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'select-first-variety-option' }));
+    // Picking the first-variety suggestion flips `hasFirstVarietyName`, which
+    // re-triggers the debounced duplicate-name check (it factors into the
+    // crop-name-conflict rule). Depending on timing, this either cancels an
+    // in-flight name-only check and replaces it, or runs after it — either
+    // way, wait for a check that reflects the post-selection state to land
+    // before asserting the Create button is enabled. Otherwise a stale
+    // "not disabled" read from the tail end of the superseded check can pass
+    // a moment before the new debounce cycle disables it again.
+    await waitFor(() => expect(cultureDuplicateCheckMock.mock.calls.length).toBeGreaterThan(duplicateCheckCallsBeforeVarietySelect));
     await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
