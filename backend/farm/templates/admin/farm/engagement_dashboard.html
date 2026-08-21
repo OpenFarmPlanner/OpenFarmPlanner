@@ -1,0 +1,55 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate "Start" %}</a> &rsaquo;
+  <a href="{% url 'admin:app_list' app_label='farm' %}">Farm</a> &rsaquo;
+  {% translate "Nutzungsübersicht" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <div class="module">
+    <table>
+      <caption>{% translate "Gesamtübersicht" %}</caption>
+      <tbody>
+        <tr><th>{% translate "Projekte gesamt" %}</th><td>{{ dashboard.total_projects }}</td></tr>
+        <tr><th>{% translate "Aktive Projekte (letzte 7 Tage)" %}</th><td>{{ dashboard.active_projects_7_days }}</td></tr>
+        <tr><th>{% translate "Aktive Projekte (letzte 30 Tage)" %}</th><td>{{ dashboard.active_projects_30_days }}</td></tr>
+        <tr><th>{% translate "Registrierte Nutzer" %}</th><td>{{ dashboard.total_users }}</td></tr>
+        <tr><th>{% translate "Nutzer mit Login (letzte 30 Tage)" %}</th><td>{{ dashboard.users_logged_in_30_days }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="module">
+    <table>
+      <caption>{% translate "Projekte" %}</caption>
+      <thead><tr>
+        <th>{% translate "Projektname" %}</th>
+        <th>{% translate "Zuletzt aktiv" %}</th>
+        <th>{% translate "Objekte angelegt (letzte 7 Tage)" %}</th>
+        <th>{% translate "Objekte angelegt (letzte 30 Tage)" %}</th>
+        <th>{% translate "Aktive Nutzer (letzte 30 Tage)" %}</th>
+        <th>{% translate "Status" %}</th>
+      </tr></thead>
+      <tbody>
+      {% for row in dashboard.projects %}
+        <tr>
+          <th><a href="{% url 'admin:farm_project_change' row.project.pk %}">{{ row.project.name }}</a></th>
+          <td>{{ row.last_active|date:"SHORT_DATETIME_FORMAT"|default:"–" }}</td>
+          <td>{{ row.created_last_7_days }}</td>
+          <td>{{ row.created_last_30_days }}</td>
+          <td>{{ row.active_users_last_30_days }}</td>
+          <td>{{ row.status }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">{% translate "Keine Projekte vorhanden." %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
