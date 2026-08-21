@@ -99,7 +99,7 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('display_color', response.data)
         self.assertTrue(response.data['display_color'].startswith('#'))
 
-    def test_creating_linked_variety_ensures_empty_general_culture_by_default(self):
+    def test_creating_linked_variety_copies_species_fields_only_by_default(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
 
         response = self.client.post(
@@ -109,7 +109,13 @@ class CultureApiTest(ProjectApiTestCase):
                 'variety': 'Matina',
                 'crop_species': species.id,
                 'growth_duration_days': 65,
+                'harvest_method': 'per_sqm',
+                'expected_yield': '2.50',
+                'row_spacing_cm': 50,
+                'seed_rate_direct_value': 12,
+                'seed_rate_direct_unit': 'seeds_per_lfm',
                 'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
                 'rotation_break_years': 4,
             },
             format='json',
@@ -122,8 +128,14 @@ class CultureApiTest(ProjectApiTestCase):
             variety_normalized__isnull=True,
         )
         self.assertIsNone(general.growth_duration_days)
-        self.assertEqual(general.crop_family, '')
-        self.assertIsNone(general.rotation_break_years)
+        self.assertEqual(general.harvest_method, '')
+        self.assertIsNone(general.expected_yield)
+        self.assertIsNone(general.row_spacing_m)
+        self.assertIsNone(general.seed_rate_direct_value)
+        self.assertIsNone(general.seed_rate_direct_unit)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 4)
 
     def test_creating_linked_variety_can_fill_empty_general_culture_fields(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
@@ -135,7 +147,13 @@ class CultureApiTest(ProjectApiTestCase):
                 'variety': 'Matina',
                 'crop_species': species.id,
                 'growth_duration_days': 65,
+                'harvest_method': 'per_sqm',
+                'expected_yield': '2.50',
+                'row_spacing_cm': 50,
+                'seed_rate_direct_value': 12,
+                'seed_rate_direct_unit': 'seeds_per_lfm',
                 'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
                 'rotation_break_years': 4,
                 'copy_values_to_culture': True,
             },
@@ -149,7 +167,13 @@ class CultureApiTest(ProjectApiTestCase):
             variety_normalized__isnull=True,
         )
         self.assertEqual(general.growth_duration_days, 65)
+        self.assertEqual(general.harvest_method, 'per_sqm')
+        self.assertEqual(str(general.expected_yield), '2.50')
+        self.assertEqual(general.row_spacing_m, 0.5)
+        self.assertEqual(general.seed_rate_direct_value, 12)
+        self.assertEqual(general.seed_rate_direct_unit, 'seeds_per_lfm')
         self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
         self.assertEqual(general.rotation_break_years, 4)
 
     def test_copying_variety_values_never_overwrites_general_culture_fields(self):
@@ -160,6 +184,7 @@ class CultureApiTest(ProjectApiTestCase):
             project=self.project,
             crop_species=species,
             growth_duration_days=80,
+            crop_family='Solanaceae',
             rotation_break_years=6,
         )
 
@@ -170,7 +195,8 @@ class CultureApiTest(ProjectApiTestCase):
                 'variety': 'Matina',
                 'crop_species': species.id,
                 'growth_duration_days': 65,
-                'crop_family': 'Solanaceae',
+                'crop_family': 'Nightshade',
+                'nutrient_demand': 'high',
                 'rotation_break_years': 4,
                 'copy_values_to_culture': True,
             },
@@ -181,7 +207,41 @@ class CultureApiTest(ProjectApiTestCase):
         general.refresh_from_db()
         self.assertEqual(general.growth_duration_days, 80)
         self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
         self.assertEqual(general.rotation_break_years, 6)
+
+    def test_updating_linked_variety_copies_species_fields_only(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        general = Culture.objects.create(
+            name='Tomato',
+            variety='',
+            project=self.project,
+            crop_species=species,
+        )
+        variety = Culture.objects.create(
+            name='Tomato',
+            variety='Matina',
+            project=self.project,
+            crop_species=species,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{variety.id}/',
+            {
+                'growth_duration_days': 65,
+                'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
+                'rotation_break_years': 4,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        general.refresh_from_db()
+        self.assertIsNone(general.growth_duration_days)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 4)
 
     def test_culture_create_allows_same_name_with_different_variety(self):
         data = {

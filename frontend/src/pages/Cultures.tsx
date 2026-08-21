@@ -29,7 +29,10 @@ import {
   type SnackbarState,
 } from './culturesPageUtils';
 import { createCulturesCommandSpecs } from './culturesCommandSpecs';
-import { buildCultureSavePayload } from './culturesSaveUtils';
+import {
+  buildCultureSavePayload,
+  buildGeneralCultureDraftForFirstVariety,
+} from './culturesSaveUtils';
 import { type HistoryScope } from './culturesHistoryUtils';
 import { useSelectedCultureSync } from './useSelectedCultureSync';
 import { useAuth } from '../auth/useAuth';
@@ -446,7 +449,10 @@ function Cultures() {
           savedCulture = existingGeneralCulture;
           updateSelectedCultureId(savedCulture.id, 'internal');
         } else {
-          const response = await cultureAPI.create(savePayload as Culture);
+          const generalCulturePayload = firstVariety
+            ? buildCultureSavePayload(buildGeneralCultureDraftForFirstVariety(culture) as Culture)
+            : savePayload;
+          const response = await cultureAPI.create(generalCulturePayload as Culture);
           savedCulture = response.data;
           // Auto-select the newly created culture
           updateSelectedCultureId(savedCulture.id, 'internal');
@@ -466,7 +472,9 @@ function Cultures() {
               variety: firstVariety.name,
               copy_values_to_culture: firstVariety.copyValuesToCulture,
             });
-            await cultureAPI.create(varietyPayload as Culture);
+            const varietyResponse = await cultureAPI.create(varietyPayload as Culture);
+            savedCulture = varietyResponse.data;
+            updateSelectedCultureId(savedCulture.id, 'internal');
             showSnackbar(t('messages.createWithVarietySuccess'), 'success');
           } catch (varietyError) {
             console.error('Error creating initial variety:', varietyError);
@@ -790,7 +798,7 @@ function Cultures() {
         <DeleteUndoSnackbar
           key={deletion.id}
           open={deletion.visible}
-          message={t('messages.deleted')}
+          message={deletion.message}
           undoLabel={t('common:actions.undo')}
           offsetIndex={index}
           testId="culture-delete-snackbar"

@@ -57,6 +57,33 @@ CULTURE_INHERITABLE_FIELDS: tuple[str, ...] = (
     'seed_rate_pre_cultivation_unit',
 )
 
+CULTURE_SPECIES_INVARIANT_FIELDS: tuple[str, ...] = (
+    'crop_family',
+    'nutrient_demand',
+    'rotation_break_years',
+)
+
+CULTURE_OPTIONAL_GENERAL_COPY_FIELDS: tuple[str, ...] = (
+    'growth_duration_days',
+    'harvest_duration_days',
+    'propagation_duration_days',
+    'harvest_method',
+    'expected_yield',
+    'distance_within_row_m',
+    'row_spacing_m',
+    'sowing_depth_m',
+    'sowing_calculation_safety_percent',
+    'sowing_calculation_safety_percent_direct',
+    'sowing_calculation_safety_percent_pre_cultivation',
+    'thousand_kernel_weight_g',
+    'seeding_requirement',
+    'seeding_requirement_type',
+    'seed_rate_direct_value',
+    'seed_rate_direct_unit',
+    'seed_rate_pre_cultivation_value',
+    'seed_rate_pre_cultivation_unit',
+)
+
 # Legacy placeholder some seed-rate unit columns still carry; treated as unset.
 _EMPTY_UNIT_PLACEHOLDER = '-'
 
@@ -70,15 +97,20 @@ def ensure_general_culture_for_variety(
     *,
     copy_values: bool = False,
 ) -> Culture | None:
-    """Ensure a linked Sorte has a general Kultur and optionally seed its gaps.
+    """Ensure a linked Sorte has a general Kultur and seed eligible gaps.
 
-    Creation is intentionally empty by default.  Copying is an explicit
-    create-time choice and only fills inheritable fields that are still unset
-    on an existing general Kultur; it never replaces project defaults.
+    Species-invariant fields are promoted to empty general Kultur fields
+    automatically. Variety-variable defaults are promoted only through the
+    explicit create-time choice. Neither path replaces existing project
+    defaults.
     """
     if not inherits_from_general_culture(variety):
         return None
 
+    fields_to_copy = (
+        CULTURE_SPECIES_INVARIANT_FIELDS
+        + (CULTURE_OPTIONAL_GENERAL_COPY_FIELDS if copy_values else ())
+    )
     general = (
         Culture.objects
         .filter(
@@ -90,13 +122,11 @@ def ensure_general_culture_for_variety(
         .first()
     )
     if general is None:
-        defaults: dict[str, Any] = {}
-        if copy_values:
-            defaults = {
-                field: getattr(variety, field)
-                for field in CULTURE_INHERITABLE_FIELDS
-                if not is_unset_culture_value(getattr(variety, field))
-            }
+        defaults: dict[str, Any] = {
+            field: getattr(variety, field)
+            for field in fields_to_copy
+            if not is_unset_culture_value(getattr(variety, field))
+        }
         return Culture.objects.create(
             project_id=variety.project_id,
             crop_species_id=variety.crop_species_id,
@@ -105,11 +135,8 @@ def ensure_general_culture_for_variety(
             **defaults,
         )
 
-    if not copy_values:
-        return general
-
     changed_fields: list[str] = []
-    for field in CULTURE_INHERITABLE_FIELDS:
+    for field in fields_to_copy:
         general_value = getattr(general, field)
         variety_value = getattr(variety, field)
         if is_unset_culture_value(general_value) and not is_unset_culture_value(variety_value):

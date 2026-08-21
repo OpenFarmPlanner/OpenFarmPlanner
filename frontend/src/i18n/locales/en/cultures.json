@@ -173,7 +173,7 @@
     "firstVarietyLabel": "Variety (optional)",
     "firstVarietyPlaceholder": "e.g. cherry tomato",
     "firstVarietyHelperText": "If you enter a variety name, a separate variety is created.",
-    "copyValuesToCulture": "Also use values as general crop defaults",
+    "copyValuesToCulture": "Also use timing, yield, and seed values as general crop values",
     "copyValuesToCultureDisabledTooltip": "Only relevant when a variety is specified.",
     "cultureNameConflict": "This crop already exists in this project. Add a new variety instead or choose a different name.",
     "duplicateNameVariety": "A crop with this name and variety already exists in this project.",
@@ -316,6 +316,7 @@
     "fixErrors": "Please fix the validation errors",
     "exportSuccess": "JSON exported",
     "deleted": "Crop deleted",
+    "varietyDeleted": "Variety deleted",
     "restoreSuccess": "Version restored",
     "restoreError": "Version could not be restored"
   },

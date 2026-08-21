@@ -248,8 +248,8 @@ class CultureSerializer(serializers.ModelSerializer):
         required=False,
         default=False,
         help_text=(
-            'When creating a linked variety, also fill currently empty fields '
-            'on its general culture from the variety values.'
+            'When creating a linked variety, also fill currently empty timing, '
+            'yield, and seed fields on its general culture from the variety values.'
         ),
     )
 
@@ -629,7 +629,9 @@ class CultureSerializer(serializers.ModelSerializer):
         supplier_data_input = validated_data.pop('supplier_data_input', None)
         seed_packages = validated_data.pop('seed_packages', None)
         try:
-            culture = super().update(instance, validated_data)
+            with transaction.atomic():
+                culture = super().update(instance, validated_data)
+                ensure_general_culture_for_variety(culture)
         except IntegrityError as exc:
             self._raise_name_conflict_if_general_name_constraint(exc)
             raise

@@ -11,6 +11,7 @@ export interface PendingCultureDeletion {
   cultureId: number;
   culture: Culture;
   culturesBeforeDelete: Culture[];
+  message: string;
   selectedCultureIdBeforeDelete?: number;
   visible: boolean;
 }
@@ -134,6 +135,9 @@ export function useCultureDelete({
       cultureId,
       culture: deleteDialogCulture,
       culturesBeforeDelete: currentCultures,
+      message: (deleteDialogCulture.variety ?? '').trim()
+        ? t('messages.varietyDeleted')
+        : t('messages.deleted'),
       selectedCultureIdBeforeDelete: selectedCultureId,
       visible: true,
     };

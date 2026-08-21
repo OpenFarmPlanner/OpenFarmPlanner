@@ -469,8 +469,13 @@ describe('Cultures save payload', () => {
     saveCultureMock.mockReturnValue({
       name: 'Neue Kultur',
       variety: '',
+      growth_duration_days: 70,
       row_spacing_cm: 30,
+      seed_rate_direct_value: 12,
+      seed_rate_direct_unit: 'seeds_per_lfm',
       crop_family: 'Doldenblütler',
+      nutrient_demand: 'medium',
+      rotation_break_years: 4,
     } as Culture);
     saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova' });
 
@@ -489,11 +494,22 @@ describe('Cultures save payload', () => {
     const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
     const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
     expect(cropPayload.variety).toBe('');
+    expect(cropPayload.crop_family).toBe('Doldenblütler');
+    expect(cropPayload.nutrient_demand).toBe('medium');
+    expect(cropPayload.rotation_break_years).toBe(4);
+    expect(cropPayload.growth_duration_days).toBeUndefined();
+    expect(cropPayload.row_spacing_cm).toBeUndefined();
+    expect(cropPayload.seed_rate_direct_value).toBeUndefined();
+    expect(cropPayload.seed_rate_direct_unit).toBeNull();
     expect(varietyPayload.name).toBe('Neue Kultur');
     expect(varietyPayload.variety).toBe('Nova');
+    expect(varietyPayload.growth_duration_days).toBe(70);
     expect(varietyPayload.row_spacing_cm).toBe(30);
+    expect(varietyPayload.seed_rate_direct_value).toBe(12);
+    expect(varietyPayload.seed_rate_direct_unit).toBe('seeds_per_lfm');
     expect(varietyPayload.crop_family).toBe('Doldenblütler');
 
+    expect(screen.getByTestId('selected-culture-id')).toHaveTextContent('3');
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
   });
 
@@ -525,6 +541,7 @@ describe('Cultures save payload', () => {
     saveCultureMock.mockReturnValue({
       name: 'Neue Kultur',
       variety: '',
+      growth_duration_days: 70,
       row_spacing_cm: 30,
     } as Culture);
     saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova', copyValuesToCulture: true });
@@ -544,6 +561,8 @@ describe('Cultures save payload', () => {
     const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
     const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
     expect(cropPayload.copy_values_to_culture).toBeUndefined();
+    expect(cropPayload.growth_duration_days).toBeUndefined();
+    expect(cropPayload.row_spacing_cm).toBeUndefined();
     expect(varietyPayload.copy_values_to_culture).toBe(true);
   });
 
@@ -594,6 +613,7 @@ describe('Cultures save payload', () => {
     expect(varietyPayload.variety).toBe('Faraday');
     expect(varietyPayload.crop_species).toBe(6);
     expect(varietyPayload.row_spacing_cm).toBe(30);
+    expect(screen.getByTestId('selected-culture-id')).toHaveTextContent('11');
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Bohne, Bohne'));
   });
 
@@ -647,8 +667,8 @@ describe('Cultures save payload', () => {
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(2));
     const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
     const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
-    // The crop itself keeps its own values; only the variety takes the draft.
-    expect(cropPayload.growth_duration_days).toBe(80);
+    // The general crop only keeps species-level values; only the variety takes the draft.
+    expect(cropPayload.growth_duration_days).toBeUndefined();
     expect(varietyPayload.name).toBe('Tomate');
     expect(varietyPayload.variety).toBe('Moneymaker');
     expect(varietyPayload.growth_duration_days).toBe(95);

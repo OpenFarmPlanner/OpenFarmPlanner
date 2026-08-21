@@ -173,7 +173,7 @@
     "firstVarietyLabel": "Sorte (optional)",
     "firstVarietyPlaceholder": "z.B. Cherrytomate",
     "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird eine eigene Sorte angelegt.",
-    "copyValuesToCulture": "Werte auch als allgemeine Kulturwerte übernehmen",
+    "copyValuesToCulture": "Zeit-, Ertrags- und Saatgutwerte auch als allgemeine Kulturwerte übernehmen",
     "copyValuesToCultureDisabledTooltip": "Nur relevant, wenn eine Sorte angegeben ist.",
     "cultureNameConflict": "Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.",
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
@@ -316,6 +316,7 @@
     "fixErrors": "Bitte beheben Sie die Validierungsfehler",
     "exportSuccess": "JSON exportiert",
     "deleted": "Kultur gelöscht",
+    "varietyDeleted": "Sorte gelöscht",
     "restoreSuccess": "Version wiederhergestellt",
     "restoreError": "Version konnte nicht wiederhergestellt werden"
   },

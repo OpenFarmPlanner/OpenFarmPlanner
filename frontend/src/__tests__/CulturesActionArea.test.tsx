@@ -572,7 +572,7 @@ describe('Cultures action area', () => {
     expect(deleteMock).not.toHaveBeenCalled();
   });
 
-  it('removes a confirmed culture deletion after server delete and shows undo feedback', async () => {
+  it('removes a confirmed variety deletion after server delete and shows undo feedback', async () => {
     renderCultures('/cultures?cultureId=1');
 
     await waitFor(() => expect(screen.getByTestId('culture-row-1')).toBeInTheDocument());
@@ -581,8 +581,30 @@ describe('Cultures action area', () => {
 
     await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(1));
     expect(screen.queryByTestId('culture-row-1')).not.toBeInTheDocument();
-    expect(screen.getByText('Kultur gelöscht')).toBeInTheDocument();
+    expect(screen.getByText('Sorte gelöscht')).toBeInTheDocument();
     await waitForDeleteDialogToClose();
+    expect(screen.getByRole('button', { name: 'Rückgängig: Sorte gelöscht' })).toBeInTheDocument();
+  });
+
+  it('shows culture-specific undo feedback for deleting a general culture', async () => {
+    listMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 1, name: 'Tomate', variety: '', crop_species: 1, cultivation_type: 'pre_cultivation', growth_duration_days: 1, harvest_duration_days: 1 },
+        ],
+      },
+    });
+    renderCultures('/cultures?cultureId=1');
+
+    await waitFor(() => expect(screen.getByTestId('culture-row-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Kultur löschen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Löschen' }));
+
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(1));
+    expect(screen.getByText('Kultur gelöscht')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rückgängig: Kultur gelöscht' })).toBeInTheDocument();
   });
 
@@ -594,7 +616,7 @@ describe('Cultures action area', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Löschen' }));
     await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(1));
     await waitForDeleteDialogToClose();
-    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig: Kultur gelöscht' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig: Sorte gelöscht' }));
 
     await waitFor(() => expect(undeleteMock).toHaveBeenCalledWith(1));
     expect(screen.getByTestId('culture-row-1')).toBeInTheDocument();
@@ -610,7 +632,7 @@ describe('Cultures action area', () => {
 
     await waitFor(() => expect(deleteMock).toHaveBeenCalledWith(1));
     expect(deleteMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Rückgängig: Kultur gelöscht' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rückgängig: Sorte gelöscht' })).toBeInTheDocument();
   });
 
   it('keeps selection stable after confirmed delete and restores previous selection on undo', async () => {
@@ -635,7 +657,7 @@ describe('Cultures action area', () => {
     expect(screen.getByTestId('selected-culture-id')).toHaveTextContent('2');
 
     await waitForDeleteDialogToClose();
-    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig: Kultur gelöscht' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgängig: Sorte gelöscht' }));
 
     await waitFor(() => expect(undeleteMock).toHaveBeenCalledWith(1));
     expect(screen.getByTestId('culture-row-1')).toBeInTheDocument();

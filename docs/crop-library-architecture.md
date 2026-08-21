@@ -329,12 +329,14 @@ planning calculations and the UI resolve it identically:
   empty collection. `0` and `False` are real values and are never replaced.
 - Nothing is copied onto the Sorte. Clearing a field removes the override, and
   the Sorte follows later edits of the general Kultur automatically.
-- Creating a linked Sorte always ensures that its project has a general Kultur
-  row for the same species. That row is empty when it must be created; values
-  never flow silently from a Sorte back to the Kultur. The create API's
-  optional `copy_values_to_culture` flag (default `false`) is the single
-  explicit exception exposed by the add-variety dialog: it fills only general
-  fields that are still unset and never overwrites existing values.
+- Creating or editing a linked Sorte always ensures that its project has a
+  general Kultur row for the same species. Species-invariant fields
+  (`crop_family`, `nutrient_demand`, `rotation_break_years`) fill empty general
+  values automatically because they describe the crop species, not a variety.
+  Variety-variable timing, yield, spacing, and seed fields flow back only
+  through the create API's optional `copy_values_to_culture` flag (default
+  `false`), and then only into general fields that are still unset. Existing
+  general values are never overwritten.
 
 `CultureSerializer` exposes the raw and the resolved value side by side, so a
 client can tell them apart per field:
