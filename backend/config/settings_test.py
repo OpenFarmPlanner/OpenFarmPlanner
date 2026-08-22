@@ -8,6 +8,8 @@ os.environ.setdefault('PUBLIC_FRONTEND_URL', 'http://localhost:5173')
 
 from .settings import *  # noqa: F403, F401
 
+ADMIN_NOTIFICATION_EMAIL = ''
+
 # Override database to use SQLite for tests
 DATABASES = {
     'default': {

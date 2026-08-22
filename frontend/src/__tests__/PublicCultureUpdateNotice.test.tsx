@@ -33,6 +33,7 @@ const importedCulture: Culture = {
   name: 'Karotte',
   variety: 'Nantes',
   origin_type: 'imported',
+  source_public_culture: 42,
   public_update_available: true,
 };
 
@@ -50,12 +51,16 @@ const varietyRenameUpdate: CulturePublicUpdate = {
 };
 
 /** Mirrors how CultureDetail wires the shared controller into both entry points. */
-function UpdateHarness({ culture, onUpdated }: { culture: Culture; onUpdated?: () => void }) {
+function UpdateHarness({ culture, onUpdated, disabledReason }: {
+  culture: Culture;
+  onUpdated?: () => void;
+  disabledReason?: string;
+}) {
   const controller = usePublicCultureUpdate(culture, onUpdated);
   return (
     <>
-      <PublicCultureUpdateMarker controller={controller} />
-      <PublicCultureUpdateNotice culture={culture} controller={controller} />
+      <PublicCultureUpdateMarker controller={controller} disabledReason={disabledReason} />
+      <PublicCultureUpdateNotice culture={culture} controller={controller} disabledReason={disabledReason} />
     </>
   );
 }
@@ -79,11 +84,26 @@ describe('PublicCultureUpdateNotice', () => {
     return onUpdated;
   };
 
-  it('stays hidden when the copy matches the current library version', () => {
-    render(<UpdateHarness culture={{ ...importedCulture, public_update_available: false }} />);
+  it('stays hidden entirely when the culture is not linked to a library entry', () => {
+    render(<UpdateHarness culture={{
+      ...importedCulture,
+      source_public_culture: null,
+      public_update_available: false,
+    }}
+    />);
 
     expect(screen.queryByTestId('culture-public-update-notice')).toBeNull();
     expect(screen.queryByTestId('culture-public-update-marker')).toBeNull();
+    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
+  });
+
+  it('shows a disabled, tooltipped marker when a linked copy already matches the library version', () => {
+    render(<UpdateHarness culture={{ ...importedCulture, public_update_available: false }} />);
+
+    expect(screen.queryByTestId('culture-public-update-notice')).toBeNull();
+    const marker = screen.getByTestId('culture-public-update-marker');
+    expect(marker).toHaveTextContent(t.publicUpdate.markerUpToDateLabel);
+    expect(marker).toHaveClass('Mui-disabled');
     expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
   });
 
@@ -153,5 +173,15 @@ describe('PublicCultureUpdateNotice', () => {
     expect(screen.getByTestId('culture-public-update-rejected-hint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.publicUpdate.reject })).toBeDisabled();
     expect(screen.getByRole('button', { name: t.publicUpdate.apply })).toBeEnabled();
+  });
+  it('blocks both entry points while the crop species is still awaiting moderation', () => {
+    render(<UpdateHarness culture={importedCulture} disabledReason={t.badges.speciesPendingTooltip} />);
+
+    expect(screen.getByRole('button', { name: t.publicUpdate.review })).toBeDisabled();
+    // Disabled MUI chips drop pointer events entirely, so the diff cannot be
+    // opened from the marker either.
+    expect(screen.getByTestId('culture-public-update-marker')).toHaveClass('Mui-disabled');
+    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
+    expect(screen.queryByText(t.publicUpdate.dialogTitle)).toBeNull();
   });
 });

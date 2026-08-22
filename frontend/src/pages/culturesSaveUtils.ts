@@ -20,6 +20,46 @@ export type CultureSavePayload = Culture & {
   supplier?: undefined;
 };
 
+const SPECIES_INVARIANT_GENERAL_FIELDS: readonly (keyof Culture)[] = [
+  'crop_family',
+  'nutrient_demand',
+  'rotation_break_years',
+];
+
+const ORGANIZATIONAL_GENERAL_FIELDS: readonly (keyof Culture)[] = [
+  'display_color',
+  'notes',
+  'cultivation_type',
+  'cultivation_types',
+];
+
+type FirstVarietyGeneralCultureDraft = Pick<Culture, 'name'> & Partial<Culture>;
+
+export function buildGeneralCultureDraftForFirstVariety(
+  culture: Culture,
+): FirstVarietyGeneralCultureDraft {
+  const draft: FirstVarietyGeneralCultureDraft = {
+    name: culture.name,
+    variety: '',
+    crop_species: culture.crop_species,
+    source_public_culture: culture.source_public_culture,
+    source_public_version: culture.source_public_version,
+    origin_type: culture.origin_type,
+  };
+  const fieldsToCopy = [
+    ...ORGANIZATIONAL_GENERAL_FIELDS,
+    ...SPECIES_INVARIANT_GENERAL_FIELDS,
+  ];
+
+  fieldsToCopy.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(culture, field)) {
+      (draft as Record<keyof Culture, Culture[keyof Culture]>)[field] = culture[field];
+    }
+  });
+
+  return draft;
+}
+
 const mapSupplierDataRowToInput = (row: CultureSupplierData): CultureSupplierDataInput => ({
   id: row.id,
   supplier_id: row.supplier_id ?? row.supplier?.id ?? null,
@@ -94,6 +134,12 @@ export function buildCultureSavePayload(culture: Culture): CultureSavePayload {
   delete (payload as unknown as Record<string, unknown>).distance_within_row_m;
   delete (payload as unknown as Record<string, unknown>).row_spacing_m;
   delete (payload as unknown as Record<string, unknown>).sowing_depth_m;
+
+  // Read-only inheritance data: the backend resolves these per response and
+  // ignores them on write, so sending them back is pure payload noise.
+  delete (payload as unknown as Record<string, unknown>).general_culture;
+  delete (payload as unknown as Record<string, unknown>).inherited_fields;
+  delete (payload as unknown as Record<string, unknown>).effective_values;
 
   return payload;
 }

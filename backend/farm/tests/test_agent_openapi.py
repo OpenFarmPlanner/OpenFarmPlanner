@@ -117,6 +117,19 @@ class OpenApiDocumentTests(APITestCase):
             set(entry['properties']['unit']['enum']),
             set(SEED_RATE_UNIT_VALUES),
         )
+        self.assertEqual(
+            entry['x-unit-value-constraints']['seeds_per_plant'],
+            {'value_type': 'integer', 'step': 1, 'minimum': 1},
+        )
+        self.assertEqual(entry['x-unit-value-constraints']['g_per_m2']['value_type'], 'number')
+
+    def test_flat_seed_rate_value_fields_document_unit_value_constraints(self):
+        schema = self.culture_schema['properties']['seed_rate_pre_cultivation_value']
+
+        self.assertEqual(
+            schema['x-unit-value-constraints']['seeds_per_plant']['value_type'],
+            'integer',
+        )
 
     def test_culture_create_documents_seed_requirements_example(self):
         request_body = self.document['paths']['/cultures/']['post']['requestBody']

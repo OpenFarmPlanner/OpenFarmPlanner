@@ -1,4 +1,4 @@
-import type { Culture } from '../api/types';
+import type { Culture, CultureInheritableField } from '../api/types';
 
 export type CropValueSource = 'ownValue' | null;
 
@@ -36,6 +36,7 @@ export const areCropValuesEqual = (left: unknown, right: unknown): boolean => {
 export const VARIETY_INHERITABLE_FIELDS: (keyof Culture)[] = [
   'crop_family',
   'nutrient_demand',
+  'rotation_break_years',
   'cultivation_type',
   'cultivation_types',
   'growth_duration_days',
@@ -98,6 +99,51 @@ export function stripValuesMatchingBaseline<TDraft extends Partial<Culture>>(
     }
   }
   return stripped as TDraft;
+}
+
+/**
+ * The values the backend resolved from a Sorte's general Kultur, keyed by form
+ * field. The edit dialog merges these into the form so a field the Sorte does
+ * not override shows the Kultur's value instead of an empty input; it is also
+ * the baseline `stripValuesMatchingBaseline` clears again on save, so merely
+ * displaying an inherited value never turns it into an override.
+ *
+ * Empty when there is nothing to inherit from — a general Kultur, or a
+ * free-text Sorte without a linked crop species.
+ */
+export function buildInheritedValueBaseline(
+  culture: Culture | null | undefined,
+): Partial<Culture> {
+  if (!culture?.general_culture) {
+    return {};
+  }
+  const effectiveValues = culture.effective_values;
+  if (!effectiveValues) {
+    return {};
+  }
+  const baseline: Partial<Culture> = {};
+  for (const field of culture.inherited_fields ?? []) {
+    const value = effectiveValues[field];
+    if (!isEmptyCropValue(value)) {
+      (baseline as Record<string, unknown>)[field] = value;
+    }
+  }
+  return baseline;
+}
+
+/**
+ * The value a culture effectively plans with: its own, or — for a Sorte that
+ * leaves the field unset — the one the backend resolved from its general
+ * Kultur. Falls back to the raw field for cultures with nothing to inherit
+ * from (a general Kultur, a free-text Sorte, or a stale client-side object
+ * that predates the inheritance payload).
+ */
+export function getEffectiveCultureValue<TField extends CultureInheritableField>(
+  culture: Partial<Culture> | null | undefined,
+  field: TField,
+): Culture[TField] {
+  const effectiveValue = culture?.effective_values?.[field];
+  return (effectiveValue ?? culture?.[field]) as Culture[TField];
 }
 
 export function getVarietyOwnValueSource(

@@ -5,11 +5,22 @@ import {
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
   formatCultureDisplayLabel,
+  getOccupancyTaskPhase,
 } from '../pages/ganttChartUtils';
 
 const locations = [{ id: 1, name: 'Hof' }];
 const fields = [{ id: 10, name: 'Nordfeld', location: 1 }];
 const beds = [{ id: 100, name: 'Beet A', field: 10 }];
+
+describe('getOccupancyTaskPhase', () => {
+  it('identifies growth tasks by id suffix', () => {
+    expect(getOccupancyTaskPhase({ id: 'plan-1-growth' })).toBe('growth');
+  });
+
+  it('identifies harvest tasks by id suffix', () => {
+    expect(getOccupancyTaskPhase({ id: 'plan-1-harvest' })).toBe('harvest');
+  });
+});
 
 describe('buildSeedlingTaskGroups', () => {
 
@@ -84,6 +95,45 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].targetAreaUsage).toBeUndefined();
     expect(groups[0].tasks[0].plantsCount).toBe(18);
     expect(groups[0].tasks[0].plantingPlanCount).toBe(1);
+  });
+
+  it('builds a propagation window from timing a Sorte inherits from its general Kultur', () => {
+    const groups = buildSeedlingTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [
+        {
+          id: 9,
+          name: 'Tomate',
+          variety: 'Berner Rose',
+          crop_species: 4,
+          general_culture: 8,
+          inherited_fields: ['propagation_duration_days', 'cultivation_type'],
+          effective_values: {
+            propagation_duration_days: 21,
+            cultivation_type: 'pre_cultivation',
+          },
+          display_color: '#ff0000',
+        },
+      ],
+      plantingPlans: [
+        {
+          id: 6,
+          culture: 9,
+          culture_name: 'Tomate',
+          bed: 100,
+          bed_name: 'Beet A',
+          planting_date: '2026-05-10',
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].tasks).toHaveLength(1);
+    expect(groups[0].tasks[0].startDate.toISOString()).toContain('2026-04-19');
+    expect(groups[0].tasks[0].endDate.toISOString()).toContain('2026-05-10');
   });
 
   it('aggregates seedling requirements by culture, start date and transplant date independent of beds', () => {
@@ -654,5 +704,38 @@ describe('buildFieldOccupancyHierarchy', () => {
     });
 
     expect(nodes).toEqual([]);
+  });
+
+  it('renders growth and harvest phase colors without alpha blending', () => {
+    const baseColor = '#93c5fd';
+    const groups = buildFieldOccupancyTaskGroups({
+      locations,
+      fields,
+      beds,
+      displayYear: 2026,
+      cultures: [
+        {
+          id: 42,
+          name: 'Kohlrabi',
+          display_color: baseColor,
+        },
+      ],
+      plantingPlans: [
+        {
+          id: 30,
+          culture: 42,
+          culture_name: 'Kohlrabi',
+          bed: 100,
+          planting_date: '2026-03-01',
+          harvest_date: '2026-04-15',
+          harvest_end_date: '2026-04-30',
+        },
+      ],
+    });
+
+    const [growthTask, harvestTask] = groups[0].tasks;
+    expect(growthTask.color).not.toBe(baseColor);
+    expect(growthTask.color).not.toBe(harvestTask.color);
+    expect(harvestTask.color).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });

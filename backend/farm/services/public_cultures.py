@@ -1046,6 +1046,7 @@ def remove_public_culture(
     public_culture: PublicCulture,
     user: User | None,
     reason: str = '',
+    force_moderator_reason: bool = False,
 ) -> PublicCulture:
     """Remove a public culture from the public library.
 
@@ -1056,8 +1057,15 @@ def remove_public_culture(
       reversible: publishing the project culture again republishes it;
     - a moderator removes somebody else's entry (`removed`) and must supply a
       structured moderation reason.
+
+    ``force_moderator_reason`` skips the contributor auto-detection and always
+    takes the moderator/``removed`` path. Needed for system-driven cascades
+    (e.g. withdrawing every entry under a just-rejected species) that must
+    record the real reason even when the acting moderator happens to also be
+    the entry's own contributor — otherwise the contributor branch would
+    silently downgrade it to a self-reversible `withdrawn` with no reason.
     """
-    if is_public_culture_contributor(public_culture=public_culture, user=user):
+    if not force_moderator_reason and is_public_culture_contributor(public_culture=public_culture, user=user):
         if public_culture.status != PublicCulture.STATUS_PUBLISHED:
             raise PublicCultureStatusTransitionError(
                 'Only published public cultures can be removed from the library.',
@@ -1277,28 +1285,38 @@ def has_open_public_culture_update(culture: Culture) -> bool:
     return not is_public_culture_update_rejected(culture)
 
 
-def resolve_public_publish_block(culture: Culture) -> str | None:
+def resolve_public_publish_block(
+    culture: Culture,
+    owned_public_culture: PublicCulture | None,
+) -> str | None:
     """Why pushing this culture into the public library is currently blocked, if it is.
 
-    Only linked copies can be blocked — a culture that was never imported has no
-    public version to diverge from. The reasons are ordered by how the versions
-    relate, so the UI can explain the exact situation instead of a generic hint:
+    ``owned_public_culture`` is the entry an actual publish would target —
+    callers resolve it themselves (respecting per-request ownership/moderator
+    rules, and any prefetching they already did for it), so this stays a pure
+    comparison and never issues its own query. The reasons are ordered by how
+    the versions relate, so the UI can explain the exact situation instead of a
+    generic hint:
 
-    - ``update_pending``: the library moved on and the user has not decided yet;
-      pushing now would overwrite an unreviewed public change.
+    - ``update_pending``: this copy also tracks the entry as its import source
+      and the library moved on without a decision yet; pushing now would
+      overwrite an unreviewed public change.
     - ``update_rejected``: the user deliberately declined that public version;
       pushing would silently undo the very change they declined.
-    - ``no_local_changes``: the copy matches the current public version and
-      carries no local edits, so there is nothing to contribute.
+    - ``no_local_changes``: the copy's published fields already match the
+      public entry, so there is nothing to contribute.
     """
-    if culture.source_public_culture_id is None:
+    if owned_public_culture is None:
         return None
-    public_culture = culture.source_public_culture
-    if public_culture is None or public_culture.status != PublicCulture.STATUS_PUBLISHED:
+
+    if culture.source_public_culture_id == owned_public_culture.id:
+        if has_pending_public_culture_update(culture):
+            return 'update_rejected' if is_public_culture_update_rejected(culture) else 'update_pending'
+        if not culture.is_modified_from_source:
+            return 'no_local_changes'
         return None
-    if has_pending_public_culture_update(culture):
-        return 'update_rejected' if is_public_culture_update_rejected(culture) else 'update_pending'
-    if not culture.is_modified_from_source:
+
+    if _copy_fields(culture) == _copy_fields(owned_public_culture):
         return 'no_local_changes'
     return None
 

@@ -26,7 +26,9 @@ from farm.models import PublicCulture
 from farm.utils import normalize_text
 
 if TYPE_CHECKING:
-    from .models import CropSpecies
+    from django.contrib.auth.models import AbstractBaseUser
+
+    from .models import CropSpecies, PublicLibraryModeratorRequest
 
 SEARCH_ALIASES = {
     'paradeis': 'tomate',
@@ -74,6 +76,7 @@ def build_public_crop_search_query(value: str, *, include_variety: bool = True) 
             Q(name_normalized__icontains=term)
             | Q(crop_species__name_normalized__icontains=term)
             | Q(crop_species__translations__common_name_normalized__icontains=term)
+            | Q(crop_species__translations__search_text_normalized__icontains=term)
         )
     return query
 
@@ -83,13 +86,31 @@ def build_species_search_query(value: str) -> Q:
     query = Q()
     stripped_value = value.strip()
     if stripped_value:
-        query |= Q(name__icontains=stripped_value) | Q(translations__common_name__icontains=stripped_value)
+        query |= (
+            Q(name__icontains=stripped_value)
+            | Q(translations__common_name__icontains=stripped_value)
+        )
     for term in build_crop_search_terms(value):
-        query |= Q(name_normalized__icontains=term) | Q(translations__common_name_normalized__icontains=term)
+        query |= (
+            Q(name_normalized__icontains=term)
+            | Q(translations__common_name_normalized__icontains=term)
+            | Q(translations__search_text_normalized__icontains=term)
+        )
     return query
 
 
-def list_published_crops(*, query: str = '', name: str = '', variety: str = '') -> QuerySet[PublicCulture]:
+def build_exact_species_identity_query(normalized_name: str) -> Q:
+    """Exact species identity match across canonical names, translations, and aliases."""
+    return (
+        Q(name_normalized=normalized_name)
+        | Q(translations__common_name_normalized=normalized_name)
+        | Q(translations__search_text_normalized__icontains=f'\n{normalized_name}\n')
+    )
+
+
+def list_published_crops(
+    *, query: str = '', name: str = '', variety: str = '',
+) -> QuerySet[PublicCulture]:
     """Published crops, optionally filtered by a free-text query and/or exact-field substrings.
 
     Free-text and name search deliberately span **every** stored species
@@ -116,7 +137,9 @@ def list_published_crops(*, query: str = '', name: str = '', variety: str = '') 
     if query:
         queryset = queryset.filter(build_public_crop_search_query(query)).distinct()
     if name:
-        queryset = queryset.filter(build_public_crop_search_query(name, include_variety=False)).distinct()
+        queryset = queryset.filter(
+            build_public_crop_search_query(name, include_variety=False),
+        ).distinct()
     if variety:
         # Variety names are proper names: never translated, matched verbatim.
         queryset = queryset.filter(variety__icontains=variety)
@@ -124,7 +147,10 @@ def list_published_crops(*, query: str = '', name: str = '', variety: str = '') 
 
 
 def get_published_crop(pk: int) -> PublicCulture:
-    """A single published crop by id. Raises `PublicCulture.DoesNotExist` if not found or unpublished."""
+    """A single published crop by id.
+
+    Raises `PublicCulture.DoesNotExist` if not found or unpublished.
+    """
     return PublicCulture.objects.get(pk=pk, status=PublicCulture.STATUS_PUBLISHED)
 
 
@@ -141,7 +167,9 @@ def find_species_by_common_name(name: str | None) -> CropSpecies | None:
     if not normalized:
         return None
     return CropSpecies.objects.filter(
-        Q(name_normalized=normalized) | Q(translations__common_name_normalized=normalized),
+        Q(name_normalized=normalized)
+        | Q(translations__common_name_normalized=normalized)
+        | Q(translations__search_text_normalized__icontains=f'\n{normalized}\n'),
     ).distinct().first()
 
 
@@ -174,3 +202,158 @@ def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCul
         .order_by('-published_at', '-id')
         .first()
     )
+
+
+def notify_species_proposal_reviewed(species: CropSpecies) -> None:
+    """Tell the proposing user that a moderator accepted or rejected their species.
+
+    Silently does nothing for species nobody proposed (seeded/admin-created
+    rows) and for statuses that are not a review outcome, so callers can invoke
+    this unconditionally after a moderation action.
+
+    The notification links to the proposer's own public entry under that
+    species when there is one — that variety is what the decision actually
+    affects — and falls back to the species itself otherwise.
+    """
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .models import CropSpecies
+
+    notification_type = {
+        CropSpecies.STATUS_PUBLISHED: Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED,
+        CropSpecies.STATUS_REJECTED: Notification.TYPE_CROP_SPECIES_PROPOSAL_REJECTED,
+    }.get(species.status)
+    if notification_type is None or species.proposed_by is None:
+        return
+
+    published_variety = (
+        PublicCulture.objects
+        .filter(crop_species=species, created_by=species.proposed_by)
+        .order_by('-published_at', '-id')
+        .values_list('id', flat=True)
+        .first()
+    )
+    accepted = notification_type == Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED
+    create_notification(
+        recipient=species.proposed_by,
+        notification_type=notification_type,
+        message=(
+            f'Your proposal for the crop species "{species.name}" was '
+            f'{"accepted" if accepted else "rejected"}.'
+        ),
+        context={'name': species.name},
+        target_type=(
+            Notification.TARGET_PUBLIC_CULTURE if published_variety
+            else Notification.TARGET_CROP_SPECIES
+        ),
+        target_id=published_variety or species.id,
+    )
+
+
+def remove_public_cultures_for_rejected_species(
+    species: CropSpecies, moderator: AbstractBaseUser,
+) -> None:
+    """Withdraw every published entry left under a species a moderator just rejected.
+
+    `CropSpeciesViewSet.reject()` only flips the species' own status — nothing
+    stops a variety published *while the species was still under review* from
+    staying published afterwards, still carrying the rejected species' name
+    (`PublicCulture.display_name()` always defers to the linked species). Left
+    alone, a rejected proposal like "Karotsdasdas" keeps showing up in the
+    library forever. This closes that gap by running every affected entry
+    through the same moderator-removal path as a manual "remove from library"
+    action (`farm.services.public_cultures.remove_public_culture`), so it's
+    non-destructive and shows up in the moderation queue's "removed" table
+    with a reason a moderator can see and reverse.
+
+    Imports the removal helper locally rather than at module level: it lives
+    in `farm.services.public_cultures`, a service module (not a project-scoped
+    model or a view/serializer package), and only ever touches `PublicCulture`
+    rows — the same model this file already reads/writes elsewhere — so it
+    does not cross the "crop library knows nothing about projects" boundary
+    documented at the top of this file.
+
+    Also notifies every affected entry's contributor, except the species
+    proposer themselves — they already get a species-level notification from
+    `notify_species_proposal_reviewed`, so a second one about "their" entry
+    would be redundant. A collaborator who published a variety under someone
+    else's still-under-review species proposal would otherwise never learn
+    their contribution was pulled.
+    """
+    from farm.services.public_cultures import remove_public_culture
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    affected = PublicCulture.objects.filter(
+        crop_species=species, status=PublicCulture.STATUS_PUBLISHED,
+    )
+    for public_culture in affected:
+        remove_public_culture(
+            public_culture=public_culture,
+            user=moderator,
+            reason=PublicCulture.REMOVAL_REASON_SPECIES_REJECTED,
+            # A moderator rejecting a species may also be the contributor of
+            # one of the affected entries (they proposed and self-published
+            # under it) — this is still a moderation action, not a personal
+            # withdrawal, so it must always carry the real removal reason.
+            force_moderator_reason=True,
+        )
+        if public_culture.created_by_id and public_culture.created_by_id != species.proposed_by_id:
+            create_notification(
+                recipient=public_culture.created_by,
+                notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+                message=(
+                    f'Your published crop "{public_culture.name}" was removed from the '
+                    f'public library because its crop species "{species.name}" was rejected.'
+                ),
+                context={'name': public_culture.name, 'species_name': species.name},
+                target_type=Notification.TARGET_PUBLIC_CULTURE,
+                target_id=public_culture.id,
+            )
+
+
+def notify_moderators_of_species_proposal(species: CropSpecies) -> None:
+    """Tell every public library moderator that a new species proposal is waiting for review.
+
+    Skips the proposer themselves: a moderator proposing their own species
+    doesn't need to be told their own submission is waiting for review.
+    """
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .permissions import public_library_moderator_users
+
+    for recipient in public_library_moderator_users().exclude(pk=species.proposed_by_id):
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED,
+            message=f'A new crop species proposal "{species.name}" is waiting for review.',
+            context={'name': species.name},
+            target_type=Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            target_id=species.id,
+        )
+
+
+def notify_admins_of_moderator_request(moderator_request: PublicLibraryModeratorRequest) -> None:
+    """Tell every public library admin that a new moderator access request is waiting for review."""
+    from notifications.models import Notification
+    from notifications.services import create_notification
+
+    from .permissions import public_library_admin_users
+
+    requester = moderator_request.user
+    requester_label = (
+        (requester.get_full_name() or '').strip()
+        or requester.email
+        or requester.username
+    )
+    for recipient in public_library_admin_users():
+        create_notification(
+            recipient=recipient,
+            notification_type=Notification.TYPE_MODERATOR_REQUEST_SUBMITTED,
+            message=f'{requester_label} requested public library moderator access.',
+            context={'name': requester_label},
+            target_type=Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            target_id=moderator_request.id,
+        )

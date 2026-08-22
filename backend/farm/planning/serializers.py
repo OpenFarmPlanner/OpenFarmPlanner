@@ -13,6 +13,11 @@ from farm.common.serializer_fields import (
 )
 from farm.models import Culture, PlantingPlan, Task
 from farm.services.culture_display import resolve_culture_display_name
+from farm.services.culture_inheritance import (
+    build_general_culture_index,
+    resolve_culture_field,
+    resolve_plants_per_m2,
+)
 from farm.services.demo_project import find_demo_culture_species, is_demo_project_description
 
 
@@ -25,9 +30,12 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     culture_display_name = serializers.SerializerMethodField(read_only=True)
     culture_display_language_code = serializers.SerializerMethodField(read_only=True)
     culture_display_color = serializers.CharField(source='culture.display_color', read_only=True, allow_blank=True, allow_null=True)
-    culture_propagation_duration_days = serializers.IntegerField(source='culture.propagation_duration_days', read_only=True, allow_null=True)
-    culture_cultivation_type = serializers.CharField(source='culture.cultivation_type', read_only=True, allow_blank=True, allow_null=True)
-    culture_cultivation_types = serializers.ListField(source='culture.cultivation_types', child=serializers.CharField(), read_only=True, allow_null=True)
+    # Culture timing/cultivation values the Gantt calendar plans from. Served as
+    # *effective* values so a Sorte that only overrides some fields still drives
+    # the calendar with its general Kultur's remaining values.
+    culture_propagation_duration_days = serializers.SerializerMethodField(read_only=True)
+    culture_cultivation_type = serializers.SerializerMethodField(read_only=True)
+    culture_cultivation_types = serializers.SerializerMethodField(read_only=True)
     bed_name = serializers.SerializerMethodField(read_only=True)
     harvest_date = serializers.SerializerMethodField(read_only=True)
     harvest_end_date = serializers.SerializerMethodField(read_only=True)
@@ -62,11 +70,41 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     def get_bed_name(self, obj: PlantingPlan) -> str | None:
         return obj.bed.name if obj.bed else None
 
+    def _general_culture_index(self, obj: PlantingPlan) -> dict[int, Culture]:
+        """The project's general Kulturen, built once per request (not per row)."""
+        cache = self.context.setdefault('_general_culture_index_by_project', {})
+        if obj.project_id not in cache:
+            cache[obj.project_id] = build_general_culture_index(obj.project_id)
+        return cache[obj.project_id]
+
+    def _effective_culture_value(self, obj: PlantingPlan, field: str) -> object:
+        """A culture field with the Sorte -> general Kultur fallback applied."""
+        if obj.culture is None:
+            return None
+        return resolve_culture_field(obj.culture, field, self._general_culture_index(obj))
+
+    def get_culture_propagation_duration_days(self, obj: PlantingPlan) -> int | None:
+        return self._effective_culture_value(obj, 'propagation_duration_days')
+
+    def get_culture_cultivation_type(self, obj: PlantingPlan) -> str | None:
+        return self._effective_culture_value(obj, 'cultivation_type')
+
+    def get_culture_cultivation_types(self, obj: PlantingPlan) -> list[str] | None:
+        return self._effective_culture_value(obj, 'cultivation_types')
+
     def _request_language(self) -> str:
         request = self.context.get('request')
         if request is None:
             return DEFAULT_LANGUAGE_CODE
         return resolve_request_language(request)
+
+    def _request_region(self) -> str:
+        request = self.context.get('request')
+        active_project = getattr(request, 'active_project', None) if request is not None else None
+        if active_project is not None:
+            return getattr(active_project, 'region', '') or ''
+        plan_project = self.context.get('project')
+        return getattr(plan_project, 'region', '') if plan_project is not None else ''
 
     def _get_culture_species(self, culture: Culture) -> CropSpecies | None:
         if culture.crop_species_id:
@@ -84,11 +122,11 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         if culture is None:
             return None, ''
         if culture.crop_species_id:
-            return resolve_culture_display_name(culture, self._request_language())
+            return resolve_culture_display_name(culture, self._request_language(), self._request_region())
         species = self._get_culture_species(culture)
         if species is None:
             return culture.name, ''
-        return species.localized_name(self._request_language())
+        return species.localized_name(self._request_language(), self._request_region())
 
     def get_culture_display_name(self, obj: PlantingPlan) -> str | None:
         return self._get_localized_culture_name(obj)[0]
@@ -96,21 +134,26 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     def get_culture_display_language_code(self, obj: PlantingPlan) -> str:
         return self._get_localized_culture_name(obj)[1]
 
+    def _calculated_harvest_dates(self, obj: PlantingPlan) -> tuple[date | None, date | None]:
+        cache = self.context.setdefault('_calculated_harvest_dates_by_plan', {})
+        cache_key = obj.pk or id(obj)
+        if cache_key not in cache:
+            cache[cache_key] = obj.calculate_effective_harvest_dates(self._general_culture_index(obj))
+        return cache[cache_key]
+
     def get_harvest_date(self, obj: PlantingPlan) -> date | None:
         """Return harvest start only when culture growth timing is known."""
-        if obj.culture is None or obj.culture.growth_duration_days is None:
+        calculated_harvest_date, _ = self._calculated_harvest_dates(obj)
+        if calculated_harvest_date is None:
             return None
-        return obj.harvest_date
+        return obj.harvest_date or calculated_harvest_date
 
     def get_harvest_end_date(self, obj: PlantingPlan) -> date | None:
         """Return harvest end only when both growth and harvest timing are known."""
-        if (
-            obj.culture is None
-            or obj.culture.growth_duration_days is None
-            or obj.culture.harvest_duration_days is None
-        ):
+        _, calculated_harvest_end_date = self._calculated_harvest_dates(obj)
+        if calculated_harvest_end_date is None:
             return None
-        return obj.harvest_end_date
+        return obj.harvest_end_date or calculated_harvest_end_date
 
     class Meta:
         model = PlantingPlan
@@ -118,10 +161,10 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         read_only_fields = ['project', 'harvest_date', 'harvest_end_date', 'created_by', 'updated_by']
     
     def get_plants_count(self, obj):
-        """Compute plant count from area and culture spacing."""
+        """Compute plant count from area and the culture's effective spacing."""
         if not obj.area_usage_sqm or not obj.culture:
             return None
-        plants_per_m2 = obj.culture.plants_per_m2
+        plants_per_m2 = resolve_plants_per_m2(obj.culture, self._general_culture_index(obj))
         if not plants_per_m2 or plants_per_m2 <= 0:
             return None
         return round(obj.area_usage_sqm * plants_per_m2)
@@ -199,7 +242,7 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
             })
 
         # Validate culture has valid spacing
-        plants_per_m2 = culture.plants_per_m2
+        plants_per_m2 = resolve_plants_per_m2(culture)
         if plants_per_m2 is None or plants_per_m2 <= 0:
             raise serializers.ValidationError({
                 'area_input_unit': (

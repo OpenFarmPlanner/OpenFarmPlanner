@@ -11,8 +11,19 @@ vi.mock('../i18n', () => ({
   }),
 }));
 
-const { cultureDuplicateCheckMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
+const { cultureDuplicateCheckMock, seedRateConstraintsMock, publicCultureListMock, supplierCreateMock, supplierListMock } = vi.hoisted(() => ({
   cultureDuplicateCheckMock: vi.fn().mockResolvedValue({ data: { exists: false } }),
+  seedRateConstraintsMock: vi.fn().mockResolvedValue({
+    data: {
+      units: {
+        g_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        g_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+        seeds_per_plant: { value_type: 'integer', step: 1, minimum: 1 },
+      },
+    },
+  }),
   publicCultureListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
   supplierCreateMock: vi.fn(),
   supplierListMock: vi.fn().mockResolvedValue({ data: { results: [] } }),
@@ -25,6 +36,7 @@ vi.mock('../api/api', async () => {
     cultureAPI: {
       ...actual.cultureAPI,
       duplicateCheck: cultureDuplicateCheckMock,
+      seedRateConstraints: seedRateConstraintsMock,
     },
     publicCultureAPI: {
       ...actual.publicCultureAPI,
@@ -54,6 +66,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     onVarietyCommit,
     firstVarietyOptions = [],
     onFirstVarietyCommit,
+    identityRowControl,
     existingCropHint,
   }: {
     formData: Partial<Culture>;
@@ -71,6 +84,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
     onVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
     firstVarietyOptions?: string[];
     onFirstVarietyCommit?: (variety: string, reason?: 'selectOption') => void;
+    identityRowControl?: ReactNode;
     existingCropHint?: ReactNode;
   }) => (
     <div>
@@ -120,6 +134,7 @@ vi.mock('../cultures/sections/BasicInfoSection', () => ({
           select-first-variety-option
         </button>
       ) : null}
+      {identityRowControl}
       {showFirstVarietyField ? existingCropHint : null}
       {identityHint}
     </div>
@@ -181,6 +196,18 @@ describe('CultureForm', () => {
   beforeEach(() => {
     cultureDuplicateCheckMock.mockReset();
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
+    seedRateConstraintsMock.mockReset();
+    seedRateConstraintsMock.mockResolvedValue({
+      data: {
+        units: {
+          g_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          g_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_m2: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_lfm: { value_type: 'number', step: 0.001, minimum: 0.001 },
+          seeds_per_plant: { value_type: 'integer', step: 1, minimum: 1 },
+        },
+      },
+    });
     publicCultureListMock.mockReset();
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });
     supplierCreateMock.mockReset();
@@ -189,6 +216,72 @@ describe('CultureForm', () => {
     });
     supplierListMock.mockReset();
     supplierListMock.mockResolvedValue({ data: { results: [] } });
+  });
+
+  it('seeds the Name field from the current species name, not a stale culture.name', async () => {
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Ackerbohne', crop_species: 5, culture_display_name: '2' }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('2');
+  });
+
+  it('saves the untouched canonical name, not the displayed translation, when the Name field was not edited', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Kürbis', crop_species: 5, culture_display_name: 'Pumpkin' }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Pumpkin');
+    // Touch an unrelated field so the form is dirty and actually submits,
+    // without going through the name/variety duplicate-check debounce.
+    fireEvent.change(screen.getByLabelText('thousand-kernel-input'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Kürbis' }), undefined);
+  });
+
+  it('saves an actual edit to the Name field verbatim', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Kürbis', crop_species: 5, culture_display_name: 'Pumpkin' }}
+        onSave={onSave}
+        onCancel={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Butternut' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Butternut', variety: 'Nantaise', exclude_id: 1 },
+      expect.any(AbortSignal),
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'form.save' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ name: 'Butternut' }), undefined);
+  });
+
+  it('falls back to culture.name when there is no linked species', async () => {
+    render(
+      <CultureForm
+        culture={{ ...CULTURE_A, name: 'Karotte', crop_species: null, culture_display_name: undefined }}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.getByLabelText('name-input')).toHaveValue('Karotte');
   });
 
   it('renders supplier selection states based on supplier availability', async () => {
@@ -590,6 +683,45 @@ describe('CultureForm', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('disables saving a crop while its name already exists in the project', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: false, name_exists: true } });
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Bohne' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Bohne', variety: '', exclude_id: undefined },
+      expect.any(AbortSignal),
+    ));
+    expect(await screen.findByText('form.cultureNameConflict')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'form.create' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('allows saving an existing crop name when a first variety is entered', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    cultureDuplicateCheckMock.mockResolvedValueOnce({ data: { exists: false, name_exists: true } });
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Bohne' } });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Faraday' } });
+
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalledWith(
+      { name: 'Bohne', variety: '', exclude_id: undefined },
+      expect.any(AbortSignal),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
+    expect(screen.queryByText('form.cultureNameConflict')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
   it('keeps free-text culture names private without requiring a public match', async () => {
     cultureDuplicateCheckMock.mockResolvedValue({ data: { exists: false } });
     publicCultureListMock.mockResolvedValue({ data: { results: [] } });
@@ -745,6 +877,7 @@ describe('CultureForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'select-name-option' }));
 
     await waitFor(() => expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -786,6 +919,7 @@ describe('CultureForm', () => {
       { crop_species: 7 },
       expect.any(AbortSignal),
     ));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -815,7 +949,18 @@ describe('CultureForm', () => {
 
     fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Tomate' } });
     await screen.findByRole('button', { name: 'select-first-variety-option' });
+    const duplicateCheckCallsBeforeVarietySelect = cultureDuplicateCheckMock.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'select-first-variety-option' }));
+    // Picking the first-variety suggestion flips `hasFirstVarietyName`, which
+    // re-triggers the debounced duplicate-name check (it factors into the
+    // crop-name-conflict rule). Depending on timing, this either cancels an
+    // in-flight name-only check and replaces it, or runs after it — either
+    // way, wait for a check that reflects the post-selection state to land
+    // before asserting the Create button is enabled. Otherwise a stale
+    // "not disabled" read from the tail end of the superseded check can pass
+    // a moment before the new debounce cycle disables it again.
+    await waitFor(() => expect(cultureDuplicateCheckMock.mock.calls.length).toBeGreaterThan(duplicateCheckCallsBeforeVarietySelect));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'form.create' })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -870,10 +1015,39 @@ describe('CultureForm', () => {
 
     const hint = await screen.findByTestId('culture-existing-crop-hint');
     expect(hint).toBeInTheDocument();
+    expect(hint).toHaveTextContent('form.existingCropHint');
     fireEvent.click(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' }));
 
     // The species-level row is the correct parent for the add-variety flow.
     expect(onSwitchToAddVariety).toHaveBeenCalledWith(expect.objectContaining({ id: 9, variety: '' }));
+  });
+
+  it('turns the existing-crop hint into confirmation once a first variety is entered', async () => {
+    render(
+      <CultureForm
+        formKind="crop"
+        cultures={[{ id: 9, name: 'Karotte', variety: '' } as Culture]}
+        onSave={vi.fn()}
+        onCancel={() => {}}
+        onSwitchToAddVariety={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+
+    const hint = await screen.findByTestId('culture-existing-crop-hint');
+    expect(hint).toHaveTextContent('form.existingCropHint');
+    expect(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Faraday' } });
+
+    expect(await screen.findByTestId('culture-existing-crop-hint')).toHaveTextContent('form.existingCropFirstVarietyHint');
+    expect(screen.queryByRole('button', { name: 'form.existingCropAddVarietyAction' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: '' } });
+
+    expect(await screen.findByTestId('culture-existing-crop-hint')).toHaveTextContent('form.existingCropHint');
+    expect(screen.getByRole('button', { name: 'form.existingCropAddVarietyAction' })).toBeInTheDocument();
   });
 
   it('shows no existing-crop hint for a name the project does not use yet', async () => {
@@ -970,6 +1144,45 @@ describe('CultureForm', () => {
     );
   });
 
+  it('keeps the copy-defaults checkbox disabled in the crop form until a first variety was entered', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="crop" onSave={onSave} onCancel={() => {}} />);
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).toBeDisabled();
+    fireEvent.mouseOver(screen.getByText('form.copyValuesToCulture'));
+    expect(await screen.findByText('form.copyValuesToCultureDisabledTooltip')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+
+    expect(copyCheckbox).not.toBeDisabled();
+    expect(copyCheckbox).not.toBeChecked();
+    fireEvent.click(copyCheckbox);
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Karotte', variety: '' }),
+      { name: 'Nantaise', draft: undefined, copyValuesToCulture: true },
+    );
+  });
+
+  it('preserves the checked copy-defaults value when the first variety is cleared', () => {
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: 'Nantaise' } });
+    fireEvent.click(copyCheckbox);
+    expect(copyCheckbox).toBeChecked();
+
+    fireEvent.change(screen.getByLabelText('first-variety-input'), { target: { value: '' } });
+
+    expect(copyCheckbox).toBeDisabled();
+    expect(copyCheckbox).toBeChecked();
+  });
+
   it('shows and still requires the variety field when formKind is variety', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
 
@@ -982,6 +1195,28 @@ describe('CultureForm', () => {
 
     expect(onSave).not.toHaveBeenCalled();
     expect(await screen.findByText('form.varietyRequired')).toBeInTheDocument();
+  });
+
+  it('only requests copying variety values to the general culture after explicit opt-in', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(<CultureForm formKind="variety" onSave={onSave} onCancel={() => {}} />);
+
+    const copyCheckbox = screen.getByRole('checkbox', { name: 'form.copyValuesToCulture' });
+    expect(copyCheckbox).not.toBeChecked();
+    expect(copyCheckbox).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('variety-input'), { target: { value: 'Nantaise' } });
+    expect(copyCheckbox).not.toBeDisabled();
+    fireEvent.click(copyCheckbox);
+    fireEvent.change(screen.getByLabelText('name-input'), { target: { value: 'Karotte' } });
+    await waitFor(() => expect(cultureDuplicateCheckMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'form.create' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ copy_values_to_culture: true }),
+      undefined,
+    );
   });
 
   it('pre-fills crop_species and name from initialDraft when adding a variety', () => {

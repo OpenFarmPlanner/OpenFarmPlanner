@@ -117,6 +117,22 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual(['Moneymaker']);
   });
 
+  it('hides the general library source hint once a first variety name is entered', async () => {
+    mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
+
+    render(<CultureForm formKind="crop" onSave={vi.fn()} onCancel={() => {}} />);
+    fireEvent.change(getNameInput(), { target: { value: 'Toma' } });
+    fireEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
+
+    await waitFor(() => expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument());
+
+    const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
+    fireEvent.change(firstVarietyInput, { target: { value: 'Custom' } });
+
+    expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
+    expect(screen.queryByText('form.firstVarietySourceHint')).not.toBeInTheDocument();
+  });
+
   it('labels suggestions as coming from the public crop library while typing', async () => {
     mockLibrary([GENERAL_TOMATO, MONEYMAKER]);
 
@@ -134,6 +150,8 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     fireEvent.change(getNameInput(), { target: { value: 'Toma' } });
     fireEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
 
+    await waitFor(() => expect(screen.getByText('form.publicCultureSourceHint')).toBeInTheDocument());
+
     const firstVarietyInput = screen.getByRole('combobox', { name: /form\.firstVarietyLabel/ });
     await waitFor(() => expect(publicCultureListMock).toHaveBeenCalledWith(
       { crop_species: 7 },
@@ -143,6 +161,7 @@ describe('CultureForm library autocomplete (real BasicInfoSection)', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Moneymaker' }));
 
     await waitFor(() => expect(screen.getByText('form.firstVarietySourceHint')).toBeInTheDocument());
+    expect(screen.queryByText('form.publicCultureSourceHint')).not.toBeInTheDocument();
   });
 
   it('offers an explicit apply action instead of silently linking when typed first-variety text matches exactly', async () => {

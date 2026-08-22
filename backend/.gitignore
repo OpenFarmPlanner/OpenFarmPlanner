@@ -15,6 +15,7 @@ venv/
 env/
 ENV/
 .venv/
+uv.lock
 __pypackages__/
 
 # PDM

@@ -41,7 +41,7 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import SpaOutlinedIcon from '@mui/icons-material/SpaOutlined';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
-import { publicCultureAPI } from '../../api/api';
+import { cropSpeciesAPI, publicCultureAPI, publicLibraryModeratorRequestAPI } from '../../api/api';
 import type {
   CultivationType,
   Culture,
@@ -82,6 +82,8 @@ import { AppTooltip } from '../../components/AppTooltip';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from '../../cultures/CultureSeedDetails';
 import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
+import { CropSpeciesPendingChip } from '../../cultures/CropSpeciesPendingChip';
+import { isCropSpeciesPending } from '../../cultures/cropSpeciesPending';
 import { PublicCultureFiltersPopover } from '../components/PublicCultureFiltersPopover';
 import {
   EMPTY_PUBLIC_CULTURE_FILTERS,
@@ -140,6 +142,7 @@ export default function PublicCropLibraryPage() {
   const activeTab = getPublicCultureTabIndex(searchParams.get('tab'), selectedTopicIdFromUrl);
   const selectedTopicId = activeTab === PUBLIC_CULTURE_TAB_INDEX_BY_PARAM.discussion ? selectedTopicIdFromUrl : null;
   const [query, setQuery] = useState(() => storedViewState?.query ?? '');
+  const [isSearchInputFocused, setIsSearchInputFocused] = useState(false);
   const [cultures, setCultures] = useState<PublicCulture[]>([]);
   const [selectedCultureId, setSelectedCultureId] = useState<number | null>(() => (
     selectedCultureIdFromUrl ?? storedViewState?.cultureId ?? getStoredPublicCultureId()
@@ -232,6 +235,35 @@ export default function PublicCropLibraryPage() {
   }, [useCompactLibraryLayout, loadError, isCultureLoading]);
   const canEditPublicCulture = Boolean(user);
   const canModeratePublicLibrary = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
+  const canManageModeratorRequests = Boolean(user?.is_staff || user?.is_superuser);
+  const [pendingModerationCount, setPendingModerationCount] = useState(0);
+
+  useEffect(() => {
+    if (!canModeratePublicLibrary) {
+      setPendingModerationCount(0);
+      return undefined;
+    }
+    let cancelled = false;
+    // Same queues the moderation page itself reads (proposed species + pending
+    // moderator requests) — page_size:1 keeps this to a cheap count-only call.
+    const countRequests: Array<Promise<{ data: { count: number } }>> = [
+      cropSpeciesAPI.list({ status: 'proposed', page_size: 1 }),
+    ];
+    if (canManageModeratorRequests) {
+      countRequests.push(publicLibraryModeratorRequestAPI.list({ status: 'pending', page_size: 1 }));
+    }
+    Promise.all(countRequests)
+      .then((responses) => {
+        if (cancelled) return;
+        setPendingModerationCount(responses.reduce((total, response) => total + response.data.count, 0));
+      })
+      .catch(() => {
+        if (!cancelled) setPendingModerationCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageModeratorRequests, canModeratePublicLibrary]);
 
   const focusSearch = useCallback(() => {
     if (useCompactLibraryLayout) {
@@ -408,6 +440,7 @@ export default function PublicCropLibraryPage() {
     return arePublicValuesEqual(ownValue, cropValue) ? null : 'ownValue';
   }, [isSpeciesView, selectedCulture, selectedSpeciesCulture]);
   const showVarietyValueLegend = Boolean(!isSpeciesView && selectedCulture?.variety && selectedSpeciesCulture);
+  const isSelectedSpeciesPending = isCropSpeciesPending(selectedCulture);
   const publicActiveCultivationTypes: CultivationType[] = useMemo(() => (selectedCulture
     ? (
       selectedCulture.cultivation_types && selectedCulture.cultivation_types.length > 0
@@ -1033,9 +1066,12 @@ export default function PublicCropLibraryPage() {
         {
           id: 'public-crop-library-moderation',
           label: t('library.page.moderation.open'),
-          ariaLabel: t('library.page.moderation.open'),
+          ariaLabel: pendingModerationCount > 0
+            ? t('library.page.moderation.openWithPending', { count: pendingModerationCount })
+            : t('library.page.moderation.open'),
           onClick: openModeration,
           appearance: 'standard' as const,
+          badgeContent: pendingModerationCount,
           menuActions: [
             {
               id: 'public-crop-library-moderation-queue',
@@ -1052,7 +1088,7 @@ export default function PublicCropLibraryPage() {
         },
       ]
       : []
-  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, selectedCulture, t]);
+  ), [canModeratePublicLibrary, openModeration, openRemoveDialog, pendingModerationCount, selectedCulture, t]);
 
   useTopbarContextActions(setTopbarContextActions, topbarContextActions);
 
@@ -1373,7 +1409,10 @@ export default function PublicCropLibraryPage() {
             ? <SyncOutlinedIcon fontSize="small" />
             : <DownloadOutlinedIcon fontSize="small" />,
           onClick: () => void handleImport(),
-          disabled: importingId !== null,
+          // Import and the library-update sync both copy an entry whose
+          // species is not settled yet; they wait for the moderator.
+          disabled: importingId !== null || isSelectedSpeciesPending,
+          tooltip: isSelectedSpeciesPending ? t('library.badges.speciesPendingTooltip') : undefined,
           variant: 'contained',
         },
       ]}
@@ -1381,6 +1420,7 @@ export default function PublicCropLibraryPage() {
   ) : null), [
     handleImport,
     importingId,
+    isSelectedSpeciesPending,
     openEditDialog,
     selectedCulture,
     t,
@@ -1422,6 +1462,8 @@ export default function PublicCropLibraryPage() {
                   inputRef={searchInputRef}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  onFocus={() => setIsSearchInputFocused(true)}
+                  onBlur={() => setIsSearchInputFocused(false)}
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
@@ -1485,7 +1527,7 @@ export default function PublicCropLibraryPage() {
                   isSpeciesView={isSpeciesView}
                   storageKey="publicCropLibrary"
                   searchQuery={query}
-                  autoFocusSelected={!useCompactLibraryLayout}
+                  autoFocusSelected={!useCompactLibraryLayout && !isSearchInputFocused}
                   dense
                   ariaLabel={t('library.page.title')}
                   onScroll={handleCultureListScroll}
@@ -1679,6 +1721,7 @@ export default function PublicCropLibraryPage() {
                                 />
                               </AppTooltip>
                             ) : null}
+                            {isSelectedSpeciesPending ? <CropSpeciesPendingChip /> : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCulture.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>
                         </Box>
@@ -1808,7 +1851,7 @@ export default function PublicCropLibraryPage() {
 
                       <Divider />
 
-                      <DetailSection title={t('library.page.sections.notes')} outlined>
+                      <DetailSection title={t('library.page.sections.notes')} outlined showHeaderDivider>
                         {/* The public description is translatable; when only
                             another language exists, say so instead of showing
                             it as if it were this language. */}
@@ -1897,12 +1940,24 @@ export default function PublicCropLibraryPage() {
 
                   {activeTab === 2 ? (
                     <Stack spacing={2} sx={{ p: { xs: 2, sm: 2.5 } }}>
+                      {/* Reading an existing discussion stays possible; only
+                          writing waits for the species review. */}
+                      {isSelectedSpeciesPending ? (
+                        <Alert severity="info">{t('library.badges.speciesPendingTooltip')}</Alert>
+                      ) : null}
                       {collaborationStatus === 'loading' ? <CircularProgress size={24} /> : null}
                       {collaborationStatus === 'error' ? <Alert severity="error">{t('library.page.collaborationLoadError')}</Alert> : null}
                       {selectedTopicId === null ? (
                         <Stack spacing={1.25}>
                           {!newTopicOpen && topics.length > 0 ? (
-                            <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ alignSelf: 'flex-start' }} onClick={openNewTopicForm}>
+                            <Button
+                              ref={newTopicButtonRef}
+                              variant="outlined"
+                              startIcon={<AddOutlinedIcon />}
+                              sx={{ alignSelf: 'flex-start' }}
+                              onClick={openNewTopicForm}
+                              disabled={isSelectedSpeciesPending}
+                            >
                               {t('library.page.discussion.newTopic')}
                             </Button>
                           ) : null}
@@ -1929,7 +1984,14 @@ export default function PublicCropLibraryPage() {
                                 <Typography variant="subtitle2">{t('library.page.discussion.emptyTitle')}</Typography>
                                 <Typography variant="body2" color="text.secondary">{t('library.page.discussion.empty')}</Typography>
                               </Box>
-                              <Button ref={newTopicButtonRef} variant="outlined" startIcon={<AddOutlinedIcon />} sx={{ justifySelf: 'flex-start' }} onClick={openNewTopicForm}>
+                              <Button
+                                ref={newTopicButtonRef}
+                                variant="outlined"
+                                startIcon={<AddOutlinedIcon />}
+                                sx={{ justifySelf: 'flex-start' }}
+                                onClick={openNewTopicForm}
+                                disabled={isSelectedSpeciesPending}
+                              >
                                 {t('library.page.discussion.newTopic')}
                               </Button>
                             </Box>
@@ -2017,6 +2079,7 @@ export default function PublicCropLibraryPage() {
                                   editingCommentId={editingCommentId}
                                   commentActionMenu={commentActionMenu}
                                   submittingComment={submittingComment}
+                                  writingDisabled={isSelectedSpeciesPending}
                                   commentBody={commentBody}
                                   t={t}
                                   onReply={startReply}
@@ -2038,7 +2101,7 @@ export default function PublicCropLibraryPage() {
                           {replyTo === null && editingCommentId === null && commentsStatus !== 'loading' && commentsStatus !== 'error' && selectedTopic ? (
                             <CommentForm
                               body={commentBody}
-                              disabled={submittingComment}
+                              disabled={submittingComment || isSelectedSpeciesPending}
                               label={t('library.page.discussion.commentLabel')}
                               submitLabel={t('library.page.discussion.submit')}
                               t={t}

@@ -148,9 +148,11 @@ partial uniqueness constraint on `crop_species_id` where it is null.
 
 Use two translation tables:
 
-- **`CropSpeciesTranslation`**: localized species display names and search
-  synonyms. `display_name` is the label; synonyms are search aliases only and
-  never create another `CropSpecies`.
+- **`CropSpeciesTranslation`**: localized species display names, regional name
+  overrides, and search synonyms. `display_name`/`common_name` is the canonical
+  label for the language; `regional_names` holds explicit region-specific
+  display overrides (currently Austria/Switzerland in the shipped schema);
+  synonyms are search aliases only and never create another `CropSpecies`.
 - **`CropTranslation`**: localized free text for an official `CropVariety`,
   such as description, cultivation guidance, and notes intended for public
   reuse. It also records the content language and whether it is the original.

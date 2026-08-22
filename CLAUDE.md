@@ -82,6 +82,33 @@ exactly one section below; don't restate rules here.
 - Prefer standard Playwright assertions (`toBeVisible`, `toHaveText`, `toBeFocused`, `toHaveValue`, etc.) for functional tests.
 - When creating or changing a screenshot test, document why a screenshot test is appropriate over functional assertions.
 
+## Visual Review for UI Changes
+Applies to any task that changes rendered UI: new buttons, icons,
+layout/spacing changes, new components, responsive behavior. This applies
+proactively — a new UI element without existing baseline coverage still needs
+a manual screenshot check before the task is considered done, not only when an
+existing screenshot test happens to fail.
+
+1. Run the relevant screenshots at the existing breakpoints: the full
+   responsive suite (`e2e/responsive-layouts.spec.ts`, covering
+   375x800/768x900/1024x900/1440x900) if the change touches a page with
+   baseline coverage, otherwise a targeted screenshot of the affected view at
+   375px.
+2. If an existing baseline fails, don't assume a false positive and don't
+   auto-update it. Isolate the cause first (e.g. diff the change against a
+   build without it) and confirm the affected region.
+3. Visually inspect the resulting screenshot(s) for overlap, clipping or
+   truncation, misalignment, and unintended reflow of unrelated elements —
+   passing pixel-diff tolerance alone doesn't prove the layout is correct.
+4. If a problem is obvious and low-risk to fix (spacing, alignment,
+   truncation), fix it directly and re-screenshot to confirm. Only update
+   baselines per the policy in "Playwright Screenshot Tests" above, after
+   visually reviewing the new screenshots.
+5. If the fix needs a design judgment call (which element should yield space,
+   the change touches a shared component, or there's no clearly correct
+   layout), stop and report the finding with the screenshot as evidence
+   instead of guessing.
+
 ## Documentation Rules
 - Update relevant documentation when behavior changes: if the change touches
   architecture, the data model, or a documented complex feature, update the

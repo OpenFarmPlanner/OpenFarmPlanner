@@ -22,6 +22,8 @@ export interface PublicCultureUpdateController {
   isRejected: boolean;
   /** The copy differs from the current library version, decided or not. */
   isDiverged: boolean;
+  /** The culture is linked to a public library entry at all. */
+  isLinked: boolean;
   isLoading: boolean;
   isApplying: boolean;
   isRejecting: boolean;
@@ -44,6 +46,7 @@ export function usePublicCultureUpdate(
   const cultureId = culture?.id;
   const hasOpenUpdate = Boolean(culture?.public_update_available);
   const isRejected = Boolean(culture?.public_update_rejected);
+  const isLinked = Boolean(culture?.source_public_culture);
 
   const openDiff = useCallback((): void => {
     if (!cultureId) {
@@ -129,6 +132,7 @@ export function usePublicCultureUpdate(
     hasOpenUpdate,
     isRejected,
     isDiverged: hasOpenUpdate || isRejected,
+    isLinked,
     isLoading,
     isApplying,
     isRejecting,

@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  createFilterOptions,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,6 +29,15 @@ import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
 import { buildPublicCultureComparison } from './publicCultureComparison';
+import {
+  findMatchedCropSpeciesAlias,
+  formatCropSpeciesMatchLabel,
+  getCropSpeciesCanonicalName,
+  getCropSpeciesSearchNames,
+  hasStrongCropSpeciesIdentityMatch,
+  isCropSpeciesSearchMatch,
+  normalizeCropSpeciesSearchValue,
+} from '../cultures/cropSpeciesMatching';
 
 interface CulturesPublishingWizardDialogProps {
   open: boolean;
@@ -47,16 +57,52 @@ const getDefaultLanguageCode = (): string => {
   return LANGUAGE_CODES.includes(language as (typeof LANGUAGE_CODES)[number]) ? language : 'de';
 };
 
-const normalizeSpeciesName = (value: string | undefined | null): string => (
-  (value || '').split(/\s+/).filter(Boolean).join(' ').toLocaleLowerCase('de')
+const getCropSpeciesOptionLabel = (option: CropSpecies, searchValue = ''): string => {
+  const canonicalName = getCropSpeciesCanonicalName(option);
+  return formatCropSpeciesMatchLabel(
+    canonicalName,
+    findMatchedCropSpeciesAlias(searchValue, canonicalName, getCropSpeciesSearchNames(option)),
+  );
+};
+
+/**
+ * Sentinel option that lets the user propose their own typed name as a new
+ * crop species. It is appended to the species dropdown as the last entry
+ * only when the typed value does not match any official species name,
+ * synonym, or regional name. Matches must be explicit instead of silent:
+ * if an alias made the canonical species appear, the option label includes it.
+ *
+ * Picking it does not talk to the server. It puts the dialog into
+ * "propose a new species" mode and the proposal is submitted together with the
+ * publication when the user presses the dialog's main button — so a browsed-
+ * away wizard never leaves a stray proposal behind.
+ */
+interface ProposeSpeciesOption {
+  proposeName: string;
+  /** Separates the action from the regular hits above it; false when it stands alone. */
+  dividerAbove: boolean;
+}
+
+type SpeciesPickerOption = CropSpecies | ProposeSpeciesOption;
+
+const isProposeSpeciesOption = (option: SpeciesPickerOption): option is ProposeSpeciesOption => (
+  'proposeName' in option
 );
 
-// The picker must match on the name the user actually sees and types, not
-// the (possibly differently-languaged) canonical `name` — otherwise a
-// species that already exists only under a translation (e.g. "Kürbis" for
-// canonical "Pumpkin") looks missing, and proposing it as new fails
-// server-side because that translation already exists.
-const getCropSpeciesOptionLabel = (option: CropSpecies): string => option.display_name || option.name;
+const getCropSpeciesSearchText = (option: SpeciesPickerOption): string => {
+  if (isProposeSpeciesOption(option)) {
+    return option.proposeName;
+  }
+  return getCropSpeciesSearchNames(option).join(' ');
+};
+
+const getSpeciesPickerOptionLabel = (option: SpeciesPickerOption): string => (
+  isProposeSpeciesOption(option) ? option.proposeName : getCropSpeciesOptionLabel(option)
+);
+
+const filterSpeciesOptions = createFilterOptions<SpeciesPickerOption>({
+  stringify: getCropSpeciesSearchText,
+});
 
 const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined): CropSpecies | null => {
   const cultureSpeciesId = culture?.crop_species ?? null;
@@ -64,13 +110,12 @@ const findInitialSpecies = (items: CropSpecies[], culture: Culture | undefined):
     return items.find((item) => item.id === cultureSpeciesId) ?? null;
   }
 
-  const normalizedCultureName = normalizeSpeciesName(culture?.name);
+  const normalizedCultureName = normalizeCropSpeciesSearchValue(culture?.name);
   if (!normalizedCultureName) {
     return null;
   }
   return items.find((item) => (
-    normalizeSpeciesName(item.name) === normalizedCultureName
-    || normalizeSpeciesName(getCropSpeciesOptionLabel(item)) === normalizedCultureName
+    getCropSpeciesSearchNames(item).some((name) => normalizeCropSpeciesSearchValue(name) === normalizedCultureName)
   )) ?? null;
 };
 
@@ -108,6 +153,9 @@ export function CulturesPublishingWizardDialog({
   const [speciesInputValue, setSpeciesInputValue] = useState('');
   const [existingVarietyInputValue, setExistingVarietyInputValue] = useState('');
   const [proposedSpeciesName, setProposedSpeciesName] = useState<string | null>(null);
+  // Set while the user picked "propose this as a new species" but nothing has
+  // been sent yet — the dialog's main button submits it (see handlePublish).
+  const [pendingSpeciesProposalName, setPendingSpeciesProposalName] = useState<string | null>(null);
   const [proposingSpecies, setProposingSpecies] = useState(false);
   const [proposeSpeciesError, setProposeSpeciesError] = useState('');
   const [generalNoticeDismissed, setGeneralNoticeDismissed] = useState(false);
@@ -139,6 +187,7 @@ export function CulturesPublishingWizardDialog({
       // auto-selected there.
       setExistingVarietyInputValue(culture?.variety ?? '');
       setProposedSpeciesName(null);
+      setPendingSpeciesProposalName(null);
       setProposeSpeciesError('');
       setGeneralNoticeDismissed(false);
       setShowLanguageOverride(false);
@@ -191,9 +240,9 @@ export function CulturesPublishingWizardDialog({
           // If the local variety already has a matching public entry,
           // recognize it immediately instead of leaving the field empty —
           // mirrors the species field's own-name prefill above.
-          const normalizedLocalVariety = normalizeSpeciesName(culture?.variety);
+          const normalizedLocalVariety = normalizeCropSpeciesSearchValue(culture?.variety);
           const match = normalizedLocalVariety
-            ? filtered.find((entry) => normalizeSpeciesName(entry.variety) === normalizedLocalVariety)
+            ? filtered.find((entry) => normalizeCropSpeciesSearchValue(entry.variety) === normalizedLocalVariety)
             : undefined;
           if (match) {
             setSelectedPublicCulture((prevSelected) => prevSelected ?? match);
@@ -263,14 +312,15 @@ export function CulturesPublishingWizardDialog({
     && validationResult !== null
     && !validationResult.can_publish;
   const existingVarietyOptions = publicCultureOptions.filter((option) => (option.variety || '').trim());
+  const isProposingNewSpecies = Boolean(pendingSpeciesProposalName) && !isUpdatingOwnedPublicCulture;
 
   const resetValidationResult = useCallback(() => {
     setValidationResult(null);
   }, []);
 
-  const handleProposeSpecies = useCallback(async (name: string) => {
+  const handleProposeSpecies = useCallback(async (name: string): Promise<CropSpecies | null> => {
     const trimmedName = name.trim();
-    if (!trimmedName) return;
+    if (!trimmedName) return null;
     setProposingSpecies(true);
     setProposeSpeciesError('');
     try {
@@ -285,10 +335,13 @@ export function CulturesPublishingWizardDialog({
       setSelectedSpecies(created);
       setSpeciesInputValue(getCropSpeciesOptionLabel(created));
       setSelectedPublicCulture(null);
+      setPendingSpeciesProposalName(null);
       resetValidationResult();
       setProposedSpeciesName(getCropSpeciesOptionLabel(created));
+      return created;
     } catch (error) {
       setProposeSpeciesError(extractApiErrorMessage(error, t, t('library.publishWizard.proposeSpeciesError')));
+      return null;
     } finally {
       setProposingSpecies(false);
     }
@@ -304,9 +357,20 @@ export function CulturesPublishingWizardDialog({
       });
       return;
     }
+    // The species proposal is submitted here rather than when the dropdown
+    // entry was picked, so "Kulturart vorschlagen" is one deliberate action
+    // that both files the proposal and publishes the variety under it.
+    let proposedSpecies: CropSpecies | null = null;
+    if (pendingSpeciesProposalName && !isUpdatingOwnedPublicCulture) {
+      proposedSpecies = await handleProposeSpecies(pendingSpeciesProposalName);
+      if (!proposedSpecies) {
+        speciesInputRef.current?.focus();
+        return;
+      }
+    }
     const cropSpeciesId = isUpdatingOwnedPublicCulture
       ? selectedPublicCulture?.crop_species
-      : selectedSpecies?.id;
+      : proposedSpecies?.id ?? selectedSpecies?.id;
     if (!cropSpeciesId) {
       speciesInputRef.current?.focus();
       return;
@@ -349,10 +413,12 @@ export function CulturesPublishingWizardDialog({
   }, [
     acceptedLicense,
     culture,
+    handleProposeSpecies,
     isCropLevelPublish,
     licenseAccepted,
     onPublish,
     originalLanguageCode,
+    pendingSpeciesProposalName,
     selectedPublicCulture,
     selectedSpecies,
     showLicenseConfirmation,
@@ -383,52 +449,116 @@ export function CulturesPublishingWizardDialog({
           <Stack spacing={2}>
             {isOwnedPublicCultureUpdate ? null : (
               <>
-                <Autocomplete
+                <Autocomplete<SpeciesPickerOption>
                   options={species}
                   value={selectedSpecies}
                   inputValue={speciesInputValue}
                   loading={speciesLoading}
-                  getOptionLabel={getCropSpeciesOptionLabel}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  getOptionLabel={getSpeciesPickerOptionLabel}
+                  isOptionEqualToValue={(option, value) => (
+                    !isProposeSpeciesOption(option) && !isProposeSpeciesOption(value) && option.id === value.id
+                  )}
+                  getOptionDisabled={(option) => isProposeSpeciesOption(option) && proposingSpecies}
+                  filterOptions={(options, params) => {
+                    const baseFiltered = filterSpeciesOptions(options, params);
+                    const proposeName = params.inputValue.trim();
+                    const filteredIds = new Set(
+                      baseFiltered
+                        .filter((option): option is CropSpecies => !isProposeSpeciesOption(option))
+                        .map((option) => option.id),
+                    );
+                    const fuzzyMatches = proposeName
+                      ? options.filter((option): option is CropSpecies => (
+                        !isProposeSpeciesOption(option)
+                        && !filteredIds.has(option.id)
+                        && isCropSpeciesSearchMatch(proposeName, getCropSpeciesSearchNames(option))
+                      ))
+                      : [];
+                    const filtered = [...baseFiltered, ...fuzzyMatches];
+                    const hasStrongExistingSpeciesMatch = hasStrongCropSpeciesIdentityMatch(
+                      proposeName,
+                      options
+                        .filter((option): option is CropSpecies => !isProposeSpeciesOption(option))
+                        .map((option) => ({ searchNames: getCropSpeciesSearchNames(option) })),
+                    );
+                    if (!proposeName || speciesLoading || hasStrongExistingSpeciesMatch) {
+                      return filtered;
+                    }
+                    return [...filtered, { proposeName, dividerAbove: filtered.length > 0 }];
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...optionProps } = props;
+                    if (isProposeSpeciesOption(option)) {
+                      return (
+                        <Box
+                          component="li"
+                          {...optionProps}
+                          key="propose-species"
+                          sx={{
+                            gap: 1,
+                            ...(option.dividerAbove
+                              ? { borderTop: '1px solid', borderColor: 'divider' }
+                              : {}),
+                          }}
+                        >
+                          <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
+                            {t('library.publishWizard.proposeSpeciesInline', { name: option.proposeName })}
+                          </Typography>
+                          {proposingSpecies ? <CircularProgress color="inherit" size={16} /> : null}
+                        </Box>
+                      );
+                    }
+                    return (
+                      <li {...optionProps} key={key}>
+                        {getCropSpeciesOptionLabel(option, speciesInputValue)}
+                      </li>
+                    );
+                  }}
                   onChange={(_, value) => {
+                    if (value && isProposeSpeciesOption(value)) {
+                      // Deliberately no request here — see ProposeSpeciesOption.
+                      setPendingSpeciesProposalName(value.proposeName);
+                      setSelectedSpecies(null);
+                      setSelectedPublicCulture(null);
+                      setProposedSpeciesName(null);
+                      resetValidationResult();
+                      return;
+                    }
                     setSelectedSpecies(value);
                     setSelectedPublicCulture(null);
                     setProposedSpeciesName(null);
+                    setPendingSpeciesProposalName(null);
                     resetValidationResult();
                   }}
-                  onInputChange={(_, value) => {
-                    setSpeciesInputValue(value);
+                  onInputChange={(_, value, reason) => {
                     setProposeSpeciesError('');
+                    // 'reset' is MUI writing the picked option's label back into
+                    // the field right after onChange — not the user retyping,
+                    // so it must not undo the propose mode just entered. Picking
+                    // "propose as new species" clears `selectedSpecies` (it isn't
+                    // a real CropSpecies), which makes this same 'reset' write an
+                    // empty label into the field; keep showing the proposed name
+                    // instead of letting that overwrite it.
+                    if (reason === 'reset' && pendingSpeciesProposalName) {
+                      setSpeciesInputValue(pendingSpeciesProposalName);
+                      return;
+                    }
+                    setSpeciesInputValue(value);
+                    if (reason !== 'reset') {
+                      setPendingSpeciesProposalName(null);
+                    }
                   }}
-                  noOptionsText={speciesLoading ? (
-                    <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
-                  ) : speciesInputValue.trim() ? (
-                    <Stack spacing={0.5} sx={{ alignItems: "flex-start", }} >
-                      <Button
-                        size="small"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => void handleProposeSpecies(speciesInputValue)}
-                        disabled={proposingSpecies}
-                      >
-                        {proposingSpecies
-                          ? t('library.publishWizard.proposeSpeciesButton')
-                          : t('library.publishWizard.proposeSpeciesInline', { name: speciesInputValue.trim() })}
-                      </Button>
-                      {proposeSpeciesError ? (
-                        <Typography variant="body2" color="error.main" sx={{ px: 1 }}>
-                          {proposeSpeciesError}
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  ) : (
-                    t('library.publishWizard.speciesNoOptions')
-                  )}
+                  noOptionsText={speciesLoading
+                    ? <Typography variant="body2" color="text.secondary">{t('common:loading')}</Typography>
+                    : t('library.publishWizard.speciesNoOptions')}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       inputRef={speciesInputRef}
                       label={t('library.publishWizard.speciesLabel')}
                       required
+                      error={Boolean(proposeSpeciesError)}
+                      helperText={proposeSpeciesError || undefined}
                       slotProps={{
                         ...params.slotProps,
 
@@ -657,30 +787,42 @@ export function CulturesPublishingWizardDialog({
           ) : null}
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2 }}>
+      <DialogActions sx={{ px: 3, py: 2, flexWrap: 'wrap', gap: 1 }}>
+        {/* Explains, right where the decision is made, that pressing the button
+            files a proposal *and* publishes the variety provisionally. */}
+        {isProposingNewSpecies ? (
+          <Typography variant="body2" color="text.secondary" sx={{ flexBasis: '100%', mb: 0.5 }}>
+            {t('library.publishWizard.proposeSpeciesPublishHint', { name: pendingSpeciesProposalName })}
+          </Typography>
+        ) : null}
         <Button onClick={onClose} variant="outlined">{t('common:actions.cancel')}</Button>
         <Button
           onClick={() => void handlePublish()}
           variant="contained"
           disabled={
-            (isUpdatingOwnedPublicCulture ? !selectedPublicCulture?.crop_species : !selectedSpecies)
+            (isUpdatingOwnedPublicCulture
+              ? !selectedPublicCulture?.crop_species
+              : !selectedSpecies && !isProposingNewSpecies)
             || !originalLanguageCode
             || publishing
             || validationLoading
+            || proposingSpecies
             || isBlockedByValidation
             || (isUpdatingOwnedPublicCulture && comparison?.length === 0)
             || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)
           }
         >
-          {publishing || validationLoading
+          {publishing || validationLoading || proposingSpecies
             ? t('library.publishing')
             : isBlockedByValidation
               ? t('library.publishWizard.resolveBlockingIssues')
               : isUpdatingOwnedPublicCulture
                 ? t('library.publishWizard.updateExisting')
-                : selectedPublicCulture
-                  ? t('library.publishWizard.linkExisting')
-                  : t('library.publishWizard.publishNow')}
+                : isProposingNewSpecies
+                  ? t('library.publishWizard.proposeSpeciesSubmit')
+                  : selectedPublicCulture
+                    ? t('library.publishWizard.linkExisting')
+                    : t('library.publishWizard.publishNow')}
         </Button>
       </DialogActions>
     </Dialog>

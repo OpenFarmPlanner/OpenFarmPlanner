@@ -76,7 +76,7 @@
   },
   "detail": {
     "sections": {
-      "general": "Allgemeine Informationen",
+      "cropRotation": "Fruchtfolge-Eigenschaften",
       "spacing": "Abstände",
       "seed": "Saatgut",
       "harvest": "Ernte",
@@ -95,6 +95,7 @@
     },
     "units": {
       "days": "Tage",
+      "years": "Jahre",
       "centimeters": "cm",
       "grams": "g",
       "kilograms": "kg",
@@ -171,12 +172,16 @@
     "varietyRequired": "Sorte ist erforderlich",
     "firstVarietyLabel": "Sorte (optional)",
     "firstVarietyPlaceholder": "z.B. Cherrytomate",
-    "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird zusammen mit der Kultur eine erste Sorte angelegt, die die oben eingegebenen Werte als Startwerte übernimmt.",
+    "firstVarietyHelperText": "Wenn du einen Sortennamen einträgst, wird eine eigene Sorte angelegt.",
+    "copyValuesToCulture": "Zeit-, Ertrags- und Saatgutwerte auch als allgemeine Kulturwerte übernehmen",
+    "copyValuesToCultureDisabledTooltip": "Nur relevant, wenn eine Sorte angegeben ist.",
+    "cultureNameConflict": "Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.",
     "duplicateNameVariety": "Eine Kultur mit diesem Namen und dieser Sorte existiert in diesem Projekt bereits.",
     "existingCropHint": "Die Kultur „{{name}}“ gibt es in diesem Projekt bereits. Du kannst ihr stattdessen eine neue Sorte hinzufügen.",
+    "existingCropFirstVarietyHint": "„{{variety}}“ wird als neue Sorte zur bestehenden Kultur „{{name}}“ hinzugefügt.",
     "existingCropAddVarietyAction": "Sorte hinzufügen",
     "publicCultureAutocompleteHelp": "Öffentliche Kulturen werden vorgeschlagen, Freitext ist jederzeit möglich.",
-    "publicCultureSourceHint": "Basiswerte wurden aus der Kulturbibliothek übernommen und können in dieser privaten Kultur angepasst werden.",
+    "publicCultureSourceHint": "Basiswerte wurden aus der Kulturbibliothek übernommen und können in dieser Kultur angepasst werden.",
     "publicCultureSuggestionsGroupLabel": "Aus der Kulturbibliothek",
     "publicCultureApplyHint": "„{{name}}“ gibt es in der Kulturbibliothek.",
     "publicCultureApplyAction": "Werte übernehmen",
@@ -205,9 +210,10 @@
     "cropFamily": "Pflanzenfamilie",
     "cropFamilyPlaceholder": "z.B. Solanaceae",
     "nutrientDemand": "Nährstoffbedarf",
-    "nutrientDemandLow": "Niedrig",
-    "nutrientDemandMedium": "Mittel",
-    "nutrientDemandHigh": "Hoch",
+    "nutrientDemandLow": "Schwachzehrer",
+    "nutrientDemandMedium": "Mittelzehrer",
+    "nutrientDemandHigh": "Starkzehrer",
+    "rotationBreakYears": "Anbaupause (Jahre)",
     "cultivationType": "Anbauart",
     "cultivationTypeDirectSowing": "Direktsaat",
     "cultivationTypePreCultivation": "Pflanzung",
@@ -265,6 +271,7 @@
     "seedRateUnit": "Einheit der Saatgutmenge",
     "seedRateUnitRequired": "Wenn eine Menge angegeben wird, muss auch eine Einheit gewählt werden.",
     "seedRateValueRequired": "Die Menge muss größer als 0 sein.",
+    "seedRateValueWholeNumberRequired": "Die Menge muss für diese Einheit eine ganze Zahl sein.",
     "thousandKernelWeightLabel": "1000-Korn-Gewicht (g)",
     "seedPackagesLabel": "Verpackungsgrößen beim Lieferanten",
     "thousandKernelWeightHelp": "Gewicht von 1.000 Körnern in Gramm. Wird für die Umrechnung zwischen Korn und Gramm benötigt.",
@@ -309,12 +316,20 @@
     "fixErrors": "Bitte beheben Sie die Validierungsfehler",
     "exportSuccess": "JSON exportiert",
     "deleted": "Kultur gelöscht",
+    "varietyDeleted": "Sorte gelöscht",
+    "varietiesDeleted": "Sorten gelöscht",
     "restoreSuccess": "Version wiederhergestellt",
     "restoreError": "Version konnte nicht wiederhergestellt werden"
   },
   "deleteDialog": {
     "title": "Projektkultur löschen?",
-    "confirmation": "Möchtest du die Projektkultur „{{name}}“ wirklich löschen?"
+    "confirmation": "Möchtest du die Projektkultur „{{name}}“ wirklich löschen?",
+    "cascadeConfirmation_one": "„{{name}}“ wird mit {{count}} Sorte gelöscht: {{varieties}}.",
+    "cascadeConfirmation_other": "„{{name}}“ wird mit {{count}} Sorten gelöscht: {{varieties}}.",
+    "groupOnlyConfirmation_one": "{{count}} Sorte wird gelöscht: {{varieties}}.",
+    "groupOnlyConfirmation_other": "{{count}} Sorten werden gelöscht: {{varieties}}.",
+    "planningDataWarning_one": "Davon ist {{count}} Planungsdatum betroffen.",
+    "planningDataWarning_other": "Davon sind {{count}} Planungsdaten betroffen."
   },
   "seedDemand": {
     "title": "Saatgutbedarf",
@@ -586,7 +601,8 @@
         "openAria": "Hilfe zur Kulturbibliothek öffnen"
       },
       "moderation": {
-        "open": "Moderation"
+        "open": "Moderation",
+        "openWithPending": "Moderation ({{count}} ausstehend)"
       },
       "tabs": {
         "details": "Details",
@@ -831,6 +847,8 @@
       "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
       "markerRejectedLabel": "Update abgelehnt",
       "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
+      "markerUpToDateLabel": "Aktuell",
+      "markerUpToDateTooltip": "Kulturbibliothek ist bereits aktuell",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die Kulturbibliothek aktualisierst.",
         "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
@@ -870,6 +888,7 @@
       "duplicate": "Duplikat",
       "wrong_mapping": "Falsche Zuordnung",
       "unlawful_content": "Unzulässiger Inhalt",
+      "species_rejected": "Kulturart-Vorschlag abgelehnt",
       "other": "Sonstiges"
     },
     "loadError": "Die Kulturbibliothek konnte nicht geladen werden.",
@@ -1008,7 +1027,8 @@
       "speciesMissing": "Keine offizielle Kulturart ausgewählt",
       "speciesNoOptions": "Keine passende offizielle Kulturart gefunden.",
       "proposeSpeciesInline": "„{{name}}“ als neue Kulturart vorschlagen",
-      "proposeSpeciesButton": "Vorschlagen",
+      "proposeSpeciesSubmit": "Kulturart vorschlagen",
+      "proposeSpeciesPublishHint": "Deine Sorte wird vorläufig unter „{{name}}“ veröffentlicht, bis der Vorschlag geprüft wurde.",
       "proposedSpeciesNotice": "Dein Vorschlag für die neue Kulturart „{{name}}“ wurde zur Prüfung eingereicht. Du kannst deine Sorte jetzt trotzdem veröffentlichen — sie erscheint vorläufig unter „{{name}}“, bis der Vorschlag bestätigt ist.",
       "proposeSpeciesError": "Der Vorschlag konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "speciesAlreadyExists": "Diese Kulturart existiert bereits oder wurde schon vorgeschlagen — möglicherweise unter einem anderen Namen. Bitte in der Liste danach suchen.",
@@ -1049,6 +1069,9 @@
       "cropFamily": "Pflanzenfamilie"
     },
     "badges": {
+      "speciesPendingChip": "Vorschlag in Prüfung",
+      "speciesPendingTooltip": "Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.",
+      "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
       "local": "Lokal",
       "imported": "Importiert",
       "modified": "Lokal geändert"

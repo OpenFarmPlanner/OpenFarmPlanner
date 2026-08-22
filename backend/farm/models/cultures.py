@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from farm.seed_units import (
@@ -165,6 +166,28 @@ def format_culture_display_name(name: str | None, variety: str | None) -> str | 
     return None
 
 
+def compute_plants_per_m2(
+    row_spacing_m: float | None,
+    distance_within_row_m: float | None,
+) -> Decimal | None:
+    """Plants per square meter for a spacing pair given in meters.
+
+    Formula: 10000 cm² per m² / (row_spacing_cm * plant_spacing_cm). Returns
+    None when either spacing is missing or not positive. Shared by
+    `Culture.plants_per_m2` and the inheritance resolver, which feeds it the
+    effective spacing of a Sorte rather than its own.
+    """
+    row_spacing_cm = row_spacing_m * 100 if row_spacing_m else None
+    plant_spacing_cm = distance_within_row_m * 100 if distance_within_row_m else None
+
+    if not row_spacing_cm or not plant_spacing_cm:
+        return None
+    if row_spacing_cm <= 0 or plant_spacing_cm <= 0:
+        return None
+
+    return Decimal("10000") / (Decimal(str(row_spacing_cm)) * Decimal(str(plant_spacing_cm)))
+
+
 def is_supplier_domain(url: str, supplier: Supplier | None) -> bool:
     """Return True when URL host matches supplier allowed domains."""
     if not supplier or not url:
@@ -301,10 +324,15 @@ class Culture(TimestampedModel):
         help_text="Crop family for rotation planning",
     )
     nutrient_demand = models.CharField(
-        max_length=20, 
-        choices=NUTRIENT_DEMAND_CHOICES, 
+        max_length=20,
+        choices=NUTRIENT_DEMAND_CHOICES,
         blank=True,
         help_text="Nutrient demand level"
+    )
+    rotation_break_years = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Recommended crop rotation break in years before growing this crop family again",
     )
     cultivation_types = models.JSONField(default=list, blank=True)
     cultivation_type = models.CharField(
@@ -491,6 +519,7 @@ class Culture(TimestampedModel):
             ('harvest_duration_days', 'Harvest duration must be non-negative.'),
             ('propagation_duration_days', 'Propagation duration must be non-negative.'),
             ('expected_yield', 'Expected yield must be non-negative.'),
+            ('rotation_break_years', 'Rotation break must be non-negative.'),
         )
         for field_name, message in non_negative_fields:
             value = getattr(self, field_name)
@@ -620,8 +649,12 @@ class Culture(TimestampedModel):
         changed_fields = self._compute_changed_fields(previous, current)
         self._record_save_revision(current, previous, changed_fields)
 
-        if any(field in changed_fields for field in ('growth_duration_days', 'harvest_duration_days')):
-            self._recalculate_related_planting_plan_dates()
+        timing_changed_fields = [
+            field for field in ('growth_duration_days', 'harvest_duration_days')
+            if field in changed_fields
+        ]
+        if timing_changed_fields:
+            self._recalculate_related_planting_plan_dates(timing_changed_fields)
 
     def _flag_source_divergence(self, previous: dict[str, Any] | None) -> None:
         """Mark an imported, still-pristine culture as modified if a tracked field changed."""
@@ -664,11 +697,21 @@ class Culture(TimestampedModel):
             changed_fields=changed_fields,
         )
 
-    def _recalculate_related_planting_plan_dates(self) -> None:
+    def _recalculate_related_planting_plan_dates(self, changed_timing_fields: list[str]) -> None:
         """Update stored planting-plan harvest dates after culture timing changes."""
+        from .planning import PlantingPlan
+
         plans_to_update = []
         now = timezone.now()
-        for plan in self.planting_plans.all():
+        plans = self._planting_plans_affected_by_timing_change(changed_timing_fields)
+        for plan in plans:
+            # These plans are this culture's by definition. Handing them the
+            # already-loaded instance saves a culture fetch per plan and lets
+            # them share this instance's cached general-Kultur lookup.
+            if plan.culture_id == self.pk:
+                plan.culture = self
+            elif plan.culture is not None:
+                plan.culture._resolved_general_culture = self
             previous_harvest_date = plan.harvest_date
             previous_harvest_end_date = plan.harvest_end_date
             plan.recalculate_harvest_dates()
@@ -680,11 +723,39 @@ class Culture(TimestampedModel):
                 plans_to_update.append(plan)
 
         if plans_to_update:
-            from .planning import PlantingPlan
             PlantingPlan.objects.bulk_update(
                 plans_to_update,
                 ['harvest_date', 'harvest_end_date', 'updated_at'],
             )
+
+    def _planting_plans_affected_by_timing_change(self, changed_timing_fields: list[str]) -> models.QuerySet:
+        """Return direct plans plus Sorte plans inheriting the changed timing."""
+        from .planning import PlantingPlan
+
+        direct_plans = Q(culture_id=self.pk)
+        inherited_plans = Q()
+        is_general_culture = self.crop_species_id is not None and self.variety_normalized is None
+        if is_general_culture:
+            inherited_timing = Q()
+            if 'growth_duration_days' in changed_timing_fields:
+                inherited_timing |= Q(culture__growth_duration_days__isnull=True)
+            if 'harvest_duration_days' in changed_timing_fields:
+                inherited_timing |= Q(culture__harvest_duration_days__isnull=True)
+            if inherited_timing:
+                inherited_plans = (
+                    Q(
+                        culture__project_id=self.project_id,
+                        culture__crop_species_id=self.crop_species_id,
+                        culture__variety_normalized__isnull=False,
+                    )
+                    & inherited_timing
+                )
+
+        return (
+            PlantingPlan.objects
+            .filter(direct_plans | inherited_plans)
+            .select_related('culture')
+        )
 
     def _generate_display_color(self) -> str:
         """Generate a display color using a Golden Angle HSL strategy."""
@@ -743,25 +814,8 @@ class Culture(TimestampedModel):
 
     @property
     def plants_per_m2(self) -> Decimal | None:
-        """
-        Calculate plants per square meter based on spacing.
-        
-        Formula: plants_per_m2 = 10000 / (row_spacing_cm * plant_spacing_cm)
-        
-        :return: Plants per m² as Decimal, or None if spacing data is missing or invalid
-        """
-        # Convert meters to centimeters for calculation
-        row_spacing_cm = self.row_spacing_m * 100 if self.row_spacing_m else None
-        plant_spacing_cm = self.distance_within_row_m * 100 if self.distance_within_row_m else None
-        
-        # Return None if either spacing is missing or invalid (<= 0)
-        if not row_spacing_cm or not plant_spacing_cm:
-            return None
-        if row_spacing_cm <= 0 or plant_spacing_cm <= 0:
-            return None
-        
-        # Calculate plants per m²: 10000 cm² per m² / (row_spacing * plant_spacing)
-        return Decimal("10000") / (Decimal(str(row_spacing_cm)) * Decimal(str(plant_spacing_cm)))
+        """Plants per square meter from this row's own spacing values."""
+        return compute_plants_per_m2(self.row_spacing_m, self.distance_within_row_m)
 
     def __str__(self) -> str:
         """Return the culture name, with variety in parentheses if set."""
@@ -778,6 +832,17 @@ class Culture(TimestampedModel):
                 name='unique_culture_normalized',
                 violation_error_message=(
                     'A culture with this name, variety, and supplier already exists.'
+                )
+            ),
+            models.UniqueConstraint(
+                fields=['project', 'name_normalized'],
+                condition=(
+                    models.Q(deleted_at__isnull=True)
+                    & (models.Q(variety_normalized__isnull=True) | models.Q(variety_normalized=''))
+                ),
+                name='unique_general_culture_name_per_project',
+                violation_error_message=(
+                    'A general culture with this name already exists in this project.'
                 )
             )
         ]
@@ -847,6 +912,7 @@ class PublicCulture(TimestampedModel):
     REMOVAL_REASON_DUPLICATE = 'duplicate'
     REMOVAL_REASON_WRONG_MAPPING = 'wrong_mapping'
     REMOVAL_REASON_UNLAWFUL_CONTENT = 'unlawful_content'
+    REMOVAL_REASON_SPECIES_REJECTED = 'species_rejected'
     REMOVAL_REASON_OTHER = 'other'
     REMOVAL_REASON_CHOICES = [
         (REMOVAL_REASON_ACCIDENTAL, 'Accidental publication'),
@@ -854,6 +920,10 @@ class PublicCulture(TimestampedModel):
         (REMOVAL_REASON_DUPLICATE, 'Duplicate'),
         (REMOVAL_REASON_WRONG_MAPPING, 'Wrong mapping'),
         (REMOVAL_REASON_UNLAWFUL_CONTENT, 'Unlawful content'),
+        # System-applied only (never offered in the manual removal dialog): set
+        # when a moderator rejects the crop species a culture is published
+        # under, see crops.services.remove_public_cultures_for_rejected_species.
+        (REMOVAL_REASON_SPECIES_REJECTED, 'Crop species rejected'),
         (REMOVAL_REASON_OTHER, 'Other'),
     ]
 
@@ -959,14 +1029,14 @@ class PublicCulture(TimestampedModel):
             return text, used
         return self.notes or '', (self.original_language_code or '')
 
-    def display_name(self, language_code: str | None) -> tuple[str, str]:
+    def display_name(self, language_code: str | None, region: str | None = None) -> tuple[str, str]:
         """Species common name in the requested language, plus that language.
 
         ``variety`` is deliberately not part of this: variety names are proper
         names and are never translated. Callers combine the two themselves.
         """
         if self.crop_species_id and self.crop_species is not None:
-            return self.crop_species.localized_name(language_code)
+            return self.crop_species.localized_name(language_code, region)
         # Pre-species legacy entries only ever had their own single-language
         # name; surfacing it unchanged beats showing an empty cell.
         return self.name, (self.original_language_code or '')

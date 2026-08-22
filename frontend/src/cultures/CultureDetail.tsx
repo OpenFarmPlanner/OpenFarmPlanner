@@ -22,6 +22,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
 import { PublicCultureUpdateMarker } from './PublicCultureUpdateMarker';
+import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { usePublicCultureUpdate } from './usePublicCultureUpdate';
 import {
   Badge,
@@ -119,7 +120,6 @@ export function CultureDetail({
   const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
-  const isTabletLayout = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
   const isMobileLandscapeLayout = useMediaQuery(
     `${theme.breakpoints.between('sm', 'md')} and (orientation: landscape) and (max-height: 560px)`,
@@ -353,9 +353,11 @@ const detailSectionGridSx = {
       const displayName = getCultureDisplayName(culture);
       const cultureName = displayName.toLowerCase();
       const storedCultureName = culture.name?.toLowerCase() ?? '';
+      const varietyName = culture.variety?.toLowerCase() ?? '';
       const nameMatches = normalizedQuery.length === 0
         || cultureName.includes(normalizedQuery)
-        || storedCultureName.includes(normalizedQuery);
+        || storedCultureName.includes(normalizedQuery)
+        || varietyName.includes(normalizedQuery);
       const familyMatches = filters.selectedFamilyFilter.length === 0 || culture.crop_family === filters.selectedFamilyFilter;
       const cultivationValues = culture.cultivation_types && culture.cultivation_types.length > 0
         ? culture.cultivation_types
@@ -439,6 +441,12 @@ const detailSectionGridSx = {
   const publicUpdate = usePublicCultureUpdate(selectedCulture, onPublicUpdateApplied);
   const publishBlockedTooltip = selectedCulture?.public_publish_blocked_reason
     ? t(`library.publicUpdate.publishBlocked.${selectedCulture.public_publish_blocked_reason}`)
+    : undefined;
+  // The variety is published, but under a species a moderator has not
+  // confirmed yet — visible as a chip, and the library sync waits for it.
+  const isPublishedUnderPendingSpecies = Boolean(selectedCulture?.public_crop_species_pending);
+  const pendingSpeciesDisabledReason = isPublishedUnderPendingSpecies
+    ? t('library.badges.speciesPendingTooltip')
     : undefined;
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
@@ -810,21 +818,6 @@ const detailSectionGridSx = {
             >
               {visibleCropRows.map(({ node, depth, hasChildren }) => {
                 const culture = node.culture;
-                const cultivationValues = culture?.cultivation_types && culture.cultivation_types.length > 0
-                  ? culture.cultivation_types
-                  : (culture?.cultivation_type ? [culture.cultivation_type] : []);
-                const cultivationLabel = cultivationValues.includes('direct_sowing') && cultivationValues.includes('pre_cultivation')
-                  ? t('filters.both')
-                  : cultivationValues.includes('direct_sowing')
-                    ? t('filters.directSowing')
-                    : cultivationValues.includes('pre_cultivation')
-                      ? t('filters.preCultivation')
-                      : '';
-                const secondary = node.kind === 'species'
-                  ? undefined
-                  : isTabletLayout
-                    ? undefined
-                    : [cultivationLabel, culture?.seed_supplier].filter(Boolean).join(' • ') || undefined;
                 // A species row with no dedicated varietyless entry has nothing of its
                 // own to select — but it always has at least one variety underneath it,
                 // so clicking it selects that first variety instead of leaving the row
@@ -853,7 +846,7 @@ const detailSectionGridSx = {
                     ariaLabel={node.kind === 'species' ? node.label : undefined}
                     primary={node.label}
                     isPrimaryEmphasized={node.kind === 'species'}
-                    secondary={secondary}
+                    secondary={undefined}
                     varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
                     onClick={() => {
                       if (culture) {
@@ -954,7 +947,11 @@ const detailSectionGridSx = {
                         {selectedCulture.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
-                        <PublicCultureUpdateMarker controller={publicUpdate} />
+                        {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
+                        <PublicCultureUpdateMarker
+                          controller={publicUpdate}
+                          disabledReason={pendingSpeciesDisabledReason}
+                        />
                       </Box>
                     </Box>
                   </Box>
@@ -994,7 +991,11 @@ const detailSectionGridSx = {
               />
             </Box>
 
-            <PublicCultureUpdateNotice culture={selectedCulture} controller={publicUpdate} />
+            <PublicCultureUpdateNotice
+              culture={selectedCulture}
+              controller={publicUpdate}
+              disabledReason={pendingSpeciesDisabledReason}
+            />
 
             {showVarietyValueLegend ? (
               <Box sx={{ mt: 1.25 }}>
@@ -1049,10 +1050,10 @@ const detailSectionGridSx = {
             </>
             ) : null}
 
-            {/* General Information Section */}
-            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+            {/* Crop Rotation Properties Section */}
+            <Box sx={{ mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                {t('detail.sections.general')}
+                {t('detail.sections.cropRotation')}
               </Typography>
               <Box sx={detailSectionGridSx}>
                 {getCropValue('crop_family', selectedCulture.crop_family) && (
@@ -1079,22 +1080,17 @@ const detailSectionGridSx = {
                     </Typography>
                   </Box>
                 )}
-                {activeCultivationTypes.length > 0 && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('form.cultivationType')}
-                    </Typography>
-                    <Typography variant="body1" sx={getOwnValueSx('cultivation_types', 'cultivation_type')}>
-                      {activeCultivationTypes
-                        .map((item) => (
-                          item === 'pre_cultivation'
-                            ? t('form.cultivationTypePreCultivation')
-                            : t('form.cultivationTypeDirectSowing')
-                        ))
-                        .join(', ')}
-                    </Typography>
-                  </Box>
-                )}
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('form.rotationBreakYears')}
+                  </Typography>
+                  <Typography variant="body1" sx={getOwnValueSx('rotation_break_years')}>
+                    {getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== null
+                      && getCropValue('rotation_break_years', selectedCulture.rotation_break_years) !== undefined
+                      ? `${formatNumber(getCropValue('rotation_break_years', selectedCulture.rotation_break_years), t, locale)} ${t('detail.units.years')}`
+                      : t('noData')}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
 
@@ -1185,6 +1181,11 @@ const detailSectionGridSx = {
               </Typography>
               <CultureSeedDetails
                 activeCultivationTypes={activeCultivationTypes}
+                cultivationTypeSource={
+                  getCropValueSource('cultivation_types') === 'ownValue' || getCropValueSource('cultivation_type') === 'ownValue'
+                    ? 'ownValue'
+                    : null
+                }
                 seedRateRows={seedRateRows}
                 sowingSafetyPercent={getCropValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
                 sowingSafetySource={getCropValueSource('sowing_calculation_safety_percent')}
@@ -1303,40 +1304,42 @@ const detailSectionGridSx = {
             <Divider sx={{ mb: 3 }} />
 
             {/* Notes Section */}
-            <Box sx={{ p: { xs: 1.5, sm: 2.5 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+            <Box component="section">
               <Typography variant="h6" gutterBottom>
                 {t('detail.sections.notes')}
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
-                {selectedCulture.notes && (
-                  <Box>
-                    <Box
-                      sx={{
-                        '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
-                        '& p': { mb: 1, maxWidth: '95ch' },
-                        '& ul': { pl: 3, mb: 1 },
-                        '& li': { mb: 0.5 },
-                        '& a': { color: 'primary.main' },
-                        '& em': { color: 'text.secondary' },
-                      }}
-                    >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          a: ({ children, ...props }) => (
-                            <Link target="_blank" rel="noreferrer" {...props}>
-                              {children}
-                            </Link>
-                          ),
+              <Box sx={{ p: { xs: 1.5, sm: 2.5 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
+                  {selectedCulture.notes && (
+                    <Box>
+                      <Box
+                        sx={{
+                          '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
+                          '& p': { mb: 1, maxWidth: '95ch' },
+                          '& ul': { pl: 3, mb: 1 },
+                          '& li': { mb: 0.5 },
+                          '& a': { color: 'primary.main' },
+                          '& em': { color: 'text.secondary' },
                         }}
                       >
-                        {stripCitationMarkers(selectedCulture.notes)}
-                      </ReactMarkdown>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            a: ({ children, ...props }) => (
+                              <Link target="_blank" rel="noreferrer" {...props}>
+                                {children}
+                              </Link>
+                            ),
+                          }}
+                        >
+                          {stripCitationMarkers(selectedCulture.notes)}
+                        </ReactMarkdown>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  )}
+                </Box>
               </Box>
-                  </Box>
+            </Box>
                 </CardContent>
               </Card>
             ) : (

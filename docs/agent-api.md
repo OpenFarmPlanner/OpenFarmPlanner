@@ -258,7 +258,7 @@ the endpoints listed above. It is **generated** from
 reads, so a documented bound and an enforced bound cannot drift apart. A test
 asserts that equivalence.
 
-Beyond standard JSON Schema, the culture schema uses four extensions:
+Beyond standard JSON Schema, the culture schema uses five extensions:
 
 | Extension | Meaning |
 |---|---|
@@ -266,6 +266,7 @@ Beyond standard JSON Schema, the culture schema uses four extensions:
 | `x-plausible-minimum` / `x-plausible-maximum` | the ordinary range; outside it the value is accepted but warned about |
 | `x-requires` | the companion field that must be sent together with this one |
 | `x-accepted-input-keys` | alternative input spellings, e.g. `row_spacing_cm` for `row_spacing_m` |
+| `x-unit-value-constraints` | unit-dependent value constraints for seed rates, e.g. integer-only `seeds_per_plant` |
 
 `minimum` / `maximum` / `exclusiveMinimum` carry the *hard* bounds — values
 outside them are rejected.
@@ -362,6 +363,13 @@ Plausible seed-rate bands, applied once the unit is known:
 | `seeds_per_m2` | 0.1 … 2000 |
 | `seeds_per_lfm` | 0.1 … 500 |
 | `seeds_per_plant` | 1 … 10 |
+
+Seed-rate units can also impose value-shape constraints. These rules are
+defined in `farm/services/culture_import/field_specs.py`, exposed through
+`x-unit-value-constraints` in OpenAPI, and served to the browser form at
+`GET /api/cultures/seed-rate-constraints/`. The API enforces the same rules:
+`seeds_per_plant` requires a whole-number value, so `1.1` is rejected rather
+than rounded. Gram-based units remain decimal-capable.
 
 Enums: `nutrient_demand` (`low`/`medium`/`high`), `harvest_method`
 (`per_plant`/`per_sqm`), `cultivation_types`

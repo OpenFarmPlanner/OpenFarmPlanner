@@ -4,8 +4,9 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from rest_framework import serializers
+from rest_framework.exceptions import APIException
 
 from config.languages import DEFAULT_LANGUAGE_CODE, resolve_request_language
 from crops.models import CropSpecies
@@ -32,6 +33,15 @@ from farm.seed_units import (
     SEED_RATE_UNITS,
 )
 from farm.services.culture_display import resolve_culture_display_name
+from farm.services.culture_inheritance import (
+    CULTURE_INHERITABLE_FIELDS,
+    build_effective_culture_values,
+    build_general_culture_index,
+    build_inherited_culture_values,
+    ensure_general_culture_for_variety,
+    get_general_culture,
+    resolve_plants_per_m2,
+)
 from farm.services.public_cultures import (
     has_open_public_culture_update,
     is_public_culture_contributor,
@@ -56,6 +66,53 @@ from .suppliers import (
 
 # Sentinel so a resolved `None` is cached instead of re-queried per field.
 _UNRESOLVED = object()
+
+
+class CultureNameConflict(APIException):
+    status_code = 409
+    default_code = 'culture_name_conflict'
+
+    def __init__(self) -> None:
+        super().__init__({
+            'code': self.default_code,
+            'detail': 'A general culture with this name already exists in this project.',
+        })
+
+# The inheritable model fields whose API name differs from the model field name
+# (distances are stored in meters and exposed in centimeters).
+_INHERITABLE_API_FIELD_NAMES = {
+    'distance_within_row_m': 'distance_within_row_cm',
+    'row_spacing_m': 'row_spacing_cm',
+    'sowing_depth_m': 'sowing_depth_cm',
+}
+
+_SEED_RATE_UNIT_FIELDS = (
+    'seed_rate_unit',
+    'seed_rate_direct_unit',
+    'seed_rate_pre_cultivation_unit',
+)
+
+
+def _normalized_seed_rate_unit_representation(raw_value: Any) -> Any:
+    """Apply the same unit normalization the own-value representation uses."""
+    if raw_value in EMPTY_SEED_RATE_UNIT_VALUES:
+        return None
+    return normalize_seed_rate_unit(raw_value) or raw_value
+
+
+def _add_seed_rate_unit_constraint_error(
+    errors: dict[str, str],
+    error_field: str,
+    method: str,
+    value: object,
+    unit: object,
+) -> None:
+    """Add a unit-specific seed-rate error for flat culture fields."""
+    if value is None or not unit or error_field in errors:
+        return
+    entry_error = _seed_rate_entry_error(method, {'value': value, 'unit': unit})
+    if entry_error:
+        errors[error_field] = entry_error
 
 
 class CultureSerializer(serializers.ModelSerializer):
@@ -186,18 +243,52 @@ class CultureSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
     )
+    copy_values_to_culture = serializers.BooleanField(
+        write_only=True,
+        required=False,
+        default=False,
+        help_text=(
+            'When creating a linked variety, also fill currently empty timing, '
+            'yield, and seed fields on its general culture from the variety values.'
+        ),
+    )
 
     plants_per_m2 = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
         read_only=True,
-        help_text='Calculated plants per square meter based on spacing (read-only)'
+        help_text=(
+            'Calculated plants per square meter from the effective spacing — a Sorte '
+            'without its own spacing uses the general Kultur\'s (read-only)'
+        ),
+    )
+    general_culture = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'ID of the general Kultur this Sorte inherits unset field values from '
+            '(same project, same crop species, no variety), or null.'
+        ),
+    )
+    inherited_fields = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'Fields whose effective value comes from the general Kultur, not from this row.'
+        ),
+    )
+    effective_values = serializers.SerializerMethodField(
+        read_only=True,
+        help_text=(
+            'Effective value per inheritable field: this row\'s own value when set, '
+            'otherwise the general Kultur\'s. Empty when there is no general Kultur '
+            'to inherit from, in which case the raw fields already are the effective values.'
+        ),
     )
     owned_public_culture_id = serializers.SerializerMethodField()
     owned_public_culture_role = serializers.SerializerMethodField()
     public_update_available = serializers.SerializerMethodField()
     public_update_rejected = serializers.SerializerMethodField()
     public_publish_blocked_reason = serializers.SerializerMethodField()
+    public_crop_species_pending = serializers.SerializerMethodField()
 
     def get_image_file(self, obj):
         if not obj.image_file_id:
@@ -226,13 +317,20 @@ class CultureSerializer(serializers.ModelSerializer):
             return DEFAULT_LANGUAGE_CODE
         return resolve_request_language(request)
 
+    def _request_region(self) -> str:
+        request = self.context.get('request')
+        active_project = getattr(request, 'active_project', None) if request is not None else None
+        if active_project is None:
+            active_project = _resolve_active_project_from_serializer(self)
+        return getattr(active_project, 'region', '') if active_project is not None else ''
+
     def _get_culture_species(self, obj: Culture) -> CropSpecies | None:
         if obj.crop_species_id:
             return obj.crop_species
         return None
 
     def _get_localized_culture_name(self, obj: Culture) -> tuple[str | None, str]:
-        return resolve_culture_display_name(obj, self._request_language())
+        return resolve_culture_display_name(obj, self._request_language(), self._request_region())
 
     def get_culture_display_name(self, obj: Culture) -> str | None:
         return self._get_localized_culture_name(obj)[0]
@@ -245,6 +343,69 @@ class CultureSerializer(serializers.ModelSerializer):
         if species is None:
             return {}
         return species.translations_by_language()
+
+    def _general_culture_index(self, obj: Culture) -> dict[int, Culture]:
+        """The active project's general Kulturen, built once per request.
+
+        A list response would otherwise cost one sibling lookup per Sorte; the
+        index turns that into a single query for the whole page.
+        """
+        cache = self.context.setdefault('_general_culture_index_by_project', {})
+        if obj.project_id not in cache:
+            cache[obj.project_id] = build_general_culture_index(obj.project_id)
+        return cache[obj.project_id]
+
+    def _resolve_general_culture(self, obj: Culture) -> Culture | None:
+        cached = getattr(obj, '_serialized_general_culture', _UNRESOLVED)
+        if cached is not _UNRESOLVED:
+            return cached
+        resolved = get_general_culture(obj, self._general_culture_index(obj))
+        obj._serialized_general_culture = resolved
+        return resolved
+
+    def _inherited_values(self, obj: Culture) -> dict[str, Any]:
+        """Inherited values keyed by model field name (see the resolver service)."""
+        cached = getattr(obj, '_serialized_inherited_values', None)
+        if cached is not None:
+            return cached
+        if self._resolve_general_culture(obj) is None:
+            resolved: dict[str, Any] = {}
+        else:
+            resolved = build_inherited_culture_values(obj, self._general_culture_index(obj))
+        obj._serialized_inherited_values = resolved
+        return resolved
+
+    def _api_representation(self, model_field: str, value: Any) -> Any:
+        """Render a raw model value the way this serializer renders the own value."""
+        api_field = _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field)
+        if value is None:
+            return None
+        representation = self.fields[api_field].to_representation(value)
+        if api_field in _SEED_RATE_UNIT_FIELDS:
+            return _normalized_seed_rate_unit_representation(representation)
+        return representation
+
+    def get_general_culture(self, obj: Culture) -> int | None:
+        general_culture = self._resolve_general_culture(obj)
+        return general_culture.pk if general_culture else None
+
+    def get_inherited_fields(self, obj: Culture) -> list[str]:
+        return [
+            _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field)
+            for model_field in CULTURE_INHERITABLE_FIELDS
+            if model_field in self._inherited_values(obj)
+        ]
+
+    def get_effective_values(self, obj: Culture) -> dict[str, Any]:
+        if self._resolve_general_culture(obj) is None:
+            return {}
+        effective = build_effective_culture_values(obj, self._general_culture_index(obj))
+        return {
+            _INHERITABLE_API_FIELD_NAMES.get(model_field, model_field): self._api_representation(
+                model_field, value,
+            )
+            for model_field, value in effective.items()
+        }
     
     def _resolve_owned_public_culture(self, obj: Culture) -> PublicCulture | None:
         """The published public-library entry the requesting user may act on for this culture."""
@@ -323,9 +484,20 @@ class CultureSerializer(serializers.ModelSerializer):
         """Whether the pending library version was explicitly declined by the user."""
         return is_public_culture_update_rejected(obj)
 
+    def get_public_crop_species_pending(self, obj: Culture) -> bool:
+        """Whether this culture's own public entry sits under an unreviewed species.
+
+        True only while a moderator has not decided on the species proposal:
+        the publication is real but provisional, which the culture detail
+        marks with a "proposal under review" chip.
+        """
+        public_culture = self._resolve_owned_public_culture(obj)
+        species = public_culture.crop_species if public_culture else None
+        return bool(species and species.is_pending)
+
     def get_public_publish_blocked_reason(self, obj: Culture) -> str | None:
         """Why publishing/updating the public entry from this copy is blocked, if it is."""
-        return resolve_public_publish_block(obj)
+        return resolve_public_publish_block(obj, self._resolve_owned_public_culture(obj))
 
     def _can_moderate_public_cultures(self, user) -> bool:
         request = self.context.get('request')
@@ -340,18 +512,15 @@ class CultureSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        for field_name in (
-            'seed_rate_unit',
-            'seed_rate_direct_unit',
-            'seed_rate_pre_cultivation_unit',
-        ):
-            raw_value = data.get(field_name)
-            data[field_name] = (
-                None
-                if raw_value in EMPTY_SEED_RATE_UNIT_VALUES
-                else normalize_seed_rate_unit(raw_value) or raw_value
-            )
+        for field_name in _SEED_RATE_UNIT_FIELDS:
+            data[field_name] = _normalized_seed_rate_unit_representation(data.get(field_name))
         data['seed_requirements'] = self._build_seed_requirements_representation(data)
+        # Plant counts must agree with the planting-plan side, which plans from
+        # the effective spacing; leaving this on the row's own spacing would let
+        # a Sorte show a plant count the grid then refuses to edit.
+        data['plants_per_m2'] = self._api_representation(
+            'plants_per_m2', resolve_plants_per_m2(instance, self._general_culture_index(instance)),
+        )
         return data
 
     def _build_seed_requirements_representation(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -421,9 +590,19 @@ class CultureSerializer(serializers.ModelSerializer):
         return normalized_packages
 
     def create(self, validated_data):
+        copy_values_to_culture = validated_data.pop('copy_values_to_culture', False)
         supplier_data_input = validated_data.pop('supplier_data_input', [])
         seed_packages = validated_data.pop('seed_packages', [])
-        culture = super().create(validated_data)
+        try:
+            with transaction.atomic():
+                culture = super().create(validated_data)
+                culture._auto_general_culture = ensure_general_culture_for_variety(
+                    culture,
+                    copy_values=copy_values_to_culture,
+                )
+        except IntegrityError as exc:
+            self._raise_name_conflict_if_general_name_constraint(exc)
+            raise
         if isinstance(supplier_data_input, list):
             for row in supplier_data_input:
                 if not isinstance(row, dict):
@@ -449,7 +628,13 @@ class CultureSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         supplier_data_input = validated_data.pop('supplier_data_input', None)
         seed_packages = validated_data.pop('seed_packages', None)
-        culture = super().update(instance, validated_data)
+        try:
+            with transaction.atomic():
+                culture = super().update(instance, validated_data)
+                culture._auto_general_culture = ensure_general_culture_for_variety(culture)
+        except IntegrityError as exc:
+            self._raise_name_conflict_if_general_name_constraint(exc)
+            raise
         if supplier_data_input is not None:
             self._sync_supplier_data_rows(culture, supplier_data_input)
         if seed_packages is not None:
@@ -541,6 +726,11 @@ class CultureSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Harvest duration must be non-negative.')
         return value
     
+    def validate_rotation_break_years(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError('Rotation break must be non-negative.')
+        return value
+
     def validate_germination_rate(self, value):
         if value is not None and (value < 0 or value > 100):
             raise serializers.ValidationError('Germination rate must be between 0 and 100.')
@@ -560,7 +750,7 @@ class CultureSerializer(serializers.ModelSerializer):
         """
         errors = {}
 
-        self._validate_name_and_duplicates(attrs, errors)
+        general_name_conflict = self._validate_name_and_duplicates(attrs, errors)
         cultivation_types = self._validate_cultivation_types(attrs, errors)
         self._apply_seed_requirements_alias(attrs, errors, cultivation_types)
         self._validate_seed_rate_by_cultivation(attrs, errors, cultivation_types)
@@ -568,6 +758,8 @@ class CultureSerializer(serializers.ModelSerializer):
         self._validate_supplier_data_rows(attrs, errors)
         self._resolve_supplier_from_name(attrs)
         self._normalize_variety(attrs)
+        if general_name_conflict and set(errors) == {'name'}:
+            raise CultureNameConflict()
         if errors:
             raise serializers.ValidationError(errors)
 
@@ -604,8 +796,15 @@ class CultureSerializer(serializers.ModelSerializer):
             project = self.instance.project
         return project
 
-    def _validate_name_and_duplicates(self, attrs, errors):
-        """Require a name and reject duplicate name/variety pairs per project."""
+    def _validate_name_and_duplicates(self, attrs, errors) -> bool:
+        """Require a name and reject duplicate culture identities per project.
+
+        Returns whether the only problem found was a general-culture name
+        conflict, so ``validate()`` can still raise the dedicated
+        ``CultureNameConflict`` (409) for that case alone, while any other
+        validation errors discovered by later phases get aggregated into the
+        normal ``errors`` dict instead of being swallowed by an early raise.
+        """
         from farm.utils import normalize_text
 
         raw_name = attrs.get(
@@ -620,22 +819,33 @@ class CultureSerializer(serializers.ModelSerializer):
         normalized_variety = normalize_text(raw_variety)
         if not normalized_name:
             errors['name'] = 'Name is required.'
-            return
+            return False
         attrs['name'] = ' '.join(str(raw_name).split())
         attrs['variety'] = ' '.join(str(raw_variety or '').split())
         project = self._resolve_project(attrs, instance_first=False)
         if project is None:
-            return
+            return False
 
-        # Keep existing duplicate records editable when the normalized
-        # identity is unchanged on update. This preserves compatibility
-        # with legacy data that may already contain duplicates.
+        # Keep existing duplicate records editable when the normalized identity is
+        # unchanged on update. This preserves compatibility with legacy data that
+        # may already contain duplicates.
         if (
             self.instance is not None
             and normalize_text(getattr(self.instance, 'name', None)) == normalized_name
             and normalize_text(getattr(self.instance, 'variety', None)) == normalized_variety
         ):
-            return
+            return False
+        if normalized_variety is None:
+            existing_general_query = Culture.all_objects.filter(
+                project=project,
+                deleted_at__isnull=True,
+                name_normalized=normalized_name,
+            ).filter(models.Q(variety_normalized__isnull=True) | models.Q(variety_normalized=''))
+            if self.instance is not None:
+                existing_general_query = existing_general_query.exclude(pk=self.instance.pk)
+            if existing_general_query.exists():
+                errors['name'] = 'A general culture with this name already exists in this project.'
+                return True
         existing_name_query = Culture.all_objects.filter(
             project=project,
             deleted_at__isnull=True,
@@ -646,6 +856,12 @@ class CultureSerializer(serializers.ModelSerializer):
             existing_name_query = existing_name_query.exclude(pk=self.instance.pk)
         if existing_name_query.exists():
             errors['name'] = 'A culture with this name and variety already exists.'
+        return False
+
+    @staticmethod
+    def _raise_name_conflict_if_general_name_constraint(exc: IntegrityError) -> None:
+        if 'unique_general_culture_name_per_project' in str(exc):
+            raise CultureNameConflict() from exc
 
     def _validate_cultivation_types(self, attrs, errors):
         """Normalize cultivation_types; returns the resolved raw value."""
@@ -919,6 +1135,13 @@ class CultureSerializer(serializers.ModelSerializer):
             errors['seed_rate_direct_value'] = 'Direct sowing seed rate value must be greater than zero.'
         if direct_value is not None and direct_unit and direct_unit not in SEED_RATE_UNITS:
             errors['seed_rate_direct_unit'] = 'Direct sowing seed rate unit is unsupported.'
+        _add_seed_rate_unit_constraint_error(
+            errors,
+            'seed_rate_direct_value',
+            'direct_sowing',
+            direct_value,
+            direct_unit,
+        )
 
         if 'pre_cultivation' in active_types and pre_value is not None and not pre_unit:
             errors['seed_rate_pre_cultivation_unit'] = 'Pre-cultivation seed rate unit is required when pre-cultivation value is set.'
@@ -926,6 +1149,13 @@ class CultureSerializer(serializers.ModelSerializer):
             errors['seed_rate_pre_cultivation_value'] = 'Pre-cultivation seed rate value must be greater than zero.'
         if pre_value is not None and pre_unit and pre_unit not in PRE_CULTIVATION_SEED_RATE_UNITS:
             errors['seed_rate_pre_cultivation_unit'] = 'Pre-cultivation seed rate unit is unsupported.'
+        _add_seed_rate_unit_constraint_error(
+            errors,
+            'seed_rate_pre_cultivation_value',
+            'pre_cultivation',
+            pre_value,
+            pre_unit,
+        )
 
     def _validate_supplier_data_rows(self, attrs, errors):
         """Require a supplier on any non-empty supplier_data_input row."""

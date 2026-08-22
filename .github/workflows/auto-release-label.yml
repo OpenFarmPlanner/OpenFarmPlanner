@@ -24,6 +24,24 @@ jobs:
               { name: "release:patch", color: "0E8A16", description: "Triggers patch version bump" },
             ];
 
+            // GitHub's API occasionally answers with a transient 5xx when several
+            // pull requests are opened at once (e.g. a batch of Dependabot PRs).
+            const withRetry = async (operation) => {
+              const delaysMs = [1000, 3000, 7000];
+              for (let attempt = 0; ; attempt += 1) {
+                try {
+                  return await operation();
+                } catch (error) {
+                  const isTransient = error.status >= 500 && error.status < 600;
+                  if (!isTransient || attempt >= delaysMs.length) {
+                    throw error;
+                  }
+                  core.info(`Transient API error (${error.status}), retrying in ${delaysMs[attempt]}ms`);
+                  await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]));
+                }
+              }
+            };
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = context.payload.pull_request.number;
@@ -33,17 +51,17 @@ jobs:
 
             for (const spec of labelSpecs) {
               try {
-                await github.rest.issues.getLabel({ owner, repo, name: spec.name });
+                await withRetry(() => github.rest.issues.getLabel({ owner, repo, name: spec.name }));
                 core.info(`Label already exists: ${spec.name}`);
               } catch (error) {
                 if (error.status === 404) {
-                  await github.rest.issues.createLabel({
+                  await withRetry(() => github.rest.issues.createLabel({
                     owner,
                     repo,
                     name: spec.name,
                     color: spec.color,
                     description: spec.description,
-                  });
+                  }));
                   core.info(`Created label: ${spec.name}`);
                 } else {
                   throw error;
@@ -51,11 +69,11 @@ jobs:
               }
             }
 
-            const currentLabelsResponse = await github.rest.issues.listLabelsOnIssue({
+            const currentLabelsResponse = await withRetry(() => github.rest.issues.listLabelsOnIssue({
               owner,
               repo,
               issue_number,
-            });
+            }));
             const currentLabels = currentLabelsResponse.data.map((label) => label.name);
             const existingReleaseLabels = currentLabels.filter((label) => releaseLabels.includes(label));
 
@@ -83,27 +101,12 @@ jobs:
 
             core.info(`Decision: ${selectedLabel} (${reason}) for PR #${issue_number}`);
 
-            // Keep exactly one release label by cleaning the known release labels first.
-            for (const label of releaseLabels) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner,
-                  repo,
-                  issue_number,
-                  name: label,
-                });
-                core.info(`Removed existing release label: ${label}`);
-              } catch (error) {
-                if (error.status !== 404) {
-                  throw error;
-                }
-              }
-            }
-
-            await github.rest.issues.addLabels({
+            // No release label is present at this point (the check above returns
+            // early otherwise), so exactly one label is assigned by adding it.
+            await withRetry(() => github.rest.issues.addLabels({
               owner,
               repo,
               issue_number,
               labels: [selectedLabel],
-            });
+            }));
             core.info(`Assigned label: ${selectedLabel}`);

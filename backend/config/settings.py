@@ -182,6 +182,7 @@ INSTALLED_APPS = [
     'crops',
     'farm',
     'accounts',
+    'notifications',
 ]
 
 # django-debug-toolbar is a local-development-only dependency (PDM group
@@ -401,6 +402,7 @@ EMAIL_HOST_USER = _env_str('EMAIL_HOST_USER', 'info@openfarmplanner.org')
 EMAIL_HOST_PASSWORD = _env_str('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = _env_str('DEFAULT_FROM_EMAIL', 'OpenFarmPlanner <info@openfarmplanner.org>')
 SUPPORT_CONTACT_EMAIL = _env_str('SUPPORT_CONTACT_EMAIL', 'info@openfarmplanner.org')
+ADMIN_NOTIFICATION_EMAIL = _env_str('ADMIN_NOTIFICATION_EMAIL', 'info@openfarmplanner.org')
 SERVER_EMAIL = _env_str('SERVER_EMAIL', EMAIL_HOST_USER)
 
 # CORS and CSRF origins are intentionally configured independently via environment variables.

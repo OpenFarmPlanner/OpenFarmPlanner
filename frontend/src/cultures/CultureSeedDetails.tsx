@@ -29,6 +29,7 @@ export type ValueSource = 'fromCrop' | 'ownValue';
 
 interface CultureSeedDetailsProps {
   activeCultivationTypes: CultivationType[];
+  cultivationTypeSource?: ValueSource | null;
   seedRateRows: CultureSeedRateRow[];
   sowingSafetyPercent?: number | null;
   sowingSafetySource?: ValueSource | null;
@@ -74,6 +75,7 @@ function ValueWithSource({
 
 export function CultureSeedDetails({
   activeCultivationTypes,
+  cultivationTypeSource = null,
   seedRateRows,
   sowingSafetyPercent,
   sowingSafetySource = null,
@@ -92,6 +94,22 @@ export function CultureSeedDetails({
 
   return (
     <Box sx={seedDetailGridSx}>
+      {activeCultivationTypes.length > 0 && (
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('form.cultivationType')}
+          </Typography>
+          <ValueWithSource source={cultivationTypeSource}>
+            {activeCultivationTypes
+              .map((item) => (
+                item === 'pre_cultivation'
+                  ? t('form.cultivationTypePreCultivation')
+                  : t('form.cultivationTypeDirectSowing')
+              ))
+              .join(', ')}
+          </ValueWithSource>
+        </Box>
+      )}
       {hasSingleSeedRate && (
         <Box>
           <Typography variant="body2" color="text.secondary">

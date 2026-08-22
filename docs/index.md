@@ -45,6 +45,11 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
   project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.
+- **[In-App Notifications](./notifications.md)** — the generic
+  `Notification` model and topbar bell: why the stored text is English while
+  the UI is German, how a new notification kind is added, and the two
+  behaviours (no mark-read on open, platform-formatted relative times) that
+  are load-bearing.
 - **[Internationalization (i18n)](./i18n.md)** — supported languages, how the
   UI language is resolved and stored, the crop-library translation model and
   its fallback rules, cross-language search and duplicate detection, and the
@@ -72,7 +77,7 @@ these as green field.
 | Planned feature | Current state in the code |
 |---|---|
 | **Saisonen** — a `Season` entity, a season switcher in the UI, and planting plans scoped to a season | Nothing. There is no `Season` model, no season field on `PlantingPlan`, and no season UI. Plans carry plain dates and are scoped only by `Project`. |
-| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning") and `Culture.nutrient_demand`. Both are plain informational fields today: no rotation model, no history-of-use per field, no validation, no UI. |
+| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning"), `Culture.nutrient_demand`, and `Culture.rotation_break_years` (recommended years before growing the same crop family again). All three are plain informational fields today, grouped under a "Fruchtfolge-Eigenschaften"/"Crop Rotation Properties" section on the culture detail page: no rotation model, no history-of-use per field, no validation, no UI beyond that display/edit. |
 
 Two consequences worth stating explicitly, because they are easy to
 mis-assume:

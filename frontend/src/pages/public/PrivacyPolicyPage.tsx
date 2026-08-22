@@ -8,6 +8,7 @@ const privacySections = [
   'generalNotice',
   'hosting',
   'registration',
+  'socialLogin',
   'projectData',
   'publicLibrary',
   'emailCommunication',
@@ -25,6 +26,7 @@ const privacySections = [
 const privacySectionBulletKeys: Partial<Record<(typeof privacySections)[number], readonly string[]>> = {
   hosting: ['ipAddress', 'requestTime', 'requestedResource', 'browser', 'operatingSystem', 'referrerUrl'],
   registration: ['emailAddress', 'nameOptional', 'encryptedPassword'],
+  socialLogin: ['receivedData', 'storedData', 'purpose', 'disconnect'],
   publicLibrary: ['publicContent', 'attribution', 'noReview', 'persistence', 'removal', 'futureOutlook'],
   emailCommunication: ['registration', 'accountActivation', 'passwordReset', 'projectInvitations', 'systemNotifications'],
   cookies: ['sessionCookies', 'securityCookies'],

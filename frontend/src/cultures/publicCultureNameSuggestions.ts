@@ -1,4 +1,9 @@
 import type { PublicCulture } from '../api/types';
+import {
+  findMatchedCropSpeciesAlias,
+  formatCropSpeciesMatchLabel,
+  getPublicCultureSpeciesSearchNames,
+} from './cropSpeciesMatching';
 
 export const normalizeIdentityValue = (value: string | undefined | null): string => (
   (value || '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -18,7 +23,10 @@ export interface PublicCultureSpeciesOption {
   /** `crop_species` id when known, otherwise the normalized name (legacy entries without a species link). */
   key: number | string;
   cropSpeciesId: number | null;
+  canonicalName: string;
   name: string;
+  matchedAlias: string | null;
+  searchNames: string[];
 }
 
 /**
@@ -28,17 +36,32 @@ export interface PublicCultureSpeciesOption {
  * available, falling back to the normalized display name for legacy entries
  * without a species link.
  */
-export const dedupePublicCulturesBySpecies = (cultures: PublicCulture[]): PublicCultureSpeciesOption[] => {
+export const dedupePublicCulturesBySpecies = (
+  cultures: PublicCulture[],
+  searchValue = '',
+): PublicCultureSpeciesOption[] => {
   const byKey = new Map<number | string, PublicCultureSpeciesOption>();
 
   for (const culture of cultures) {
     if (isLikelyTestPublicCultureEntry(culture)) {
       continue;
     }
-    const name = culture.display_name || culture.crop_species_name || culture.name;
-    const key = culture.crop_species ?? normalizeIdentityValue(name);
+    const canonicalName = culture.crop_species != null
+      ? culture.crop_species_canonical_name || culture.display_name || culture.crop_species_name || culture.name || ''
+      : culture.name || culture.display_name || culture.crop_species_name || '';
+    const searchNames = getPublicCultureSpeciesSearchNames(culture);
+    const matchedAlias = findMatchedCropSpeciesAlias(searchValue, canonicalName, searchNames);
+    const name = formatCropSpeciesMatchLabel(canonicalName, matchedAlias);
+    const key = culture.crop_species ?? normalizeIdentityValue(canonicalName);
     if (!byKey.has(key)) {
-      byKey.set(key, { key, cropSpeciesId: culture.crop_species ?? null, name });
+      byKey.set(key, {
+        key,
+        cropSpeciesId: culture.crop_species ?? null,
+        canonicalName,
+        name,
+        matchedAlias,
+        searchNames,
+      });
     }
   }
 

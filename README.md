@@ -24,6 +24,22 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 - **Frontend (`frontend/`)**: React + TypeScript SPA (Vite), UI workflows, routing, i18n resources, and API integration.
 - **Operations (`OpenFarmPlanner-ops`)**: deployment, runtime environment, and operational automation (separate repository).
 
+## Aggregated Usage Insight and Privacy
+
+The superuser-only Django admin includes a **Nutzungsübersicht** (engagement
+dashboard) for internal product-development decisions. It derives project
+activity from the existing `created_at` and `updated_at` timestamps on farm
+data (suppliers, cultures and supplier data, seed packages, locations, fields,
+beds and layouts, planting plans, tasks, and note attachments). It shows only
+per-project totals and recency/status buckets, plus aggregate registration and
+recent-login totals. A project's active-user count uses the existing
+`last_login` value for its members.
+
+The dashboard does **not** create tracking records or collect clicks, sessions,
+time on page, navigation paths, or other individual behavioral data. Adding
+such tracking would require a separate privacy review and an update to the
+privacy policy before implementation.
+
 ## Repository Structure
 
 ```text
@@ -172,6 +188,15 @@ Authentication endpoints are available under:
 
 - `/api/auth/*`
 
+### New user registration notifications
+
+The backend sends an informational email whenever a real Django user is
+created; short-lived guest demo users are excluded.
+Set `ADMIN_NOTIFICATION_EMAIL` to choose the recipient; it defaults to
+`info@openfarmplanner.org`. Set it to an empty value to disable these
+notifications. Delivery uses the existing Django email backend and a delivery
+failure is logged without preventing registration.
+
 ## Testing Overview
 
 ### Backend
@@ -278,7 +303,7 @@ See `CONTRIBUTING.md` for commit format requirements.
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE).
 
 ### Third-party code
 

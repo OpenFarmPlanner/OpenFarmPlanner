@@ -115,7 +115,7 @@ export const PUBLIC_INDEXABLE_ROUTES: readonly PublicRoute[] = [
     changefreq: 'yearly',
     priority: 0.3,
     title: 'Impressum – OpenFarmPlanner',
-    description: 'Impressum von OpenFarmPlanner: Anbieterkennzeichnung, Kontaktangaben und verantwortliche Person gemäß § 5 TMG.',
+    description: 'Impressum von OpenFarmPlanner: Anbieterkennzeichnung, Kontaktangaben und verantwortliche Person gemäß § 5 ECG.',
   },
   {
     path: '/datenschutz',

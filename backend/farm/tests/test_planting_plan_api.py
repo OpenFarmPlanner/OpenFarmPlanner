@@ -343,3 +343,173 @@ def test_planting_plan_without_culture_or_bed_is_rejected():
 
     create_response = client.post('/openfarmplanner/api/planting-plans/', data={})
     assert create_response.status_code == 400, create_response.content
+
+
+def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Culture, Bed]:
+    """A project with a general Kultur, a Sorte that overrides nothing, and a bed."""
+    user = User.objects.create_user(
+        username=f'{slug}-user',
+        email=f'{slug}@example.com',
+        password='testpass',
+        is_active=True,
+    )
+    project = Project.objects.create(name=f'{slug} Project', slug=f'{slug}-project')
+    ProjectMembership.objects.create(user=user, project=project, role='admin')
+
+    location = Location.objects.create(name='Hof', project=project)
+    field = Field.objects.create(name='Nordfeld', location=location, project=project)
+    bed = Bed.objects.create(name='Beet A', field=field, project=project)
+
+    species = CropSpecies.objects.create(name=f'Species {slug}')
+    Culture.objects.create(
+        name='Karotte',
+        variety='',
+        crop_species=species,
+        growth_duration_days=70,
+        harvest_duration_days=21,
+        propagation_duration_days=14,
+        row_spacing_m=0.25,
+        distance_within_row_m=0.05,
+        cultivation_type='pre_cultivation',
+        cultivation_types=['pre_cultivation'],
+        project=project,
+    )
+    sorte = Culture.objects.create(
+        name='Karotte',
+        variety='Nantaise',
+        crop_species=species,
+        project=project,
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    client.defaults['HTTP_X_PROJECT_ID'] = str(project.id)
+    return client, project, sorte, bed
+
+
+@pytest.mark.django_db
+def test_plan_for_a_sorte_uses_the_general_kultur_timing():
+    """A Sorte with no own durations still gets computed harvest dates."""
+    client, project, sorte, bed = _inheritance_fixture('inherit-timing')
+
+    plan = PlantingPlan.objects.create(
+        culture=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
+    )
+
+    assert plan.harvest_date == date(2026, 4, 1) + timedelta(days=70)
+    assert plan.harvest_end_date == plan.harvest_date + timedelta(days=21)
+
+
+@pytest.mark.django_db
+def test_plan_list_serves_inherited_timing_and_cultivation_metadata():
+    client, project, sorte, bed = _inheritance_fixture('inherit-serializer')
+    PlantingPlan.objects.create(
+        culture=sorte, bed=bed, planting_date=date(2026, 4, 1),
+        area_usage_sqm=10, project=project,
+    )
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+
+    assert row['harvest_date'] == '2026-06-10'
+    assert row['harvest_end_date'] == '2026-07-01'
+    assert row['culture_propagation_duration_days'] == 14
+    assert row['culture_cultivation_type'] == 'pre_cultivation'
+    assert row['culture_cultivation_types'] == ['pre_cultivation']
+    # 25 cm row spacing x 5 cm within the row -> 10000/125 = 80 plants/m², over 10 m².
+    assert row['plants_count'] == 800
+
+
+@pytest.mark.django_db
+def test_plan_list_derives_missing_stored_harvest_dates_from_inherited_timing():
+    client, project, sorte, bed = _inheritance_fixture('inherit-derived-snapshot')
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(harvest_date=None, harvest_end_date=None)
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-10'
+    assert row['harvest_end_date'] == '2026-07-01'
+
+
+@pytest.mark.django_db
+def test_plan_list_keeps_harvest_dates_null_when_effective_timing_is_missing():
+    client, project, sorte, bed = _inheritance_fixture('inherit-missing-effective')
+    general = Culture.objects.get(project=project, crop_species=sorte.crop_species, variety='')
+    general.harvest_duration_days = None
+    general.save(update_fields=['harvest_duration_days'])
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2026, 7, 1))
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-10'
+    assert row['harvest_end_date'] is None
+
+
+@pytest.mark.django_db
+def test_plan_list_preserves_stored_harvest_dates_over_derived_values():
+    client, project, sorte, bed = _inheritance_fixture('inherit-stored-wins')
+    plan = PlantingPlan.objects.create(
+        culture=sorte,
+        bed=bed,
+        planting_date=date(2026, 4, 1),
+        project=project,
+    )
+    PlantingPlan.objects.filter(pk=plan.pk).update(
+        harvest_date=date(2026, 6, 15),
+        harvest_end_date=date(2026, 7, 10),
+    )
+
+    response = client.get('/openfarmplanner/api/planting-plans/')
+
+    assert response.status_code == 200, response.content
+    row = response.json()['results'][0]
+    assert row['harvest_date'] == '2026-06-15'
+    assert row['harvest_end_date'] == '2026-07-10'
+
+
+@pytest.mark.django_db
+def test_an_own_sorte_value_still_wins_over_the_general_kultur():
+    client, project, sorte, bed = _inheritance_fixture('inherit-override')
+    sorte.harvest_duration_days = 3
+    sorte.save(update_fields=['harvest_duration_days'])
+
+    plan = PlantingPlan.objects.create(
+        culture=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
+    )
+
+    assert plan.harvest_end_date == plan.harvest_date + timedelta(days=3)
+
+
+@pytest.mark.django_db
+def test_stored_harvest_dates_stay_a_snapshot_until_the_plan_is_saved_again():
+    """Making a value resolvable must not silently rewrite existing plans."""
+    client, project, sorte, bed = _inheritance_fixture('inherit-snapshot')
+    free_text = Culture.objects.create(
+        name='Freitext', variety='Sorte', project=project,
+    )
+    plan = PlantingPlan.objects.create(
+        culture=free_text, bed=bed, planting_date=date(2026, 4, 1), project=project,
+    )
+    assert plan.harvest_date is None
+
+    plan.culture = sorte
+    plan.save()
+    plan.refresh_from_db()
+    assert plan.harvest_date == date(2026, 4, 1) + timedelta(days=70)

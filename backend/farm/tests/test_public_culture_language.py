@@ -253,6 +253,29 @@ class PublicCultureTranslationTest(ProjectApiTestCase):
         self.assertEqual(self.public_culture.display_name('en')[0], 'Tomate')
         self.assertEqual(self.public_culture.variety, 'Moneymaker')
 
+    def test_public_culture_display_name_uses_active_project_region(self):
+        species = CropSpecies.objects.get(name_normalized='tomate')
+        translation, _ = CropSpeciesTranslation.objects.update_or_create(
+            species=species,
+            language_code='de',
+            defaults={'common_name': 'Tomate'},
+        )
+        translation.regional_names = {'austria': 'Paradeiser'}
+        translation.save()
+        self.project.region = 'austria'
+        self.project.save(update_fields=['region'])
+        self.public_culture.crop_species = species
+        self.public_culture.save(update_fields=['crop_species'])
+
+        response = self.client.get(
+            f'/openfarmplanner/api/public-cultures/{self.public_culture.id}/',
+            {'language': 'de'},
+            HTTP_X_PROJECT_ID=str(self.project.id),
+        )
+
+        self.assertEqual(response.data['display_name'], 'Paradeiser')
+        self.assertEqual(response.data['crop_species_name'], 'Paradeiser')
+
 
 class LanguageCodeNormalizationTest(ProjectApiTestCase):
     def test_accepts_supported_codes_and_rejects_the_rest(self):

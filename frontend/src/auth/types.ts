@@ -1,9 +1,12 @@
 export interface ProjectMembershipInfo {
   project_id: number;
   project_name: string;
+  project_region?: ProjectRegion;
   role: 'admin' | 'member';
   is_demo_project?: boolean;
 }
+
+export type ProjectRegion = 'germany' | 'austria' | 'switzerland';
 
 export interface AuthUser {
   id: number;

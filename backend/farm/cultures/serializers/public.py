@@ -20,6 +20,7 @@ from farm.models import (
     PublicCultureRevision,
     format_culture_display_name,
 )
+from farm.project_context import get_active_project_optional
 from farm.services.public_cultures import PUBLIC_CULTURE_EDITABLE_FIELDS
 
 PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
@@ -75,6 +76,16 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         default='',
     )
     crop_species_translations = serializers.SerializerMethodField()
+    crop_species_search_names = serializers.SerializerMethodField()
+    # A `proposed` species is one a user suggested and no moderator has
+    # reviewed yet. Entries published under it are usable but provisional, so
+    # the UI marks them and blocks import/update/discussion until it is
+    # reviewed — see docs/crop-library-architecture.md.
+    crop_species_status = serializers.CharField(
+        source='crop_species.status',
+        read_only=True,
+        default='',
+    )
     display_name = serializers.SerializerMethodField()
     display_language_code = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
@@ -102,6 +113,8 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'crop_species_name',
             'crop_species_canonical_name',
             'crop_species_translations',
+            'crop_species_search_names',
+            'crop_species_status',
             'display_name',
             'display_language_code',
             'description',
@@ -167,16 +180,25 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return resolve_request_language(request) if request is not None else DEFAULT_LANGUAGE_CODE
 
+    def _region(self) -> str:
+        request = self.context.get('request')
+        if request is None:
+            return ''
+        active_project = getattr(request, 'active_project', None)
+        if active_project is None:
+            active_project = get_active_project_optional(request)
+        return getattr(active_project, 'region', '') if active_project is not None else ''
+
     def get_crop_species_name(self, obj: PublicCulture) -> str:
         """Species name in the caller's language; never empty, never an id."""
-        return obj.display_name(self._language())[0]
+        return obj.display_name(self._language(), self._region())[0]
 
     def get_display_name(self, obj: PublicCulture) -> str:
-        return obj.display_name(self._language())[0]
+        return obj.display_name(self._language(), self._region())[0]
 
     def get_display_language_code(self, obj: PublicCulture) -> str:
         """Language the name came from — '' means "no real translation exists"."""
-        return obj.display_name(self._language())[1]
+        return obj.display_name(self._language(), self._region())[1]
 
     def get_description(self, obj: PublicCulture) -> str:
         return obj.localized_description(self._language())[0]
@@ -191,6 +213,11 @@ class PublicCultureSerializer(serializers.ModelSerializer):
         if obj.crop_species is None:
             return {}
         return obj.crop_species.translations_by_language()
+
+    def get_crop_species_search_names(self, obj: PublicCulture) -> list[str]:
+        if obj.crop_species is None:
+            return []
+        return obj.crop_species.search_names()
 
     def get_imported_cultures_count(self, obj: PublicCulture) -> int:
         """How many project cultures (across all projects) are linked to this entry.

@@ -103,10 +103,9 @@
   "legal": {
     "imprint": {
       "title": "Impressum",
-      "disclaimer": "Diese Angaben basieren auf dem aktuellen Entwurfsstand (März 2026). Bitte vor Live-Schaltung rechtlich final prüfen.",
       "sections": {
         "provider": {
-          "title": "Angaben gemäß § 5 TMG",
+          "title": "Angaben gemäß § 5 ECG",
           "content": "Martin Stipsitz\nBurgenlandstraße 44A / 9\n9500 Villach\nÖsterreich"
         },
         "contact": {
@@ -121,7 +120,7 @@
     },
     "privacy": {
       "title": "Datenschutzerklärung",
-      "version": "Stand: 17. Juli 2026",
+      "version": "Stand: 18. August 2026",
       "sections": {
         "controller": {
           "title": "Verantwortlicher",
@@ -142,17 +141,28 @@
             "operatingSystem": "Betriebssystem",
             "referrerUrl": "Referrer-URL, sofern übermittelt"
           },
-          "legalBasis": "Die Webserver-Logfiles werden automatisch nach 7 Tagen gelöscht. Zusätzlich verarbeiten wir technische Anwendungsprotokolle (z. B. Django- oder Gunicorn-Fehlerlogs). Diese enthalten ausschließlich technische Informationen wie Fehlermeldungen, Zeitstempel und betroffene Anfragen und dienen ausschließlich der Fehlerdiagnose sowie dem sicheren und stabilen Betrieb der Anwendung.\n\nRechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt im sicheren und stabilen Betrieb der Anwendung (vgl. Erwägungsgrund 49 DSGVO zur Netz- und Informationssicherheit)."
+          "legalBasis": "Die Webserver-Logfiles werden automatisch nach 7 Tagen gelöscht. Zusätzlich verarbeiten wir technische Anwendungsprotokolle (z. B. Django- oder Gunicorn-Fehlerlogs). Diese enthalten in erster Linie technische Informationen wie Fehlermeldungen, Zeitstempel und betroffene Anfragen; in einzelnen Fehlerfällen bei der Konto-, Anmelde- oder Einladungsverwaltung können darin auch die betroffene E-Mail-Adresse, der Benutzername oder eine interne Nutzer-ID enthalten sein. Die Protokolle dienen ausschließlich der Fehlerdiagnose sowie dem sicheren und stabilen Betrieb der Anwendung.\n\nRechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt im sicheren und stabilen Betrieb der Anwendung (vgl. Erwägungsgrund 49 DSGVO zur Netz- und Informationssicherheit)."
         },
         "registration": {
           "title": "Registrierung und Benutzerkonto",
-          "content": "Für die Nutzung von OpenFarmPlanner legen Sie ein Benutzerkonto an. Dabei verarbeiten wir:",
+          "content": "Für die Nutzung von OpenFarmPlanner legen Sie ein Benutzerkonto an, entweder mit E-Mail-Adresse und Passwort oder alternativ über Ihr Google-Konto (siehe Abschnitt „Anmeldung mit Google-Konto“). Bei Registrierung mit E-Mail-Adresse und Passwort verarbeiten wir:",
           "bullets": {
             "emailAddress": "E-Mail-Adresse (in der Mitgliederliste für andere Mitglieder desselben Projekts sichtbar; wird niemals öffentlich veröffentlicht)",
             "nameOptional": "Anzeigename (optional)",
             "encryptedPassword": "Passwort (sicher gehasht gespeichert – für uns im Klartext nicht einsehbar)"
           },
           "legalBasis": "Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Erfüllung des Nutzungsvertrags über die Bereitstellung eines Benutzerkontos)."
+        },
+        "socialLogin": {
+          "title": "Anmeldung mit Google-Konto",
+          "content": "Zusätzlich zur Registrierung mit E-Mail-Adresse und Passwort können Sie sich bei OpenFarmPlanner mit Ihrem Google-Konto registrieren und anmelden (Google Sign-In). Beim Klick auf „Mit Google anmelden“ werden Sie zu Google weitergeleitet; nach erfolgreicher Anmeldung bei Google werden Sie zurück zu OpenFarmPlanner geleitet.",
+          "bullets": {
+            "receivedData": "Von Google erhalten wir dabei Ihre E-Mail-Adresse, Ihren Vor- und Nachnamen, eine stabile Google-Kontokennung sowie – sofern von Google übermittelt – ein Profilbild-URL und Ihre bei Google hinterlegte Spracheinstellung.",
+            "storedData": "In Ihr OpenFarmPlanner-Konto übernommen werden davon nur die E-Mail-Adresse und Ihr Vorname. Die vollständige Anmeldeantwort von Google (einschließlich Google-Kontokennung, Profilbild-URL und Spracheinstellung, sofern übermittelt) speichern wir zusätzlich in einem separaten technischen Datensatz zur Anmeldeverwaltung, damit wir Sie bei künftigen Google-Anmeldungen wiedererkennen können.",
+            "purpose": "Diese Daten werden ausschließlich zur Kontoerstellung und -anmeldung verwendet. OpenFarmPlanner ruft nach der Anmeldung keine Google-APIs auf und speichert keine Google-Zugriffstoken.",
+            "disconnect": "Sie können die Verknüpfung mit Ihrem Google-Konto jederzeit in den Kontoeinstellungen unter „Anmeldemethoden“ trennen, sofern Sie über eine andere Anmeldemöglichkeit verfügen (Passwort oder einen weiteren verknüpften Anbieter)."
+          },
+          "legalBasis": "Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Erfüllung des Nutzungsvertrags durch Bereitstellung einer alternativen Anmeldemethode). Zur Übermittlung an Google siehe Abschnitt „Drittlandübermittlung“."
         },
         "projectData": {
           "title": "Projekt- und Anwendungsdaten",
@@ -163,7 +173,7 @@
           "title": "Öffentliche Kulturbibliothek",
           "content": "Sie können einzelne Kultur-Datensätze (z. B. Anbauinformationen zu einer Gemüsesorte) aus einem privaten Projekt eigenständig in eine öffentliche Kulturbibliothek veröffentlichen. Diese Bibliothek ist als gemeinschaftlich aufgebaute, dauerhaft bestehende Wissensdatenbank gedacht. Veröffentlichte Einträge können von anderen Nutzern eingesehen, in eigene Projekte importiert und künftig über Funktionen wie Versionshistorien, gemeinschaftliche Bearbeitung, Kommentare, Bewertungen, öffentliche APIs oder Datenexporte weiterverwendet werden. Die Veröffentlichung ist freiwillig und für die Nutzung von OpenFarmPlanner nicht erforderlich. Welche Nutzungsrechte Sie der Allgemeinheit und OpenFarmPlanner damit einräumen, regeln die Nutzungsbedingungen, insbesondere der Abschnitt „Offene Lizenz für veröffentlichte Kulturdaten“.",
           "bullets": {
-            "publicContent": "Veröffentlicht werden ausschließlich die landwirtschaftlichen Anbaudaten der Kultur (z. B. Name, Sorte, Wachstums- und Erntedauer, Pflanzabstände, Saatgutmenge, Lieferantenname). Notizen aus dem privaten Projekt werden nicht mitveröffentlicht.",
+            "publicContent": "Veröffentlicht werden ausschließlich die landwirtschaftlichen Anbaudaten der Kultur (z. B. Name, Sorte, Wachstums- und Erntedauer, Pflanzabstände, Saatgutmenge). Notizen aus dem privaten Projekt sowie projektinterne Angaben wie Saatgutlieferanten werden nicht mitveröffentlicht.",
             "attribution": "Als Urheber eines veröffentlichten Eintrags wird der von Ihnen in den Kontoeinstellungen frei wählbare öffentliche Anzeigename angezeigt. Dieser Name gehört zu Ihrem Konto, nicht zum einzelnen Eintrag: Legen Sie ihn erstmals fest oder ändern ihn, erscheint er automatisch bei allen bereits von Ihnen veröffentlichten Kulturen als Urheber; entfernen Sie ihn wieder, werden diese Einträge wieder anonym angezeigt. Frühere Namen werden dabei nicht an einzelnen Einträgen gespeichert. Haben Sie keinen öffentlichen Anzeigenamen festgelegt, erfolgt die Veröffentlichung anonym, ohne Namensangabe. Der Anzeigename muss eindeutig sein; bei der Vergabe wird technisch geprüft, ob er bereits von einem anderen Konto verwendet wird. Ihr Benutzername und Ihre E-Mail-Adresse sind zu keinem Zeitpunkt Bestandteil eines öffentlichen Eintrags; die E-Mail-Adresse dient ausschließlich der Kontoverwaltung und unserer Kommunikation mit Ihnen (siehe Abschnitt „E-Mail-Kommunikation“).",
             "noReview": "Die Veröffentlichung erfolgt unmittelbar durch Sie selbst; es findet aktuell keine inhaltliche Prüfung oder Freigabe durch uns statt.",
             "persistence": "Ein veröffentlichter Eintrag bleibt grundsätzlich dauerhaft Teil der öffentlichen Bibliothek, auch wenn Sie die ursprüngliche Kultur in Ihrem privaten Projekt später ändern oder löschen.",
@@ -198,11 +208,11 @@
         },
         "dataSharing": {
           "title": "Weitergabe von Daten",
-          "content": "Über die in Auftragsverarbeitung erfolgende Zusammenarbeit mit unserem Hosting-Anbieter (siehe Abschnitt „Hosting“) hinaus geben wir Ihre personenbezogenen Daten nur weiter, wenn:\n\n– dies für den technischen E-Mail-Versand im Zusammenhang mit Ihrem Konto oder Projekt-Einladungen erforderlich ist; der Versand erfolgt über die bei Uberspace betriebene Mail-Infrastruktur,\n– Sie durch das aktive Veröffentlichen einer Kultur in der öffentlichen Kulturbibliothek deren Sichtbarkeit für andere Nutzer wählen, gegebenenfalls einschließlich Ihres öffentlichen Anzeigenamens, sofern Sie einen solchen festgelegt haben (siehe Abschnitt „Öffentliche Kulturbibliothek“), oder\n– wir gesetzlich dazu verpflichtet sind, etwa gegenüber Behörden."
+          "content": "Über die in Auftragsverarbeitung erfolgende Zusammenarbeit mit unserem Hosting-Anbieter (siehe Abschnitt „Hosting“) hinaus geben wir Ihre personenbezogenen Daten nur weiter, wenn:\n\n– dies für den technischen E-Mail-Versand im Zusammenhang mit Ihrem Konto oder Projekt-Einladungen erforderlich ist; der Versand erfolgt über die bei Uberspace betriebene Mail-Infrastruktur,\n– Sie sich mit Ihrem Google-Konto anmelden oder registrieren; in diesem Fall erhält Google die für die Anmeldung erforderlichen technischen Daten (siehe Abschnitte „Anmeldung mit Google-Konto“ und „Drittlandübermittlung“),\n– Sie durch das aktive Veröffentlichen einer Kultur in der öffentlichen Kulturbibliothek deren Sichtbarkeit für andere Nutzer wählen, gegebenenfalls einschließlich Ihres öffentlichen Anzeigenamens, sofern Sie einen solchen festgelegt haben (siehe Abschnitt „Öffentliche Kulturbibliothek“), oder\n– wir gesetzlich dazu verpflichtet sind, etwa gegenüber Behörden."
         },
         "thirdCountryTransfers": {
           "title": "Drittlandübermittlung",
-          "content": "Eine Übermittlung personenbezogener Daten an Empfänger außerhalb der Europäischen Union oder des Europäischen Wirtschaftsraums findet nach derzeitigem Stand nicht statt."
+          "content": "Wenn Sie sich mit Ihrem Google-Konto anmelden oder registrieren (siehe Abschnitt „Anmeldung mit Google-Konto“), werden dabei personenbezogene Daten an Google LLC mit Sitz in den USA übermittelt. Google LLC ist nach unserem aktuellen Kenntnisstand unter dem EU-U.S. Data Privacy Framework (DPF) zertifiziert. Für an zertifizierte Unternehmen übermittelte Daten hat die Europäische Kommission ein angemessenes Datenschutzniveau festgestellt (Angemessenheitsbeschluss nach Art. 45 DSGVO vom 10. Juli 2023). Den aktuellen Zertifizierungsstatus können Sie jederzeit selbst über die offizielle DPF-Teilnehmerliste (https://www.dataprivacyframework.gov/list) prüfen.\n\nDarüber hinaus findet nach derzeitigem Stand keine Übermittlung personenbezogener Daten an Empfänger außerhalb der Europäischen Union oder des Europäischen Wirtschaftsraums statt. Eine Anmeldung mit Microsoft-Konto ist im Quellcode von OpenFarmPlanner vorbereitet, aber derzeit nicht aktiviert; sie wird erst bei Aktivierung Bestandteil dieser Datenschutzerklärung."
         },
         "mandatoryProvision": {
           "title": "Bereitstellung personenbezogener Daten",
@@ -210,7 +220,7 @@
         },
         "storageDuration": {
           "title": "Speicherdauer",
-          "content": "Ihre Kontodaten werden gespeichert, solange Ihr Benutzerkonto besteht. Nicht aktivierte Benutzerkonten werden nach Ablauf der Aktivierungsfrist gelöscht; Aktivierungslinks sind derzeit 7 Tage gültig. Passwort-Reset-Links sind zeitlich begrenzt; E-Mail-Änderungslinks sind derzeit 24 Stunden gültig. Projekt-Einladungen sind derzeit 14 Tage gültig.\n\nWenn Sie Ihr Konto löschen lassen, wird es zunächst für 14 Tage als „zur Löschung vorgemerkt“ geführt; in diesem Zeitraum können Sie die Löschung rückgängig machen. Nach Ablauf dieser Frist anonymisieren wir Ihr Konto (E-Mail-Adresse und Anzeigename werden entfernt, das Konto wird deaktiviert) und entfernen Ihre Projektmitgliedschaften – soweit dem keine gesetzlichen Pflichten oder sonstige zwingende Gründe entgegenstehen.\n\nProjekte bleiben bestehen, solange mindestens ein Mitglied vorhanden ist. Hat ein Projekt nach der Kontolöschung kein Mitglied mehr, löschen wir das Projekt einschließlich der projektspezifischen Daten. Veröffentlichte Einträge in der öffentlichen Kulturbibliothek sind davon nicht betroffen und bleiben Bestandteil der öffentlichen Wissensdatenbank (siehe Abschnitte „Projekt- und Anwendungsdaten“ und „Öffentliche Kulturbibliothek“). Server-Logfiles des Hosting-Anbieters werden nach 7 Tagen gelöscht; IP-Adressen werden dabei von Uberspace gekürzt gespeichert. Eigene technische Cron- und Anwendungslogs speichern wir höchstens 14 Tage, soweit sie nicht bereits früher für Betrieb, Fehleranalyse und Sicherheit entbehrlich sind. Darüber hinausgehende gesetzliche Aufbewahrungspflichten bestehen für die von uns verarbeiteten Daten derzeit nicht, da OpenFarmPlanner keine abrechnungs- oder steuerrelevanten Daten verarbeitet."
+          "content": "Ihre Kontodaten werden gespeichert, solange Ihr Benutzerkonto besteht. Nicht aktivierte Benutzerkonten werden nach Ablauf der Aktivierungsfrist gelöscht; Aktivierungslinks sind derzeit 7 Tage gültig. Passwort-Reset-Links sind derzeit 3 Tage gültig; E-Mail-Änderungslinks sind derzeit 24 Stunden gültig. Projekt-Einladungen sind derzeit 14 Tage gültig; nach Ablauf dieser Frist bleibt die Einladung zwar als Datensatz bestehen, kann aber nicht mehr angenommen werden. Nutzen Sie die unangemeldete Demo-Funktion („Demo ausprobieren“), werden die dabei angelegten Daten spätestens 8 Stunden nach Sitzungsbeginn automatisch gelöscht.\n\nWenn Sie Ihr Konto löschen lassen, wird es zunächst für 14 Tage als „zur Löschung vorgemerkt“ geführt; in diesem Zeitraum können Sie die Löschung rückgängig machen. Nach Ablauf dieser Frist anonymisieren wir Ihr Konto (E-Mail-Adresse und Anzeigename werden entfernt, das Konto wird deaktiviert, eine verknüpfte Google-Anmeldung wird entfernt) und entfernen Ihre Projektmitgliedschaften – soweit dem keine gesetzlichen Pflichten oder sonstige zwingende Gründe entgegenstehen.\n\nProjekte bleiben bestehen, solange mindestens ein Mitglied vorhanden ist. Hat ein Projekt nach der Kontolöschung kein Mitglied mehr, löschen wir das Projekt einschließlich der projektspezifischen Daten. Veröffentlichte Einträge in der öffentlichen Kulturbibliothek sind davon nicht betroffen und bleiben Bestandteil der öffentlichen Wissensdatenbank (siehe Abschnitte „Projekt- und Anwendungsdaten“ und „Öffentliche Kulturbibliothek“). Server-Logfiles des Hosting-Anbieters werden nach 7 Tagen gelöscht; IP-Adressen werden dabei von Uberspace gekürzt gespeichert. Eigene Protokolle unserer geplanten Wartungsaufgaben (Cron-Jobs) löschen wir automatisiert spätestens nach 14 Tagen. Die Fehlerausgaben unserer Anwendung selbst (Django/Gunicorn) legen wir nicht in eigenen, von uns verwalteten Protokolldateien ab; sie werden über die Prozessverwaltung unseres Hosting-Anbieters erfasst, dessen eigene technische Konfiguration die Aufbewahrungsdauer bestimmt. Darüber hinausgehende gesetzliche Aufbewahrungspflichten bestehen für die von uns verarbeiteten Daten derzeit nicht, da OpenFarmPlanner keine abrechnungs- oder steuerrelevanten Daten verarbeitet."
         },
         "rights": {
           "title": "Ihre Rechte",

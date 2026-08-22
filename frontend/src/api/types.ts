@@ -72,6 +72,18 @@ export interface SupplierRestoreUnlinkedDeleteResponse {
 export type SeedRateUnit = 'g_per_m2' | 'g_per_lfm' | 'seeds_per_m2' | 'seeds_per_lfm' | 'seeds_per_plant';
 export type CultivationType = 'pre_cultivation' | 'direct_sowing';
 
+export interface SeedRateUnitConstraint {
+  value_type: 'number' | 'integer';
+  step: number;
+  minimum: number;
+}
+
+export type SeedRateUnitConstraints = Record<SeedRateUnit, SeedRateUnitConstraint>;
+
+export interface SeedRateConstraintsResponse {
+  units: SeedRateUnitConstraints;
+}
+
 export interface SeedRateByCultivationEntry {
   value: number;
   unit: SeedRateUnit;
@@ -88,6 +100,8 @@ export interface SeedRequirementEntry {
 export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
 
 export interface Culture {
+  /** Explicitly seed empty general-culture fields when creating this variety. */
+  copy_values_to_culture?: boolean;
   source_public_culture?: number | null;
   source_public_version?: number | null;
   origin_type?: 'manual' | 'imported';
@@ -100,6 +114,8 @@ export interface Culture {
   public_update_rejected?: boolean;
   /** Why pushing this copy into the public library is blocked, or null when it is allowed. */
   public_publish_blocked_reason?: PublicPublishBlockedReason | null;
+  /** True while this culture's own library entry sits under a crop species no moderator reviewed yet. */
+  public_crop_species_pending?: boolean;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
   package_size_g?: number; // deprecated, replaced by seed_packages
@@ -134,9 +150,10 @@ export interface Culture {
   image_file?: MediaFileRef | null;
   image_file_id?: number | null;
   notes?: string;
-  
+
   crop_family?: string;
   nutrient_demand?: 'low' | 'medium' | 'high' | '';
+  rotation_break_years?: number | null;
   cultivation_type?: CultivationType | '';
   cultivation_types?: CultivationType[];
   
@@ -158,10 +175,51 @@ export interface Culture {
   
   // Computed, read-only.
   plants_per_m2?: number | null;
-  
+
+  /**
+   * Read-only inheritance data for a Sorte: the general Kultur it falls back to
+   * (same project, same crop species, no variety) and the resolved value of
+   * every inheritable field. The plain fields above always stay the row's *own*
+   * values, so a field is inherited exactly when it appears in
+   * `inherited_fields`. All three are absent/empty when there is nothing to
+   * inherit from — a general Kultur, or a free-text Sorte without a species.
+   */
+  general_culture?: number | null;
+  inherited_fields?: CultureInheritableField[];
+  effective_values?: Partial<Culture>;
+
   created_at?: string;
   updated_at?: string;
 }
+
+/**
+ * Culture fields a Sorte inherits from its general Kultur. Mirrors
+ * `CULTURE_INHERITABLE_FIELDS` in backend/farm/services/culture_inheritance.py.
+ */
+export type CultureInheritableField =
+  | 'crop_family'
+  | 'nutrient_demand'
+  | 'rotation_break_years'
+  | 'cultivation_type'
+  | 'cultivation_types'
+  | 'growth_duration_days'
+  | 'harvest_duration_days'
+  | 'propagation_duration_days'
+  | 'harvest_method'
+  | 'expected_yield'
+  | 'distance_within_row_cm'
+  | 'row_spacing_cm'
+  | 'sowing_depth_cm'
+  | 'sowing_calculation_safety_percent'
+  | 'sowing_calculation_safety_percent_direct'
+  | 'sowing_calculation_safety_percent_pre_cultivation'
+  | 'thousand_kernel_weight_g'
+  | 'seeding_requirement'
+  | 'seeding_requirement_type'
+  | 'seed_rate_direct_value'
+  | 'seed_rate_direct_unit'
+  | 'seed_rate_pre_cultivation_value'
+  | 'seed_rate_pre_cultivation_unit';
 
 export interface CultureSupplierData {
   id?: number;
@@ -213,6 +271,10 @@ export interface PublicCulture {
   crop_species_canonical_name?: string;
   /** Every stored species name, keyed by language code. */
   crop_species_translations?: Record<string, string>;
+  /** Canonical name, translations, synonyms, and regional names used for Kulturart matching. */
+  crop_species_search_names?: string[];
+  /** Moderation state of the linked species; 'proposed' means still awaiting review. */
+  crop_species_status?: CropSpecies['status'] | '';
   /** Species name in the request language, after the fallback chain. */
   display_name?: string;
   /** Language `display_name` actually came from; '' when no translation exists. */
@@ -383,6 +445,9 @@ export type PublicCultureRemovalReason =
   | 'duplicate'
   | 'wrong_mapping'
   | 'unlawful_content'
+  // System-applied only, set when the crop species behind an entry is
+  // rejected — never offered as a choice in the manual removal dialog.
+  | 'species_rejected'
   | 'other';
 
 export interface PublicCultureDuplicateCandidate {
@@ -404,6 +469,16 @@ export interface GeneralCropNotice {
 
 export interface CultureDuplicateCheckResponse {
   exists: boolean;
+  name_exists?: boolean;
+}
+
+export interface CultureDeletePreview {
+  culture_ids: number[];
+  varieties: Array<{ id: number; name: string }>;
+  variety_count: number;
+  planning_data_count: number;
+  deletes_general_culture: boolean;
+  group_without_general: boolean;
 }
 
 export interface PublicCultureMatchResponse {
@@ -444,7 +519,14 @@ export interface CropSpecies {
   name: string;
   display_name?: string;
   display_language_code?: string;
-  translations?: Array<{ language_code: string; common_name: string }>;
+  translations?: Array<{
+    language_code: string;
+    common_name: string;
+    synonyms?: string[];
+    regional_names?: Record<string, string>;
+  }>;
+  /** Canonical name, translations, synonyms, and regional names used for Kulturart matching. */
+  search_names?: string[];
   status: 'published' | 'proposed' | 'rejected';
   proposed_by_label?: string;
   reviewed_by_label?: string;
@@ -759,4 +841,34 @@ export interface ApiTokenCreatePayload {
   project: number;
   scope: ApiTokenScope;
   expires_at?: string | null;
+}
+
+/**
+ * One in-app notification. The backend keeps `message` in English for
+ * admin/API consumers; the UI renders `notification_type` + `context` through
+ * i18n instead, so the same row reads in whatever language the user picked.
+ */
+export type NotificationType =
+  | 'crop_species_proposal_accepted'
+  | 'crop_species_proposal_rejected'
+  | 'crop_species_proposal_submitted'
+  | 'moderator_request_submitted'
+  | 'public_culture_removed';
+
+export type NotificationTargetType = 'public_culture' | 'crop_species' | 'public_library_moderation' | '';
+
+export interface AppNotification {
+  id: number;
+  notification_type: NotificationType;
+  /** English fallback text — never rendered by the app UI. */
+  message: string;
+  context: Record<string, string>;
+  target_type: NotificationTargetType;
+  target_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse extends PaginatedResponse<AppNotification> {
+  unread_count: number;
 }

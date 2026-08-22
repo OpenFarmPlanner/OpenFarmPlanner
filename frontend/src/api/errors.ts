@@ -156,6 +156,20 @@ export function extractApiErrorMessage(
       return formatServiceError(data.detail, t, fallbackMessage);
     }
 
+    if (
+      status === 409
+      && data
+      && typeof data === 'object'
+      && 'code' in data
+      && data.code === 'culture_name_conflict'
+    ) {
+      return translatedOrFallback(
+        t,
+        'form.cultureNameConflict',
+        'Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.',
+      );
+    }
+
     // Check if it's a 400 validation error
     if (status === 400) {
       // If data is an object with error fields

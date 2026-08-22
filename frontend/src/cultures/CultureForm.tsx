@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from '../i18n';
-import type { Culture, PublicCulture, Supplier } from '../api/types';
+import type { Culture, PublicCulture, SeedRateUnitConstraints, Supplier } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import {
   Dialog,
@@ -31,6 +31,8 @@ import {
   InputLabel,
   MenuItem,
   IconButton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { alpha } from '@mui/material/styles';
@@ -39,10 +41,11 @@ import { cultureAPI, publicCultureAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
 import { useDialogKeyboardScroll } from '../hooks/useDialogKeyboardScroll';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
+import { AppTooltip } from '../components/AppTooltip';
 import { hasEffectiveCultureFormChanges } from './cultureFormChangeDetection';
 import { validateCulture } from './validation';
 import { normalizeSeedRateUnit } from './enumNormalization';
-import { buildCultureIdentityKey } from './cultureIdentity';
+import { buildCultureIdentityKey, normalizeCultureIdentityValue } from './cultureIdentity';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import { BasicInfoSection } from './sections/BasicInfoSection';
 import { TimingSection } from './sections/TimingSection';
@@ -61,7 +64,12 @@ import {
   isLikelyTestPublicCultureEntry,
   normalizeIdentityValue,
 } from './publicCultureNameSuggestions';
-import { getVarietyOwnValueSource, stripValuesMatchingBaseline } from './varietyValueSource';
+import { normalizeCropSpeciesSearchValue } from './cropSpeciesMatching';
+import {
+  buildInheritedValueBaseline,
+  getVarietyOwnValueSource,
+  stripValuesMatchingBaseline,
+} from './varietyValueSource';
 import { varietySpecificFieldHighlightSx } from './varietyValueAccent';
 import { buildVarietyFieldTooltipTitle, type GetVarietyFieldTooltipProps } from './varietyFieldTooltipHelpers';
 import { VarietyValueLegend } from './VarietyValueLegend';
@@ -82,6 +90,7 @@ import {
 export interface FirstVarietyDraft {
   name: string;
   draft?: Partial<Culture>;
+  copyValuesToCulture?: boolean;
 }
 
 interface CultureFormProps {
@@ -249,41 +258,59 @@ const buildInitialFormData = (culture?: Culture, initialDraft?: Partial<Culture>
     return initialDraft ? { ...EMPTY_CULTURE, ...initialDraft } : EMPTY_CULTURE;
   }
 
+  // A Sorte only stores the values it actually overrides. Every other field
+  // shows the value the backend resolved from its general Kultur, so the form
+  // displays what the Sorte effectively is instead of a row of empty inputs.
+  // The merged-in values carry no override styling (they equal the Kultur's
+  // own values, see getVarietyOwnValueSource) and are stripped again on save.
+  const displayedCulture: Culture = { ...culture, ...buildInheritedValueBaseline(culture) };
+
   const normalizedSpacingValues: Partial<Culture> = {
     distance_within_row_cm:
-      typeof culture.distance_within_row_cm === 'number'
-        ? Math.round(culture.distance_within_row_cm)
-        : culture.distance_within_row_cm,
+      typeof displayedCulture.distance_within_row_cm === 'number'
+        ? Math.round(displayedCulture.distance_within_row_cm)
+        : displayedCulture.distance_within_row_cm,
     row_spacing_cm:
-      typeof culture.row_spacing_cm === 'number'
-        ? Math.round(culture.row_spacing_cm)
-        : culture.row_spacing_cm,
+      typeof displayedCulture.row_spacing_cm === 'number'
+        ? Math.round(displayedCulture.row_spacing_cm)
+        : displayedCulture.row_spacing_cm,
   };
 
   const normalizedSeedRateUnits: Partial<Culture> = {
-    seed_rate_unit: normalizeSeedRateUnit(culture.seed_rate_unit),
-    seed_rate_direct_unit: normalizeSeedRateUnit(culture.seed_rate_direct_unit),
-    seed_rate_pre_cultivation_unit: normalizeSeedRateUnit(culture.seed_rate_pre_cultivation_unit),
+    seed_rate_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_unit),
+    seed_rate_direct_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_direct_unit),
+    seed_rate_pre_cultivation_unit: normalizeSeedRateUnit(displayedCulture.seed_rate_pre_cultivation_unit),
   };
 
-  const normalizedNotes = culture.notes ? stripCitationMarkers(culture.notes) : culture.notes;
+  const normalizedNotes = displayedCulture.notes
+    ? stripCitationMarkers(displayedCulture.notes)
+    : displayedCulture.notes;
 
-  if (culture.supplier || !culture.seed_supplier) {
+  // `culture.name` is free text and never cascades a later crop_species rename
+  // (see culture_display.py) — `culture_display_name` is the field that already
+  // resolves to the species' current name, and it falls back to `culture.name`
+  // itself when there is no linked species, so preferring it here can only
+  // correct a stale value, never lose one.
+  const normalizedName = displayedCulture.culture_display_name ?? displayedCulture.name;
+
+  if (displayedCulture.supplier || !displayedCulture.seed_supplier) {
     return {
-      ...culture,
+      ...displayedCulture,
       ...normalizedSpacingValues,
       ...normalizedSeedRateUnits,
       notes: normalizedNotes,
+      name: normalizedName,
     };
   }
 
   return {
-    ...culture,
+    ...displayedCulture,
     ...normalizedSpacingValues,
     ...normalizedSeedRateUnits,
     notes: normalizedNotes,
+    name: normalizedName,
     supplier: {
-      name: culture.seed_supplier,
+      name: displayedCulture.seed_supplier,
       allowed_domains: [],
     },
   };
@@ -318,9 +345,11 @@ export function CultureForm({
   const showFirstVarietyField = isProjectForm && formKind === 'crop' && !isEdit;
   const [saveError, setSaveError] = useState<string>('');
   const [firstVarietyName, setFirstVarietyName] = useState<string>('');
+  const [copyValuesToCulture, setCopyValuesToCulture] = useState(false);
   // Set only when the first-variety name was picked from a public-library
   // suggestion, so that variety gets the same source linking as an import.
   const [firstVarietyPublicCulture, setFirstVarietyPublicCulture] = useState<PublicCulture | null>(null);
+  const hasFirstVarietyName = firstVarietyName.trim().length > 0;
 
   // --- Validation now imported from ../cultures/validation ---
 
@@ -328,14 +357,29 @@ export function CultureForm({
   const saveCulture = async (draft: Partial<Culture>): Promise<Partial<Culture>> => {
     const dataToSave: Culture = {
       ...(draft as Culture),
+      ...(isProjectForm && formKind === 'variety' && !isEdit && Boolean((draft.variety ?? '').trim())
+        ? { copy_values_to_culture: copyValuesToCulture }
+        : {}),
     };
+    // The Name field displays the species' current translated name
+    // (culture_display_name) so a rename elsewhere shows up immediately, but
+    // that translation is language-dependent — submitting it verbatim would
+    // silently overwrite the canonical Culture.name with whatever language
+    // the viewer's UI happens to be in. Only accept it as an edit if it
+    // actually changed from what was displayed; otherwise keep the
+    // untouched stored name.
+    if (culture?.crop_species && dataToSave.name === (culture.culture_display_name ?? culture.name)) {
+      dataToSave.name = culture.name;
+    }
     const trimmedFirstVarietyName = firstVarietyName.trim();
+    const firstVarietyDraft = firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
+      ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
+      : undefined;
     const firstVariety: FirstVarietyDraft | undefined = showFirstVarietyField && trimmedFirstVarietyName
       ? {
         name: trimmedFirstVarietyName,
-        draft: firstVarietyPublicCulture && normalizeIdentityValue(firstVarietyPublicCulture.variety) === normalizeIdentityValue(trimmedFirstVarietyName)
-          ? buildDraftFromPublicCulture(firstVarietyPublicCulture)
-          : undefined,
+        draft: firstVarietyDraft,
+        ...(copyValuesToCulture ? { copyValuesToCulture: true } : {}),
       }
       : undefined;
     await onSave(dataToSave, firstVariety);
@@ -345,6 +389,13 @@ export function CultureForm({
   // Local form state (no autosave)
   const [formData, setFormData] = useState<Partial<Culture>>(buildInitialFormData(culture, initialDraft));
   const cropIdentityLabel = formData.name ?? '';
+  const hasDirectVarietyName = Boolean((formData.variety ?? '').trim());
+  const hasCopyValuesToCultureTarget = formKind === 'variety' ? hasDirectVarietyName : hasFirstVarietyName;
+  const showCopyValuesToCultureCheckbox = isProjectForm && !isEdit && (
+    formKind === 'variety'
+    || showFirstVarietyField
+  );
+  const copyValuesToCultureDisabled = !hasCopyValuesToCultureTarget;
 
   const selectedSpeciesCulture = useMemo(
     () => (cultures ? findSpeciesCulture(formData as Culture, cultures as Culture[]) : null),
@@ -384,6 +435,7 @@ export function CultureForm({
   const [varietyOptionsLoading, setVarietyOptionsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([]);
+  const [seedRateUnitConstraints, setSeedRateUnitConstraints] = useState<SeedRateUnitConstraints | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isValid, setIsValid] = useState(true);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -508,13 +560,31 @@ export function CultureForm({
     return () => window.removeEventListener('focus', onWindowFocus);
   }, [loadSuppliers, showSupplierDataSection]);
 
+  useEffect(() => {
+    let cancelled = false;
+    cultureAPI.seedRateConstraints()
+      .then((response) => {
+        if (!cancelled) {
+          setSeedRateUnitConstraints(response.data.units);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSeedRateUnitConstraints(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Validate on every change
   const validateAndSet = useCallback((draft: Partial<Culture>, mode: 'live' | 'submit' = hasSubmitted ? 'submit' : 'live') => {
-    const result = validateCulture(draft, t, mode, requireVariety);
+    const result = validateCulture(draft, t, mode, requireVariety, seedRateUnitConstraints);
     setErrors(result.errors);
     setIsValid(result.isValid);
     return result.isValid;
-  }, [hasSubmitted, requireVariety, t]);
+  }, [hasSubmitted, requireVariety, seedRateUnitConstraints, t]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -527,8 +597,15 @@ export function CultureForm({
 
     const name = formData.name ?? '';
     const variety = formData.variety ?? '';
-    const identityKey = buildCultureIdentityKey(name, variety);
-    const originalIdentityKey = buildCultureIdentityKey(culture?.name, culture?.variety);
+    const identityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(name)
+      : buildCultureIdentityKey(name, variety);
+    const originalIdentityKey = formKind === 'crop'
+      ? normalizeCultureIdentityValue(culture?.culture_display_name ?? culture?.name)
+      : buildCultureIdentityKey(
+        culture?.culture_display_name ?? culture?.name,
+        culture?.variety,
+      );
     const currentSequence = duplicateCheckSequenceRef.current + 1;
     duplicateCheckSequenceRef.current = currentSequence;
     queueMicrotask(() => setDuplicateErrorKey(''));
@@ -558,6 +635,10 @@ export function CultureForm({
           if (duplicateCheckSequenceRef.current !== currentSequence) {
             return;
           }
+          if (formKind === 'crop' && !hasFirstVarietyName && response.data.name_exists) {
+            setDuplicateErrorKey('form.cultureNameConflict');
+            return;
+          }
           setDuplicateErrorKey(response.data.exists ? 'form.duplicateNameVariety' : '');
         })
         .catch(() => {
@@ -580,7 +661,7 @@ export function CultureForm({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [culture?.id, culture?.name, culture?.variety, formData.name, formData.variety, isProjectForm]);
+  }, [culture?.id, culture?.culture_display_name, culture?.name, culture?.variety, formData.name, formData.variety, formKind, hasFirstVarietyName, isProjectForm]);
 
   useEffect(() => {
     if (!isProjectForm) {
@@ -633,16 +714,21 @@ export function CultureForm({
 
   // "Name" suggestions must be unique crop species, never "Species · Variety"
   // combinations — the Variety field below covers the sorte-specific part.
-  const nameOptions = useMemo(() => dedupePublicCulturesBySpecies(publicCultureOptions), [publicCultureOptions]);
+  const nameOptions = useMemo(
+    () => dedupePublicCulturesBySpecies(publicCultureOptions, publicCultureSearchTerm),
+    [publicCultureOptions, publicCultureSearchTerm],
+  );
 
   // The library entry the typed Name text matches exactly, regardless of how
   // it got there (dropdown pick or free text). Used both to fetch Variety
   // suggestions below and to offer an explicit "apply values" hint when the
   // match wasn't picked from the dropdown (see nameApplyHintOption).
   const matchedNameOption = useMemo(() => {
-    const normalizedName = normalizeIdentityValue(formData.name);
+    const normalizedName = normalizeCropSpeciesSearchValue(formData.name);
     return normalizedName
-      ? nameOptions.find((option) => normalizeIdentityValue(option.name) === normalizedName)
+      ? nameOptions.find((option) => (
+        option.searchNames.some((name) => normalizeCropSpeciesSearchValue(name) === normalizedName)
+      ))
       : undefined;
   }, [formData.name, nameOptions]);
 
@@ -996,16 +1082,18 @@ export function CultureForm({
     isSavingRef.current = true;
     setIsSaving(true);
     try {
-      // A new variety's form starts prefilled with its crop's own values
-      // (see Cultures.tsx `handleAddVariety`) purely so the user can see
-      // what they're starting from. Any field left matching that baseline
-      // is stripped back to empty here so the variety keeps inheriting from
-      // the crop (including future crop edits) instead of freezing a
-      // duplicate copy of today's crop values.
-      const dataToSave = !isEdit && initialDraft
+      // The form shows the variety's inherited crop values — prefilled from the
+      // crop when adding one (see Cultures.tsx `handleAddVariety`), resolved by
+      // the backend when editing one — purely so the user can see what the
+      // variety effectively is. Any field left matching that baseline is
+      // stripped back to empty here so the variety keeps inheriting from the
+      // crop (including future crop edits) instead of freezing a duplicate copy
+      // of today's crop values.
+      const inheritanceBaseline = isEdit ? buildInheritedValueBaseline(culture) : initialDraft;
+      const dataToSave = inheritanceBaseline
         ? stripValuesMatchingBaseline(
           formData,
-          initialDraft,
+          inheritanceBaseline,
           (field) => (field in EMPTY_CULTURE ? EMPTY_CULTURE[field as keyof typeof EMPTY_CULTURE] : ''),
         )
         : formData;
@@ -1022,10 +1110,14 @@ export function CultureForm({
   };
 
   const supplierRows = formData.supplier_data ?? [];
+  const duplicateErrorField = duplicateErrorKey === 'form.cultureNameConflict' ? 'name' : 'variety';
   const displayErrors = duplicateErrorKey
-    ? { ...errors, variety: errors.variety || t(duplicateErrorKey) }
+    ? { ...errors, [duplicateErrorField]: errors[duplicateErrorField] || t(duplicateErrorKey) }
     : errors;
   const isSaveDisabled = isSaving || !isValid || Boolean(duplicateErrorKey) || isDuplicateChecking;
+  const saveDisabledTooltip = duplicateErrorKey === 'form.cultureNameConflict'
+    ? t('form.cultureNameConflict')
+    : '';
   const isSupplierCreateDialogOpen = supplierCreateTargetIndex !== null;
 
   const handleCreateSupplierClick = useCallback((supplierIndex: number): void => {
@@ -1248,13 +1340,18 @@ export function CultureForm({
                 <Alert
                   severity="info"
                   data-testid="culture-existing-crop-hint"
-                  action={(
+                  action={!hasFirstVarietyName ? (
                     <Button color="inherit" size="small" onClick={handleSwitchToAddVariety}>
                       {t('form.existingCropAddVarietyAction')}
                     </Button>
-                  )}
+                  ) : undefined}
                 >
-                  {t('form.existingCropHint', { name: existingPrivateCrop.name })}
+                  {hasFirstVarietyName
+                    ? t('form.existingCropFirstVarietyHint', {
+                      variety: firstVarietyName.trim(),
+                      name: existingPrivateCrop.name,
+                    })
+                    : t('form.existingCropHint', { name: existingPrivateCrop.name })}
                 </Alert>
               ) : null}
               nameOptions={isProjectForm ? nameOptions : undefined}
@@ -1278,14 +1375,51 @@ export function CultureForm({
                   onApply={handleApplyVarietySuggestion}
                 />
               ) : null}
-              identityHint={isProjectForm && formData.source_public_culture ? (
+              identityRowControl={showCopyValuesToCultureCheckbox ? (
+                <AppTooltip
+                  title={copyValuesToCultureDisabled ? t('form.copyValuesToCultureDisabledTooltip') : ''}
+                  placement="top-start"
+                >
+                  <Box
+                    component="span"
+                    sx={(theme) => ({
+                      alignSelf: 'flex-start',
+                      opacity: copyValuesToCultureDisabled ? theme.palette.action.disabledOpacity : 1,
+                    })}
+                  >
+                    <FormControlLabel
+                      disabled={copyValuesToCultureDisabled}
+                      control={(
+                        <Checkbox
+                          checked={copyValuesToCulture}
+                          disabled={copyValuesToCultureDisabled}
+                          onChange={(event) => {
+                            setCopyValuesToCulture(event.target.checked);
+                            setIsDirty(true);
+                            setUserInteracted(true);
+                          }}
+                        />
+                      )}
+                      label={t('form.copyValuesToCulture')}
+                    />
+                  </Box>
+                </AppTooltip>
+              ) : null}
+              identityHint={isProjectForm && formData.source_public_culture && !hasFirstVarietyName ? (
                 <PublicCultureSourceHint text={t('form.publicCultureSourceHint')} />
               ) : null}
             />
             <TimingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <HarvestSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
             <SpacingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
-            <SeedingSection formData={formData} errors={errors} onChange={handleChange} t={t} getFieldTooltipProps={getFieldTooltipProps} />
+            <SeedingSection
+              formData={formData}
+              errors={errors}
+              onChange={handleChange}
+              t={t}
+              getFieldTooltipProps={getFieldTooltipProps}
+              seedRateUnitConstraints={seedRateUnitConstraints}
+            />
             <ColorSection formData={formData} errors={errors} onChange={handleChange} t={t} defaultColor={DEFAULT_DISPLAY_COLOR} />
             {isProjectForm ? (
               <NotesSection formData={formData} onChange={handleChange} t={t} errors={errors} />
@@ -1500,15 +1634,19 @@ export function CultureForm({
           }} disabled={isSaving}>
             {t('form.cancel')}
           </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSaveDisabled}
-          >
-            {isSaving
-              ? t('messages.saving')
-              : isEdit ? t('form.save') : t('form.create')}
-          </Button>
+          <AppTooltip title={saveDisabledTooltip}>
+            <Box component="span">
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={isSaveDisabled}
+              >
+                {isSaving
+                  ? t('messages.saving')
+                  : isEdit ? t('form.save') : t('form.create')}
+              </Button>
+            </Box>
+          </AppTooltip>
         </DialogActions>
       </form>
       <ConfirmationDialog

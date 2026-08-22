@@ -103,7 +103,6 @@
   "legal": {
     "imprint": {
       "title": "Imprint",
-      "disclaimer": "These details are based on the current draft status (March 2026). Please complete legal review before going live.",
       "sections": {
         "provider": {
           "title": "Provider information",
@@ -121,7 +120,7 @@
     },
     "privacy": {
       "title": "Privacy policy",
-      "version": "Status: July 17, 2026",
+      "version": "Status: August 18, 2026",
       "sections": {
         "controller": {
           "title": "Controller",
@@ -142,17 +141,28 @@
             "operatingSystem": "Operating system",
             "referrerUrl": "Referrer URL, if transmitted"
           },
-          "legalBasis": "The web server log files are deleted automatically after 7 days. In addition, we process technical application logs (for example Django or Gunicorn error logs). These contain only technical information such as error messages, timestamps, and affected requests, and are used exclusively for troubleshooting and secure, stable operation of the application.\n\nLegal basis: Art. 6(1)(f) GDPR (legitimate interest in secure and stable operation of the application)."
+          "legalBasis": "The web server log files are deleted automatically after 7 days. In addition, we process technical application logs (for example Django or Gunicorn error logs). These primarily contain technical information such as error messages, timestamps, and affected requests; in individual error cases relating to account, login, or invitation management, they may also contain the affected email address, username, or an internal user ID. The logs are used exclusively for troubleshooting and secure, stable operation of the application.\n\nLegal basis: Art. 6(1)(f) GDPR (legitimate interest in secure and stable operation of the application)."
         },
         "registration": {
           "title": "Registration and user account",
-          "content": "To use OpenFarmPlanner, you can create a user account. The following data may be processed:",
+          "content": "To use OpenFarmPlanner, you can create a user account, either with an email address and password or alternatively via your Google account (see the \"Sign-in with Google\" section). When registering with an email address and password, the following data may be processed:",
           "bullets": {
             "emailAddress": "Email address (visible to other members of the same project in the member list; never published publicly)",
             "nameOptional": "Display name (optional)",
             "encryptedPassword": "Password (stored securely hashed – not viewable by us in plain text)"
           },
           "legalBasis": "Legal basis: Art. 6(1)(b) GDPR (performance of a contract)"
+        },
+        "socialLogin": {
+          "title": "Sign-in with Google",
+          "content": "In addition to registering with an email address and password, you can register and sign in to OpenFarmPlanner with your Google account (Google Sign-In). When you click \"Sign in with Google\", you are redirected to Google; after signing in successfully with Google, you are redirected back to OpenFarmPlanner.",
+          "bullets": {
+            "receivedData": "From Google, we receive your email address, your first and last name, a stable Google account identifier, and, if transmitted by Google, a profile picture URL and your language setting stored with Google.",
+            "storedData": "Only your email address and first name are copied into your OpenFarmPlanner account. We additionally store Google's full login response (including the Google account identifier, profile picture URL, and language setting, where transmitted) in a separate technical record used for login management, so that we can recognize you on future Google sign-ins.",
+            "purpose": "This data is used exclusively for account creation and sign-in. OpenFarmPlanner does not call any Google APIs after sign-in and does not store any Google access tokens.",
+            "disconnect": "You can disconnect your Google account at any time in the account settings under \"Sign-in methods\", provided you have another way to sign in (a password or another connected provider)."
+          },
+          "legalBasis": "Legal basis: Art. 6(1)(b) GDPR (performance of a contract by providing an alternative sign-in method). For the transfer to Google, see the \"Third-country transfers\" section."
         },
         "projectData": {
           "title": "Project and application data",
@@ -163,7 +173,7 @@
           "title": "Public crop library",
           "content": "You can publish individual crop records (for example growing information about a vegetable variety) from a private project into a public crop library yourself. This library is intended as a collaboratively built, permanently maintained knowledge base. Published entries can be viewed by other users, imported into their own projects, and in future reused through features such as version histories, collaborative editing, comments, ratings, public APIs or data exports. Publishing is voluntary and is not required in order to use OpenFarmPlanner. Which rights of use you grant to the general public and to OpenFarmPlanner by doing so is governed by the terms of service, in particular the section \"Open licence for published crop data\".",
           "bullets": {
-            "publicContent": "Only the agricultural growing data of the crop is published (for example name, variety, growth and harvest duration, plant spacing, seed quantity, supplier name). Notes from the private project are not published.",
+            "publicContent": "Only the agricultural growing data of the crop is published (for example name, variety, growth and harvest duration, plant spacing, seed quantity). Notes from the private project, as well as project-internal information such as seed suppliers, are not published.",
             "attribution": "The author of a published entry is shown using the public display name that you can choose freely in your account settings. This name belongs to your account, not to the individual entry: if you set it for the first time or change it, it automatically appears as the author on all crops you have already published; if you remove it again, those entries are shown anonymously once more. Previous names are not stored on individual entries. If you have not set a public display name, publication is anonymous, without any name. The display name must be unique; when it is set, a technical check verifies whether it is already used by another account. Your username and your email address are never part of a public entry; the email address is used solely for account management and for our communication with you (see the section \"Email communication\").",
             "noReview": "Publication happens immediately and directly through you; there is currently no review or approval of the content by us.",
             "persistence": "A published entry generally remains part of the public library permanently, even if you later change or delete the original crop in your private project.",
@@ -198,11 +208,11 @@
         },
         "dataSharing": {
           "title": "Data sharing",
-          "content": "Apart from cooperation with our hosting provider as a processor (see the Hosting section), we share your personal data only if:\n\n- this is necessary for technical email delivery in connection with your account or project invitations; email delivery uses the mail infrastructure operated by Uberspace,\n- you actively publish a crop in the public crop library and thereby choose visibility for all logged-in users, including your public display name if you have set one (see the Public crop library section), or\n- we are legally required to do so, for example toward authorities."
+          "content": "Apart from cooperation with our hosting provider as a processor (see the Hosting section), we share your personal data only if:\n\n- this is necessary for technical email delivery in connection with your account or project invitations; email delivery uses the mail infrastructure operated by Uberspace,\n- you sign in or register with your Google account; in that case, Google receives the technical data required for sign-in (see the \"Sign-in with Google\" and \"Third-country transfers\" sections),\n- you actively publish a crop in the public crop library and thereby choose visibility for all logged-in users, including your public display name if you have set one (see the Public crop library section), or\n- we are legally required to do so, for example toward authorities."
         },
         "thirdCountryTransfers": {
           "title": "Third-country transfers",
-          "content": "Based on the current assessment, personal data is not transferred to recipients outside the European Union or the European Economic Area."
+          "content": "If you sign in or register with your Google account (see the \"Sign-in with Google\" section), personal data is transferred to Google LLC, headquartered in the USA. To the best of our current knowledge, Google LLC is certified under the EU-U.S. Data Privacy Framework (DPF). The European Commission has determined that an adequate level of data protection applies to data transferred to certified companies (adequacy decision under Art. 45 GDPR of July 10, 2023). You can check the current certification status yourself at any time via the official DPF participant list (https://www.dataprivacyframework.gov/list).\n\nBeyond that, based on the current assessment, personal data is not transferred to recipients outside the European Union or the European Economic Area. Sign-in with a Microsoft account is prepared in the OpenFarmPlanner source code but not currently activated; it will only become part of this privacy policy once activated."
         },
         "mandatoryProvision": {
           "title": "Provision of personal data",
@@ -210,7 +220,7 @@
         },
         "storageDuration": {
           "title": "Storage duration",
-          "content": "Your account data is stored as long as your user account exists. User accounts that are not activated are deleted after the activation period expires; activation links are currently valid for 7 days. Password reset links are time-limited; email change links are currently valid for 24 hours. Project invitations are currently valid for 14 days.\n\nIf you request account deletion, the account is first marked for deletion for 14 days; during this period, you can undo the deletion. After that period, we anonymize your account (email address and display name are removed and the account is deactivated) and remove your project memberships, unless legal obligations or other compelling reasons prevent this.\n\nProjects remain as long as at least one member exists. If a project has no members after account deletion, we delete the project including its project-specific data. Published entries in the public crop library are not affected and remain part of the public knowledge base (see the Project and application data and Public crop library sections). Server log files of the hosting provider are deleted after 7 days; IP addresses are stored in shortened form by Uberspace. Our own technical cron and application logs are stored for no more than 14 days, unless they are no longer needed earlier for operation, troubleshooting, and security. There are currently no further statutory retention obligations for the data we process because OpenFarmPlanner does not process billing- or tax-relevant data."
+          "content": "Your account data is stored as long as your user account exists. User accounts that are not activated are deleted after the activation period expires; activation links are currently valid for 7 days. Password reset links are currently valid for 3 days; email change links are currently valid for 24 hours. Project invitations are currently valid for 14 days; after that period, the invitation record still exists but can no longer be accepted. If you use the unauthenticated demo feature (\"Try demo\"), the data created during that session is automatically deleted no later than 8 hours after the session started.\n\nIf you request account deletion, the account is first marked for deletion for 14 days; during this period, you can undo the deletion. After that period, we anonymize your account (email address and display name are removed, the account is deactivated, and a connected Google sign-in is removed) and remove your project memberships, unless legal obligations or other compelling reasons prevent this.\n\nProjects remain as long as at least one member exists. If a project has no members after account deletion, we delete the project including its project-specific data. Published entries in the public crop library are not affected and remain part of the public knowledge base (see the Project and application data and Public crop library sections). Server log files of the hosting provider are deleted after 7 days; IP addresses are stored in shortened form by Uberspace. We automatically delete our own scheduled-maintenance (cron job) logs no later than 14 days after they are created. Our application's own error output (Django/Gunicorn) is not stored in log files we manage ourselves; it is captured by our hosting provider's process management, whose own technical configuration determines how long it is retained. There are currently no further statutory retention obligations for the data we process because OpenFarmPlanner does not process billing- or tax-relevant data."
         },
         "rights": {
           "title": "Your rights",

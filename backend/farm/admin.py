@@ -5,19 +5,21 @@ providing customized list displays, filters, and search capabilities.
 """
 
 from django.conf import settings
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse
+from django.template.response import TemplateResponse
+from django.urls import URLPattern, URLResolver, path, reverse
 from django.utils.html import format_html
-from django.urls import reverse
+from django.utils.translation import gettext as _
 
 from .models import (
     AgentLoginToken,
     Bed,
     BedLayout,
     Culture,
-    Field,
     EntityRevision,
+    Field,
     FieldLayout,
     Location,
     NoteAttachment,
@@ -30,6 +32,7 @@ from .models import (
     Supplier,
     Task,
 )
+from .services.engagement_dashboard import build_engagement_dashboard
 
 
 @admin.register(Project)
@@ -39,6 +42,30 @@ class ProjectAdmin(admin.ModelAdmin):
     list_display = ['name', 'slug', 'is_active', 'created_at']
     list_filter = ['is_active']
     search_fields = ['name', 'slug']
+    change_list_template = 'admin/farm/project/change_list.html'
+
+    def get_urls(self) -> list[URLPattern | URLResolver]:
+        """Add the superuser-only aggregated engagement dashboard."""
+        custom_urls = [
+            path(
+                'engagement/',
+                self.admin_site.admin_view(self.engagement_dashboard_view),
+                name='farm_project_engagement',
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def engagement_dashboard_view(self, request: HttpRequest) -> HttpResponse:
+        """Show internal aggregates; never extend this to individual behavior tracking."""
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        context = {
+            **self.admin_site.each_context(request),
+            'title': _('Nutzungsübersicht'),
+            'dashboard': build_engagement_dashboard(),
+            'opts': self.model._meta,
+        }
+        return TemplateResponse(request, 'admin/farm/engagement_dashboard.html', context)
 
 
 @admin.register(ProjectMembership)

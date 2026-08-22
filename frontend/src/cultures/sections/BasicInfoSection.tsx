@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
-import { fieldRowSx, mediumFieldSx, smallFieldSx, wideFieldSx } from './styles.tsx';
+import { fieldRowSx, mediumFieldSx, smallFieldSx } from './styles.tsx';
 import type { Culture } from '../../api/types';
 import type { TFunction } from 'i18next';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
@@ -53,8 +53,23 @@ interface BasicInfoSectionProps {
   onVarietyCommit?: (variety: string, reason?: AutocompleteChangeReason) => void;
   /** Explicit "apply library values" offer for Variety free text matching a suggestion exactly. */
   varietyApplyHint?: ReactNode;
+  /** Optional control rendered directly below the Name/Sorte identity row. */
+  identityRowControl?: ReactNode;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
 }
+
+const identityRowSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 3fr) minmax(0, 2fr)' },
+  gap: 1,
+  alignItems: 'flex-start',
+} as const;
+
+const identityFieldSx = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+} as const;
 
 export function BasicInfoSection({
   formData,
@@ -83,6 +98,7 @@ export function BasicInfoSection({
   varietyOptionsLoading = false,
   onVarietyCommit,
   varietyApplyHint,
+  identityRowControl,
   getFieldTooltipProps,
 }: BasicInfoSectionProps) {
   const nameAutocomplete = nameOptions && onNameSearchChange && onNameOptionSelect
@@ -100,75 +116,76 @@ export function BasicInfoSection({
     : null;
   const cropFamilyVariety = getFieldTooltipProps?.('crop_family');
   const nutrientDemandVariety = getFieldTooltipProps?.('nutrient_demand');
+  const rotationBreakYearsVariety = getFieldTooltipProps?.('rotation_break_years');
 
   return (
     <>
       {showIdentityFields || showVarietyField ? (
-        <Box sx={fieldRowSx}>
+        <Box sx={identityRowSx}>
           {showIdentityFields ? (
             nameAutocomplete ? (
-            <Autocomplete<PublicCultureSpeciesOption, false, false, true>
-              freeSolo
-              clearOnBlur={false}
-              options={nameAutocomplete.options}
-              value={formData.name ?? ''}
-              inputValue={formData.name ?? ''}
-              loading={nameOptionsLoading}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
-              isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.key === value.key}
-              filterOptions={(options) => options}
-              groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
-              onInputChange={(_, value, reason) => {
-                if (reason === 'reset') {
-                  return;
-                }
-                nameAutocomplete.onSearchChange(value);
-                onChange('name', value);
-                nameAutocomplete.onSelect(null);
-              }}
-              onChange={(_, value) => {
-                if (typeof value === 'string') {
+              <Autocomplete<PublicCultureSpeciesOption, false, false, true>
+                freeSolo
+                clearOnBlur={false}
+                options={nameAutocomplete.options}
+                value={formData.name ?? ''}
+                inputValue={formData.name ?? ''}
+                loading={nameOptionsLoading}
+                getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                isOptionEqualToValue={(option, value) => typeof value !== 'string' && option.key === value.key}
+                filterOptions={(options) => options}
+                groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') {
+                    return;
+                  }
+                  nameAutocomplete.onSearchChange(value);
                   onChange('name', value);
                   nameAutocomplete.onSelect(null);
-                  return;
-                }
-                if (value) {
-                  onChange('name', value.name);
-                  nameAutocomplete.onSelect(value);
-                  return;
-                }
-                onChange('name', '');
-                nameAutocomplete.onSelect(null);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  sx={wideFieldSx}
-                  required
-                  label={t('form.name')}
-                  placeholder={t('form.namePlaceholder')}
-                  error={Boolean(errors.name)}
-                  helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
-                  slotProps={{
-                    ...params.slotProps,
+                }}
+                onChange={(_, value) => {
+                  if (typeof value === 'string') {
+                    onChange('name', value);
+                    nameAutocomplete.onSelect(null);
+                    return;
+                  }
+                  if (value) {
+                    onChange('name', value.canonicalName);
+                    nameAutocomplete.onSelect(value);
+                    return;
+                  }
+                  onChange('name', '');
+                  nameAutocomplete.onSelect(null);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    sx={identityFieldSx}
+                    required
+                    label={t('form.name')}
+                    placeholder={t('form.namePlaceholder')}
+                    error={Boolean(errors.name)}
+                    helperText={errors.name || t('form.publicCultureAutocompleteHelp')}
+                    slotProps={{
+                      ...params.slotProps,
 
-                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
+                      htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
 
-                    input: {
-                      ...params.slotProps.input,
-                      endAdornment: (
-                        <>
-                          {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.slotProps.input.endAdornment}
-                        </>
-                      ),
-                    }
-                  }} />
-              )}
-            />
-          ) : (
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {nameOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
+                    }} />
+                )}
+              />
+            ) : (
             <TextField
-              sx={wideFieldSx}
+              sx={identityFieldSx}
               required
               label={t('form.name')}
               placeholder={t('form.namePlaceholder')}
@@ -202,7 +219,7 @@ export function BasicInfoSection({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    sx={wideFieldSx}
+                    sx={identityFieldSx}
                     required={varietyRequired}
                     label={t('form.variety')}
                     placeholder={t('form.varietyPlaceholder')}
@@ -227,7 +244,7 @@ export function BasicInfoSection({
               />
             ) : (
               <TextField
-                sx={wideFieldSx}
+                sx={identityFieldSx}
                 required={varietyRequired}
                 label={t('form.variety')}
                 placeholder={t('form.varietyPlaceholder')}
@@ -239,8 +256,64 @@ export function BasicInfoSection({
               />
             )
           ) : null}
+          {!showVarietyField && showFirstVarietyField ? (
+            firstVarietyAutocomplete ? (
+              <Autocomplete<string, false, false, true>
+                freeSolo
+                clearOnBlur={false}
+                options={firstVarietyAutocomplete.options}
+                value={firstVarietyName ?? ''}
+                inputValue={firstVarietyName ?? ''}
+                loading={firstVarietyOptionsLoading}
+                groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'reset') {
+                    return;
+                  }
+                  onFirstVarietyNameChange?.(value);
+                }}
+                onChange={(_, value, reason) => {
+                  firstVarietyAutocomplete.onCommit(value ?? '', reason);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    sx={identityFieldSx}
+                    label={t('form.firstVarietyLabel')}
+                    placeholder={t('form.firstVarietyPlaceholder')}
+                    helperText={t('form.firstVarietyHelperText')}
+                    slotProps={{
+                      ...params.slotProps,
+
+                      htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
+
+                      input: {
+                        ...params.slotProps.input,
+                        endAdornment: (
+                          <>
+                            {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.slotProps.input.endAdornment}
+                          </>
+                        ),
+                      }
+                    }} />
+                )}
+              />
+            ) : (
+              <TextField
+                sx={identityFieldSx}
+                label={t('form.firstVarietyLabel')}
+                placeholder={t('form.firstVarietyPlaceholder')}
+                value={firstVarietyName ?? ''}
+                onChange={e => onFirstVarietyNameChange?.(e.target.value)}
+                helperText={t('form.firstVarietyHelperText')}
+                slotProps={{ htmlInput: { maxLength: 200 } }}
+              />
+            )
+          ) : null}
         </Box>
       ) : null}
+      {identityRowControl}
       {nameApplyHint || varietyApplyHint ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
           {nameApplyHint}
@@ -250,63 +323,6 @@ export function BasicInfoSection({
       {showFirstVarietyField && existingCropHint ? (
         <Box sx={fieldRowSx}>{existingCropHint}</Box>
       ) : null}
-      {showFirstVarietyField ? (
-        <Box sx={fieldRowSx}>
-          {firstVarietyAutocomplete ? (
-            <Autocomplete<string, false, false, true>
-              freeSolo
-              clearOnBlur={false}
-              options={firstVarietyAutocomplete.options}
-              value={firstVarietyName ?? ''}
-              inputValue={firstVarietyName ?? ''}
-              loading={firstVarietyOptionsLoading}
-              groupBy={() => t('form.publicCultureSuggestionsGroupLabel')}
-              onInputChange={(_, value, reason) => {
-                if (reason === 'reset') {
-                  return;
-                }
-                onFirstVarietyNameChange?.(value);
-              }}
-              onChange={(_, value, reason) => {
-                firstVarietyAutocomplete.onCommit(value ?? '', reason);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  sx={wideFieldSx}
-                  label={t('form.firstVarietyLabel')}
-                  placeholder={t('form.firstVarietyPlaceholder')}
-                  helperText={t('form.firstVarietyHelperText')}
-                  slotProps={{
-                    ...params.slotProps,
-
-                    htmlInput: { ...params.slotProps.htmlInput, maxLength: 200 },
-
-                    input: {
-                      ...params.slotProps.input,
-                      endAdornment: (
-                        <>
-                          {firstVarietyOptionsLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.slotProps.input.endAdornment}
-                        </>
-                      ),
-                    }
-                  }} />
-              )}
-            />
-          ) : (
-            <TextField
-              sx={wideFieldSx}
-              label={t('form.firstVarietyLabel')}
-              placeholder={t('form.firstVarietyPlaceholder')}
-              value={firstVarietyName ?? ''}
-              onChange={e => onFirstVarietyNameChange?.(e.target.value)}
-              helperText={t('form.firstVarietyHelperText')}
-              slotProps={{ htmlInput: { maxLength: 200 } }}
-            />
-          )}
-        </Box>
-      ) : null}
       {showFirstVarietyField && firstVarietyApplyHint ? (
         <Box sx={fieldRowSx}>{firstVarietyApplyHint}</Box>
       ) : null}
@@ -314,7 +330,7 @@ export function BasicInfoSection({
         <Box sx={fieldRowSx}>{firstVarietySourceHint}</Box>
       ) : null}
       {identityHint}
-      <Box sx={fieldRowSx}>
+      <Box sx={{ ...fieldRowSx, alignItems: 'flex-end' }}>
         <VarietyFieldTooltip tooltipTitle={cropFamilyVariety?.tooltipTitle}>
           <TextField
             sx={mergeVarietyFieldSx(mediumFieldSx, cropFamilyVariety?.sx)}
@@ -324,8 +340,6 @@ export function BasicInfoSection({
             onChange={e => onChange('crop_family', e.target.value)}
           />
         </VarietyFieldTooltip>
-      </Box>
-      <Box sx={fieldRowSx}>
         <VarietyFieldTooltip tooltipTitle={nutrientDemandVariety?.tooltipTitle}>
           <FormControl sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}>
             <InputLabel>{t('form.nutrientDemand')}</InputLabel>
@@ -341,6 +355,16 @@ export function BasicInfoSection({
               <MenuItem value="high">{t('form.nutrientDemandHigh')}</MenuItem>
             </Select>
           </FormControl>
+        </VarietyFieldTooltip>
+        <VarietyFieldTooltip tooltipTitle={rotationBreakYearsVariety?.tooltipTitle}>
+          <TextField
+            type="number"
+            sx={mergeVarietyFieldSx(smallFieldSx, rotationBreakYearsVariety?.sx)}
+            label={t('form.rotationBreakYears')}
+            value={formData.rotation_break_years ?? ''}
+            onChange={e => onChange('rotation_break_years', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
         </VarietyFieldTooltip>
       </Box>
     </>

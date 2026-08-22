@@ -6,6 +6,7 @@ from accounts.guest_demo import create_guest_demo_session
 from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
+from notifications.models import Notification
 
 User = get_user_model()
 
@@ -117,6 +118,56 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.get(name='Tree onion')
         self.assertEqual(proposal.proposed_by, self.user)
 
+    def test_species_create_notifies_public_library_moderators(self):
+        staff_moderator = User.objects.create_user(
+            username='staff-moderator', email='staff-moderator@example.com', password='testpass',
+            is_active=True, is_staff=True,
+        )
+        group_moderator = User.objects.create_user(
+            username='group-moderator', email='group-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(group_moderator)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Tree onion'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        proposal = CropSpecies.objects.get(name='Tree onion')
+        for recipient in (staff_moderator, group_moderator):
+            notification = Notification.objects.get(recipient=recipient)
+            self.assertEqual(
+                notification.notification_type,
+                Notification.TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED,
+            )
+            self.assertEqual(notification.context, {'name': 'Tree onion'})
+            self.assertEqual(
+                notification.target_type,
+                Notification.TARGET_PUBLIC_LIBRARY_MODERATION,
+            )
+            self.assertEqual(notification.target_id, proposal.id)
+        # The proposer themselves is not a moderator here and gets nothing yet.
+        self.assertFalse(Notification.objects.filter(recipient=self.user).exists())
+
+    def test_species_create_does_not_notify_the_proposer_even_when_they_are_a_moderator(self):
+        proposing_moderator = User.objects.create_user(
+            username='proposing-moderator', email='proposing-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(proposing_moderator)
+        other_moderator = User.objects.create_user(
+            username='other-moderator', email='other-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(other_moderator)
+        self.client.force_authenticate(user=proposing_moderator)
+
+        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Self-proposed onion'})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(Notification.objects.filter(recipient=proposing_moderator).exists())
+        self.assertTrue(Notification.objects.filter(recipient=other_moderator).exists())
+
     def test_guest_demo_user_cannot_create_species_proposal(self):
         demo_session = create_guest_demo_session()
         self.client.force_authenticate(user=demo_session.user)
@@ -158,6 +209,51 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(proposal.status, CropSpecies.STATUS_PUBLISHED)
         self.assertEqual(proposal.reviewed_by, moderator)
         self.assertEqual(proposal.review_note, 'Good addition.')
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.notification_type, Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED)
+        self.assertEqual(notification.context, {'name': 'Tree onion'})
+        # No published variety of the proposer under this species yet, so the
+        # notification points at the species itself.
+        self.assertEqual(notification.target_type, Notification.TARGET_CROP_SPECIES)
+        self.assertEqual(notification.target_id, proposal.id)
+        self.assertFalse(notification.is_read)
+
+    def test_approving_a_proposal_links_the_notification_to_the_proposers_variety(self):
+        moderator = User.objects.create_user(
+            username='species-link-moderator',
+            email='species-link-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
+        published_variety = PublicCulture.objects.create(
+            name='Tree onion', variety='Egyptian', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_CULTURE)
+        self.assertEqual(notification.target_id, published_variety.id)
+
+    def test_reviewing_a_species_nobody_proposed_creates_no_notification(self):
+        moderator = User.objects.create_user(
+            username='species-seed-moderator',
+            email='species-seed-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Seeded species', status=CropSpecies.STATUS_PROPOSED)
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Notification.objects.count(), 0)
 
     def test_moderator_can_reject_species_proposal(self):
         moderator = User.objects.create_user(
@@ -176,6 +272,137 @@ class CropViewSetTest(DRFAPITestCase):
         proposal.refresh_from_db()
         self.assertEqual(proposal.status, CropSpecies.STATUS_REJECTED)
         self.assertEqual(proposal.review_note, 'Duplicate common name.')
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.notification_type, Notification.TYPE_CROP_SPECIES_PROPOSAL_REJECTED)
+        self.assertEqual(notification.context, {'name': 'Tree onion'})
+
+    def test_rejecting_a_proposal_removes_entries_already_published_under_it(self):
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator',
+            email='species-cleanup-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        general_entry = PublicCulture.objects.create(
+            name='Karotte', variety='', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        variety_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Solveig', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        general_entry.refresh_from_db()
+        variety_entry.refresh_from_db()
+        for entry in (general_entry, variety_entry):
+            self.assertEqual(entry.status, PublicCulture.STATUS_REMOVED)
+            self.assertEqual(entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
+            self.assertEqual(entry.status_changed_by, moderator)
+        # The species itself is unaffected beyond its own status; its name is
+        # left as-is for the moderation log/history, only the entries move.
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.status, CropSpecies.STATUS_REJECTED)
+
+    def test_rejecting_a_proposal_leaves_other_statuses_under_it_untouched(self):
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator-2',
+            email='species-cleanup-moderator-2@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 2', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        withdrawn_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Withdrawn already', status=PublicCulture.STATUS_WITHDRAWN,
+            version=1, created_by=self.user, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        withdrawn_entry.refresh_from_db()
+        self.assertEqual(withdrawn_entry.status, PublicCulture.STATUS_WITHDRAWN)
+        self.assertEqual(withdrawn_entry.removal_reason, '')
+
+    def test_rejecting_a_proposal_notifies_other_contributors_of_removed_entries(self):
+        """A collaborator who published under someone else's pending species
+        must learn their own entry was pulled, not just the proposer."""
+        moderator = User.objects.create_user(
+            username='species-cleanup-moderator-3',
+            email='species-cleanup-moderator-3@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        collaborator = User.objects.create_user(
+            username='species-cleanup-collaborator',
+            email='species-cleanup-collaborator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 3', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
+        )
+        collaborator_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Collaborator', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=collaborator, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        collaborator_entry.refresh_from_db()
+        self.assertEqual(collaborator_entry.status, PublicCulture.STATUS_REMOVED)
+        collaborator_notification = Notification.objects.get(
+            recipient=collaborator, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+        )
+        self.assertEqual(collaborator_notification.target_id, collaborator_entry.id)
+        # The proposer already gets the species-level notification and must
+        # not also receive a redundant per-entry one.
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient=self.user, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+            ).exists(),
+        )
+
+    def test_rejecting_own_proposal_as_moderator_still_records_the_real_reason(self):
+        """A moderator who proposed and self-published under their own proposal,
+        then rejects it, must still get a moderation-tracked removal, not a
+        self-reversible withdrawal that loses the reason."""
+        moderator = User.objects.create_user(
+            username='species-self-reject-moderator',
+            email='species-self-reject-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(
+            name='Karotsdasdas 4', status=CropSpecies.STATUS_PROPOSED, proposed_by=moderator,
+        )
+        own_entry = PublicCulture.objects.create(
+            name='Karotte', variety='Self-published', status=PublicCulture.STATUS_PUBLISHED,
+            version=1, created_by=moderator, crop_species=proposal,
+        )
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/reject/', {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        own_entry.refresh_from_db()
+        self.assertEqual(own_entry.status, PublicCulture.STATUS_REMOVED)
+        self.assertEqual(own_entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
 
     def test_normal_user_cannot_edit_or_delete_published_species(self):
         species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
@@ -235,6 +462,40 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(response.data['code'], 'guest_demo_restricted')
         self.assertFalse(PublicLibraryModeratorRequest.objects.filter(user=demo_session.user).exists())
 
+    def test_moderator_request_create_notifies_admins_only(self):
+        admin = User.objects.create_user(
+            username='request-admin', email='request-admin@example.com', password='testpass',
+            is_active=True, is_staff=True,
+        )
+        plain_moderator = User.objects.create_user(
+            username='plain-moderator', email='plain-moderator@example.com',
+            password='testpass', is_active=True,
+        )
+        grant_public_library_moderator_access(plain_moderator)
+        self.user.first_name = 'Ada'
+        self.user.last_name = 'Lovelace'
+        self.user.save()
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            '/openfarmplanner/api/public-library/moderator-requests/',
+            {'motivation': 'I can help.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        moderator_request = PublicLibraryModeratorRequest.objects.get(user=self.user)
+        notification = Notification.objects.get(recipient=admin)
+        self.assertEqual(
+            notification.notification_type,
+            Notification.TYPE_MODERATOR_REQUEST_SUBMITTED,
+        )
+        self.assertEqual(notification.context, {'name': 'Ada Lovelace'})
+        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_LIBRARY_MODERATION)
+        self.assertEqual(notification.target_id, moderator_request.id)
+        # A moderator without admin rights reviews species, not access requests.
+        self.assertFalse(Notification.objects.filter(recipient=plain_moderator).exists())
+
     def test_admin_can_approve_moderator_request_without_staff_rights_for_user(self):
         admin = User.objects.create_user(
             username='admin',
@@ -243,7 +504,9 @@ class CropViewSetTest(DRFAPITestCase):
             is_active=True,
             is_staff=True,
         )
-        moderator_request = PublicLibraryModeratorRequest.objects.create(user=self.user, motivation='I can help.')
+        moderator_request = PublicLibraryModeratorRequest.objects.create(
+            user=self.user, motivation='I can help.',
+        )
         self.client.force_authenticate(user=admin)
 
         response = self.client.post(

@@ -193,6 +193,15 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+Crop species display names are language- and region-aware at the API boundary.
+The canonical German translation is standard Germany terminology; Austria and
+Switzerland are explicit regional overrides on `CropSpeciesTranslation`, while
+free synonyms are search/matching aliases only. Project-scoped requests resolve
+the active `Project.region` from the normal project context (`X-Project-Id` /
+`request.active_project`) and pass it through shared display helpers, so Gantt,
+planning, culture detail, public-library and import surfaces render the same
+name without frontend-specific region logic.
+
 Private project cultures are intentionally independent from that public master
 data. `Culture.crop_species` stays nullable and the "Add crop" dialog never
 requires linking to a public entry — free text remains valid at all times and
@@ -272,6 +281,18 @@ rights. Normal users can request moderator access from account settings; admins
 review those requests through the public-library moderation queue and approval
 grants only the moderator group.
 
+Discoverability of pending items is deliberately reused, not duplicated: the
+"Moderation" topbar button (`PublicCropLibraryPage.tsx`) shows an MUI `Badge`
+with the same counts the moderation queue itself lists — proposed species
+always, pending moderator-access requests only for admins, since only admins
+can review those — fetched with `page_size: 1` against the existing
+`/api/crop-species/` and `/api/public-library/moderator-requests/` list
+endpoints rather than a separate count endpoint. Submitting either kind of
+item also fans out an in-app notification (see `docs/notifications.md`) to
+every moderator/admin, so the queue is discoverable even off the crop library
+page — the button badge and the bell read the same underlying pending state,
+just through two different existing surfaces.
+
 Legacy reviewed change proposals (`PublicCultureChangeProposal`) are retained
 in the database for audit and transition safety. No UI creates, reviews, or
 displays them any more, and existing proposals are not automatically applied.
@@ -282,6 +303,93 @@ The plumbing underneath is still there and still reachable: the model, the
 wrappers in `frontend/src/api/api.ts` all still exist — only the components
 that used to call them are gone. Treat it as dead-but-live surface: don't build
 on it, and don't assume removing it is a no-op for API clients.
+
+### Sorte → Kultur value inheritance
+
+The species → variety pairing described above (a general "no variety" row plus
+the rows that carry a variety) is also the **value** fallback for project
+cultures, not only a display cue.
+`backend/farm/services/culture_inheritance.py` owns the rule so the API, the
+planning calculations and the UI resolve it identically:
+
+- A Sorte (`variety` set) with a `crop_species` inherits from the general
+  Kultur — same project, same `crop_species`, empty `variety`, not soft-deleted.
+  A free-text Sorte without a `crop_species` has nothing to fall back to and
+  always resolves to its own values.
+- `CULTURE_INHERITABLE_FIELDS` lists the planning fields that participate. It
+  mirrors the frontend's `VARIETY_INHERITABLE_FIELDS`
+  (`frontend/src/cultures/varietyValueSource.ts`), which prefills a *new*
+  Sorte from the same set, minus `allow_deviation_delivery_weeks` (a non-null
+  boolean has no unset state to fall back from) and minus the legacy
+  `seed_rate_value`/`seed_rate_unit` pair and the derived
+  `seed_rate_by_cultivation` map (validated as a subset of the row's own
+  `cultivation_types`, so inheriting it separately could produce a combination
+  the model rejects).
+- "Unset" means `None`, blank text, the legacy `'-'` unit placeholder, or an
+  empty collection. `0` and `False` are real values and are never replaced.
+- Nothing is copied onto the Sorte. Clearing a field removes the override, and
+  the Sorte follows later edits of the general Kultur automatically.
+- Creating or editing a linked Sorte always ensures that its project has a
+  general Kultur row for the same species. Species-invariant fields
+  (`crop_family`, `nutrient_demand`, `rotation_break_years`) fill empty general
+  values automatically because they describe the crop species, not a variety.
+  Variety-variable timing, yield, spacing, and seed fields flow back only
+  through the create API's optional `copy_values_to_culture` flag (default
+  `false`), and then only into general fields that are still unset. Existing
+  general values are never overwritten.
+
+`CultureSerializer` exposes the raw and the resolved value side by side, so a
+client can tell them apart per field:
+
+| Field | Meaning |
+|---|---|
+| the plain culture fields | always the row's **own** stored values |
+| `general_culture` | id of the Kultur this Sorte inherits from, else `null` |
+| `inherited_fields` | API field names whose effective value comes from that Kultur |
+| `effective_values` | effective value per inheritable field, in the same API units as the plain fields (centimeters, normalized seed-rate units) |
+
+`effective_values` and `inherited_fields` are empty whenever `general_culture`
+is `null` — for a general Kultur or a free-text Sorte the plain fields already
+*are* the effective values. Resolving a whole list page costs **one** extra
+query: the serializer builds a per-request `crop_species → general Kultur` index
+for the active project (`build_general_culture_index`) instead of looking up a
+sibling per row.
+
+**Planning reads effective values.** `PlantingPlan.calculate_effective_harvest_dates()`
+is the shared side-effect-free calculation behind
+`recalculate_harvest_dates()` and `_get_active_period()`. The
+`PlantingPlanSerializer` uses the same calculation as a read-time fallback when
+the stored `harvest_date`/`harvest_end_date` snapshot is empty, so old plans
+also show a computed Erntende once their Sorte can inherit the missing timing
+from its Kultur. The `culture_*` timing/cultivation fields the Gantt calendar
+plans from and the plant-count conversions also resolve through the service. On
+the frontend the same is true of `ganttChartUtils.ts`,
+`locationDerivedTasks.ts` and the "missing duration" tooltip in Anbaupläne, via
+`getEffectiveCultureValue`.
+
+`Culture.plants_per_m2` is part of that: the model property still computes from
+the row's own spacing, but the serializer publishes the **effective** value.
+Both sides of the plants/area coupling have to agree — the Anbaupläne grid
+decides whether the "Pflanzen" cell is editable from `culture.plants_per_m2`
+while the row's `plants_count` comes from the plan serializer, so leaving the
+culture field on own spacing makes an inheriting Sorte show a plant count the
+grid then refuses to let the user edit (and Tab skips the cell).
+
+Stored harvest dates remain a **write-time snapshot**, but reads can derive a
+missing date from the current effective timing without writing it back. The
+snapshot is recomputed when a plan is saved, when its own culture timing
+changes, and when a general Kultur timing change affects Sorten that inherit
+that exact field. Existing plans are not bulk-recalculated during deployment or
+from GET endpoints just because a value became resolvable through inheritance.
+
+**The edit dialog.** `CultureForm` merges the resolved values into the form
+(`buildInheritedValueBaseline`), so a field the Sorte does not override shows
+the Kultur's value rather than an empty input. Those values equal the Kultur's,
+so `getVarietyOwnValueSource` reports no override and the green highlight keeps
+marking genuine per-Sorte values only. On save, anything still matching the
+baseline is cleared again (`stripValuesMatchingBaseline`, the same mechanism the
+add-variety prefill uses), so displaying an inherited value never freezes it as
+an override, and clearing a field simply removes the override.
 
 ## 1. The current situation (before this pass)
 
@@ -336,7 +444,8 @@ backend/crops/
   models.py        CropSpecies              official species list (published /
                                              proposed / rejected), used by the
                                              Publishing Wizard
-                   CropSpeciesTranslation   (species, language_code) → common_name
+                   CropSpeciesTranslation   (species, language_code) → common_name,
+                                             regional_names, synonyms/search index
                    PublicLibraryModeratorRequest  moderator-access requests
   permissions.py   is_public_library_moderator() / is_public_library_admin(),
                     the `Public Library Moderators` group and the
@@ -519,11 +628,27 @@ step when the user attempts publication, then shows only actionable problems:
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
 
-The species `Autocomplete` renders an inline proposal prompt as its
-`noOptionsText` when a typed name matches no official species, instead of a
-separate always-visible link — clicking it calls
-`crops.services`' `CropSpecies.propose()` endpoint directly from the
-dropdown.
+The species `Autocomplete` offers the proposal inline in the dropdown instead
+of as a separate always-visible link: a sentinel option
+(`ProposeSpeciesOption` in `CulturesPublishingWizardDialog.tsx`) is appended
+by `filterOptions` as the **last** entry whenever the field holds text —
+including when official species *do* match. Hiding it behind `noOptionsText`
+(the earlier behaviour) meant a partial match such as "Kürbis" matching
+"Kürbisgewächse" silently removed the escape hatch, leaving no way to propose
+the name the user actually typed. The single exception is an exact
+(case-insensitive) hit on an existing name — proposing that can only be
+rejected server-side, so the entry disappears. Being a real option rather
+than a button in the empty-state slot also makes it keyboard-reachable, and a
+divider separates it from the regular hits above it. A failed proposal
+surfaces as the field's `error`/`helperText`.
+
+The proposal is **not** sent when that entry is picked. Picking it only puts
+the wizard into "propose a new species" mode: the typed name stays in the
+field, a hint explains what will happen, and the dialog's main button changes
+to "Kulturart vorschlagen". Pressing it files the proposal *and* publishes the
+variety under it in one action. Submitting on pick (the earlier behaviour)
+meant a user who then closed the wizard left a stray proposal in the
+moderation queue for a variety that was never published.
 
 A user does not have to wait for moderation to publish once they've proposed
 a species: `resolve_publishing_crop_species()` (`farm.services.public_cultures`)
@@ -532,8 +657,8 @@ publish target (`PUBLISHABLE_CROP_SPECIES_STATUSES`) — `REJECTED` species
 remain excluded. `PROPOSED` already is the "pending moderation" state
 (`CropSpecies.STATUS_PROPOSED`); no separate status was introduced for this.
 On the frontend, a successful proposal immediately appends the new species to
-the wizard's local options and selects it, so "Publish now" becomes usable
-right away instead of staying blocked; a dismissible success `Alert`
+the wizard's local options and selects it, so publishing continues right away
+instead of staying blocked; a dismissible success `Alert`
 (`library.publishWizard.proposedSpeciesNotice`) explains that the variety
 will appear provisionally under the not-yet-approved species name. This is
 safe because `CropSpeciesViewSet.approve()`/`reject()`
@@ -548,6 +673,51 @@ still hides non-`PUBLISHED` species from every other user/surface (including
 the wizard's own initial species list) until a moderator approves or rejects
 them, so a pending species is not otherwise discoverable/searchable in the
 meantime.
+
+### While a species is `PROPOSED`
+
+Publishing under an unreviewed species is allowed, but everything that treats
+the species as *settled reference data* is not. The state is visible and the
+three affected actions are blocked on both sides:
+
+- **Visible.** `PublicCultureSerializer.crop_species_status` and
+  `CultureSerializer.public_crop_species_pending` expose it. The frontend
+  renders "Vorschlag in Prüfung" through one shared `CropSpeciesPendingChip`
+  — as a labelled chip in the library detail header and on the proposer's own
+  culture, and icon-only (tooltip + `aria-label` carry the text) on the crop
+  list row, where the sidebar is 230px wide on `md` and a labelled chip would
+  push the crop name out. There the icon takes the slot the "(N)" variety
+  count normally occupies instead of trailing it, so pending and non-pending
+  rows stay aligned; the count still shows alongside the icon once the
+  species has more than one variety (`CropHierarchyRow`'s
+  `isPendingSuggestion` prop), so that number isn't lost.
+- **Blocked.** Import, the library update/sync, and starting or answering a
+  discussion. The UI disables the controls with a tooltip; the backend rejects
+  the same three with 409 `crop_species_pending`
+  (`PublicCultureViewSet._crop_species_pending_forbidden`), so the disabled
+  button is a hint rather than the actual protection. Reading an existing
+  discussion stays available.
+- **Self-clearing on approve.** `approve()` moves the row out of `PROPOSED`,
+  which lifts every block above without any per-object cleanup — the gate
+  reads the species' current status, it does not cache a flag.
+- **Cleaned up on reject.** `reject()` also moves the row out of `PROPOSED`,
+  but a rejected species is never a valid thing to keep publishing under, so
+  it goes further: `crops.services.remove_public_cultures_for_rejected_species()`
+  runs every `PublicCulture` still `published` under that species through the
+  same path as a manual moderator removal
+  (`farm.services.public_cultures.remove_public_culture()`, reason
+  `species_rejected`) — or, if the acting moderator happens to be the
+  entry's own contributor, the self-service withdrawal path instead, since
+  `remove_public_culture()` checks contributorship before moderator rights.
+  Both are non-destructive and reversible from the moderation queue's
+  "removed"/reinstatement flow. This exists because
+  `PublicCulture.display_name()` always defers to the linked species' name
+  (see below) — without this cleanup, an entry published while a proposal was
+  still under review would keep showing the rejected species' name forever.
+
+Either decision also notifies the proposer through
+`crops.services.notify_species_proposal_reviewed()` — see
+[notifications.md](./notifications.md).
 
 When publishing a variety and the species has no species-level ("general",
 empty-`variety`) published entry yet, the backend

@@ -8,6 +8,7 @@ from crops.models import CropSpecies
 from farm.models import (
     Culture,
     CultureSupplierData,
+    EntityRevision,
     PlantingPlan,
     Project,
     PublicCulture,
@@ -51,7 +52,9 @@ class CultureApiTest(ProjectApiTestCase):
                 supplier=self.supplier,
             )
 
-        with self.assertNumQueries(8):
+        # One of the queries resolves the project's general Kulturen for the
+        # whole page (see CultureSerializer._general_culture_index).
+        with self.assertNumQueries(9):
             response = self.client.get('/openfarmplanner/api/cultures/')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 6)
@@ -97,6 +100,291 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('display_color', response.data)
         self.assertTrue(response.data['display_color'].startswith('#'))
 
+    def test_delete_preview_reports_cascaded_varieties_and_planning_data(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+        PlantingPlan.objects.create(project=self.project, culture=nantaise, bed=self.bed, planting_date=date(2026, 3, 1))
+        PlantingPlan.objects.create(project=self.project, culture=milan, bed=self.bed, planting_date=date(2026, 3, 2))
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{general.id}/delete-preview/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(set(response.data['culture_ids']), {general.id, nantaise.id, milan.id})
+        self.assertEqual(response.data['variety_count'], 2)
+        self.assertEqual(
+            [variety['name'] for variety in response.data['varieties']],
+            ['Nantaise 2', 'Milan'],
+        )
+        self.assertEqual(response.data['planning_data_count'], 2)
+        self.assertTrue(response.data['deletes_general_culture'])
+        self.assertFalse(response.data['group_without_general'])
+
+    def test_deleting_general_culture_cascades_to_its_varieties_and_undo_restores_all(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{general.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        for culture in (general, nantaise, milan):
+            culture.refresh_from_db()
+            self.assertIsNotNone(culture.deleted_at)
+        self.assertEqual(Culture.objects.filter(crop_species=species).count(), 0)
+
+        restore_response = self.client.post(f'/openfarmplanner/api/cultures/{general.id}/undelete/')
+
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
+        for culture in (general, nantaise, milan):
+            culture.refresh_from_db()
+            self.assertIsNone(culture.deleted_at)
+        self.assertEqual(Culture.objects.filter(crop_species=species).count(), 3)
+
+    def test_deleting_variety_group_without_general_cascades_to_sibling_varieties(self):
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project)
+        other = Culture.objects.create(name='Pastinake', variety='Halblange', project=self.project)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{nantaise.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        nantaise.refresh_from_db()
+        milan.refresh_from_db()
+        other.refresh_from_db()
+        self.assertIsNotNone(nantaise.deleted_at)
+        self.assertIsNotNone(milan.deleted_at)
+        self.assertIsNone(other.deleted_at)
+
+    def test_deleting_single_variety_with_general_keeps_sibling_varieties(self):
+        species = CropSpecies.objects.create(name='Daucus carota')
+        general = Culture.objects.create(name='Karotte', variety='', project=self.project, crop_species=species)
+        nantaise = Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project, crop_species=species)
+        milan = Culture.objects.create(name='Karotte', variety='Milan', project=self.project, crop_species=species)
+
+        response = self.client.delete(f'/openfarmplanner/api/cultures/{nantaise.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        general.refresh_from_db()
+        nantaise.refresh_from_db()
+        milan.refresh_from_db()
+        self.assertIsNone(general.deleted_at)
+        self.assertIsNotNone(nantaise.deleted_at)
+        self.assertIsNone(milan.deleted_at)
+
+    def test_creating_linked_variety_copies_species_fields_only_by_default(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'harvest_method': 'per_sqm',
+                'expected_yield': '2.50',
+                'row_spacing_cm': 50,
+                'seed_rate_direct_value': 12,
+                'seed_rate_direct_unit': 'seeds_per_lfm',
+                'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
+                'rotation_break_years': 4,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        self.assertIsNone(general.growth_duration_days)
+        self.assertEqual(general.harvest_method, '')
+        self.assertIsNone(general.expected_yield)
+        self.assertIsNone(general.row_spacing_m)
+        self.assertIsNone(general.seed_rate_direct_value)
+        self.assertIsNone(general.seed_rate_direct_unit)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 4)
+
+    def test_creating_linked_variety_can_fill_empty_general_culture_fields(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'harvest_method': 'per_sqm',
+                'expected_yield': '2.50',
+                'row_spacing_cm': 50,
+                'seed_rate_direct_value': 12,
+                'seed_rate_direct_unit': 'seeds_per_lfm',
+                'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
+                'rotation_break_years': 4,
+                'copy_values_to_culture': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        self.assertEqual(general.growth_duration_days, 65)
+        self.assertEqual(general.harvest_method, 'per_sqm')
+        self.assertEqual(str(general.expected_yield), '2.50')
+        self.assertEqual(general.row_spacing_m, 0.5)
+        self.assertEqual(general.seed_rate_direct_value, 12)
+        self.assertEqual(general.seed_rate_direct_unit, 'seeds_per_lfm')
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 4)
+
+    def test_copying_variety_values_never_overwrites_general_culture_fields(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        general = Culture.objects.create(
+            name='Tomato',
+            variety='',
+            project=self.project,
+            crop_species=species,
+            growth_duration_days=80,
+            crop_family='Solanaceae',
+            rotation_break_years=6,
+        )
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomato',
+                'variety': 'Matina',
+                'crop_species': species.id,
+                'growth_duration_days': 65,
+                'crop_family': 'Nightshade',
+                'nutrient_demand': 'high',
+                'rotation_break_years': 4,
+                'copy_values_to_culture': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general.refresh_from_db()
+        self.assertEqual(general.growth_duration_days, 80)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 6)
+
+    def test_creating_first_variety_skips_auto_general_when_name_taken_by_other_species(self):
+        tomato_species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        pepper_species = CropSpecies.objects.create(name='Capsicum annuum')
+        Culture.objects.create(name='Tomate', variety='', project=self.project, crop_species=None)
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Tomate',
+                'variety': 'San Marzano',
+                'crop_species': tomato_species.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(
+            Culture.objects.filter(
+                project=self.project,
+                crop_species=tomato_species,
+                variety_normalized__isnull=True,
+            ).exists()
+        )
+        # Sanity check: a differently-named variety for an unrelated species
+        # still gets its own auto-created general culture as usual.
+        other_response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Paprika',
+                'variety': 'Sweet',
+                'crop_species': pepper_species.id,
+            },
+            format='json',
+        )
+        self.assertEqual(other_response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(
+            Culture.objects.filter(
+                project=self.project,
+                crop_species=pepper_species,
+                variety_normalized__isnull=True,
+            ).exists()
+        )
+
+    def test_creating_first_variety_attributes_actor_to_auto_created_general_culture(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {'name': 'Tomato', 'variety': 'Matina', 'crop_species': species.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general = Culture.objects.get(
+            project=self.project,
+            crop_species=species,
+            variety_normalized__isnull=True,
+        )
+        revision = (
+            EntityRevision.objects
+            .filter(project=self.project, entity_type='culture', object_id=general.id)
+            .order_by('-id')
+            .first()
+        )
+        self.assertIsNotNone(revision)
+        self.assertTrue(revision.user_name)
+
+    def test_updating_linked_variety_copies_species_fields_only(self):
+        species = CropSpecies.objects.create(name='Solanum lycopersicum')
+        general = Culture.objects.create(
+            name='Tomato',
+            variety='',
+            project=self.project,
+            crop_species=species,
+        )
+        variety = Culture.objects.create(
+            name='Tomato',
+            variety='Matina',
+            project=self.project,
+            crop_species=species,
+        )
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{variety.id}/',
+            {
+                'growth_duration_days': 65,
+                'crop_family': 'Solanaceae',
+                'nutrient_demand': 'high',
+                'rotation_break_years': 4,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        general.refresh_from_db()
+        self.assertIsNone(general.growth_duration_days)
+        self.assertEqual(general.crop_family, 'Solanaceae')
+        self.assertEqual(general.nutrient_demand, 'high')
+        self.assertEqual(general.rotation_break_years, 4)
+
     def test_culture_create_allows_same_name_with_different_variety(self):
         data = {
             'name': self.culture.name,
@@ -105,6 +393,60 @@ class CultureApiTest(ProjectApiTestCase):
         }
         response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_culture_create_allows_new_variety_for_existing_general_culture(self):
+        Culture.objects.create(
+            name='Bean',
+            variety='',
+            project=self.project,
+        )
+        data = {
+            'name': 'Bean',
+            'variety': 'Faraday',
+            'project': self.project.id,
+        }
+
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'Bean')
+        self.assertEqual(response.data['variety'], 'Faraday')
+
+    def test_culture_create_rejects_duplicate_general_name_with_conflict_code(self):
+        existing = Culture.objects.create(
+            name='General Duplicate Culture',
+            variety='',
+            project=self.project,
+        )
+        data = {
+            'name': f"  {existing.name.upper()}  ",
+            'variety': '',
+            'project': self.project.id,
+        }
+
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'culture_name_conflict')
+
+    def test_culture_create_aggregates_name_conflict_with_other_validation_errors(self):
+        existing = Culture.objects.create(
+            name='General Duplicate Culture',
+            variety='',
+            project=self.project,
+        )
+        data = {
+            'name': existing.name,
+            'variety': '',
+            'project': self.project.id,
+            'cultivation_types': ['not_a_real_type'],
+        }
+
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('name', response.data)
+        self.assertIn('cultivation_types', response.data)
 
     def test_culture_create_and_update_general_data_with_null_variety(self):
         response = self.client.post(
@@ -132,6 +474,56 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(update_response.data['variety'], '')
         self.assertEqual(update_response.data['growth_duration_days'], 90)
         self.assertEqual(update_response.data['notes'], 'General baseline')
+
+    def test_seed_rate_constraints_endpoint_returns_backend_owned_unit_rules(self):
+        response = self.client.get('/openfarmplanner/api/cultures/seed-rate-constraints/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['units']['seeds_per_plant'],
+            {'value_type': 'integer', 'step': 1, 'minimum': 1},
+        )
+        self.assertEqual(response.data['units']['g_per_m2']['value_type'], 'number')
+
+    def test_culture_create_rejects_fractional_seeds_per_plant_requirement(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Aubergine',
+                'variety': '',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_requirements': {
+                    'pre_cultivation': {
+                        'value': 1.1,
+                        'unit': 'seeds_per_plant',
+                    },
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('seed_requirements', response.data)
+
+    def test_culture_create_accepts_whole_number_seeds_per_plant_requirement(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Aubergine',
+                'variety': '',
+                'cultivation_types': ['pre_cultivation'],
+                'seed_requirements': {
+                    'pre_cultivation': {
+                        'value': 1,
+                        'unit': 'seeds_per_plant',
+                    },
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['seed_requirements']['pre_cultivation']['value'], 1.0)
 
     def test_culture_create_rejects_duplicate_name_and_variety(self):
         existing = Culture.objects.create(
@@ -164,18 +556,18 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertIn('name', response.data)
 
     def test_culture_duplicate_check_is_project_scoped_and_excludes_public_cultures(self):
-        Culture.objects.create(name='Tomate', variety='Roma', project=self.project)
+        Culture.objects.create(name='Tomate', variety='', project=self.project)
         other_project = Project.objects.create(name='Other Project', slug='other-project')
-        Culture.objects.create(name='Paprika', variety='Sweet', project=other_project)
+        Culture.objects.create(name='Paprika', variety='', project=other_project)
         PublicCulture.objects.create(name='Bohne', variety='Neckargold', status='published')
 
         matching_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
-            {'name': ' tomate ', 'variety': 'ROMA'},
+            {'name': ' tomate ', 'variety': ''},
         )
         other_project_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
-            {'name': 'Paprika', 'variety': 'Sweet'},
+            {'name': 'Paprika', 'variety': ''},
         )
         public_response = self.client.get(
             '/openfarmplanner/api/cultures/duplicate-check/',
@@ -184,8 +576,11 @@ class CultureApiTest(ProjectApiTestCase):
 
         self.assertEqual(matching_response.status_code, status.HTTP_200_OK)
         self.assertTrue(matching_response.data['exists'])
+        self.assertTrue(matching_response.data['name_exists'])
         self.assertFalse(other_project_response.data['exists'])
+        self.assertFalse(other_project_response.data['name_exists'])
         self.assertFalse(public_response.data['exists'])
+        self.assertFalse(public_response.data['name_exists'])
 
     def test_culture_duplicate_check_supports_general_data_without_variety(self):
         Culture.objects.create(name='General Bean', variety='', project=self.project)
@@ -197,6 +592,19 @@ class CultureApiTest(ProjectApiTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['exists'])
+
+    def test_culture_duplicate_check_name_exists_ignores_variety_only_matches(self):
+        Culture.objects.create(name='Karotte', variety='Nantaise 2', project=self.project)
+        Culture.objects.create(name='Karotte', variety='Milan', project=self.project)
+
+        response = self.client.get(
+            '/openfarmplanner/api/cultures/duplicate-check/',
+            {'name': 'Karotte', 'variety': ''},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['exists'])
+        self.assertFalse(response.data['name_exists'])
 
     def test_public_culture_match_returns_exact_normalized_match(self):
         PublicCulture.objects.create(name='Tomate', variety='Roma', status='published')
@@ -250,6 +658,7 @@ class CultureApiTest(ProjectApiTestCase):
             'notes': 'Test notes',
             'crop_family': 'Solanaceae',
             'nutrient_demand': 'high',
+            'rotation_break_years': 3,
             'cultivation_type': 'pre_cultivation',
             'growth_duration_days': 8,
             'harvest_duration_days': 3,
@@ -269,6 +678,7 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(response.data['name'], 'Comprehensive Culture')
         self.assertEqual(response.data['crop_family'], 'Solanaceae')
         self.assertEqual(response.data['nutrient_demand'], 'high')
+        self.assertEqual(response.data['rotation_break_years'], 3)
         self.assertEqual(response.data['thousand_kernel_weight_g'], 472.02)
         self.assertEqual(response.data['display_color'], '#FF5733')
 
@@ -284,6 +694,18 @@ class CultureApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIsNone(response.data['growth_duration_days'])
         self.assertIsNone(response.data['harvest_duration_days'])
+        self.assertIsNone(response.data['rotation_break_years'])
+
+    def test_culture_create_rejects_negative_rotation_break_years(self):
+        """Test that a negative rotation break in years is rejected by the API"""
+        data = {
+            'name': 'Culture With Bad Rotation Break',
+            'rotation_break_years': -2,
+            'project': self.project.id,
+        }
+        response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rotation_break_years', response.data)
 
     def test_culture_create_invalid_display_color(self):
         """Test that invalid display color format is rejected"""
@@ -691,3 +1113,114 @@ class CultureApiTest(ProjectApiTestCase):
         response = self.client.post('/openfarmplanner/api/cultures/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('supplier_product_url', response.data)
+
+
+class CultureInheritanceApiTest(ProjectApiTestCase):
+    """A Sorte's API row exposes its own values and the resolved effective ones."""
+
+    def setUp(self):
+        super().setUp()
+        self.species = CropSpecies.objects.create(name='Daucus carota')
+        self.general = Culture.objects.create(
+            name='Karotte',
+            variety='',
+            project=self.project,
+            crop_species=self.species,
+            growth_duration_days=70,
+            harvest_duration_days=21,
+            row_spacing_m=0.3,
+            distance_within_row_m=0.05,
+            crop_family='Apiaceae',
+            seed_rate_direct_value=2.0,
+            seed_rate_direct_unit='g/m²',
+        )
+        self.sorte = Culture.objects.create(
+            name='Karotte',
+            variety='Nantaise',
+            project=self.project,
+            crop_species=self.species,
+            growth_duration_days=65,
+        )
+
+    def _row(self, culture: Culture) -> dict:
+        response = self.client.get(f'/openfarmplanner/api/cultures/{culture.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.data
+
+    def test_sorte_exposes_raw_and_effective_values_per_field(self):
+        row = self._row(self.sorte)
+        self.assertEqual(row['general_culture'], self.general.id)
+        # Raw own values stay untouched, so the client can still tell them apart.
+        self.assertEqual(row['growth_duration_days'], 65)
+        self.assertIsNone(row['harvest_duration_days'])
+        self.assertEqual(row['effective_values']['growth_duration_days'], 65)
+        self.assertEqual(row['effective_values']['harvest_duration_days'], 21)
+        self.assertEqual(row['inherited_fields'].count('harvest_duration_days'), 1)
+        self.assertNotIn('growth_duration_days', row['inherited_fields'])
+
+    def test_effective_values_use_the_api_units_of_the_own_fields(self):
+        row = self._row(self.sorte)
+        self.assertIsNone(row['row_spacing_cm'])
+        self.assertEqual(row['effective_values']['row_spacing_cm'], 30.0)
+        self.assertIn('row_spacing_cm', row['inherited_fields'])
+        # Units go through the same normalization as the own-value field.
+        self.assertEqual(row['effective_values']['seed_rate_direct_unit'], 'g_per_m2')
+
+    def test_plants_per_m2_is_computed_from_the_effective_spacing(self):
+        """A Sorte with inherited spacing must report the same plants/m² the
+        planting-plan side plans with — otherwise the grid shows a plant count
+        it then refuses to let the user edit."""
+        row = self._row(self.sorte)
+        self.assertIsNone(row['row_spacing_cm'])
+        # 30 cm x 5 cm -> 10000 / 150.
+        self.assertEqual(float(row['plants_per_m2']), 66.67)
+
+    def test_an_own_spacing_value_still_drives_plants_per_m2(self):
+        self.sorte.row_spacing_m = 0.5
+        self.sorte.save(update_fields=['row_spacing_m'])
+        row = self._row(self.sorte)
+        # 50 cm x the inherited 5 cm -> 10000 / 250.
+        self.assertEqual(float(row['plants_per_m2']), 40.0)
+
+    def test_general_kultur_has_no_inheritance_payload(self):
+        row = self._row(self.general)
+        self.assertIsNone(row['general_culture'])
+        self.assertEqual(row['effective_values'], {})
+        self.assertEqual(row['inherited_fields'], [])
+
+    def test_free_text_sorte_without_species_keeps_its_own_values_only(self):
+        free_text = Culture.objects.create(
+            name='Karotte', variety='Freitext', project=self.project,
+        )
+        row = self._row(free_text)
+        self.assertIsNone(row['general_culture'])
+        self.assertEqual(row['effective_values'], {})
+        self.assertEqual(row['inherited_fields'], [])
+
+    def test_clearing_an_own_value_falls_back_to_the_general_value(self):
+        response = self.client.patch(
+            f'/openfarmplanner/api/cultures/{self.sorte.id}/',
+            {'growth_duration_days': None},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = self._row(self.sorte)
+        self.assertIsNone(row['growth_duration_days'])
+        self.assertEqual(row['effective_values']['growth_duration_days'], 70)
+        self.assertIn('growth_duration_days', row['inherited_fields'])
+
+    def test_inheritance_payload_costs_one_query_for_a_whole_list_page(self):
+        for index in range(5):
+            Culture.objects.create(
+                name='Karotte', variety=f'Sorte {index}',
+                project=self.project, crop_species=self.species,
+            )
+        with self.assertNumQueries(10):
+            response = self.client.get('/openfarmplanner/api/cultures/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        inherited_rows = [
+            item for item in response.data['results'] if item['general_culture'] == self.general.id
+        ]
+        self.assertEqual(len(inherited_rows), 6)
+        for item in inherited_rows:
+            self.assertEqual(item['effective_values']['harvest_duration_days'], 21)

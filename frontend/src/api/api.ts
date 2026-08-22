@@ -3,7 +3,10 @@ import type {
   ApiToken,
   ApiTokenCreatePayload,
   ApiTokenCreated,
+  AppNotification,
+  NotificationListResponse,
   Culture,
+  CultureDeletePreview,
   Location,
   Field,
   Bed,
@@ -16,6 +19,7 @@ import type {
   CultureHistoryEntry,
   CultureDuplicateCheckResponse,
   CulturePublicUpdate,
+  SeedRateConstraintsResponse,
   ImportPublicCultureResponse,
   MediaFileRef,
   PublicCulture,
@@ -104,8 +108,10 @@ export const cultureAPI = {
   get: (id: number) => http.get<Culture>(`/cultures/${id}/`),
   duplicateCheck: (params: { name: string; variety: string; exclude_id?: number }, signal?: AbortSignal) =>
     http.get<CultureDuplicateCheckResponse>('/cultures/duplicate-check/', { params, signal }),
+  seedRateConstraints: () => http.get<SeedRateConstraintsResponse>('/cultures/seed-rate-constraints/'),
   create: (data: Culture) => http.post<Culture>('/cultures/', withActiveProject(data)),
   update: (id: number, data: Culture) => http.put<Culture>(`/cultures/${id}/`, withActiveProject(data)),
+  deletePreview: (id: number) => http.get<CultureDeletePreview>(`/cultures/${id}/delete-preview/`),
   delete: (id: number) => http.delete(`/cultures/${id}/`),
   history: (id: number) => http.get<CultureHistoryEntry[]>(`/cultures/${id}/history/`),
   restore: (id: number, history_id: number) => http.post<Culture>(`/cultures/${id}/restore/`, { history_id }),
@@ -148,6 +154,12 @@ export const cultureAPI = {
   rejectPublicUpdate: (id: number) => http.post<Culture>(`/cultures/${id}/public-update/reject/`),
 };
 
+export const notificationAPI = {
+  /** Newest first; the unread count rides along so the bell needs one request. */
+  list: () => http.get<NotificationListResponse>('/notifications/'),
+  markRead: (id: number) => http.post<AppNotification>(`/notifications/${id}/read/`),
+};
+
 export const cropSpeciesAPI = {
   list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status']; page_size?: number }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
@@ -159,7 +171,7 @@ export const cropSpeciesAPI = {
 export const publicLibraryModeratorRequestAPI = {
   mine: () => http.get<PublicLibraryModeratorRequestMine>('/public-library/moderator-requests/mine/'),
   create: (motivation: string) => http.post<PublicLibraryModeratorRequest>('/public-library/moderator-requests/', { motivation }),
-  list: (params?: { status?: PublicLibraryModeratorRequest['status'] }) =>
+  list: (params?: { status?: PublicLibraryModeratorRequest['status']; page_size?: number }) =>
     http.get<PaginatedResponse<PublicLibraryModeratorRequest>>('/public-library/moderator-requests/', { params }),
   approve: (id: number, reviewNote = '') =>
     http.post<PublicLibraryModeratorRequest>(`/public-library/moderator-requests/${id}/approve/`, { review_note: reviewNote }),
@@ -328,11 +340,14 @@ export interface ProjectPayload {
   name: string;
   slug: string;
   description: string;
+  region: ProjectRegion;
   is_active: boolean;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ProjectRegion = 'germany' | 'austria' | 'switzerland';
 
 export interface ProjectInvitationPayload {
   id: number;
@@ -386,7 +401,7 @@ export const projectAPI = {
     http.post<ProjectPayload>('/projects/', data),
   createDemo: () =>
     http.post<ProjectPayload>('/projects/create-demo/', {}),
-  update: (projectId: number, data: { name: string }) =>
+  update: (projectId: number, data: { name?: string; region?: ProjectRegion }) =>
     http.patch<ProjectPayload>(`/projects/${projectId}/`, data),
   delete: (projectId: number) =>
     http.delete(`/projects/${projectId}/`),
@@ -474,6 +489,7 @@ export type {
 export default {
   cultures: cultureAPI,
   cropSpecies: cropSpeciesAPI,
+  notifications: notificationAPI,
   publicCultures: publicCultureAPI,
   suppliers: supplierAPI,
   cultureSupplierData: cultureSupplierDataAPI,

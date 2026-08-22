@@ -160,6 +160,24 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('button', { name: 'Suche und Filter zurücksetzen' })).toBeInTheDocument();
   });
 
+  it('keeps variety matches in the culture search dropdown', async () => {
+    const user = userEvent.setup();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        onCultureSelect={vi.fn()}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText(translations.cultures.searchPlaceholder);
+    await user.click(searchInput);
+    await user.type(searchInput, 'Cherry');
+
+    expect(screen.queryByText('Keine Kulturen gefunden')).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Tomato – Cherry' })).toBeInTheDocument();
+  });
+
   it('collapses a crop group without changing the selected detail view', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
@@ -351,13 +369,49 @@ describe('CultureDetail Component', () => {
 
     const sectionTitles = screen.getAllByRole('heading', { level: 6 }).map((node) => node.textContent?.trim());
     expect(sectionTitles).toEqual([
-      'Allgemeine Informationen',
+      'Fruchtfolge-Eigenschaften',
       'Zeitplanung',
       'Abstände',
       'Saatgut',
       'Ernte',
       'Notizen',
     ]);
+  });
+
+  it('shows the crop rotation break as a plain section without a nested container', () => {
+    const mockOnSelect = vi.fn();
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={1}
+        onCultureSelect={mockOnSelect}
+      />
+    );
+
+    const heading = screen.getByRole('heading', { level: 6, name: translations.cultures.detail.sections.cropRotation });
+    expect(screen.getByText(translations.cultures.form.rotationBreakYears)).toBeInTheDocument();
+    expect(screen.getAllByText(translations.cultures.noData).length).toBeGreaterThan(0);
+    // Structurally identical to the other sections (heading + grid, no
+    // separate bordered/backgrounded wrapper), unlike the old "Allgemeine
+    // Informationen" container this section replaced.
+    expect(heading.closest('div')).not.toHaveStyle({ border: '1px solid #e5e7eb' });
+  });
+
+  it('shows the configured rotation break in years, and the renamed nutrient demand labels', () => {
+    const mockOnSelect = vi.fn();
+    const culturesWithRotationBreak: Culture[] = [
+      { ...mockCultures[0], nutrient_demand: 'high', rotation_break_years: 4 },
+    ];
+    renderCultureDetail(
+      <CultureDetail
+        cultures={culturesWithRotationBreak}
+        selectedCultureId={1}
+        onCultureSelect={mockOnSelect}
+      />
+    );
+
+    expect(screen.getByText(`4 ${translations.cultures.detail.units.years}`)).toBeInTheDocument();
+    expect(screen.getByText('Starkzehrer')).toBeInTheDocument();
   });
 
   it('renders crop detail labels and static values in English', async () => {
@@ -395,14 +449,23 @@ describe('CultureDetail Component', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { level: 6, name: 'General information' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 6, name: 'Crop Rotation Properties' })).toBeInTheDocument();
     expect(screen.getByText('Crop family')).toBeInTheDocument();
     expect(screen.getByText('Nutrient demand')).toBeInTheDocument();
-    expect(screen.getByText('Medium')).toBeInTheDocument();
+    expect(screen.getByText('Medium feeder')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 6, name: 'Spacing' })).toBeInTheDocument();
     expect(screen.getByText('In-row spacing')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 6, name: 'Seed' })).toBeInTheDocument();
-    expect(screen.getByText('Seed quantity by cultivation type')).toBeInTheDocument();
+    const seedHeading = screen.getByRole('heading', { level: 6, name: 'Seed' });
+    expect(seedHeading).toBeInTheDocument();
+    const cultivationTypeLabel = screen.getByText('Cultivation type');
+    expect(cultivationTypeLabel).toBeInTheDocument();
+    expect(screen.getByText('Transplanting, Direct sowing')).toBeInTheDocument();
+    const seedRateByCultivationLabel = screen.getByText('Seed quantity by cultivation type');
+    expect(seedRateByCultivationLabel).toBeInTheDocument();
+    // Cultivation type now lives in the Seed section, directly above the
+    // per-method seed-rate table it used to be disconnected from.
+    expect(seedHeading.compareDocumentPosition(cultivationTypeLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(cultivationTypeLabel.compareDocumentPosition(seedRateByCultivationLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('seeds / plant')).toBeInTheDocument();
     expect(screen.getByText('seeds / running m')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 6, name: 'Yield' })).toBeInTheDocument();
@@ -478,7 +541,12 @@ describe('CultureDetail Component', () => {
       />
     );
     
-    expect(screen.getByText('Frisch und süß.')).toBeInTheDocument();
+    const notesHeading = screen.getByRole('heading', { level: 6, name: 'Notizen' });
+    const notesContent = screen.getByText('Frisch und süß.');
+
+    expect(notesContent).toBeInTheDocument();
+    expect(notesHeading.nextElementSibling).toContainElement(notesContent);
+    expect(notesHeading).not.toContainElement(notesContent);
   });
 
   it('renders supplier homepage as clickable link', () => {

@@ -105,7 +105,7 @@ describe('ProjectSettingsPage', () => {
     render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
 
     await screen.findByText('Member Name');
-    fireEvent.mouseDown(screen.getAllByRole('combobox')[1]);
+    fireEvent.mouseDown(screen.getByLabelText('Projektrolle'));
     fireEvent.click(await screen.findByRole('option', { name: 'Admin' }));
     await waitFor(() => expect(updateMemberMock).toHaveBeenCalledWith(1, 11, 'admin'));
 
@@ -273,6 +273,21 @@ describe('ProjectSettingsPage', () => {
     await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith(1, { name: 'Beta' }));
     await waitFor(() => expect(refreshUserMock).toHaveBeenCalled());
     expect(await screen.findByText('Projektname aktualisiert.')).toBeInTheDocument();
+  });
+
+  it('updates the regional terminology setting', async () => {
+    authState.user = {
+      id: 1,
+      memberships: [{ project_id: 1, project_name: 'Alpha', project_region: 'germany', role: 'admin' }],
+    };
+    render(<MemoryRouter><ProjectSettingsPage /></MemoryRouter>);
+
+    fireEvent.mouseDown(await screen.findByLabelText('Regionale Begriffe'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Österreich' }));
+
+    await waitFor(() => expect(updateProjectMock).toHaveBeenCalledWith(1, { region: 'austria' }));
+    await waitFor(() => expect(refreshUserMock).toHaveBeenCalled());
+    expect(await screen.findByText('Regionale Begriffe aktualisiert.')).toBeInTheDocument();
   });
 
   it('prevents empty project name saves and restores the old name with feedback', async () => {
