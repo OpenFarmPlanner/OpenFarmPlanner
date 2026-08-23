@@ -46,6 +46,13 @@ import type {
   SupplierDeleteUndoPayload,
   SupplierRestoreUnlinkedDeleteResponse,
   SupplierUnlinkDeleteResponse,
+  Season,
+  SeasonPattern,
+  SeasonPatternPreviewPeriod,
+  SeasonDueSuggestion,
+  SeasonCopyFromResponse,
+  SeasonSetupStatus,
+  SeasonSetupApplyResponse,
 } from './types';
 
 export async function fetchAllPaginated<T>(
@@ -270,6 +277,33 @@ export const plantingPlanAPI = {
 };
 
 
+
+export const seasonAPI = {
+  list: () => http.get<PaginatedResponse<Season>>('/seasons/', { params: { page_size: 1000 } }),
+  create: (data: { start_date: string; end_date: string; custom_label?: string }) =>
+    http.post<Season>('/seasons/', data),
+  update: (id: number, data: Partial<{ custom_label: string; start_date: string; end_date: string }>) =>
+    http.patch<Season>(`/seasons/${id}/`, data),
+  delete: (id: number) => http.delete(`/seasons/${id}/`),
+  undelete: (id: number) => http.post<Season>(`/seasons/${id}/undelete/`, {}),
+  copyFrom: (targetId: number, sourceSeasonId: number) =>
+    http.post<SeasonCopyFromResponse>(`/seasons/${targetId}/copy-from/`, { source_season_id: sourceSeasonId }),
+  dueSuggestion: () => http.get<SeasonDueSuggestion>('/seasons/due-suggestion/'),
+};
+
+export const seasonPatternAPI = {
+  get: () => http.get<SeasonPattern>('/season-pattern/'),
+  update: (data: { start_day: number; start_month: number }) =>
+    http.patch<SeasonPattern>('/season-pattern/', data),
+  preview: (params?: { start_day?: number; start_month?: number }) =>
+    http.get<SeasonPatternPreviewPeriod[]>('/season-pattern/preview/', { params }),
+};
+
+export const seasonSetupAPI = {
+  status: () => http.get<SeasonSetupStatus>('/season-setup/status/'),
+  apply: (data: { start_day: number; start_month: number }) =>
+    http.post<SeasonSetupApplyResponse>('/season-setup/apply/', data),
+};
 
 export const layoutAPI = {
   listByLocation: (locationId: number) => http.get<LocationLayoutsResponse>(`/locations/${locationId}/layouts/`),

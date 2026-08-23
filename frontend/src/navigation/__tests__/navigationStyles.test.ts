@@ -17,8 +17,12 @@ function resolveSx(sx: SxProps<Theme>): Record<string, unknown> {
 
 describe('desktop sidebar disabled styling', () => {
   it('reduces icon and text opacity when disabled, and keeps full opacity otherwise', () => {
-    expect(resolveSx(getNavigationIconSx(false, false, true)).opacity).toBe(NAV_ITEM_DISABLED_OPACITY);
-    expect(resolveSx(getNavigationIconSx(false, false, false)).opacity).toBe(1);
+    expect(resolveSx(getNavigationIconSx(false, true)).opacity).toBe(NAV_ITEM_DISABLED_OPACITY);
+    expect(resolveSx(getNavigationIconSx(false, false)).opacity).toBe(1);
+  });
+
+  it('applies the given accent color regardless of active state', () => {
+    expect(resolveSx(getNavigationIconSx(false, false, '#123456')).color).toBe('#123456');
 
     const disabledText = getNavigationTextProps(false, true).sx(theme);
     const enabledText = getNavigationTextProps(false, false).sx(theme);
@@ -37,8 +41,8 @@ describe('desktop sidebar disabled styling', () => {
 
 describe('mobile drawer disabled styling', () => {
   it('reduces icon and text opacity when disabled, and keeps full opacity otherwise', () => {
-    expect(resolveSx(getMobileNavigationIconSx(false, true)).opacity).toBe(NAV_ITEM_DISABLED_OPACITY);
-    expect(resolveSx(getMobileNavigationIconSx(false, false)).opacity).toBe(1);
+    expect(resolveSx(getMobileNavigationIconSx(true)).opacity).toBe(NAV_ITEM_DISABLED_OPACITY);
+    expect(resolveSx(getMobileNavigationIconSx(false)).opacity).toBe(1);
 
     const disabledText = getMobileNavigationTextProps(false, true).sx(theme);
     const enabledText = getMobileNavigationTextProps(false, false).sx(theme);

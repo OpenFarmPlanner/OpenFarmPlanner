@@ -705,6 +705,7 @@ export interface PlantingPlan {
   culture_cultivation_types?: CultivationType[] | null;
   bed: number | null;
   bed_name?: string | null;
+  season?: number | null;
   planting_date: string | null;
   // Read-only, computed.
   harvest_date?: string | null;
@@ -724,6 +725,61 @@ export interface PlantingPlan {
 }
 
 
+
+export interface Season {
+  id: number;
+  project: number;
+  start_date: string;
+  end_date: string;
+  custom_label: string;
+  label: string;
+  computed_label: string;
+  planting_plan_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeasonPattern {
+  id: number;
+  project: number;
+  start_day: number;
+  start_month: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SeasonPatternPreviewPeriod {
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+}
+
+export interface SeasonDueSuggestion {
+  due: boolean;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface SeasonCopyFromResponse {
+  copied_count: number;
+  target_planting_plan_count: number;
+}
+
+export interface SeasonSetupStatus {
+  needs_setup: boolean;
+  unassigned_planting_plan_count: number;
+  start_day: number;
+  start_month: number;
+  computed_start_date: string;
+  computed_end_date: string;
+}
+
+export interface SeasonSetupApplyResponse {
+  season: Season;
+  assigned_planting_plan_count: number;
+  start_day: number;
+  start_month: number;
+}
 
 export interface RemainingAreaResponse {
   bed_id: number;

@@ -7,13 +7,14 @@ import { CultureHeaderActionsMenu } from '../cultures/CultureHeaderActionsMenu';
 const labels: Record<string, string> = {
   'buttons.edit': 'Bearbeiten',
   'buttons.versions': 'Versionen',
+  'buttons.exportCulture': 'Kultur exportieren',
   'buttons.delete': 'Löschen',
   'library.updateButton': 'Kulturbibliothek aktualisieren',
 };
 
 const t = ((key: string) => labels[key] ?? key) as TFunction<'cultures'>;
 
-const renderMenu = (props: { publishBlockedTooltip?: string; onPublish?: () => void } = {}) => {
+const renderMenu = (props: { publishBlockedTooltip?: string; onPublish?: () => void; onExport?: () => void } = {}) => {
   const anchor = document.createElement('button');
   document.body.appendChild(anchor);
 
@@ -22,6 +23,7 @@ const renderMenu = (props: { publishBlockedTooltip?: string; onPublish?: () => v
       anchorEl={anchor}
       onClose={vi.fn()}
       onOpenHistory={vi.fn()}
+      onExport={props.onExport ?? vi.fn()}
       onPublish={props.onPublish ?? vi.fn()}
       isPublishing={false}
       publishLabel={labels['library.updateButton']}
@@ -41,6 +43,7 @@ describe('CultureHeaderActionsMenu', () => {
     expect(menuItems).toEqual([
       'Versionen',
       'Kulturbibliothek aktualisieren',
+      'Kultur exportieren',
       'Löschen',
     ]);
     expect(screen.queryByRole('menuitem', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
@@ -70,5 +73,14 @@ describe('CultureHeaderActionsMenu', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: labels['library.updateButton'] }));
 
     expect(onPublish).toHaveBeenCalled();
+  });
+
+  it('calls onExport when the export entry is clicked', async () => {
+    const onExport = vi.fn();
+    renderMenu({ onExport });
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Kultur exportieren' }));
+
+    expect(onExport).toHaveBeenCalled();
   });
 });

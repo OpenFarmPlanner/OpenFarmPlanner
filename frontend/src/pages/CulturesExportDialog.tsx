@@ -10,7 +10,7 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SpreadsheetExportFormat } from '../cultures/spreadsheetExport';
 
 type ExportScope = 'current' | 'all';
@@ -21,6 +21,9 @@ type Translator = (key: string, options?: Record<string, unknown>) => string;
 type CulturesExportDialogProps = {
   open: boolean;
   hasCurrentCulture: boolean;
+  // Default scope depends on the entry point (Import/Export menu -> 'all',
+  // a single culture's own kebab menu -> 'current'), but stays changeable.
+  initialScope?: ExportScope;
   onClose: () => void;
   onExport: (scope: ExportScope, format: ExportFormat) => Promise<void>;
   t: Translator;
@@ -29,13 +32,20 @@ type CulturesExportDialogProps = {
 export function CulturesExportDialog({
   open,
   hasCurrentCulture,
+  initialScope = 'all',
   onClose,
   onExport,
   t,
 }: CulturesExportDialogProps) {
-  const [scope, setScope] = useState<ExportScope>('all');
+  const [scope, setScope] = useState<ExportScope>(initialScope);
   const [format, setFormat] = useState<ExportFormat>('xlsx');
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setScope(initialScope);
+    }
+  }, [open, initialScope]);
 
   const handleExport = async () => {
     setExporting(true);

@@ -102,9 +102,29 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
     )
     serializer_class = PlantingPlanSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        season_id = self.request.headers.get('X-Season-Id')
+        if season_id:
+            try:
+                queryset = queryset.filter(season_id=int(season_id))
+            except (TypeError, ValueError):
+                pass
+        return queryset
+
     def perform_create(self, serializer):
         current_user = self.request.user if self.request.user.is_authenticated else None
-        instance = serializer.save(created_by=current_user, updated_by=current_user, project=self.request.active_project)
+        extra_fields = {}
+        if 'season' not in serializer.validated_data:
+            season_id = self.request.headers.get('X-Season-Id')
+            if season_id:
+                try:
+                    extra_fields['season_id'] = int(season_id)
+                except (TypeError, ValueError):
+                    pass
+        instance = serializer.save(
+            created_by=current_user, updated_by=current_user, project=self.request.active_project, **extra_fields,
+        )
         self.record_revision(instance, EntityRevision.ACTION_CREATED)
 
     def perform_update(self, serializer):

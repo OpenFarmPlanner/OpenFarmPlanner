@@ -24,6 +24,7 @@ from farm.models import (
     Location,
     PlantingPlan,
     PublicCulture,
+    Season,
     SeedPackage,
     Supplier,
     Task,
@@ -49,6 +50,7 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
         self.cultures = [self.culture]
         self.suppliers = [self.supplier]
         self.public_cultures = []
+        self.seasons = []
 
         for index in range(ROW_COUNT):
             if index > 0:
@@ -97,9 +99,13 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
             SeedPackage.objects.create(
                 culture=culture, size_value=10, size_unit='g', project=self.project,
             )
+            season = Season.objects.create(
+                project=self.project, start_date=date(2020 + index, 1, 1), end_date=date(2020 + index, 12, 31),
+            )
+            self.seasons.append(season)
             plan = PlantingPlan.objects.create(
                 culture=culture, bed=self.beds[index], planting_date=date(2026, 4, 1),
-                area_usage_sqm=5, project=self.project,
+                area_usage_sqm=5, project=self.project, season=season,
                 created_by=self.user, updated_by=self.user,
             )
             Task.objects.create(title=f'Task {index}', planting_plan=plan, project=self.project)
@@ -180,3 +186,7 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
 
     def test_projects_list_query_count(self):
         self.assert_list_query_count('/openfarmplanner/api/projects/', 4, expected_rows=1)
+
+    def test_seasons_list_query_count(self):
+        """`planting_plan_count` is a page-wide annotation, not a per-row lookup."""
+        self.assert_list_query_count('/openfarmplanner/api/seasons/', 5)

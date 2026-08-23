@@ -55,11 +55,13 @@ from .projects import (  # noqa: E402
     ProjectInvitation,
     ProjectMembership,
 )
+from .seasons import ActiveSeasonManager, Season, SeasonPattern  # noqa: E402
 from .structure import Bed, BedLayout, Field, FieldLayout, Location  # noqa: E402
 
 __all__ = [
     'API_TOKEN_PREFIX',
     'ActiveCultureManager',
+    'ActiveSeasonManager',
     'AgentLoginToken',
     'Bed',
     'BedLayout',
@@ -86,6 +88,8 @@ __all__ = [
     'PublicCultureRevision',
     'PublicCultureStatusEvent',
     'PublicCultureTranslation',
+    'Season',
+    'SeasonPattern',
     'SeedPackage',
     'Supplier',
     'Task',

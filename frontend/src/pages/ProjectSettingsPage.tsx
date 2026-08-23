@@ -9,6 +9,7 @@ import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect'
 import { useTranslation } from '../i18n';
 import { showProjectDeleteUndoSnackbar } from '../projects/projectDeletionFeedback';
 import { compactFieldSx, wideFieldSx } from '../components/forms/formLayout';
+import { SeasonPatternCard } from '../seasons/SeasonPatternCard';
 
 interface InviteFeedback {
   severity: 'success' | 'warning' | 'error';
@@ -397,6 +398,8 @@ export default function ProjectSettingsPage() {
             </Typography>
           </CardContent>
         </Card>
+
+        <SeasonPatternCard />
 
         <Card variant="outlined" aria-labelledby="project-invite-section-title">
           <CardContent sx={sectionCardContentSx}>

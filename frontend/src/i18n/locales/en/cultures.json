@@ -500,7 +500,7 @@
     "aiCompleteAll": "AI: complete all crops"
   },
   "export": {
-    "menuLabel": "Export…",
+    "menuLabel": "Export all cultures",
     "current": "Download current crop as JSON",
     "all": "Download all crops as JSON",
     "dialogTitle": "Export crops",
@@ -525,6 +525,7 @@
     "addNew": "Add crop",
     "edit": "Edit",
     "versions": "Versions",
+    "exportCulture": "Export culture",
     "delete": "Delete",
     "moreActions": "More actions",
     "deleteConfirm": "Do you really want to delete this crop?",
@@ -543,7 +544,7 @@
     "createPlantingPlanMissingBedsTooltip": "You first need at least one bed. Beds are added inside a plot on the growing areas page."
   },
   "import": {
-    "menuLabel": "Import…",
+    "menuLabel": "Import from file",
     "menuItem": "Import from JSON…",
     "title": "Import crops",
     "selectFileTitle": "Import crops",

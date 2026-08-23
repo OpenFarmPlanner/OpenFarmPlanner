@@ -13,6 +13,13 @@ from .planning.views import (
     TaskViewSet,
     YieldCalendarListView,
 )
+from .seasons.views import (
+    SeasonPatternPreviewView,
+    SeasonPatternView,
+    SeasonSetupApplyView,
+    SeasonSetupStatusView,
+    SeasonViewSet,
+)
 from .structure.views import (
     BedLayoutByLocationView,
     BedViewSet,
@@ -63,6 +70,7 @@ router.register(r'culture-supplier-data', CultureSupplierDataViewSet)
 router.register(r'public-cultures', PublicCultureViewSet, basename='public-cultures')
 router.register(r'seed-packages', SeedPackageViewSet)
 router.register(r'planting-plans', PlantingPlanViewSet)
+router.register(r'seasons', SeasonViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'projects', ProjectViewSet, basename='projects')
 router.register(r'api-tokens', ProjectApiTokenViewSet, basename='api-tokens')
@@ -86,6 +94,10 @@ urlpatterns = [
     path('attachments/<int:attachment_id>/', NoteAttachmentDeleteView.as_view(), name='note-attachment-delete'),
     path('seed-demand/', SeedDemandListView.as_view(), name='seed-demand-list'),
     path('yield-calendar/', YieldCalendarListView.as_view(), name='yield-calendar-list'),
+    path('season-pattern/', SeasonPatternView.as_view(), name='season-pattern'),
+    path('season-pattern/preview/', SeasonPatternPreviewView.as_view(), name='season-pattern-preview'),
+    path('season-setup/status/', SeasonSetupStatusView.as_view(), name='season-setup-status'),
+    path('season-setup/apply/', SeasonSetupApplyView.as_view(), name='season-setup-apply'),
     path('locations/<int:location_id>/layouts/', BedLayoutByLocationView.as_view(), name='location-layouts'),
     path('projects-bootstrap/', MyProjectsView.as_view(), name='projects-bootstrap'),
     path('projects-switch/', ProjectSwitchView.as_view(), name='projects-switch'),

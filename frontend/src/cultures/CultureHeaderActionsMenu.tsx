@@ -1,6 +1,7 @@
 import { Box, Divider, Menu, MenuItem } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import PublicIcon from '@mui/icons-material/Public';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { TFunction } from 'i18next';
 import { AppTooltip } from '../components/AppTooltip';
@@ -9,6 +10,7 @@ interface CultureHeaderActionsMenuProps {
   anchorEl: HTMLElement | null;
   onClose: () => void;
   onOpenHistory: () => void;
+  onExport: () => void;
   onPublish: () => void;
   isPublishing: boolean;
   publishLabel: string;
@@ -31,6 +33,7 @@ export function CultureHeaderActionsMenu({
   anchorEl,
   onClose,
   onOpenHistory,
+  onExport,
   onPublish,
   isPublishing,
   publishLabel,
@@ -68,6 +71,11 @@ export function CultureHeaderActionsMenu({
           <Box component="span" sx={{ display: 'block' }}>{publishItem}</Box>
         </AppTooltip>
       ) : publishItem}
+      <Divider sx={{ my: 0.5 }} />
+      <MenuItem onClick={() => { onClose(); onExport(); }}>
+        <FileDownloadOutlinedIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
+        {t('buttons.exportCulture')}
+      </MenuItem>
       <Divider sx={{ my: 0.5 }} />
       <MenuItem onClick={() => { onClose(); onDelete(); }} sx={{ color: 'error.main' }}>
         <DeleteIcon sx={{ fontSize: 18, mr: 1, color: 'error.main' }} />
