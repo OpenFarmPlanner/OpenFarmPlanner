@@ -946,7 +946,10 @@
         "reuse": "Others can permanently import, use and build on the record.",
         "license": "Licence: CC BY-SA 4.0. In practice this means: use and modification are allowed as long as the source is credited and improvements are shared under the same conditions."
       },
-      "acceptLicense": "I am allowed to publish this dataset and agree that it becomes a durable part of the crop library under CC BY-SA 4.0.",
+      "acceptLicensePrefix": "I am allowed to publish this dataset and agree that it becomes a durable part of the crop library under the ",
+      "acceptLicenseSuffix": " license.",
+      "licenseName": "CC BY-SA 4.0",
+      "licenseTooltip": "CC BY-SA 4.0: attribution is required, modifications must be shared under the same license, and the grant cannot be revoked.",
       "linkPrefix": "Details are available in the ",
       "privacyLinkLabel": "privacy policy",
       "linkMiddle": " and the ",

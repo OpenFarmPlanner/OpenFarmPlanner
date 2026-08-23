@@ -29,6 +29,7 @@ import { useTranslation } from '../i18n';
 import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
 import { buildPublicCultureComparison } from './publicCultureComparison';
+import { AcceptLicenseCheckboxLabel } from './AcceptLicenseCheckboxLabel';
 import {
   findMatchedCropSpeciesAlias,
   formatCropSpeciesMatchLabel,
@@ -774,7 +775,7 @@ export function CulturesPublishingWizardDialog({
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
               <FormControlLabel
                 control={<Checkbox checked={acceptedLicense} onChange={(event) => setAcceptedLicense(event.target.checked)} />}
-                label={t('library.publishConfirm.acceptLicense')}
+                label={<AcceptLicenseCheckboxLabel t={t} />}
               />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 {t('library.publishConfirm.linkPrefix')}

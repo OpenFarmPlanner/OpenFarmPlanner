@@ -16,6 +16,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
 import { Link as RouterLink } from 'react-router';
+import { AcceptLicenseCheckboxLabel } from './AcceptLicenseCheckboxLabel';
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 
@@ -89,7 +90,7 @@ export function CulturesPublishConfirmDialog({
                 onChange={(event) => onAcceptedChange(event.target.checked)}
               />
             )}
-            label={t('library.publishConfirm.acceptLicense')}
+            label={<AcceptLicenseCheckboxLabel t={t} />}
             sx={{ alignItems: 'flex-start', color: 'text.secondary' }}
           />
           <Typography variant="body2" color="text.secondary">

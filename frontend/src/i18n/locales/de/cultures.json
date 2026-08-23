@@ -946,7 +946,10 @@
         "reuse": "Andere können den Datensatz dauerhaft importieren, nutzen und weiterentwickeln.",
         "license": "Lizenz: CC BY-SA 4.0. Praktisch bedeutet das: Nutzung und Bearbeitung sind erlaubt, wenn die Quelle genannt wird und Verbesserungen wieder unter denselben Bedingungen geteilt werden."
       },
-      "acceptLicense": "Ich darf diesen Datensatz veröffentlichen und bin einverstanden, dass er dauerhaft unter CC BY-SA 4.0 Teil der Kulturbibliothek wird.",
+      "acceptLicensePrefix": "Ich darf diesen Datensatz veröffentlichen und bin einverstanden, dass er dauerhaft unter der Lizenz ",
+      "acceptLicenseSuffix": " Teil der Kulturbibliothek wird.",
+      "licenseName": "CC BY-SA 4.0",
+      "licenseTooltip": "CC BY-SA 4.0: Namensnennung ist erforderlich, Bearbeitungen müssen unter derselben Lizenz weitergegeben werden, und die Freigabe ist unwiderruflich.",
       "linkPrefix": "Details dazu finden Sie in der ",
       "privacyLinkLabel": "Datenschutzerklärung",
       "linkMiddle": " und den ",
