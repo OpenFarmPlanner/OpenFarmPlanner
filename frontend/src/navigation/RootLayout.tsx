@@ -1233,7 +1233,11 @@ function RootLayout() {
           ) : null}
           {(() => {
             const groups: TopbarContextAction[][] = [];
-            [...topbarModeControls, ...topbarOverflowActions].forEach((action) => {
+            // topbarPrimaryAction below already renders the location "add" action (via
+            // activeCreateActions), so skip it here to avoid a duplicate button on desktop.
+            [...topbarModeControls, ...topbarOverflowActions]
+              .filter((action) => action.id !== HIERARCHY_CREATE_LOCATION_ACTION_ID)
+              .forEach((action) => {
               const lastGroup = groups[groups.length - 1];
               if (!lastGroup || !action.groupId || lastGroup[0]?.groupId !== action.groupId) {
                 groups.push([action]);
