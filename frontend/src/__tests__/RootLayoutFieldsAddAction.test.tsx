@@ -7,11 +7,15 @@ import { FocusManagerProvider } from '../focus/FocusManager';
 import type { AuthUser } from '../auth/types';
 import i18n from '../i18n/config';
 
-// Regression test for a topbar bug: on /app/fields-beds with multiple
-// locations (multi-location mode), the "Standort hinzufügen" action was
-// registered through both the generic topbar context actions and the
-// create-actions ("primary action") system, so it rendered as two
-// identical buttons on desktop. RootLayout must render it only once.
+// Regression tests for the fields-beds topbar "add" button:
+// 1) it used to render twice in multi-location mode (registered through
+//    both the generic topbar context actions and the create-actions
+//    "primary action" system);
+// 2) it used to be a split button (main action + dropdown offering the
+//    other hierarchy level), which silently stopped working once the
+//    create-actions system started shadowing the dropdown-carrying action.
+// Kept to one <App/> mount per location-mode to keep this file's runtime
+// down — each mount pulls in the full router/command/auth stack.
 
 const { locationListMock, fieldListMock, bedListMock } = vi.hoisted(() => ({
   locationListMock: vi.fn(),
@@ -94,19 +98,13 @@ describe('RootLayout fields-beds topbar "add location" action', () => {
     window.history.pushState({}, '', '/app/fields-beds');
   });
 
-  it('renders a single "Standort hinzufügen" button when multiple locations exist', async () => {
+  it('renders a single split "Standort hinzufügen" button offering "Parzelle hinzufügen" when multiple locations exist', async () => {
+    const user = userEvent.setup();
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     await screen.findByText('Hofgarten', {}, { timeout: 10000 });
 
     expect(screen.getAllByRole('button', { name: /Standort hinzufügen/ })).toHaveLength(1);
-  });
-
-  it('offers "Parzelle hinzufügen" from the split-button dropdown in multi-location mode', async () => {
-    const user = userEvent.setup();
-    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
-
-    await screen.findByText('Hofgarten', {}, { timeout: 10000 });
 
     await user.click(screen.getByRole('button', { name: 'Weitere Optionen' }));
     const menu = await screen.findByRole('menu');

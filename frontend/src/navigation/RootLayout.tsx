@@ -22,6 +22,7 @@ import {
   Link,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
@@ -1407,6 +1408,9 @@ function RootLayout() {
                   }}
                   disabled={action.disabled}
                 >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <AddIcon fontSize="small" />
+                  </ListItemIcon>
                   <ListItemText primary={action.label} />
                 </MenuItem>
               ))}
@@ -1772,6 +1776,9 @@ function RootLayout() {
                       }}
                       disabled={action.disabled}
                     >
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <AddIcon fontSize="small" />
+                      </ListItemIcon>
                       <ListItemText primary={action.label} />
                     </MenuItem>
                   ))}
