@@ -328,6 +328,13 @@ export default function FieldsBedsPage() {
           onClick: openAddLocationDialog,
           ariaLabel: t('hierarchy:actions.createLocation'),
           hidden: isSingleLocationMode,
+          menuActions: [
+            {
+              id: 'fields-global-add-location-menu-add-field',
+              label: t('hierarchy:actions.addFieldDropdown'),
+              onClick: requestInlineFieldCreation,
+            },
+          ],
         },
       ];
     return globalActions;
