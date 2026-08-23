@@ -541,8 +541,16 @@ function RootLayout() {
     () => topbarContextActions.filter((action) => action.id !== 'cultures-open-library'),
     [topbarContextActions],
   );
+  // The fields-beds topbar has exactly one non-hidden "add" action at a
+  // time: 'fields-global-add-field' (single-location mode) or
+  // HIERARCHY_CREATE_LOCATION_ACTION_ID (multi-/zero-location mode). Each
+  // carries the other level as a `menuActions` entry, restoring the split
+  // button (main action + dropdown for the other level).
   const fieldsGlobalAddAction = useMemo(
-    () => topbarContextActions.find((action) => action.id === 'fields-global-add-field') ?? null,
+    () => topbarContextActions.find((action) => (
+      (action.id === 'fields-global-add-field' || action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID)
+      && !action.hidden
+    )) ?? null,
     [topbarContextActions],
   );
   const isFieldsBedsGraphicalViewActive = useMemo(
@@ -796,6 +804,20 @@ function RootLayout() {
     return null;
   }, [isFieldsBedsGraphicalViewActive, location.pathname, t]);
   const topbarPrimaryAction = useMemo(() => {
+    // The fields-beds "add" action carries a `menuActions` entry for the
+    // other hierarchy level (split button), which the generic
+    // activeCreateActions path below doesn't model — so it takes priority
+    // on this route. The Alt+Shift+N shortcut itself still runs through
+    // CommandProvider's own runPrimaryCreateAction independent of this.
+    if (location.pathname.startsWith('/app/fields-beds')) {
+      return fieldsGlobalAddAction ? {
+        label: fieldsGlobalAddAction.label,
+        tooltip: `${fieldsGlobalAddAction.label} (Alt+Shift+N)`,
+        to: '',
+        onClick: fieldsGlobalAddAction.onClick,
+        menuActions: fieldsGlobalAddAction.menuActions,
+      } : null;
+    }
     if (activeCreateActions.length > 0) {
       const isSingleCreateAction = activeCreateActions.length === 1;
       const primaryCreateAction = activeCreateActions[0];
@@ -806,7 +828,6 @@ function RootLayout() {
         onClick: runPrimaryCreateAction,
       };
     }
-    if (location.pathname.startsWith('/app/fields-beds')) return fieldsGlobalAddAction ? { label: fieldsGlobalAddAction.label, to: '', onClick: fieldsGlobalAddAction.onClick, menuActions: fieldsGlobalAddAction.menuActions } : null;
     return null;
   }, [activeCreateActions, fieldsGlobalAddAction, location.pathname, runPrimaryCreateAction, t]);
   const handleTopbarPrimaryAction = useCallback((): void => {
@@ -1335,7 +1356,13 @@ function RootLayout() {
                   onClick={(event) => setTopbarPrimaryActionMenuAnchor(event.currentTarget)}
                   sx={{ px: 0.5, minWidth: 28 }}
                 >
-                  <KeyboardArrowDownIcon fontSize="small" />
+                  <KeyboardArrowDownIcon
+                    fontSize="small"
+                    sx={{
+                      transition: 'transform 0.15s',
+                      transform: topbarPrimaryActionMenuAnchor ? 'rotate(180deg)' : 'none',
+                    }}
+                  />
                 </Button>
               </ButtonGroup>
             ) : (

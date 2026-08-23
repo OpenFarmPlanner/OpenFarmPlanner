@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
@@ -99,5 +100,39 @@ describe('RootLayout fields-beds topbar "add location" action', () => {
     await screen.findByText('Hofgarten', {}, { timeout: 10000 });
 
     expect(screen.getAllByRole('button', { name: /Standort hinzufügen/ })).toHaveLength(1);
+  });
+
+  it('offers "Parzelle hinzufügen" from the split-button dropdown in multi-location mode', async () => {
+    const user = userEvent.setup();
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByText('Hofgarten', {}, { timeout: 10000 });
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Optionen' }));
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Parzelle hinzufügen' }));
+
+    // The menu item's onClick (requestInlineFieldCreation) ran without
+    // throwing and closed the menu; the resulting inline DataGrid draft row
+    // is exercised separately by FieldsBedsHierarchy's own tests.
+    await vi.waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+  });
+
+  it('offers "Standort hinzufügen" from the split-button dropdown in single-location mode and opens the add-location dialog', async () => {
+    const user = userEvent.setup();
+    locationListMock.mockResolvedValue({
+      data: { results: [{ id: 1, name: 'Hofstelle' }] },
+    });
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByRole('button', { name: /Parzelle hinzufügen/ }, { timeout: 10000 });
+
+    await user.click(screen.getByRole('button', { name: 'Weitere Optionen' }));
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Standort hinzufügen' }));
+
+    expect(await screen.findByText('Weiteren Standort hinzufügen')).toBeInTheDocument();
   });
 });
