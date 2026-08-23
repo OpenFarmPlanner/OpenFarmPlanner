@@ -49,7 +49,10 @@ description), one level down:
 - `PlantingPlanViewSet.get_queryset()` (`backend/farm/planning/views.py`)
   filters by `season_id` when the header is present; `perform_create` injects
   it onto new plans the same way project injection works, unless the
-  serializer payload already specifies a season explicitly.
+  serializer payload already specifies a season explicitly. Without a usable
+  header it falls back to `get_or_create_season_for_date` (the season the
+  plan's own `planting_date` falls into), so `season IS NULL` stays reserved
+  for rows that predate the feature — see the first-run setup below.
 - Switching the active season reloads the page — the same deliberate choice
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
@@ -81,7 +84,19 @@ single reusable action, not a per-entry-point special case:
 ## First-run setup (migrating pre-existing projects)
 
 Projects created before this feature have `PlantingPlan` rows with
-`season IS NULL`. `SeasonSetupStatusView`/`SeasonSetupApplyView`
+`season IS NULL`. That state is reserved for them: everything that creates
+planting plans today assigns a season up front — the API (above) and the
+project seeders, which call
+`farm/services/seasons.py::assign_unassigned_planting_plans` after building
+their fixtures (`populate_demo_project`, `populate_hint_test_project`).
+Without that, a freshly created demo project would greet its owner with the
+migration modal below. Season creation goes through one helper in all three
+paths (`get_or_create_season_for_period`, wrapped by
+`get_or_create_season_for_date`), and `reset_project_demo_data` drops a
+project's seasons along with the rest of its farm data so repopulating never
+accumulates them.
+
+`SeasonSetupStatusView`/`SeasonSetupApplyView`
 (`backend/farm/seasons/views.py`) drive a one-time modal
 (`frontend/src/seasons/SeasonSetupDialog.tsx`, mounted from `RootLayout.tsx`
 and gated on `seasonSetupAPI.status().needs_setup`):

@@ -100,3 +100,67 @@ def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
     ]
     PlantingPlan.objects.bulk_create(new_plans)
     return len(new_plans)
+
+
+def get_or_create_season_for_period(
+    project: Project,
+    start_date: date,
+    end_date: date,
+    *,
+    created_by=None,
+) -> Season:
+    """Return the project's season starting on `start_date`, creating it if missing."""
+    season, _ = Season.objects.get_or_create(
+        project=project,
+        start_date=start_date,
+        defaults={'end_date': end_date, 'created_by': created_by},
+    )
+    return season
+
+
+def get_or_create_season_for_date(
+    project: Project,
+    reference_date: date | None = None,
+    *,
+    created_by=None,
+) -> Season:
+    """Return the project's season containing `reference_date` (today if None).
+
+    The single entry point for "this plan needs *some* season": it resolves the
+    period from the project's own pattern, so a project never ends up with a
+    season it did not configure.
+    """
+    pattern = get_or_create_season_pattern(project)
+    start_date, end_date = compute_period_containing(pattern, reference_date or date.today())
+    return get_or_create_season_for_period(project, start_date, end_date, created_by=created_by)
+
+
+def assign_unassigned_planting_plans(project: Project, *, owner=None) -> Season | None:
+    """Put every season-less planting plan of `project` into a matching season.
+
+    Used by the project seeders (demo and hint-test fixtures), which create
+    planting plans directly instead of going through the API. Without this
+    their plans would look like pre-season legacy data and trigger the
+    first-run migration modal on a project that was just created.
+
+    The season is anchored on the earliest planting date rather than on today,
+    so seeded plans keep the period they actually fall into. Returns None when
+    there is nothing to assign.
+    """
+    unassigned = PlantingPlan.objects.filter(project=project, season__isnull=True)
+    earliest_date = (
+        unassigned.exclude(planting_date__isnull=True)
+        .order_by('planting_date')
+        .values_list('planting_date', flat=True)
+        .first()
+    )
+    if earliest_date is None and not unassigned.exists():
+        return None
+
+    season = get_or_create_season_for_date(
+        project,
+        earliest_date,
+        created_by=owner if owner and getattr(owner, 'pk', None) else None,
+    )
+    unassigned.update(season=season)
+    return season

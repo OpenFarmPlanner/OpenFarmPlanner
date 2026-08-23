@@ -19,6 +19,7 @@ from farm.services.seasons import (
     compute_preview_periods,
     copy_planting_plans,
     find_due_but_missing_season,
+    get_or_create_season_for_period,
     get_or_create_season_pattern,
 )
 
@@ -186,13 +187,11 @@ class SeasonSetupApplyView(APIView):
         pattern = pattern_serializer.save()
 
         start_date, end_date = compute_due_season_period(active_project)
-        season, _ = Season.objects.get_or_create(
-            project=active_project,
-            start_date=start_date,
-            defaults={
-                'end_date': end_date,
-                'created_by': request.user if request.user.is_authenticated else None,
-            },
+        season = get_or_create_season_for_period(
+            active_project,
+            start_date,
+            end_date,
+            created_by=request.user if request.user.is_authenticated else None,
         )
         assigned_count = PlantingPlan.objects.filter(
             project=active_project, season__isnull=True,
