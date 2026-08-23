@@ -90,7 +90,10 @@ test('public crop library supports quick import, direct edit, versions, discussi
     const publicCulture = await publishUniquePublicCulture(page);
 
     await page.goto('/app/cultures');
-    await page.getByRole('button', { name: 'Aus Bibliothek importieren' }).click();
+    // The library entry point lives inside the topbar's Import/Export menu
+    // rather than being its own button.
+    await page.getByRole('button', { name: 'Import/Export' }).click();
+    await page.getByRole('menuitem', { name: 'Aus Bibliothek importieren' }).click();
     const importDialog = page.getByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
     await expect(importDialog).toBeVisible();
     await importDialog.getByLabel('Öffentliche Kulturen durchsuchen').fill(publicCulture.variety);
