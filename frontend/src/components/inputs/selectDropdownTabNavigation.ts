@@ -8,6 +8,8 @@ import type { SelectTypeaheadOption } from './selectTypeahead';
  * A plain page form is not such a surface — Tab has to be able to leave it. */
 const MODAL_FOCUS_SCOPE_SELECTOR = '[role="dialog"], [role="alertdialog"], .MuiPopover-paper';
 
+export const MENU_FOCUS_RESTORE_DELAY_MS = 0;
+
 interface FocusScope {
   container: HTMLElement;
   wrap: boolean;
@@ -85,17 +87,21 @@ export function useOpenSelectTabNavigation<Value = unknown>({
     }
 
     pendingAdvanceRef.current = null;
-    const scope = resolveFocusScope(pendingAdvance.trigger);
-    if (!scope) {
-      return;
-    }
+    const timeoutId = window.setTimeout(() => {
+      const scope = resolveFocusScope(pendingAdvance.trigger);
+      if (!scope) {
+        return;
+      }
 
-    getTabbableNeighbour(
-      scope.container,
-      pendingAdvance.trigger,
-      pendingAdvance.direction,
-      { wrap: scope.wrap },
-    )?.focus();
+      getTabbableNeighbour(
+        scope.container,
+        pendingAdvance.trigger,
+        pendingAdvance.direction,
+        { wrap: scope.wrap },
+      )?.focus();
+    }, MENU_FOCUS_RESTORE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
   }, [advanceRequestCount]);
 
   return useCallback((event: SelectMenuKeyboardEvent): void => {

@@ -32,7 +32,7 @@ export function SearchableSelectEditCell({
   hasFocus,
 }: SearchableSelectEditCellProps) {
   const apiRef = useGridApiContext();
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const handleOpen = useCallback((): void => {
     setOpen(true);
@@ -40,6 +40,7 @@ export function SearchableSelectEditCell({
   const notifyMenuClose = useSelectEditCellOpenRequest(id, field, handleOpen);
   const handleClose = useCallback((event: unknown): void => {
     setOpen(false);
+    setInputValue(null);
     notifyMenuClose(event);
   }, [notifyMenuClose]);
 
@@ -47,6 +48,8 @@ export function SearchableSelectEditCell({
     () => options.find((option) => option.value === value) ?? null,
     [options, value]
   );
+
+  const resolvedInputValue = inputValue ?? selectedOption?.label ?? '';
 
   const handleChange = useCallback(async (newValue: SearchableSelectOption | null): Promise<void> => {
     const nextValue = newValue?.value ?? null;
@@ -65,9 +68,10 @@ export function SearchableSelectEditCell({
     <SearchableSelect
       options={options}
       value={selectedOption}
-      inputValue={inputValue}
+      inputValue={resolvedInputValue}
       onInputChange={setInputValue}
       onChange={(newValue) => {
+        setInputValue(newValue?.label ?? '');
         void handleChange(newValue);
       }}
       placeholder={placeholder}

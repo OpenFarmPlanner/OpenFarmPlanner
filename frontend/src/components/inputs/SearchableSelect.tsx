@@ -90,7 +90,9 @@ export function SearchableSelect<T = unknown>({
   onClose,
 }: SearchableSelectProps<T>) {
   const [internalInputValue, setInternalInputValue] = useState('');
+  const [internalOpen, setInternalOpen] = useState(false);
   const resolvedInputValue = inputValue ?? internalInputValue;
+  const resolvedOpen = open ?? internalOpen;
 
   const handleInputChange = (_: unknown, newInputValue: string, reason: string) => {
     if (inputValue === undefined) {
@@ -106,15 +108,30 @@ export function SearchableSelect<T = unknown>({
       fullWidth={fullWidth}
       autoHighlight
       openOnFocus
-      open={open}
-      onOpen={onOpen}
-      onClose={onClose}
+      open={resolvedOpen}
+      onOpen={() => {
+        if (open === undefined) {
+          setInternalOpen(true);
+        }
+        onOpen?.();
+      }}
+      onClose={(event) => {
+        if (open === undefined) {
+          setInternalOpen(false);
+        }
+        onClose?.(event);
+      }}
       size={size}
       options={options}
       value={value}
       inputValue={resolvedInputValue}
       onInputChange={handleInputChange}
       onChange={(_, newValue) => onChange(newValue)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && resolvedOpen) {
+          event.stopPropagation();
+        }
+      }}
       isOptionEqualToValue={(option, selected) => option.value === selected.value}
       getOptionLabel={(option) => option.label}
       renderOption={(props, option) => (

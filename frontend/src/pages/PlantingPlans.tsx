@@ -60,7 +60,7 @@ import { AreaM2EditCell } from "../components/data-grid/AreaM2EditCell";
 import { PlantsCountEditCell } from "../components/data-grid/PlantsCountEditCell";
 import {
   EditableDataGrid,
-  createSingleSelectColumn,
+  createSearchableSelectColumn,
   getCalculatedColumnProps,
   type DataGridAPI,
   type EditableDataGridCommandApi,
@@ -457,7 +457,7 @@ function PlantingPlans() {
   const columns: GridColDef[] = useMemo(
     () => [
       {
-        ...createSingleSelectColumn<PlantingPlanRow>({
+        ...createSearchableSelectColumn<PlantingPlanRow>({
           field: "culture",
           headerName: t("plantingPlans:columns.culture"),
           flex: 0,
