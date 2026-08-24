@@ -182,17 +182,6 @@ const wrapNativeKeyboardEvent = (event: globalThis.KeyboardEvent): DataGridKeybo
   stopPropagation: () => event.stopPropagation(),
 } as DataGridKeyboardEvent);
 
-const rowsHaveSameValues = <T extends EditableRow>(first: T, second: T): boolean => {
-  const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
-  for (const key of keys) {
-    if (!Object.is(first[key], second[key])) {
-      return false;
-    }
-  }
-
-  return true;
-};
-
 export function EditableDataGrid<T extends EditableRow>({
   columns,
   api,
@@ -1262,41 +1251,6 @@ export function EditableDataGrid<T extends EditableRow>({
     return true;
   }, [getDraftRow, markRowDirty]);
 
-  const stopExistingEditedRow = useCallback((rowId: GridRowId): boolean => {
-    const rowKey = String(rowId);
-    const currentRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
-    if (!currentRow || isUnsavedDraftRow(currentRow)) {
-      return false;
-    }
-
-    const snapshot = rowSnapshotRef.current.get(rowKey);
-    const hasActualChanges = snapshot ? !rowsHaveSameValues(snapshot, currentRow) : true;
-
-    setRows((previousRows) =>
-      previousRows.map((row) => (String(row.id) === rowKey ? currentRow : row)),
-    );
-
-    setDirtyRowIds((previous) => {
-      const next = new Set(previous);
-      if (hasActualChanges) {
-        next.add(rowKey);
-      } else {
-        next.delete(rowKey);
-      }
-      return next;
-    });
-    setActiveValidationErrors((previous) => {
-      const next = { ...previous };
-      delete next[rowKey];
-      return next;
-    });
-    setRowModesModel((oldModel) => ({
-      ...oldModel,
-      [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
-    }));
-    return true;
-  }, [getDraftRow, rowsById]);
-
   const navigateFromEditedCell = useCallback((
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
@@ -1317,9 +1271,6 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (isSameRow) {
       internalEditNavigationRowIdRef.current = String(current.id);
-      if (targetHasDedicatedEditor) {
-        stopExistingEditedRow(current.id);
-      }
       focusKeyboardNavigableCell(target.id, target.field, {
         startEdit: options.startTargetEdit,
         requestDialogEdit: options.requestDialogEdit,
@@ -1348,7 +1299,6 @@ export function EditableDataGrid<T extends EditableRow>({
     focusKeyboardNavigableCell,
     hasDedicatedEditor,
     rowModesModel,
-    stopExistingEditedRow,
   ]);
 
   const recoverSameRowNavigationFromTabEvent = useCallback((

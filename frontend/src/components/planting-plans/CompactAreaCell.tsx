@@ -15,6 +15,8 @@ interface CompactAreaCellProps {
   placeholder?: string;
   /** Accessible name for the trigger; only used together with `onOpen`. */
   triggerLabel?: string;
+  /** Increment to move focus back to the trigger after an external editor closes. */
+  focusRequest?: number;
   /** Keeps focus where it is while the editor itself is open. */
   suppressFocus?: boolean;
 }
@@ -25,6 +27,7 @@ export function CompactAreaCell({
   onOpen,
   placeholder,
   triggerLabel,
+  focusRequest = 0,
   suppressFocus = false,
 }: CompactAreaCellProps) {
   const triggerRef = useRef<HTMLDivElement | null>(null);
@@ -45,6 +48,19 @@ export function CompactAreaCell({
       cancelAnimationFrame(frame);
     };
   }, [hasFocus, suppressFocus]);
+
+  useEffect(() => {
+    if (focusRequest <= 0 || suppressFocus) {
+      return undefined;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [focusRequest, suppressFocus]);
 
   return (
     <OverflowTooltip title={displayText}>

@@ -64,6 +64,85 @@ async function createAutocompleteFixture(
   return { planId: plan.id, targetCultureName: 'Zucchini (Enter)' };
 }
 
+async function createCultivationTypeFixture(page: Page): Promise<{ planId: number }> {
+  const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
+  const projectId = Number(activeProjectId);
+  const csrfToken = await page.evaluate(() =>
+    document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] ?? '');
+
+  const api = async <T,>(path: string, data: Record<string, unknown>): Promise<T> => {
+    const response = await page.request.post(`${apiBase}${path}`, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json',
+        'X-Project-Id': String(projectId),
+      },
+      data: { ...data, project: projectId },
+    });
+    expect(response.ok(), `${path} -> ${response.status()}: ${await response.text()}`).toBeTruthy();
+    return response.json() as Promise<T>;
+  };
+
+  const location = await api<{ id: number }>('/locations/', { name: 'Anbauart-Enter-Hof' });
+  const field = await api<{ id: number }>('/fields/', { name: 'Anbauart-Enter-Feld', location: location.id });
+  const bed = await api<{ id: number }>('/beds/', { name: 'Anbauart-Enter-Beet', field: field.id, area_sqm: 12 });
+  const culture = await api<{ id: number }>('/cultures/', {
+    name: 'Gurke',
+    variety: 'Enter',
+    cultivation_type: 'direct_sowing',
+    cultivation_types: ['direct_sowing', 'pre_cultivation'],
+    plants_per_m2: 2,
+  });
+  const plan = await api<{ id: number }>('/planting-plans/', {
+    bed: bed.id,
+    culture: culture.id,
+    cultivation_type: 'direct_sowing',
+    planting_date: '2026-05-01',
+    area_usage_sqm: 2,
+  });
+
+  return { planId: plan.id };
+}
+
+async function createMissingSpacingFixture(page: Page): Promise<{ planId: number }> {
+  const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
+  const projectId = Number(activeProjectId);
+  const csrfToken = await page.evaluate(() =>
+    document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] ?? '');
+
+  const api = async <T,>(path: string, data: Record<string, unknown>): Promise<T> => {
+    const response = await page.request.post(`${apiBase}${path}`, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json',
+        'X-Project-Id': String(projectId),
+      },
+      data: { ...data, project: projectId },
+    });
+    expect(response.ok(), `${path} -> ${response.status()}: ${await response.text()}`).toBeTruthy();
+    return response.json() as Promise<T>;
+  };
+
+  const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Tab-Hof' });
+  const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Tab-Feld', location: location.id });
+  const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Tab-Beet', field: field.id, area_sqm: 12 });
+  const culture = await api<{ id: number }>('/cultures/', {
+    name: 'Abstandslos',
+    variety: 'Tab',
+    cultivation_type: 'direct_sowing',
+    cultivation_types: ['direct_sowing'],
+  });
+  const plan = await api<{ id: number }>('/planting-plans/', {
+    bed: bed.id,
+    culture: culture.id,
+    cultivation_type: 'direct_sowing',
+    planting_date: '2026-05-01',
+    area_usage_sqm: 2,
+  });
+
+  return { planId: plan.id };
+}
+
 test.describe('planting plans tab navigation with hidden columns', () => {
   test.beforeEach(async ({ page, request }) => {
     await page.setViewportSize({ width: NARROW_DESKTOP_WIDTH, height: 900 });
@@ -130,5 +209,54 @@ test.describe('planting plans tab navigation with hidden columns', () => {
 
     await page.keyboard.press('Tab');
     await expect.poll(() => focusedField(page)).toBe('cultivation_type');
+  });
+
+  test('Enter commits the highlighted cultivation type option', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const { planId } = await createCultivationTypeFixture(page);
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const row = page.locator(`[role="row"][data-id="${planId}"]`);
+    const cultivationTypeCell = row.locator('[data-field="cultivation_type"]');
+    await expect(cultivationTypeCell).toBeVisible();
+
+    await cultivationTypeCell.dblclick();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+    await expect(page.getByRole('listbox')).toBeVisible();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('option', { name: 'Pflanzung' })).toBeVisible();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('listbox')).toBeHidden();
+    await expect(cultivationTypeCell.getByRole('combobox')).toHaveText('Pflanzung');
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+  });
+
+  test('Tab keeps plants and growing-area cells in the row edit flow', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const { planId } = await createMissingSpacingFixture(page);
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const row = page.locator(`[role="row"][data-id="${planId}"]`);
+    await expect(row).toBeVisible();
+
+    await row.locator('[data-field="area_m2"]').dblclick();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+    await expect.poll(() => focusedField(page)).toBe('area_m2');
+
+    await page.keyboard.press('Tab');
+    await expect.poll(() => focusedField(page)).toBe('plants_count');
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+
+    await row.locator('[data-field="cultivation_type"]').focus();
+    await expect.poll(() => focusedField(page)).toBe('cultivation_type');
+
+    await page.keyboard.press('Tab');
+    await expect.poll(() => focusedField(page)).toBe('bed');
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeHidden();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
   });
 });

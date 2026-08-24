@@ -152,6 +152,7 @@ function AreaAssignmentDialogComponent({
   const [isOpen, setIsOpen] = useState(false);
   const isOpenRef = useRef(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const [triggerFocusRequest, setTriggerFocusRequest] = useState(0);
   const [draft, setDraft] = useState<AssignmentState>({ locationId: null, fieldId: null, bedId: bedId ?? null });
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
@@ -310,6 +311,7 @@ function AreaAssignmentDialogComponent({
     await onApply(activeDraft.bedId);
     isOpenRef.current = false;
     setIsOpen(false);
+    setTriggerFocusRequest((request) => request + 1);
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -460,6 +462,7 @@ function AreaAssignmentDialogComponent({
   const handleCancel = (): void => {
     isOpenRef.current = false;
     setIsOpen(false);
+    setTriggerFocusRequest((request) => request + 1);
   };
 
   /**
@@ -486,6 +489,7 @@ function AreaAssignmentDialogComponent({
         placeholder={placeholder}
         hasFocus={hasFocus}
         suppressFocus={isOpen}
+        focusRequest={triggerFocusRequest}
         onOpen={handleOpen}
         triggerLabel={t('areaAssignment.editButton')}
       />

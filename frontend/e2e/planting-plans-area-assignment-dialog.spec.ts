@@ -4,6 +4,10 @@ import { loginWithDeterministicProject } from './utils';
 const backendPort = process.env.BACKEND_PORT ?? '8000';
 const apiBase = `http://127.0.0.1:${backendPort}/api`;
 
+const focusedField = async (page: Page): Promise<string | null> =>
+  page.evaluate(() =>
+    document.activeElement?.closest('[role="gridcell"]')?.getAttribute('data-field') ?? null);
+
 type AreaDialogFixtureOptions = {
   languageCode?: 'de' | 'en';
   longNames?: boolean;
@@ -197,20 +201,14 @@ test.describe('planting plans area assignment dialog', () => {
     // Cancelling leaves focus on the cell, and re-entering focuses it again.
     await page.getByRole('button', { name: 'Abbrechen' }).click();
     await expect(dialog).toBeHidden();
-    await page.keyboard.press('Shift+Tab');
-    await expect(previousCell).toHaveAttribute('tabindex', '0');
-    await expect(dialog).toBeHidden();
-    await page.keyboard.press('Tab');
-    await expect(dialog).toBeHidden();
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
     await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
     // Escape must not save, and must not stop the next entry from opening.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Tab');
-    await expect(dialog).toBeHidden();
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
     await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
@@ -218,7 +216,7 @@ test.describe('planting plans area assignment dialog', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await page.keyboard.press('Tab');
-    await expect(cellAt('planting_date', 0)).toHaveAttribute('tabindex', '0');
+    await expect.poll(() => focusedField(page)).toBe('planting_date');
     await page.keyboard.press('Shift+Tab');
     await expect(dialog).toBeHidden();
     await openFocusedAreaCellWithEnter(page, 0);
@@ -228,6 +226,8 @@ test.describe('planting plans area assignment dialog', () => {
 
     // Every other row behaves the same, in both directions.
     for (const rowIndex of [1, 2]) {
+      await cellAt('cultivation_type', rowIndex).click();
+      await page.keyboard.press('Escape');
       await cellAt('cultivation_type', rowIndex).focus();
       await page.keyboard.press('Tab');
       await expect(dialog).toBeHidden();
@@ -235,10 +235,10 @@ test.describe('planting plans area assignment dialog', () => {
       await expect(dialog).toBeVisible();
       await page.getByRole('button', { name: 'Abbrechen' }).click();
       await expect(dialog).toBeHidden();
-      await expect(cellAt('bed', rowIndex)).toHaveAttribute('tabindex', '0');
+      await expect(cellAt('bed', rowIndex).getByLabel('Anbaufläche bearbeiten')).toBeFocused();
 
       await page.keyboard.press('Tab');
-      await expect(cellAt('planting_date', rowIndex)).toHaveAttribute('tabindex', '0');
+      await expect.poll(() => focusedField(page)).toBe('planting_date');
       await page.keyboard.press('Shift+Tab');
       await expect(dialog).toBeHidden();
       await openFocusedAreaCellWithEnter(page, rowIndex);

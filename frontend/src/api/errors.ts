@@ -20,6 +20,7 @@ type TFunction = (key: string, options?: Record<string, unknown>) => string;
  */
 const FALLBACK_LABEL_FIELDS = [
   'area_input_value',
+  'area_input_unit',
   'area_usage_sqm',
   'area_sqm',
   'planting_date',
@@ -73,6 +74,8 @@ const backendMessageMap: Record<string, string> = {
   'this crop species already exists or has already been proposed.': 'library.publishWizard.speciesAlreadyExists',
   'please enter a valid numeric value, e.g. 3.9.': 'validation.invalidNumberExample',
   'area input value must be greater than 0.': 'validation.areaInputPositive',
+  'culture must be selected to input area as plant count.': 'validation.areaInputPlantsCultureRequired',
+  'culture spacing data is missing or invalid. cannot calculate area from plant count.': 'validation.areaInputPlantsSpacingMissing',
 };
 
 const authenticationExpiredDetails = new Set([

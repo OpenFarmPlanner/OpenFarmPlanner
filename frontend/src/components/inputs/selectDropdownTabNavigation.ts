@@ -42,6 +42,15 @@ const getHighlightedOptionValue = (listbox: HTMLElement): string | null => {
   return activeElement.closest<HTMLElement>('[role="option"]')?.getAttribute('data-value') ?? null;
 };
 
+const getHighlightedOptionElement = (listbox: HTMLElement): HTMLElement | null => {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !listbox.contains(activeElement)) {
+    return null;
+  }
+
+  return activeElement.closest<HTMLElement>('[role="option"]');
+};
+
 /** MUI renders a Select's option list as the `<ul>` of its floating menu. */
 export type SelectMenuKeyboardEvent = KeyboardEvent<HTMLUListElement>;
 
@@ -106,6 +115,25 @@ export function useOpenSelectTabNavigation<Value = unknown>({
 
   return useCallback((event: SelectMenuKeyboardEvent): void => {
     onKeyDown?.(event);
+    if (
+      event.key === 'Enter'
+      && !event.altKey
+      && !event.ctrlKey
+      && !event.metaKey
+      && !multiple
+    ) {
+      const highlightedOptionElement = getHighlightedOptionElement(event.currentTarget);
+      if (!highlightedOptionElement || highlightedOptionElement.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopImmediatePropagation?.();
+      highlightedOptionElement.click();
+      return;
+    }
+
     if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
