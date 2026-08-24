@@ -32,15 +32,20 @@ jobs:
           set -euxo pipefail
           cd frontend
           echo "Running test command (CI, non-watch): npm run test:ci"
-          echo "Applying shell hard timeout: 9m"
+          # Guards against a hung worker (hence the process dump below), not
+          # against the suite growing: a green run already takes ~8.5 minutes
+          # of the job's 15, so a cap sitting on the current runtime turns the
+          # next added test into a red build. Keep it clear of both the real
+          # runtime and the job's timeout-minutes.
+          echo "Applying shell hard timeout: 12m"
           echo "Test step start: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           set +e
-          timeout --foreground 9m npm run test:ci
+          timeout --foreground 12m npm run test:ci
           exit_code=$?
           set -e
           echo "Test step end: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           if [ "$exit_code" -eq 124 ]; then
-            echo "Frontend tests were terminated by GNU timeout after 9 minutes." >&2
+            echo "Frontend tests were terminated by GNU timeout after 12 minutes." >&2
             echo "Active node-related processes at timeout:" >&2
             set +e
             ps -ef | grep -E 'node|vitest|v8' | grep -v grep >&2
