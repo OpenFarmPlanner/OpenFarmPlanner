@@ -95,6 +95,54 @@ export function buildCropHierarchy<TCulture extends CropHierarchySource>(
 }
 
 /**
+ * Adds back the general ("no variety") culture of every group the matches
+ * belong to, so a filter that only hit Sorten still carries their Kultur.
+ *
+ * Searching for a variety name filters the general Kultur row out, which left
+ * `buildCropHierarchy` with a species node that has no `culture` of its own:
+ * clicking the Kultur in the tree then selected its first Sorte instead of
+ * showing the Kultur's own data, and the search dropdown showed a variety row
+ * without the Kultur it belongs to. The group's own header is context for the
+ * matches, not a match itself, so it does not count towards "no results".
+ */
+export function withGroupGeneralCultures<TCulture extends CropHierarchySource>(
+  matches: readonly TCulture[],
+  allCultures: readonly TCulture[],
+): TCulture[] {
+  if (matches.length === 0) {
+    return [...matches];
+  }
+  const matchedKeys = new Set<string>();
+  const keysWithGeneralCulture = new Set<string>();
+  matches.forEach((culture) => {
+    const key = getCropSpeciesKey(culture);
+    matchedKeys.add(key);
+    if (!(culture.variety || '').trim()) {
+      keysWithGeneralCulture.add(key);
+    }
+  });
+
+  const missingGeneralCultures: TCulture[] = [];
+  allCultures.forEach((culture) => {
+    if ((culture.variety || '').trim()) {
+      return;
+    }
+    const key = getCropSpeciesKey(culture);
+    if (!matchedKeys.has(key) || keysWithGeneralCulture.has(key)) {
+      return;
+    }
+    // Guards against a second varietyless row for the same group, which the UI
+    // does not create but the data model allows.
+    keysWithGeneralCulture.add(key);
+    missingGeneralCultures.push(culture);
+  });
+
+  return missingGeneralCultures.length === 0
+    ? [...matches]
+    : [...matches, ...missingGeneralCultures];
+}
+
+/**
  * The first variety under a species node that has no dedicated varietyless
  * entry of its own (`hasGeneralEntry: false` on the species node — see
  * buildCropHierarchy). Such a species row has nothing to select directly, so

@@ -273,6 +273,25 @@ future `CropVariety` entity and persisted nullable override chain exist,
 value-source cues are resolved from the current row plus the matching
 no-variety general crop row.
 
+The project page's "Kultur suchen" field renders that same hierarchy in its
+dropdown (`CultureSearchSelect.tsx`, grouping built by
+`cultureSearchOptions.ts` from `buildCropHierarchy`): one group per Kultur,
+the general entry as the group's header row and its Sorten indented below it.
+The header is an option rather than a plain group label, so arrow-key
+navigation walks headers and Sorten in one sequence and Enter on a header
+selects the general Kultur, exactly like clicking it; the surrounding
+`role="group"` names the Kultur for screen readers, which is why the Sorte
+rows can drop the repeated Kultur name. Because the page has already filtered
+the options it passes down, the dropdown switches Autocomplete's own text
+filter off — filtering twice would drop the very headers a variety hit needs.
+
+Filtering the page by a Sorte name keeps that Sorte's Kultur in the list
+(`withGroupGeneralCultures`), in the tree and the dropdown alike. Without it a
+group whose Kultur row was filtered away left a Kultur node with no data of
+its own: clicking it selected the first matching Sorte instead of the Kultur.
+The re-added Kultur is context for the matches and never a match itself, so an
+otherwise empty result still shows the "no cultures found" state.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational

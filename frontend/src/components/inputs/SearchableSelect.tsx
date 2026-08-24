@@ -21,8 +21,13 @@
 
 import { useState } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
+import type {
+  AutocompleteRenderGroupParams,
+  AutocompleteRenderOptionState,
+  FilterOptionsState,
+} from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { ReactNode, Ref } from 'react';
+import type { HTMLAttributes, ReactNode, Ref } from 'react';
 
 export interface SearchableSelectOption<T = unknown> {
   value: number;
@@ -49,6 +54,28 @@ export interface SearchableSelectProps<T = unknown> {
   open?: boolean;
   onOpen?: () => void;
   onClose?: (event: unknown) => void;
+  /**
+   * Optional grouped presentation. `groupBy` must return the same key for
+   * consecutive options that belong together (MUI groups adjacent options
+   * only), and `renderGroup`/`renderOption` then own that group's markup. Left
+   * unset, the dropdown stays the plain one-row-per-option list.
+   */
+  groupBy?: (option: SearchableSelectOption<T>) => string;
+  renderGroup?: (params: AutocompleteRenderGroupParams) => ReactNode;
+  renderOption?: (
+    props: HTMLAttributes<HTMLLIElement> & { key: unknown },
+    option: SearchableSelectOption<T>,
+    state: AutocompleteRenderOptionState,
+  ) => ReactNode;
+  /**
+   * Overrides Autocomplete's built-in text filtering — pass an identity
+   * function when the caller already filtered `options` itself and the
+   * dropdown must show exactly what it was given.
+   */
+  filterOptions?: (
+    options: SearchableSelectOption<T>[],
+    state: FilterOptionsState<SearchableSelectOption<T>>,
+  ) => SearchableSelectOption<T>[];
 }
 
 // Combines Autocomplete's own internal input ref (needed for its keyboard/focus
@@ -88,6 +115,10 @@ export function SearchableSelect<T = unknown>({
   open,
   onOpen,
   onClose,
+  groupBy,
+  renderGroup,
+  renderOption,
+  filterOptions,
 }: SearchableSelectProps<T>) {
   const [internalInputValue, setInternalInputValue] = useState('');
   const [internalOpen, setInternalOpen] = useState(false);
@@ -134,11 +165,14 @@ export function SearchableSelect<T = unknown>({
       }}
       isOptionEqualToValue={(option, selected) => option.value === selected.value}
       getOptionLabel={(option) => option.label}
-      renderOption={(props, option) => (
+      groupBy={groupBy}
+      renderGroup={renderGroup}
+      filterOptions={filterOptions}
+      renderOption={renderOption ?? ((props, option) => (
         <li {...props} key={option.value}>
           {option.label}
         </li>
-      )}
+      ))}
       noOptionsText={noOptionsText}
       renderInput={(params) => (
         <TextField

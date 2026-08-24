@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCropHierarchy, findSpeciesCulture } from '../cultures/cropHierarchy';
+import { buildCropHierarchy, findSpeciesCulture, withGroupGeneralCultures } from '../cultures/cropHierarchy';
 import type { Culture } from '../api/types';
 
 describe('buildCropHierarchy', () => {
@@ -39,5 +39,50 @@ describe('buildCropHierarchy', () => {
     const variety: Culture = { id: 2, name: 'Tomato', crop_species: 10, variety: 'Roma QA' };
 
     expect(findSpeciesCulture(variety, [variety, general])).toBe(general);
+  });
+});
+
+describe('withGroupGeneralCultures', () => {
+  const general: Culture = { id: 1, name: 'Pfefferoni', crop_species: 10, variety: '', growth_duration_days: 60 };
+  const variety: Culture = { id: 2, name: 'Pfefferoni', crop_species: 10, variety: 'Milder Spiral' };
+  const otherCrop: Culture = { id: 3, name: 'Carrot', crop_species: 20, variety: 'Nantaise' };
+  const allCultures = [general, variety, otherCrop];
+
+  it('keeps the Kultur of a group whose variety matched the search', () => {
+    // Searching for "spir" only matches the Sorte, but its Kultur has to stay
+    // in the list or the tree row for it has no data of its own to show.
+    const result = withGroupGeneralCultures([variety], allCultures);
+
+    expect(result).toContain(variety);
+    expect(result).toContain(general);
+    const rows = buildCropHierarchy(result);
+    const speciesRow = rows.find((row) => row.kind === 'species');
+    expect(speciesRow?.culture).toBe(general);
+    expect(speciesRow?.hasGeneralEntry).toBe(true);
+  });
+
+  it('does not pull in Kulturen of groups that had no match at all', () => {
+    const result = withGroupGeneralCultures([variety], allCultures);
+
+    expect(result).not.toContain(otherCrop);
+  });
+
+  it('leaves a match list that already has its Kultur untouched', () => {
+    const result = withGroupGeneralCultures([general, variety], allCultures);
+
+    expect(result).toEqual([general, variety]);
+  });
+
+  it('adds nothing when nothing matched, so the empty state still shows', () => {
+    expect(withGroupGeneralCultures([], allCultures)).toEqual([]);
+  });
+
+  it('groups free-text cultures without a species by name', () => {
+    const freeGeneral: Culture = { id: 4, name: 'Tomate', variety: '' };
+    const freeVariety: Culture = { id: 5, name: 'Tomate', variety: 'Matina' };
+
+    const result = withGroupGeneralCultures([freeVariety], [freeGeneral, freeVariety]);
+
+    expect(result).toContain(freeGeneral);
   });
 });
