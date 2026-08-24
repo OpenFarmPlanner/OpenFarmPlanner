@@ -564,6 +564,11 @@ function RootLayout() {
       ? []
       : topbarContextActions.filter((action) => (
         action.id !== 'fields-global-add-field'
+        // Already rendered via fieldsGlobalAddAction/mobileFieldsAddLocationAction
+        // above — without this exclusion it also flows into topbarModeControls/
+        // topbarOverflowActions and renders a second (or, on very narrow mobile,
+        // third) "Standort hinzufügen" button.
+        && action.id !== HIERARCHY_CREATE_LOCATION_ACTION_ID
         && action.id !== 'public-crop-library-moderation'
         && action.id !== 'public-crop-library-remove'
       ))),
@@ -587,9 +592,16 @@ function RootLayout() {
     () => topbarModeControls.filter((action) => !action.hidden),
     [topbarModeControls],
   );
+  // Whether the current "add" action is the hierarchy (multi-/zero-location)
+  // one — used only to gate showMobileTopbarViewActions below; the button
+  // itself is already rendered via fieldsGlobalAddAction, and
+  // HIERARCHY_CREATE_LOCATION_ACTION_ID is deliberately excluded from
+  // genericTopbarContextActions (above) so it never renders a second time.
   const mobileFieldsAddLocationAction = useMemo(
-    () => topbarOverflowActions.find((action) => action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID && !action.hidden) ?? null,
-    [topbarOverflowActions],
+    () => (fieldsGlobalAddAction?.id === HIERARCHY_CREATE_LOCATION_ACTION_ID && !fieldsGlobalAddAction.hidden
+      ? fieldsGlobalAddAction
+      : null),
+    [fieldsGlobalAddAction],
   );
   const activeMobileTopbarViewActionId = mobileTopbarViewActions.find((action) => action.active)?.id ?? null;
   const showMobileTopbarViewActions = isCompactTopbar
@@ -1659,32 +1671,6 @@ function RootLayout() {
                           }
                         }}
                         disabled={fieldsGlobalAddAction.disabled}
-                        sx={{
-                          width: COMPACT_TOPBAR_TOGGLE_SIZE,
-                          height: COMPACT_TOPBAR_TOGGLE_SIZE,
-                          bgcolor: 'success.main',
-                          color: 'success.contrastText',
-                          boxShadow: 1,
-                          '&:hover': {
-                            bgcolor: 'success.dark',
-                          },
-                          '&.Mui-disabled': {
-                            bgcolor: 'action.disabledBackground',
-                            color: 'action.disabled',
-                          },
-                        }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </AppTooltip>
-                  ) : null}
-                  {mobileFieldsAddLocationAction ? (
-                    <AppTooltip title={mobileFieldsAddLocationAction.label}>
-                      <IconButton
-                        size="small"
-                        aria-label={mobileFieldsAddLocationAction.ariaLabel ?? mobileFieldsAddLocationAction.label}
-                        onClick={mobileFieldsAddLocationAction.onClick}
-                        disabled={mobileFieldsAddLocationAction.disabled}
                         sx={{
                           width: COMPACT_TOPBAR_TOGGLE_SIZE,
                           height: COMPACT_TOPBAR_TOGGLE_SIZE,

@@ -23,6 +23,24 @@ const { locationListMock, fieldListMock, bedListMock } = vi.hoisted(() => ({
   bedListMock: vi.fn(),
 }));
 
+const originalMatchMedia = window.matchMedia;
+
+function mockMobileTopbarViewport(): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width') || query.includes('down'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 const authState = {
   user: null as AuthUser | null,
   isLoading: false,
@@ -132,5 +150,22 @@ describe('RootLayout fields-beds topbar "add location" action', () => {
     await user.click(within(menu).getByRole('menuitem', { name: 'Standort hinzufügen' }));
 
     expect(await screen.findByText('Weiteren Standort hinzufügen')).toBeInTheDocument();
+  });
+
+  it('renders a single "Standort hinzufügen" add button on the compact mobile topbar too', async () => {
+    mockMobileTopbarViewport();
+    try {
+      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+      await screen.findByText('Hofgarten', {}, { timeout: 10000 });
+
+      // Regression: HIERARCHY_CREATE_LOCATION_ACTION_ID used to flow into
+      // both fieldsGlobalAddAction/mobileFieldsAddLocationAction *and* the
+      // generic topbarModeControls/topbarOverflowActions pipeline on the
+      // compact mobile topbar, rendering the same "add" button twice.
+      expect(screen.getAllByLabelText(/Standort hinzufügen/)).toHaveLength(1);
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { writable: true, value: originalMatchMedia });
+    }
   });
 });
