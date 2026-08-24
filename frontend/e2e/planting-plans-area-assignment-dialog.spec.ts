@@ -248,6 +248,30 @@ test.describe('planting plans area assignment dialog', () => {
     }
   });
 
+  test('tabs between closed hierarchy dropdowns inside the dialog', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-dropdown-tabs');
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    await page.locator('[role="gridcell"][data-field="bed"]').first().getByLabel('Anbaufläche bearbeiten').click();
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeVisible();
+
+    const locationSelect = page.getByRole('combobox', { name: 'Standort' });
+    const fieldSelect = page.getByRole('combobox', { name: 'Parzelle' });
+    const bedSelect = page.getByRole('combobox', { name: 'Beet' });
+
+    await expect(locationSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(bedSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(locationSelect).toBeFocused();
+  });
+
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-compact');

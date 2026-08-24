@@ -329,7 +329,7 @@ function AreaAssignmentDialogComponent({
       .filter((element) => (
         !element.hasAttribute('disabled')
         && element.getAttribute('aria-disabled') !== 'true'
-        && element.tabIndex >= 0
+        && (element.getAttribute('role') === 'combobox' || element.tabIndex >= 0)
       ));
   }, []);
 
