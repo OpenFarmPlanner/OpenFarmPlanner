@@ -1,4 +1,4 @@
-import { Divider, ListItemIcon, Menu, MenuItem } from '@mui/material';
+import { Box, Divider, ListItemIcon, Menu, MenuItem } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -9,6 +9,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';
 import { LanguageMenuItems } from '../i18n/LanguageSwitcher';
+import { AppTooltip } from '../components/AppTooltip';
 import type { ReactNode } from 'react';
 
 interface GlobalMenuProps {
@@ -25,6 +26,15 @@ interface GlobalMenuProps {
   onOpenAccountSettings: () => void;
   onOpenShortcuts: () => void;
   onOpenHelp: () => void;
+  /**
+   * Page-specific help (the "?" icon content) — only wired up for the mobile
+   * layout, where that icon is removed from the topbar in favor of this menu
+   * entry. Omit or leave `pageHelpAvailable` false where the current
+   * page/view has no page-specific help defined.
+   */
+  onOpenPageHelp?: () => void;
+  pageHelpAvailable?: boolean;
+  pageHelpUnavailableReason?: string;
   canLeaveDemoProject: boolean;
   isGuestDemoSession: boolean;
   onLeaveDemoProject: () => Promise<void>;
@@ -53,6 +63,9 @@ export function GlobalMenu(props: GlobalMenuProps) {
     onOpenAccountSettings,
     onOpenShortcuts,
     onOpenHelp,
+    onOpenPageHelp,
+    pageHelpAvailable,
+    pageHelpUnavailableReason,
     canLeaveDemoProject,
     isGuestDemoSession,
     onLeaveDemoProject,
@@ -63,6 +76,26 @@ export function GlobalMenu(props: GlobalMenuProps) {
 
   const wrap = (fn: () => void): () => void => () => { onClose(); fn(); };
   const wrapAsync = (fn: () => Promise<void>): () => void => () => { onClose(); void fn(); };
+
+  const pageHelpMenuItem = onOpenPageHelp ? (
+    <MenuItem
+      key="mobile-app-page-help"
+      onClick={() => { onClose(); onOpenPageHelp(); }}
+      disabled={!pageHelpAvailable}
+      sx={{ color: 'text.primary' }}
+    >
+      <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
+      {t('globalMenu.pageHelp')}
+    </MenuItem>
+  ) : null;
+  // A disabled MenuItem fires no pointer events, so the "why" tooltip needs a
+  // wrapper element to hang off — same pattern as CultureHeaderActionsMenu's
+  // disabled publish item.
+  const pageHelpItem = onOpenPageHelp && !pageHelpAvailable ? (
+    <AppTooltip key="mobile-app-page-help-tooltip" title={pageHelpUnavailableReason ?? t('globalMenu.pageHelpUnavailable')}>
+      <Box component="span" sx={{ display: 'block' }}>{pageHelpMenuItem}</Box>
+    </AppTooltip>
+  ) : pageHelpMenuItem;
 
   const mobileMenuItems = [
     ...(notificationItems ? [
@@ -78,6 +111,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <Divider key="mobile-divider-project-app" />,
     <MenuItem key="mobile-section-app" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.app')}</MenuItem>,
     <MenuItem key="mobile-app-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
+    pageHelpItem,
     <MenuItem key="mobile-app-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
     <MenuItem key="mobile-app-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="mobile-divider-app-language" />,

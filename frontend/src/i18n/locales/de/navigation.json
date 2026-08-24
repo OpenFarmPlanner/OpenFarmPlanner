@@ -130,6 +130,8 @@
     "projectActions": "Projektaktionen",
     "app": "App",
     "shortcuts": "Tastenkürzel",
+    "pageHelp": "Hilfe zu dieser Seite",
+    "pageHelpUnavailable": "Für diese Seite ist keine spezifische Hilfe verfügbar.",
     "appHelp": "App-Hilfe",
     "account": "Account",
     "closeSidebar": "Seitenleiste schließen",

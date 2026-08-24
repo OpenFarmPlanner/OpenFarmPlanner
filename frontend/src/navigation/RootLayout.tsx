@@ -1045,7 +1045,12 @@ function RootLayout() {
               </Typography>
             )}
             {topbarHelpConfig ? (
-              <Box sx={{ display: 'inline-flex' }}>
+              // The trigger button moves into the "Mehr" menu on the compact
+              // topbar (see GlobalMenu's "Hilfe zu dieser Seite" entry) to
+              // save space; PageHelp itself stays mounted either way so its
+              // window 'ofp:open-page-help' listener (used by both that menu
+              // entry and the command palette) keeps working.
+              <Box sx={{ display: isCompactTopbar ? 'none' : 'inline-flex' }}>
                 <PageHelp pageKey={topbarHelpConfig.pageKey} ariaLabel={t('pageHelp.openAria', { label: topbarHelpConfig.label })} tooltip={topbarHelpConfig.label} />
               </Box>
             ) : null}
@@ -1399,6 +1404,11 @@ function RootLayout() {
             </Menu>
           ) : null}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
+          {/* Season switcher, project switcher, and the notification bell
+              read as one "status" cluster — tighter gap than the group's own
+              separation from the primary action button before it and from
+              the "Mehr" overflow menu after it. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {hasActiveProject ? (
             <SeasonSwitcher
               controller={activeSeason}
@@ -1451,6 +1461,7 @@ function RootLayout() {
             t={t}
           />
           <NotificationBell controller={notifications} />
+          </Box>
           <IconButton
             aria-label="Mehr"
             aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
@@ -1782,6 +1793,8 @@ function RootLayout() {
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
+                onOpenPageHelp={openCurrentPageHelp}
+                pageHelpAvailable={Boolean(topbarHelpConfig)}
                 canLeaveDemoProject={canLeaveDemoProject}
                 isGuestDemoSession={isGuestDemoSession}
                 onLeaveDemoProject={handleLeaveDemoProject}

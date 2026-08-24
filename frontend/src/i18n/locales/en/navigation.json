@@ -130,6 +130,8 @@
     "projectActions": "Project actions",
     "app": "App",
     "shortcuts": "Keyboard shortcuts",
+    "pageHelp": "Help for this page",
+    "pageHelpUnavailable": "No page-specific help is available for this page.",
     "appHelp": "App help",
     "account": "Account",
     "closeSidebar": "Close sidebar",
