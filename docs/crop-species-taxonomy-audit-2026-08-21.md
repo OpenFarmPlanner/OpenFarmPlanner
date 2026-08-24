@@ -4,7 +4,7 @@ Datum: 2026-08-21
 
 ## Umfang und Datenquelle
 
-Diese Analyse ist rein lesend erfolgt. Es wurden keine `CropSpecies`, `CropSpeciesTranslation`, `PublicCulture` oder `Culture`-Zeilen geschrieben oder verändert.
+Diese ursprüngliche Analyse ist rein lesend erfolgt. Am 2026-08-24 wurde zusätzlich ein gezielter Production-Korrekturschritt für den unten dokumentierten `Bohne`-Fall durchgeführt; siehe Nachtrag.
 
 Ausgewertet wurden zwei read-only Datenquellen:
 
@@ -21,7 +21,19 @@ Die Auswirkungsanalyse ist bewusst auf folgende Bereiche begrenzt:
 
 Andere Projekte wurden nicht analysiert und nicht mitgezählt.
 
-Wichtiger Befund für `Gelawi Zwiebelzopf`: In der Production-Agent-API haben alle 66 privaten Culture-Zeilen aktuell `crop_species: null`. Für eine reine CropSpecies-FK-Migration wären im Production-Projekt deshalb direkt 0 Culture-Zeilen betroffen. Zusätzlich sind unten name-basierte Prüfkandidaten genannt, weil private Gelawi-Kulturen wie `Bohne`, `Kohl`, `Salat` usw. fachlich trotzdem von einer späteren Aufräumentscheidung profitieren können.
+Wichtiger Originalbefund für `Gelawi Zwiebelzopf` am 2026-08-21: In der Production-Agent-API hatten alle 66 privaten Culture-Zeilen `crop_species: null`. Für eine reine CropSpecies-FK-Migration wären im Production-Projekt deshalb direkt 0 Culture-Zeilen betroffen gewesen. Zusätzlich sind unten name-basierte Prüfkandidaten genannt, weil private Gelawi-Kulturen wie `Bohne`, `Kohl`, `Salat` usw. fachlich trotzdem von einer späteren Aufräumentscheidung profitieren können.
+
+## Nachtrag: Production-Korrektur `Bohne` am 2026-08-24
+
+Nach zusätzlicher serverseitiger Prüfung auf dem Production-System wurde der konkrete öffentliche `Bohne`-Fehlmapping-Fall korrigiert:
+
+- Öffentliche `PublicCulture` ID 2 wurde von `Bohne (Canadian Wonder)` auf `Kidneybohne (Canadian Wonder)` umgestellt.
+- `PublicCulture.crop_species_id` wurde von `Bohne` (ID 6) auf `Kidneybohne` (ID 115) geändert; die öffentliche Zeile blieb `published` und wurde auf Version 2 erhöht.
+- Die zugehörige private Culture ID 72 im Projekt `Gelawi Zwiebelzopf` wurde ebenfalls auf `crop_species_id=115` gesetzt.
+- Die zu grobe `CropSpecies` `Bohne` (ID 6) wurde auf `rejected` gesetzt, damit sie nicht weiter als öffentliches Mapping-Ziel verwendet wird.
+- Andere Projekte wurden dabei weiterhin nicht analysiert oder mitgezählt.
+
+Zusätzlich wurde das Hauptrepo so angepasst, dass der generische Seed-Eintrag `Bohne`/`Bean` nicht mehr neu angelegt wird, normale Nutzer diesen zu groben Namen nicht mehr als Mapping-Ziel sehen und veröffentlichte Kulturen unter abgelehnten Species nicht mehr in den öffentlichen API-Listen und Detail-Endpunkten erscheinen.
 
 ## Vorgegebene CropSpecies-Liste Deutsch/Englisch
 
