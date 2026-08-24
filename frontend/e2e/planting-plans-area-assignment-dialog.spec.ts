@@ -104,6 +104,13 @@ async function openAreaAssignmentDialog(page: Page, title: string, editLabel: st
   return dialog;
 }
 
+async function openFocusedAreaCellWithEnter(page: Page, rowIndex: number): Promise<void> {
+  await expect(
+    page.locator('[role="gridcell"][data-field="bed"]').nth(rowIndex).getByLabel('Anbaufläche bearbeiten'),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+}
+
 async function readDialogMetrics(page: Page, title: string) {
   return page.getByRole('dialog', { name: title }).evaluate((dialogElement) => {
     const paper = dialogElement.closest<HTMLElement>('.MuiPaper-root') ?? dialogElement;
@@ -161,7 +168,7 @@ test.describe('planting plans area assignment dialog', () => {
     ).toHaveAttribute('tabindex', '0');
   });
 
-  test('reopens on every keyboard entry into the cell, forwards and backwards', async ({ page, request }) => {
+  test('focuses on keyboard entry and opens with Enter, forwards and backwards', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-keyboard', { planCount: 3 });
 
@@ -175,20 +182,27 @@ test.describe('planting plans area assignment dialog', () => {
     const previousCell = cellAt('cultivation_type', 0);
     await expect(bedCell).toBeVisible();
 
-    // Tab onto the cell opens the dialog …
+    // Tab onto the cell focuses it without opening the dialog …
     await previousCell.click();
     await page.keyboard.press('Escape');
     await previousCell.focus();
     await page.keyboard.press('Tab');
+    await expect(dialog).toBeHidden();
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+
+    // … Enter starts the edit dialog.
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
-    // … cancelling leaves focus on the cell, and re-entering opens it again.
+    // Cancelling leaves focus on the cell, and re-entering focuses it again.
     await page.getByRole('button', { name: 'Abbrechen' }).click();
     await expect(dialog).toBeHidden();
     await page.keyboard.press('Shift+Tab');
     await expect(previousCell).toHaveAttribute('tabindex', '0');
     await expect(dialog).toBeHidden();
     await page.keyboard.press('Tab');
+    await expect(dialog).toBeHidden();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
     // Escape must not save, and must not stop the next entry from opening.
@@ -196,13 +210,18 @@ test.describe('planting plans area assignment dialog', () => {
     await expect(dialog).toBeHidden();
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Tab');
+    await expect(dialog).toBeHidden();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
-    // Backwards navigation from the following cell opens it too.
+    // Backwards navigation from the following cell focuses it too.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await cellAt('planting_date', 0).focus();
+    await page.keyboard.press('Tab');
+    await expect(cellAt('planting_date', 0)).toHaveAttribute('tabindex', '0');
     await page.keyboard.press('Shift+Tab');
+    await expect(dialog).toBeHidden();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -211,13 +230,18 @@ test.describe('planting plans area assignment dialog', () => {
     for (const rowIndex of [1, 2]) {
       await cellAt('cultivation_type', rowIndex).focus();
       await page.keyboard.press('Tab');
+      await expect(dialog).toBeHidden();
+      await openFocusedAreaCellWithEnter(page, rowIndex);
       await expect(dialog).toBeVisible();
       await page.getByRole('button', { name: 'Abbrechen' }).click();
       await expect(dialog).toBeHidden();
       await expect(cellAt('bed', rowIndex)).toHaveAttribute('tabindex', '0');
 
-      await cellAt('planting_date', rowIndex).focus();
+      await page.keyboard.press('Tab');
+      await expect(cellAt('planting_date', rowIndex)).toHaveAttribute('tabindex', '0');
       await page.keyboard.press('Shift+Tab');
+      await expect(dialog).toBeHidden();
+      await openFocusedAreaCellWithEnter(page, rowIndex);
       await expect(dialog).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();

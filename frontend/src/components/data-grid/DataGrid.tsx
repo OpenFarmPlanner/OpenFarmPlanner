@@ -701,9 +701,8 @@ export function EditableDataGrid<T extends EditableRow>({
     [dedicatedEditorFieldNames],
   );
   // A dialog-edited cell has no inline edit session the grid could start, so
-  // "the cell entered edit mode" is expressed as a request its own renderer
-  // reacts to. One request per keyboard entry, consumed by the cell when it
-  // opens — see DialogEditCellContext.
+  // explicit edit commands can be expressed as a request its own renderer
+  // reacts to. Plain Tab focus must not request a dialog.
   const isDialogEditField = useCallback(
     (field: string): boolean => (dialogEditFields ?? []).includes(field),
     [dialogEditFields],
@@ -1373,7 +1372,6 @@ export function EditableDataGrid<T extends EditableRow>({
 
     navigateFromEditedCell(current, sameRowTarget, {
       startTargetEdit: !hasDedicatedEditor(sameRowTarget.field),
-      requestDialogEdit: true,
     });
     return true;
   }, [
@@ -1800,12 +1798,11 @@ export function EditableDataGrid<T extends EditableRow>({
     if (String(target.id) === String(current.id)) {
       navigateFromEditedCell(current, target, {
         startTargetEdit: !hasDedicatedEditor(target.field),
-        requestDialogEdit: true,
       });
       return true;
     }
 
-    void saveEditedRowAndFocusTarget(current, target, { requestDialogEdit: true });
+    void saveEditedRowAndFocusTarget(current, target);
     return true;
   }, [
     columns,
@@ -2535,18 +2532,12 @@ export function EditableDataGrid<T extends EditableRow>({
         api: gridApiRef.current,
         cell: target,
       });
-      // Tab/Shift+Tab is the "enter the cell to edit it" gesture; arrow keys
-      // stay pure movement so a dialog cell can still be passed by.
-      if (event.key === 'Tab') {
-        requestDialogEditForCell(target.id, target.field);
-      }
     });
     return true;
   }, [
     columnsWithActions,
     gridApiRef,
     isActionCellKeyboardNavigable,
-    requestDialogEditForCell,
     rowModesModel,
     rowsForGrid,
     runAfterRowVisible,

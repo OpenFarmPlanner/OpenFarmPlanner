@@ -40,9 +40,8 @@ interface AreaAssignmentDialogProps {
   hasFocus?: boolean;
   memoKey?: string;
   /**
-   * Grid cell identity. Passing both lets the cell pick up the grid's
-   * "keyboard navigation entered this cell" requests and open the dialog —
-   * see `DialogEditCellContext`.
+   * Grid cell identity. Passing both lets the cell pick up explicit dialog edit
+   * requests from the grid; ordinary Tab focus only focuses the cell.
    */
   rowId?: GridRowId;
   field?: string;

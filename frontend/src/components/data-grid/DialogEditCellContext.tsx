@@ -4,8 +4,8 @@ import type { GridRowId } from '@mui/x-data-grid';
 /**
  * `dialogEditFields` cells have no inline edit session — their dialog *is* the
  * edit session. This context is how `EditableDataGrid` tells such a cell that
- * keyboard navigation just entered it, so the cell can start that session by
- * opening its dialog.
+ * an explicit keyboard edit command wants to start that session by opening its
+ * dialog.
  *
  * The request carries a token that is bumped on every entry. A cell opens for a
  * token exactly once and consumes the request while doing so, which is what
@@ -29,9 +29,9 @@ export const buildDialogEditCellKey = (rowId: GridRowId, field: string): string 
 export const DialogEditCellContext = createContext<DialogEditCellContextValue | null>(null);
 
 /**
- * Runs `onOpenRequested` once per keyboard entry into the cell identified by
- * `rowId`/`field`. Cells rendered outside an `EditableDataGrid` (or without a
- * cell identity) simply never get a request.
+ * Runs `onOpenRequested` once per explicit edit request for the cell identified
+ * by `rowId`/`field`. Cells rendered outside an `EditableDataGrid` (or without
+ * a cell identity) simply never get a request.
  */
 export function useDialogEditCellOpenRequest(
   rowId: GridRowId | undefined,

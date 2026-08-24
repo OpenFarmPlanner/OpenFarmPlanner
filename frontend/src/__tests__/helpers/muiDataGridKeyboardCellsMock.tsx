@@ -14,7 +14,7 @@ type CellLocation = { id: string | number; field: string };
  * That is exactly what `DataGrid.tsx`'s Tab/Shift+Tab navigation and the
  * dialog-edited cells need to be exercised for real: pressing Tab on a focused
  * cell runs the grid's own navigation, which moves DOM focus to the next cell
- * and — for `dialogEditFields` columns — asks that cell to open its editor.
+ * while Enter/Space on that focused cell can open its editor.
  *
  * `renderCellFields` keeps the mock cheap: only those columns get their real
  * `renderCell`, everything else falls back to plain text, so a page's heavier
