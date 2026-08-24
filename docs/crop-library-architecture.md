@@ -337,6 +337,16 @@ planning calculations and the UI resolve it identically:
   through the create API's optional `copy_values_to_culture` flag (default
   `false`), and then only into general fields that are still unset. Existing
   general values are never overwritten.
+- Publishing a Sorte to the public library, or linking one to an existing
+  public entry, records the chosen `crop_species` on the *whole* local Kultur
+  group rather than on that Sorte alone
+  (`sync_crop_species_across_culture_group`). A group whose rows are still
+  grouped by name alone would otherwise split in two the moment one of its
+  Sorten is published — the published Sorte under the species, the general
+  Kultur and the remaining Sorten under the name — which shows as two Kulturen
+  of the same name in the culture tree and cuts the published Sorte off from
+  its general Kultur's values. Rows that already carry a different species are
+  a separate group and stay untouched.
 
 `CultureSerializer` exposes the raw and the resolved value side by side, so a
 client can tell them apart per field:
