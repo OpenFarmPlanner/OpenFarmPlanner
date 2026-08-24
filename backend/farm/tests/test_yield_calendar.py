@@ -5,7 +5,16 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from crops.models import CropSpecies, CropSpeciesTranslation
-from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, ProjectMembership
+from farm.models import (
+    Bed,
+    Culture,
+    Field,
+    Location,
+    PlantingPlan,
+    Project,
+    ProjectMembership,
+    Season,
+)
 
 User = get_user_model()
 
@@ -122,3 +131,22 @@ class YieldCalendarAPITest(TestCase):
         yields = {item['culture_name']: item['yield'] for item in cultures}
         self.assertAlmostEqual(yields['Tomate'], 30.0, places=2)
         self.assertAlmostEqual(yields['Karotte'], 20.0, places=2)
+
+    def test_scoped_to_the_active_season_when_the_header_is_present(self):
+        """Without X-Season-Id, plans from every season still aggregate together
+        (backward-compatible); with it, only the active season's plans count."""
+        carrot = Culture.objects.create(name='Karotte', expected_yield=70, display_color='#F4A261', project=self.project)
+        season_a = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
+        season_b = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
+        plan_a = self._create_plan(culture=carrot, harvest_start=date(2026, 3, 3), harvest_end=date(2026, 3, 6))
+        plan_a.season = season_a
+        plan_a.save(update_fields=['season'])
+        plan_b = self._create_plan(culture=carrot, harvest_start=date(2026, 3, 3), harvest_end=date(2026, 3, 6))
+        plan_b.season = season_b
+        plan_b.save(update_fields=['season'])
+
+        unscoped = self.client.get('/openfarmplanner/api/yield-calendar/?year=2026')
+        self.assertAlmostEqual(unscoped.json()[0]['cultures'][0]['yield'], 140.0, places=2)
+
+        scoped = self.client.get('/openfarmplanner/api/yield-calendar/?year=2026', HTTP_X_SEASON_ID=str(season_a.id))
+        self.assertAlmostEqual(scoped.json()[0]['cultures'][0]['yield'], 70.0, places=2)

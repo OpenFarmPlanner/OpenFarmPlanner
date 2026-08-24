@@ -76,6 +76,7 @@ interface CultureDetailProps {
   onAddVariety?: (speciesCulture: Culture) => void;
   onCreatePlan?: () => void;
   onOpenHistory?: () => void;
+  onExportCulture?: () => void;
   onPublishCulture?: () => void;
   /** Called after a pending public-library update was applied to the selected culture. */
   onPublicUpdateApplied?: () => void;
@@ -108,6 +109,7 @@ export function CultureDetail({
   onAddVariety,
   onCreatePlan,
   onOpenHistory,
+  onExportCulture,
   onPublishCulture,
   onPublicUpdateApplied,
   onDeleteCulture,
@@ -982,6 +984,7 @@ const detailSectionGridSx = {
                 anchorEl={headerMenuAnchorEl}
                 onClose={() => setHeaderMenuAnchorEl(null)}
                 onOpenHistory={() => onOpenHistory?.()}
+                onExport={() => onExportCulture?.()}
                 onPublish={() => onPublishCulture?.()}
                 isPublishing={isPublishingCulture}
                 publishLabel={publishActionLabel ?? t('library.publishButton')}

@@ -152,6 +152,9 @@ erDiagram
 erDiagram
     Culture ||--o{ PlantingPlan : "planted as"
     Bed ||--o{ PlantingPlan : "scheduled on"
+    Season ||--o{ PlantingPlan : "scoped to (nullable)"
+    Project ||--o| SeasonPattern : "1:1 start day/month"
+    Project ||--o{ Season : has
     PlantingPlan ||--o{ Task : "optional related task"
     PlantingPlan ||--o{ NoteAttachment : "photo notes"
 ```
@@ -159,6 +162,12 @@ erDiagram
 - **`PlantingPlan`** is the central operational record: one culture, on one
   bed, with a planting date and computed harvest date(s). It drives the
   Gantt/occupancy calendar, the seed demand view, and the yield overview.
+- **`Season`**/**`SeasonPattern`** scope planting plans into successive
+  ~12-month periods; the culture library and bed/field structure stay
+  season-independent. `PlantingPlan.season` is nullable only until a
+  project's first-run season setup assigns one to its pre-existing plans.
+  See [seasons-architecture.md](./seasons-architecture.md) for the full
+  model, the `X-Season-Id` scoping mechanism, and the copy-data/setup flows.
 - There is no separate `Note` model. Free-text notes are plain `notes` text
   fields directly on `Location`, `Field`, `Bed`, `Culture`,
   `CultureSupplierData`, `PublicCulture`, and `PlantingPlan`.

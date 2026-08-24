@@ -11,6 +11,22 @@ from .agent_api.permissions import get_request_api_token
 from .models import Project, ProjectMembership
 
 PROJECT_HEADER = 'HTTP_X_PROJECT_ID'
+SEASON_HEADER = 'HTTP_X_SEASON_ID'
+
+
+def resolve_season_id_from_request(request) -> int | None:
+    """Return the X-Season-Id header value as an int, or None if absent/invalid.
+
+    Mirrors how the active project is resolved from `PROJECT_HEADER`, one
+    level down — see docs/seasons-architecture.md.
+    """
+    raw_value = request.META.get(SEASON_HEADER)
+    if not raw_value:
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _cache_user_project_settings(request_user: Any, membership: ProjectMembership) -> None:

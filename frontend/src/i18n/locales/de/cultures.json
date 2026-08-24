@@ -500,7 +500,7 @@
     "aiCompleteAll": "KI: Alle Kulturen vervollständigen"
   },
   "export": {
-    "menuLabel": "Exportieren…",
+    "menuLabel": "Alle Kulturen exportieren",
     "current": "Aktuelle Kultur als JSON herunterladen",
     "all": "Alle Kulturen als JSON herunterladen",
     "dialogTitle": "Kulturen exportieren",
@@ -525,6 +525,7 @@
     "addNew": "Kultur hinzufügen",
     "edit": "Bearbeiten",
     "versions": "Versionen",
+    "exportCulture": "Kultur exportieren",
     "delete": "Löschen",
     "moreActions": "Weitere Aktionen",
     "deleteConfirm": "Möchten Sie diese Kultur wirklich löschen?",
@@ -543,7 +544,7 @@
     "createPlantingPlanMissingBedsTooltip": "Du brauchst zuerst mindestens ein Beet. Beete werden innerhalb einer Parzelle auf der Seite Anbauflächen hinzugefügt."
   },
   "import": {
-    "menuLabel": "Importieren…",
+    "menuLabel": "Aus Datei importieren",
     "menuItem": "Aus JSON importieren…",
     "title": "Kulturen importieren",
     "selectFileTitle": "Kulturen importieren",

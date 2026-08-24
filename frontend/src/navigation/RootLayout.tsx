@@ -28,8 +28,6 @@ import {
   MenuItem,
   Paper,
   Stack,
-  SvgIcon,
-  type SvgIconProps,
   Drawer,
   Toolbar,
   ToggleButton,
@@ -45,20 +43,11 @@ import { createRootCommands } from '../commands/commands';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
-import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import LocalFloristOutlinedIcon from '@mui/icons-material/LocalFloristOutlined';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
-import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
-import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
-import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
-import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import PublicIcon from '@mui/icons-material/Public';
 import GavelIcon from '@mui/icons-material/Gavel';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
@@ -109,6 +98,15 @@ import {
   navigationLogoTextSx,
   navigationTooltipSx,
 } from '../navigation/navigationStyles';
+import { getNavItemEmoji, CROP_LIBRARY_EMOJI } from '../navigation/navigationIconEmoji';
+import { NavEmojiIcon } from '../navigation/NavEmojiIcon';
+import ImportExportIcon from '@mui/icons-material/ImportExport';
+import { useActiveSeason } from '../seasons/useActiveSeason';
+import { SeasonSwitcher } from '../seasons/SeasonSwitcher';
+import { SeasonSetupDialog } from '../seasons/SeasonSetupDialog';
+import { dismissSeasonSetup, isSeasonSetupDismissed } from '../seasons/seasonSetupDismissal';
+import { seasonSetupAPI } from '../api/api';
+import type { SeasonSetupStatus } from '../api/types';
 import { PanelLeft } from 'lucide-react';
 import AppIcon from '../components/layout/AppIcon';
 import { AppTooltip } from '../components/AppTooltip';
@@ -117,14 +115,6 @@ import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
-
-function FileExportIcon(props: SvgIconProps) {
-  return (
-    <SvgIcon {...props} viewBox="0 -960 960 960">
-      <path d="M480-480ZM202-65l-56-57 118-118h-90v-80h226v226h-80v-89L202-65Zm278-15v-80h240v-440H520v-200H240v400h-80v-400q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H480Z" />
-    </SvgIcon>
-  );
-}
 
 interface SnackbarState {
   open: boolean;
@@ -198,14 +188,33 @@ function RootLayout() {
   const isCompactTopbar = isPhone || isCoarseLowHeightViewport;
   const isVeryNarrowMobile = useMediaQuery('(max-width:360px)');
   const isPhonePortrait = useMediaQuery(`${theme.breakpoints.down('sm')} and (orientation: portrait)`);
-  const isTabletOrNarrowDesktop = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
-  const isBelowWideDesktop = useMediaQuery(theme.breakpoints.down('xl'));
   const { user, endGuestDemo, logout, activeProjectId, switchActiveProject } = useAuth();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
   const { activeCreateActions, openPalette, runPrimaryCreateAction, openShortcutsHelp } = useCommandContext();
   // One controller for both entry points — the full topbar's bell and, on
   // compact widths, the "Mehr" menu — so the list is fetched once.
   const notifications = useNotifications(true);
+  const activeSeason = useActiveSeason();
+  const [seasonSetupStatus, setSeasonSetupStatus] = useState<SeasonSetupStatus | null>(null);
+  const [seasonSetupDismissed, setSeasonSetupDismissed] = useState(
+    () => (activeProjectId ? isSeasonSetupDismissed(activeProjectId) : false),
+  );
+  useEffect(() => {
+    setSeasonSetupDismissed(activeProjectId ? isSeasonSetupDismissed(activeProjectId) : false);
+    if (!activeProjectId) {
+      setSeasonSetupStatus(null);
+      return;
+    }
+    let cancelled = false;
+    void seasonSetupAPI.status().then((response) => {
+      if (!cancelled) {
+        setSeasonSetupStatus(response.data);
+      }
+    }).catch((error: unknown) => {
+      console.error('Error loading season setup status:', error);
+    });
+    return () => { cancelled = true; };
+  }, [activeProjectId]);
   const [globalMenuAnchor, setGlobalMenuAnchor] = useState<null | HTMLElement>(null);
   const [projectMenuAnchor, setProjectMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -231,22 +240,14 @@ function RootLayout() {
     // Dashboard stays reachable even without a project: it is the "home" nav
     // entry and already shows the same project-required empty state/CTA as
     // other pages, so disabling it would be a dead end rather than a guide.
-    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <DashboardOutlinedIcon fontSize="small" />, requiresProject: false },
+    { to: '/app/dashboard', label: t('dashboard'), activeAliases: [], keywords: ['übersicht', 'dashboard'], icon: <NavEmojiIcon emoji={getNavItemEmoji('/app/dashboard')} />, requiresProject: false },
     ...MAIN_NAV_ITEMS.map((item) => ({
       to: item.to,
       label: t(item.labelKey),
       activeAliases: item.activeAliases ?? [],
       keywords: item.keywords,
       requiresProject: item.requiresProject,
-      icon: item.to.includes('locations') ? <PlaceOutlinedIcon fontSize="small" />
-        : item.to.includes('fields-beds') ? <GridViewOutlinedIcon fontSize="small" />
-          : item.to.includes('crop-library') ? <PublicIcon fontSize="small" />
-          : item.to.includes('cultures') ? <LocalFloristOutlinedIcon fontSize="small" />
-            : item.to.includes('planting-plans') ? <EventNoteOutlinedIcon fontSize="small" />
-              : item.to.includes('gantt-chart') ? <CalendarMonthOutlinedIcon fontSize="small" />
-                : item.to.includes('yield-overview') ? <BarChartOutlinedIcon fontSize="small" />
-                : item.to.includes('seed-demand') ? <ScienceOutlinedIcon fontSize="small" />
-                  : <LocalShippingOutlinedIcon fontSize="small" />,
+      icon: <NavEmojiIcon emoji={getNavItemEmoji(item.to)} />,
     })),
   ]), [t]);
 
@@ -563,6 +564,11 @@ function RootLayout() {
       ? []
       : topbarContextActions.filter((action) => (
         action.id !== 'fields-global-add-field'
+        // Already rendered via fieldsGlobalAddAction/mobileFieldsAddLocationAction
+        // above — without this exclusion it also flows into topbarModeControls/
+        // topbarOverflowActions and renders a second (or, on very narrow mobile,
+        // third) "Standort hinzufügen" button.
+        && action.id !== HIERARCHY_CREATE_LOCATION_ACTION_ID
         && action.id !== 'public-crop-library-moderation'
         && action.id !== 'public-crop-library-remove'
       ))),
@@ -581,17 +587,21 @@ function RootLayout() {
     () => genericTopbarContextActions.filter((action) => !topbarModeControls.some((modeAction) => modeAction.id === action.id)),
     [genericTopbarContextActions, topbarModeControls],
   );
-  const showCompactCultureLibrary = isCulturesPage && (isBelowWideDesktop || isPhone);
-  const showIconOnlyCultureLibrary = isCulturesPage && (isPhone || isTabletOrNarrowDesktop);
   const showCultureImportExportButton = isCulturesPage;
-  const showDesktopCultureActionsOverflow = isCulturesPage && !isPhone && !isLargeDesktop;
   const mobileTopbarViewActions = useMemo(
     () => topbarModeControls.filter((action) => !action.hidden),
     [topbarModeControls],
   );
+  // Whether the current "add" action is the hierarchy (multi-/zero-location)
+  // one — used only to gate showMobileTopbarViewActions below; the button
+  // itself is already rendered via fieldsGlobalAddAction, and
+  // HIERARCHY_CREATE_LOCATION_ACTION_ID is deliberately excluded from
+  // genericTopbarContextActions (above) so it never renders a second time.
   const mobileFieldsAddLocationAction = useMemo(
-    () => topbarOverflowActions.find((action) => action.id === HIERARCHY_CREATE_LOCATION_ACTION_ID && !action.hidden) ?? null,
-    [topbarOverflowActions],
+    () => (fieldsGlobalAddAction?.id === HIERARCHY_CREATE_LOCATION_ACTION_ID && !fieldsGlobalAddAction.hidden
+      ? fieldsGlobalAddAction
+      : null),
+    [fieldsGlobalAddAction],
   );
   const activeMobileTopbarViewActionId = mobileTopbarViewActions.find((action) => action.active)?.id ?? null;
   const showMobileTopbarViewActions = isCompactTopbar
@@ -934,7 +944,7 @@ function RootLayout() {
                     disabled={disabled}
                     disabledTooltip={t('disabledNoProjectTooltip')}
                     itemSx={getNavigationItemSx(isActive, sidebarCollapsed, disabled)}
-                    iconSx={getNavigationIconSx(isActive, sidebarCollapsed, disabled)}
+                    iconSx={getNavigationIconSx(sidebarCollapsed, disabled)}
                     textProps={!sidebarCollapsed ? getNavigationTextProps(isActive, disabled) : undefined}
                     enabledTooltip={sidebarCollapsed ? item.label : undefined}
                   />
@@ -1035,7 +1045,12 @@ function RootLayout() {
               </Typography>
             )}
             {topbarHelpConfig ? (
-              <Box sx={{ display: 'inline-flex' }}>
+              // The trigger button moves into the "Mehr" menu on the compact
+              // topbar (see GlobalMenu's "Hilfe zu dieser Seite" entry) to
+              // save space; PageHelp itself stays mounted either way so its
+              // window 'ofp:open-page-help' listener (used by both that menu
+              // entry and the command palette) keeps working.
+              <Box sx={{ display: isCompactTopbar ? 'none' : 'inline-flex' }}>
                 <PageHelp pageKey={topbarHelpConfig.pageKey} ariaLabel={t('pageHelp.openAria', { label: topbarHelpConfig.label })} tooltip={topbarHelpConfig.label} />
               </Box>
             ) : null}
@@ -1122,24 +1137,7 @@ function RootLayout() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', pr: 0.5 }}>
           {isCulturesPage ? (
             <>
-              {cultureLibraryAction && !showDesktopCultureActionsOverflow ? (
-                <AppTooltip title={t('cultureActions.openLibrary')}>
-                  <span>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => cultureLibraryAction.onClick()}
-                      aria-label={t('cultureActions.openLibrary')}
-                      startIcon={<PublicIcon fontSize="small" />}
-                      sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: showIconOnlyCultureLibrary ? 36 : 'auto', px: showIconOnlyCultureLibrary ? 0.75 : 1.25, flexShrink: 0 }}
-                      disabled={cultureLibraryAction.disabled}
-                    >
-                      {!showIconOnlyCultureLibrary ? (showCompactCultureLibrary ? t('cultureActions.libraryShort') : t('cultureActions.library')) : null}
-                    </Button>
-                  </span>
-                </AppTooltip>
-              ) : null}
-              {(showCultureImportExportButton || isMobile) && !showDesktopCultureActionsOverflow ? (
+              {showCultureImportExportButton || isMobile ? (
                 <Button
                   size="small"
                   variant="outlined"
@@ -1148,25 +1146,11 @@ function RootLayout() {
                   aria-haspopup="true"
                   aria-expanded={Boolean(cultureActionsMenuAnchor)}
                   onClick={handleCultureActionsMenuOpen}
+                  startIcon={<ImportExportIcon fontSize="small" />}
                   endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
                   sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: isPhone ? 36 : 'auto', px: isPhone ? 0.75 : 1.25, flexShrink: 0 }}
                 >
-                  {isPhone ? '⋯' : t('cultureActions.importExport')}
-                </Button>
-              ) : null}
-              {showDesktopCultureActionsOverflow ? (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  aria-label={t('cultureActions.openCultureActions')}
-                  aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu' : undefined}
-                  aria-haspopup="true"
-                  aria-expanded={Boolean(cultureActionsMenuAnchor)}
-                  onClick={handleCultureActionsMenuOpen}
-                  endIcon={<KeyboardArrowDownIcon fontSize="small" />}
-                  sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: 0, px: 1, flexShrink: 0 }}
-                >
-                  {t('cultureActions.actions')}
+                  {isPhone ? null : t('cultureActions.importExport')}
                 </Button>
               ) : null}
               <Menu
@@ -1175,7 +1159,7 @@ function RootLayout() {
                 open={Boolean(cultureActionsMenuAnchor)}
                 onClose={handleCultureActionsMenuClose}
               >
-                {showDesktopCultureActionsOverflow && cultureLibraryAction ? (
+                {cultureLibraryAction ? (
                   <MenuItem
                     aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
                     onClick={() => {
@@ -1184,6 +1168,9 @@ function RootLayout() {
                     }}
                     disabled={cultureLibraryAction.disabled}
                   >
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
+                    </ListItemIcon>
                     <ListItemText primary={cultureLibraryAction.label} />
                   </MenuItem>
                 ) : null}
@@ -1417,6 +1404,18 @@ function RootLayout() {
             </Menu>
           ) : null}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
+          {/* Season switcher, project switcher, and the notification bell
+              read as one "status" cluster — tighter gap than the group's own
+              separation from the primary action button before it and from
+              the "Mehr" overflow menu after it. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {hasActiveProject ? (
+            <SeasonSwitcher
+              controller={activeSeason}
+              onOpenProjectSettings={handleOpenProjectSettings}
+              isPhone={isPhone}
+            />
+          ) : null}
           <Button
             aria-label={t('projectSwitcher.ariaLabel')}
             aria-controls={projectMenuAnchor ? 'project-switcher-menu' : undefined}
@@ -1430,7 +1429,7 @@ function RootLayout() {
               maxWidth: { xs: 210, sm: 190, md: 240, lg: 320 },
               minWidth: 0,
             }}
-            startIcon={<FolderOpenOutlinedIcon fontSize="small" />}
+            startIcon={<NavEmojiIcon emoji="📁" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
           >
             {/* The class name carries no styling — it is the selector
@@ -1462,6 +1461,7 @@ function RootLayout() {
             t={t}
           />
           <NotificationBell controller={notifications} />
+          </Box>
           <IconButton
             aria-label="Mehr"
             aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
@@ -1498,27 +1498,6 @@ function RootLayout() {
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: isCulturesPage ? 0.25 : TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
               {isCulturesPage ? (
                 <>
-                  {cultureLibraryAction ? (
-                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
-                      <Box component="span" sx={{ display: 'inline-flex' }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => cultureLibraryAction.onClick()}
-                          aria-label={t('cultureActions.openLibrary')}
-                          sx={{
-                            width: COMPACT_TOPBAR_TOGGLE_SIZE,
-                            height: COMPACT_TOPBAR_TOGGLE_SIZE,
-                            flexShrink: 0,
-                            color: 'text.primary',
-                            '& .MuiSvgIcon-root': { fontSize: 24 },
-                          }}
-                          disabled={cultureLibraryAction.disabled}
-                        >
-                          <PublicIcon />
-                        </IconButton>
-                      </Box>
-                    </AppTooltip>
-                  ) : null}
                   {showCultureImportExportButton ? (
                     <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
@@ -1537,7 +1516,7 @@ function RootLayout() {
                           '& .MuiSvgIcon-root': { fontSize: 24 },
                         }}
                       >
-                        <FileExportIcon />
+                        <ImportExportIcon />
                       </IconButton>
                     </AppTooltip>
                   ) : null}
@@ -1547,6 +1526,21 @@ function RootLayout() {
                     open={Boolean(cultureActionsMenuAnchor)}
                     onClose={handleCultureActionsMenuClose}
                   >
+                    {cultureLibraryAction ? (
+                      <MenuItem
+                        aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
+                        onClick={() => {
+                          cultureLibraryAction.onClick();
+                          handleCultureActionsMenuClose();
+                        }}
+                        disabled={cultureLibraryAction.disabled}
+                      >
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
+                        </ListItemIcon>
+                        <ListItemText primary={cultureLibraryAction.label} />
+                      </MenuItem>
+                    ) : null}
                     {cultureImportExportActions.map((action) => (
                       <MenuItem
                         key={`mobile-primary-${action.id}`}
@@ -1707,32 +1701,6 @@ function RootLayout() {
                       </IconButton>
                     </AppTooltip>
                   ) : null}
-                  {mobileFieldsAddLocationAction ? (
-                    <AppTooltip title={mobileFieldsAddLocationAction.label}>
-                      <IconButton
-                        size="small"
-                        aria-label={mobileFieldsAddLocationAction.ariaLabel ?? mobileFieldsAddLocationAction.label}
-                        onClick={mobileFieldsAddLocationAction.onClick}
-                        disabled={mobileFieldsAddLocationAction.disabled}
-                        sx={{
-                          width: COMPACT_TOPBAR_TOGGLE_SIZE,
-                          height: COMPACT_TOPBAR_TOGGLE_SIZE,
-                          bgcolor: 'success.main',
-                          color: 'success.contrastText',
-                          boxShadow: 1,
-                          '&:hover': {
-                            bgcolor: 'success.dark',
-                          },
-                          '&.Mui-disabled': {
-                            bgcolor: 'action.disabledBackground',
-                            color: 'action.disabled',
-                          },
-                        }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </AppTooltip>
-                  ) : null}
                 </Box>
               ) : null}
               {topbarPrimaryAction && !showMobileTopbarViewActions ? (
@@ -1784,21 +1752,32 @@ function RootLayout() {
                   ))}
                 </Menu>
               ) : null}
-              <IconButton
-                aria-label={notifications.unreadCount > 0
-                  ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
-                  : t('globalMenu.moreActions')}
-                aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
-                aria-haspopup="true"
-                onClick={handleGlobalMenuOpen}
-                sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
-              >
-                {/* The compact topbar has no room for its own bell, so the
-                    unread signal rides on the menu that holds the entries. */}
-                <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
-                  <MoreVertIcon />
-                </Badge>
-              </IconButton>
+              {/* Tight sub-group so the season switcher always sits directly
+                  next to "Mehr", regardless of the outer group's spacing. */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                {hasActiveProject ? (
+                  <SeasonSwitcher
+                    controller={activeSeason}
+                    onOpenProjectSettings={handleOpenProjectSettings}
+                    isPhone={isPhone}
+                  />
+                ) : null}
+                <IconButton
+                  aria-label={notifications.unreadCount > 0
+                    ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
+                    : t('globalMenu.moreActions')}
+                  aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
+                  aria-haspopup="true"
+                  onClick={handleGlobalMenuOpen}
+                  sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
+                >
+                  {/* The compact topbar has no room for its own bell, so the
+                      unread signal rides on the menu that holds the entries. */}
+                  <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
+                    <MoreVertIcon />
+                  </Badge>
+                </IconButton>
+              </Box>
               <GlobalMenu
                 anchorEl={globalMenuAnchor}
                 open={Boolean(globalMenuAnchor)}
@@ -1814,6 +1793,8 @@ function RootLayout() {
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
+                onOpenPageHelp={openCurrentPageHelp}
+                pageHelpAvailable={Boolean(topbarHelpConfig)}
                 canLeaveDemoProject={canLeaveDemoProject}
                 isGuestDemoSession={isGuestDemoSession}
                 onLeaveDemoProject={handleLeaveDemoProject}
@@ -1837,20 +1818,6 @@ function RootLayout() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
               {isCulturesPage ? (
                 <>
-                  {cultureLibraryAction ? (
-                    <AppTooltip title={t('cultureActions.openLibrary')} enterTouchDelay={0}>
-                      <span>
-                        <IconButton
-                          onClick={() => cultureLibraryAction.onClick()}
-                          aria-label={t('cultureActions.openLibrary')}
-                          sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
-                          disabled={cultureLibraryAction.disabled}
-                        >
-                          <PublicIcon />
-                        </IconButton>
-                      </span>
-                    </AppTooltip>
-                  ) : null}
                   {showCultureImportExportButton || isMobile ? (
                     <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
@@ -1861,7 +1828,7 @@ function RootLayout() {
                         onClick={handleCultureActionsMenuOpen}
                         sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
                       >
-                        <FileExportIcon />
+                        <ImportExportIcon />
                       </IconButton>
                     </AppTooltip>
                   ) : null}
@@ -1871,6 +1838,21 @@ function RootLayout() {
                     open={Boolean(cultureActionsMenuAnchor)}
                     onClose={handleCultureActionsMenuClose}
                   >
+                    {cultureLibraryAction ? (
+                      <MenuItem
+                        aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
+                        onClick={() => {
+                          cultureLibraryAction.onClick();
+                          handleCultureActionsMenuClose();
+                        }}
+                        disabled={cultureLibraryAction.disabled}
+                      >
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
+                        </ListItemIcon>
+                        <ListItemText primary={cultureLibraryAction.label} />
+                      </MenuItem>
+                    ) : null}
                     {cultureImportExportActions.map((action) => (
                       <MenuItem
                         key={`mobile-${action.id}`}
@@ -2034,7 +2016,7 @@ function RootLayout() {
                   disabled={disabled}
                   disabledTooltip={t('disabledNoProjectTooltip')}
                   itemSx={getMobileNavigationItemSx(isActive, disabled)}
-                  iconSx={getMobileNavigationIconSx(isActive, disabled)}
+                  iconSx={getMobileNavigationIconSx(disabled)}
                   textProps={getMobileNavigationTextProps(isActive, disabled)}
                   enabledTooltipPlacement="top"
                   onNavigate={closeMobileNav}
@@ -2198,6 +2180,22 @@ function RootLayout() {
           <Button onClick={() => setProjectHistoryOpen(false)}>{t('common:actions.close')}</Button>
         </DialogActions>
       </Dialog>
+
+      {seasonSetupStatus?.needs_setup && !seasonSetupDismissed && !isProjectIndependentRoute(location.pathname) ? (
+        <SeasonSetupDialog
+          open
+          status={seasonSetupStatus}
+          onCancel={() => {
+            if (activeProjectId) {
+              dismissSeasonSetup(activeProjectId);
+            }
+            setSeasonSetupDismissed(true);
+          }}
+          onApplied={(seasonId) => {
+            activeSeason.switchSeason(seasonId);
+          }}
+        />
+      ) : null}
 
       <HelpDialog open={globalHelpOpen} onClose={closeGlobalHelp} />
       <MobileProjectSwitcherDialog

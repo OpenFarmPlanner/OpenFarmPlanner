@@ -124,6 +124,13 @@ httpClient.interceptors.request.use((config) => {
   if (activeProjectId) {
     config.headers = config.headers ?? {};
     config.headers['X-Project-Id'] = activeProjectId;
+
+    // Namespaced per project (see `activeSeasonStorage.ts`) so switching
+    // projects never leaks a stale season id from a previous project.
+    const activeSeasonId = window.localStorage.getItem(`activeSeasonId:${activeProjectId}`);
+    if (activeSeasonId) {
+      config.headers['X-Season-Id'] = activeSeasonId;
+    }
   }
 
 

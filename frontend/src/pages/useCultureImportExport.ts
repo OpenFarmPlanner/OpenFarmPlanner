@@ -33,6 +33,7 @@ export function useCultureImportExport({
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importStartDialogOpen, setImportStartDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportDialogInitialScope, setExportDialogInitialScope] = useState<ExportScope>('all');
   const [confirmUpdates, setConfirmUpdates] = useState(false);
 
   const {
@@ -140,13 +141,14 @@ export function useCultureImportExport({
     setImportDialogOpen(true);
   }, [resetImportState, t, setImportErrorState, setImportUploading, setPreviewReadyState]);
 
-  const handleOpenExportDialog = useCallback(() => {
+  const handleOpenExportDialog = useCallback((initialScope: ExportScope = 'all') => {
+    setExportDialogInitialScope(initialScope);
     setExportDialogOpen(true);
   }, []);
 
   // Called by the command palette (expects separate current/all handlers)
-  const handleExportCurrentCulture = handleOpenExportDialog;
-  const handleExportAllCultures = handleOpenExportDialog;
+  const handleExportCurrentCulture = useCallback(() => handleOpenExportDialog('current'), [handleOpenExportDialog]);
+  const handleExportAllCultures = useCallback(() => handleOpenExportDialog('all'), [handleOpenExportDialog]);
 
   const handleExport = useCallback(async (scope: ExportScope, format: ExportFormat) => {
     try {
@@ -220,6 +222,7 @@ export function useCultureImportExport({
     importDialogOpen,
     importStartDialogOpen,
     exportDialogOpen,
+    exportDialogInitialScope,
     confirmUpdates,
     setConfirmUpdates,
     importState,

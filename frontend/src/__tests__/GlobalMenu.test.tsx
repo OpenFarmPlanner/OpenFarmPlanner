@@ -7,9 +7,13 @@ const labels: Record<string, string> = {
   'commandPalette.commands.openVersionHistory': 'Versionsverlauf öffnen',
   accountSettings: 'Kontoeinstellungen',
   'globalMenu.shortcuts': 'Tastenkürzel',
+  'globalMenu.pageHelp': 'Hilfe zu dieser Seite',
+  'globalMenu.pageHelpUnavailable': 'Für diese Seite ist keine spezifische Hilfe verfügbar.',
   'globalMenu.appHelp': 'App-Hilfe',
   'commandPalette.commands.logout': 'Abmelden',
   'language.label': 'Sprache',
+  'projectSwitcher.ariaLabel': 'Aktives Projekt wechseln',
+  'project.create': 'Neues Projekt',
 };
 
 const t = (key: string) => labels[key] ?? key;
@@ -64,5 +68,48 @@ describe('GlobalMenu (desktop)', () => {
     render(<GlobalMenu {...baseProps} anchorEl={anchor} />);
 
     expect(screen.queryByRole('menuitem', { name: 'Kulturbibliothek moderieren' })).not.toBeInTheDocument();
+  });
+});
+
+describe('GlobalMenu (mobile) "Hilfe zu dieser Seite" entry', () => {
+  it('is not shown at all when the caller does not wire up page help', () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+
+    render(<GlobalMenu {...baseProps} isMobile anchorEl={anchor} />);
+
+    expect(screen.queryByRole('menuitem', { name: 'Hilfe zu dieser Seite' })).not.toBeInTheDocument();
+  });
+
+  it('sits directly above "App-Hilfe" and is clickable when page help is available', () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    const onOpenPageHelp = vi.fn();
+
+    render(
+      <GlobalMenu {...baseProps} isMobile anchorEl={anchor} onOpenPageHelp={onOpenPageHelp} pageHelpAvailable />,
+    );
+
+    const labelsInOrder = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    const pageHelpIndex = labelsInOrder.indexOf('Hilfe zu dieser Seite');
+    expect(pageHelpIndex).toBeGreaterThan(-1);
+    expect(labelsInOrder[pageHelpIndex + 1]).toBe('App-Hilfe');
+
+    const item = screen.getByRole('menuitem', { name: 'Hilfe zu dieser Seite' });
+    expect(item).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('is disabled with an explanatory tooltip when the current page has no page-specific help', () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    const onOpenPageHelp = vi.fn();
+
+    render(
+      <GlobalMenu {...baseProps} isMobile anchorEl={anchor} onOpenPageHelp={onOpenPageHelp} pageHelpAvailable={false} />,
+    );
+
+    const item = screen.getByRole('menuitem', { name: 'Hilfe zu dieser Seite' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByLabelText('Für diese Seite ist keine spezifische Hilfe verfügbar.')).toBeInTheDocument();
   });
 });

@@ -64,6 +64,10 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
   `EntityRevision` audit trail and how culture/project restore works.
 - **[Large-Dataset Rendering](./large-dataset-rendering.md)** — pagination,
   bulk-read limits, and scroll-driven windowing for large projects.
+- **[Seasons](./seasons-architecture.md)** — the project-scoped `Season` and
+  `SeasonPattern` models, the season switcher and its "copy data" action, the
+  first-run setup that migrates a project's pre-existing planting plans, and
+  how `PlantingPlan` list requests get season-scoped via `X-Season-Id`.
 
 ## Geplant / in Arbeit — noch nicht implementiert
 
@@ -76,17 +80,15 @@ these as green field.
 
 | Planned feature | Current state in the code |
 |---|---|
-| **Saisonen** — a `Season` entity, a season switcher in the UI, and planting plans scoped to a season | Nothing. There is no `Season` model, no season field on `PlantingPlan`, and no season UI. Plans carry plain dates and are scoped only by `Project`. |
 | **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning"), `Culture.nutrient_demand`, and `Culture.rotation_break_years` (recommended years before growing the same crop family again). All three are plain informational fields today, grouped under a "Fruchtfolge-Eigenschaften"/"Crop Rotation Properties" section on the culture detail page: no rotation model, no history-of-use per field, no validation, no UI beyond that display/edit. |
 
-Two consequences worth stating explicitly, because they are easy to
-mis-assume:
+One consequence worth stating explicitly, because it is easy to mis-assume:
 
-- **A year is not a season.** Planning data is filtered by date ranges, not by
-  a season object, so "the 2026 season" is a UI convention over dates, not an
-  entity you can attach settings or a lifecycle to.
 - **`crop_family` being present is not rotation support.** It is a label on a
   culture; nothing reads it to check or suggest a rotation.
+
+Seasons were in this table until they were implemented — see
+[seasons-architecture.md](./seasons-architecture.md) now instead.
 
 Partially built features live with their own docs instead of here — the public
 Crop Library is the main one, and

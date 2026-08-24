@@ -225,6 +225,7 @@ function Cultures() {
     importDialogOpen,
     importStartDialogOpen,
     exportDialogOpen,
+    exportDialogInitialScope,
     importState,
     hasImportableEntries,
     confirmUpdates,
@@ -687,6 +688,7 @@ function Cultures() {
           onAddVariety={handleAddVariety}
           onCreatePlan={handleCreatePlantingPlan}
           onOpenHistory={handleOpenHistory}
+          onExportCulture={handleExportCurrentCulture}
           onPublishCulture={handleRequestPublishCulture}
           onPublicUpdateApplied={() => {
             void fetchCultures();
@@ -794,6 +796,7 @@ function Cultures() {
       <CulturesExportDialog
         open={exportDialogOpen}
         hasCurrentCulture={Boolean(selectedCulture)}
+        initialScope={exportDialogInitialScope}
         onClose={() => setExportDialogOpen(false)}
         onExport={handleExport}
         t={t}

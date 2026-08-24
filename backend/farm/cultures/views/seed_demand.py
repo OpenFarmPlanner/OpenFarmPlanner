@@ -12,6 +12,7 @@ from farm.models import (
     CultureSupplierData,
     Supplier,
 )
+from farm.project_context import resolve_season_id_from_request
 from farm.services.seed_demand import build_seed_demand_rows, parse_selected_suppliers
 
 from ..serializers import (
@@ -36,6 +37,7 @@ class SeedDemandListView(ProjectScopedMixin, generics.ListAPIView):
                 request.query_params.get('supplier_selection')
             ),
             language_code=resolve_request_language(request),
+            season_id=resolve_season_id_from_request(request),
         )
         serializer = self.get_serializer(rows, many=True)
         return Response({'count': len(rows), 'next': None, 'previous': None, 'results': serializer.data})

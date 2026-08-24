@@ -26,9 +26,11 @@ from farm.models import (
     Project,
     ProjectMembership,
     PublicCulture,
+    Season,
     SeedPackage,
     Supplier,
 )
+from farm.services.seasons import assign_unassigned_planting_plans
 
 User = get_user_model()
 
@@ -204,6 +206,7 @@ class PlanSpec:
 def reset_project_demo_data(project: Project) -> None:
     """Remove farm-planning records from one project before recreating the demo."""
     PlantingPlan.objects.filter(project=project).delete()
+    Season.all_objects.filter(project=project).delete()
     BedLayout.objects.filter(project=project).delete()
     FieldLayout.objects.filter(project=project).delete()
     Bed.objects.filter(project=project).delete()
@@ -289,6 +292,7 @@ def populate_demo_project(project: Project, *, owner: Any | None = None, languag
         _create_layouts(project, fields, beds)
         cultures = _create_cultures(project, suppliers, language_code=language)
         _create_planting_plans(project, cultures, beds, owner, language_code=language)
+        assign_unassigned_planting_plans(project, owner=owner)
 
 
 def populate_public_demo_library_from_project(project: Project, *, owner: Any | None = None, language_code: str | None = None) -> None:

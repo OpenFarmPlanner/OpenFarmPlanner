@@ -321,7 +321,9 @@ def compute_plan_requirement(plan: PlantingPlan) -> PlanRequirementResult:
     )
 
 
-def _aggregate_requirements_by_culture(project: Project, language_code: str) -> dict[int, dict]:
+def _aggregate_requirements_by_culture(
+    project: Project, language_code: str, season_id: int | None = None,
+) -> dict[int, dict]:
     """Group all of a project's plans by culture and sum margin-adjusted
     requirements into per-unit buckets (grams and seeds separately)."""
     plans = (
@@ -338,6 +340,8 @@ def _aggregate_requirements_by_culture(project: Project, language_code: str) -> 
         .prefetch_related('culture__crop_species__translations')
         .order_by('culture__name', 'culture__variety')
     )
+    if season_id is not None:
+        plans = plans.filter(season_id=season_id)
     grouped: dict[int, dict] = {}
     for plan in plans:
         culture = plan.culture
@@ -571,9 +575,15 @@ def build_seed_demand_rows(
     project: Project,
     selected_supplier_by_culture: dict[int, int],
     language_code: str,
+    season_id: int | None = None,
 ) -> list[dict]:
-    """Build the display-ready seed-demand rows for a project, one per culture."""
-    grouped = _aggregate_requirements_by_culture(project, language_code)
+    """Build the display-ready seed-demand rows for a project, one per culture.
+
+    Scoped to `season_id` when given, matching the active-season header the
+    planting-plans list endpoint scopes by — see
+    docs/seasons-architecture.md.
+    """
+    grouped = _aggregate_requirements_by_culture(project, language_code, season_id)
     suppliers_map = _supplier_options_by_culture(project, list(grouped.keys()))
 
     rows: list[dict] = []

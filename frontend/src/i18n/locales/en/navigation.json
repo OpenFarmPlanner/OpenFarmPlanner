@@ -40,6 +40,87 @@
     "loadDemoProject": "Load demo project",
     "trash": "Trash ({{count}})"
   },
+  "seasonSwitcher": {
+    "ariaLabel": "Switch active season",
+    "sectionTitle": "Seasons",
+    "planCount_one": "{{count}} planting plan",
+    "planCount_other": "{{count}} planting plans",
+    "loadError": "Seasons could not be loaded.",
+    "deleted": "Season \"{{label}}\" deleted",
+    "undo": "Undo",
+    "settingsLink": "Change season pattern in project settings",
+    "menu": {
+      "openAria": "Open season actions",
+      "copyDataFrom": "Copy data from…",
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "suggestion": {
+      "title": "Create season {{label}}",
+      "subtitle": "Computed from your season pattern: {{start}} – {{end}}",
+      "copyCheckbox": "Copy data from season {{label}}",
+      "later": "Later",
+      "create": "Create",
+      "createError": "Season could not be created."
+    },
+    "renameDialog": {
+      "title": "Rename season",
+      "label": "Name",
+      "helper": "Leave empty to use the computed name \"{{computed}}\".",
+      "save": "Save"
+    },
+    "copyDialog": {
+      "title": "Copy data",
+      "sourceLabel": "Source",
+      "warning_one": "Season {{target}} already contains 1 planting plan. Copying will additionally add the planting plans from season {{source}} — existing planting plans in {{target}} will not be changed or replaced.",
+      "warning_other": "Season {{target}} already contains {{count}} planting plans. Copying will additionally add the planting plans from season {{source}} — existing planting plans in {{target}} will not be changed or replaced.",
+      "summary_one": "→ 1 planting plan from season {{source}} will be added to season {{target}} (total afterwards: {{total}}).",
+      "summary_other": "→ {{count}} planting plans from season {{source}} will be added to season {{target}} (total afterwards: {{total}}).",
+      "confirm": "Copy",
+      "error": "Data could not be copied."
+    }
+  },
+  "seasonSetup": {
+    "title": "Set up season planning",
+    "description_one": "Before you can work with seasons, we'll set your season pattern and assign this project's 1 existing planting plan to a season.",
+    "description_other": "Before you can work with seasons, we'll set your season pattern and assign this project's {{count}} existing planting plans to a season.",
+    "startLabel": "Season starts on",
+    "infoBox": "No data will be changed or deleted — all existing planting plans will simply be assigned to season \"{{label}}\". You can adjust the pattern and assignment at any time later.",
+    "summary_one": "→ The 1 existing planting plan will be assigned to season \"{{label}}\" ({{period}}).",
+    "summary_other": "→ All {{count}} existing planting plans will be assigned to season \"{{label}}\" ({{period}}).",
+    "submit": "Set up",
+    "error": "Setup failed."
+  },
+  "seasonPattern": {
+    "title": "Season pattern",
+    "dayLabel": "Day",
+    "monthLabel": "Month",
+    "helper": "Every season runs for exactly 12 months from this date.",
+    "previewTitle": "Preview of computed seasons",
+    "previewColumnLabel": "Year",
+    "previewColumnPeriod": "Period",
+    "current": "(current)",
+    "changeNotice": "Changing the pattern only affects seasons created from now on. Existing seasons and their planting plans stay unchanged.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saveAriaLabel": "Save season pattern",
+    "saveSuccess": "Season pattern saved.",
+    "saveError": "Season pattern could not be saved.",
+    "months": {
+      "january": "January",
+      "february": "February",
+      "march": "March",
+      "april": "April",
+      "may": "May",
+      "june": "June",
+      "july": "July",
+      "august": "August",
+      "september": "September",
+      "october": "October",
+      "november": "November",
+      "december": "December"
+    }
+  },
   "projectRoles": {
     "admin": "Admin",
     "member": "Member"
@@ -49,6 +130,8 @@
     "projectActions": "Project actions",
     "app": "App",
     "shortcuts": "Keyboard shortcuts",
+    "pageHelp": "Help for this page",
+    "pageHelpUnavailable": "No page-specific help is available for this page.",
     "appHelp": "App help",
     "account": "Account",
     "closeSidebar": "Close sidebar",

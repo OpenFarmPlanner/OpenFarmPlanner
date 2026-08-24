@@ -9,8 +9,8 @@ import {
   Menu,
   Typography,
 } from '@mui/material';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { AppTooltip } from '../components/AppTooltip';
+import { NavEmojiIcon } from '../navigation/NavEmojiIcon';
 import { useTranslation } from '../i18n';
 import { formatRelativeTime } from '../utils/relativeTime';
 import { getNotificationMessage } from './notificationDisplay';
@@ -76,7 +76,7 @@ export function NotificationBell({ controller, buttonSize }: NotificationBellPro
           }}
         >
           <Badge badgeContent={unreadCount} color="error" overlap="circular" sx={TOPBAR_BADGE_SX}>
-            <NotificationsNoneOutlinedIcon fontSize="small" />
+            <NavEmojiIcon emoji="🔔" />
           </Badge>
         </IconButton>
       </AppTooltip>

@@ -34,6 +34,7 @@ from farm.seed_units import (
     SEED_RATE_UNIT_SEEDS_PER_PLANT,
 )
 from farm.services.demo_project import reset_project_demo_data
+from farm.services.seasons import assign_unassigned_planting_plans
 
 User = get_user_model()
 
@@ -139,6 +140,7 @@ def populate_hint_test_project(project: Project, *, owner: Any | None = None) ->
         cultures = _create_cultures(project, suppliers)
         _create_supplier_data(project, cultures, suppliers)
         _create_planting_plans(project, cultures, beds, owner)
+        assign_unassigned_planting_plans(project, owner=owner)
         _create_invitation(project, owner)
 
 

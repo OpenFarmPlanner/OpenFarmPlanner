@@ -9,6 +9,7 @@ from django.db import models
 from .base import TimestampedModel
 from .cultures import Culture
 from .projects import Project
+from .seasons import Season
 from .structure import Bed
 
 
@@ -77,6 +78,14 @@ class PlantingPlan(TimestampedModel):
         related_name='updated_planting_plans',
     )
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='planting_plans')
+    season = models.ForeignKey(
+        Season,
+        on_delete=models.CASCADE,
+        related_name='planting_plans',
+        null=True,
+        blank=True,
+        help_text="Season this planting plan is scheduled in. Nullable only until a project's first season setup runs.",
+    )
 
     def _effective_culture_days(
         self,
@@ -185,6 +194,7 @@ class PlantingPlan(TimestampedModel):
             models.Index(fields=['project', '-planting_date']),
             models.Index(fields=['project', 'bed', 'planting_date', 'harvest_end_date']),
             models.Index(fields=['project', 'culture']),
+            models.Index(fields=['project', 'season']),
         ]
 
 

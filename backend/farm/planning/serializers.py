@@ -189,14 +189,17 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
             })
 
     def _validate_project_scope(self, attrs):
-        """Culture and bed must belong to the active project."""
+        """Culture, bed, and season must belong to the active project."""
         project = _resolve_active_project_from_serializer(self)
         culture = attrs.get('culture') or (self.instance.culture if self.instance else None)
         bed = attrs.get('bed') or (self.instance.bed if self.instance else None)
+        season = attrs.get('season') or (self.instance.season if self.instance else None)
         if project is not None and culture is not None and culture.project_id != project.id:
             raise serializers.ValidationError({'culture': 'Culture does not belong to the active project.'})
         if project is not None and bed is not None and bed.project_id != project.id:
             raise serializers.ValidationError({'bed': 'Bed does not belong to the active project.'})
+        if project is not None and season is not None and season.project_id != project.id:
+            raise serializers.ValidationError({'season': 'Season does not belong to the active project.'})
 
     def _apply_area_input_conversion(self, attrs):
         """Convert the M2/PLANTS area input into area_usage_sqm on attrs."""

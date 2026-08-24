@@ -40,6 +40,87 @@
     "loadDemoProject": "Demo-Projekt laden",
     "trash": "Papierkorb ({{count}})"
   },
+  "seasonSwitcher": {
+    "ariaLabel": "Aktive Saison wechseln",
+    "sectionTitle": "Saisonen",
+    "planCount_one": "{{count}} Anbauplan",
+    "planCount_other": "{{count}} Anbaupläne",
+    "loadError": "Saisonen konnten nicht geladen werden.",
+    "deleted": "Saison „{{label}}“ gelöscht",
+    "undo": "Rückgängig",
+    "settingsLink": "Saison-Muster in Projekteinstellungen ändern",
+    "menu": {
+      "openAria": "Saison-Aktionen öffnen",
+      "copyDataFrom": "Daten übernehmen von…",
+      "rename": "Umbenennen",
+      "delete": "Löschen"
+    },
+    "suggestion": {
+      "title": "Saison {{label}} anlegen",
+      "subtitle": "Berechnet aus deinem Saison-Muster: {{start}} – {{end}}",
+      "copyCheckbox": "Daten aus Saison {{label}} übernehmen",
+      "later": "Später",
+      "create": "Anlegen",
+      "createError": "Saison konnte nicht angelegt werden."
+    },
+    "renameDialog": {
+      "title": "Saison umbenennen",
+      "label": "Name",
+      "helper": "Leer lassen, um den berechneten Namen „{{computed}}“ zu verwenden.",
+      "save": "Speichern"
+    },
+    "copyDialog": {
+      "title": "Daten übernehmen",
+      "sourceLabel": "Quelle",
+      "warning_one": "Saison {{target}} enthält bereits 1 Anbauplan. Beim Übernehmen werden die Anbaupläne aus Saison {{source}} zusätzlich hinzugefügt — bestehende Anbaupläne in {{target}} werden nicht verändert oder ersetzt.",
+      "warning_other": "Saison {{target}} enthält bereits {{count}} Anbaupläne. Beim Übernehmen werden die Anbaupläne aus Saison {{source}} zusätzlich hinzugefügt — bestehende Anbaupläne in {{target}} werden nicht verändert oder ersetzt.",
+      "summary_one": "→ 1 Anbauplan aus Saison {{source}} wird zu Saison {{target}} hinzugefügt (danach: {{total}} insgesamt).",
+      "summary_other": "→ {{count}} Anbaupläne aus Saison {{source}} werden zu Saison {{target}} hinzugefügt (danach: {{total}} insgesamt).",
+      "confirm": "Übernehmen",
+      "error": "Daten konnten nicht übernommen werden."
+    }
+  },
+  "seasonSetup": {
+    "title": "Saisonplanung einrichten",
+    "description_one": "Bevor du mit Saisonen arbeiten kannst, legen wir dein Saison-Muster fest und ordnen den 1 bestehenden Anbauplan dieses Projekts einer Saison zu.",
+    "description_other": "Bevor du mit Saisonen arbeiten kannst, legen wir dein Saison-Muster fest und ordnen die {{count}} bestehenden Anbaupläne dieses Projekts einer Saison zu.",
+    "startLabel": "Saison beginnt am",
+    "infoBox": "Es werden keine Daten verändert oder gelöscht — alle bestehenden Anbaupläne werden lediglich der Saison „{{label}}“ zugewiesen. Muster und Zuordnung kannst du später jederzeit anpassen.",
+    "summary_one": "→ Der 1 bestehende Anbauplan wird der Saison „{{label}}“ ({{period}}) zugeordnet.",
+    "summary_other": "→ Alle {{count}} bestehenden Anbaupläne werden der Saison „{{label}}“ ({{period}}) zugeordnet.",
+    "submit": "Einrichten",
+    "error": "Einrichtung fehlgeschlagen."
+  },
+  "seasonPattern": {
+    "title": "Saison-Muster",
+    "dayLabel": "Tag",
+    "monthLabel": "Monat",
+    "helper": "Jede Saison läuft ab diesem Datum genau 12 Monate.",
+    "previewTitle": "Vorschau berechneter Saisonen",
+    "previewColumnLabel": "Jahr",
+    "previewColumnPeriod": "Zeitraum",
+    "current": "(aktuell)",
+    "changeNotice": "Eine Änderung des Musters wirkt sich nur auf künftig neu angelegte Saisonen aus. Bereits bestehende Saisonen und ihre Anbaupläne bleiben unverändert.",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "saveAriaLabel": "Saison-Muster speichern",
+    "saveSuccess": "Saison-Muster gespeichert.",
+    "saveError": "Saison-Muster konnte nicht gespeichert werden.",
+    "months": {
+      "january": "Januar",
+      "february": "Februar",
+      "march": "März",
+      "april": "April",
+      "may": "Mai",
+      "june": "Juni",
+      "july": "Juli",
+      "august": "August",
+      "september": "September",
+      "october": "Oktober",
+      "november": "November",
+      "december": "Dezember"
+    }
+  },
   "projectRoles": {
     "admin": "Admin",
     "member": "Mitglied"
@@ -49,6 +130,8 @@
     "projectActions": "Projektaktionen",
     "app": "App",
     "shortcuts": "Tastenkürzel",
+    "pageHelp": "Hilfe zu dieser Seite",
+    "pageHelpUnavailable": "Für diese Seite ist keine spezifische Hilfe verfügbar.",
     "appHelp": "App-Hilfe",
     "account": "Account",
     "closeSidebar": "Seitenleiste schließen",
