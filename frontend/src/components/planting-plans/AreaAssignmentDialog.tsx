@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import {
   Box,
   Button,
@@ -152,6 +152,7 @@ function AreaAssignmentDialogComponent({
   const { t } = useTranslation('plantingPlans');
   const [isOpen, setIsOpen] = useState(false);
   const isOpenRef = useRef(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [draft, setDraft] = useState<AssignmentState>({ locationId: null, fieldId: null, bedId: bedId ?? null });
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
@@ -317,6 +318,146 @@ function AreaAssignmentDialogComponent({
     void handleApply();
   };
 
+  const getDialogTabStops = useCallback((): HTMLElement[] => {
+    const form = formRef.current;
+    if (!form) {
+      return [];
+    }
+
+    return Array.from(form.querySelectorAll<HTMLElement>('[role="combobox"], button'))
+      .filter((element) => (
+        !element.hasAttribute('disabled')
+        && element.getAttribute('aria-disabled') !== 'true'
+        && element.tabIndex >= 0
+      ));
+  }, []);
+
+  const focusFirstDialogControl = useCallback((): void => {
+    getDialogTabStops()[0]?.focus();
+  }, [getDialogTabStops]);
+
+  useEffect(() => {
+    if (!isOpen || bedsWithLocation.length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(focusFirstDialogControl, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [bedsWithLocation.length, focusFirstDialogControl, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleDocumentKeyDownCapture = (event: globalThis.KeyboardEvent): void => {
+      if (
+        event.key !== 'Tab'
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+      ) {
+        return;
+      }
+
+      const form = formRef.current;
+      const activeCombobox = form?.querySelector<HTMLElement>('[role="combobox"][aria-expanded="true"]');
+      if (!form || !activeCombobox) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const listboxId = activeCombobox.getAttribute('aria-controls');
+      const listbox = listboxId ? document.getElementById(listboxId) : null;
+      const highlightedOption = listbox?.querySelector<HTMLElement>(
+        '[role="option"][tabindex="0"], [role="option"].Mui-focusVisible',
+      );
+      highlightedOption?.click();
+
+      window.setTimeout(() => {
+        const nextTabStops = getDialogTabStops();
+        if (nextTabStops.length === 0) {
+          return;
+        }
+        const currentIndex = nextTabStops.findIndex((element) => (
+          element.id === activeCombobox.id
+          || element === activeCombobox
+          || element.contains(activeCombobox)
+        ));
+        const nextIndex = event.shiftKey
+          ? ((currentIndex === -1 ? 0 : currentIndex) - 1 + nextTabStops.length) % nextTabStops.length
+          : ((currentIndex === -1 ? -1 : currentIndex) + 1) % nextTabStops.length;
+        nextTabStops[nextIndex]?.focus();
+      }, 0);
+    };
+
+    document.addEventListener('keydown', handleDocumentKeyDownCapture, true);
+    return () => document.removeEventListener('keydown', handleDocumentKeyDownCapture, true);
+  }, [getDialogTabStops, isOpen]);
+
+  const handleDialogKeyDownCapture = (event: KeyboardEvent<HTMLFormElement>): void => {
+    if (
+      event.key !== 'Tab'
+      || event.altKey
+      || event.ctrlKey
+      || event.metaKey
+    ) {
+      return;
+    }
+
+    const tabStops = getDialogTabStops();
+    if (tabStops.length === 0) {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    const activeIndex = activeElement instanceof HTMLElement
+      ? tabStops.findIndex((element) => element === activeElement || element.contains(activeElement))
+      : -1;
+    const activeCombobox = activeElement instanceof HTMLElement
+      ? activeElement.closest<HTMLElement>('[role="combobox"][aria-expanded="true"]')
+      : null;
+    const currentIndex = activeIndex === -1
+      ? (event.shiftKey ? 0 : -1)
+      : activeIndex;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const focusNeighbour = (): void => {
+      const nextTabStops = getDialogTabStops();
+      if (nextTabStops.length === 0) {
+        return;
+      }
+      const nextCurrentIndex = activeCombobox
+        ? nextTabStops.findIndex((element) => (
+          element.id === activeCombobox.id
+          || element === activeCombobox
+          || element.contains(activeCombobox)
+        ))
+        : currentIndex;
+      const nextIndex = event.shiftKey
+        ? ((nextCurrentIndex === -1 ? 0 : nextCurrentIndex) - 1 + nextTabStops.length) % nextTabStops.length
+        : ((nextCurrentIndex === -1 ? -1 : nextCurrentIndex) + 1) % nextTabStops.length;
+      nextTabStops[nextIndex]?.focus();
+    };
+
+    if (activeCombobox) {
+      const listboxId = activeCombobox.getAttribute('aria-controls');
+      const listbox = listboxId ? document.getElementById(listboxId) : null;
+      const highlightedOption = listbox?.querySelector<HTMLElement>(
+        '[role="option"][tabindex="0"], [role="option"].Mui-focusVisible',
+      );
+      highlightedOption?.click();
+      window.setTimeout(focusNeighbour, 0);
+      return;
+    }
+
+    focusNeighbour();
+  };
+
   const handleCancel = (): void => {
     isOpenRef.current = false;
     setIsOpen(false);
@@ -355,7 +496,13 @@ function AreaAssignmentDialogComponent({
         fullWidth
         maxWidth="xs"
       >
-        <Box component="form" onSubmit={handleFormSubmit} sx={{ minWidth: 0 }}>
+        <Box
+          component="form"
+          ref={formRef}
+          onSubmit={handleFormSubmit}
+          onKeyDownCapture={handleDialogKeyDownCapture}
+          sx={{ minWidth: 0 }}
+        >
           <DialogTitle>{t('areaAssignment.title')}</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 1, minWidth: 0 }}>

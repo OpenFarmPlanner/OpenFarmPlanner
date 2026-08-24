@@ -42,6 +42,12 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
   });
 };
 
+const expectCurrentFocus = async (element: HTMLElement): Promise<void> => {
+  await waitFor(() => {
+    expect(element).toHaveFocus();
+  });
+};
+
 /** Renders the dialog between focusable page elements, so a Tab that escapes
  * the modal overlay lands on one of them instead of silently passing. */
 const renderWithPageBackground = (
@@ -298,7 +304,7 @@ describe('AreaAssignmentDialog', () => {
     );
 
     await openDialog();
-    await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Standort' }));
+    await expectCurrentFocus(screen.getByRole('combobox', { name: 'Standort' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Parzelle' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Beet' }));
     await expectFocusAfterTab(user, screen.getByRole('button', { name: 'Abbrechen' }));
@@ -309,7 +315,7 @@ describe('AreaAssignmentDialog', () => {
 
     await openDialog();
     const applyButton = screen.getByRole('button', { name: 'Übernehmen' });
-    await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Standort' }));
+    await expectCurrentFocus(screen.getByRole('combobox', { name: 'Standort' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Parzelle' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Beet' }));
     await expectFocusAfterTab(user, screen.getByRole('button', { name: 'Abbrechen' }));
@@ -326,7 +332,7 @@ describe('AreaAssignmentDialog', () => {
     );
 
     await openDialog();
-    await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Standort' }));
+    await expectCurrentFocus(screen.getByRole('combobox', { name: 'Standort' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Parzelle' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Beet' }));
     await expectFocusAfterTab(user, screen.getByRole('button', { name: 'Abbrechen' }));
