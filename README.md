@@ -24,6 +24,40 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 - **Frontend (`frontend/`)**: React + TypeScript SPA (Vite), UI workflows, routing, i18n resources, and API integration.
 - **Operations (`OpenFarmPlanner-ops`)**: deployment, runtime environment, and operational automation (separate repository).
 
+## First-Time Orientation
+
+If you are new to the repository, start here before changing code:
+
+1. Read this root README for the project shape and local setup.
+2. Read [`docs/index.md`](docs/index.md) to find the architecture note for the area you plan to touch.
+3. Read [`CLAUDE.md`](CLAUDE.md) for repository rules. It is written for AI coding agents, but it also captures important engineering conventions for humans.
+4. Use [`backend/README.md`](backend/README.md) and [`frontend/README.md`](frontend/README.md) for stack-specific setup details.
+
+The most important mental model:
+
+- Project-owned farm data lives in the Django `farm` app.
+- Shared/public crop-library concepts live in the Django `crops` app and bridge back to project cultures only through explicit publishing/import flows.
+- The React frontend is a single-page app; user-facing German UI text belongs in i18n resources, not inline in components.
+- Deployment, server configuration, cron jobs, and production secrets are intentionally outside this repository.
+- Crop-data research notes and Phase-2 live-sync prompts for maintainers live in the private `OpenFarmPlanner-Crop-Data` repository, not in this app repo.
+
+## Common Development Paths
+
+For most changes, work from the smallest relevant area:
+
+- Backend API or model behavior: start in `backend/`, then check the relevant document under `docs/`.
+- Frontend screen or workflow: start in `frontend/src/`, reuse existing page/component patterns, and keep UI text in `frontend/src/i18n/locales/`.
+- Public crop library behavior: read [`docs/crop-library-architecture.md`](docs/crop-library-architecture.md) and the `backend/crops/` tests first.
+- Agent/API-token behavior: read [`docs/agent-api.md`](docs/agent-api.md) before changing serializers, permissions, or validation.
+- Demo/onboarding data: read [`docs/demo-project.md`](docs/demo-project.md) before editing templates or seed logic.
+- Historical context: check `docs/archive/` only when current docs link there or when you need the original reasoning behind an older decision.
+
+Before opening a pull request, run the targeted tests for your change. For broader changes, prefer the repository quality gate:
+
+```bash
+./scripts/quality.sh
+```
+
 ## Aggregated Usage Insight and Privacy
 
 The superuser-only Django admin includes a **Nutzungsübersicht** (engagement
