@@ -34,7 +34,7 @@
     "date-fns": "^4.4.0",
     "fflate": "^0.8.3",
     "html2canvas": "^1.4.1",
-    "i18next": "^25.7.2",
+    "i18next": "^26.4.0",
     "jspdf": "^4.1.0",
     "konva": "^10.3.0",
     "lucide-react": "^1.31.0",
