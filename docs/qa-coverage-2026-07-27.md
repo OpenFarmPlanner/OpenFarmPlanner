@@ -116,3 +116,53 @@ Targeted localhost culture publishing audit on branch
 - Temporary inline Playwright script against `http://localhost:5173` and
   `http://localhost:8000`, scenario
   `qa-bilingual-publish-1785241573703`.
+
+## Follow-up QA — 2026-08-24 Planting-plan keyboard navigation
+
+Targeted keyboard-only audit of the complete planting-plan table and its
+overlays, based on `130a45e` plus the keyboard fixes in
+`fix(frontend): repair planting plan keyboard navigation`.
+
+### Audited areas
+
+| Area | Keys / path | Result after fixes |
+|---|---|---|
+| Desktop inline row editing | Tab, Shift+Tab, Enter, Escape | passes across culture, cultivation type, growing area, segmented planting date, area, plant count, and notes/action cells; hidden responsive columns do not interrupt traversal |
+| Culture autocomplete | typing, ArrowUp/ArrowDown, Enter, Escape | passes; Enter commits the highlighted culture and keeps the row in edit mode, Escape closes the suggestions without committing |
+| Cultivation-type Select | ArrowUp/ArrowDown, Enter, Escape, Tab | passes with native MUI selection/close behavior and grid-owned Tab continuation |
+| Growing-area dialog | initial focus, Standort → Parzelle → Beet → actions, Tab/Shift+Tab, arrows, Enter, Escape | passes; opening focuses Standort, open Select menus commit their highlighted option before advancing, action focus is stable, focus remains trapped, and closing restores the bed-cell trigger |
+| Segmented date editor | Tab/Shift+Tab, Left/Right, Up/Down, typing | passes; segment arrows remain owned by the date input and Tab continues through the editable row |
+| Area and plant-count text editors | typing, Tab/Shift+Tab, Enter, Escape | passes; partial localized input is retained while editing, Tab navigates, Enter saves and moves vertically, Escape cancels and restores grid focus |
+| Area-validation dialog | initial focus, Tab/Shift+Tab, Enter, Escape | passes; MUI traps focus on the available actions, Enter activates the focused action, Escape closes without leaking to page shortcuts, and focus returns to the originating edit cell |
+| Mobile create/edit dialog | Tab/Shift+Tab, Select arrows/Enter/Escape, text fields, actions | passes at 375×800; MUI dialog focus containment and Select behavior remain intact |
+| Notes drawer | Tab/Shift+Tab, Escape, Ctrl/Cmd+Enter | passes through its existing drawer/editor keyboard coverage; save/close behavior and trigger restoration remain intact |
+
+### Findings and fixes
+
+- The culture column had regressed from the searchable column builder to the
+  plain Select builder. Restoring the autocomplete exposed the reported Enter
+  conflict: Enter bubbled into the DataGrid row handler, and the controlled
+  search text did not update to the chosen label. The autocomplete now owns
+  Enter while open and synchronizes the selected label.
+- The growing-area dialog opened without a deterministic focus target. Standort
+  now receives initial focus.
+- MUI Menu restores focus to its Select trigger during the close transition,
+  overwriting an immediate Tab advance. The shared open-Select navigation waits
+  for that restoration before moving to the next field. The dialog additionally
+  owns forward/reverse Tab between its action buttons so the modal focus trap
+  cannot strand focus at that boundary.
+- No additional unresolved keyboard defects were found in the audited
+  planting-plan surfaces.
+
+### Responsive review
+
+- Desktop behavior was checked at 1100×900 and 1400×900.
+- The existing 375×800 mobile dialog/card behavior was regression-checked; the
+  fixes intentionally change keyboard behavior only and introduce no layout or
+  visual styling changes at any breakpoint.
+
+### Verification
+
+- `cd frontend && npm run test -- SearchableSelect TypeaheadSelect PlantingPlans.areaDialogKeyboard PlantingPlans.escapeFocus PlantingPlanRawInputCells`
+- `cd frontend && npm run build`
+- `cd frontend && npx playwright test e2e/planting-plans-tab-navigation.spec.ts e2e/planting-plans-area-assignment-dialog.spec.ts`

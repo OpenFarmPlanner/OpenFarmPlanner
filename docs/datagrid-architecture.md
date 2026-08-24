@@ -247,6 +247,10 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   inline row edit mode before the dialog opens; new draft rows keep their row
   edit session so the final create save can still validate the full row.
   Closes caused by choosing an option stay inside the current row edit session.
+  While the autocomplete popup is open it also stops Enter from bubbling into
+  the grid's row-level Enter/save handler; the autocomplete must receive that
+  key itself to commit its highlighted option. Planting plans use this editor
+  for the culture column.
 
 ## Keyboard editing/navigation inside the grid
 

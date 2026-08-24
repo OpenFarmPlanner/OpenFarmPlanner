@@ -224,6 +224,40 @@ test.describe('planting plans area assignment dialog', () => {
     }
   });
 
+  test('moves through all hierarchy selects and actions when an open menu is left with Tab', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-tab-order');
+
+    const dialog = await openAreaAssignmentDialog(page, 'Anbaufläche ändern', 'Anbaufläche bearbeiten');
+    const location = dialog.getByRole('combobox', { name: 'Standort' });
+    const field = dialog.getByRole('combobox', { name: 'Parzelle' });
+    const bed = dialog.getByRole('combobox', { name: 'Beet' });
+
+    await expect(location).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Tab');
+    await expect(field).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Tab');
+    await expect(bed).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('button', { name: 'Abbrechen' })).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('button', { name: 'Übernehmen' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(dialog.getByRole('button', { name: 'Abbrechen' })).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.locator('[role="gridcell"][data-field="bed"]').first().getByLabel('Anbaufläche bearbeiten'),
+    ).toBeFocused();
+  });
+
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-compact');

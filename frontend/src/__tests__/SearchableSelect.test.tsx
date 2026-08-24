@@ -556,5 +556,30 @@ describe('SearchableSelect', () => {
 
       expect(mockOnChange).toHaveBeenCalledWith(mockOptions[2]);
     });
+
+    it('commits the highlighted option with Enter without notifying a parent keyboard handler', async () => {
+      const user = userEvent.setup();
+      const parentKeyDown = vi.fn();
+
+      render(
+        <div onKeyDown={parentKeyDown}>
+          <SearchableSelect
+            options={mockOptions}
+            value={null}
+            onChange={mockOnChange}
+            label="Select an item"
+          />
+        </div>,
+      );
+
+      const input = screen.getByRole('combobox');
+      await user.click(input);
+      await user.keyboard('{ArrowDown}{Enter}');
+
+      expect(mockOnChange).toHaveBeenCalledWith(mockOptions[1]);
+      expect(parentKeyDown).not.toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'Enter' }),
+      );
+    });
   });
 });

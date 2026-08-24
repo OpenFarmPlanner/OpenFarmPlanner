@@ -50,4 +50,26 @@ test.describe('planting plans tab navigation with hidden columns', () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test('Enter commits the highlighted culture autocomplete option', async ({ page }) => {
+    const cultureCell = page.locator('[role="gridcell"][data-field="culture"]').first();
+    await cultureCell.dblclick();
+
+    const input = page
+      .locator('.MuiDataGrid-row--editing')
+      .getByRole('combobox', { name: 'Kultur wählen' });
+    await expect(input).toBeFocused();
+    await input.fill('Tom');
+    const activeOptionId = await input.getAttribute('aria-activedescendant');
+    expect(activeOptionId).toBeTruthy();
+    const highlightedOption = page.locator(`#${activeOptionId}`);
+    await expect(highlightedOption).toBeVisible();
+    const expectedLabel = (await highlightedOption.textContent())?.trim() ?? '';
+
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('listbox')).toBeHidden();
+    await expect(input).toHaveValue(expectedLabel);
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+  });
 });

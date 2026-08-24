@@ -114,6 +114,19 @@ export function SearchableSelect<T = unknown>({
       value={value}
       inputValue={resolvedInputValue}
       onInputChange={handleInputChange}
+      onKeyDown={(event) => {
+        // Autocomplete owns Enter while its popup is open. In an editable
+        // DataGrid the same event otherwise bubbles into the row-level Enter
+        // handler, which marks it as handled before MUI can commit the
+        // highlighted option.
+        if (
+          event.key === 'Enter'
+          && event.target instanceof HTMLElement
+          && event.target.getAttribute('aria-expanded') === 'true'
+        ) {
+          event.stopPropagation();
+        }
+      }}
       onChange={(_, newValue) => onChange(newValue)}
       isOptionEqualToValue={(option, selected) => option.value === selected.value}
       getOptionLabel={(option) => option.label}

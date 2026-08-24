@@ -352,6 +352,27 @@ function AreaAssignmentDialogComponent({
       <Dialog
         open={isOpen}
         onClose={handleCancel}
+        onKeyDownCapture={(event) => {
+          if (event.key !== 'Tab' || !(event.target instanceof HTMLElement)) {
+            return;
+          }
+
+          const action = event.target.dataset.dialogAction;
+          const nextAction = action === 'cancel' && !event.shiftKey
+            ? 'apply'
+            : action === 'apply' && event.shiftKey
+              ? 'cancel'
+              : null;
+          if (!nextAction) {
+            return;
+          }
+
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget
+            .querySelector<HTMLElement>(`[data-dialog-action="${nextAction}"]`)
+            ?.focus();
+        }}
         fullWidth
         maxWidth="xs"
       >
@@ -373,6 +394,7 @@ function AreaAssignmentDialogComponent({
                 <FormControl size="small" sx={selectFieldSx}>
                   <InputLabel id="assignment-location-label">{t('columns.location')}</InputLabel>
                   <Select
+                    autoFocus
                     fullWidth
                     id="assignment-location"
                     labelId="assignment-location-label"

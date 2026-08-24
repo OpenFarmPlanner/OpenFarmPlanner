@@ -50,6 +50,7 @@ export function SearchableSelectEditCell({
 
   const handleChange = useCallback(async (newValue: SearchableSelectOption | null): Promise<void> => {
     const nextValue = newValue?.value ?? null;
+    setInputValue(newValue?.label ?? '');
 
     if (nextValue !== value) {
       await apiRef.current.setEditCellValue({

@@ -7,6 +7,7 @@ import type { SelectTypeaheadOption } from './selectTypeahead';
  * focus from the last field back to the first one is the expected behaviour.
  * A plain page form is not such a surface — Tab has to be able to leave it. */
 const MODAL_FOCUS_SCOPE_SELECTOR = '[role="dialog"], [role="alertdialog"], .MuiPopover-paper';
+const MENU_FOCUS_RESTORE_DELAY_MS = 250;
 
 interface FocusScope {
   container: HTMLElement;
@@ -85,17 +86,24 @@ export function useOpenSelectTabNavigation<Value = unknown>({
     }
 
     pendingAdvanceRef.current = null;
-    const scope = resolveFocusScope(pendingAdvance.trigger);
-    if (!scope) {
-      return;
-    }
+    // Menu's close transition restores focus to the Select trigger after this
+    // effect phase. Advancing after that restoration makes our requested Tab
+    // target the final focus destination instead of letting the trigger win.
+    const timerId = window.setTimeout(() => {
+      const scope = resolveFocusScope(pendingAdvance.trigger);
+      if (!scope) {
+        return;
+      }
 
-    getTabbableNeighbour(
-      scope.container,
-      pendingAdvance.trigger,
-      pendingAdvance.direction,
-      { wrap: scope.wrap },
-    )?.focus();
+      getTabbableNeighbour(
+        scope.container,
+        pendingAdvance.trigger,
+        pendingAdvance.direction,
+        { wrap: scope.wrap },
+      )?.focus();
+    }, MENU_FOCUS_RESTORE_DELAY_MS);
+
+    return () => window.clearTimeout(timerId);
   }, [advanceRequestCount]);
 
   return useCallback((event: SelectMenuKeyboardEvent): void => {

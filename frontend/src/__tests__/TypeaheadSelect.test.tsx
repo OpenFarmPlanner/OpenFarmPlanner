@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import { FormControl, InputLabel, MenuItem } from '@mui/material';
@@ -203,7 +203,9 @@ describe('TypeaheadSelect', () => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
       expect(onChange).toHaveBeenCalledWith('corn');
       expect(screen.getByRole('combobox')).toHaveTextContent('Mais');
-      expect(screen.getByRole('button', { name: 'Weiter' })).toHaveFocus();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Weiter' })).toHaveFocus();
+      });
     });
 
     it('moves to the previous field on Shift+Tab', async () => {
@@ -219,7 +221,9 @@ describe('TypeaheadSelect', () => {
       await user.keyboard('{Shift>}{Tab}{/Shift}');
 
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Zurück' })).toHaveFocus();
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Zurück' })).toHaveFocus();
+      });
     });
 
     it('does not toggle the highlighted option of a multi-select', async () => {
