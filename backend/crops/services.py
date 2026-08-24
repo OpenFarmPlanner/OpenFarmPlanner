@@ -37,8 +37,6 @@ SEARCH_ALIASES = {
     'paradeisers': 'tomate',
 }
 
-DISCOURAGED_PUBLIC_SPECIES_NORMALIZED_NAMES = {'bohne', 'bean'}
-
 
 def build_crop_search_terms(value: str) -> set[str]:
     """Return normalized search variants for user-facing crop lookup."""
@@ -110,44 +108,6 @@ def build_exact_species_identity_query(normalized_name: str) -> Q:
     )
 
 
-def is_discouraged_public_species(species: CropSpecies) -> bool:
-    """Return whether a species is too broad to use as a public mapping target."""
-    names = [species.name]
-    translations = getattr(species, 'translations', None)
-    if translations is not None:
-        names.extend(translation.common_name for translation in translations.all())
-    return any(
-        (normalize_text(name) or '') in DISCOURAGED_PUBLIC_SPECIES_NORMALIZED_NAMES
-        for name in names
-    )
-
-
-def public_species_mapping_targets(queryset: QuerySet[CropSpecies]) -> QuerySet[CropSpecies]:
-    """Species users may select as concrete public-library mapping targets."""
-    from .models import CropSpecies
-
-    return (
-        queryset
-        .filter(status=CropSpecies.STATUS_PUBLISHED)
-        .exclude(name_normalized__in=DISCOURAGED_PUBLIC_SPECIES_NORMALIZED_NAMES)
-        .exclude(translations__common_name_normalized__in=DISCOURAGED_PUBLIC_SPECIES_NORMALIZED_NAMES)
-        .distinct()
-    )
-
-
-def visible_public_culture_species_query() -> Q:
-    """Published public cultures stay visible unless their species was rejected."""
-    from .models import CropSpecies
-
-    return (
-        Q(crop_species__isnull=True)
-        | Q(crop_species__status__in=[
-            CropSpecies.STATUS_PUBLISHED,
-            CropSpecies.STATUS_PROPOSED,
-        ])
-    )
-
-
 def list_published_crops(
     *, query: str = '', name: str = '', variety: str = '',
 ) -> QuerySet[PublicCulture]:
@@ -162,7 +122,6 @@ def list_published_crops(
     queryset = (
         PublicCulture.objects
         .filter(status=PublicCulture.STATUS_PUBLISHED)
-        .filter(visible_public_culture_species_query())
         # `created_by__public_profile` is joined because every serialized row
         # reads `created_by_label`; without it the attribution alone costs two
         # queries per result.
@@ -192,11 +151,7 @@ def get_published_crop(pk: int) -> PublicCulture:
 
     Raises `PublicCulture.DoesNotExist` if not found or unpublished.
     """
-    return (
-        PublicCulture.objects
-        .filter(visible_public_culture_species_query())
-        .get(pk=pk, status=PublicCulture.STATUS_PUBLISHED)
-    )
+    return PublicCulture.objects.get(pk=pk, status=PublicCulture.STATUS_PUBLISHED)
 
 
 def find_species_by_common_name(name: str | None) -> CropSpecies | None:
@@ -211,15 +166,11 @@ def find_species_by_common_name(name: str | None) -> CropSpecies | None:
     normalized = normalize_text(name)
     if not normalized:
         return None
-    queryset = CropSpecies.objects.filter(
+    return CropSpecies.objects.filter(
         Q(name_normalized=normalized)
         | Q(translations__common_name_normalized=normalized)
         | Q(translations__search_text_normalized__icontains=f'\n{normalized}\n'),
-    ).prefetch_related('translations').distinct()
-    for species in public_species_mapping_targets(queryset):
-        if not is_discouraged_public_species(species):
-            return species
-    return None
+    ).distinct().first()
 
 
 def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCulture | None:
@@ -238,7 +189,7 @@ def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCul
     queryset = PublicCulture.objects.filter(
         status=PublicCulture.STATUS_PUBLISHED,
         variety_normalized=normalized_variety,
-    ).filter(visible_public_culture_species_query())
+    )
     species = find_species_by_common_name(name)
     if species is not None:
         queryset = queryset.filter(Q(crop_species=species) | Q(name_normalized=normalized_name))

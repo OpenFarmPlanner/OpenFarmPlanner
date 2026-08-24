@@ -54,7 +54,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
         status_filter = (self.request.query_params.get('status') or '').strip()
         can_review = is_public_library_moderator(self.request.user)
         if not can_review:
-            queryset = services.public_species_mapping_targets(queryset)
+            queryset = queryset.filter(status=CropSpecies.STATUS_PUBLISHED)
         elif status_filter:
             queryset = queryset.filter(status=status_filter)
         elif not include_proposed:

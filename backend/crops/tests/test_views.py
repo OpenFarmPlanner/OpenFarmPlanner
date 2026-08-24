@@ -63,20 +63,6 @@ class CropViewSetTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_retrieving_crop_under_rejected_species_404s(self):
-        rejected_species = CropSpecies.objects.create(
-            name='Rejected bean', status=CropSpecies.STATUS_REJECTED,
-        )
-        rejected_crop = PublicCulture.objects.create(
-            name='Rejected bean', variety='Test', status=PublicCulture.STATUS_PUBLISHED,
-            version=1, created_by=self.user, crop_species=rejected_species,
-        )
-        self.client.force_authenticate(user=self.user)
-
-        response = self.client.get(f'/openfarmplanner/api/crops/{rejected_crop.id}/')
-
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
     def test_match_finds_an_exact_normalized_match(self):
         self.client.force_authenticate(user=self.user)
         response = self.client.get('/openfarmplanner/api/crops/match/', {'name': 'lettuce', 'variety': 'bijella'})
@@ -117,7 +103,7 @@ class CropViewSetTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         names = {item['name'] for item in response.data['results']}
-        self.assertNotIn('Bohne', names)
+        self.assertIn('Bohne', names)
         self.assertIn('Ackerbohne', names)
         self.assertIn('Buschbohne', names)
         self.assertIn('Stangenbohne', names)

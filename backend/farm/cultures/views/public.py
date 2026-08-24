@@ -13,7 +13,6 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
-from crops import services as crop_services
 from crops.permissions import is_public_library_moderator
 from crops.services import build_public_crop_search_query, find_exact_crop_match
 from farm.models import (
@@ -63,12 +62,7 @@ class PublicCultureViewSet(viewsets.ModelViewSet):
     not couple this API to project-scoped history.
     """
 
-    queryset = (
-        PublicCulture.objects
-        .filter(status=PublicCulture.STATUS_PUBLISHED)
-        .filter(crop_services.visible_public_culture_species_query())
-        .order_by('name', 'variety')
-    )
+    queryset = PublicCulture.objects.filter(status=PublicCulture.STATUS_PUBLISHED).order_by('name', 'variety')
     serializer_class = PublicCultureSerializer
     permission_classes = [permissions.IsAuthenticated]
 
