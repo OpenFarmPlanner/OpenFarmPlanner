@@ -523,6 +523,28 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         names = [item['variety'] for item in response.data['results']]
         self.assertEqual(names, ['Bijella'])
 
+    def test_public_culture_api_hides_entries_under_rejected_species(self):
+        rejected_species = CropSpecies.objects.create(
+            name='Rejected bean', status=CropSpecies.STATUS_REJECTED,
+        )
+        hidden = PublicCulture.objects.create(
+            name='Rejected bean', variety='Test', status='published',
+            crop_species=rejected_species, created_by=self.user,
+        )
+        visible = PublicCulture.objects.create(
+            name='Lettuce', variety='Bijella', status='published',
+            crop_species=self.species, created_by=self.user,
+        )
+
+        list_response = self.client.get('/openfarmplanner/api/public-cultures/')
+        detail_response = self.client.get(f'/openfarmplanner/api/public-cultures/{hidden.id}/')
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        ids = {item['id'] for item in list_response.data['results']}
+        self.assertIn(visible.id, ids)
+        self.assertNotIn(hidden.id, ids)
+        self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_import_public_culture_creates_project_local_copy(self):
         public_culture = PublicCulture.objects.create(
             name='Bean',

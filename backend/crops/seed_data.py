@@ -22,7 +22,6 @@ CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
     CropSpeciesSeedEntry(key='aubergine', translations={'de': 'Aubergine', 'en': 'Eggplant'}),
     CropSpeciesSeedEntry(key='barley', translations={'de': 'Gerste', 'en': 'Barley'}),
     CropSpeciesSeedEntry(key='basil', translations={'de': 'Basilikum', 'en': 'Basil'}),
-    CropSpeciesSeedEntry(key='bean', translations={'de': 'Bohne', 'en': 'Bean'}),
     CropSpeciesSeedEntry(key='beetroot', translations={'de': 'Rote Rübe', 'en': 'Beetroot'}),
     CropSpeciesSeedEntry(key='black_salsify', translations={'de': 'Schwarzwurzel', 'en': 'Black salsify'}),
     CropSpeciesSeedEntry(key='blackcurrant', translations={'de': 'Schwarze Ribisel', 'en': 'Blackcurrant'}),

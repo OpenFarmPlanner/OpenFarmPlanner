@@ -14,7 +14,7 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         self.assertIn('Tomate', german_names)
         self.assertIn('Kartoffel', german_names)
         self.assertIn('Zwiebel', german_names)
-        self.assertIn('Bohne', german_names)
+        self.assertNotIn('Bohne', german_names)
         self.assertIn('Buschbohne', german_names)
         self.assertIn('Stangenbohne', german_names)
         self.assertIn('Feuerbohne', german_names)
