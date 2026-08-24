@@ -272,6 +272,40 @@ test.describe('planting plans area assignment dialog', () => {
     await expect(locationSelect).toBeFocused();
   });
 
+  test('tabs between hierarchy dropdowns when opened from an edited planting-plan row', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-row-edit-dropdown-tabs');
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const firstRow = page.locator('[role="row"][data-id]').first();
+    await firstRow.locator('[data-field="culture"]').dblclick();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+
+    await firstRow.locator('[data-field="cultivation_type"]').focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeHidden();
+    await expect(firstRow.locator('[data-field="bed"]').getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Anbaufläche ändern' });
+    await expect(dialog).toBeVisible();
+
+    const locationSelect = dialog.getByRole('combobox', { name: 'Standort' });
+    const fieldSelect = dialog.getByRole('combobox', { name: 'Parzelle' });
+    const bedSelect = dialog.getByRole('combobox', { name: 'Beet' });
+
+    await expect(locationSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(bedSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(locationSelect).toBeFocused();
+  });
+
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-compact');

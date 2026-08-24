@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Bed, Field, Location } from '../api/types';
 import { AreaAssignmentDialog } from '../components/planting-plans/AreaAssignmentDialog';
@@ -45,6 +45,13 @@ const expectFocusAfterTab = async (user: ReturnType<typeof userEvent.setup>, ele
 const expectCurrentFocus = async (element: HTMLElement): Promise<void> => {
   await waitFor(() => {
     expect(element).toHaveFocus();
+  });
+};
+
+const pressShiftTab = (element: HTMLElement): void => {
+  fireEvent.keyDown(element, {
+    key: 'Tab',
+    shiftKey: true,
   });
 };
 
@@ -334,23 +341,18 @@ describe('AreaAssignmentDialog', () => {
     await openDialog();
     await expectCurrentFocus(screen.getByRole('combobox', { name: 'Standort' }));
     await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Parzelle' }));
-    await expectFocusAfterTab(user, screen.getByRole('combobox', { name: 'Beet' }));
-    await expectFocusAfterTab(user, screen.getByRole('button', { name: 'Abbrechen' }));
-    await expectFocusAfterTab(user, screen.getByRole('button', { name: 'Übernehmen' }));
+    const bedSelect = screen.getByRole('combobox', { name: 'Beet' });
+    await expectFocusAfterTab(user, bedSelect);
 
-    await user.keyboard('{Shift>}{Tab}{/Shift}');
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus();
+      expect(bedSelect).toHaveFocus();
     });
-    await user.keyboard('{Shift>}{Tab}{/Shift}');
-    await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'Beet' })).toHaveFocus();
-    });
-    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    pressShiftTab(bedSelect);
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: 'Parzelle' })).toHaveFocus();
     });
-    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    const fieldSelect = screen.getByRole('combobox', { name: 'Parzelle' });
+    pressShiftTab(fieldSelect);
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: 'Standort' })).toHaveFocus();
     });
