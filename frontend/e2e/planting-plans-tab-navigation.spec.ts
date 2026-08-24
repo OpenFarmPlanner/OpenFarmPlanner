@@ -143,6 +143,47 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
   return { planId: plan.id };
 }
 
+async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: number }> {
+  const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
+  const projectId = Number(activeProjectId);
+  const csrfToken = await page.evaluate(() =>
+    document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] ?? '');
+
+  const api = async <T,>(path: string, data: Record<string, unknown>): Promise<T> => {
+    const response = await page.request.post(`${apiBase}${path}`, {
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/json',
+        'X-Project-Id': String(projectId),
+      },
+      data: { ...data, project: projectId },
+    });
+    expect(response.ok(), `${path} -> ${response.status()}: ${await response.text()}`).toBeTruthy();
+    return response.json() as Promise<T>;
+  };
+
+  const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Limit-Hof' });
+  const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Limit-Feld', location: location.id });
+  const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Limit-Beet', field: field.id, area_sqm: 7 });
+  const culture = await api<{ id: number }>('/cultures/', {
+    name: 'Limit-Salat',
+    variety: 'Pflanzen',
+    cultivation_type: 'direct_sowing',
+    cultivation_types: ['direct_sowing'],
+    distance_within_row_cm: 10,
+    row_spacing_cm: 100,
+  });
+  const plan = await api<{ id: number }>('/planting-plans/', {
+    bed: bed.id,
+    culture: culture.id,
+    cultivation_type: 'direct_sowing',
+    planting_date: '2026-05-01',
+    area_usage_sqm: 2,
+  });
+
+  return { planId: plan.id };
+}
+
 test.describe('planting plans tab navigation with hidden columns', () => {
   test.beforeEach(async ({ page, request }) => {
     await page.setViewportSize({ width: NARROW_DESKTOP_WIDTH, height: 900 });
@@ -258,5 +299,30 @@ test.describe('planting plans tab navigation with hidden columns', () => {
     await expect.poll(() => focusedField(page)).toBe('bed');
     await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeHidden();
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+  });
+
+  test('saving too many plants opens the area limit dialog', async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const { planId } = await createPlantsAreaLimitFixture(page);
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const row = page.locator(`[role="row"][data-id="${planId}"]`);
+    const plantsCell = row.locator('[data-field="plants_count"]');
+    await expect(plantsCell).toBeVisible();
+
+    await plantsCell.dblclick();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+    const plantsInput = row.locator('[data-field="plants_count"] input');
+    await expect(plantsInput).toBeFocused();
+    await plantsInput.fill('1000');
+    await page.keyboard.press('Enter');
+
+    const dialog = page.getByRole('dialog', {
+      name: 'Die angegebene Fläche überschreitet die Größe dieses Beets.',
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Beetfläche: 7,00 m²');
+    await expect(dialog).toContainText('Angefragt: 100,00 m²');
   });
 });

@@ -1032,6 +1032,18 @@ function PlantingPlans() {
     return Number((row.plants_count / plantsPerSqm).toFixed(2));
   };
 
+  const getRequestedAreaForValidation = (row: PlantingPlanRow): number | null => {
+    if (lastEditedFieldRef.current === "plants_count") {
+      const plantsCount = toAreaNumericValue(row.plants_count, numberLocale);
+      const plantsPerSqm = getPlantsPerSqmForCulture(String(row.culture ?? ""));
+      if (plantsCount !== null && plantsPerSqm) {
+        return Number((plantsCount / plantsPerSqm).toFixed(2));
+      }
+    }
+
+    return toAreaNumericValue(row.area_m2, numberLocale);
+  };
+
   const getPlanBedId = (row: PlantingPlanRow): number | null => {
     const rowRecord = row as PlantingPlanRow & {
       bed_id?: unknown;
@@ -1745,7 +1757,7 @@ function PlantingPlans() {
               }
               return false;
             }
-            const requestedArea = toAreaNumericValue(row.area_m2, numberLocale);
+            const requestedArea = getRequestedAreaForValidation(row);
             if (requestedArea === null) {
               return true;
             }
