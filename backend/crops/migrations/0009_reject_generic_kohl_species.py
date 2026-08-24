@@ -3,14 +3,10 @@
 from django.db import migrations
 
 
-def reject_generic_kohl_species(apps, schema_editor):
-    """Remove the old generic "Kohl" species from public upload suggestions."""
-    from farm.utils import normalize_text
-
+def _generic_kohl_species_ids(apps, normalized_kohl):
     CropSpecies = apps.get_model('crops', 'CropSpecies')
     CropSpeciesTranslation = apps.get_model('crops', 'CropSpeciesTranslation')
 
-    normalized_kohl = normalize_text('Kohl') or 'kohl'
     generic_species_ids = set(
         CropSpecies.objects
         .filter(name_normalized=normalized_kohl)
@@ -21,6 +17,17 @@ def reject_generic_kohl_species(apps, schema_editor):
         .filter(common_name_normalized=normalized_kohl)
         .values_list('species_id', flat=True)
     )
+    return generic_species_ids
+
+
+def reject_generic_kohl_species(apps, schema_editor):
+    """Remove the old generic "Kohl" species from public upload suggestions."""
+    from farm.utils import normalize_text
+
+    CropSpecies = apps.get_model('crops', 'CropSpecies')
+
+    normalized_kohl = normalize_text('Kohl') or 'kohl'
+    generic_species_ids = _generic_kohl_species_ids(apps, normalized_kohl)
     if not generic_species_ids:
         return
 
@@ -39,7 +46,11 @@ def unreject_generic_kohl_species(apps, schema_editor):
 
     CropSpecies = apps.get_model('crops', 'CropSpecies')
     normalized_kohl = normalize_text('Kohl') or 'kohl'
-    CropSpecies.objects.filter(name_normalized=normalized_kohl).update(
+    generic_species_ids = _generic_kohl_species_ids(apps, normalized_kohl)
+    if not generic_species_ids:
+        return
+
+    CropSpecies.objects.filter(id__in=generic_species_ids).update(
         status='published',
         review_note='',
     )

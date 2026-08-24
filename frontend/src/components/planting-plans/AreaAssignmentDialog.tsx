@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Box,
   Button,
@@ -54,7 +54,6 @@ interface AssignmentState {
 }
 
 type BedWithHierarchy = Bed & { id: number; fieldId: number; locationId: number };
-type DialogTabKeyboardEvent = globalThis.KeyboardEvent & { __areaAssignmentDialogTabHandled?: boolean };
 
 const selectFieldSx = {
   ...fullWidthFieldSx,
@@ -356,8 +355,8 @@ function AreaAssignmentDialogComponent({
       }
 
       const currentIndex = nextTabStops.findIndex((element) => (
-        element.id === origin.id
-        || element === origin
+        element === origin
+        || (origin.id !== '' && element.id === origin.id)
         || element.contains(origin)
         || origin.contains(element)
       ));
@@ -424,7 +423,6 @@ function AreaAssignmentDialogComponent({
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      (event as DialogTabKeyboardEvent).__areaAssignmentDialogTabHandled = true;
 
       if (activeCombobox) {
         commitHighlightedOption(activeCombobox);
@@ -438,30 +436,6 @@ function AreaAssignmentDialogComponent({
       clearFocusAdvanceTimeouts();
     };
   }, [clearFocusAdvanceTimeouts, commitHighlightedOption, focusAdjacentDialogControl, isOpen]);
-
-  const handleDialogKeyDownCapture = (event: KeyboardEvent<HTMLElement>): void => {
-    if (
-      event.key !== 'Tab'
-      || event.altKey
-      || event.ctrlKey
-      || event.metaKey
-    ) {
-      return;
-    }
-
-    const activeElement = event.target;
-    if (
-      !(activeElement instanceof HTMLElement)
-      || activeElement.closest('[role="combobox"]')
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent.stopImmediatePropagation?.();
-    focusAdjacentDialogControl(activeElement, event.shiftKey);
-  };
 
   const handleCancel = (): void => {
     isOpenRef.current = false;
@@ -507,7 +481,6 @@ function AreaAssignmentDialogComponent({
           component="form"
           ref={formRef}
           onSubmit={handleFormSubmit}
-          onKeyDownCapture={handleDialogKeyDownCapture}
           sx={{ minWidth: 0 }}
         >
           <DialogTitle>{t('areaAssignment.title')}</DialogTitle>
@@ -583,7 +556,7 @@ function AreaAssignmentDialogComponent({
               </Stack>
             </Box>
           </DialogContent>
-          <DialogActions onKeyDownCapture={handleDialogKeyDownCapture}>
+          <DialogActions>
             <Button type="button" data-dialog-action="cancel" onClick={handleCancel}>{t('areaAssignment.cancel')}</Button>
             <Button type="submit" data-dialog-action="apply" variant="contained" disabled={isApplyDisabled}>{t('areaAssignment.apply')}</Button>
           </DialogActions>
