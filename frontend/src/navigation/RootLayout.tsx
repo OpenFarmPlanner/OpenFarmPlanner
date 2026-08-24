@@ -104,6 +104,7 @@ import ImportExportIcon from '@mui/icons-material/ImportExport';
 import { useActiveSeason } from '../seasons/useActiveSeason';
 import { SeasonSwitcher } from '../seasons/SeasonSwitcher';
 import { SeasonSetupDialog } from '../seasons/SeasonSetupDialog';
+import { dismissSeasonSetup, isSeasonSetupDismissed } from '../seasons/seasonSetupDismissal';
 import { seasonSetupAPI } from '../api/api';
 import type { SeasonSetupStatus } from '../api/types';
 import { PanelLeft } from 'lucide-react';
@@ -195,9 +196,11 @@ function RootLayout() {
   const notifications = useNotifications(true);
   const activeSeason = useActiveSeason();
   const [seasonSetupStatus, setSeasonSetupStatus] = useState<SeasonSetupStatus | null>(null);
-  const [seasonSetupDismissed, setSeasonSetupDismissed] = useState(false);
+  const [seasonSetupDismissed, setSeasonSetupDismissed] = useState(
+    () => (activeProjectId ? isSeasonSetupDismissed(activeProjectId) : false),
+  );
   useEffect(() => {
-    setSeasonSetupDismissed(false);
+    setSeasonSetupDismissed(activeProjectId ? isSeasonSetupDismissed(activeProjectId) : false);
     if (!activeProjectId) {
       setSeasonSetupStatus(null);
       return;
@@ -1470,13 +1473,6 @@ function RootLayout() {
           </Box>
           ) : (
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: isCulturesPage ? 0.25 : TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
-              {hasActiveProject ? (
-                <SeasonSwitcher
-                  controller={activeSeason}
-                  onOpenProjectSettings={handleOpenProjectSettings}
-                  isPhone={isPhone}
-                />
-              ) : null}
               {isCulturesPage ? (
                 <>
                   {showCultureImportExportButton ? (
@@ -1759,21 +1755,32 @@ function RootLayout() {
                   ))}
                 </Menu>
               ) : null}
-              <IconButton
-                aria-label={notifications.unreadCount > 0
-                  ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
-                  : t('globalMenu.moreActions')}
-                aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
-                aria-haspopup="true"
-                onClick={handleGlobalMenuOpen}
-                sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
-              >
-                {/* The compact topbar has no room for its own bell, so the
-                    unread signal rides on the menu that holds the entries. */}
-                <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
-                  <MoreVertIcon />
-                </Badge>
-              </IconButton>
+              {/* Tight sub-group so the season switcher always sits directly
+                  next to "Mehr", regardless of the outer group's spacing. */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                {hasActiveProject ? (
+                  <SeasonSwitcher
+                    controller={activeSeason}
+                    onOpenProjectSettings={handleOpenProjectSettings}
+                    isPhone={isPhone}
+                  />
+                ) : null}
+                <IconButton
+                  aria-label={notifications.unreadCount > 0
+                    ? tNotifications('bell.unreadAriaLabel', { unread: notifications.unreadCount })
+                    : t('globalMenu.moreActions')}
+                  aria-controls={globalMenuAnchor ? 'global-actions-menu' : undefined}
+                  aria-haspopup="true"
+                  onClick={handleGlobalMenuOpen}
+                  sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
+                >
+                  {/* The compact topbar has no room for its own bell, so the
+                      unread signal rides on the menu that holds the entries. */}
+                  <Badge badgeContent={notifications.unreadCount} color="error" overlap="circular">
+                    <MoreVertIcon />
+                  </Badge>
+                </IconButton>
+              </Box>
               <GlobalMenu
                 anchorEl={globalMenuAnchor}
                 open={Boolean(globalMenuAnchor)}
@@ -2175,11 +2182,16 @@ function RootLayout() {
         </DialogActions>
       </Dialog>
 
-      {seasonSetupStatus?.needs_setup && !seasonSetupDismissed ? (
+      {seasonSetupStatus?.needs_setup && !seasonSetupDismissed && !isProjectIndependentRoute(location.pathname) ? (
         <SeasonSetupDialog
           open
           status={seasonSetupStatus}
-          onCancel={() => setSeasonSetupDismissed(true)}
+          onCancel={() => {
+            if (activeProjectId) {
+              dismissSeasonSetup(activeProjectId);
+            }
+            setSeasonSetupDismissed(true);
+          }}
           onApplied={(seasonId) => {
             activeSeason.switchSeason(seasonId);
           }}

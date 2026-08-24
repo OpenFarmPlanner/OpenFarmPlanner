@@ -72,18 +72,22 @@
     "copyDialog": {
       "title": "Daten übernehmen",
       "sourceLabel": "Quelle",
-      "warning": "Saison {{target}} enthält bereits {{count}} Anbaupläne. Beim Übernehmen werden die Anbaupläne aus Saison {{source}} zusätzlich hinzugefügt — bestehende Anbaupläne in {{target}} werden nicht verändert oder ersetzt.",
-      "summary": "→ {{count}} Anbaupläne aus Saison {{source}} werden zu Saison {{target}} hinzugefügt (danach: {{total}} insgesamt).",
+      "warning_one": "Saison {{target}} enthält bereits 1 Anbauplan. Beim Übernehmen werden die Anbaupläne aus Saison {{source}} zusätzlich hinzugefügt — bestehende Anbaupläne in {{target}} werden nicht verändert oder ersetzt.",
+      "warning_other": "Saison {{target}} enthält bereits {{count}} Anbaupläne. Beim Übernehmen werden die Anbaupläne aus Saison {{source}} zusätzlich hinzugefügt — bestehende Anbaupläne in {{target}} werden nicht verändert oder ersetzt.",
+      "summary_one": "→ 1 Anbauplan aus Saison {{source}} wird zu Saison {{target}} hinzugefügt (danach: {{total}} insgesamt).",
+      "summary_other": "→ {{count}} Anbaupläne aus Saison {{source}} werden zu Saison {{target}} hinzugefügt (danach: {{total}} insgesamt).",
       "confirm": "Übernehmen",
       "error": "Daten konnten nicht übernommen werden."
     }
   },
   "seasonSetup": {
     "title": "Saisonplanung einrichten",
-    "description": "Bevor du mit Saisonen arbeiten kannst, legen wir dein Saison-Muster fest und ordnen die {{count}} bestehenden Anbaupläne dieses Projekts einer Saison zu.",
+    "description_one": "Bevor du mit Saisonen arbeiten kannst, legen wir dein Saison-Muster fest und ordnen den 1 bestehenden Anbauplan dieses Projekts einer Saison zu.",
+    "description_other": "Bevor du mit Saisonen arbeiten kannst, legen wir dein Saison-Muster fest und ordnen die {{count}} bestehenden Anbaupläne dieses Projekts einer Saison zu.",
     "startLabel": "Saison beginnt am",
     "infoBox": "Es werden keine Daten verändert oder gelöscht — alle bestehenden Anbaupläne werden lediglich der Saison „{{label}}“ zugewiesen. Muster und Zuordnung kannst du später jederzeit anpassen.",
-    "summary": "→ Alle {{count}} bestehenden Anbaupläne werden der Saison „{{label}}“ ({{period}}) zugeordnet.",
+    "summary_one": "→ Der 1 bestehende Anbauplan wird der Saison „{{label}}“ ({{period}}) zugeordnet.",
+    "summary_other": "→ Alle {{count}} bestehenden Anbaupläne werden der Saison „{{label}}“ ({{period}}) zugeordnet.",
     "submit": "Einrichten",
     "error": "Einrichtung fehlgeschlagen."
   },

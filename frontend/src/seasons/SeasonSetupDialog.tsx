@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import { seasonSetupAPI } from '../api/api';
 import type { SeasonSetupStatus } from '../api/types';
@@ -23,9 +23,27 @@ export function SeasonSetupDialog({ open, status, onApplied, onCancel }: SeasonS
   const [startMonth, setStartMonth] = useState(status.start_month);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewStartDate, setPreviewStartDate] = useState(status.computed_start_date);
+  const [previewEndDate, setPreviewEndDate] = useState(status.computed_end_date);
 
-  const label = computeSeasonLabel(status.computed_start_date, status.computed_end_date);
-  const period = formatSeasonPeriod(status.computed_start_date, status.computed_end_date, locale);
+  // The displayed target period depends on the chosen start day/month, not
+  // just the initially-fetched default — re-fetch whenever the selection
+  // changes so the info box and summary line never show a stale period.
+  useEffect(() => {
+    let cancelled = false;
+    seasonSetupAPI.status({ start_day: startDay, start_month: startMonth }).then((response) => {
+      if (!cancelled) {
+        setPreviewStartDate(response.data.computed_start_date);
+        setPreviewEndDate(response.data.computed_end_date);
+      }
+    }).catch((previewError: unknown) => {
+      console.error('Error loading season setup preview:', previewError);
+    });
+    return () => { cancelled = true; };
+  }, [startDay, startMonth]);
+
+  const label = computeSeasonLabel(previewStartDate, previewEndDate);
+  const period = formatSeasonPeriod(previewStartDate, previewEndDate, locale);
 
   const handleSubmit = async () => {
     setSubmitting(true);

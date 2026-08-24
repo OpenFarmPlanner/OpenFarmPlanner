@@ -154,6 +154,49 @@ class SeasonSetupApiTest(ProjectApiTestCase):
         pattern = SeasonPattern.objects.get(project=self.project)
         self.assertEqual((pattern.start_day, pattern.start_month), (1, 1))
 
+    def test_apply_anchors_on_the_plans_own_dates_not_on_today(self):
+        """Legacy plans predating the feature must land in the season matching
+        their own history, not whatever period contains "today" when a user
+        happens to run the setup — see docs/seasons-architecture.md."""
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2023, 3, 1),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2023, 9, 1),
+        )
+
+        status_response = self.client.get('/openfarmplanner/api/season-setup/status/')
+        self.assertEqual(status_response.data['computed_start_date'], '2023-01-01')
+        self.assertEqual(status_response.data['computed_end_date'], '2023-12-31')
+
+        response = self.client.post('/openfarmplanner/api/season-setup/apply/', {
+            'start_day': 1, 'start_month': 1,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['assigned_planting_plan_count'], 2)
+        self.assertEqual(response.data['season']['start_date'], '2023-01-01')
+        self.assertEqual(response.data['season']['label'], '2023')
+
+    def test_status_preview_reflects_an_unsaved_pattern_selection(self):
+        """The dialog recomputes its preview as the user changes day/month,
+        before saving — the status endpoint must support that override."""
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1),
+        )
+        default_response = self.client.get('/openfarmplanner/api/season-setup/status/')
+        self.assertEqual(default_response.data['computed_start_date'], '2026-01-01')
+
+        preview_response = self.client.get(
+            '/openfarmplanner/api/season-setup/status/', {'start_day': 1, 'start_month': 9},
+        )
+        self.assertEqual(preview_response.status_code, 200)
+        self.assertEqual(preview_response.data['computed_start_date'], '2025-09-01')
+        self.assertEqual(preview_response.data['computed_end_date'], '2026-08-31')
+
+        # The override is preview-only — the persisted pattern is untouched.
+        pattern = SeasonPattern.objects.get(project=self.project)
+        self.assertEqual((pattern.start_day, pattern.start_month), (1, 1))
+
     def test_due_suggestion_hidden_once_season_exists(self):
         start_date, end_date = compute_due_season_period(self.project, today=date(2026, 6, 1))
         missing = find_due_but_missing_season(self.project, today=date(2026, 6, 1))

@@ -23,8 +23,18 @@ def iso_week_key(day: date) -> str:
     return f"{iso_year}-W{iso_week:02d}"
 
 
-def build_yield_calendar(project: Project, iso_year: int, language_code: str) -> list[dict[str, object]]:
-    """Return the per-week, per-culture expected yield rows for one ISO year."""
+def build_yield_calendar(
+    project: Project,
+    iso_year: int,
+    language_code: str,
+    season_id: int | None = None,
+) -> list[dict[str, object]]:
+    """Return the per-week, per-culture expected yield rows for one ISO year.
+
+    Scoped to `season_id` when given, matching the active-season header the
+    planting-plans list endpoint scopes by — see
+    docs/seasons-architecture.md.
+    """
     year_start = week_start_for_iso_year(iso_year)
     year_end = week_start_for_iso_year(iso_year + 1) if iso_year < 9999 else date.max
 
@@ -41,6 +51,8 @@ def build_yield_calendar(project: Project, iso_year: int, language_code: str) ->
             harvest_end_date__gt=year_start,
         )
     )
+    if season_id is not None:
+        plans = plans.filter(season_id=season_id)
 
     weekly_data: dict[str, dict[str, object]] = {}
     for plan in plans:

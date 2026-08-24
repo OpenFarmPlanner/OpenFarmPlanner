@@ -4,8 +4,18 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from farm.models import Bed, Culture, CultureSupplierData, Field, Location, PlantingPlan, Project, ProjectMembership, Supplier
-
+from farm.models import (
+    Bed,
+    Culture,
+    CultureSupplierData,
+    Field,
+    Location,
+    PlantingPlan,
+    Project,
+    ProjectMembership,
+    Season,
+    Supplier,
+)
 
 User = get_user_model()
 
@@ -22,14 +32,15 @@ class SeedDemandSupplierSelectionApiTest(APITestCase):
         field = Field.objects.create(name='Field', location=location, project=self.project)
         self.bed = Bed.objects.create(name='Bed', field=field, area_sqm=100, project=self.project)
 
-    def _create_plan(self, culture: Culture, area: float):
-        PlantingPlan.objects.create(
+    def _create_plan(self, culture: Culture, area: float, season: object = None):
+        return PlantingPlan.objects.create(
             culture=culture,
             bed=self.bed,
             planting_date=date(2026, 3, 1),
             area_usage_sqm=area,
             cultivation_type='direct_sowing',
             project=self.project,
+            season=season,
         )
 
     def test_seed_demand_can_switch_supplier_per_culture(self):
@@ -168,3 +179,25 @@ class SeedDemandSupplierSelectionApiTest(APITestCase):
         self.assertEqual(row['required_amount_unit'], 'g')
         self.assertIsNone(row['total_grams'])
         self.assertEqual(row['required_amount_warning'], 'missing_tkg')
+
+    def test_scoped_to_the_active_season_when_the_header_is_present(self):
+        """Without X-Season-Id, plans from every season still aggregate together
+        (backward-compatible); with it, only the active season's plans count."""
+        culture_a = Culture.objects.create(
+            name='Karotte', cultivation_types=['direct_sowing'],
+            seed_rate_direct_value=11, seed_rate_direct_unit='g_per_m2', project=self.project,
+        )
+        culture_b = Culture.objects.create(
+            name='Mangold', cultivation_types=['direct_sowing'],
+            seed_rate_direct_value=3, seed_rate_direct_unit='g_per_m2', project=self.project,
+        )
+        season_a = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
+        season_b = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
+        self._create_plan(culture_a, 5, season=season_a)
+        self._create_plan(culture_b, 5, season=season_b)
+
+        unscoped = self.client.get('/openfarmplanner/api/seed-demand/')
+        self.assertEqual({row['culture_name'] for row in unscoped.data['results']}, {'Karotte', 'Mangold'})
+
+        scoped = self.client.get('/openfarmplanner/api/seed-demand/', HTTP_X_SEASON_ID=str(season_a.id))
+        self.assertEqual({row['culture_name'] for row in scoped.data['results']}, {'Karotte'})

@@ -300,7 +300,8 @@ export const seasonPatternAPI = {
 };
 
 export const seasonSetupAPI = {
-  status: () => http.get<SeasonSetupStatus>('/season-setup/status/'),
+  status: (params?: { start_day?: number; start_month?: number }) =>
+    http.get<SeasonSetupStatus>('/season-setup/status/', { params }),
   apply: (data: { start_day: number; start_month: number }) =>
     http.post<SeasonSetupApplyResponse>('/season-setup/apply/', data),
 };

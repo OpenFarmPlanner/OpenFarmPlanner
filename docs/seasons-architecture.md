@@ -31,10 +31,16 @@ that predate this feature.
 
 ## Season-scoping of planting plans
 
-Planting plans are the only season-scoped entity; everything downstream that
-reads `PlantingPlan` (Gantt/occupancy calendar, seed demand, yield overview)
-is scoped for free because they all go through the same
-`/api/planting-plans/` list endpoint.
+Planting plans are the only season-scoped entity. Everything downstream that
+reads `PlantingPlan` scopes by the active season explicitly — there is no
+free ride through a shared queryset, because the Gantt/occupancy calendar
+goes through `/api/planting-plans/` (a `ModelViewSet`) while yield overview
+and seed demand are plain `APIView`s that build their own querysets in
+`farm/services/yield_calendar.py` and `farm/services/seed_demand.py`. Both
+accept an optional `season_id` and both views resolve it from the request the
+same way the planting-plans viewset does — via
+`resolve_season_id_from_request()` — so all three surfaces stay consistent
+even though they don't share a queryset.
 
 Scoping works the same way project-scoping does (see
 [architecture-overview.md](./architecture-overview.md)'s `X-Project-Id`
@@ -46,6 +52,10 @@ description), one level down:
   leaks a stale season id from a previous one.
 - `httpClient.ts`'s request interceptor reads it fresh per request and sets
   `X-Season-Id` alongside `X-Project-Id`.
+- `resolve_season_id_from_request()` (`backend/farm/project_context.py`,
+  alongside the project-header resolution) parses `X-Season-Id` into an int
+  or `None`; every season-aware view calls this rather than parsing the
+  header itself.
 - `PlantingPlanViewSet.get_queryset()` (`backend/farm/planning/views.py`)
   filters by `season_id` when the header is present; `perform_create` injects
   it onto new plans the same way project injection works, unless the
@@ -53,6 +63,11 @@ description), one level down:
   header it falls back to `get_or_create_season_for_date` (the season the
   plan's own `planting_date` falls into), so `season IS NULL` stays reserved
   for rows that predate the feature — see the first-run setup below.
+- `YieldCalendarListView`/`build_yield_calendar` and
+  `SeedDemandListView`/`build_seed_demand_rows` take the same resolved
+  `season_id` and filter their own `PlantingPlan` queries by it when present;
+  omitting the header (or filtering by `None`) aggregates across every season
+  of the project, unchanged from before seasons existed.
 - Switching the active season reloads the page — the same deliberate choice
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
@@ -101,17 +116,36 @@ accumulates them.
 (`frontend/src/seasons/SeasonSetupDialog.tsx`, mounted from `RootLayout.tsx`
 and gated on `seasonSetupAPI.status().needs_setup`):
 
-1. Status reports the count of `season IS NULL` plans, plus the season
-   pattern's currently-computed period (defaulting to Jan 1 if the project
-   never configured one).
+1. Status reports the count of `season IS NULL` plans, plus the target
+   period computed by `compute_setup_target_period()` — anchored on the
+   *earliest unassigned plan's* `planting_date` (falling back to today only
+   when every unassigned plan lacks one), not on today. Legacy data lands in
+   the season matching its own history rather than whatever period happens
+   to contain today when a user gets around to running setup. The endpoint
+   also accepts `start_day`/`start_month` query params to preview the effect
+   of a not-yet-saved pattern choice (mirroring
+   `SeasonPatternPreviewView`) — `SeasonSetupDialog` re-fetches on every
+   change to the day/month selects so the info box and summary line never
+   show a stale period.
 2. Applying the setup saves the chosen start day/month as the project's
    `SeasonPattern`, creates (or reuses, via `get_or_create`) the `Season` for
-   the period containing today, and bulk-`update()`s every `season IS NULL`
-   plan onto it in one query — no data is copied or duplicated, only the FK
-   is set.
-3. Canceling the dialog just hides it for the current session
-   (`seasonSetupDismissed` in `RootLayout.tsx`) — it reappears next visit,
-   since nothing was decided.
+   that same earliest-plan-anchored period, and bulk-`update()`s every
+   `season IS NULL` plan onto it in one query — no data is copied or
+   duplicated, only the FK is set. `assign_unassigned_planting_plans()` (used
+   by the seeders, see above) and the interactive setup endpoint now share
+   the exact same `compute_setup_target_period()` anchor logic.
+3. The dialog is gated off entirely on project-independent routes
+   (`isProjectIndependentRoute()`, e.g. `/app/project-selection`) — it used
+   to render as a global overlay there too, blocking the project list's own
+   "Öffnen" buttons behind its modal backdrop.
+4. Canceling the dialog hides it for the rest of the browser tab's session
+   (`frontend/src/seasons/seasonSetupDismissal.ts`, backed by
+   `sessionStorage` and keyed per project) — a plain in-app navigation *or* a
+   full page reload both respect the dismissal now. It still reappears on a
+   genuinely new visit (new tab, browser restart), since nothing about the
+   underlying unassigned-plans state was actually decided. Before this fix,
+   the dismissal lived only in in-memory React state and was lost on every
+   reload, not just a new visit.
 
 ## Season pattern preview math
 
@@ -135,3 +169,16 @@ season exists as a row to read `label` off of.
   `/api/seasons/` beyond the one in `test_api_query_counts.py`; the
   `planting_plan_count` annotation is page-wide, not per-row, so it does not
   grow with the row count.
+- "Daten übernehmen" copies `planting_date`/`harvest_date`/`harvest_end_date`
+  verbatim — it does not shift dates into the target season's own range. A
+  copied plan can end up with dates outside its new season's period (e.g.
+  copying a plan dated in March into a season that starts in September);
+  this is deliberate (the source data is the source of truth for its own
+  timing), not a bug, but worth knowing before assuming copied plans are
+  automatically renormalized.
+- A season's `computed_label` is not guaranteed unique within a project:
+  changing the season pattern repeatedly can produce two different date
+  ranges that both compute to the same "YY/YY" label (e.g. two periods both
+  reading "26/27"). The season list disambiguates via the date-range subtext
+  shown under each label, and `custom_label` (rename) is the escape hatch,
+  but there is no automatic collision detection.

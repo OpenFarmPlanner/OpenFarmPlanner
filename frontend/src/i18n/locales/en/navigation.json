@@ -72,18 +72,22 @@
     "copyDialog": {
       "title": "Copy data",
       "sourceLabel": "Source",
-      "warning": "Season {{target}} already contains {{count}} planting plans. Copying will additionally add the planting plans from season {{source}} — existing planting plans in {{target}} will not be changed or replaced.",
-      "summary": "→ {{count}} planting plans from season {{source}} will be added to season {{target}} (total afterwards: {{total}}).",
+      "warning_one": "Season {{target}} already contains 1 planting plan. Copying will additionally add the planting plans from season {{source}} — existing planting plans in {{target}} will not be changed or replaced.",
+      "warning_other": "Season {{target}} already contains {{count}} planting plans. Copying will additionally add the planting plans from season {{source}} — existing planting plans in {{target}} will not be changed or replaced.",
+      "summary_one": "→ 1 planting plan from season {{source}} will be added to season {{target}} (total afterwards: {{total}}).",
+      "summary_other": "→ {{count}} planting plans from season {{source}} will be added to season {{target}} (total afterwards: {{total}}).",
       "confirm": "Copy",
       "error": "Data could not be copied."
     }
   },
   "seasonSetup": {
     "title": "Set up season planning",
-    "description": "Before you can work with seasons, we'll set your season pattern and assign this project's {{count}} existing planting plans to a season.",
+    "description_one": "Before you can work with seasons, we'll set your season pattern and assign this project's 1 existing planting plan to a season.",
+    "description_other": "Before you can work with seasons, we'll set your season pattern and assign this project's {{count}} existing planting plans to a season.",
     "startLabel": "Season starts on",
     "infoBox": "No data will be changed or deleted — all existing planting plans will simply be assigned to season \"{{label}}\". You can adjust the pattern and assignment at any time later.",
-    "summary": "→ All {{count}} existing planting plans will be assigned to season \"{{label}}\" ({{period}}).",
+    "summary_one": "→ The 1 existing planting plan will be assigned to season \"{{label}}\" ({{period}}).",
+    "summary_other": "→ All {{count}} existing planting plans will be assigned to season \"{{label}}\" ({{period}}).",
     "submit": "Set up",
     "error": "Setup failed."
   },

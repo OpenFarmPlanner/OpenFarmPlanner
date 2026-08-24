@@ -13,7 +13,7 @@ from config.languages import resolve_request_language
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import _entity_display_name, _serialize_instance
 from farm.models import Bed, EntityRevision, PlantingPlan, Task
-from farm.project_context import get_active_project_or_400
+from farm.project_context import get_active_project_or_400, resolve_season_id_from_request
 from farm.services.seasons import get_or_create_season_for_date
 from farm.services.yield_calendar import build_yield_calendar
 from farm.services_area import calculate_remaining_bed_area
@@ -75,7 +75,8 @@ class YieldCalendarListView(generics.GenericAPIView):
         if iso_year < 1 or iso_year > 9999:
             return Response({'detail': 'Year out of supported range.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(build_yield_calendar(active_project, iso_year, resolve_request_language(request)))
+        season_id = resolve_season_id_from_request(request)
+        return Response(build_yield_calendar(active_project, iso_year, resolve_request_language(request), season_id=season_id))
 
 
 class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):
@@ -105,22 +106,19 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        season_id = self.request.headers.get('X-Season-Id')
-        if season_id:
-            try:
-                queryset = queryset.filter(season_id=int(season_id))
-            except (TypeError, ValueError):
-                pass
+        season_id = resolve_season_id_from_request(self.request)
+        if season_id is not None:
+            queryset = queryset.filter(season_id=season_id)
         return queryset
 
     def perform_create(self, serializer):
         current_user = self.request.user if self.request.user.is_authenticated else None
         extra_fields = {}
         if 'season' not in serializer.validated_data:
-            season_id = self.request.headers.get('X-Season-Id')
-            try:
-                extra_fields['season_id'] = int(season_id)
-            except (TypeError, ValueError):
+            season_id = resolve_season_id_from_request(self.request)
+            if season_id is not None:
+                extra_fields['season_id'] = season_id
+            else:
                 # No usable active season — a project whose seasons the client
                 # has never resolved. Anchor the plan in the season its own
                 # planting date falls into instead of storing it season-less,

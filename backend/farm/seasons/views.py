@@ -12,11 +12,11 @@ from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import _entity_display_name, _serialize_instance
-from farm.models import EntityRevision, PlantingPlan, Season
+from farm.models import EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
-    compute_due_season_period,
     compute_preview_periods,
+    compute_setup_target_period,
     copy_planting_plans,
     find_due_but_missing_season,
     get_or_create_season_for_period,
@@ -156,14 +156,25 @@ class SeasonSetupStatusView(APIView):
         active_project = get_active_project_or_400(request)
         unassigned_count = PlantingPlan.objects.filter(project=active_project, season__isnull=True).count()
         pattern = get_or_create_season_pattern(active_project)
-        due_start, due_end = compute_due_season_period(active_project)
+        preview_pattern = pattern
+        start_day_param = request.query_params.get('start_day')
+        start_month_param = request.query_params.get('start_month')
+        if start_day_param is not None or start_month_param is not None:
+            try:
+                preview_pattern = SeasonPattern(
+                    start_day=int(start_day_param) if start_day_param is not None else pattern.start_day,
+                    start_month=int(start_month_param) if start_month_param is not None else pattern.start_month,
+                )
+            except ValueError:
+                return Response({'detail': 'start_day and start_month must be integers.'}, status=status.HTTP_400_BAD_REQUEST)
+        target_start, target_end = compute_setup_target_period(active_project, preview_pattern)
         return Response({
             'needs_setup': unassigned_count > 0,
             'unassigned_planting_plan_count': unassigned_count,
             'start_day': pattern.start_day,
             'start_month': pattern.start_month,
-            'computed_start_date': due_start.isoformat(),
-            'computed_end_date': due_end.isoformat(),
+            'computed_start_date': target_start.isoformat(),
+            'computed_end_date': target_end.isoformat(),
         })
 
 
@@ -186,7 +197,7 @@ class SeasonSetupApplyView(APIView):
         pattern_serializer.is_valid(raise_exception=True)
         pattern = pattern_serializer.save()
 
-        start_date, end_date = compute_due_season_period(active_project)
+        start_date, end_date = compute_setup_target_period(active_project, pattern)
         season = get_or_create_season_for_period(
             active_project,
             start_date,

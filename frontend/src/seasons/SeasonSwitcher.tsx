@@ -81,20 +81,36 @@ export function SeasonSwitcher({ controller, onOpenProjectSettings, isPhone = fa
         aria-haspopup="true"
         onClick={(event) => setMenuAnchor(event.currentTarget)}
         size="small"
-        sx={{ color: 'text.primary', textTransform: 'none', maxWidth: { xs: 120, sm: 180 }, minWidth: 0 }}
-        startIcon={(
+        sx={{
+          color: 'text.primary',
+          textTransform: 'none',
+          maxWidth: { xs: 76, sm: 180 },
+          minWidth: 0,
+          px: isPhone ? 0.75 : 1,
+        }}
+        startIcon={!isPhone ? (
           <Badge variant="dot" color="warning" invisible={!dueSuggestion?.due}>
             <NavEmojiIcon emoji={SEASON_SWITCHER_EMOJI} />
           </Badge>
-        )}
+        ) : undefined}
         endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
       >
-        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {activeSeason?.label ?? '–'}
-        </Box>
+        {/* Phone: no room for the icon or the dropdown arrow — the due-season
+            dot rides on the label itself instead of the (now absent) icon. */}
+        <Badge variant="dot" color="warning" invisible={!isPhone || !dueSuggestion?.due}>
+          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeSeason?.label ?? '–'}
+          </Box>
+        </Badge>
       </Button>
 
-      <Menu id="season-switcher-menu" anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+      <Menu
+        id="season-switcher-menu"
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+        slotProps={{ paper: { sx: { width: { xs: 'min(320px, calc(100vw - 32px))', sm: 340 }, maxWidth: 'calc(100vw - 32px)' } } }}
+      >
         <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
           <Typography variant="overline" color="text.secondary">{t('navigation:seasonSwitcher.sectionTitle')}</Typography>
         </Box>
@@ -171,7 +187,7 @@ export function SeasonSwitcher({ controller, onOpenProjectSettings, isPhone = fa
         ) : null}
 
         <Divider sx={{ my: 0.5 }} />
-        <MenuItem onClick={() => { closeMenu(); onOpenProjectSettings(); }}>
+        <MenuItem onClick={() => { closeMenu(); onOpenProjectSettings(); }} sx={{ whiteSpace: 'normal' }}>
           {t('navigation:seasonSwitcher.settingsLink')}
         </MenuItem>
       </Menu>

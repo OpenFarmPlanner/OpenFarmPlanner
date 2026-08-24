@@ -135,6 +135,36 @@ def get_or_create_season_for_date(
     return get_or_create_season_for_period(project, start_date, end_date, created_by=created_by)
 
 
+def earliest_unassigned_planting_date(project: Project) -> date | None:
+    """Return the earliest `planting_date` among `project`'s season-less plans, if any."""
+    return (
+        PlantingPlan.objects
+        .filter(project=project, season__isnull=True)
+        .exclude(planting_date__isnull=True)
+        .order_by('planting_date')
+        .values_list('planting_date', flat=True)
+        .first()
+    )
+
+
+def compute_setup_target_period(project: Project, pattern: SeasonPattern | None = None) -> tuple[date, date]:
+    """Return the period the first-run setup (and the seeders) would assign unassigned plans to.
+
+    Anchored on the earliest unassigned plan's `planting_date` rather than on
+    today, so legacy data lands in the season matching its own history
+    instead of whatever period happens to contain "today" when setup runs.
+    Falls back to today only when every unassigned plan is missing a
+    `planting_date` (or there are none).
+
+    Accepts an optional in-memory `pattern` override (unsaved `start_day`/
+    `start_month`) so callers can preview the effect of a not-yet-saved
+    pattern choice, mirroring `SeasonPatternPreviewView`.
+    """
+    pattern = pattern or get_or_create_season_pattern(project)
+    reference_date = earliest_unassigned_planting_date(project) or date.today()
+    return compute_period_containing(pattern, reference_date)
+
+
 def assign_unassigned_planting_plans(project: Project, *, owner=None) -> Season | None:
     """Put every season-less planting plan of `project` into a matching season.
 
@@ -143,23 +173,17 @@ def assign_unassigned_planting_plans(project: Project, *, owner=None) -> Season 
     their plans would look like pre-season legacy data and trigger the
     first-run migration modal on a project that was just created.
 
-    The season is anchored on the earliest planting date rather than on today,
-    so seeded plans keep the period they actually fall into. Returns None when
-    there is nothing to assign.
+    Returns None when there is nothing to assign.
     """
     unassigned = PlantingPlan.objects.filter(project=project, season__isnull=True)
-    earliest_date = (
-        unassigned.exclude(planting_date__isnull=True)
-        .order_by('planting_date')
-        .values_list('planting_date', flat=True)
-        .first()
-    )
-    if earliest_date is None and not unassigned.exists():
+    if not unassigned.exists():
         return None
 
-    season = get_or_create_season_for_date(
+    start_date, end_date = compute_setup_target_period(project)
+    season = get_or_create_season_for_period(
         project,
-        earliest_date,
+        start_date,
+        end_date,
         created_by=owner if owner and getattr(owner, 'pk', None) else None,
     )
     unassigned.update(season=season)
