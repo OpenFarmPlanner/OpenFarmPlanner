@@ -7,10 +7,11 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
     def test_seed_entries_have_stable_keys_and_initial_translations(self):
         keys = [entry.key for entry in CROP_SPECIES_SEED_DATA]
         german_names = [get_crop_species_seed_name(entry, 'de') for entry in CROP_SPECIES_SEED_DATA]
+        english_names = [get_crop_species_seed_name(entry, 'en') for entry in CROP_SPECIES_SEED_DATA]
 
         self.assertEqual(len(keys), len(set(keys)))
         self.assertEqual(len(german_names), len(set(german_names)))
-        self.assertGreaterEqual(len(keys), 130)
+        self.assertGreaterEqual(len(keys), 180)
         self.assertIn('Tomate', german_names)
         self.assertIn('Kartoffel', german_names)
         self.assertIn('Zwiebel', german_names)
@@ -29,6 +30,37 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         self.assertIn('Wirsing', german_names)
         self.assertIn('Raps', german_names)
         self.assertIn('Dinkel', german_names)
+        self.assertNotIn('Gründüngung', german_names)
+        self.assertNotIn('Green manure', english_names)
+
+        dach_supplier_extension_names = [
+            'Alexandrinerklee',
+            'Bischofskraut',
+            'Brunnenkresse',
+            'Gartenmelde',
+            'Inkarnatklee',
+            'Kapuzinerkresse',
+            'Komatsuna',
+            'Kornblume',
+            'Mizuna',
+            'Neuseeländer Spinat',
+            'Ölrettich',
+            'Phacelia',
+            'Portulak',
+            'Ringelblume',
+            'Salatrauke',
+            'Senfkohl',
+            'Shiso',
+            'Strohblume',
+            'Tatsoi',
+            'Wilde Rauke',
+            'Winterkresse',
+            'Winterportulak',
+            'Zinnie',
+            'Zuckerhut',
+        ]
+        for name in dach_supplier_extension_names:
+            self.assertIn(name, german_names)
 
         for entry in CROP_SPECIES_SEED_DATA:
             self.assertIn('de', entry.translations)

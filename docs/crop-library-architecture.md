@@ -757,9 +757,15 @@ flexible: `Culture.crop_species` is nullable, and incomplete project
 cultures can still be created and edited. The strictness lives at the
 public-library boundary where durable shared data is created. The official
 species dropdown is seeded from `crops.seed_data.CROP_SPECIES_SEED_DATA`, a
-central starter catalogue for common German and Austrian crop species whose
-entries already carry stable keys and translation maps for the future
-multilingual species library.
+central starter catalogue for common DACH crop species. It is intentionally
+aligned with the culture categories covered by established German, Austrian,
+and Swiss organic seed suppliers such as ReinSaat, Bingenheimer, Samen Maier,
+Austrosaat, Dreschflegel, Culinaris, and Sativa Rheinau. Entries already carry
+stable keys and translation maps for the future multilingual species library.
+The catalogue stores concrete crop species only: use categories such as
+`Gründüngung` / `Green manure` are represented by concrete species like
+Buchweizen, Phacelia, Inkarnatklee, or Ölrettich instead of becoming upload
+targets themselves.
 
 When a project culture already points to an owned public entry, the wizard is
 an update flow instead of a mapping flow. The owned public culture is shown as

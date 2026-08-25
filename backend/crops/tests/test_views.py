@@ -122,6 +122,17 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertIn('Buschbohne', names)
         self.assertIn('Stangenbohne', names)
 
+    def test_species_search_uses_concrete_green_manure_species(self):
+        self.client.force_authenticate(user=self.user)
+
+        generic_response = self.client.get('/openfarmplanner/api/crop-species/', {'q': 'Gründüngung'})
+        concrete_response = self.client.get('/openfarmplanner/api/crop-species/', {'q': 'Phacelia'})
+
+        self.assertEqual(generic_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(concrete_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('Gründüngung', [item['name'] for item in generic_response.data['results']])
+        self.assertIn('Phacelia', [item['name'] for item in concrete_response.data['results']])
+
     def test_species_create_stores_a_proposal(self):
         self.client.force_authenticate(user=self.user)
 
