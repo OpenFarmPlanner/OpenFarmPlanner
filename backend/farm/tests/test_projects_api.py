@@ -226,7 +226,7 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(cultures.exclude(variety='').count(), 12)
         self.assertTrue(cultures.filter(name='Tomate', variety='').exists())
         self.assertTrue(cultures.filter(name='Tomate', variety='Roma').exists())
-        self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 12)
+        self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 17)
 
         me_response = self.client.get('/openfarmplanner/api/auth/me/')
         demo_membership = next(

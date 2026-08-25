@@ -223,16 +223,18 @@ class SeededProjectSeasonTest(ProjectApiTestCase):
         self.assertGreater(len(plans), 0)
         self.assertEqual({plan.season_id for plan in plans if plan.season_id is None}, set())
 
-        season = Season.objects.get(project=self.project)
-        self.assertEqual(season.start_date, date(2026, 1, 1))
-        self.assertEqual(season.end_date, date(2026, 12, 31))
+        seasons = {(season.start_date, season.end_date) for season in Season.objects.filter(project=self.project)}
+        self.assertEqual(seasons, {
+            (date(2025, 1, 1), date(2025, 12, 31)),
+            (date(2026, 1, 1), date(2026, 12, 31)),
+        })
         self._assert_no_setup_needed()
 
     def test_repopulating_the_demo_project_does_not_accumulate_seasons(self):
         populate_demo_project(self.project, owner=self.user)
         populate_demo_project(self.project, owner=self.user)
 
-        self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
+        self.assertEqual(Season.objects.filter(project=self.project).count(), 2)
         self._assert_no_setup_needed()
 
     def test_hint_test_project_plans_are_assigned_to_a_season(self):

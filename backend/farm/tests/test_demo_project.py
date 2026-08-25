@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from accounts.models import UserProjectSettings
-from farm.models import Bed, BedLayout, Culture, FieldLayout, Location, PlantingPlan, Project, ProjectMembership, PublicCulture, Supplier
+from farm.models import Bed, BedLayout, Culture, FieldLayout, Location, PlantingPlan, Project, ProjectMembership, PublicCulture, Season, Supplier
 from farm.services.demo_project import (
     DEMO_PROJECT_DESCRIPTION,
     DEMO_PROJECT_NAME,
@@ -29,7 +29,7 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=result.project).count(), 12)
         self.assertEqual(Culture.objects.filter(project=result.project).count(), 20)
-        self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 12)
+        self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 17)
         self.assertEqual(Supplier.objects.filter(project=result.project).count(), 3)
         self.assertEqual(FieldLayout.objects.filter(project=result.project).count(), 4)
         self.assertEqual(BedLayout.objects.filter(project=result.project).count(), 12)
@@ -57,6 +57,17 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(second_result.project.id, result.project.id)
         self.assertFalse(Location.objects.filter(project=result.project, name='Temporary Location').exists())
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
+
+    def test_demo_project_has_multiple_seasons(self) -> None:
+        result = create_or_reset_demo_project()
+
+        seasons = Season.objects.filter(project=result.project).order_by('start_date')
+        self.assertEqual(list(seasons.values_list('start_date__year', 'end_date__year')), [(2025, 2025), (2026, 2026)])
+        self.assertFalse(PlantingPlan.objects.filter(project=result.project, season__isnull=True).exists())
+
+        previous_season, current_season = seasons
+        self.assertEqual(PlantingPlan.objects.filter(project=result.project, season=previous_season).count(), 5)
+        self.assertEqual(PlantingPlan.objects.filter(project=result.project, season=current_season).count(), 12)
 
     def test_demo_project_layout_places_beds_inside_their_fields(self) -> None:
         result = create_or_reset_demo_project()
@@ -107,7 +118,7 @@ class DemoProjectServiceTests(TestCase):
         user = User.objects.get(email='command-demo@example.local')
         self.assertEqual(project.name, 'Solawi Sonnenacker')
         self.assertTrue(ProjectMembership.objects.filter(project=project, user=user, role='admin').exists())
-        self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 12)
+        self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 17)
         self.assertEqual(PublicCulture.objects.filter(source_project=project, seed_packages=[]).count(), 20)
         self.assertTrue(PublicCulture.objects.filter(source_project=project, name='Tomate', variety='Roma', row_spacing_m=0.70).exists())
         self.assertTrue(PublicCulture.objects.filter(source_project=project, name='Tomate', variety='Moneymaker', row_spacing_m__isnull=True).exists())
@@ -128,7 +139,7 @@ class DemoProjectServiceTests(TestCase):
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=result.project).count(), 12)
         self.assertEqual(Culture.objects.filter(project=result.project).count(), 20)
-        self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 12)
+        self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 17)
 
     def test_create_personal_demo_project_can_create_english_template(self) -> None:
         user = User.objects.create_user(username='english', email='english@example.com', password='pass12345', is_active=True)
