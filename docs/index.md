@@ -50,6 +50,9 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
   the UI is German, how a new notification kind is added, and the two
   behaviours (no mark-read on open, platform-formatted relative times) that
   are load-bearing.
+- **[Real-time Updates](./realtime-updates.md)** — Channels/WebSocket
+  invalidations, discussion authorization, resilient frontend connections,
+  local configuration, and the infrastructure work deferred to Part B.
 - **[Internationalization (i18n)](./i18n.md)** — supported languages, how the
   UI language is resolved and stored, the crop-library translation model and
   its fallback rules, cross-language search and duplicate detection, and the

@@ -12,6 +12,7 @@ function normalizeBasePath(input?: string): string {
 
 const basePath = normalizeBasePath(process.env.VITE_BASE_PATH)
 const backendDevOrigin = process.env.DEV_BACKEND_ORIGIN || 'http://127.0.0.1:8000'
+const websocketProxyPath = basePath === '/' ? '/ws' : `${basePath.slice(0, -1)}/ws`
 
 // Shared by the dev server and `vite preview` (used for production-build E2E runs), so
 // requests to the Django backend work the same way regardless of which one serves the SPA.
@@ -20,6 +21,7 @@ const backendProxy = {
   '/api': { target: backendDevOrigin, changeOrigin: true },
   '/static': { target: backendDevOrigin, changeOrigin: true },
   '/media': { target: backendDevOrigin, changeOrigin: true },
+  [websocketProxyPath]: { target: backendDevOrigin, ws: true, changeOrigin: true },
 }
 
 function manualChunks(id: string): string | undefined {
