@@ -17,6 +17,10 @@ import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } f
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
+import { HighlightedText } from '../components/HighlightedText';
+import { useSearchExpandedGroups } from './useSearchExpandedGroups';
+
+const EMPTY_MATCHED_GROUP_ROW_IDS: ReadonlySet<string> = new Set();
 
 interface CultureMobileSelectorDialogProps {
   open: boolean;
@@ -27,6 +31,10 @@ interface CultureMobileSelectorDialogProps {
   selectedCultureId: number | undefined;
   selectedSpeciesViewKey?: string | null;
   onSelect: (culture: Culture, itemKind: CropHierarchyItemKind, speciesKey: string) => void;
+  /** Lower-cased search needle: marks the hits and opens the groups they sit in. */
+  highlightQuery?: string;
+  /** Row ids of the Kultur groups the running search hit. */
+  matchedGroupRowIds?: ReadonlySet<string>;
   t: TFunction<'cultures'>;
 }
 
@@ -43,6 +51,8 @@ export function CultureMobileSelectorDialog({
   selectedCultureId,
   selectedSpeciesViewKey = null,
   onSelect,
+  highlightQuery,
+  matchedGroupRowIds = EMPTY_MATCHED_GROUP_ROW_IDS,
   t,
 }: CultureMobileSelectorDialogProps) {
   useOverlayHistory({
@@ -54,7 +64,9 @@ export function CultureMobileSelectorDialog({
     expandedRows,
     toggleExpand,
     ensureExpanded,
+    collapse,
   } = useExpandedState('projectCropLibraryMobile');
+  useSearchExpandedGroups({ matchedGroupRowIds, ensureExpanded, collapse });
   const hierarchyItems = useMemo(() => buildCropHierarchy(cultures), [cultures]);
   useEffect(() => {
     const selectedVariety = hierarchyItems.find((item) => (
@@ -88,6 +100,9 @@ export function CultureMobileSelectorDialog({
               ? getFirstVarietyItem(hierarchyItems, node.id)?.culture ?? null
               : null;
             const isClickable = culture?.id !== undefined || firstVarietyCulture !== null;
+            const rowLabel = node.kind === 'species'
+              ? node.label
+              : node.label || (culture ? getCultureDisplayName(culture) : '');
             const isRowSelected = Boolean(
               culture?.id !== undefined
               && selectedCultureId === culture.id
@@ -129,7 +144,9 @@ export function CultureMobileSelectorDialog({
                   collapseLabel={t('hierarchy.collapseCrop')}
                 />
                 <ListItemText
-                  primary={node.kind === 'species' ? node.label : node.label || (culture ? getCultureDisplayName(culture) : '')}
+                  primary={highlightQuery
+                    ? <HighlightedText text={rowLabel} query={highlightQuery} />
+                    : rowLabel}
                   slotProps={{
                     primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500 } },
                   }} />

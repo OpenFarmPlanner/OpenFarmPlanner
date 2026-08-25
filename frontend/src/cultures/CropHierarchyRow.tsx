@@ -1,7 +1,9 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { ListItemButton, ListItemText, Typography } from '@mui/material';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
+import { HighlightedText } from '../components/HighlightedText';
 import { compactCropChevronButtonSx } from './cropHierarchyRowSx';
+import type { CultureListItemProps } from './useCultureListKeyboardNavigation';
 
 interface CropHierarchyRowProps {
   depth: number;
@@ -16,10 +18,27 @@ interface CropHierarchyRowProps {
   isPrimaryEmphasized: boolean;
   secondary?: string;
   varietyCount?: number;
+  /**
+   * Shows "(0)" on a row that has no varieties instead of no count at all.
+   * The Kultur search list needs every group header to carry a hit count;
+   * plain browsing lists stay quieter and leave an empty group uncounted.
+   */
+  showZeroVarietyCount?: boolean;
+  /**
+   * Lower-cased needle whose occurrences are marked inside `primary`. Left
+   * unset, the row renders plain text.
+   */
+  highlightQuery?: string;
   ariaLabel?: string;
   onClick: () => void;
   onDoubleClick: (event: MouseEvent) => void;
-  itemProps?: Record<string, unknown>;
+  itemProps?: Partial<CultureListItemProps>;
+  /**
+   * Handles Enter/Space on the row itself. Returning `true` marks the key
+   * press as fully handled and suppresses the selection click it would
+   * otherwise produce — see the `onClick` comment below.
+   */
+  onKeyboardActivate?: () => boolean;
   endAdornment?: ReactNode;
   /**
    * When true, `endAdornment` (the pending-suggestion hourglass) takes the
@@ -49,14 +68,18 @@ export function CropHierarchyRow({
   isPrimaryEmphasized,
   secondary,
   varietyCount,
+  showZeroVarietyCount = false,
+  highlightQuery,
   ariaLabel,
   onClick,
   onDoubleClick,
   itemProps = {},
+  onKeyboardActivate,
   endAdornment,
   isPendingSuggestion = false,
 }: CropHierarchyRowProps) {
-  const countLabel = typeof varietyCount === 'number' && varietyCount > 0 ? (
+  const hasCount = typeof varietyCount === 'number' && (varietyCount > 0 || showZeroVarietyCount);
+  const countLabel = hasCount ? (
     <Typography
       component="span"
       sx={{
@@ -75,9 +98,19 @@ export function CropHierarchyRow({
       role={isClickable ? 'option' : 'presentation'}
       aria-label={ariaLabel}
       aria-selected={isClickable ? isSelected : undefined}
+      aria-expanded={hasChildren ? isExpanded : undefined}
       selected={isSelected}
       disabled={!isClickable}
-      onClick={onClick}
+      onClick={(event) => {
+        // MUI turns Enter on a non-native button into a programmatic
+        // `.click()`, which arrives here indistinguishable from a pointer
+        // click except for its zero `detail`. That is the only hook a caller
+        // has for giving Enter its own meaning on a row.
+        if (event.detail === 0 && onKeyboardActivate?.()) {
+          return;
+        }
+        onClick();
+      }}
       onDoubleClick={onDoubleClick}
       sx={{
         borderRadius: 1.5,
@@ -105,7 +138,7 @@ export function CropHierarchyRow({
         sx={compactCropChevronButtonSx}
       />
       <ListItemText
-        primary={primary}
+        primary={highlightQuery ? <HighlightedText text={primary} query={highlightQuery} /> : primary}
         secondary={secondary}
         sx={{ my: 0 }}
         slotProps={{

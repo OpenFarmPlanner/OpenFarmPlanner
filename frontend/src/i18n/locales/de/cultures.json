@@ -6,6 +6,7 @@
   "searchInputPlaceholderEnhanced": "Nach Kulturname suchen (z. B. Karotte)",
   "searchHelperText_one": "{{count}} Kultur gefunden. Mit den Filtern können Sie weiter eingrenzen.",
   "searchHelperText_other": "{{count}} Kulturen gefunden. Mit den Filtern können Sie weiter eingrenzen.",
+  "clearSearch": "Suche löschen",
   "noOptionsEnhanced": "Keine passende Kultur. Prüfen Sie Suche oder Filter.",
   "selectPrompt": "Wählen Sie eine Kultur aus der Liste aus, um Details anzuzeigen.",
   "selectCulture": "Kultur auswählen",

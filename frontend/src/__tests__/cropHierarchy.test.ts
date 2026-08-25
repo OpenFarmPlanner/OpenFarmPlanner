@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildCropHierarchy, findSpeciesCulture, withGroupGeneralCultures } from '../cultures/cropHierarchy';
+import {
+  buildCropHierarchy,
+  findSpeciesCulture,
+  withGroupGeneralCultures,
+  withGroupSiblingCultures,
+} from '../cultures/cropHierarchy';
 import type { Culture } from '../api/types';
 
 describe('buildCropHierarchy', () => {
@@ -84,5 +89,37 @@ describe('withGroupGeneralCultures', () => {
     const result = withGroupGeneralCultures([freeVariety], [freeGeneral, freeVariety]);
 
     expect(result).toContain(freeGeneral);
+  });
+});
+
+describe('withGroupSiblingCultures', () => {
+  const general: Culture = { id: 1, name: 'Karotte', crop_species: 10, variety: '' };
+  const nantaise: Culture = { id: 2, name: 'Karotte', crop_species: 10, variety: 'Nantaise' };
+  const rodelika: Culture = { id: 3, name: 'Karotte', crop_species: 10, variety: 'Rodelika' };
+  const otherCrop: Culture = { id: 4, name: 'Zwiebel', crop_species: 20, variety: '' };
+  const allCultures = [general, nantaise, rodelika, otherCrop];
+
+  it('shows every Sorte of a group one of its Sorten matched', () => {
+    const result = withGroupSiblingCultures([rodelika], allCultures);
+
+    expect(result).toEqual([general, nantaise, rodelika]);
+  });
+
+  it('leaves groups without a match out', () => {
+    const result = withGroupSiblingCultures([general], allCultures);
+
+    expect(result).not.toContain(otherCrop);
+  });
+
+  it('never widens past the set it is given', () => {
+    // The other filters already dropped `nantaise`, so a hit on its group must
+    // not bring it back.
+    const result = withGroupSiblingCultures([rodelika], [general, rodelika, otherCrop]);
+
+    expect(result).toEqual([general, rodelika]);
+  });
+
+  it('returns nothing for an empty match list', () => {
+    expect(withGroupSiblingCultures([], allCultures)).toEqual([]);
   });
 });

@@ -143,6 +143,27 @@ export function withGroupGeneralCultures<TCulture extends CropHierarchySource>(
 }
 
 /**
+ * Widens per-Kultur matches to whole groups: a group counts as a hit as soon
+ * as its Kultur name or any one of its Sorten matched, and it is then shown
+ * with *all* of its Sorten rather than only the matching ones.
+ *
+ * Searching a Sorte name is a way of finding its Kultur, so hiding that
+ * Kultur's remaining Sorten would answer a narrower question than the one the
+ * user asked. `allCultures` is the set the other (non-search) filters already
+ * left over, so a group is never widened past those filters.
+ */
+export function withGroupSiblingCultures<TCulture extends CropHierarchySource>(
+  matches: readonly TCulture[],
+  allCultures: readonly TCulture[],
+): TCulture[] {
+  if (matches.length === 0) {
+    return [...matches];
+  }
+  const matchedKeys = new Set(matches.map((culture) => getCropSpeciesKey(culture)));
+  return allCultures.filter((culture) => matchedKeys.has(getCropSpeciesKey(culture)));
+}
+
+/**
  * The first variety under a species node that has no dedicated varietyless
  * entry of its own (`hasGeneralEntry: false` on the species node — see
  * buildCropHierarchy). Such a species row has nothing to select directly, so

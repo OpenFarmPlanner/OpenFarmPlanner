@@ -10,7 +10,7 @@ interface CultureListKeyboardNavigationOptions<TItem> {
   autoFocusSelected?: boolean;
 }
 
-interface CultureListItemProps {
+export interface CultureListItemProps {
   id: string;
   ref: (element: HTMLElement | null) => (() => void) | undefined;
   role: 'option';
@@ -122,7 +122,11 @@ export function useCultureListKeyboardNavigation<TItem>({
 
     const selectedIndex = items.findIndex((item) => getId(item) === selectedId);
     const focusedIndex = items.findIndex((item) => getId(item) === focusedId);
-    const currentIndex = selectedIndex >= 0 ? selectedIndex : focusedIndex;
+    // Focus wins over selection: a list can contain rows that take focus
+    // without changing the selection (a Kultur group header with no general
+    // entry of its own), and moving on from such a row has to continue from
+    // where the focus actually is, not jump back to the selected row.
+    const currentIndex = focusedIndex >= 0 ? focusedIndex : selectedIndex;
     let nextIndex = currentIndex;
 
     if (key === 'ArrowDown') {

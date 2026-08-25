@@ -273,24 +273,43 @@ future `CropVariety` entity and persisted nullable override chain exist,
 value-source cues are resolved from the current row plus the matching
 no-variety general crop row.
 
-The project page's "Kultur suchen" field renders that same hierarchy in its
-dropdown (`CultureSearchSelect.tsx`, grouping built by
-`cultureSearchOptions.ts` from `buildCropHierarchy`): one group per Kultur,
-the general entry as the group's header row and its Sorten indented below it.
-The header is an option rather than a plain group label, so arrow-key
-navigation walks headers and Sorten in one sequence and Enter on a header
-selects the general Kultur, exactly like clicking it; the surrounding
-`role="group"` names the Kultur for screen readers, which is why the Sorte
-rows can drop the repeated Kultur name. Because the page has already filtered
-the options it passes down, the dropdown switches Autocomplete's own text
-filter off — filtering twice would drop the very headers a variety hit needs.
+The project page's "Kultur suchen" field has no dropdown of its own. It is a
+plain text field, and its results are the hierarchy list already sitting under
+it in the same card (`CultureDetail.tsx`, rows rendered by
+`CropHierarchyRow.tsx`): one row per Kultur group header, its Sorten
+underneath. The list keeps its own fixed, scrollable container, so typing
+re-filters it in place instead of floating an overlay over the surrounding
+content — and nothing around it reflows. An earlier `CultureSearchSelect`
+Autocomplete did exactly that and was removed: it duplicated the list beneath
+it and covered it while typing.
+
+The search filters live, from the first character typed:
+
+- **Groups, not rows, are the unit of a hit.** A group matches when its Kultur
+  name or any one of its Sorten does, and a hit is then shown with *all* of its
+  Sorten (`withGroupSiblingCultures`) — searching a Sorte name is a way of
+  finding its Kultur, so hiding that Kultur's other Sorten would answer a
+  narrower question than the one asked. The widening runs on top of the other
+  filters, never past them.
+- **A hit opens once** (`useSearchExpandedGroups`). Closing it again is the
+  user's call and sticks for as long as that group keeps matching; a group that
+  drops out of the results is forgotten, so a later hit opens it again as a
+  fresh one — and clearing the field closes everything the search opened.
+- **The matched substring is marked** in the Kultur and Sorte names
+  (`HighlightedText`), and every group header carries its Sorten count,
+  including `(0)` for a Kultur that has none.
+- **Arrow keys walk exactly what is on screen**, group headers included: a
+  header is a focus stop, Enter on one opens or closes the group and leaves the
+  selection alone, and Enter on a Sorte selects it without collapsing the list.
+  Clicking a header still selects the general Kultur, unchanged.
 
 Filtering the page by a Sorte name keeps that Sorte's Kultur in the list
-(`withGroupGeneralCultures`), in the tree and the dropdown alike. Without it a
-group whose Kultur row was filtered away left a Kultur node with no data of
-its own: clicking it selected the first matching Sorte instead of the Kultur.
-The re-added Kultur is context for the matches and never a match itself, so an
-otherwise empty result still shows the "no cultures found" state.
+(`withGroupGeneralCultures`), in the tree and the search results alike. Without
+it a group whose Kultur row was filtered away left a Kultur node with no data
+of its own: clicking it selected the first matching Sorte instead of the
+Kultur. The re-added Kultur is context for the matches and never a match
+itself, so an otherwise empty result still shows the "no cultures found"
+state.
 
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
