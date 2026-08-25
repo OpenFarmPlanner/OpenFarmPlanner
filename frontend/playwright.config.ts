@@ -30,7 +30,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `bash -lc 'uv run python manage.py migrate && uv run python manage.py runserver 127.0.0.1:${backendPort}'`,
+      command: `bash -lc 'uv run python manage.py migrate && uv run daphne -b 127.0.0.1 -p ${backendPort} config.asgi:application'`,
       cwd: '../backend',
       port: backendPort,
       reuseExistingServer: true,
