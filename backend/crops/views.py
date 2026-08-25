@@ -18,6 +18,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
+from config.languages import REQUIRED_PUBLIC_CROP_SPECIES_LANGUAGE_CODES
 
 from . import services
 from .models import CropSpecies, PublicLibraryModeratorRequest
@@ -29,8 +30,18 @@ from .permissions import (
 from .serializers import (
     CropSerializer,
     CropSpeciesSerializer,
+    CropSpeciesTranslationSerializer,
     PublicLibraryModeratorRequestSerializer,
 )
+
+
+def _translation_payload_by_language(data) -> dict[str, dict]:
+    serializer = CropSpeciesTranslationSerializer(data=data or [], many=True)
+    serializer.is_valid(raise_exception=True)
+    return {
+        item['language_code']: item
+        for item in serializer.validated_data
+    }
 
 
 class CropSpeciesViewSet(viewsets.ModelViewSet):
@@ -111,14 +122,52 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             return self._moderator_required_response()
         review_note = (request.data.get('review_note') or '').strip()
         with transaction.atomic():
-            species = CropSpecies.objects.select_for_update().get(pk=pk)
+            species = (
+                CropSpecies.objects
+                .select_for_update()
+                .prefetch_related('translations')
+                .get(pk=pk)
+            )
             if not species.is_pending:
                 return self._proposal_status_error()
+            translation_payload = _translation_payload_by_language(request.data.get('translations'))
+            existing_translations = {
+                translation.language_code: {
+                    'language_code': translation.language_code,
+                    'common_name': translation.common_name,
+                    'synonyms': translation.synonyms,
+                    'regional_names': translation.regional_names,
+                }
+                for translation in species.translations.all()
+            }
+            approved_translations = {**existing_translations, **translation_payload}
+            missing_languages = [
+                code
+                for code in REQUIRED_PUBLIC_CROP_SPECIES_LANGUAGE_CODES
+                if not (approved_translations.get(code, {}).get('common_name') or '').strip()
+            ]
+            if missing_languages:
+                return Response(
+                    {
+                        'detail': 'Required crop species translations are missing.',
+                        'code': 'missing_required_translations',
+                        'missing_languages': missing_languages,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from farm.utils import normalize_text
+
+            identity_queries = [
+                services.build_exact_species_identity_query(normalize_text(item['common_name']) or '')
+                for item in approved_translations.values()
+                if (item.get('common_name') or '').strip()
+            ]
+            duplicate_query = identity_queries[0] if identity_queries else services.build_exact_species_identity_query(species.name_normalized)
+            for query in identity_queries[1:]:
+                duplicate_query |= query
             duplicate = CropSpecies.objects.filter(
                 status=CropSpecies.STATUS_PUBLISHED,
-            ).filter(
-                services.build_exact_species_identity_query(species.name_normalized),
-            ).exclude(pk=species.pk).first()
+            ).filter(duplicate_query).exclude(pk=species.pk).first()
             if duplicate is not None:
                 return Response(
                     {
@@ -128,11 +177,15 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
+            CropSpeciesSerializer._write_translations(species, list(approved_translations.values()))
+            if hasattr(species, '_prefetched_objects_cache'):
+                species._prefetched_objects_cache = {}
+            species.name = approved_translations['en']['common_name']
             species.status = CropSpecies.STATUS_PUBLISHED
             species.reviewed_by = request.user
             species.reviewed_at = timezone.now()
             species.review_note = review_note
-            species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+            species.save(update_fields=['name', 'name_normalized', 'status', 'reviewed_by', 'reviewed_at', 'review_note'])
         services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 

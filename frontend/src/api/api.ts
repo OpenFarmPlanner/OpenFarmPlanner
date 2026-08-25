@@ -32,6 +32,7 @@ import type {
   PublicCultureDuplicateCandidate,
   PublicCultureTranslations,
   CropSpecies,
+  CropSpeciesTranslation,
   PublicLibraryModeratorRequest,
   PublicLibraryModeratorRequestMine,
   PublishPublicCulturePreview,
@@ -170,8 +171,14 @@ export const notificationAPI = {
 export const cropSpeciesAPI = {
   list: (params?: { q?: string; include_proposed?: boolean; status?: CropSpecies['status']; page_size?: number }) =>
     http.get<PaginatedResponse<CropSpecies>>('/crop-species/', { params }),
-  propose: (name: string) => http.post<CropSpecies>('/crop-species/', { name }),
-  approve: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/approve/`, { review_note: reviewNote }),
+  propose: (name: string, languageCode?: string) => http.post<CropSpecies>('/crop-species/', {
+    name,
+    ...(languageCode ? { translations: [{ language_code: languageCode, common_name: name }] } : {}),
+  }),
+  approve: (id: number, reviewNote = '', translations?: CropSpeciesTranslation[]) => http.post<CropSpecies>(
+    `/crop-species/${id}/approve/`,
+    { review_note: reviewNote, ...(translations ? { translations } : {}) },
+  ),
   reject: (id: number, reviewNote = '') => http.post<CropSpecies>(`/crop-species/${id}/reject/`, { review_note: reviewNote }),
 };
 

@@ -903,6 +903,7 @@
       "actionError": "Die Moderationsaktion konnte nicht ausgeführt werden.",
       "approve": "Annehmen",
       "reject": "Ablehnen",
+      "cancel": "Abbrechen",
       "saving": "Speichere…",
       "unknownDate": "Datum unbekannt",
       "none": "Keine",
@@ -918,6 +919,10 @@
       "species": {
         "title": "Kulturart-Vorschläge",
         "empty": "Keine offenen Kulturart-Vorschläge.",
+        "approveDialogTitle": "Kulturart annehmen",
+        "approveDialogIntro": "Lege die öffentlichen Namen für „{{name}}“ fest. Deutsch und Englisch sind Pflicht, bevor die Kulturart veröffentlicht wird.",
+        "germanName": "Deutscher Name",
+        "englishName": "Englischer Name",
         "approveSuccess": "Die Kulturart wurde angenommen.",
         "rejectSuccess": "Der Kulturart-Vorschlag wurde abgelehnt."
       },

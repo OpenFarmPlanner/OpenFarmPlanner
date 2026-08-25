@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import { OverflowTooltip } from '../OverflowTooltip';
 
@@ -31,36 +31,54 @@ export function CompactAreaCell({
   suppressFocus = false,
 }: CompactAreaCellProps) {
   const triggerRef = useRef<HTMLDivElement | null>(null);
+  const focusRestoreHandlesRef = useRef<{ frames: number[]; timeouts: number[] }>({ frames: [], timeouts: [] });
   const displayText = label || placeholder || '';
+
+  const clearFocusRestore = useCallback(() => {
+    focusRestoreHandlesRef.current.frames.forEach((frame) => cancelAnimationFrame(frame));
+    focusRestoreHandlesRef.current.timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    focusRestoreHandlesRef.current = { frames: [], timeouts: [] };
+  }, []);
+
+  const scheduleTriggerFocus = useCallback(() => {
+    clearFocusRestore();
+    const focusTrigger = () => {
+      triggerRef.current?.focus();
+    };
+
+    const firstFrame = requestAnimationFrame(() => {
+      focusTrigger();
+      const secondFrame = requestAnimationFrame(focusTrigger);
+      focusRestoreHandlesRef.current.frames.push(secondFrame);
+    });
+    focusRestoreHandlesRef.current = {
+      frames: [firstFrame],
+      timeouts: [
+        window.setTimeout(focusTrigger, 10),
+        window.setTimeout(focusTrigger, 50),
+      ],
+    };
+  }, [clearFocusRestore]);
+
+  useEffect(() => clearFocusRestore, [clearFocusRestore]);
 
   useEffect(() => {
     if (!hasFocus || suppressFocus) {
       return undefined;
     }
 
-    // Cancelled on cleanup: when the cell's own dialog opens in the same commit
-    // that focused the cell, a still-pending frame would pull focus back out of
-    // the dialog right after it mounted.
-    const frame = requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [hasFocus, suppressFocus]);
+    scheduleTriggerFocus();
+    return clearFocusRestore;
+  }, [clearFocusRestore, hasFocus, scheduleTriggerFocus, suppressFocus]);
 
   useEffect(() => {
     if (focusRequest <= 0 || suppressFocus) {
       return undefined;
     }
 
-    const frame = requestAnimationFrame(() => {
-      triggerRef.current?.focus();
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [focusRequest, suppressFocus]);
+    scheduleTriggerFocus();
+    return clearFocusRestore;
+  }, [clearFocusRestore, focusRequest, scheduleTriggerFocus, suppressFocus]);
 
   return (
     <OverflowTooltip title={displayText}>

@@ -284,14 +284,21 @@ def notify_species_proposal_reviewed(species: CropSpecies) -> None:
         .first()
     )
     accepted = notification_type == Notification.TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED
+    try:
+        preferred_language = getattr(species.proposed_by.project_settings, 'ui_language', '')
+    except Exception:  # noqa: BLE001
+        preferred_language = ''
+    if preferred_language == 'auto':
+        preferred_language = ''
+    species_label = species.localized_name(preferred_language, None)[0]
     create_notification(
         recipient=species.proposed_by,
         notification_type=notification_type,
         message=(
-            f'Your proposal for the crop species "{species.name}" was '
+            f'Your proposal for the crop species "{species_label}" was '
             f'{"accepted" if accepted else "rejected"}.'
         ),
-        context={'name': species.name},
+        context={'name': species_label},
         target_type=(
             Notification.TARGET_PUBLIC_CULTURE if published_variety
             else Notification.TARGET_CROP_SPECIES

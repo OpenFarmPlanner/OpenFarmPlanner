@@ -118,7 +118,7 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(proposeButton).toBeEnabled();
     fireEvent.click(proposeButton);
 
-    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
+    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis', 'de'));
     // The freshly proposed (pending) species is used for this publication
     // right away instead of blocking the user until a moderator reviews it.
     await waitFor(() => expect(publishPreviewMock).toHaveBeenCalledWith(
@@ -162,6 +162,56 @@ describe('CulturesPublishingWizardDialog', () => {
     expect(await screen.findByDisplayValue('Tomate')).toBeInTheDocument();
     expect(screen.queryByText(/Deine Sorte wird vorläufig unter/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Jetzt veröffentlichen' })).toBeInTheDocument();
+  });
+
+  it('keeps the proposal selected when the user tabs away from the species field', async () => {
+    cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.type(speciesInput, 'teste DE');
+
+    expect(await screen.findByRole('option', { name: /teste DE.*als neue Kulturart vorschlagen/i })).toBeInTheDocument();
+
+    await user.tab();
+
+    expect(await screen.findByDisplayValue('teste DE')).toBeInTheDocument();
+    expect(screen.getByText(/Deine Sorte wird vorläufig unter „teste DE“ veröffentlicht/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kulturart vorschlagen' })).toBeEnabled();
+  });
+
+  it('does not show the proposed species notice when publication is blocked by missing fields', async () => {
+    cropSpeciesListMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
+    cropSpeciesProposeMock.mockResolvedValue({ data: { id: 2, name: 'sdfsd', status: 'proposed' } });
+    publishPreviewMock.mockResolvedValue({
+      data: {
+        crop_species: { id: 2, name: 'sdfsd' },
+        original_language_code: 'de',
+        available_language_codes: ['de'],
+        missing_required_fields: [
+          { field: 'growth_duration_days', label_key: 'library.publishWizard.requiredFields.growth_duration_days' },
+          { field: 'harvest_duration_days', label_key: 'library.publishWizard.requiredFields.harvest_duration_days' },
+        ],
+        duplicates: [],
+        can_publish: false,
+        general_crop_notice: null,
+      },
+    });
+
+    renderWizard();
+
+    const speciesInput = await screen.findByLabelText(/Offizielle Kulturart/i);
+    const user = userEvent.setup();
+    await user.type(speciesInput, 'sdfsd');
+
+    fireEvent.click(await screen.findByRole('option', { name: /sdfsd.*als neue Kulturart vorschlagen/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kulturart vorschlagen' }));
+
+    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('sdfsd', 'de'));
+    expect(await screen.findByText(/Vor der Veröffentlichung fehlen noch Pflichtfelder/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dein Vorschlag für die neue Kulturart „sdfsd“ wurde zur Prüfung eingereicht/)).not.toBeInTheDocument();
   });
 
   it('matches an existing species by its localized display name, not just the canonical name', async () => {
@@ -341,7 +391,7 @@ describe('CulturesPublishingWizardDialog', () => {
     fireEvent.click(proposeOption);
     fireEvent.click(await screen.findByRole('button', { name: 'Kulturart vorschlagen' }));
 
-    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis'));
+    await waitFor(() => expect(cropSpeciesProposeMock).toHaveBeenCalledWith('Kürbis', 'de'));
     expect(await screen.findByText(/existiert bereits oder wurde schon vorgeschlagen/)).toBeInTheDocument();
     expect(screen.queryByText(/wurde zur Prüfung eingereicht/)).not.toBeInTheDocument();
     // A failed proposal must not publish the variety under a species that
