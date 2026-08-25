@@ -464,7 +464,6 @@ describe('CultureDetail Component', () => {
         thousand_kernel_weight_g: 1.3,
         harvest_method: 'per_sqm',
         expected_yield: 4.5,
-        allow_deviation_delivery_weeks: true,
       },
     ];
 
@@ -497,7 +496,6 @@ describe('CultureDetail Component', () => {
     expect(screen.getByText('seeds / running m')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 6, name: 'Yield' })).toBeInTheDocument();
     expect(screen.getByText('Expected yield')).toBeInTheDocument();
-    expect(screen.getByText('Yes')).toBeInTheDocument();
   });
 
   it('renders supplier seed data once inside the seed section', () => {

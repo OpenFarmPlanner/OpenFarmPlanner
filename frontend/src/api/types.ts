@@ -163,7 +163,6 @@ export interface Culture {
   
   harvest_method?: 'per_plant' | 'per_sqm' | '';
   expected_yield?: number;
-  allow_deviation_delivery_weeks?: boolean;
   
   distance_within_row_cm?: number;
   row_spacing_cm?: number;
@@ -295,7 +294,6 @@ export interface PublicCulture {
   propagation_duration_days?: number | null;
   harvest_method?: 'per_plant' | 'per_sqm' | '';
   expected_yield?: number | null;
-  allow_deviation_delivery_weeks?: boolean;
   distance_within_row_m?: number | null;
   row_spacing_m?: number | null;
   sowing_depth_m?: number | null;

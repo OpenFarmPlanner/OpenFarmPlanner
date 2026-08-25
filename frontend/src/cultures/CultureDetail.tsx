@@ -1300,21 +1300,6 @@ const detailSectionGridSx = {
                     </Typography>
                   </Box>
                 )}
-                {getCropValue('allow_deviation_delivery_weeks', selectedCulture.allow_deviation_delivery_weeks) && (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('detail.fields.allowDeviationDeliveryWeeks')}
-                    </Typography>
-                    <Box sx={getOwnValueSx('allow_deviation_delivery_weeks')}>
-                      <Chip
-                        label={t('detail.boolean.yes')}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                    </Box>
-                  </Box>
-                )}
               </Box>
             </Box>
 

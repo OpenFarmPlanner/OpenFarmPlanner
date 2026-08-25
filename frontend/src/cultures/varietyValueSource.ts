@@ -44,7 +44,6 @@ export const VARIETY_INHERITABLE_FIELDS: (keyof Culture)[] = [
   'propagation_duration_days',
   'harvest_method',
   'expected_yield',
-  'allow_deviation_delivery_weeks',
   'distance_within_row_cm',
   'row_spacing_cm',
   'sowing_depth_cm',

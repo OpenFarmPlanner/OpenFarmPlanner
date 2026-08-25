@@ -314,7 +314,6 @@ the species baseline; a private culture value is a project-specific override.
 | `sowing_calculation_safety_percent` and direct/pre-cultivation variants | baseline/override | A sensible default may exist, but germination expectations and local risk justify overrides. |
 | `thousand_kernel_weight_g` | default/override | It is often variety-specific, but an unknown variety needs a species baseline; supplier measurements may additionally override it locally. |
 | `seeding_requirement`, `seeding_requirement_type` | baseline/override, but review semantic unit before centralizing | Current semantics are ambiguous (“total” without an area/time basis), so preserve existing data and clarify it before making it a library recommendation. |
-| `allow_deviation_delivery_weeks` | project-only for now; do **not** inherit | This is a planning workflow preference, not botanical or variety knowledge. |
 
 ### Group C — variety only
 
@@ -338,7 +337,6 @@ the species baseline; a private culture value is a project-specific override.
 | `SeedPackage` / public `seed_packages` JSON | retain project package observations; do not copy to canonical variety | Package sizes and availability vary by supplier, market, and time. |
 | `image_file` | remains project-owned until rights/provenance are designed | A public image needs separate licensing, attribution, moderation, and localized alt text. |
 | `display_color` | remains project-owned | Calendar color is UI preference. |
-| `allow_deviation_delivery_weeks` | remains project-owned | Project planning behavior. |
 | `PlantingPlan` dates, quantity, area, notes, cultivation type | remain project-owned snapshots | Operational history must not change when a shared record changes. |
 
 ## 5. Translation lookup and fallback

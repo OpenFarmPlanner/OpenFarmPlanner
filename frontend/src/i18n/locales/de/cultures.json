@@ -90,8 +90,7 @@
       "seedSafetyMarginPercent": "Sicherheitszuschlag (%)",
       "seedRateByCultivation": "Saatgutmenge nach Anbauart",
       "method": "Methode",
-      "seedingRequirement": "Saatgutbedarf",
-      "allowDeviationDeliveryWeeks": "Abweichende Lieferwochen"
+      "seedingRequirement": "Saatgutbedarf"
     },
     "units": {
       "days": "Tage",
@@ -247,7 +246,6 @@
     "expectedYieldPlaceholder": "z.B. 500",
     "expectedYieldUnit": "kg",
     "expectedYieldError": "Erwarteter Ertrag muss ≥ 0 sein",
-    "allowDeviationDeliveryWeeks": "Abweichende Lieferwochen erlauben",
     "distanceWithinRowCm": "Abstand in der Reihe (cm)",
     "distanceWithinRowCmPlaceholder": "z.B. 40",
     "distanceWithinRowCmError": "Abstand muss ≥ 0 sein",
@@ -682,7 +680,6 @@
         "seedPackages": "Packungsgrößen",
         "harvestMethod": "Ertragseinheit",
         "expectedYield": "Erwarteter Ertrag",
-        "allowDeviationDeliveryWeeks": "Abweichende Lieferwochen",
         "originalLanguage": "Originalsprache",
         "createdAt": "Angelegt am",
         "publishedAt": "Veröffentlicht am",
@@ -996,7 +993,6 @@
           "propagation_duration_days": "Vorkulturdauer (Tage)",
           "harvest_method": "Ertragseinheit",
           "expected_yield": "Erwarteter Ertrag",
-          "allow_deviation_delivery_weeks": "Abweichende Lieferwochen erlauben",
           "distance_within_row_m": "Pflanzabstand (m)",
           "row_spacing_m": "Reihenabstand (m)",
           "sowing_depth_m": "Saattiefe (m)",

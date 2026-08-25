@@ -73,8 +73,6 @@ const normalizeNumber = (value: unknown): number | null => {
   return null;
 };
 
-const normalizeBoolean = (value: unknown): boolean => value === true;
-
 const normalizeCultivationTypes = (culture: Partial<Culture>): string[] => {
   const values = culture.cultivation_types?.length
     ? culture.cultivation_types
@@ -158,7 +156,6 @@ export function normalizeCultureFormData(culture: Partial<Culture>): Record<stri
     normalized[field] = normalizeNumber(culture[field]);
   });
 
-  normalized.allow_deviation_delivery_weeks = normalizeBoolean(culture.allow_deviation_delivery_weeks);
   normalized.cultivation_types = normalizeCultivationTypes(culture);
   normalized.display_color = normalizeColor(culture.display_color);
   normalized.seed_rate_by_cultivation = normalizeSeedRateByCultivation(culture.seed_rate_by_cultivation);

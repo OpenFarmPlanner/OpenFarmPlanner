@@ -18,7 +18,6 @@ const publicCulture: PublicCulture = {
   growth_duration_days: 60,
   harvest_duration_days: 20,
   distance_within_row_m: 0.4,
-  allow_deviation_delivery_weeks: false,
 };
 
 const privateCulture: Culture = {

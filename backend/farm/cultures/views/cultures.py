@@ -330,7 +330,7 @@ class CultureViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             'name', 'variety', 'notes', 'seed_supplier',
             'crop_family', 'nutrient_demand', 'cultivation_type',
             'growth_duration_days', 'harvest_duration_days', 'propagation_duration_days',
-            'harvest_method', 'expected_yield', 'allow_deviation_delivery_weeks',
+            'harvest_method', 'expected_yield',
             'distance_within_row_cm', 'row_spacing_cm', 'sowing_depth_cm',
             'seed_rate_value', 'seed_rate_unit', 'sowing_calculation_safety_percent',
             'seed_rate_direct_value', 'seed_rate_direct_unit', 'sowing_calculation_safety_percent_direct',

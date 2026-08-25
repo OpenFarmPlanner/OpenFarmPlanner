@@ -180,12 +180,6 @@ export const CULTURE_COMPARISON_FIELDS: CultureComparisonField[] = [
     labelKey: 'form.expectedYield',
     format: (culture, t, locale) => `${formatNumber(culture.expected_yield ?? null, t, locale)} ${t('detail.units.kilograms')}`,
   },
-  {
-    id: 'allowDeviationDeliveryWeeks',
-    keys: ['allow_deviation_delivery_weeks'],
-    labelKey: 'detail.fields.allowDeviationDeliveryWeeks',
-    format: (culture, t) => (culture.allow_deviation_delivery_weeks ? t('detail.boolean.yes') : t('detail.boolean.no')),
-  },
 ];
 
 const EMPTY_CELL_VALUE = '—';

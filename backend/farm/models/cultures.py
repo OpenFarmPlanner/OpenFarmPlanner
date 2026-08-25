@@ -615,7 +615,7 @@ class Culture(TimestampedModel):
     _SOURCE_DIVERGENCE_TRACKED_FIELDS = {
         'name', 'variety', 'notes', 'crop_family', 'nutrient_demand', 'cultivation_types',
         'cultivation_type', 'growth_duration_days', 'harvest_duration_days', 'propagation_duration_days',
-        'harvest_method', 'expected_yield', 'allow_deviation_delivery_weeks', 'distance_within_row_m',
+        'harvest_method', 'expected_yield', 'distance_within_row_m',
         'row_spacing_m', 'sowing_depth_m', 'seed_rate_value', 'seed_rate_unit', 'seed_rate_by_cultivation',
         'sowing_calculation_safety_percent', 'seed_rate_direct_value', 'seed_rate_direct_unit',
         'sowing_calculation_safety_percent_direct', 'seed_rate_pre_cultivation_value',

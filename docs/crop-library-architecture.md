@@ -338,9 +338,8 @@ planning calculations and the UI resolve it identically:
 - `CULTURE_INHERITABLE_FIELDS` lists the planning fields that participate. It
   mirrors the frontend's `VARIETY_INHERITABLE_FIELDS`
   (`frontend/src/cultures/varietyValueSource.ts`), which prefills a *new*
-  Sorte from the same set, minus `allow_deviation_delivery_weeks` (a non-null
-  boolean has no unset state to fall back from) and minus the legacy
-  `seed_rate_value`/`seed_rate_unit` pair and the derived
+  Sorte from the same set, minus the legacy `seed_rate_value`/`seed_rate_unit`
+  pair and the derived
   `seed_rate_by_cultivation` map (validated as a subset of the row's own
   `cultivation_types`, so inheriting it separately could produce a combination
   the model rejects).
