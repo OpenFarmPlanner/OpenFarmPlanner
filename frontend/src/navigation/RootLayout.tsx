@@ -114,6 +114,13 @@ import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
+// The trailing status cluster (season switcher, project switcher, notification
+// bell) and the "Mehr" overflow menu need a visible spacing hierarchy. Because
+// the cluster's buttons carry 5-8px of their own horizontal padding, a gap that
+// only differs by a few pixels reads as uniform — hence the deliberate 8px vs
+// 20px split rather than one step of the 1.25 group gap.
+const TOPBAR_STATUS_CLUSTER_GAP = 1;
+const TOPBAR_OVERFLOW_MENU_GAP = 2.5;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
 
 interface SnackbarState {
@@ -1407,12 +1414,12 @@ function RootLayout() {
               ))}
             </Menu>
           ) : null}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_OVERFLOW_MENU_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
           {/* Season switcher, project switcher, and the notification bell
               read as one "status" cluster — tighter gap than the group's own
               separation from the primary action button before it and from
               the "Mehr" overflow menu after it. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_STATUS_CLUSTER_GAP }}>
           {hasActiveProject ? (
             <SeasonSwitcher
               controller={activeSeason}
