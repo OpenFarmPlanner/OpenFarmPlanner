@@ -20,6 +20,11 @@ export interface CultureSearchGrouping {
   groups: Map<string, CultureSearchGroup>;
   groupKeyByOptionValue: Map<number, string>;
   optionLabelByValue: Map<number, string>;
+  /**
+   * The last variety row in each group, keyed by group. The guide line stops
+   * at this row's elbow instead of running past it.
+   */
+  lastVarietyOptionValueByGroupKey: Map<string, number>;
 }
 
 const UNGROUPED_KEY_PREFIX = 'option:';
@@ -83,11 +88,22 @@ export function buildCultureSearchGrouping(
     groupedOptions.push(option);
   });
 
+  const lastVarietyOptionValueByGroupKey = new Map<string, number>();
+  groupedOptions.forEach((option) => {
+    const groupKey = groupKeyByOptionValue.get(option.value);
+    const group = groupKey === undefined ? undefined : groups.get(groupKey);
+    if (groupKey === undefined || group?.headerOptionValue === option.value) {
+      return;
+    }
+    lastVarietyOptionValueByGroupKey.set(groupKey, option.value);
+  });
+
   return {
     options: groupedOptions,
     groups,
     groupKeyByOptionValue,
     optionLabelByValue,
+    lastVarietyOptionValueByGroupKey,
   };
 }
 

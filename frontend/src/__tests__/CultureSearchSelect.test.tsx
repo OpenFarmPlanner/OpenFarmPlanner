@@ -54,7 +54,10 @@ describe('CultureSearchSelect', () => {
     // The header names the Kultur, so the rows below it show the Sorte alone.
     expect(within(groupOptions[1]).getByText('Milder Spiral')).toBeInTheDocument();
     expect(within(groupOptions[1]).queryByText(/Pfefferoni/)).not.toBeInTheDocument();
-    expect(within(groupOptions[0]).getByText(GENERAL_CROP_LABEL)).toBeInTheDocument();
+    // The header row shows only the bold Kultur name; the general-crop label
+    // stays in the accessible name only, asserted above.
+    expect(within(groupOptions[0]).getByText('Pfefferoni')).toBeInTheDocument();
+    expect(within(groupOptions[0]).queryByText(GENERAL_CROP_LABEL)).not.toBeInTheDocument();
   });
 
   it('renders the group header for a Kultur without any varieties', async () => {

@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
-import LocalFloristOutlinedIcon from '@mui/icons-material/LocalFloristOutlined';
-import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import { useTranslation } from 'react-i18next';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { Key, ReactNode, Ref } from 'react';
@@ -10,12 +8,10 @@ import type { SearchableSelectOption } from '../components/inputs/SearchableSele
 import { buildCultureSearchGrouping, getCultureSearchVarietyLabel } from './cultureSearchOptions';
 import {
   cultureSearchGroupSx,
-  cultureSearchHeaderHintSx,
-  cultureSearchHeaderIconSx,
   cultureSearchHeaderNameSx,
   cultureSearchHeaderOptionSx,
-  cultureSearchVarietyIconSx,
   cultureSearchVarietyNameSx,
+  cultureSearchVarietyOptionLastSx,
   cultureSearchVarietyOptionSx,
 } from './cultureSearchSelectStyles';
 import type { Culture } from '../api/types';
@@ -91,7 +87,6 @@ export function CultureSearchSelect({
             >
               {group && group.headerOptionValue === null ? (
                 <Box component="li" role="presentation" sx={cultureSearchHeaderOptionSx}>
-                  <LocalFloristOutlinedIcon fontSize="small" sx={cultureSearchHeaderIconSx} />
                   <Typography component="span" sx={cultureSearchHeaderNameSx}>
                     {group.label}
                   </Typography>
@@ -120,16 +115,16 @@ export function CultureSearchSelect({
               aria-label={`${group.label} – ${generalCropLabel}`}
               sx={cultureSearchHeaderOptionSx}
             >
-              <LocalFloristOutlinedIcon fontSize="small" sx={cultureSearchHeaderIconSx} />
               <Typography component="span" sx={cultureSearchHeaderNameSx}>
                 {group.label}
-              </Typography>
-              <Typography component="span" variant="caption" sx={cultureSearchHeaderHintSx}>
-                {generalCropLabel}
               </Typography>
             </Box>
           );
         }
+
+        const isLastVariety =
+          groupKey !== undefined &&
+          grouping.lastVarietyOptionValueByGroupKey.get(groupKey) === option.value;
 
         return (
           <Box
@@ -139,9 +134,8 @@ export function CultureSearchSelect({
             // The row shows the Sorte alone, so the full "Kultur – Sorte" text
             // stays the accessible name.
             aria-label={option.label}
-            sx={cultureSearchVarietyOptionSx}
+            sx={isLastVariety ? cultureSearchVarietyOptionLastSx : cultureSearchVarietyOptionSx}
           >
-            <LocalOfferOutlinedIcon fontSize="small" sx={cultureSearchVarietyIconSx} />
             <Typography component="span" sx={cultureSearchVarietyNameSx}>
               {getCultureSearchVarietyLabel(option, option.label)}
             </Typography>

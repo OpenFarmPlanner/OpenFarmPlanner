@@ -26,11 +26,6 @@ export const cultureSearchHeaderOptionSx: SxProps<Theme> = {
   },
 };
 
-export const cultureSearchHeaderIconSx: SxProps<Theme> = {
-  color: 'text.secondary',
-  flexShrink: 0,
-};
-
 export const cultureSearchHeaderNameSx: SxProps<Theme> = {
   fontWeight: 'bold',
   flexGrow: 1,
@@ -40,15 +35,11 @@ export const cultureSearchHeaderNameSx: SxProps<Theme> = {
   whiteSpace: 'nowrap',
 };
 
-export const cultureSearchHeaderHintSx: SxProps<Theme> = {
-  color: 'text.secondary',
-  flexShrink: 0,
-};
-
 /**
- * Indents the Sorte and draws the thin line back up to its Kultur header: one
- * vertical line per row, which reads as a single continuous line down the
- * group, plus a short stub into the row itself.
+ * Indents the Sorte and draws the thin line back up to its Kultur header: a
+ * vertical line down the row plus a short horizontal stub into it. On the
+ * last Sorte of a group the vertical line stops at the stub, so the guide
+ * reads as an elbow closing off the group instead of continuing past it.
  */
 export const cultureSearchVarietyOptionSx: SxProps<Theme> = {
   '&.MuiAutocomplete-option': {
@@ -78,9 +69,17 @@ export const cultureSearchVarietyOptionSx: SxProps<Theme> = {
   },
 };
 
-export const cultureSearchVarietyIconSx: SxProps<Theme> = {
-  color: 'text.secondary',
-  flexShrink: 0,
+export const cultureSearchVarietyOptionLastSx: SxProps<Theme> = {
+  ...cultureSearchVarietyOptionSx,
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    left: (theme: Theme) => theme.spacing(VARIETY_GUIDE_LINE_INSET),
+    top: 0,
+    bottom: '50%',
+    width: '1px',
+    bgcolor: 'surface.surfaceBorder',
+  },
 };
 
 export const cultureSearchVarietyNameSx: SxProps<Theme> = {
