@@ -54,7 +54,7 @@ function useFloatingDropdownOpen(): boolean {
   return open;
 }
 
-function useDropdownInteractionSuppressed(dropdownOpen: boolean): boolean {
+function useDropdownInteractionSuppressed(): boolean {
   const [triggerSuppressed, setTriggerSuppressed] = useState(false);
 
   useLayoutEffect(() => {
@@ -66,19 +66,26 @@ function useDropdownInteractionSuppressed(dropdownOpen: boolean): boolean {
 
       setTriggerSuppressed(false);
     };
+    const clearSuppressionAwayFromDropdownTrigger = (event: Event): void => {
+      if (!isDropdownTrigger(event.target)) {
+        setTriggerSuppressed(false);
+      }
+    };
 
     document.addEventListener('mousedown', suppressForDropdownTrigger, true);
+    document.addEventListener('mouseover', clearSuppressionAwayFromDropdownTrigger, true);
     document.addEventListener('focusin', suppressForDropdownTrigger, true);
     document.addEventListener('keydown', suppressForDropdownTrigger, true);
 
     return () => {
       document.removeEventListener('mousedown', suppressForDropdownTrigger, true);
+      document.removeEventListener('mouseover', clearSuppressionAwayFromDropdownTrigger, true);
       document.removeEventListener('focusin', suppressForDropdownTrigger, true);
       document.removeEventListener('keydown', suppressForDropdownTrigger, true);
     };
   }, []);
 
-  return dropdownOpen || triggerSuppressed;
+  return triggerSuppressed;
 }
 
 export function DropdownAwareTooltip({
@@ -92,7 +99,7 @@ export function DropdownAwareTooltip({
 }: TooltipProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const dropdownOpen = useFloatingDropdownOpen();
-  const dropdownInteractionSuppressed = useDropdownInteractionSuppressed(dropdownOpen);
+  const dropdownInteractionSuppressed = useDropdownInteractionSuppressed();
   const shouldHideTooltip = dropdownOpen || dropdownInteractionSuppressed;
   const effectiveOpen = shouldHideTooltip ? false : (open ?? uncontrolledOpen);
 
@@ -101,16 +108,17 @@ export function DropdownAwareTooltip({
       {...props}
       open={effectiveOpen}
       onOpen={(event) => {
-        if (!shouldHideTooltip) {
-          setUncontrolledOpen(true);
-          onOpen?.(event);
+        if (dropdownOpen || (dropdownInteractionSuppressed && isDropdownTrigger(event.currentTarget))) {
+          return;
         }
+        setUncontrolledOpen(true);
+        onOpen?.(event);
       }}
       onClose={(event) => {
         setUncontrolledOpen(false);
         onClose?.(event);
       }}
-      disableHoverListener={shouldHideTooltip || disableHoverListener}
+      disableHoverListener={dropdownOpen || disableHoverListener}
       disableFocusListener={shouldHideTooltip || disableFocusListener}
       disableTouchListener={shouldHideTooltip || disableTouchListener}
     />

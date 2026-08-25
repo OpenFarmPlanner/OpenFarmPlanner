@@ -54,6 +54,15 @@ describe('useWebSocket', () => {
     )).toBe('wss://example.test/openfarmplanner/ws/public-cultures/1/discussions/');
   });
 
+  it('allows production-preview tests to target the ASGI backend directly', () => {
+    expect(buildWebSocketUrl(
+      'ws/notifications/',
+      { protocol: 'http:', host: '127.0.0.1:4173' },
+      '/',
+      'http://127.0.0.1:8000',
+    )).toBe('ws://127.0.0.1:8000/ws/notifications/');
+  });
+
   it('uses bounded exponential reconnect delays', () => {
     expect(reconnectDelay(0)).toBe(1_000);
     expect(reconnectDelay(3)).toBe(8_000);

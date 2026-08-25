@@ -12,6 +12,8 @@ npm run test:e2e
 ## Notes
 
 - The Playwright configuration starts the backend and frontend web servers automatically.
+  The backend runs through Daphne/ASGI so WebSocket routes behave like staging and
+  production.
 - The frontend server is the **production build** served via `vite preview`, not the Vite
   dev server: `npm run test:e2e` runs `npm run build` first, and Playwright's `webServer`
   entry only runs `vite preview` against the resulting `dist/`. This is intentional — it
