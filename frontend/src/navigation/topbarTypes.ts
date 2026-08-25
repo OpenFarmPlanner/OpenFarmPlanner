@@ -33,4 +33,6 @@ export interface TopbarContextAction {
 export interface RootLayoutOutletContext {
   setTopbarContextActions: (actions: TopbarContextAction[]) => void;
   setTopbarTitleActions: (actions: TopbarContextAction[]) => void;
+  /** Start year of the currently active season, once loaded; null while loading or without a project/season. */
+  activeSeasonYear: number | null;
 }

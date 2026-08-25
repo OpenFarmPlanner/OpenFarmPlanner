@@ -30,16 +30,20 @@ vi.mock("../hooks/useProjectRequirement", () => ({
   useProjectRequirement: () => projectRequirementState,
 }));
 
+const outletContext = vi.hoisted(() => ({ activeSeasonYear: null as number | null }));
+
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return {
     ...actual,
     useNavigate: () => mocks.navigate,
+    useOutletContext: () => outletContext,
   };
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  outletContext.activeSeasonYear = null;
   projectRequirementState.shouldShowProjectRequiredState = false;
   projectRequirementState.missingProjectReason = null;
   mocks.planList.mockResolvedValue({
@@ -586,5 +590,20 @@ describe("YieldOverviewPage", () => {
       expect(kohlLegendButton).toHaveAttribute("aria-pressed", "false");
       expect(carrotSegment).toHaveStyle({ opacity: "1" });
     });
+  });
+
+  it("defaults the selected year to the active season's start year once it loads", async () => {
+    outletContext.activeSeasonYear = 2025;
+
+    render(
+      <FocusManagerProvider><MemoryRouter>
+        <YieldOverviewPage />
+      </MemoryRouter></FocusManagerProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("Jahr")).toHaveTextContent("2025"));
+    await waitFor(() =>
+      expect(mocks.yieldList).toHaveBeenCalledWith(2025),
+    );
   });
 });
