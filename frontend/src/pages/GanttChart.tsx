@@ -226,8 +226,25 @@ function GanttChartPage() {
   const ganttSidebarWidthFrameRef = useRef<number | null>(null);
   const hasRestoredTimelineRef = useRef(false);
   const latestReferenceDateRef = useRef<Date | null>(null);
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const currentYear = new Date().getFullYear();
-  const [displayYear] = useState(currentYear);
+  const [displayYear, setDisplayYear] = useState(currentYear);
+  // The initial year defaults to today's calendar year before the active
+  // season has loaded; once it has, snap to the season's own start year so
+  // switching to a non-current season doesn't leave the calendar showing an
+  // empty "today's year" view. Applied once so it never fights a year the
+  // user has since navigated to manually.
+  const appliedSeasonYearRef = useRef(false);
+  useEffect(() => {
+    const seasonYear = outletContext?.activeSeasonYear;
+    if (appliedSeasonYearRef.current || seasonYear == null) {
+      return;
+    }
+    appliedSeasonYearRef.current = true;
+    if (seasonYear !== currentYear) {
+      setDisplayYear(seasonYear);
+    }
+  }, [currentYear, outletContext?.activeSeasonYear]);
   const startDate = useMemo(() => new Date(displayYear, 0, 1), [displayYear]);
   const endDate = useMemo(() => new Date(displayYear, 11, 31), [displayYear]);
 
@@ -312,7 +329,6 @@ function GanttChartPage() {
     setGanttResizeBoundaryNode(node);
   }, []);
   const [editMode, setEditMode] = useState(false);
-  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const setTopbarTitleActions = outletContext?.setTopbarTitleActions;
 

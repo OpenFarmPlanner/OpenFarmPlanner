@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
+import { useOutletContext } from "react-router";
 import {
   Alert,
   Stack,
@@ -17,6 +18,7 @@ import EmptyStateCard from "../components/project/EmptyStateCard";
 import ProjectRequiredState from "../components/project/ProjectRequiredState";
 import { useProjectRequirement } from "../hooks/useProjectRequirement";
 import { useTranslation } from "../i18n";
+import type { RootLayoutOutletContext } from "../navigation/topbarTypes";
 import { YieldFilterBar } from "./YieldFilterBar";
 import { YieldDistributionChart } from "./YieldDistributionChart";
 import {
@@ -30,8 +32,23 @@ export default function YieldOverviewPage() {
   const { t, i18n } = useTranslation("yieldOverview");
   const { shouldShowProjectRequiredState, missingProjectReason } =
     useProjectRequirement();
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  // Defaults to today's year before the active season has loaded; once it
+  // has, snap once to the season's own start year so switching to a
+  // non-current season doesn't land on an empty "today's year" view.
+  const appliedSeasonYearRef = useRef(false);
+  useEffect(() => {
+    const seasonYear = outletContext?.activeSeasonYear;
+    if (appliedSeasonYearRef.current || seasonYear == null) {
+      return;
+    }
+    appliedSeasonYearRef.current = true;
+    if (seasonYear !== currentYear) {
+      setSelectedYear(seasonYear);
+    }
+  }, [currentYear, outletContext?.activeSeasonYear]);
   const [selectedCultureId, setSelectedCultureId] = useState(ALL_CULTURES);
   const [period, setPeriod] = useState<ChartPeriod>("week");
   const [isFetching, setLoading] = useState(true);

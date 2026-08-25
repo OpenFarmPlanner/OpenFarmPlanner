@@ -195,6 +195,10 @@ function RootLayout() {
   // compact widths, the "Mehr" menu — so the list is fetched once.
   const notifications = useNotifications(true);
   const activeSeason = useActiveSeason();
+  const activeSeasonYear = useMemo(
+    () => (activeSeason.activeSeason ? new Date(activeSeason.activeSeason.start_date).getFullYear() : null),
+    [activeSeason.activeSeason],
+  );
   const [seasonSetupStatus, setSeasonSetupStatus] = useState<SeasonSetupStatus | null>(null);
   const [seasonSetupDismissed, setSeasonSetupDismissed] = useState(
     () => (activeProjectId ? isSeasonSetupDismissed(activeProjectId) : false),
@@ -2042,7 +2046,7 @@ function RootLayout() {
           minWidth: 0,
         }}
       >
-        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions } satisfies RootLayoutOutletContext} />
+        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear } satisfies RootLayoutOutletContext} />
       </Box>
       </Box>
 

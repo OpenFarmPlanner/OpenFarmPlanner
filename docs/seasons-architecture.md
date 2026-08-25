@@ -71,6 +71,18 @@ description), one level down:
 - Switching the active season reloads the page — the same deliberate choice
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
+- Pages with their own year-based UI state (the Anbaukalender's Gantt/occupancy
+  timeline in `frontend/src/pages/GanttChart.tsx`, and the yield overview's
+  year filter in `frontend/src/pages/YieldOverview.tsx`) default that state to
+  the active season's own start year rather than today's calendar year, via
+  `RootLayoutOutletContext.activeSeasonYear` (computed once in `RootLayout.tsx`
+  from `useActiveSeason()` and passed down through the route `Outlet`
+  context). Each page applies it once, in a `useEffect` guarded by a ref, so a
+  season that is still loading falls back to today's year at first and does
+  not fight a year the user has since navigated to manually. Without this,
+  switching to a season other than the one containing today's date left these
+  two views showing an empty "today's year" range instead of the season just
+  switched to.
 
 There is no server-persisted "last active season" (unlike
 `UserProjectSettings.last_project`); it is a client-only, per-project

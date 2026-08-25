@@ -27,6 +27,7 @@ const topbarContext = vi.hoisted(() => ({
   latestActions: [] as Array<Record<string, unknown>>,
   latestTitleActions: [] as Array<Record<string, unknown>>,
 }));
+const outletSeasonState = vi.hoisted(() => ({ activeSeasonYear: null as number | null }));
 const projectRequirementState = vi.hoisted(() => ({
   shouldShowProjectRequiredState: false,
   missingProjectReason: null as null | 'no_projects' | 'no_active_project',
@@ -179,6 +180,7 @@ vi.mock('react-router', async () => {
         topbarContext.latestTitleActions = actions;
         topbarContext.setTopbarTitleActions(actions);
       },
+      activeSeasonYear: outletSeasonState.activeSeasonYear,
     }),
     useNavigate: () => mocks.navigate,
   };
@@ -363,6 +365,7 @@ beforeEach(() => {
   topbarContext.setTopbarTitleActions.mockReset();
   topbarContext.latestActions = [];
   topbarContext.latestTitleActions = [];
+  outletSeasonState.activeSeasonYear = null;
 });
 
 describe('GanttChartPage', () => {
@@ -618,6 +621,33 @@ describe('GanttChartPage', () => {
       expect(latestProps?.viewMode).toBe('month');
     });
     expect(screen.getByRole('button', { name: 'Monat' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it("defaults the timeline to the active season's start year once it loads", async () => {
+    outletSeasonState.activeSeasonYear = 2025;
+    mocks.planList.mockResolvedValue({
+      data: {
+        results: [
+          {
+            id: 11,
+            culture: 5,
+            culture_name: 'Salat',
+            bed: 3,
+            planting_date: '2025-04-01',
+            harvest_date: '2025-05-01',
+          },
+        ],
+      },
+    });
+    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+
+    renderWithAuth();
+
+    await waitFor(() => {
+      const latestProps = mocks.ganttProps.mock.calls.at(-1)?.[0] as { startDate?: Date; endDate?: Date } | undefined;
+      expect(latestProps?.startDate?.getFullYear()).toBe(2025);
+      expect(latestProps?.endDate?.getFullYear()).toBe(2025);
+    });
   });
 
   it('scrolls the first calendar open to the current period instead of the timeline end', async () => {
