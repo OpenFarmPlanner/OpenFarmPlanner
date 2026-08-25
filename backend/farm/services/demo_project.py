@@ -30,7 +30,7 @@ from farm.models import (
     SeedPackage,
     Supplier,
 )
-from farm.services.seasons import assign_unassigned_planting_plans
+from farm.services.seasons import assign_unassigned_planting_plans, get_or_create_season_for_date
 
 User = get_user_model()
 
@@ -1125,6 +1125,14 @@ def _create_planting_plans(
 ) -> None:
     plan_notes = DEMO_TEXT[language_code]['plan_notes']
     plan_specs = [
+        # 2025 season (previous, already harvested) — gives the demo a second
+        # season to switch between, next to the current one below.
+        PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2025, 2, 24), Decimal('8.5'), 95),
+        PlanSpec('tomate', 'tomate-1', 'pre_cultivation', date(2025, 4, 28), Decimal('14.0'), 35),
+        PlanSpec('karotte', 'karotte-1', 'direct_sowing', date(2025, 3, 18), Decimal('16.0')),
+        PlanSpec('kohlrabi', 'kohlrabi', 'pre_cultivation', date(2025, 3, 30), Decimal('14.0'), 180),
+        PlanSpec('zucchini', 'zucchini', 'pre_cultivation', date(2025, 5, 22), Decimal('18.0'), 18),
+        # 2026 season (current)
         PlanSpec('salat', 'salat-1', 'pre_cultivation', date(2026, 2, 18), Decimal('8.5'), 95, plan_notes['salat_frueh']),
         PlanSpec('salat', 'salat-2', 'pre_cultivation', date(2026, 3, 22), Decimal('8.5'), 95),
         PlanSpec('mangold', 'kraeuter', 'pre_cultivation', date(2026, 4, 6), Decimal('7.5'), 72),
@@ -1140,6 +1148,11 @@ def _create_planting_plans(
     ]
 
     for spec in plan_specs:
+        season = get_or_create_season_for_date(
+            project,
+            spec.planting_date,
+            created_by=owner if owner and getattr(owner, 'pk', None) else None,
+        )
         PlantingPlan.objects.create(
             culture=cultures[spec.culture_key],
             bed=beds[spec.bed_key],
@@ -1151,4 +1164,5 @@ def _create_planting_plans(
             created_by=owner if owner and getattr(owner, 'pk', None) else None,
             updated_by=owner if owner and getattr(owner, 'pk', None) else None,
             project=project,
+            season=season,
         )

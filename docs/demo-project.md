@@ -13,8 +13,12 @@ The service has two persistent-data entry points:
 
 The template currently creates the `Solawi Sonnenacker` / `Sunny Acre CSA`
 project with two locations, four fields, twelve beds, three suppliers, twenty
-crop-library rows, seed package data for the planned varieties, and twelve
-planting plans for the 2026 season. The crop rows deliberately include
+crop-library rows, seed package data for the planned varieties, and seventeen
+planting plans split across two seasons — five in a previous, already-harvested
+2025 season and twelve in the current 2026 season — so the season switcher has
+more than one season to demonstrate. Each plan's season is derived from its own
+`planting_date` via `get_or_create_season_for_date` rather than assigned in
+bulk, so specs stay free to add further seasons by date alone. The crop rows deliberately include
 selectable species entries plus varieties with different shared and own values
 so the species → variety relationship can be reviewed in the UI. All personal
 and guest demo records are project-scoped and owned by the receiving user
