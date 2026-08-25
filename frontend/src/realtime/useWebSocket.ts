@@ -23,13 +23,27 @@ function normalizeBasePath(basePath: string): string {
   return leading.endsWith('/') ? leading : `${leading}/`;
 }
 
+function normalizeWebSocketBaseUrl(baseUrl: string | undefined): string | null {
+  const value = baseUrl?.trim();
+  if (!value) return null;
+  const websocketUrl = value
+    .replace(/^http:\/\//, 'ws://')
+    .replace(/^https:\/\//, 'wss://');
+  return websocketUrl.endsWith('/') ? websocketUrl : `${websocketUrl}/`;
+}
+
 export function buildWebSocketUrl(
   path: string,
   location: Pick<Location, 'protocol' | 'host'> = window.location,
   basePath = import.meta.env.BASE_URL,
+  websocketBaseUrl = import.meta.env.VITE_WS_BASE_URL,
 ): string {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const relativePath = path.replace(/^\//, '');
+  const overrideBaseUrl = normalizeWebSocketBaseUrl(websocketBaseUrl);
+  if (overrideBaseUrl) {
+    return `${overrideBaseUrl}${relativePath}`;
+  }
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${location.host}${normalizeBasePath(basePath)}${relativePath}`;
 }
 
