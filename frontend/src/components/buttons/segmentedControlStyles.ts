@@ -1,4 +1,4 @@
-import type { SxProps, Theme } from '@mui/material/styles';
+import type { Breakpoint, SxProps, Theme } from '@mui/material/styles';
 
 const resolveInactiveBorderColor = (theme: Theme): string =>
   theme.palette.mode === 'light' ? theme.palette.grey[400] : theme.palette.grey[700];
@@ -57,14 +57,25 @@ export const segmentedToggleButtonGroupSx: SxProps<Theme> = {
   },
 };
 
+// Breakpoint from which a detail-page action button shows its text label. Below
+// it the label is dropped and the button stays icon-only, so a long page title
+// keeps the actions on its own row instead of pushing them onto a line of their
+// own; the label is surfaced as a tooltip instead (see DetailPageActions).
+export const ACTION_LABEL_BREAKPOINT = 'lg' as const;
+
 // Shared sizing for the app's standard secondary (outlined) action button, used by
 // DetailPageActions and by any other surface (e.g. topbar context actions) that needs
 // to render a secondary action with identical border/color/typography/height/padding.
-export function getStandardActionButtonSx(compact: boolean) {
+// `labelBreakpoint` is where the button grows to its labelled size; it defaults to
+// `sm` for surfaces that always render a label.
+export function getStandardActionButtonSx(
+  compact: boolean,
+  labelBreakpoint: Breakpoint = 'sm',
+) {
   return {
     minHeight: 40,
-    minWidth: compact ? 40 : { xs: 40, sm: 64 },
-    px: compact ? 0.75 : { xs: 0.75, sm: 1.5 },
+    minWidth: compact ? 40 : { xs: 40, [labelBreakpoint]: 64 },
+    px: compact ? 0.75 : { xs: 0.75, [labelBreakpoint]: 1.5 },
   } as const;
 }
 

@@ -1696,7 +1696,10 @@ export default function PublicCropLibraryPage() {
                       direction="row"
                       spacing={1.5}
                       useFlexGap
-                      sx={{ flexWrap: "wrap",
+                      // Never wraps: the actions stay pinned top-right and the
+                      // title column shrinks (and wraps to a second line) instead,
+                      // so a long crop name can't push them onto their own row.
+                      sx={{ flexWrap: "nowrap",
                     alignItems: "flex-start",
                     justifyContent: "space-between", }}
                     >

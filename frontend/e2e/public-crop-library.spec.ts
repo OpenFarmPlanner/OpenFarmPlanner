@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { loginWithDeterministicProject, resetE2EScenario } from './utils';
+import { apiRequest, loginWithDeterministicProject, resetE2EScenario } from './utils';
 
 type CropSpecies = {
   id: number;
@@ -19,45 +19,6 @@ type PublishResponse = {
     variety: string;
   };
 };
-
-async function apiRequest<T>(
-  page: Page,
-  method: 'GET' | 'POST' | 'PATCH',
-  path: string,
-  data?: Record<string, unknown>,
-): Promise<T> {
-  const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
-  const csrfToken = await page.evaluate(() =>
-    document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] ?? '');
-
-  const result = await page.evaluate(async ({ requestMethod, requestPath, requestData, requestProjectId, requestCsrfToken }) => {
-    const response = await fetch(`/api${requestPath}`, {
-      method: requestMethod,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': requestCsrfToken,
-        'X-Project-Id': String(requestProjectId),
-      },
-      body: requestMethod === 'GET' ? undefined : JSON.stringify(requestData ?? {}),
-    });
-    const text = await response.text();
-    return {
-      ok: response.ok,
-      status: response.status,
-      text,
-    };
-  }, {
-    requestMethod: method,
-    requestPath: path,
-    requestData: data,
-    requestProjectId: activeProjectId,
-    requestCsrfToken: csrfToken,
-  });
-
-  expect(result.ok, `${method} ${path} -> ${result.status}: ${result.text}`).toBeTruthy();
-  return JSON.parse(result.text) as T;
-}
 
 async function publishUniquePublicCulture(page: Page): Promise<PublishResponse['public_culture']> {
   const speciesResponse = await apiRequest<{ results: CropSpecies[] }>(page, 'GET', '/crop-species/');

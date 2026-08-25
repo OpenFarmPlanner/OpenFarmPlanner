@@ -71,6 +71,17 @@ Use the responsive object form (`px: { xs: 0, sm: 2 }`) or
 **Radii** come from `shape.borderRadius` (4px). `sx={{ borderRadius: 2 }}` is
 8px.
 
+**Detail-page actions** (`components/layout/DetailPageActions.tsx`) show their
+text label only from `ACTION_LABEL_BREAKPOINT` (`lg`, 1200px) up; below that
+they stay icon-only and surface the label as a tooltip, the same way a disabled
+button explains itself. That keeps the actions pinned to the top-right of a
+detail header on tablet and small-desktop widths instead of letting a long page
+title push them onto a row of their own — the header rows in `CultureDetail`
+and `PublicCropLibraryPage` therefore use `flexWrap: 'nowrap'` and let the
+title column shrink and wrap instead. The switch is plain responsive `sx`, not
+a measured width, so the header renders at its final size on the first paint;
+the media query in the component only picks the tooltip text.
+
 ## 4. The two remaining stylesheets
 
 Only two `.css` files are left in the app, and both are deliberate:

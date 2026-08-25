@@ -914,9 +914,12 @@ const detailSectionGridSx = {
                 <CardContent sx={{ p: { xs: 1, sm: 2, lg: 2.5 } }}>
             {/* Header with crop name and badge */}
                   <Box sx={{ mb: { xs: 2, sm: 3 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
+              {/* Never wraps: the actions are pinned top-right and the title column
+                  shrinks (and wraps to a second line) instead, so a long crop name
+                  can't push the buttons onto a row of their own. */}
+              <Box data-testid="culture-detail-header" sx={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'nowrap', gap: { xs: 1, sm: 2 }, mb: 0.75 }}>
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
+                  <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'stretch', gap: 1.75 }}>
                     {selectedCulture.display_color ? (
                       <Box
                         sx={{
@@ -932,7 +935,7 @@ const detailSectionGridSx = {
                         title={selectedCulture.display_color}
                       />
                     ) : null}
-                    <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
+                    <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', py: 0.25 }}>
                       {useUnifiedMobileLayout ? (
                         <CultureTitleSelectorButton
                           title={getCultureDisplayName(selectedCulture)}
@@ -940,7 +943,7 @@ const detailSectionGridSx = {
                           onClick={() => setMobileSelectorOpen(true)}
                         />
                       ) : (
-                        <Typography component="h2" sx={{ fontSize: { xs: '1.25rem', sm: '2rem' }, lineHeight: 1.2, fontWeight: 600 }}>
+                        <Typography component="h2" sx={{ fontSize: { xs: '1.25rem', sm: '2rem' }, lineHeight: 1.2, fontWeight: 600, overflowWrap: 'anywhere' }}>
                           {getCultureDisplayName(selectedCulture)}
                         </Typography>
                       )}
