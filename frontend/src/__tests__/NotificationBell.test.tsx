@@ -96,7 +96,7 @@ describe('NotificationBell', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Benachrichtigungen' })).toBeInTheDocument());
   });
 
-  it('renders no badge and an empty state when there is nothing to show', async () => {
+  it('renders no badge and a subtle hint when nothing is unread', async () => {
     notificationListMock.mockResolvedValue({
       data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
     });
@@ -106,7 +106,43 @@ describe('NotificationBell', () => {
     const bell = await screen.findByRole('button', { name: 'Benachrichtigungen' });
     fireEvent.click(bell);
 
-    expect(await screen.findByText('Keine Benachrichtigungen')).toBeInTheDocument();
+    expect(await screen.findByText('Keine neuen Benachrichtigungen')).toBeInTheDocument();
+  });
+
+  it('lists unread entries only, leaving read ones to the history page', async () => {
+    notificationListMock.mockResolvedValue({
+      data: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          notification(),
+          notification({ id: 2, notification_type: 'crop_species_proposal_rejected', context: { name: 'Rote Bete' }, is_read: true }),
+        ],
+        unread_count: 1,
+      },
+    });
+
+    renderBell();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
+
+    expect(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
+    expect(screen.queryByText('Dein Vorschlag für die Kulturart „Rote Bete“ wurde abgelehnt.')).not.toBeInTheDocument();
+  });
+
+  it('always offers the link to the full history, also with nothing unread', async () => {
+    notificationListMock.mockResolvedValue({
+      data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
+    });
+
+    renderBell();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Benachrichtigungen' }));
+    fireEvent.click(await screen.findByText('Alle Benachrichtigungen anzeigen'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/app/notifications');
+    expect(notificationMarkReadMock).not.toHaveBeenCalled();
   });
 
   it('reports a failed load instead of rendering an empty dropdown', async () => {

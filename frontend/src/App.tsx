@@ -48,6 +48,7 @@ const FieldsBedsPage = React.lazy(() => import('./pages/FieldsBedsPage'));
 const Cultures = React.lazy(() => import('./pages/Cultures'));
 const PublicCropLibraryPage = React.lazy(() => import('./crops/pages/PublicCropLibraryPage'));
 const PublicLibraryModerationPage = React.lazy(() => import('./crops/pages/PublicLibraryModerationPage'));
+const NotificationHistoryPage = React.lazy(() => import('./notifications/pages/NotificationHistoryPage'));
 const PlantingPlans = React.lazy(() => import('./pages/PlantingPlans'));
 const GanttChart = React.lazy(() => import('./pages/GanttChart'));
 const SeedDemandPage = React.lazy(() => import('./pages/SeedDemand'));
@@ -275,6 +276,7 @@ function createAppRouter(basename: string) {
                 { path: 'seed-demand', element: withLazyFallback(<SeedDemandPage />) },
                 { path: 'project-selection', element: withLazyFallback(<ProjectSelectionPage />) },
                 { path: 'account-settings', element: withLazyFallback(<AccountSettingsPage />) },
+                { path: 'notifications', element: withLazyFallback(<NotificationHistoryPage />) },
                 { path: 'project-settings', element: withLazyFallback(<ProjectSettingsPage />) },
                 { path: '*', element: <Navigate to="/app/dashboard" replace /> },
               ],

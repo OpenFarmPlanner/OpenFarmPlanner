@@ -163,8 +163,13 @@ export const cultureAPI = {
 };
 
 export const notificationAPI = {
-  /** Newest first; the unread count rides along so the bell needs one request. */
-  list: () => http.get<NotificationListResponse>('/notifications/'),
+  /**
+   * Newest first; the unread count rides along so the bell needs one request.
+   * Without params the backend's default page is returned (what the dropdowns
+   * use); the history page pages through the same endpoint.
+   */
+  list: (params?: { page?: number; page_size?: number }) =>
+    http.get<NotificationListResponse>('/notifications/', { params }),
   markRead: (id: number) => http.post<AppNotification>(`/notifications/${id}/read/`),
 };
 

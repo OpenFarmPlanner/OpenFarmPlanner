@@ -18,6 +18,9 @@ export function getNotificationMessage(notification: AppNotification, t: TFuncti
   });
 }
 
+/** The full notification history — where both dropdowns link to. */
+export const NOTIFICATION_HISTORY_ROUTE = '/app/notifications';
+
 /** In-app route for the referenced object, or `null` when there is nothing to open. */
 export function getNotificationLink(notification: AppNotification): string | null {
   if (notification.target_id === null) {

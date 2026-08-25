@@ -1,0 +1,128 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router';
+import NotificationHistoryPage from '../notifications/pages/NotificationHistoryPage';
+import { useNotifications } from '../notifications/useNotifications';
+import type { RootLayoutOutletContext } from '../navigation/topbarTypes';
+import type { AppNotification } from '../api/types';
+
+const { notificationListMock, notificationMarkReadMock, navigateMock } = vi.hoisted(() => ({
+  notificationListMock: vi.fn(),
+  notificationMarkReadMock: vi.fn(),
+  navigateMock: vi.fn(),
+}));
+
+vi.mock('../api/api', async () => {
+  const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
+  return {
+    ...actual,
+    notificationAPI: { list: notificationListMock, markRead: notificationMarkReadMock },
+  };
+});
+
+vi.mock('react-router', async () => {
+  const actual = await vi.importActual<typeof import('react-router')>('react-router');
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+const notification = (overrides: Partial<AppNotification> = {}): AppNotification => ({
+  id: 1,
+  notification_type: 'crop_species_proposal_accepted',
+  message: 'Your proposal for the crop species "Kürbis" was accepted.',
+  context: { name: 'Kürbis' },
+  target_type: 'public_culture',
+  target_id: 42,
+  is_read: false,
+  created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  ...overrides,
+});
+
+const page = (results: AppNotification[], count = results.length, unreadCount = 0) => ({
+  data: { count, next: null, previous: null, results, unread_count: unreadCount },
+});
+
+/** Mirrors RootLayout: the topbar owns the controller and passes it down the outlet. */
+function LayoutHarness() {
+  const notifications = useNotifications(true);
+  return <Outlet context={{
+    setTopbarContextActions: () => {},
+    setTopbarTitleActions: () => {},
+    activeSeasonYear: null,
+    notifications,
+  } satisfies RootLayoutOutletContext}
+  />;
+}
+
+const renderPage = () => render(
+  <MemoryRouter initialEntries={['/app/notifications']}>
+    <Routes>
+      <Route element={<LayoutHarness />}>
+        <Route path="/app/notifications" element={<NotificationHistoryPage />} />
+      </Route>
+    </Routes>
+  </MemoryRouter>,
+);
+
+describe('NotificationHistoryPage', () => {
+  beforeEach(() => {
+    notificationListMock.mockReset();
+    notificationMarkReadMock.mockReset();
+    navigateMock.mockReset();
+    notificationMarkReadMock.mockResolvedValue({ data: notification({ is_read: true }) });
+  });
+
+  it('lists read and unread notifications with an unread count subtitle', async () => {
+    notificationListMock.mockResolvedValue(page([
+      notification(),
+      notification({ id: 2, notification_type: 'crop_species_proposal_rejected', context: { name: 'Rote Bete' }, is_read: true }),
+    ], 2, 1));
+
+    renderPage();
+
+    expect(await screen.findByText('Alle Benachrichtigungen')).toBeInTheDocument();
+    expect(screen.getByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
+    expect(screen.getByText('Dein Vorschlag für die Kulturart „Rote Bete“ wurde abgelehnt.')).toBeInTheDocument();
+    expect(screen.getByText('1 ungelesen')).toBeInTheDocument();
+  });
+
+  it('omits the unread subtitle when everything has been read', async () => {
+    notificationListMock.mockResolvedValue(page([notification({ is_read: true })], 1, 0));
+
+    renderPage();
+
+    await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.');
+    expect(screen.queryByText(/ungelesen/)).not.toBeInTheDocument();
+  });
+
+  it('marks a clicked row as read and opens what it refers to', async () => {
+    notificationListMock.mockResolvedValue(page([notification()], 1, 1));
+
+    renderPage();
+
+    fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
+
+    await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
+    // The row is read now, so the unread subtitle is gone.
+    await waitFor(() => expect(screen.queryByText(/ungelesen/)).not.toBeInTheDocument());
+  });
+
+  it('guides the user when no notification was ever received', async () => {
+    notificationListMock.mockResolvedValue(page([], 0, 0));
+
+    renderPage();
+
+    expect(await screen.findByText('Noch keine Benachrichtigungen')).toBeInTheDocument();
+    expect(screen.getByText(/Entscheidungen zu deinen Vorschlägen/)).toBeInTheDocument();
+  });
+
+  it('pages through the history', async () => {
+    notificationListMock.mockResolvedValue(page([notification()], 25, 0));
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Seite 2' }));
+
+    await waitFor(() => expect(notificationListMock).toHaveBeenCalledWith({ page: 2, page_size: 20 }));
+  });
+});

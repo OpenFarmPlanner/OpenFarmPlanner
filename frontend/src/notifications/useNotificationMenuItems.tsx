@@ -1,10 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
-import { Box, ListItemIcon, MenuItem, Typography } from '@mui/material';
+import { useNavigate } from 'react-router';
+import { ListItemIcon, MenuItem, Typography } from '@mui/material';
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { useTranslation } from '../i18n';
-import { formatRelativeTime } from '../utils/relativeTime';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from '../navigation/topbarMenuStyles';
-import { getNotificationMessage } from './notificationDisplay';
+import { NOTIFICATION_HISTORY_ROUTE } from './notificationDisplay';
+import { NotificationItemContent } from './NotificationItemContent';
 import { useNotificationSelection, type NotificationsController } from './useNotifications';
 
 /**
@@ -16,6 +18,9 @@ import { useNotificationSelection, type NotificationsController } from './useNot
  * secondary actions. The unread count stays visible at a glance through the
  * badge on that menu's own button.
  *
+ * Mirrors the bell one-for-one: unread entries only, a subtle hint when there
+ * are none, and a permanent link to the full history.
+ *
  * A hook returning an array rather than a component, because MUI's `Menu`
  * reads its direct children to drive keyboard navigation: a wrapping component
  * would hide these items from it.
@@ -24,10 +29,10 @@ export function useNotificationMenuItems(
   controller: NotificationsController,
   onClose: () => void,
 ): ReactNode[] {
-  const { t, i18n } = useTranslation('notifications');
+  const { t } = useTranslation('notifications');
+  const navigate = useNavigate();
   const selectNotification = useNotificationSelection(controller);
-  const { notifications, hasError } = controller;
-  const language = i18n.resolvedLanguage ?? i18n.language;
+  const { unreadNotifications, hasError } = controller;
 
   // RootLayout calls this hook unconditionally on every render (MUI's Menu
   // needs the items as direct children, so this can't be skipped based on
@@ -35,6 +40,18 @@ export function useNotificationMenuItems(
   // entirely — memoizing keeps that a no-op instead of rebuilding N MenuItem
   // elements with fresh inline closures each time.
   return useMemo(() => {
+    const showAllItem = (
+      <MenuItem
+        key="notifications-show-all"
+        onClick={() => { onClose(); void navigate(NOTIFICATION_HISTORY_ROUTE); }}
+      >
+        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}>
+          <ListAltOutlinedIcon {...ACTION_MENU_ICON_PROPS} />
+        </ListItemIcon>
+        <Typography variant="body2" color="primary.main">{t('bell.showAll')}</Typography>
+      </MenuItem>
+    );
+
     if (hasError) {
       return [
         <MenuItem key="notifications-error" disabled sx={{ opacity: 1 }}>
@@ -42,38 +59,33 @@ export function useNotificationMenuItems(
             {t('bell.loadError')}
           </Typography>
         </MenuItem>,
+        showAllItem,
       ];
     }
 
-    if (notifications.length === 0) {
+    if (unreadNotifications.length === 0) {
       return [
         <MenuItem key="notifications-empty" disabled sx={{ opacity: 1 }}>
-          <Typography variant="body2" color="text.secondary">{t('bell.empty')}</Typography>
+          <Typography variant="body2" color="text.secondary">{t('bell.noUnread')}</Typography>
         </MenuItem>,
+        showAllItem,
       ];
     }
 
-    return notifications.map((notification) => (
-      <MenuItem
-        key={`notification-${notification.id}`}
-        onClick={() => { onClose(); selectNotification(notification); }}
-        sx={{ alignItems: 'flex-start', maxWidth: 320 }}
-      >
-        <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}>
-          <NotificationsNoneOutlinedIcon {...ACTION_MENU_ICON_PROPS} />
-        </ListItemIcon>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            variant="body2"
-            sx={{ whiteSpace: 'normal', fontWeight: notification.is_read ? 400 : 600 }}
-          >
-            {getNotificationMessage(notification, t)}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatRelativeTime(notification.created_at, language)}
-          </Typography>
-        </Box>
-      </MenuItem>
-    ));
-  }, [hasError, notifications, onClose, selectNotification, t, language]);
+    return [
+      ...unreadNotifications.map((notification) => (
+        <MenuItem
+          key={`notification-${notification.id}`}
+          onClick={() => { onClose(); selectNotification(notification); }}
+          sx={{ alignItems: 'flex-start', maxWidth: 320, py: 0.5 }}
+        >
+          <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}>
+            <NotificationsNoneOutlinedIcon {...ACTION_MENU_ICON_PROPS} />
+          </ListItemIcon>
+          <NotificationItemContent notification={notification} />
+        </MenuItem>
+      )),
+      showAllItem,
+    ];
+  }, [hasError, navigate, onClose, selectNotification, t, unreadNotifications]);
 }

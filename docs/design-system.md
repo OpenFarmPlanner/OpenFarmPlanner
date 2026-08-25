@@ -39,6 +39,7 @@ next to their owner, typed as `SxProps<Theme>`:
 
 - `components/layout/pageContainerStyles.ts` — the page shells
 - `navigation/navigationStyles.ts`, `navigation/topbarMenuStyles.ts`
+- `notifications/notificationStyles.ts`
 - `components/data-grid/styles.ts`
 - `components/buttons/segmentedControlStyles.ts`
 - `components/contextMenu/contextMenuIndicatorStyles.ts`

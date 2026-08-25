@@ -55,6 +55,7 @@ import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotifications } from '../notifications/useNotifications';
+import { NOTIFICATION_HISTORY_ROUTE } from '../notifications/notificationDisplay';
 import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
@@ -792,8 +793,11 @@ function RootLayout() {
     if (!activeItem && location.pathname.startsWith('/app/public-library-moderation')) {
       return t('publicLibraryModeration');
     }
+    if (!activeItem && location.pathname.startsWith(NOTIFICATION_HISTORY_ROUTE)) {
+      return tNotifications('history.title');
+    }
     return activeItem?.label ?? '';
-  }, [location.pathname, navItems, t]);
+  }, [location.pathname, navItems, t, tNotifications]);
   useEffect(() => {
     const appName = tCommon('appName');
     document.title = currentPageTitle ? `${currentPageTitle} – ${appName}` : appName;
@@ -2046,7 +2050,7 @@ function RootLayout() {
           minWidth: 0,
         }}
       >
-        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear } satisfies RootLayoutOutletContext} />
+        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear, notifications } satisfies RootLayoutOutletContext} />
       </Box>
       </Box>
 

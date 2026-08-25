@@ -3,8 +3,21 @@
     "ariaLabel": "Notifications",
     "unreadAriaLabel": "Notifications ({{unread}} unread)",
     "title": "Notifications",
-    "empty": "No notifications",
-    "loadError": "Notifications could not be loaded."
+    "loadError": "Notifications could not be loaded.",
+    "noUnread": "No new notifications",
+    "showAll": "Show all notifications"
+  },
+  "history": {
+    "title": "All notifications",
+    "back": "Back",
+    "unreadSubtitle": "{{unread}} unread",
+    "emptyTitle": "No notifications yet",
+    "emptyDescription": "Decisions on your proposals and notices from the crop library show up here as soon as there is something to report.",
+    "pageAriaLabel": "Page {{page}}",
+    "firstPageAriaLabel": "First page",
+    "lastPageAriaLabel": "Last page",
+    "nextPageAriaLabel": "Next page",
+    "previousPageAriaLabel": "Previous page"
   },
   "messages": {
     "crop_species_proposal_accepted": "Your proposal for the crop species \"{{name}}\" was accepted.",

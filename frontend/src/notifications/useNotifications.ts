@@ -15,11 +15,13 @@ import { getNotificationLink } from './notificationDisplay';
 
 export interface NotificationsController {
   notifications: AppNotification[];
+  /** The subset the dropdowns render — see `NotificationBell`. */
+  unreadNotifications: AppNotification[];
   unreadCount: number;
   isLoading: boolean;
   hasError: boolean;
   reload: () => void;
-  markRead: (id: number) => void;
+  markRead: (notification: AppNotification) => void;
 }
 
 export function useNotifications(enabled: boolean): NotificationsController {
@@ -61,26 +63,34 @@ export function useNotifications(enabled: boolean): NotificationsController {
     setReloadToken((token) => token + 1);
   }, []);
 
-  const markRead = useCallback((id: number): void => {
-    if (!notifications.some((notification) => notification.id === id && !notification.is_read)) {
+  // Takes the notification rather than its id so the history page can mark a
+  // row this controller never loaded (anything past the first page) and still
+  // have the topbar badge follow along.
+  const markRead = useCallback((notification: AppNotification): void => {
+    if (notification.is_read) {
       return;
     }
     // Applied locally first so the badge reacts immediately; a failing request
     // only means the row reappears as unread on the next load.
     setNotifications((previous) => previous.map(
-      (notification) => (notification.id === id ? { ...notification, is_read: true } : notification),
+      (entry) => (entry.id === notification.id ? { ...entry, is_read: true } : entry),
     ));
     setUnreadCount((count) => Math.max(0, count - 1));
-    void notificationAPI.markRead(id).catch(() => undefined);
-  }, [notifications]);
+    void notificationAPI.markRead(notification.id).catch(() => undefined);
+  }, []);
+
+  const unreadNotifications = useMemo(
+    () => notifications.filter((notification) => !notification.is_read),
+    [notifications],
+  );
 
   // Stable identity across renders that don't actually change any of these
   // fields, so consumers (NotificationBell, useNotificationMenuItems) can
   // memoize off the controller instead of re-deriving on every RootLayout
   // render.
   return useMemo(
-    () => ({ notifications, unreadCount, isLoading, hasError, reload, markRead }),
-    [notifications, unreadCount, isLoading, hasError, reload, markRead],
+    () => ({ notifications, unreadNotifications, unreadCount, isLoading, hasError, reload, markRead }),
+    [notifications, unreadNotifications, unreadCount, isLoading, hasError, reload, markRead],
   );
 }
 
@@ -96,7 +106,7 @@ export function useNotificationSelection(
   const { markRead } = controller;
 
   return useCallback((notification: AppNotification): void => {
-    markRead(notification.id);
+    markRead(notification);
     const link = getNotificationLink(notification);
     if (link) {
       void navigate(link);
