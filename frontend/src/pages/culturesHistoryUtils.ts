@@ -39,7 +39,6 @@ const HISTORY_FIELD_LABEL_KEYS: Record<string, string> = {
   propagation_duration_days: 'form.propagationDurationDays',
   harvest_method: 'form.yieldUnit',
   expected_yield: 'form.expectedYield',
-  allow_deviation_delivery_weeks: 'form.allowDeviationDeliveryWeeks',
   distance_within_row_m: 'form.distanceWithinRowCm',
   row_spacing_m: 'form.rowSpacingCm',
   sowing_depth_m: 'form.sowingDepthCm',

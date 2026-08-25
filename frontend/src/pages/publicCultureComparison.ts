@@ -30,7 +30,6 @@ const COMPARISON_FIELDS = [
   'propagation_duration_days',
   'harvest_method',
   'expected_yield',
-  'allow_deviation_delivery_weeks',
   'distance_within_row_m',
   'row_spacing_m',
   'sowing_depth_m',

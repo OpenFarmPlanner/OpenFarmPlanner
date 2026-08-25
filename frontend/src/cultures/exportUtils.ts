@@ -20,7 +20,6 @@ export interface PortableCulture {
   propagation_duration_days?: number;
   harvest_method?: Culture['harvest_method'];
   expected_yield?: number;
-  allow_deviation_delivery_weeks?: boolean;
   distance_within_row_cm?: number;
   row_spacing_cm?: number;
   sowing_depth_cm?: number;
@@ -76,7 +75,6 @@ export const toPortableCulture = (culture: Culture): PortableCulture => {
     propagation_duration_days: culture.propagation_duration_days,
     harvest_method: culture.harvest_method,
     expected_yield: culture.expected_yield,
-    allow_deviation_delivery_weeks: culture.allow_deviation_delivery_weeks,
     distance_within_row_cm: culture.distance_within_row_cm,
     row_spacing_cm: culture.row_spacing_cm,
     sowing_depth_cm: culture.sowing_depth_cm,

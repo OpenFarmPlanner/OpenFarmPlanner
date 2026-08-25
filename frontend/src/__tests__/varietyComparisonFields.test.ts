@@ -59,12 +59,6 @@ describe('getVaryingComparisonFields', () => {
     expect(getVaryingComparisonFields([nantes, bolero], cropCulture).map((field) => field.id)).toContain('cultivationType');
   });
 
-  it('diffs boolean fields, including false vs. true', () => {
-    const nantes: Culture = { id: 1, name: 'Carrot', variety: 'Nantes', allow_deviation_delivery_weeks: true };
-    const bolero: Culture = { id: 2, name: 'Carrot', variety: 'Bolero', allow_deviation_delivery_weeks: false };
-
-    expect(getVaryingComparisonFields([nantes, bolero], cropCulture).map((field) => field.id)).toContain('allowDeviationDeliveryWeeks');
-  });
 });
 
 describe('seedSafetyMargin (cultivation-type-dependent field)', () => {

@@ -332,7 +332,6 @@ def populate_public_demo_library_from_project(project: Project, *, owner: Any | 
                 propagation_duration_days=culture.propagation_duration_days,
                 harvest_method=culture.harvest_method,
                 expected_yield=culture.expected_yield,
-                allow_deviation_delivery_weeks=culture.allow_deviation_delivery_weeks,
                 distance_within_row_m=culture.distance_within_row_m,
                 row_spacing_m=culture.row_spacing_m,
                 sowing_depth_m=culture.sowing_depth_m,

@@ -665,7 +665,6 @@ class CultureApiTest(ProjectApiTestCase):
             'propagation_duration_days': 4,
             'harvest_method': 'per_plant',
             'expected_yield': 500.0,
-            'allow_deviation_delivery_weeks': True,
             'distance_within_row_cm': 40.0,
             'row_spacing_cm': 60.0,
             'sowing_depth_cm': 1.5,

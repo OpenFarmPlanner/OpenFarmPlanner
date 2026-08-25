@@ -24,10 +24,8 @@ from farm.models.cultures import compute_plants_per_m2
 
 # Culture fields a Sorte inherits from its general Kultur. Kept in sync with the
 # frontend's `VARIETY_INHERITABLE_FIELDS` (frontend/src/cultures/varietyValueSource.ts),
-# which prefills a new Sorte from the same set, with two deliberate differences:
+# which prefills a new Sorte from the same set, with one deliberate difference:
 #
-# - `allow_deviation_delivery_weeks` is a non-null boolean with a default, so it
-#   has no "unset" state to fall back from and could never inherit.
 # - The legacy `seed_rate_value`/`seed_rate_unit` pair and the derived
 #   `seed_rate_by_cultivation` map are left out: the latter is validated as a
 #   subset of the row's own `cultivation_types`, so inheriting it independently
