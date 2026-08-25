@@ -26,6 +26,7 @@ from farm.models import (
     PublicCultureTranslation,
     SeedPackage,
 )
+from farm.services.culture_inheritance import get_general_culture
 from farm.tests.api_base import User
 
 
@@ -430,6 +431,93 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         existing_general.refresh_from_db()
         self.assertEqual(existing_general.growth_duration_days, 99)
         self.assertEqual(existing_general.version, 1)
+
+    def test_publishing_one_sorte_keeps_the_local_kultur_group_together(self):
+        """Publishing must link the whole Kultur group, not fork off the published Sorte.
+
+        A project's Kultur groups its Sorten by ``crop_species`` as soon as one
+        row has one, and by name while none has. Linking only the published
+        Sorte would therefore leave the general Kultur and the unpublished
+        Sorten behind as a second Kultur of the same name.
+        """
+        species = CropSpecies.objects.create(name='Raphanus sativus')
+        kultur = Culture.objects.create(
+            name='Radish',
+            variety='',
+            project=self.project,
+            growth_duration_days=28,
+            harvest_duration_days=14,
+        )
+        published_sorte = Culture.objects.create(
+            name='Radish',
+            variety='Cherry Belle',
+            project=self.project,
+            growth_duration_days=28,
+            harvest_duration_days=14,
+        )
+        unpublished_sorte = Culture.objects.create(
+            name='Radish',
+            variety='French Breakfast',
+            project=self.project,
+            growth_duration_days=30,
+            harvest_duration_days=14,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{published_sorte.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': species.id,
+                'original_language_code': 'en',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        radish_cultures = Culture.objects.filter(project=self.project, name='Radish')
+        self.assertEqual(radish_cultures.count(), 3)
+        self.assertEqual(radish_cultures.filter(variety='').count(), 1)
+        # One Kultur, not two: every row of the group resolves to the same
+        # species, so the culture tree keeps showing a single "Radish" node.
+        self.assertEqual({culture.crop_species_id for culture in radish_cultures}, {species.id})
+        published_sorte.refresh_from_db()
+        unpublished_sorte.refresh_from_db()
+        self.assertEqual(get_general_culture(published_sorte), kultur)
+        self.assertEqual(get_general_culture(unpublished_sorte), kultur)
+
+    def test_linking_a_sorte_to_a_public_entry_keeps_the_local_kultur_group_together(self):
+        species = CropSpecies.objects.create(name='Cucurbita pepo')
+        public_entry = PublicCulture.objects.create(
+            name='Zucchini',
+            variety='Black Beauty',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            growth_duration_days=50,
+            harvest_duration_days=40,
+        )
+        kultur = Culture.objects.create(name='Zucchini', variety='', project=self.project)
+        linked_sorte = Culture.objects.create(
+            name='Zucchini', variety='Black Beauty', project=self.project,
+        )
+        other_sorte = Culture.objects.create(
+            name='Zucchini', variety='Costata Romanesco', project=self.project,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{linked_sorte.id}/link-public-culture/',
+            {'public_culture_id': public_entry.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        zucchini_cultures = Culture.objects.filter(project=self.project, name='Zucchini')
+        self.assertEqual(zucchini_cultures.count(), 3)
+        self.assertEqual({culture.crop_species_id for culture in zucchini_cultures}, {species.id})
+        linked_sorte.refresh_from_db()
+        other_sorte.refresh_from_db()
+        self.assertEqual(get_general_culture(linked_sorte), kultur)
+        self.assertEqual(get_general_culture(other_sorte), kultur)
 
     def test_publish_preview_reports_stale_general_crop_notice(self):
         general = PublicCulture.objects.create(

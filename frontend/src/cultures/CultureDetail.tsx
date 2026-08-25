@@ -40,8 +40,8 @@ import {
   IconButton,
 } from '@mui/material';
 import type { Culture } from '../api/api';
-import { SearchableSelect } from '../components/inputs/SearchableSelect';
 import type { SearchableSelectOption } from '../components/inputs/SearchableSelect';
+import { CultureSearchSelect } from './CultureSearchSelect';
 import { UI_LABEL_SEPARATOR } from '../utils/uiLabelSeparator';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
@@ -49,7 +49,13 @@ import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNaviga
 import { DetailPageActions } from '../components/layout/DetailPageActions';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { getCultureDisplayName } from './cultureDisplay';
-import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, getFirstVarietyItem } from './cropHierarchy';
+import {
+  buildCropHierarchy,
+  findSpeciesCulture,
+  getCropSpeciesKey,
+  getFirstVarietyItem,
+  withGroupGeneralCultures,
+} from './cropHierarchy';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
@@ -343,7 +349,7 @@ const detailSectionGridSx = {
     return () => window.clearTimeout(timeoutId);
   }, [searchParams, setSearchParams]);
 
-  const filteredCultures = useMemo(() => {
+  const matchingCultures = useMemo(() => {
     const parsedGrowthDaysMin = filters.growthDaysMin ? Number(filters.growthDaysMin) : null;
     const parsedGrowthDaysMax = filters.growthDaysMax ? Number(filters.growthDaysMax) : null;
     const parsedYieldMin = filters.yieldMin ? Number(filters.yieldMin) : null;
@@ -405,6 +411,14 @@ const detailSectionGridSx = {
     cultures,
     filters,
   ]);
+
+  // A filter that only matched Sorten would otherwise drop their Kultur row,
+  // leaving the tree with a Kultur node that has no data of its own to show
+  // and the search dropdown with variety rows detached from their Kultur.
+  const filteredCultures = useMemo(
+    () => withGroupGeneralCultures(matchingCultures, cultures),
+    [cultures, matchingCultures],
+  );
 
   const cropHierarchyItems = useMemo(
     () => buildCropHierarchy(filteredCultures),
@@ -705,7 +719,7 @@ const detailSectionGridSx = {
       <Box sx={{ width: '100%', p: 1.25, borderBottom: '1px solid #e5e7eb', bgcolor: '#fcfdfc' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <SearchableSelect
+            <CultureSearchSelect
               options={cultureOptions}
               value={selectedOption}
               onChange={(option) => {

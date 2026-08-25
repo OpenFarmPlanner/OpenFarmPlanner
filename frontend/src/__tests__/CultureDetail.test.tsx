@@ -178,6 +178,33 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('option', { name: 'Tomato – Cherry' })).toBeInTheDocument();
   });
 
+  it('keeps the Kultur selectable when the search matched only its Sorte', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const cultures: Culture[] = [
+      { id: 10, name: 'Pfefferoni', variety: '', crop_species: 30, growth_duration_days: 60 },
+      { id: 11, name: 'Pfefferoni', variety: 'Milder Spiral', crop_species: 30 },
+      { id: 12, name: 'Pfefferoni', variety: 'Scharfer Spiral', crop_species: 30 },
+    ];
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={cultures}
+        onCultureSelect={onSelect}
+      />,
+    );
+
+    const searchInput = screen.getByLabelText(translations.cultures.searchPlaceholder);
+    fireEvent.change(searchInput, { target: { value: 'Milder' } });
+
+    const cultureList = screen.getByRole('listbox', { name: translations.cultures.title });
+    await user.click(within(cultureList).getByRole('option', { name: 'Pfefferoni' }));
+
+    // The Kultur row must select the Kultur itself, not fall back to the one
+    // Sorte the search left in the tree.
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }));
+  });
+
   it('collapses a crop group without changing the selected detail view', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

@@ -17,6 +17,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db.models import Q
+from django.utils import timezone
 
 from farm.models import Culture
 from farm.models.cultures import compute_plants_per_m2
@@ -165,6 +166,40 @@ def ensure_general_culture_for_variety(
     if changed_fields:
         general.save(update_fields=changed_fields)
     return general
+
+
+def sync_crop_species_across_culture_group(culture: Culture) -> int:
+    """Hand a culture's crop species to the species-less rows of its Kultur group.
+
+    A Kultur group has no table of its own: its rows belong together through
+    their ``crop_species`` as soon as one of them is linked to a species, and
+    through their name while none is — the same grouping the frontend's
+    ``getCropSpeciesKey`` and ``CultureViewSet._rename_sibling_cultures`` use.
+    Linking a single Sorte to a species therefore splits its group in two: the
+    linked Sorte on one side, the general Kultur and the remaining Sorten on
+    the other, which shows up as two Kulturen of the same name in the culture
+    tree and stops the Sorte from inheriting its general Kultur's values. Rows
+    that already carry a *different* species are a deliberately separate group
+    and stay untouched.
+
+    Returns the number of rows that adopted the species. They are written
+    through the queryset instead of ``save()`` on purpose: adopting the species
+    keeps the group's existing identity intact rather than editing those rows,
+    so it should neither record a history revision nor flag them as diverged
+    from their public source.
+    """
+    if not culture.crop_species_id or not culture.name_normalized:
+        return 0
+    return (
+        Culture.objects
+        .filter(
+            project_id=culture.project_id,
+            name_normalized=culture.name_normalized,
+            crop_species__isnull=True,
+        )
+        .exclude(pk=culture.pk)
+        .update(crop_species_id=culture.crop_species_id, updated_at=timezone.now())
+    )
 
 
 def is_unset_culture_value(value: Any) -> bool:

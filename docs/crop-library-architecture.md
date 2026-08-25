@@ -273,6 +273,25 @@ future `CropVariety` entity and persisted nullable override chain exist,
 value-source cues are resolved from the current row plus the matching
 no-variety general crop row.
 
+The project page's "Kultur suchen" field renders that same hierarchy in its
+dropdown (`CultureSearchSelect.tsx`, grouping built by
+`cultureSearchOptions.ts` from `buildCropHierarchy`): one group per Kultur,
+the general entry as the group's header row and its Sorten indented below it.
+The header is an option rather than a plain group label, so arrow-key
+navigation walks headers and Sorten in one sequence and Enter on a header
+selects the general Kultur, exactly like clicking it; the surrounding
+`role="group"` names the Kultur for screen readers, which is why the Sorte
+rows can drop the repeated Kultur name. Because the page has already filtered
+the options it passes down, the dropdown switches Autocomplete's own text
+filter off — filtering twice would drop the very headers a variety hit needs.
+
+Filtering the page by a Sorte name keeps that Sorte's Kultur in the list
+(`withGroupGeneralCultures`), in the tree and the dropdown alike. Without it a
+group whose Kultur row was filtered away left a Kultur node with no data of
+its own: clicking it selected the first matching Sorte instead of the Kultur.
+The re-added Kultur is context for the matches and never a match itself, so an
+otherwise empty result still shows the "no cultures found" state.
+
 Public-library moderators are granted through the Django group
 `Public Library Moderators`, which carries only the `crops.moderate_crop_species`
 permission. Staff/superusers inherit moderation capability for operational
@@ -337,6 +356,16 @@ planning calculations and the UI resolve it identically:
   through the create API's optional `copy_values_to_culture` flag (default
   `false`), and then only into general fields that are still unset. Existing
   general values are never overwritten.
+- Publishing a Sorte to the public library, or linking one to an existing
+  public entry, records the chosen `crop_species` on the *whole* local Kultur
+  group rather than on that Sorte alone
+  (`sync_crop_species_across_culture_group`). A group whose rows are still
+  grouped by name alone would otherwise split in two the moment one of its
+  Sorten is published — the published Sorte under the species, the general
+  Kultur and the remaining Sorten under the name — which shows as two Kulturen
+  of the same name in the culture tree and cuts the published Sorte off from
+  its general Kultur's values. Rows that already carry a different species are
+  a separate group and stay untouched.
 
 `CultureSerializer` exposes the raw and the resolved value side by side, so a
 client can tell them apart per field:

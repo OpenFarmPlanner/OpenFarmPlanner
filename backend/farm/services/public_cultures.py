@@ -29,6 +29,10 @@ from farm.models import (
     PublicCultureStatusEvent,
     PublicCultureTranslation,
 )
+# The local Kultur/Sorte grouping is a farm-app concern this module deliberately
+# does not re-implement: it only calls the service that owns it whenever
+# publishing links a project culture to a crop species.
+from farm.services.culture_inheritance import sync_crop_species_across_culture_group
 
 User = get_user_model()
 
@@ -642,6 +646,7 @@ def link_project_culture_to_public_reference(*, culture: Culture, public_culture
         'is_modified_from_source',
         'updated_at',
     ])
+    sync_crop_species_across_culture_group(culture)
     return culture
 
 
@@ -937,6 +942,19 @@ def _update_public_culture_from_project_culture(
     return public_culture
 
 
+def _link_culture_to_crop_species(*, culture: Culture, crop_species: CropSpecies) -> None:
+    """Record the species the culture was published under, group and all.
+
+    Publishing must leave the project's own Kulturen exactly as they were apart
+    from this link, so the rest of the culture's Kultur group adopts the species
+    with it — otherwise publishing one Sorte would leave a second Kultur of the
+    same name behind for the Sorten that stayed unpublished.
+    """
+    culture.crop_species = crop_species
+    culture.save(update_fields=['crop_species', 'updated_at'])
+    sync_crop_species_across_culture_group(culture)
+
+
 def publish_culture_to_public_library(
     *,
     culture: Culture,
@@ -969,8 +987,7 @@ def publish_culture_to_public_library(
     duplicates = check_result.duplicates
     if update_target:
         previous_status = update_target.status
-        culture.crop_species = check_result.crop_species
-        culture.save(update_fields=['crop_species', 'updated_at'])
+        _link_culture_to_crop_species(culture=culture, crop_species=check_result.crop_species)
         updated_public_culture = _update_public_culture_from_project_culture(
             public_culture=update_target,
             culture=culture,
@@ -1000,8 +1017,7 @@ def publish_culture_to_public_library(
                 'crop_species': str(check_result.crop_species.id),
             },
         )
-    culture.crop_species = check_result.crop_species
-    culture.save(update_fields=['crop_species', 'updated_at'])
+    _link_culture_to_crop_species(culture=culture, crop_species=check_result.crop_species)
     if not publish_as_general:
         # Publishing a variety always needs a species-level entry for the crop
         # to hang off; create it from this culture's own values if the
