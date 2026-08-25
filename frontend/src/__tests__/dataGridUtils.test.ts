@@ -4,6 +4,7 @@ import type { GridSortModel } from '@mui/x-data-grid';
 import { handleEditableCellClick, handleRowEditStop } from '../components/data-grid/handlers';
 import { getPlainExcerpt, stripMarkdown } from '../components/data-grid/markdown';
 import { buildDefaultClipboardColumns, getSortedRowIds, orderRowsByStableIds } from '../components/data-grid/dataGridUtils';
+import { toGridDateValue } from '../components/data-grid/dateEditCellUtils';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { EditableRow } from '../components/data-grid/types';
 
@@ -167,4 +168,31 @@ describe('buildDefaultClipboardColumns', () => {
       { field: 'width_m', headerName: 'width_m' },
     ]);
   });
-})
+});
+
+describe('toGridDateValue', () => {
+  it('treats empty values as no date', () => {
+    expect(toGridDateValue(null)).toBeNull();
+    expect(toGridDateValue(undefined)).toBeNull();
+    expect(toGridDateValue('')).toBeNull();
+  });
+
+  it('parses the ISO strings rows store dates as', () => {
+    expect(toGridDateValue('2026-04-10')).toEqual(new Date('2026-04-10'));
+  });
+
+  it('parses the German text a date editor produces', () => {
+    expect(toGridDateValue('10.04.2026')).toEqual(new Date(2026, 3, 10));
+  });
+
+  it('passes a valid Date through unchanged', () => {
+    const date = new Date(2026, 3, 10);
+    expect(toGridDateValue(date)).toBe(date);
+  });
+
+  it('reports unparseable input as no date instead of an Invalid Date', () => {
+    expect(toGridDateValue('nicht datierbar')).toBeNull();
+    expect(toGridDateValue(new Date('nope'))).toBeNull();
+    expect(toGridDateValue({ year: 2026 })).toBeNull();
+  });
+});

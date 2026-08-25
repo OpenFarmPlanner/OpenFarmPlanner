@@ -516,6 +516,20 @@ persists everything at once; a row in view mode is saved immediately
 through the normal `processRowUpdate` path, including the
 `onBeforeSaveRow` gate.
 
+`values` must carry **only the fields the dialog actually changed**, never a
+whole row. On a row that is mid-edit those values are pushed into the open
+edit session, so a whole-row write-back would both undo newer draft edits and
+re-seed every cell from a render-time snapshot. Dates make that fatal rather
+than merely wrong: row state keeps them as ISO strings, but MUI stores `Date`
+objects in the edit state of a `type: 'date'` column and formats them
+*without* going through `valueGetter`, so a string reaching the edit state
+throws while the cell renders and the error boundary takes the page down.
+`applyDraftValues` therefore runs every value for a date column through
+`toGridDateValue` (`dateEditCellUtils.ts`) before handing it to
+`setEditCellValue`, and the date columns use the same helper as their
+`valueGetter` — it maps unparseable input to `null`, so a bad value renders as
+an empty cell instead of an `Invalid Date` or a crash.
+
 `FieldsBedsHierarchy.tsx` needs no equivalent: its only
 non-inline-edited column is `notes`, whose cell already opens the drawer on
 a single click.

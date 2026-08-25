@@ -122,6 +122,7 @@ import {
   prepareDataGridColumn,
   SaveBlockedError,
 } from './dataGridUtils';
+import { toGridDateValue } from './dateEditCellUtils';
 import { mergeVisibleDateEditInputValues, readDraftRow } from './draftRowReaders';
 import {
   collectRowValidationErrors,
@@ -1133,6 +1134,19 @@ export function EditableDataGrid<T extends EditableRow>({
     }
   }, [columns, gridApiRef]);
 
+  /**
+   * MUI keeps `Date` objects in the edit state of a date column and formats
+   * them without passing them through `valueGetter`, so a raw ISO string from
+   * row state would throw while the cell renders. Row state stays the string
+   * it always was; only the value handed to the edit session is coerced.
+   */
+  const toEditCellValue = useCallback((field: string, value: unknown): unknown => {
+    const columnType = columns.find((column) => column.field === field)?.type;
+    return columnType === 'date' || columnType === 'dateTime'
+      ? toGridDateValue(value)
+      : value;
+  }, [columns]);
+
   const applyDraftValues = useCallback(async (rowId: GridRowId, values: Partial<T>): Promise<void> => {
     const rowKey = String(rowId);
     const isEditing = rowModesModel[rowId]?.mode === GridRowModes.Edit;
@@ -1151,7 +1165,7 @@ export function EditableDataGrid<T extends EditableRow>({
           api.setEditCellValue({
             id: rowId,
             field: fieldKey,
-            value: fieldValue,
+            value: toEditCellValue(fieldKey, fieldValue),
           }),
         ];
       });
@@ -1172,7 +1186,7 @@ export function EditableDataGrid<T extends EditableRow>({
       }));
     }
     markRowDirty(rowKey);
-  }, [getRowValidationErrors, gridApiRef, isEditableCell, markRowDirty, rowModesModel, rowsById]);
+  }, [getRowValidationErrors, gridApiRef, isEditableCell, markRowDirty, rowModesModel, rowsById, toEditCellValue]);
 
   const runBeforeSaveGate = useCallback(async (row: T): Promise<T | null> => {
     if (!onBeforeSaveRow) {

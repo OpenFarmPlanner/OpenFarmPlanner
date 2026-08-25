@@ -34,7 +34,7 @@ export type { AreaM2EditCellProps } from './AreaM2EditCell';
 export { PlantsCountEditCell } from './PlantsCountEditCell';
 export type { PlantsCountEditCellProps } from './PlantsCountEditCell';
 export { DateEditCell } from './DateEditCell';
-export { toIsoDateString } from './dateEditCellUtils';
+export { toIsoDateString, toGridDateValue } from './dateEditCellUtils';
 export { parseGermanDateText, formatDateAsGerman } from './GermanDateEditCell';
 export { SearchableSelectEditCell } from './SearchableSelectEditCell';
 export type { SearchableSelectOption, SearchableSelectEditCellProps } from './SearchableSelectEditCell';

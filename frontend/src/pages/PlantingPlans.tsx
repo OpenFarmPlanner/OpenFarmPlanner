@@ -67,6 +67,7 @@ import {
   formatClipboardValue,
   getPlainExcerpt,
   toIsoDateString,
+  toGridDateValue,
   parseGermanDateText,
   formatDateAsGerman,
   FullCellTooltip,
@@ -315,10 +316,23 @@ function PlantingPlans() {
       const selectedBed = bedById.get(nextBedId);
       const shouldAutofillArea = Boolean(row.isNew)
         && (row.area_m2 === undefined || row.area_m2 === null);
+      // Only the hierarchy fields the selection actually changes are written
+      // back. `normalizeSelectionAfterBedChange` returns a whole row, and
+      // handing that to the grid would push every other field of a
+      // render-time snapshot back into the row — overwriting newer draft
+      // edits, and feeding raw ISO date strings into the edit session of the
+      // date columns, which MUI only accepts as `Date` objects.
+      const { location_id, field_id, bed } = normalizeSelectionAfterBedChange(
+        row,
+        nextBedId,
+        fields,
+        beds,
+      );
 
       await gridCommandApiRef.current?.applyDialogEditValues(rowId, {
-        bed: nextBedId,
-        ...normalizeSelectionAfterBedChange(row, nextBedId, fields, beds),
+        location_id,
+        field_id,
+        bed,
         ...(shouldAutofillArea && selectedBed?.area_sqm !== undefined
           ? { area_m2: selectedBed.area_sqm }
           : {}),
@@ -597,7 +611,7 @@ function PlantingPlans() {
         maxWidth: dynamicWidths.plantingDate,
         type: "date",
         editable: true,
-        valueGetter: (value) => (value ? new Date(value) : null),
+        valueGetter: (value) => toGridDateValue(value),
         preProcessEditCellProps: (params) => {
           const hasError = !params.props.value;
           return { ...params.props, error: hasError };
@@ -615,7 +629,7 @@ function PlantingPlans() {
           tooltip: t("plantingPlans:tooltips.calculatedHarvestStartDate"),
         }),
         type: "date",
-        valueGetter: (value) => (value ? new Date(value) : null),
+        valueGetter: (value) => toGridDateValue(value),
         cellClassName: (params) => params.value
           ? CALCULATED_COLUMN_CELL_CLASS
           : `${CALCULATED_COLUMN_CELL_CLASS} ${FULL_CELL_TOOLTIP_CELL_CLASS}`,
@@ -633,7 +647,7 @@ function PlantingPlans() {
           tooltip: t("plantingPlans:tooltips.calculatedHarvestEndDate"),
         }),
         type: "date",
-        valueGetter: (value) => (value ? new Date(value) : null),
+        valueGetter: (value) => toGridDateValue(value),
         cellClassName: (params) => params.value
           ? CALCULATED_COLUMN_CELL_CLASS
           : `${CALCULATED_COLUMN_CELL_CLASS} ${FULL_CELL_TOOLTIP_CELL_CLASS}`,
