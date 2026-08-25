@@ -514,17 +514,19 @@ export interface ImportPublicCultureConfirmationRequiredError {
   public_variety?: string;
 }
 
+export interface CropSpeciesTranslation {
+  language_code: string;
+  common_name: string;
+  synonyms?: string[];
+  regional_names?: Record<string, string>;
+}
+
 export interface CropSpecies {
   id: number;
   name: string;
   display_name?: string;
   display_language_code?: string;
-  translations?: Array<{
-    language_code: string;
-    common_name: string;
-    synonyms?: string[];
-    regional_names?: Record<string, string>;
-  }>;
+  translations?: CropSpeciesTranslation[];
   /** Canonical name, translations, synonyms, and regional names used for Kulturart matching. */
   search_names?: string[];
   status: 'published' | 'proposed' | 'rejected';

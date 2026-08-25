@@ -5,6 +5,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   Stack,
   Table,
@@ -13,6 +17,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
@@ -27,6 +32,11 @@ import PageHeader from '../../components/layout/PageHeader';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 
+type RequiredSpeciesLanguage = 'de' | 'en';
+type SpeciesApprovalTranslations = Record<RequiredSpeciesLanguage, string>;
+
+const REQUIRED_SPECIES_LANGUAGES: RequiredSpeciesLanguage[] = ['de', 'en'];
+
 export default function PublicLibraryModerationPage() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation('cultures');
@@ -36,6 +46,8 @@ export default function PublicLibraryModerationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [approvalProposal, setApprovalProposal] = useState<CropSpecies | null>(null);
+  const [approvalTranslations, setApprovalTranslations] = useState<SpeciesApprovalTranslations>({ de: '', en: '' });
 
   const canModerate = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
   const canManageRequests = Boolean(user?.is_staff || user?.is_superuser);
@@ -46,6 +58,22 @@ export default function PublicLibraryModerationPage() {
       return t('library.moderation.unknownDate');
     }
     return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
+  };
+
+  const getInitialApprovalTranslations = (proposal: CropSpecies): SpeciesApprovalTranslations => {
+    const translations: SpeciesApprovalTranslations = { de: '', en: '' };
+    for (const translation of proposal.translations ?? []) {
+      if (translation.language_code === 'de' || translation.language_code === 'en') {
+        translations[translation.language_code] = translation.common_name;
+      }
+    }
+    if (!translations.de && !translations.en) {
+      const fallbackLanguage = proposal.display_language_code === 'de' || proposal.display_language_code === 'en'
+        ? proposal.display_language_code
+        : i18n.resolvedLanguage === 'de' ? 'de' : 'en';
+      translations[fallbackLanguage] = proposal.display_name || proposal.name;
+    }
+    return translations;
   };
 
   const loadQueues = useCallback(async (): Promise<void> => {
@@ -77,14 +105,42 @@ export default function PublicLibraryModerationPage() {
     void loadQueues();
   }, [loadQueues]);
 
-  const reviewSpecies = async (proposal: CropSpecies, action: 'approve' | 'reject'): Promise<void> => {
+  const openSpeciesApproval = (proposal: CropSpecies): void => {
+    setApprovalProposal(proposal);
+    setApprovalTranslations(getInitialApprovalTranslations(proposal));
+  };
+
+  const closeSpeciesApproval = (): void => {
+    if (busyAction !== null) return;
+    setApprovalProposal(null);
+  };
+
+  const approveSpecies = async (): Promise<void> => {
+    if (!approvalProposal) return;
+    setBusyAction(`species-${approvalProposal.id}-approve`);
+    try {
+      await cropSpeciesAPI.approve(
+        approvalProposal.id,
+        '',
+        REQUIRED_SPECIES_LANGUAGES.map((languageCode) => ({
+          language_code: languageCode,
+          common_name: approvalTranslations[languageCode].trim(),
+        })),
+      );
+      showGlobalSnackbar({ message: t('library.moderation.species.approveSuccess'), severity: 'success' });
+      setApprovalProposal(null);
+      await loadQueues();
+    } catch {
+      showGlobalSnackbar({ message: t('library.moderation.actionError'), severity: 'error' });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const reviewSpecies = async (proposal: CropSpecies, action: 'reject'): Promise<void> => {
     setBusyAction(`species-${proposal.id}-${action}`);
     try {
-      if (action === 'approve') {
-        await cropSpeciesAPI.approve(proposal.id);
-      } else {
-        await cropSpeciesAPI.reject(proposal.id);
-      }
+      await cropSpeciesAPI.reject(proposal.id);
       showGlobalSnackbar({ message: t(`library.moderation.species.${action}Success`), severity: 'success' });
       await loadQueues();
     } catch {
@@ -93,6 +149,8 @@ export default function PublicLibraryModerationPage() {
       setBusyAction(null);
     }
   };
+
+  const canApproveSpecies = REQUIRED_SPECIES_LANGUAGES.every((languageCode) => approvalTranslations[languageCode].trim());
 
   const reviewModeratorRequest = async (request: PublicLibraryModeratorRequest, action: 'approve' | 'reject'): Promise<void> => {
     setBusyAction(`request-${request.id}-${action}`);
@@ -180,7 +238,7 @@ export default function PublicLibraryModerationPage() {
                                 variant="contained"
                                 startIcon={<CheckOutlinedIcon />}
                                 disabled={busyAction !== null}
-                                onClick={() => void reviewSpecies(proposal, 'approve')}
+                                onClick={() => openSpeciesApproval(proposal)}
                               >
                                 {busyAction === `species-${proposal.id}-approve` ? t('library.moderation.saving') : t('library.moderation.approve')}
                               </Button>
@@ -304,6 +362,42 @@ export default function PublicLibraryModerationPage() {
           </>
         )}
       </Stack>
+      <Dialog open={Boolean(approvalProposal)} onClose={closeSpeciesApproval} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('library.moderation.species.approveDialogTitle')}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              {t('library.moderation.species.approveDialogIntro', { name: approvalProposal?.name ?? '' })}
+            </Typography>
+            <TextField
+              label={t('library.moderation.species.germanName')}
+              value={approvalTranslations.de}
+              required
+              fullWidth
+              onChange={(event) => setApprovalTranslations((previous) => ({ ...previous, de: event.target.value }))}
+            />
+            <TextField
+              label={t('library.moderation.species.englishName')}
+              value={approvalTranslations.en}
+              required
+              fullWidth
+              onChange={(event) => setApprovalTranslations((previous) => ({ ...previous, en: event.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={closeSpeciesApproval} variant="outlined">{t('library.moderation.cancel')}</Button>
+          <Button
+            onClick={() => void approveSpecies()}
+            variant="contained"
+            disabled={!canApproveSpecies || busyAction !== null}
+          >
+            {busyAction === `species-${approvalProposal?.id}-approve`
+              ? t('library.moderation.saving')
+              : t('library.moderation.approve')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 }

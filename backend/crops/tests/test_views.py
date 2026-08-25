@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase as DRFAPITestCase
 
 from accounts.guest_demo import create_guest_demo_session
+from accounts.models import UserProjectSettings
 from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
 from farm.models import PublicCulture
@@ -23,6 +24,18 @@ class CropViewSetTest(DRFAPITestCase):
         self.draft = PublicCulture.objects.create(
             name='Carrot', variety='Nantes', status='draft', version=1, created_by=self.user,
         )
+
+    @staticmethod
+    def species_approval_payload(
+        *, german_name: str = 'Baumzwiebel', english_name: str = 'Tree onion', review_note: str = '',
+    ) -> dict:
+        return {
+            'review_note': review_note,
+            'translations': [
+                {'language_code': 'de', 'common_name': german_name},
+                {'language_code': 'en', 'common_name': english_name},
+            ],
+        }
 
     def test_requires_authentication(self):
         response = self.client.get('/openfarmplanner/api/crops/')
@@ -136,12 +149,17 @@ class CropViewSetTest(DRFAPITestCase):
     def test_species_create_stores_a_proposal(self):
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.post('/openfarmplanner/api/crop-species/', {'name': 'Tree onion'})
+        response = self.client.post(
+            '/openfarmplanner/api/crop-species/',
+            {'name': 'Tree onion', 'translations': [{'language_code': 'en', 'common_name': 'Tree onion'}]},
+            format='json',
+        )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['status'], CropSpecies.STATUS_PROPOSED)
         proposal = CropSpecies.objects.get(name='Tree onion')
         self.assertEqual(proposal.proposed_by, self.user)
+        self.assertTrue(proposal.translations.filter(language_code='en', common_name='Tree onion').exists())
 
     def test_species_create_notifies_public_library_moderators(self):
         staff_moderator = User.objects.create_user(
@@ -227,11 +245,20 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
         self.client.force_authenticate(user=moderator)
 
-        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {'review_note': 'Good addition.'}, format='json')
+        response = self.client.post(
+            f'/openfarmplanner/api/crop-species/{proposal.id}/approve/',
+            self.species_approval_payload(review_note='Good addition.'),
+            format='json',
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         proposal.refresh_from_db()
         self.assertEqual(proposal.status, CropSpecies.STATUS_PUBLISHED)
+        self.assertEqual(proposal.name, 'Tree onion')
+        self.assertEqual(
+            proposal.translations_by_language(),
+            {'de': 'Baumzwiebel', 'en': 'Tree onion'},
+        )
         self.assertEqual(proposal.reviewed_by, moderator)
         self.assertEqual(proposal.review_note, 'Good addition.')
         notification = Notification.objects.get(recipient=self.user)
@@ -242,6 +269,30 @@ class CropViewSetTest(DRFAPITestCase):
         self.assertEqual(notification.target_type, Notification.TARGET_CROP_SPECIES)
         self.assertEqual(notification.target_id, proposal.id)
         self.assertFalse(notification.is_read)
+
+    def test_species_approval_notification_uses_proposers_ui_language(self):
+        UserProjectSettings.objects.create(user=self.user, ui_language='de')
+        moderator = User.objects.create_user(
+            username='species-notification-moderator',
+            email='species-notification-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/crop-species/{proposal.id}/approve/',
+            self.species_approval_payload(german_name='Baumzwiebel', english_name='Tree onion'),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.name, 'Tree onion')
+        notification = Notification.objects.get(recipient=self.user)
+        self.assertEqual(notification.context, {'name': 'Baumzwiebel'})
 
     def test_approving_a_proposal_links_the_notification_to_the_proposers_variety(self):
         moderator = User.objects.create_user(
@@ -258,7 +309,11 @@ class CropViewSetTest(DRFAPITestCase):
         )
         self.client.force_authenticate(user=moderator)
 
-        self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+        self.client.post(
+            f'/openfarmplanner/api/crop-species/{proposal.id}/approve/',
+            self.species_approval_payload(),
+            format='json',
+        )
 
         notification = Notification.objects.get(recipient=self.user)
         self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_CULTURE)
@@ -275,10 +330,37 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(name='Seeded species', status=CropSpecies.STATUS_PROPOSED)
         self.client.force_authenticate(user=moderator)
 
-        response = self.client.post(f'/openfarmplanner/api/crop-species/{proposal.id}/approve/', {}, format='json')
+        response = self.client.post(
+            f'/openfarmplanner/api/crop-species/{proposal.id}/approve/',
+            self.species_approval_payload(german_name='Saat-Art', english_name='Seeded species'),
+            format='json',
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Notification.objects.count(), 0)
+
+    def test_moderator_cannot_approve_species_without_required_translations(self):
+        moderator = User.objects.create_user(
+            username='species-translation-moderator',
+            email='species-translation-moderator@example.com',
+            password='testpass',
+            is_active=True,
+        )
+        grant_public_library_moderator_access(moderator)
+        proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
+        self.client.force_authenticate(user=moderator)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/crop-species/{proposal.id}/approve/',
+            {'translations': [{'language_code': 'en', 'common_name': 'Tree onion'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['code'], 'missing_required_translations')
+        self.assertEqual(response.data['missing_languages'], ['de'])
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.status, CropSpecies.STATUS_PROPOSED)
 
     def test_moderator_can_reject_species_proposal(self):
         moderator = User.objects.create_user(

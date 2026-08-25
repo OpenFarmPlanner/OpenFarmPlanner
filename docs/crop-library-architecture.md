@@ -703,6 +703,18 @@ the wizard's own initial species list) until a moderator approves or rejects
 them, so a pending species is not otherwise discoverable/searchable in the
 meantime.
 
+Species proposals are language-aware at the review boundary. When the wizard
+creates a proposal it stores the typed name as a `CropSpeciesTranslation` in
+the currently selected original language, so an English publication pre-fills
+the English name and a German publication pre-fills the German name. A
+moderator cannot approve the proposal until all
+`REQUIRED_PUBLIC_CROP_SPECIES_LANGUAGE_CODES` (`de`, `en` today) have
+non-empty names; `CropSpeciesViewSet.approve()` writes those translations in
+the same transaction as the status change and uses the English common name as
+the canonical `CropSpecies.name`. That keeps approved species immediately
+usable in every supported UI language instead of publishing a single-language
+lookup row that has to be cleaned up later.
+
 ### While a species is `PROPOSED`
 
 Publishing under an unreviewed species is allowed, but everything that treats

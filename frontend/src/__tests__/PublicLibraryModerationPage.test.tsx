@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import PublicLibraryModerationPage from '../crops/pages/PublicLibraryModerationPage';
@@ -55,6 +55,7 @@ describe('PublicLibraryModerationPage', () => {
             name: 'Baumspinat',
             status: 'proposed',
             proposed_by_label: 'Mara',
+            translations: [{ language_code: 'de', common_name: 'Baumspinat' }],
             similar_species: [{ id: 2, name: 'Spinat', match_type: 'similar' }],
           },
         ],
@@ -94,7 +95,54 @@ describe('PublicLibraryModerationPage', () => {
 
     await user.click(screen.getAllByRole('button', { name: 'Annehmen' })[0]);
 
-    await waitFor(() => expect(apiMocks.cropSpeciesApprove).toHaveBeenCalledWith(7));
+    expect(await screen.findByRole('dialog', { name: 'Kulturart annehmen' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Deutscher Name/)).toHaveValue('Baumspinat');
+    const approveButtons = screen.getAllByRole('button', { name: 'Annehmen' });
+    const approveButton = approveButtons[approveButtons.length - 1];
+    expect(approveButton).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/Englischer Name/), 'Tree spinach');
+    await user.click(approveButton);
+
+    await waitFor(() => expect(apiMocks.cropSpeciesApprove).toHaveBeenCalledWith(7, '', [
+      { language_code: 'de', common_name: 'Baumspinat' },
+      { language_code: 'en', common_name: 'Tree spinach' },
+    ]));
+  });
+
+  it('prefills the English approval field for an English species proposal', async () => {
+    const user = userEvent.setup();
+    apiMocks.cropSpeciesList.mockResolvedValue({
+      data: {
+        results: [
+          {
+            id: 8,
+            name: 'Tree onion',
+            status: 'proposed',
+            proposed_by_label: 'Mara',
+            translations: [{ language_code: 'en', common_name: 'Tree onion' }],
+            similar_species: [],
+          },
+        ],
+      },
+    });
+
+    render(<PublicLibraryModerationPage />);
+
+    const speciesTable = await screen.findByRole('table', { name: 'Kulturart-Vorschläge' });
+    await user.click(within(speciesTable).getByRole('button', { name: 'Annehmen' }));
+
+    expect(screen.getByLabelText(/Englischer Name/)).toHaveValue('Tree onion');
+    expect(screen.getByLabelText(/Deutscher Name/)).toHaveValue('');
+
+    await user.type(screen.getByLabelText(/Deutscher Name/), 'Baumzwiebel');
+    const approveButtons = screen.getAllByRole('button', { name: 'Annehmen' });
+    await user.click(approveButtons[approveButtons.length - 1]);
+
+    await waitFor(() => expect(apiMocks.cropSpeciesApprove).toHaveBeenCalledWith(8, '', [
+      { language_code: 'de', common_name: 'Baumzwiebel' },
+      { language_code: 'en', common_name: 'Tree onion' },
+    ]));
   });
 
   it('lists removed public cultures and restores one', async () => {

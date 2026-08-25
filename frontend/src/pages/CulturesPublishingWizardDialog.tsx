@@ -162,6 +162,12 @@ export function CulturesPublishingWizardDialog({
   const [showLanguageOverride, setShowLanguageOverride] = useState(false);
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
+  const highlightedSpeciesOptionRef = useRef<SpeciesPickerOption | null>(null);
+  const pendingSpeciesProposalNameRef = useRef<string | null>(null);
+  const setPendingSpeciesProposal = useCallback((name: string | null) => {
+    pendingSpeciesProposalNameRef.current = name;
+    setPendingSpeciesProposalName(name);
+  }, []);
   const ownedPublicCultureId = culture?.owned_public_culture_id ?? null;
   const isOwnedPublicCultureUpdate = Boolean(ownedPublicCultureId);
   // When updating an already-linked public entry, whether the update targets
@@ -187,7 +193,7 @@ export function CulturesPublishingWizardDialog({
       // auto-selected there.
       setExistingVarietyInputValue(culture?.variety ?? '');
       setProposedSpeciesName(null);
-      setPendingSpeciesProposalName(null);
+      setPendingSpeciesProposal(null);
       setProposeSpeciesError('');
       setGeneralNoticeDismissed(false);
       setShowLanguageOverride(false);
@@ -313,10 +319,20 @@ export function CulturesPublishingWizardDialog({
     && !validationResult.can_publish;
   const existingVarietyOptions = publicCultureOptions.filter((option) => (option.variety || '').trim());
   const isProposingNewSpecies = Boolean(pendingSpeciesProposalName) && !isUpdatingOwnedPublicCulture;
+  const shouldShowProposedSpeciesNotice = Boolean(proposedSpeciesName) && !validationLoading && !isBlockedByValidation;
 
   const resetValidationResult = useCallback(() => {
     setValidationResult(null);
   }, []);
+
+  const canUseSpeciesProposalName = useCallback((name: string): boolean => {
+    const trimmedName = name.trim();
+    if (!trimmedName || speciesLoading) return false;
+    return !hasStrongCropSpeciesIdentityMatch(
+      trimmedName,
+      species.map((option) => ({ searchNames: getCropSpeciesSearchNames(option) })),
+    );
+  }, [species, speciesLoading]);
 
   const handleProposeSpecies = useCallback(async (name: string): Promise<CropSpecies | null> => {
     const trimmedName = name.trim();
@@ -324,7 +340,7 @@ export function CulturesPublishingWizardDialog({
     setProposingSpecies(true);
     setProposeSpeciesError('');
     try {
-      const response = await cropSpeciesAPI.propose(trimmedName);
+      const response = await cropSpeciesAPI.propose(trimmedName, originalLanguageCode);
       const created = response.data;
       // Make the pending species immediately usable for this publish attempt
       // instead of leaving the user stuck until a moderator reviews it — the
@@ -335,7 +351,7 @@ export function CulturesPublishingWizardDialog({
       setSelectedSpecies(created);
       setSpeciesInputValue(getCropSpeciesOptionLabel(created));
       setSelectedPublicCulture(null);
-      setPendingSpeciesProposalName(null);
+      setPendingSpeciesProposal(null);
       resetValidationResult();
       setProposedSpeciesName(getCropSpeciesOptionLabel(created));
       return created;
@@ -345,7 +361,7 @@ export function CulturesPublishingWizardDialog({
     } finally {
       setProposingSpecies(false);
     }
-  }, [resetValidationResult, t]);
+  }, [originalLanguageCode, resetValidationResult, t]);
 
   const handlePublish = useCallback(async () => {
     if (!culture?.id) return;
@@ -514,10 +530,28 @@ export function CulturesPublishingWizardDialog({
                       </li>
                     );
                   }}
+                  onHighlightChange={(_, option) => {
+                    highlightedSpeciesOptionRef.current = option;
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Tab') return;
+                    const highlightedOption = highlightedSpeciesOptionRef.current;
+                    const proposalName = highlightedOption && isProposeSpeciesOption(highlightedOption)
+                      ? highlightedOption.proposeName
+                      : speciesInputValue.trim();
+                    if (!canUseSpeciesProposalName(proposalName)) return;
+
+                    setPendingSpeciesProposal(proposalName);
+                    setSpeciesInputValue(proposalName);
+                    setSelectedSpecies(null);
+                    setSelectedPublicCulture(null);
+                    setProposedSpeciesName(null);
+                    resetValidationResult();
+                  }}
                   onChange={(_, value) => {
                     if (value && isProposeSpeciesOption(value)) {
                       // Deliberately no request here — see ProposeSpeciesOption.
-                      setPendingSpeciesProposalName(value.proposeName);
+                      setPendingSpeciesProposal(value.proposeName);
                       setSelectedSpecies(null);
                       setSelectedPublicCulture(null);
                       setProposedSpeciesName(null);
@@ -527,25 +561,26 @@ export function CulturesPublishingWizardDialog({
                     setSelectedSpecies(value);
                     setSelectedPublicCulture(null);
                     setProposedSpeciesName(null);
-                    setPendingSpeciesProposalName(null);
+                    setPendingSpeciesProposal(null);
                     resetValidationResult();
                   }}
                   onInputChange={(_, value, reason) => {
                     setProposeSpeciesError('');
-                    // 'reset' is MUI writing the picked option's label back into
+                    // 'reset'/'blur' is MUI writing the picked option's label back into
                     // the field right after onChange — not the user retyping,
                     // so it must not undo the propose mode just entered. Picking
                     // "propose as new species" clears `selectedSpecies` (it isn't
-                    // a real CropSpecies), which makes this same 'reset' write an
+                    // a real CropSpecies), which makes this same update write an
                     // empty label into the field; keep showing the proposed name
                     // instead of letting that overwrite it.
-                    if (reason === 'reset' && pendingSpeciesProposalName) {
-                      setSpeciesInputValue(pendingSpeciesProposalName);
+                    const pendingProposalName = pendingSpeciesProposalNameRef.current;
+                    if ((reason === 'reset' || reason === 'blur') && pendingProposalName) {
+                      setSpeciesInputValue(pendingProposalName);
                       return;
                     }
                     setSpeciesInputValue(value);
                     if (reason !== 'reset') {
-                      setPendingSpeciesProposalName(null);
+                      setPendingSpeciesProposal(null);
                     }
                   }}
                   noOptionsText={speciesLoading
@@ -710,7 +745,7 @@ export function CulturesPublishingWizardDialog({
             ) : null}
           </Stack>
 
-          {proposedSpeciesName ? (
+          {shouldShowProposedSpeciesNotice ? (
             <Alert severity="success" onClose={() => setProposedSpeciesName(null)}>
               {t('library.publishWizard.proposedSpeciesNotice', { name: proposedSpeciesName })}
             </Alert>
