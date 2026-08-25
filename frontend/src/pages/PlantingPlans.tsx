@@ -11,7 +11,6 @@ import { useCallback, useState, useEffect, useMemo, useRef, type MouseEvent as R
 import { isTypingInEditableElement } from "../hooks/useKeyboardShortcuts";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import type {
-  GridCellParams,
   GridColDef,
   GridRenderCellParams,
   GridRowId,
@@ -736,16 +735,6 @@ function PlantingPlans() {
             return `≈ ${Math.round(value)}`;
           }
           return "—";
-        },
-        // Disable editing if culture has no valid spacing
-        isCellEditable: (params: GridCellParams<PlantingPlanRow>) => {
-          const row = params.row as PlantingPlanRow;
-          const culture = cultures.find((c) => c.id === row.culture);
-          if (!culture) return false;
-          const plantsPerM2 = culture.plants_per_m2;
-          return (
-            plantsPerM2 !== null && plantsPerM2 !== undefined && plantsPerM2 > 0
-          );
         },
         headerClassName: "coupled-field-header",
       },
