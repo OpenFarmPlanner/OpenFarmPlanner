@@ -148,6 +148,8 @@
     "minLength": "Mindestens {{count}} Zeichen erforderlich.",
     "invalidNumberExample": "Bitte gib einen gültigen Zahlenwert ein, z. B. 3,9",
     "areaInputPositive": "Der Wert muss größer als 0 sein.",
+    "areaInputPlantsCultureRequired": "Bitte wähle eine Kultur aus, um die Fläche aus der Pflanzenanzahl zu berechnen.",
+    "areaInputPlantsSpacingMissing": "Für diese Kultur fehlen gültige Pflanzabstände. Die Fläche kann nicht aus der Pflanzenanzahl berechnet werden.",
     "bedAreaExceeded": "Die eingetragene Fläche überschreitet die maximal verfügbare Fläche dieses Beets.",
     "availableArea": "Verfügbare Restfläche"
   },
@@ -185,6 +187,7 @@
   },
   "errorFieldLabels": {
     "area_input_value": "Fläche",
+    "area_input_unit": "Flächeneingabe",
     "area_usage_sqm": "Fläche (m²)",
     "area_sqm": "Fläche (m²)",
     "planting_date": "Pflanzdatum",

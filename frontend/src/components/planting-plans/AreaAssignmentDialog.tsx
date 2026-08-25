@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   Box,
   Button,
@@ -40,9 +40,8 @@ interface AreaAssignmentDialogProps {
   hasFocus?: boolean;
   memoKey?: string;
   /**
-   * Grid cell identity. Passing both lets the cell pick up the grid's
-   * "keyboard navigation entered this cell" requests and open the dialog —
-   * see `DialogEditCellContext`.
+   * Grid cell identity. Passing both lets the cell pick up explicit dialog edit
+   * requests from the grid; ordinary Tab focus only focuses the cell.
    */
   rowId?: GridRowId;
   field?: string;
@@ -153,6 +152,8 @@ function AreaAssignmentDialogComponent({
   const [isOpen, setIsOpen] = useState(false);
   const isOpenRef = useRef(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const focusAdvanceTimeoutsRef = useRef<number[]>([]);
+  const [triggerFocusRequest, setTriggerFocusRequest] = useState(0);
   const [draft, setDraft] = useState<AssignmentState>({ locationId: null, fieldId: null, bedId: bedId ?? null });
 
   const fieldsById = useMemo(() => new Map(fields.filter((item) => item.id !== undefined).map((item) => [item.id as number, item])), [fields]);
@@ -311,6 +312,7 @@ function AreaAssignmentDialogComponent({
     await onApply(activeDraft.bedId);
     isOpenRef.current = false;
     setIsOpen(false);
+    setTriggerFocusRequest((request) => request + 1);
   };
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -328,13 +330,57 @@ function AreaAssignmentDialogComponent({
       .filter((element) => (
         !element.hasAttribute('disabled')
         && element.getAttribute('aria-disabled') !== 'true'
-        && element.tabIndex >= 0
+        && (element.getAttribute('role') === 'combobox' || element.tabIndex >= 0)
       ));
   }, []);
 
   const focusFirstDialogControl = useCallback((): void => {
     getDialogTabStops()[0]?.focus();
   }, [getDialogTabStops]);
+
+  const clearFocusAdvanceTimeouts = useCallback((): void => {
+    focusAdvanceTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    focusAdvanceTimeoutsRef.current = [];
+  }, []);
+
+  const focusAdjacentDialogControl = useCallback((
+    origin: HTMLElement,
+    shiftKey: boolean,
+  ): void => {
+    clearFocusAdvanceTimeouts();
+    const timeoutId = window.setTimeout(() => {
+      const nextTabStops = getDialogTabStops();
+      if (nextTabStops.length === 0) {
+        return;
+      }
+
+      const currentIndex = nextTabStops.findIndex((element) => (
+        element === origin
+        || (origin.id !== '' && element.id === origin.id)
+        || element.contains(origin)
+        || origin.contains(element)
+      ));
+      const nextIndex = shiftKey
+        ? ((currentIndex === -1 ? 0 : currentIndex) - 1 + nextTabStops.length) % nextTabStops.length
+        : ((currentIndex === -1 ? -1 : currentIndex) + 1) % nextTabStops.length;
+      const nextTabStop = nextTabStops[nextIndex];
+      nextTabStop?.focus();
+      focusAdvanceTimeoutsRef.current = [
+        window.setTimeout(() => nextTabStop?.focus(), 10),
+        window.setTimeout(() => nextTabStop?.focus(), 50),
+      ];
+    }, 0);
+    focusAdvanceTimeoutsRef.current = [timeoutId];
+  }, [clearFocusAdvanceTimeouts, getDialogTabStops]);
+
+  const commitHighlightedOption = useCallback((activeCombobox: HTMLElement): void => {
+    const listboxId = activeCombobox.getAttribute('aria-controls');
+    const listbox = listboxId ? document.getElementById(listboxId) : null;
+    const highlightedOption = listbox?.querySelector<HTMLElement>(
+      '[role="option"][tabindex="0"], [role="option"].Mui-focusVisible',
+    );
+    highlightedOption?.click();
+  }, []);
 
   useEffect(() => {
     if (!isOpen || bedsWithLocation.length === 0) {
@@ -361,106 +407,40 @@ function AreaAssignmentDialogComponent({
       }
 
       const form = formRef.current;
-      const activeCombobox = form?.querySelector<HTMLElement>('[role="combobox"][aria-expanded="true"]');
-      if (!form || !activeCombobox) {
+      const eventTarget = event.target;
+      if (!form || !(eventTarget instanceof HTMLElement)) {
+        return;
+      }
+
+      const activeCombobox = form.querySelector<HTMLElement>('[role="combobox"][aria-expanded="true"]');
+      const origin = activeCombobox
+        ?? eventTarget.closest<HTMLElement>('[role="combobox"]')
+        ?? eventTarget;
+      if (!form.contains(origin)) {
         return;
       }
 
       event.preventDefault();
+      event.stopPropagation();
       event.stopImmediatePropagation();
 
-      const listboxId = activeCombobox.getAttribute('aria-controls');
-      const listbox = listboxId ? document.getElementById(listboxId) : null;
-      const highlightedOption = listbox?.querySelector<HTMLElement>(
-        '[role="option"][tabindex="0"], [role="option"].Mui-focusVisible',
-      );
-      highlightedOption?.click();
-
-      window.setTimeout(() => {
-        const nextTabStops = getDialogTabStops();
-        if (nextTabStops.length === 0) {
-          return;
-        }
-        const currentIndex = nextTabStops.findIndex((element) => (
-          element.id === activeCombobox.id
-          || element === activeCombobox
-          || element.contains(activeCombobox)
-        ));
-        const nextIndex = event.shiftKey
-          ? ((currentIndex === -1 ? 0 : currentIndex) - 1 + nextTabStops.length) % nextTabStops.length
-          : ((currentIndex === -1 ? -1 : currentIndex) + 1) % nextTabStops.length;
-        nextTabStops[nextIndex]?.focus();
-      }, 0);
+      if (activeCombobox) {
+        commitHighlightedOption(activeCombobox);
+      }
+      focusAdjacentDialogControl(origin, event.shiftKey);
     };
 
     document.addEventListener('keydown', handleDocumentKeyDownCapture, true);
-    return () => document.removeEventListener('keydown', handleDocumentKeyDownCapture, true);
-  }, [getDialogTabStops, isOpen]);
-
-  const handleDialogKeyDownCapture = (event: KeyboardEvent<HTMLFormElement>): void => {
-    if (
-      event.key !== 'Tab'
-      || event.altKey
-      || event.ctrlKey
-      || event.metaKey
-    ) {
-      return;
-    }
-
-    const tabStops = getDialogTabStops();
-    if (tabStops.length === 0) {
-      return;
-    }
-
-    const activeElement = document.activeElement;
-    const activeIndex = activeElement instanceof HTMLElement
-      ? tabStops.findIndex((element) => element === activeElement || element.contains(activeElement))
-      : -1;
-    const activeCombobox = activeElement instanceof HTMLElement
-      ? activeElement.closest<HTMLElement>('[role="combobox"][aria-expanded="true"]')
-      : null;
-    const currentIndex = activeIndex === -1
-      ? (event.shiftKey ? 0 : -1)
-      : activeIndex;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const focusNeighbour = (): void => {
-      const nextTabStops = getDialogTabStops();
-      if (nextTabStops.length === 0) {
-        return;
-      }
-      const nextCurrentIndex = activeCombobox
-        ? nextTabStops.findIndex((element) => (
-          element.id === activeCombobox.id
-          || element === activeCombobox
-          || element.contains(activeCombobox)
-        ))
-        : currentIndex;
-      const nextIndex = event.shiftKey
-        ? ((nextCurrentIndex === -1 ? 0 : nextCurrentIndex) - 1 + nextTabStops.length) % nextTabStops.length
-        : ((nextCurrentIndex === -1 ? -1 : nextCurrentIndex) + 1) % nextTabStops.length;
-      nextTabStops[nextIndex]?.focus();
+    return () => {
+      document.removeEventListener('keydown', handleDocumentKeyDownCapture, true);
+      clearFocusAdvanceTimeouts();
     };
-
-    if (activeCombobox) {
-      const listboxId = activeCombobox.getAttribute('aria-controls');
-      const listbox = listboxId ? document.getElementById(listboxId) : null;
-      const highlightedOption = listbox?.querySelector<HTMLElement>(
-        '[role="option"][tabindex="0"], [role="option"].Mui-focusVisible',
-      );
-      highlightedOption?.click();
-      window.setTimeout(focusNeighbour, 0);
-      return;
-    }
-
-    focusNeighbour();
-  };
+  }, [clearFocusAdvanceTimeouts, commitHighlightedOption, focusAdjacentDialogControl, isOpen]);
 
   const handleCancel = (): void => {
     isOpenRef.current = false;
     setIsOpen(false);
+    setTriggerFocusRequest((request) => request + 1);
   };
 
   /**
@@ -487,6 +467,7 @@ function AreaAssignmentDialogComponent({
         placeholder={placeholder}
         hasFocus={hasFocus}
         suppressFocus={isOpen}
+        focusRequest={triggerFocusRequest}
         onOpen={handleOpen}
         triggerLabel={t('areaAssignment.editButton')}
       />
@@ -500,7 +481,6 @@ function AreaAssignmentDialogComponent({
           component="form"
           ref={formRef}
           onSubmit={handleFormSubmit}
-          onKeyDownCapture={handleDialogKeyDownCapture}
           sx={{ minWidth: 0 }}
         >
           <DialogTitle>{t('areaAssignment.title')}</DialogTitle>

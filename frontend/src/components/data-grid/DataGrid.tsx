@@ -182,17 +182,6 @@ const wrapNativeKeyboardEvent = (event: globalThis.KeyboardEvent): DataGridKeybo
   stopPropagation: () => event.stopPropagation(),
 } as DataGridKeyboardEvent);
 
-const rowsHaveSameValues = <T extends EditableRow>(first: T, second: T): boolean => {
-  const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
-  for (const key of keys) {
-    if (!Object.is(first[key], second[key])) {
-      return false;
-    }
-  }
-
-  return true;
-};
-
 export function EditableDataGrid<T extends EditableRow>({
   columns,
   api,
@@ -701,9 +690,8 @@ export function EditableDataGrid<T extends EditableRow>({
     [dedicatedEditorFieldNames],
   );
   // A dialog-edited cell has no inline edit session the grid could start, so
-  // "the cell entered edit mode" is expressed as a request its own renderer
-  // reacts to. One request per keyboard entry, consumed by the cell when it
-  // opens — see DialogEditCellContext.
+  // explicit edit commands can be expressed as a request its own renderer
+  // reacts to. Plain Tab focus must not request a dialog.
   const isDialogEditField = useCallback(
     (field: string): boolean => (dialogEditFields ?? []).includes(field),
     [dialogEditFields],
@@ -1263,41 +1251,6 @@ export function EditableDataGrid<T extends EditableRow>({
     return true;
   }, [getDraftRow, markRowDirty]);
 
-  const stopExistingEditedRow = useCallback((rowId: GridRowId): boolean => {
-    const rowKey = String(rowId);
-    const currentRow = getDraftRow(rowId) ?? (rowsById.get(rowKey) as T | undefined);
-    if (!currentRow || isUnsavedDraftRow(currentRow)) {
-      return false;
-    }
-
-    const snapshot = rowSnapshotRef.current.get(rowKey);
-    const hasActualChanges = snapshot ? !rowsHaveSameValues(snapshot, currentRow) : true;
-
-    setRows((previousRows) =>
-      previousRows.map((row) => (String(row.id) === rowKey ? currentRow : row)),
-    );
-
-    setDirtyRowIds((previous) => {
-      const next = new Set(previous);
-      if (hasActualChanges) {
-        next.add(rowKey);
-      } else {
-        next.delete(rowKey);
-      }
-      return next;
-    });
-    setActiveValidationErrors((previous) => {
-      const next = { ...previous };
-      delete next[rowKey];
-      return next;
-    });
-    setRowModesModel((oldModel) => ({
-      ...oldModel,
-      [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
-    }));
-    return true;
-  }, [getDraftRow, rowsById]);
-
   const navigateFromEditedCell = useCallback((
     current: { id: GridRowId; field: string },
     target: { id: GridRowId; field: string },
@@ -1318,9 +1271,6 @@ export function EditableDataGrid<T extends EditableRow>({
 
     if (isSameRow) {
       internalEditNavigationRowIdRef.current = String(current.id);
-      if (targetHasDedicatedEditor) {
-        stopExistingEditedRow(current.id);
-      }
       focusKeyboardNavigableCell(target.id, target.field, {
         startEdit: options.startTargetEdit,
         requestDialogEdit: options.requestDialogEdit,
@@ -1349,7 +1299,6 @@ export function EditableDataGrid<T extends EditableRow>({
     focusKeyboardNavigableCell,
     hasDedicatedEditor,
     rowModesModel,
-    stopExistingEditedRow,
   ]);
 
   const recoverSameRowNavigationFromTabEvent = useCallback((
@@ -1373,7 +1322,6 @@ export function EditableDataGrid<T extends EditableRow>({
 
     navigateFromEditedCell(current, sameRowTarget, {
       startTargetEdit: !hasDedicatedEditor(sameRowTarget.field),
-      requestDialogEdit: true,
     });
     return true;
   }, [
@@ -1800,12 +1748,11 @@ export function EditableDataGrid<T extends EditableRow>({
     if (String(target.id) === String(current.id)) {
       navigateFromEditedCell(current, target, {
         startTargetEdit: !hasDedicatedEditor(target.field),
-        requestDialogEdit: true,
       });
       return true;
     }
 
-    void saveEditedRowAndFocusTarget(current, target, { requestDialogEdit: true });
+    void saveEditedRowAndFocusTarget(current, target);
     return true;
   }, [
     columns,
@@ -2535,18 +2482,12 @@ export function EditableDataGrid<T extends EditableRow>({
         api: gridApiRef.current,
         cell: target,
       });
-      // Tab/Shift+Tab is the "enter the cell to edit it" gesture; arrow keys
-      // stay pure movement so a dialog cell can still be passed by.
-      if (event.key === 'Tab') {
-        requestDialogEditForCell(target.id, target.field);
-      }
     });
     return true;
   }, [
     columnsWithActions,
     gridApiRef,
     isActionCellKeyboardNavigable,
-    requestDialogEditForCell,
     rowModesModel,
     rowsForGrid,
     runAfterRowVisible,

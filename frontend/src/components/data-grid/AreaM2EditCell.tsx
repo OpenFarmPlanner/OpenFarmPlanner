@@ -4,11 +4,12 @@
  * Provides a numeric input for area editing with optional normalization on blur.
  */
 
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import { getInitialInputValue } from './areaM2EditCellValue';
+import { useEditCellNavigation } from './EditCellNavigationContext';
 import { useEditCellAutoFocus } from './useEditCellAutoFocus';
 
 export interface AreaM2EditCellProps extends GridRenderEditCellParams {
@@ -31,6 +32,7 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
     maxPlaceholder,
   } = props;
   const apiRef = useGridApiContext();
+  const editCellNavigation = useEditCellNavigation();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [inputValue, setInputValue] = useState<string>(
     () => getInitialInputValue(value, fallbackValue, locale)
@@ -43,6 +45,44 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
     input.select();
   }, []);
   useEditCellAutoFocus(hasFocus, inputRef, selectAll);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input || !editCellNavigation) {
+      return undefined;
+    }
+
+    const handleNativeTabKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        event.stopPropagation();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      editCellNavigation({
+        id,
+        field,
+        event: {
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          key: event.key,
+          metaKey: event.metaKey,
+          nativeEvent: event,
+          preventDefault: () => event.preventDefault(),
+          shiftKey: event.shiftKey,
+          stopPropagation: () => event.stopPropagation(),
+        },
+      });
+    };
+
+    input.addEventListener('keydown', handleNativeTabKeyDown, { capture: true });
+    return () => {
+      input.removeEventListener('keydown', handleNativeTabKeyDown, { capture: true });
+    };
+  }, [editCellNavigation, field, id]);
 
   const applyValue = async (nextValue: string): Promise<void> => {
     onLastEditedFieldChange('area_m2');
@@ -59,6 +99,21 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
     await applyValue(val);
   };
 
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.stopPropagation();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      editCellNavigation?.({
+        id,
+        field,
+        event: event as ReactKeyboardEvent<HTMLElement>,
+      });
+    }
+  };
+
   return (
     <TextField
       type="text"
@@ -66,6 +121,7 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
       inputRef={inputRef}
       value={displayedInputValue}
       onChange={handleChange}
+      onKeyDown={handleKeyDown}
       size="small"
       fullWidth
       placeholder={maxPlaceholder}
@@ -73,7 +129,7 @@ function AreaM2EditCellComponent(props: AreaM2EditCellProps) {
         htmlInput: {
           min: 0,
           step: 0.01,
-          tabIndex: hasFocus ? 0 : -1,
+          tabIndex: 0,
         },
       }}
       sx={{

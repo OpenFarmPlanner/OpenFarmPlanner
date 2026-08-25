@@ -4,6 +4,10 @@ import { loginWithDeterministicProject } from './utils';
 const backendPort = process.env.BACKEND_PORT ?? '8000';
 const apiBase = `http://127.0.0.1:${backendPort}/api`;
 
+const focusedField = async (page: Page): Promise<string | null> =>
+  page.evaluate(() =>
+    document.activeElement?.closest('[role="gridcell"]')?.getAttribute('data-field') ?? null);
+
 type AreaDialogFixtureOptions = {
   languageCode?: 'de' | 'en';
   longNames?: boolean;
@@ -104,6 +108,13 @@ async function openAreaAssignmentDialog(page: Page, title: string, editLabel: st
   return dialog;
 }
 
+async function openFocusedAreaCellWithEnter(page: Page, rowIndex: number): Promise<void> {
+  await expect(
+    page.locator('[role="gridcell"][data-field="bed"]').nth(rowIndex).getByLabel('Anbaufläche bearbeiten'),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+}
+
 async function readDialogMetrics(page: Page, title: string) {
   return page.getByRole('dialog', { name: title }).evaluate((dialogElement) => {
     const paper = dialogElement.closest<HTMLElement>('.MuiPaper-root') ?? dialogElement;
@@ -161,7 +172,7 @@ test.describe('planting plans area assignment dialog', () => {
     ).toHaveAttribute('tabindex', '0');
   });
 
-  test('reopens on every keyboard entry into the cell, forwards and backwards', async ({ page, request }) => {
+  test('focuses on keyboard entry and opens with Enter, forwards and backwards', async ({ page, request }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
     await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-keyboard', { planCount: 3 });
 
@@ -175,53 +186,124 @@ test.describe('planting plans area assignment dialog', () => {
     const previousCell = cellAt('cultivation_type', 0);
     await expect(bedCell).toBeVisible();
 
-    // Tab onto the cell opens the dialog …
+    // Tab onto the cell focuses it without opening the dialog …
     await previousCell.click();
     await page.keyboard.press('Escape');
     await previousCell.focus();
     await page.keyboard.press('Tab');
+    await expect(dialog).toBeHidden();
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+
+    // … Enter starts the edit dialog.
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
-    // … cancelling leaves focus on the cell, and re-entering opens it again.
+    // Cancelling leaves focus on the cell, and re-entering focuses it again.
     await page.getByRole('button', { name: 'Abbrechen' }).click();
     await expect(dialog).toBeHidden();
-    await page.keyboard.press('Shift+Tab');
-    await expect(previousCell).toHaveAttribute('tabindex', '0');
-    await expect(dialog).toBeHidden();
-    await page.keyboard.press('Tab');
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
     // Escape must not save, and must not stop the next entry from opening.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await page.keyboard.press('Shift+Tab');
-    await page.keyboard.press('Tab');
+    await expect(bedCell.getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
 
-    // Backwards navigation from the following cell opens it too.
+    // Backwards navigation from the following cell focuses it too.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await cellAt('planting_date', 0).focus();
+    await page.keyboard.press('Tab');
+    await expect.poll(() => focusedField(page)).toBe('planting_date');
     await page.keyboard.press('Shift+Tab');
+    await expect(dialog).toBeHidden();
+    await openFocusedAreaCellWithEnter(page, 0);
     await expect(dialog).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
 
     // Every other row behaves the same, in both directions.
     for (const rowIndex of [1, 2]) {
+      await cellAt('cultivation_type', rowIndex).click();
+      await page.keyboard.press('Escape');
       await cellAt('cultivation_type', rowIndex).focus();
       await page.keyboard.press('Tab');
+      await expect(dialog).toBeHidden();
+      await openFocusedAreaCellWithEnter(page, rowIndex);
       await expect(dialog).toBeVisible();
       await page.getByRole('button', { name: 'Abbrechen' }).click();
       await expect(dialog).toBeHidden();
-      await expect(cellAt('bed', rowIndex)).toHaveAttribute('tabindex', '0');
+      await expect(cellAt('bed', rowIndex).getByLabel('Anbaufläche bearbeiten')).toBeFocused();
 
-      await cellAt('planting_date', rowIndex).focus();
+      await page.keyboard.press('Tab');
+      await expect.poll(() => focusedField(page)).toBe('planting_date');
       await page.keyboard.press('Shift+Tab');
+      await expect(dialog).toBeHidden();
+      await openFocusedAreaCellWithEnter(page, rowIndex);
       await expect(dialog).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
     }
+  });
+
+  test('tabs between closed hierarchy dropdowns inside the dialog', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-dropdown-tabs');
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    await page.locator('[role="gridcell"][data-field="bed"]').first().getByLabel('Anbaufläche bearbeiten').click();
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeVisible();
+
+    const locationSelect = page.getByRole('combobox', { name: 'Standort' });
+    const fieldSelect = page.getByRole('combobox', { name: 'Parzelle' });
+    const bedSelect = page.getByRole('combobox', { name: 'Beet' });
+
+    await expect(locationSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(bedSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(locationSelect).toBeFocused();
+  });
+
+  test('tabs between hierarchy dropdowns when opened from an edited planting-plan row', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await createAreaDialogFixture(page, request, 'planting-plans-area-dialog-row-edit-dropdown-tabs');
+
+    await page.goto('/app/planting-plans');
+    await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
+    const firstRow = page.locator('[role="row"][data-id]').first();
+    await firstRow.locator('[data-field="culture"]').dblclick();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+
+    await firstRow.locator('[data-field="cultivation_type"]').focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('dialog', { name: 'Anbaufläche ändern' })).toBeHidden();
+    await expect(firstRow.locator('[data-field="bed"]').getByLabel('Anbaufläche bearbeiten')).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Anbaufläche ändern' });
+    await expect(dialog).toBeVisible();
+
+    const locationSelect = dialog.getByRole('combobox', { name: 'Standort' });
+    const fieldSelect = dialog.getByRole('combobox', { name: 'Parzelle' });
+    const bedSelect = dialog.getByRole('combobox', { name: 'Beet' });
+
+    await expect(locationSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(bedSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(fieldSelect).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(locationSelect).toBeFocused();
   });
 
   test('keeps the desktop field hierarchy editor compact without internal scrolling', async ({ page, request }) => {

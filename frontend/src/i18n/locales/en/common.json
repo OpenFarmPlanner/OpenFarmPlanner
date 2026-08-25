@@ -148,6 +148,8 @@
     "minLength": "At least {{count}} characters required.",
     "invalidNumberExample": "Please enter a valid number, e.g. 3.9",
     "areaInputPositive": "The value must be greater than 0.",
+    "areaInputPlantsCultureRequired": "Select a crop to calculate the area from the plant count.",
+    "areaInputPlantsSpacingMissing": "This crop is missing valid plant spacing. The area cannot be calculated from the plant count.",
     "bedAreaExceeded": "The area entered exceeds the maximum area available on this bed.",
     "availableArea": "Remaining area available"
   },
@@ -185,6 +187,7 @@
   },
   "errorFieldLabels": {
     "area_input_value": "Area",
+    "area_input_unit": "Area input",
     "area_usage_sqm": "Area (m²)",
     "area_sqm": "Area (m²)",
     "planting_date": "Planting date",

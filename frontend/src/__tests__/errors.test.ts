@@ -242,15 +242,21 @@ describe('extractApiErrorMessage', () => {
   it('localizes planting plan area input validation errors', () => {
     const t = createT({
       'validation.areaInputPositive': 'Der Wert muss größer als 0 sein.',
+      'validation.areaInputPlantsSpacingMissing': 'Für diese Kultur fehlen gültige Pflanzabstände. Die Fläche kann nicht aus der Pflanzenanzahl berechnet werden.',
       'common:errorFieldLabels.area_input_value': 'Fläche',
+      'common:errorFieldLabels.area_input_unit': 'Flächeneingabe',
     });
     const error = createAxiosError(400, {
       area_input_value: ['Area input value must be greater than 0.'],
+      area_input_unit: ['Culture spacing data is missing or invalid. Cannot calculate area from plant count.'],
     });
 
     const result = extractApiErrorMessage(error, t, fallbackMessage);
 
-    expect(result).toBe('Fläche: Der Wert muss größer als 0 sein.');
+    expect(result).toBe([
+      'Fläche: Der Wert muss größer als 0 sein.',
+      'Flächeneingabe: Für diese Kultur fehlen gültige Pflanzabstände. Die Fläche kann nicht aus der Pflanzenanzahl berechnet werden.',
+    ].join('\n'));
   });
 
 

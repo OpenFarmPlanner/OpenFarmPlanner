@@ -563,6 +563,31 @@ describe("PlantingPlans save-time area validation", () => {
     expect(screen.getByRole("button", { name: "Beetfläche übernehmen" })).toBeInTheDocument();
   });
 
+  it("shows bed-limit dialog when plants count implies an area larger than the bed", async () => {
+    mockGridRowState.row = {
+      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "0,50", plants_count: "1000",
+    };
+    render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
+    await waitForPlansToLoad();
+
+    const latestProps = commandApiSpies.gridProps.mock.calls.at(-1)?.[0] as {
+      columns: Array<{
+        field: string;
+        preProcessEditCellProps?: (params: { hasChanged: boolean; props: Record<string, unknown> }) => unknown;
+      }>;
+    };
+    latestProps.columns
+      .find((column) => column.field === "plants_count")
+      ?.preProcessEditCellProps?.({ hasChanged: true, props: {} });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Speichern mit Enter" }));
+
+    expect(await screen.findByText("Die angegebene Fläche überschreitet die Größe dieses Beets.")).toBeInTheDocument();
+    expect(screen.getByText(areaText("Beetfläche", "1,00"))).toBeInTheDocument();
+    expect(screen.getByText(areaText("Angefragt", "100,00"))).toBeInTheDocument();
+    expect(commandApiSpies.apiPayload).not.toHaveBeenCalled();
+  });
+
   it("closes the area validation dialog with Escape", async () => {
     mockGridRowState.row = {
       id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
