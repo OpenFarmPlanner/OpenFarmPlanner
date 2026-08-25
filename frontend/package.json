@@ -40,7 +40,7 @@
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-i18next": "^16.4.0",
+    "react-i18next": "^17.0.12",
     "react-konva": "^19.2.5",
     "react-markdown": "^10.1.0",
     "react-router": "^8.3.0",
