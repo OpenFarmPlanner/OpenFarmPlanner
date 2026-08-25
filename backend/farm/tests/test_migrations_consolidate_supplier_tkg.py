@@ -36,7 +36,12 @@ class TestConsolidateSupplierTkgMigration:
             project_id=project.id,
         )
 
-        unified = culture_model.objects.create(name='Unified', project_id=project.id, thousand_kernel_weight_g=None)
+        unified = culture_model.objects.create(
+            name='Unified',
+            name_normalized='unified',
+            project_id=project.id,
+            thousand_kernel_weight_g=None,
+        )
         culture_supplier_data_model.objects.create(
             culture_id=unified.id,
             supplier_id=supplier_a.id,
@@ -52,7 +57,12 @@ class TestConsolidateSupplierTkgMigration:
             packaging_sizes=[],
         )
 
-        single = culture_model.objects.create(name='Single', project_id=project.id, thousand_kernel_weight_g=None)
+        single = culture_model.objects.create(
+            name='Single',
+            name_normalized='single',
+            project_id=project.id,
+            thousand_kernel_weight_g=None,
+        )
         culture_supplier_data_model.objects.create(
             culture_id=single.id,
             supplier_id=supplier_a.id,
@@ -61,7 +71,12 @@ class TestConsolidateSupplierTkgMigration:
             packaging_sizes=[],
         )
 
-        conflict = culture_model.objects.create(name='Conflict', project_id=project.id, thousand_kernel_weight_g=None)
+        conflict = culture_model.objects.create(
+            name='Conflict',
+            name_normalized='conflict',
+            project_id=project.id,
+            thousand_kernel_weight_g=None,
+        )
         culture_supplier_data_model.objects.create(
             culture_id=conflict.id,
             supplier_id=supplier_a.id,
@@ -77,7 +92,12 @@ class TestConsolidateSupplierTkgMigration:
             packaging_sizes=[],
         )
 
-        existing = culture_model.objects.create(name='Existing', project_id=project.id, thousand_kernel_weight_g=9.9)
+        existing = culture_model.objects.create(
+            name='Existing',
+            name_normalized='existing',
+            project_id=project.id,
+            thousand_kernel_weight_g=9.9,
+        )
         culture_supplier_data_model.objects.create(
             culture_id=existing.id,
             supplier_id=supplier_a.id,
@@ -88,6 +108,11 @@ class TestConsolidateSupplierTkgMigration:
 
         self.executor.loader.build_graph()
         self.executor.migrate([self.migrate_to])
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_migration_moves_unique_supplier_tkg_to_culture(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps

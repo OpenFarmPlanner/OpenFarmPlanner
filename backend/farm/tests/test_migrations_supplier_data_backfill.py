@@ -24,6 +24,7 @@ class TestSupplierDataBackfillMigration:
 
         culture = culture_model.objects.create(
             name='Carrot',
+            name_normalized='carrot',
             variety='Nantaise',
             project_id=project.id,
             thousand_kernel_weight_g=3.5,
@@ -44,6 +45,7 @@ class TestSupplierDataBackfillMigration:
 
         preserved = culture_model.objects.create(
             name='Beet',
+            name_normalized='beet',
             variety='Detroit',
             project_id=project.id,
             thousand_kernel_weight_g=9.5,
@@ -64,6 +66,11 @@ class TestSupplierDataBackfillMigration:
 
         self.executor.loader.build_graph()
         self.executor.migrate([self.migrate_to])
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_migration_copies_legacy_values_to_empty_supplier_data(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps

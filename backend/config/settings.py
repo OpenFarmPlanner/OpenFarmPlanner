@@ -162,6 +162,7 @@ ALLOWED_HOSTS = _dedupe(
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -228,6 +229,22 @@ if DEBUG_TOOLBAR_ENABLED:
     }
 
 ROOT_URLCONF = 'config.urls'
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_REDIS_URL = _env_str('CHANNEL_REDIS_URL')
+if CHANNEL_REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [CHANNEL_REDIS_URL]},
+        },
+    }
+else:
+    # Process-local delivery is sufficient for development and tests. Every
+    # multi-process deployment must configure Redis so groups span workers.
+    CHANNEL_LAYERS = {
+        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+    }
 
 TEMPLATES = [
     {

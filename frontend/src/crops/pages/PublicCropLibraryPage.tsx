@@ -69,6 +69,7 @@ import {
 import { useCommandContextTag, useRegisterCommands } from '../../commands/useCommandContext';
 import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigation/topbarTypes';
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
+import { useWebSocket, type WebSocketEvent } from '../../realtime/useWebSocket';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
   getDescriptionFallbackNotice,
@@ -795,6 +796,41 @@ export default function PublicCropLibraryPage() {
       setCollaborationStatus('error');
     }
   }, []);
+
+  const refreshDiscussions = useCallback(async (): Promise<void> => {
+    if (selectedCultureId === null) return;
+    try {
+      const topicsResponse = await publicCultureAPI.discussionTopics(selectedCultureId);
+      setTopics(topicsResponse.data);
+      if (selectedTopicId !== null) {
+        const commentsResponse = await publicCultureAPI.discussionComments(
+          selectedCultureId,
+          selectedTopicId,
+        );
+        setComments(commentsResponse.data);
+        setCommentsStatus('success');
+      }
+    } catch {
+      // Keep the last usable REST state; the socket and fallback poll retry.
+    }
+  }, [selectedCultureId, selectedTopicId]);
+
+  const handleDiscussionEvent = useCallback((event: WebSocketEvent): void => {
+    if (
+      event.type === 'discussion.updated'
+      && event.public_culture_id === selectedCultureId
+    ) {
+      void refreshDiscussions();
+    }
+  }, [refreshDiscussions, selectedCultureId]);
+
+  useWebSocket({
+    path: user && selectedCultureId !== null
+      ? `ws/public-cultures/${selectedCultureId}/discussions/`
+      : null,
+    onEvent: handleDiscussionEvent,
+    onFallbackPoll: () => { void refreshDiscussions(); },
+  });
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

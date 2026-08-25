@@ -19,6 +19,7 @@ class TestMethodSpecificSeedRateMigration:
 
         culture_model.objects.create(
             name='Carrot',
+            name_normalized='carrot',
             variety='Nantaise',
             growth_duration_days=90,
             harvest_duration_days=20,
@@ -31,6 +32,11 @@ class TestMethodSpecificSeedRateMigration:
 
         self.executor.loader.build_graph()
         self.executor.migrate([self.migrate_to])
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_migration_copies_legacy_seed_rate_to_both_methods(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps
