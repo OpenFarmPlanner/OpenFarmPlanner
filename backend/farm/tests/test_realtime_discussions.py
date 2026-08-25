@@ -1,7 +1,9 @@
 from asgiref.sync import async_to_sync, sync_to_async
 from channels.testing import WebsocketCommunicator
+from channels_redis.core import RedisChannelLayer
 from django.contrib.auth import get_user_model
 from django.test import Client, TransactionTestCase
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from config.asgi import application
 from farm.models import (
@@ -9,6 +11,19 @@ from farm.models import (
     PublicCultureDiscussionComment,
     PublicCultureDiscussionTopic,
 )
+from farm.realtime.channel_layers import IdleTolerantRedisChannelLayer
+
+
+def test_redis_channel_layer_treats_idle_timeout_as_empty_receive(monkeypatch) -> None:
+    async def raise_idle_timeout(self, index: int, channel: str, timeout: int) -> bytes | None:
+        raise RedisTimeoutError('Timeout reading from redis socket')
+
+    monkeypatch.setattr(RedisChannelLayer, '_brpop_with_clean', raise_idle_timeout)
+    layer = IdleTolerantRedisChannelLayer(hosts=[{'host': 'localhost', 'port': 6379}])
+
+    result = async_to_sync(layer._brpop_with_clean)(0, 'asgitest-channel', 5)
+
+    assert result is None
 
 
 class DiscussionWebSocketTests(TransactionTestCase):

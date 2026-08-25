@@ -235,7 +235,7 @@ CHANNEL_REDIS_URL = _env_str('CHANNEL_REDIS_URL')
 if CHANNEL_REDIS_URL:
     CHANNEL_LAYERS = {
         'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'BACKEND': 'farm.realtime.channel_layers.IdleTolerantRedisChannelLayer',
             'CONFIG': {'hosts': [CHANNEL_REDIS_URL]},
         },
     }
