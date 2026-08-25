@@ -1,16 +1,15 @@
 /**
  * Loads the signed-in user's notifications for the topbar bell.
  *
- * Fetched once on mount and again whenever the dropdown is opened, rather than
- * polled: notifications here are the outcome of a human moderation decision,
- * so a refresh on open is timely enough and costs one request instead of one
- * per interval for every open tab.
+ * Fetched once on mount, whenever the dropdown is opened, and when the
+ * authenticated user's WebSocket stream reports that notifications changed.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationAPI } from '../api/api';
 import type { AppNotification } from '../api/types';
+import { useWebSocket, type WebSocketEvent } from '../realtime/useWebSocket';
 import { getNotificationLink } from './notificationDisplay';
 
 export interface NotificationsController {
@@ -28,6 +27,22 @@ export function useNotifications(enabled: boolean): NotificationsController {
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+
+  const reload = useCallback((): void => {
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  const handleNotificationEvent = useCallback((event: WebSocketEvent): void => {
+    if (event.type === 'notifications.updated') {
+      reload();
+    }
+  }, [reload]);
+
+  useWebSocket({
+    path: enabled ? 'ws/notifications/' : null,
+    onEvent: handleNotificationEvent,
+    onFallbackPoll: reload,
+  });
 
   useEffect(() => {
     if (!enabled) {
@@ -56,10 +71,6 @@ export function useNotifications(enabled: boolean): NotificationsController {
       cancelled = true;
     };
   }, [enabled, reloadToken]);
-
-  const reload = useCallback((): void => {
-    setReloadToken((token) => token + 1);
-  }, []);
 
   const markRead = useCallback((id: number): void => {
     if (!notifications.some((notification) => notification.id === id && !notification.is_read)) {
