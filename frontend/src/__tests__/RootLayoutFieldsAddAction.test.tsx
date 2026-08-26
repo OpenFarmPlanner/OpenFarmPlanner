@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
-import type { AuthUser } from '../auth/types';
+import { createAuthStateMock, createTestUser, stubCompactTopbarViewport } from '../test-utils/appHarness';
 import i18n from '../i18n/config';
 
 // Regression tests for the fields-beds topbar "add" button:
@@ -23,41 +23,7 @@ const { locationListMock, fieldListMock, bedListMock } = vi.hoisted(() => ({
   bedListMock: vi.fn(),
 }));
 
-const originalMatchMedia = window.matchMedia;
-
-function mockMobileTopbarViewport(): void {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width') || query.includes('down'),
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
-
-const authState = {
-  user: null as AuthUser | null,
-  isLoading: false,
-  activeProjectId: null as number | null,
-  login: vi.fn(async () => (({}) as AuthUser)),
-  logout: vi.fn(async () => {}),
-  register: vi.fn(async () => 'ok'),
-  activate: vi.fn(async () => {}),
-  resendActivation: vi.fn(async () => 'ok'),
-  requestPasswordReset: vi.fn(async () => 'ok'),
-  confirmPasswordReset: vi.fn(async () => 'ok'),
-  requestAccountDeletion: vi.fn(async () => ({ detail: 'ok', scheduled_deletion_at: new Date().toISOString() })),
-  restoreAccount: vi.fn(async () => (({}) as AuthUser)),
-  switchActiveProject: vi.fn(async () => {}),
-  startGuestDemo: vi.fn(async () => (({}) as AuthUser)),
-  endGuestDemo: vi.fn(async () => {}),
-};
+const authState = createAuthStateMock();
 
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => authState,
@@ -87,21 +53,7 @@ vi.mock('../api/api', async () => {
 
 describe('RootLayout fields-beds topbar "add location" action', () => {
   beforeEach(async () => {
-    authState.user = {
-      id: 1,
-      email: 'demo@example.com',
-      display_name: 'Demo',
-      display_label: 'Demo',
-      is_active: true,
-      default_project_id: 1,
-      last_project_id: 1,
-      resolved_project_id: 1,
-      needs_project_selection: false,
-      memberships: [{ project_id: 1, project_name: 'Alpha', role: 'admin' }],
-      account_pending_deletion: false,
-      scheduled_deletion_at: null,
-      pending_consents: [],
-    };
+    authState.user = createTestUser();
     authState.activeProjectId = 1;
     locationListMock.mockReset();
     fieldListMock.mockReset();
@@ -153,19 +105,16 @@ describe('RootLayout fields-beds topbar "add location" action', () => {
   });
 
   it('renders a single "Standort hinzufügen" add button on the compact mobile topbar too', async () => {
-    mockMobileTopbarViewport();
-    try {
-      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+    // setupTests' shared afterEach unstubs matchMedia again.
+    stubCompactTopbarViewport();
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
-      await screen.findByText('Hofgarten', {}, { timeout: 10000 });
+    await screen.findByText('Hofgarten', {}, { timeout: 10000 });
 
-      // Regression: HIERARCHY_CREATE_LOCATION_ACTION_ID used to flow into
-      // both fieldsGlobalAddAction/mobileFieldsAddLocationAction *and* the
-      // generic topbarModeControls/topbarOverflowActions pipeline on the
-      // compact mobile topbar, rendering the same "add" button twice.
-      expect(screen.getAllByLabelText(/Standort hinzufügen/)).toHaveLength(1);
-    } finally {
-      Object.defineProperty(window, 'matchMedia', { writable: true, value: originalMatchMedia });
-    }
+    // Regression: HIERARCHY_CREATE_LOCATION_ACTION_ID used to flow into
+    // both fieldsGlobalAddAction/mobileFieldsAddLocationAction *and* the
+    // generic topbarModeControls/topbarOverflowActions pipeline on the
+    // compact mobile topbar, rendering the same "add" button twice.
+    expect(screen.getAllByLabelText(/Standort hinzufügen/)).toHaveLength(1);
   });
 });

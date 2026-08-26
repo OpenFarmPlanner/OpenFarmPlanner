@@ -114,13 +114,20 @@ import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
-// The trailing status cluster (season switcher, project switcher, notification
-// bell) and the "Mehr" overflow menu need a visible spacing hierarchy. Because
-// the cluster's buttons carry 5-8px of their own horizontal padding, a gap that
-// only differs by a few pixels reads as uniform — hence the deliberate 8px vs
-// 20px split rather than one step of the 1.25 group gap.
-const TOPBAR_STATUS_CLUSTER_GAP = 1;
-const TOPBAR_OVERFLOW_MENU_GAP = 2.5;
+// Spacing hierarchy for the topbar's trailing items. The cluster's buttons
+// carry ~5px of their own horizontal padding on each side, so ~10px of the
+// perceived distance between two of them comes from padding rather than the
+// gap: a gap that differs by only a few pixels reads as uniform. Measured
+// perceived whitespace with the values below — primary action → cluster 22px
+// (the cluster group's 10px margin plus the action group's 4px padding plus
+// the season button's 8px padding; the contained action button's own padding
+// is filled, so it does not read as whitespace), inside the cluster 14px,
+// cluster → "Mehr" 26px. The cluster therefore stays the tightest spacing in
+// the row while both of its boundaries read as breaks. Widening the cluster
+// gap itself is counterproductive: it weakens the boundary towards the primary
+// action button, which stays deliberately unchanged.
+const TOPBAR_STATUS_CLUSTER_GAP = 0.5;
+const TOPBAR_OVERFLOW_MENU_GAP = 2;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
 
 interface SnackbarState {
@@ -1417,8 +1424,9 @@ function RootLayout() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_OVERFLOW_MENU_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
           {/* Season switcher, project switcher, and the notification bell
               read as one "status" cluster — tighter gap than the group's own
-              separation from the primary action button before it and from
-              the "Mehr" overflow menu after it. */}
+              separation from the primary action button before it (this Box's
+              ml plus the action group's pr) and from the "Mehr" overflow menu
+              after it. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_STATUS_CLUSTER_GAP }}>
           {hasActiveProject ? (
             <SeasonSwitcher

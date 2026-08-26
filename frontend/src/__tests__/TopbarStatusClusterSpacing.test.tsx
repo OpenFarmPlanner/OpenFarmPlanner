@@ -3,111 +3,81 @@ import { render, screen } from '@testing-library/react';
 import App from '../App';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
-import type { AuthUser } from '../auth/types';
-import i18n from '../i18n/config';
+import { createAuthStateMock, createTestUser, stubCompactTopbarViewport } from '../test-utils/appHarness';
 
 // The topbar's trailing items (season switcher, project switcher, notification
 // bell, "Mehr" overflow menu) used to sit in gaps that differed by so little
-// that the intended grouping was invisible: the cluster's own buttons carry
-// 5-8px of horizontal padding, which swallowed the 4px/10px difference. These
-// tests pin the spacing hierarchy — cluster gap clearly tighter than the
-// separation from the overflow menu — and guard the compact topbar, which has
-// its own, deliberately tighter sub-group.
-const authState = {
-  user: null as AuthUser | null,
-  isLoading: false,
-  activeProjectId: null as number | null,
-  login: vi.fn(),
-  logout: vi.fn(),
-  register: vi.fn(),
-  activate: vi.fn(),
-  resendActivation: vi.fn(),
-  requestPasswordReset: vi.fn(),
-  confirmPasswordReset: vi.fn(),
-  requestAccountDeletion: vi.fn(),
-  restoreAccount: vi.fn(),
-  switchActiveProject: vi.fn(async () => {}),
-  startGuestDemo: vi.fn(),
-  endGuestDemo: vi.fn(),
-};
+// that the intended grouping was invisible: the cluster's buttons carry ~5px of
+// horizontal padding per side, so ~10px of the perceived distance between two
+// of them comes from padding rather than the gap, which swallowed the 4px vs
+// 10px difference. These tests pin the full spacing hierarchy — cluster gap,
+// the separation from the overflow menu, and the deliberately unchanged
+// boundary towards the primary action button — plus the compact topbar, which
+// has its own, tighter sub-group and must not inherit the desktop values.
+const authState = createAuthStateMock();
 
 vi.mock('../auth/useAuth', () => ({ useAuth: () => authState }));
-
-const originalMatchMedia = window.matchMedia;
-
-function mockCompactTopbarViewport(): void {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('max-width') || query.includes('down'),
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
 
 function gapOf(element: Element): number {
   return Number.parseFloat(window.getComputedStyle(element).gap || '0');
 }
 
+function pixelsOf(element: Element, property: 'marginLeft' | 'paddingRight'): number {
+  return Number.parseFloat(window.getComputedStyle(element)[property] || '0');
+}
+
 describe('topbar trailing status cluster spacing', () => {
-  beforeEach(async () => {
-    authState.user = {
-      id: 1,
-      email: 'demo@example.com',
-      display_name: 'Demo',
-      display_label: 'Demo',
-      is_active: true,
-      default_project_id: 1,
-      last_project_id: 1,
-      resolved_project_id: 1,
-      needs_project_selection: false,
-      memberships: [{ project_id: 1, project_name: 'Alpha', role: 'admin' }],
-      account_pending_deletion: false,
-      scheduled_deletion_at: null,
-      pending_consents: [],
-    } as unknown as AuthUser;
+  beforeEach(() => {
+    authState.user = createTestUser();
     authState.activeProjectId = 1;
-    await i18n.changeLanguage('de');
     window.localStorage.clear();
-    window.history.pushState({}, '', '/app/cultures');
   });
 
-  it('groups season switcher, project switcher and bell tighter than the overflow menu', async () => {
+  it('groups season switcher, project switcher and bell tighter than the overflow menu, without moving the primary action boundary', async () => {
+    window.history.pushState({}, '', '/app/cultures');
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     const projectButton = await screen.findByRole('button', { name: 'Aktives Projekt wechseln' }, { timeout: 10000 });
     const cluster = projectButton.parentElement!;
     const overflowGroup = cluster.parentElement!;
+    const actionGroup = overflowGroup.previousElementSibling!;
 
     expect(cluster).toContainElement(screen.getByRole('button', { name: 'Aktive Saison wechseln' }));
     expect(cluster).toContainElement(screen.getByRole('button', { name: /Benachrichtigungen/ }));
     expect(cluster).not.toContainElement(screen.getByRole('button', { name: 'Mehr' }));
     expect(overflowGroup).toContainElement(screen.getByRole('button', { name: 'Mehr' }));
 
-    expect(gapOf(cluster)).toBe(8);
-    expect(gapOf(overflowGroup)).toBe(20);
+    expect(gapOf(cluster)).toBe(4);
+    expect(gapOf(overflowGroup)).toBe(16);
     expect(gapOf(cluster)).toBeLessThan(gapOf(overflowGroup));
+
+    // The boundary towards the primary action button is the sum of these two
+    // (the shared parent is a plain flex row without its own gap), and stays
+    // wider than the cluster's inner gap so the cluster keeps reading as one
+    // group from both sides.
+    expect(gapOf(overflowGroup.parentElement!)).toBe(0);
+    expect(pixelsOf(overflowGroup, 'marginLeft')).toBe(10);
+    expect(pixelsOf(actionGroup, 'paddingRight')).toBe(4);
+    expect(pixelsOf(overflowGroup, 'marginLeft') + pixelsOf(actionGroup, 'paddingRight'))
+      .toBeGreaterThan(gapOf(cluster));
   });
 
-  it('leaves the compact topbar sub-group spacing untouched', async () => {
-    mockCompactTopbarViewport();
-    try {
-      render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+  it('leaves the compact topbar spacing untouched', async () => {
+    // Deliberately not the cultures page: its trailing group uses a
+    // page-specific 0.25 gap, which would hide a regression of the shared
+    // action-group gap this assertion is meant to catch.
+    window.history.pushState({}, '', '/app/dashboard');
+    stubCompactTopbarViewport();
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
-      const moreButton = await screen.findByRole('button', { name: 'Mehr' }, { timeout: 10000 });
-      const seasonButton = screen.getByRole('button', { name: 'Aktive Saison wechseln' });
-      const compactGroup = moreButton.parentElement!;
+    // The compact topbar folds the notifications into its overflow menu, so
+    // that button carries the notification label as soon as anything is unread.
+    const menuButton = await screen.findByRole('button', { name: /Mehr|Benachrichtigung/ }, { timeout: 10000 });
+    const compactGroup = menuButton.parentElement!;
 
-      expect(compactGroup).toContainElement(seasonButton);
-      expect(gapOf(compactGroup)).toBe(2);
-    } finally {
-      Object.defineProperty(window, 'matchMedia', { writable: true, value: originalMatchMedia });
-    }
+    expect(compactGroup).toContainElement(screen.getByRole('button', { name: 'Aktive Saison wechseln' }));
+    expect(screen.queryByRole('button', { name: 'Aktives Projekt wechseln' })).not.toBeInTheDocument();
+    expect(gapOf(compactGroup)).toBe(2);
+    expect(gapOf(compactGroup.parentElement!)).toBe(10);
   });
 });
