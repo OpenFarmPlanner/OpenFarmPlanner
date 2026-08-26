@@ -13,6 +13,27 @@ export interface DetailPagePrimaryAction {
   variant?: 'contained' | 'outlined';
 }
 
+/**
+ * What an action's button says on hover. An icon-only button has to name
+ * itself, the same way a disabled one has to explain itself — so below the
+ * label breakpoint the label and the (optional) reason are stacked rather than
+ * the reason replacing a label that is nowhere on screen.
+ */
+function buildActionTooltip(action: DetailPagePrimaryAction, iconOnly: boolean): ReactNode {
+  if (!iconOnly) {
+    return action.tooltip ?? '';
+  }
+  if (!action.tooltip) {
+    return action.label;
+  }
+  return (
+    <>
+      <span style={{ display: 'block' }}>{action.label}</span>
+      <span style={{ display: 'block', marginTop: 4 }}>{action.tooltip}</span>
+    </>
+  );
+}
+
 interface DetailPageActionsProps {
   primaryActions: DetailPagePrimaryAction[];
   overflowLabel?: string;
@@ -71,15 +92,12 @@ export const DetailPageActions = memo(function DetailPageActions({
           </Button>
         );
 
-        // An icon-only button has to explain itself, the same way a disabled
-        // button does — so it falls back to its own label as the tooltip.
-        const tooltip = action.tooltip ?? (iconOnly ? action.label : undefined);
-        if (!tooltip) {
-          return button;
-        }
-
+        // The wrapper is rendered unconditionally, with an empty title where
+        // there is nothing to say: making it conditional would change the
+        // element type at the breakpoint, remounting the Button and dropping
+        // keyboard focus on a resize. MUI renders no tooltip for an empty title.
         return (
-          <AppTooltip key={action.label} title={tooltip}>
+          <AppTooltip key={action.label} title={buildActionTooltip(action, iconOnly)}>
             <span>{button}</span>
           </AppTooltip>
         );

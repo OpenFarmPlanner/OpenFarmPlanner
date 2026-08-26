@@ -57,24 +57,57 @@ describe('DetailPageActions', () => {
     await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
   });
 
-  it('keeps an explicit tooltip (e.g. a disabled reason) when the label is collapsed', async () => {
+  const blockedAction = {
+    label: 'Anbauplan hinzufügen',
+    icon: <EditIcon fontSize="small" />,
+    onClick: vi.fn(),
+    disabled: true,
+    tooltip: 'Lege zuerst ein Beet an.',
+  };
+
+  // A disabled button swallows pointer events, which is why the tooltip is
+  // anchored on the wrapping span rather than on the button itself.
+  const hoverWrapper = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+    await user.hover(screen.getByRole('button', { name }).parentElement as HTMLElement);
+  };
+
+  it('names an icon-only button alongside its disabled reason', async () => {
     mockLabelsCollapsed(true);
     const user = userEvent.setup();
-    renderActions({
-      primaryActions: [{
-        label: 'Anbauplan hinzufügen',
-        icon: <EditIcon fontSize="small" />,
-        onClick: vi.fn(),
-        disabled: true,
-        tooltip: 'Lege zuerst ein Beet an.',
-      }],
-    });
+    renderActions({ primaryActions: [blockedAction] });
 
-    // A disabled button swallows pointer events, which is exactly why the
-    // tooltip is anchored on the wrapping span rather than the button itself.
-    const wrapper = screen.getByRole('button', { name: 'Anbauplan hinzufügen' }).parentElement;
-    await user.hover(wrapper as HTMLElement);
+    await hoverWrapper(user, 'Anbauplan hinzufügen');
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Anbauplan hinzufügen');
+    expect(tooltip).toHaveTextContent('Lege zuerst ein Beet an.');
+  });
+
+  it('shows only the disabled reason once the label is on screen', async () => {
+    mockLabelsCollapsed(false);
+    const user = userEvent.setup();
+    renderActions({ primaryActions: [blockedAction] });
+
+    await hoverWrapper(user, 'Anbauplan hinzufügen');
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Lege zuerst ein Beet an.');
+  });
+
+  it('keeps the same button element when the labels collapse, so focus survives a resize', () => {
+    mockLabelsCollapsed(false);
+    const { rerender } = renderActions();
+    const button = screen.getByRole('button', { name: 'Bearbeiten' });
+    button.focus();
+
+    mockLabelsCollapsed(true);
+    rerender(
+      <DetailPageActions
+        primaryActions={[
+          { label: 'Bearbeiten', icon: <EditIcon fontSize="small" />, onClick: vi.fn() },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBe(button);
+    expect(button).toHaveFocus();
   });
 
   it('always renders the labels so they can be revealed by CSS alone, without a re-render', () => {
