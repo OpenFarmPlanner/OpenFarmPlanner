@@ -114,6 +114,13 @@ import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
+// Spacing knobs for the topbar's trailing items. TOPBAR_TRAILING_CONTROL_GAP
+// controls all three neighbour gaps: season -> project -> bell -> "Mehr".
+// The visible distance is the flex gap plus the controls' own horizontal padding.
+const TOPBAR_TRAILING_CONTROL_GAP = 0.5;
+const TOPBAR_STATUS_BUTTON_PX = 1;
+const TOPBAR_STATUS_CLUSTER_GAP = TOPBAR_TRAILING_CONTROL_GAP;
+const TOPBAR_OVERFLOW_MENU_GAP = TOPBAR_TRAILING_CONTROL_GAP;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
 
 interface SnackbarState {
@@ -1407,17 +1414,19 @@ function RootLayout() {
               ))}
             </Menu>
           ) : null}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_OVERFLOW_MENU_GAP, ml: TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
           {/* Season switcher, project switcher, and the notification bell
               read as one "status" cluster — tighter gap than the group's own
-              separation from the primary action button before it and from
-              the "Mehr" overflow menu after it. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              separation from the primary action button before it (this Box's
+              ml plus the action group's pr) and from the "Mehr" overflow menu
+              after it. */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_STATUS_CLUSTER_GAP }}>
           {hasActiveProject ? (
             <SeasonSwitcher
               controller={activeSeason}
               onOpenProjectSettings={handleOpenProjectSettings}
               isPhone={isPhone}
+              buttonPx={TOPBAR_STATUS_BUTTON_PX}
             />
           ) : null}
           <Button
@@ -1432,6 +1441,7 @@ function RootLayout() {
               textTransform: 'none',
               maxWidth: { xs: 210, sm: 190, md: 240, lg: 320 },
               minWidth: 0,
+              px: TOPBAR_STATUS_BUTTON_PX,
             }}
             startIcon={<NavEmojiIcon emoji="📁" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
@@ -1464,7 +1474,7 @@ function RootLayout() {
             onOpenProjectTrash={handleOpenProjectTrash}
             t={t}
           />
-          <NotificationBell controller={notifications} />
+          <NotificationBell controller={notifications} buttonSize={36} />
           </Box>
           <IconButton
             aria-label="Mehr"

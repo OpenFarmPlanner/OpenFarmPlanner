@@ -30,9 +30,15 @@ interface SeasonSwitcherProps {
   controller: UseActiveSeasonReturn;
   onOpenProjectSettings: () => void;
   isPhone?: boolean;
+  buttonPx?: number;
 }
 
-export function SeasonSwitcher({ controller, onOpenProjectSettings, isPhone = false }: SeasonSwitcherProps) {
+export function SeasonSwitcher({
+  controller,
+  onOpenProjectSettings,
+  isPhone = false,
+  buttonPx,
+}: SeasonSwitcherProps) {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const locale = resolveSeasonDateLocale(i18n);
   const {
@@ -86,7 +92,7 @@ export function SeasonSwitcher({ controller, onOpenProjectSettings, isPhone = fa
           textTransform: 'none',
           maxWidth: { xs: 76, sm: 180 },
           minWidth: 0,
-          px: isPhone ? 0.75 : 1,
+          px: buttonPx ?? (isPhone ? 0.75 : 1),
         }}
         startIcon={!isPhone ? (
           <Badge variant="dot" color="warning" invisible={!dueSuggestion?.due}>
