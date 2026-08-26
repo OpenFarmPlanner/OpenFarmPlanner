@@ -1,6 +1,6 @@
 import { Alert, Box, Button, CircularProgress, List, ListItemButton, Pagination, Paper } from '@mui/material';
 import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
-import { useNavigate, useOutletContext } from 'react-router';
+import { useLocation, useNavigate, useOutletContext } from 'react-router';
 import type { ReactElement } from 'react';
 import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
@@ -23,14 +23,47 @@ import type { AppNotification } from '../../api/types';
 export default function NotificationHistoryPage(): ReactElement {
   const { t } = useTranslation('notifications');
   const navigate = useNavigate();
-  // The topbar's controller: marking read here has to move the bell's badge too.
-  const { notifications: controller } = useOutletContext<RootLayoutOutletContext>();
+  const location = useLocation();
+  // The topbar's controller: marking read here has to move the bell's badge
+  // too. Optional like every other page's outlet access — the page still marks
+  // rows read on its own if it is ever rendered outside the layout.
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
+  const controller = outletContext?.notifications ?? null;
   const history = useNotificationHistory();
   const selectNotification = useNotificationSelection(controller);
 
   const handleSelect = (notification: AppNotification): void => {
     history.applyRead(notification);
     selectNotification(notification);
+  };
+
+  // The page is opened from a dropdown available on every page, so there is no
+  // one destination "back" always means — the previous entry is it. On a direct
+  // open (bookmark, link, new tab) there is none: react-router marks that first
+  // entry with the key 'default', and the dashboard is the app's home from
+  // there, so the control is never dead.
+  const handleBack = (): void => {
+    if (location.key !== 'default') {
+      void navigate(-1);
+      return;
+    }
+    void navigate('/app/dashboard');
+  };
+
+  // MUI asks for a label per item type, ellipsis items included; those carry no
+  // accessible name of their own, so they must not get a missing translation
+  // key as one.
+  const getPaginationItemAriaLabel = (
+    type: 'page' | 'first' | 'last' | 'next' | 'previous' | 'start-ellipsis' | 'end-ellipsis',
+    page: number | null,
+  ): string => {
+    if (type === 'page' && page !== null) {
+      return t('history.pageAriaLabel', { page });
+    }
+    if (type === 'next' || type === 'previous') {
+      return t(`history.${type}PageAriaLabel`);
+    }
+    return '';
   };
 
   const isEmpty = !history.isLoading && !history.hasError && history.totalCount === 0;
@@ -42,9 +75,7 @@ export default function NotificationHistoryPage(): ReactElement {
         variant="text"
         startIcon={<ArrowBackOutlinedIcon />}
         sx={{ mb: 1 }}
-        // No deterministic destination: this page is opened from a dropdown
-        // that is available on every page, so "back" is wherever the user was.
-        onClick={() => { void navigate(-1); }}
+        onClick={handleBack}
       >
         {t('history.back')}
       </Button>
@@ -101,9 +132,7 @@ export default function NotificationHistoryPage(): ReactElement {
             onChange={(_event, page) => history.goToPage(page)}
             color="primary"
             size="small"
-            getItemAriaLabel={(type, page) => (type === 'page'
-              ? t('history.pageAriaLabel', { page })
-              : t(`history.${type}PageAriaLabel`))}
+            getItemAriaLabel={getPaginationItemAriaLabel}
           />
         </Box>
       ) : null}

@@ -14,8 +14,6 @@
     "emptyTitle": "No notifications yet",
     "emptyDescription": "Decisions on your proposals and notices from the crop library show up here as soon as there is something to report.",
     "pageAriaLabel": "Page {{page}}",
-    "firstPageAriaLabel": "First page",
-    "lastPageAriaLabel": "Last page",
     "nextPageAriaLabel": "Next page",
     "previousPageAriaLabel": "Previous page"
   },

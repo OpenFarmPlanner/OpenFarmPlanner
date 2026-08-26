@@ -115,7 +115,7 @@ describe('GlobalMenu notifications section', () => {
     expect(navigateMock).toHaveBeenCalledWith('/app/notifications');
   });
 
-  it('lists unread entries only', async () => {
+  it('drops entries that were marked read since the last load', async () => {
     notificationListMock.mockResolvedValue({
       data: {
         count: 2,

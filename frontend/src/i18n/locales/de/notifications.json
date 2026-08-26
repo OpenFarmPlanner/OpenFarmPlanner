@@ -14,8 +14,6 @@
     "emptyTitle": "Noch keine Benachrichtigungen",
     "emptyDescription": "Hier erscheinen Entscheidungen zu deinen Vorschlägen und Hinweise aus der Kulturbibliothek, sobald es etwas zu berichten gibt.",
     "pageAriaLabel": "Seite {{page}}",
-    "firstPageAriaLabel": "Erste Seite",
-    "lastPageAriaLabel": "Letzte Seite",
     "nextPageAriaLabel": "Nächste Seite",
     "previousPageAriaLabel": "Vorherige Seite"
   },

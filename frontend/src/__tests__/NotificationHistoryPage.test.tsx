@@ -53,15 +53,17 @@ function LayoutHarness() {
   />;
 }
 
-const renderPage = () => render(
-  <MemoryRouter initialEntries={['/app/notifications']}>
-    <Routes>
-      <Route element={<LayoutHarness />}>
-        <Route path="/app/notifications" element={<NotificationHistoryPage />} />
-      </Route>
-    </Routes>
-  </MemoryRouter>,
-);
+const renderPage = (options: { entry?: object; withLayout?: boolean } = {}) => {
+  const { entry = '/app/notifications', withLayout = true } = options;
+  const pageRoute = <Route path="/app/notifications" element={<NotificationHistoryPage />} />;
+  return render(
+    <MemoryRouter initialEntries={[entry as string]}>
+      <Routes>
+        {withLayout ? <Route element={<LayoutHarness />}>{pageRoute}</Route> : pageRoute}
+      </Routes>
+    </MemoryRouter>,
+  );
+};
 
 describe('NotificationHistoryPage', () => {
   beforeEach(() => {
@@ -114,6 +116,54 @@ describe('NotificationHistoryPage', () => {
 
     expect(await screen.findByText('Noch keine Benachrichtigungen')).toBeInTheDocument();
     expect(screen.getByText(/Entscheidungen zu deinen Vorschlägen/)).toBeInTheDocument();
+  });
+
+  it('goes back to the previous view when the page was opened from inside the app', async () => {
+    notificationListMock.mockResolvedValue(page([notification()], 1, 1));
+
+    // A real in-app navigation carries a history key; only the very first
+    // entry of a session is keyed 'default'.
+    renderPage({ entry: { pathname: '/app/notifications', key: 'from-the-dropdown' } });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zurück' }));
+
+    expect(navigateMock).toHaveBeenCalledWith(-1);
+  });
+
+  it('falls back to the dashboard when the page was opened directly', async () => {
+    notificationListMock.mockResolvedValue(page([notification()], 1, 1));
+
+    // Bookmark, shared link or a reload: there is no previous entry, so
+    // navigate(-1) would leave the app or do nothing at all.
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zurück' }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/app/dashboard');
+  });
+
+  it('marks a row read on its own when rendered without the topbar controller', async () => {
+    notificationListMock.mockResolvedValue(page([notification()], 1, 1));
+
+    renderPage({ withLayout: false });
+
+    fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
+
+    await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
+  });
+
+  it('gives the pagination ellipsis no accessible name of its own', async () => {
+    // Ten pages is enough for MUI to collapse the middle into an ellipsis item,
+    // which has no translation key — and must not be labelled with one.
+    notificationListMock.mockResolvedValue(page([notification()], 200, 0));
+
+    renderPage();
+
+    await screen.findByRole('button', { name: 'Seite 2' });
+    expect(screen.queryByText(/PageAriaLabel/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/PageAriaLabel/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nächste Seite' })).toBeInTheDocument();
   });
 
   it('pages through the history', async () => {

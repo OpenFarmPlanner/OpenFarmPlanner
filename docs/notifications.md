@@ -54,7 +54,9 @@ server-side through `notifications.services.create_notification`.
 
 - `GET /api/notifications/` — paginated, newest first, with `unread_count`
   folded into the same payload. The bell needs both numbers on every app load,
-  and one request beats two.
+  and one request beats two. `?is_read=false` narrows the rows (what the
+  dropdowns request); `unread_count` deliberately stays account-wide, so the
+  badge never disagrees with the list it sits on.
 - `POST /api/notifications/<id>/read/` — marks exactly one as read. Someone
   else's id 404s (it is filtered out of the queryset, not merely rejected).
 
@@ -125,7 +127,10 @@ not each re-implement that check.
   target → in-app route, and `NOTIFICATION_HISTORY_ROUTE` as the one place the
   history path is written down.
 
-**The dropdowns show unread entries only.** They are the "what is new"
+**The dropdowns show unread entries only**, filtered by the backend rather
+than out of a page of the full history: the badge counts the whole account, so
+a client-side filter would show an empty dropdown next to a non-zero badge as
+soon as no unread row sits on the newest page. They are the "what is new"
 surface; everything already seen lives on the history page, which both of them
 link to unconditionally (also when nothing is unread, where the list is
 replaced by a plain "keine neuen Benachrichtigungen" hint rather than an alarm
@@ -138,7 +143,12 @@ but does *not* call the mark-read endpoint itself: it reuses
 `RootLayoutOutletContext.notifications`, so clicking a row there moves the
 bell's badge too. `markRead` therefore takes the notification rather than its
 id — the row may be on a page the controller never loaded, and only the row
-itself knows whether it was still unread.
+itself knows whether it was still unread. Since that copy can be *stale* (the
+history page fetched it before the same row was read in the dropdown), the
+controller also remembers the ids it already handled: replaying one is a
+no-op, never a second badge decrement or a second POST. The outlet context is
+optional like everywhere else in the app; without it the page marks rows read
+directly, and only the badge — which then does not exist — is missed.
 
 Two further behaviours are load-bearing and easy to "fix" wrongly:
 

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { useEffect } from 'react';
 import { NotificationBell } from '../notifications/NotificationBell';
-import { useNotifications } from '../notifications/useNotifications';
+import { useNotifications, type NotificationsController } from '../notifications/useNotifications';
 import type { AppNotification } from '../api/types';
 
 const { notificationListMock, notificationMarkReadMock, navigateMock } = vi.hoisted(() => ({
@@ -40,14 +41,15 @@ const notification = (overrides: Partial<AppNotification> = {}): AppNotification
 });
 
 /** Mirrors RootLayout, which owns the controller and hands it to the bell. */
-function BellHarness() {
+function BellHarness({ onReady }: { onReady?: (controller: NotificationsController) => void }) {
   const controller = useNotifications(true);
+  useEffect(() => { onReady?.(controller); }, [controller, onReady]);
   return <NotificationBell controller={controller} />;
 }
 
-const renderBell = () => render(
+const renderBell = (onReady?: (controller: NotificationsController) => void) => render(
   <MemoryRouter>
-    <BellHarness />
+    <BellHarness onReady={onReady} />
   </MemoryRouter>,
 );
 
@@ -109,26 +111,39 @@ describe('NotificationBell', () => {
     expect(await screen.findByText('Keine neuen Benachrichtigungen')).toBeInTheDocument();
   });
 
-  it('lists unread entries only, leaving read ones to the history page', async () => {
+  it('asks the backend for unread rows only, so the list cannot disagree with the badge', async () => {
+    renderBell();
+
+    // Filtering client-side would leave the dropdown empty next to a non-zero
+    // badge as soon as no unread row is on the newest page of the history.
+    await waitFor(() => expect(notificationListMock).toHaveBeenCalledWith({ is_read: false, page_size: 20 }));
+  });
+
+  it('ignores a second mark-read for the same notification, however stale the copy', async () => {
     notificationListMock.mockResolvedValue({
       data: {
         count: 2,
         next: null,
         previous: null,
-        results: [
-          notification(),
-          notification({ id: 2, notification_type: 'crop_species_proposal_rejected', context: { name: 'Rote Bete' }, is_read: true }),
-        ],
-        unread_count: 1,
+        results: [notification(), notification({ id: 2, context: { name: 'Rote Bete' } })],
+        unread_count: 2,
       },
     });
 
-    renderBell();
+    let controller: NotificationsController | null = null;
+    renderBell((ready) => { controller = ready; });
 
-    fireEvent.click(await screen.findByRole('button', { name: /Benachrichtigungen/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /2 ungelesen/i }));
+    fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
+    await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
 
-    expect(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
-    expect(screen.queryByText('Dein Vorschlag für die Kulturart „Rote Bete“ wurde abgelehnt.')).not.toBeInTheDocument();
+    // The history page holds its own copy of the same row, fetched before the
+    // click, so it still reads `is_read: false`. Replaying it must not
+    // decrement the badge a second time or re-POST.
+    act(() => (controller as NotificationsController | null)?.markRead(notification()));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /1 ungelesen/i, hidden: true })).toBeInTheDocument());
+    expect(notificationMarkReadMock).toHaveBeenCalledTimes(1);
   });
 
   it('always offers the link to the full history, also with nothing unread', async () => {
