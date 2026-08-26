@@ -79,12 +79,14 @@ export default function NotificationHistoryPage(): ReactElement {
       >
         {t('history.back')}
       </Button>
-      <PageHeader
-        title={t('history.title')}
-        description={history.unreadCount > 0
-          ? t('history.unreadSubtitle', { unread: history.unreadCount })
-          : undefined}
-      />
+      <Box sx={{ px: { xs: 2, sm: 0 } }}>
+        <PageHeader
+          title={t('history.title')}
+          description={history.unreadCount > 0
+            ? t('history.unreadSubtitle', { unread: history.unreadCount })
+            : undefined}
+        />
+      </Box>
 
       {history.hasError ? <Alert severity="error">{t('bell.loadError')}</Alert> : null}
 
