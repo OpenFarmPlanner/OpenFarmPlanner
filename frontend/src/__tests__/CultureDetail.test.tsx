@@ -364,9 +364,13 @@ describe('CultureDetail Component', () => {
       { id: 300, name: 'Zwiebel', variety: '', crop_species: 3 },
     ];
 
-    const renderSearchList = (onCultureSelect = vi.fn()) => {
+    const renderSearchList = (onCultureSelect = vi.fn(), selectedCultureId?: number) => {
       renderCultureDetail(
-        <CultureDetail cultures={searchCultures} onCultureSelect={onCultureSelect} />,
+        <CultureDetail
+          cultures={searchCultures}
+          selectedCultureId={selectedCultureId}
+          onCultureSelect={onCultureSelect}
+        />,
       );
       return {
         onCultureSelect,
@@ -463,6 +467,34 @@ describe('CultureDetail Component', () => {
       expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
     });
 
+    it('leaves a group the user expanded before searching open when the search is cleared', async () => {
+      const user = userEvent.setup();
+      const { list, searchInput } = renderSearchList();
+
+      const karotteRow = within(list).getByRole('option', { name: 'Karotte' });
+      await user.click(within(karotteRow).getByRole('button', { name: 'Kultur aufklappen' }));
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // The search never opened this group, so clearing it must not close it.
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+    });
+
+    it('keeps the selected Sorte visible when the search is cleared', () => {
+      const { list, searchInput } = renderSearchList(vi.fn(), 101);
+
+      fireEvent.change(searchInput, { target: { value: 'nantaise' } });
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // Collapsing the group here would drop the selected row out of the list
+      // while the detail view still shows it.
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+    });
+
     it('selects a Sorte with Enter and leaves the filtered list standing', async () => {
       const user = userEvent.setup();
       const { list, onCultureSelect, searchInput } = renderSearchList();
@@ -518,15 +550,20 @@ describe('CultureDetail Component', () => {
 
       expect(searchInput).toHaveValue('');
       expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
+      // The button unmounts as it clears, so focus has to land back on the field.
+      expect(searchInput).toHaveFocus();
     });
 
     it('shows the no-results text when nothing matches', () => {
-      const { list, searchInput } = renderSearchList();
+      const { searchInput } = renderSearchList();
 
       fireEvent.change(searchInput, { target: { value: 'xyz' } });
 
-      expect(within(list).queryAllByRole('option')).toHaveLength(0);
       expect(screen.getByText(translations.cultures.noOptionsEnhanced)).toBeInTheDocument();
+      // The message replaces the listbox rather than sitting inside it as a
+      // role-less row assistive tech would prune.
+      expect(screen.queryByRole('listbox', { name: translations.cultures.title })).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('option')).toHaveLength(0);
     });
   });
 
@@ -1163,6 +1200,26 @@ describe('CultureDetail Component', () => {
     expect(within(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).getByText('Anbauplan hinzufügen')).toHaveStyle({
       display: 'none',
     });
+  });
+
+  it('shows the no-results text in the mobile culture selector', async () => {
+    const user = userEvent.setup();
+    mockPhoneLandscapeViewport();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={1}
+        onCultureSelect={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Kultur auswählen' }));
+    fireEvent.change(screen.getByLabelText(translations.cultures.searchPlaceholder), {
+      target: { value: 'xyz' },
+    });
+
+    expect(screen.getByText(translations.cultures.noOptionsEnhanced)).toBeInTheDocument();
   });
 
   describe('Varieties section', () => {

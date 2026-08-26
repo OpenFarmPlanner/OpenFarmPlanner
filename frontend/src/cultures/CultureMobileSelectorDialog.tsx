@@ -7,6 +7,7 @@ import {
   List,
   ListItemButton,
   ListItemText,
+  Typography,
 } from '@mui/material';
 import type { TFunction } from 'i18next';
 
@@ -66,19 +67,27 @@ export function CultureMobileSelectorDialog({
     ensureExpanded,
     collapse,
   } = useExpandedState('projectCropLibraryMobile');
-  useSearchExpandedGroups({ matchedGroupRowIds, ensureExpanded, collapse });
   const hierarchyItems = useMemo(() => buildCropHierarchy(cultures), [cultures]);
-  useEffect(() => {
+  // The group holding the selected Sorte: kept open so the selected row can
+  // never drop out of the list while the detail view still shows it.
+  const selectedVarietyGroupRowIds = useMemo(() => {
     const selectedVariety = hierarchyItems.find((item) => (
       item.kind === 'variety'
       && item.culture?.id === selectedCultureId
       && selectedSpeciesViewKey !== item.speciesKey
     ));
-    if (!selectedVariety?.parentId) {
-      return;
-    }
-    ensureExpanded(selectedVariety.parentId);
-  }, [ensureExpanded, hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+    return selectedVariety?.parentId ? new Set([selectedVariety.parentId]) : new Set<string>();
+  }, [hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+  useEffect(() => {
+    selectedVarietyGroupRowIds.forEach((rowId) => ensureExpanded(rowId));
+  }, [ensureExpanded, selectedVarietyGroupRowIds]);
+  useSearchExpandedGroups({
+    matchedGroupRowIds,
+    isExpanded: (rowId) => expandedRows.has(rowId),
+    ensureExpanded,
+    collapse,
+    keepExpandedRowIds: selectedVarietyGroupRowIds,
+  });
   const visibleRows = useMemo(
     () => flattenTreeRows(hierarchyItems, { expandedIds: expandedRows }),
     [expandedRows, hierarchyItems],
@@ -89,6 +98,11 @@ export function CultureMobileSelectorDialog({
       <DialogTitle>{t('selectCulture')}</DialogTitle>
       <DialogContent sx={{ px: 1.5, pb: 2 }}>
         {selectorControl}
+        {visibleRows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
+            {t('noOptionsEnhanced')}
+          </Typography>
+        ) : null}
         <List dense sx={{ py: 0.5, px: 0.25, overflowY: 'auto' }}>
           {visibleRows.map(({ node, depth, hasChildren }) => {
             const culture = node.culture;

@@ -2,7 +2,7 @@
  * Culture Detail component with searchable dropdown and detailed crop information view.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
@@ -217,6 +217,11 @@ export function CultureDetail({
   };
 
   const [filters, setFilters] = useState<PersistedCultureFilters>(initializeFilters);
+  // The clear button unmounts as it empties the field, so focus has to be put
+  // back on the input explicitly instead of dropping to the document body.
+  // The input is addressed by id because `searchInputRef` belongs to the
+  // caller and may be a callback ref this component cannot read back.
+  const searchFieldId = useId();
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
@@ -487,16 +492,24 @@ const detailSectionGridSx = {
     ),
   );
 
+  // The group holding the selected Sorte: kept open so the selected row can
+  // never drop out of the list while the detail view still shows it.
+  const selectedVarietyGroupRowIds = useMemo(
+    () => (selectedCulture?.variety && !isSpeciesView && selectedCultureSpeciesKey
+      ? new Set([`species:${selectedCultureSpeciesKey}`])
+      : new Set<string>()),
+    [isSpeciesView, selectedCulture, selectedCultureSpeciesKey],
+  );
+
   useEffect(() => {
-    if (!selectedCulture?.variety || isSpeciesView || !selectedCultureSpeciesKey) {
-      return;
-    }
-    ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
-  }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
+    selectedVarietyGroupRowIds.forEach((rowId) => ensureCropRowExpanded(rowId));
+  }, [ensureCropRowExpanded, selectedVarietyGroupRowIds]);
   useSearchExpandedGroups({
     matchedGroupRowIds,
+    isExpanded: (rowId) => expandedCropRows.has(rowId),
     ensureExpanded: ensureCropRowExpanded,
     collapse: collapseCropRow,
+    keepExpandedRowIds: selectedVarietyGroupRowIds,
   });
 
   const selectedCropRowId = selectedCulture
@@ -717,6 +730,7 @@ const detailSectionGridSx = {
             <TextField
               label={t('searchPlaceholder')}
               placeholder={t('searchInputPlaceholderEnhanced')}
+              id={searchFieldId}
               inputRef={searchInputRef}
               value={filters.searchQuery}
               onChange={(event) => updateFilter('searchQuery', event.target.value)}
@@ -730,7 +744,10 @@ const detailSectionGridSx = {
                           <IconButton
                             size="small"
                             aria-label={t('clearSearch')}
-                            onClick={() => updateFilter('searchQuery', '')}
+                            onClick={() => {
+                              updateFilter('searchQuery', '');
+                              document.getElementById(searchFieldId)?.focus();
+                            }}
                           >
                             <CloseIcon fontSize="small" />
                           </IconButton>
@@ -818,6 +835,15 @@ const detailSectionGridSx = {
             }}
           >
             {selectorControl}
+            {visibleCropRows.length === 0 ? (
+              // Rendered instead of the listbox, not inside it: a plain <li>
+              // in there carries no role of its own and gets pruned, and an
+              // empty listbox would still flex-grow and push the message to
+              // the bottom of the card. Mirrors the public crop library page.
+              <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
+                {t('noOptionsEnhanced')}
+              </Typography>
+            ) : (
             <List
               {...cultureListNavigation.getListProps()}
               dense
@@ -899,12 +925,8 @@ const detailSectionGridSx = {
                   />
                 );
               })}
-              {visibleCropRows.length === 0 ? (
-                <Typography component="li" variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
-                  {t('noOptionsEnhanced')}
-                </Typography>
-              ) : null}
             </List>
+            )}
           </Card>) : null}
           <Box
             sx={{

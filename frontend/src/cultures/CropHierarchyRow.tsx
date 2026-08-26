@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { ListItemButton, ListItemText, Typography } from '@mui/material';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
@@ -20,8 +21,9 @@ interface CropHierarchyRowProps {
   varietyCount?: number;
   /**
    * Shows "(0)" on a row that has no varieties instead of no count at all.
-   * The Kultur search list needs every group header to carry a hit count;
-   * plain browsing lists stay quieter and leave an empty group uncounted.
+   * The Kultur search list needs every group header to carry its Sorten
+   * count; plain browsing lists stay quieter and leave an empty group
+   * uncounted.
    */
   showZeroVarietyCount?: boolean;
   /**
@@ -36,7 +38,7 @@ interface CropHierarchyRowProps {
   /**
    * Handles Enter/Space on the row itself. Returning `true` marks the key
    * press as fully handled and suppresses the selection click it would
-   * otherwise produce — see the `onClick` comment below.
+   * otherwise produce — see the `onKeyDown` comment below.
    */
   onKeyboardActivate?: () => boolean;
   endAdornment?: ReactNode;
@@ -78,6 +80,13 @@ export function CropHierarchyRow({
   endAdornment,
   isPendingSuggestion = false,
 }: CropHierarchyRowProps) {
+  const { onKeyDown: itemOnKeyDown, ...listItemProps } = itemProps;
+  // MUI's ButtonBase answers Enter (and Space) on a non-native button with a
+  // programmatic `.click()` on the row, so a caller that wants those keys to
+  // mean something other than "select" only ever sees the click. This records
+  // that the click about to arrive came from the keyboard; any pointer
+  // interaction clears it first, so a stale flag can never divert a real tap.
+  const keyboardActivationRef = useRef(false);
   const hasCount = typeof varietyCount === 'number' && (varietyCount > 0 || showZeroVarietyCount);
   const countLabel = hasCount ? (
     <Typography
@@ -94,19 +103,29 @@ export function CropHierarchyRow({
   ) : null;
   return (
     <ListItemButton
-      {...itemProps}
+      {...listItemProps}
       role={isClickable ? 'option' : 'presentation'}
       aria-label={ariaLabel}
       aria-selected={isClickable ? isSelected : undefined}
       aria-expanded={hasChildren ? isExpanded : undefined}
       selected={isSelected}
       disabled={!isClickable}
-      onClick={(event) => {
-        // MUI turns Enter on a non-native button into a programmatic
-        // `.click()`, which arrives here indistinguishable from a pointer
-        // click except for its zero `detail`. That is the only hook a caller
-        // has for giving Enter its own meaning on a row.
-        if (event.detail === 0 && onKeyboardActivate?.()) {
+      onKeyDown={(event) => {
+        itemOnKeyDown?.(event);
+        // Only the row's own key presses count; Enter on the nested chevron
+        // bubbles through here but is the chevron's to handle.
+        if (event.target !== event.currentTarget) {
+          return;
+        }
+        keyboardActivationRef.current = event.key === 'Enter' || event.key === ' ';
+      }}
+      onPointerDown={() => {
+        keyboardActivationRef.current = false;
+      }}
+      onClick={() => {
+        const isKeyboardActivation = keyboardActivationRef.current;
+        keyboardActivationRef.current = false;
+        if (isKeyboardActivation && onKeyboardActivate?.()) {
           return;
         }
         onClick();

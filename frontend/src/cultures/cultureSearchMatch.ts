@@ -8,7 +8,7 @@ export function normalizeCultureSearchQuery(query: string): string {
   return query.trim().toLowerCase();
 }
 
-export function cultureNameMatchesSearchQuery(
+function cultureNameMatchesSearchQuery(
   culture: CultureDisplayFields,
   normalizedQuery: string,
 ): boolean {
@@ -20,7 +20,7 @@ export function cultureNameMatchesSearchQuery(
   return displayName.includes(normalizedQuery) || storedName.includes(normalizedQuery);
 }
 
-export function cultureVarietyMatchesSearchQuery(
+function cultureVarietyMatchesSearchQuery(
   culture: CultureDisplayFields,
   normalizedQuery: string,
 ): boolean {

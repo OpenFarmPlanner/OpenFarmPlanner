@@ -294,7 +294,10 @@ The search filters live, from the first character typed:
 - **A hit opens once** (`useSearchExpandedGroups`). Closing it again is the
   user's call and sticks for as long as that group keeps matching; a group that
   drops out of the results is forgotten, so a later hit opens it again as a
-  fresh one — and clearing the field closes everything the search opened.
+  fresh one — and clearing the field closes everything the search opened. Only
+  that: a group the user had already expanded before searching is theirs, and
+  so is the group holding the current selection, whose row would otherwise
+  vanish from the list while the detail view still shows it.
 - **The matched substring is marked** in the Kultur and Sorte names
   (`HighlightedText`), and every group header carries its Sorten count,
   including `(0)` for a Kultur that has none.
