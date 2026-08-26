@@ -67,6 +67,17 @@ export function useExpandedState(storageKey?: string) {
     });
   }, []);
 
+  const collapse = useCallback((rowId: string | number) => {
+    setExpandedRows((prev) => {
+      if (!prev.has(rowId)) {
+        return prev;
+      }
+      const newExpanded = new Set(prev);
+      newExpanded.delete(rowId);
+      return newExpanded;
+    });
+  }, []);
+
   const expandAll = useCallback((rowIds: (string | number)[]) => {
     setExpandedRows(new Set(rowIds));
   }, []);
@@ -76,6 +87,7 @@ export function useExpandedState(storageKey?: string) {
     hasPersistedState,
     toggleExpand,
     ensureExpanded,
+    collapse,
     expandAll,
   };
 }

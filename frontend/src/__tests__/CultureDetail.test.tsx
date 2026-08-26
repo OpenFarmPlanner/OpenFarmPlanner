@@ -160,7 +160,7 @@ describe('CultureDetail Component', () => {
     expect(screen.getByRole('button', { name: 'Suche und Filter zurücksetzen' })).toBeInTheDocument();
   });
 
-  it('keeps variety matches in the culture search dropdown', async () => {
+  it('keeps variety matches in the embedded culture search list', async () => {
     const user = userEvent.setup();
 
     renderCultureDetail(
@@ -175,7 +175,11 @@ describe('CultureDetail Component', () => {
     await user.type(searchInput, 'Cherry');
 
     expect(screen.queryByText('Keine Kulturen gefunden')).not.toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Tomato – Cherry' })).toBeInTheDocument();
+    const cultureList = screen.getByRole('listbox', { name: translations.cultures.title });
+    // The hit shows up in the list itself — the Kultur group opens and carries
+    // its Sorte — instead of in an overlay floating above it.
+    expect(within(cultureList).getByRole('option', { name: 'Tomato' })).toBeInTheDocument();
+    expect(within(cultureList).getByRole('option', { name: 'Cherry' })).toBeInTheDocument();
   });
 
   it('keeps the Kultur selectable when the search matched only its Sorte', async () => {
@@ -260,8 +264,9 @@ describe('CultureDetail Component', () => {
     const user = userEvent.setup();
     renderCultureDetail(<KeyboardNavigationHarness />);
 
-    const tomatoOption = screen.getByRole('option', { name: /Tomato/ });
-    tomatoOption.focus();
+    // Rows in view: the "Tomato" group header, its "Cherry" Sorte, then the
+    // Lettuce and Asparagus headers.
+    screen.getByRole('option', { name: 'Cherry' }).focus();
 
     await user.keyboard('{ArrowDown}');
 
@@ -278,7 +283,23 @@ describe('CultureDetail Component', () => {
     });
   });
 
-  it('selects the first and last visible culture with Home and End', async () => {
+  it('stops on a Kultur group header without selecting it', async () => {
+    const user = userEvent.setup();
+    renderCultureDetail(<KeyboardNavigationHarness initialSelectedId={2} />);
+
+    screen.getByRole('option', { name: /Lettuce/ }).focus();
+
+    // "Tomato" has no varietyless entry of its own, so the header is a focus
+    // stop that leaves the selected Kultur alone.
+    await user.keyboard('{ArrowUp}');
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomato' })).toHaveFocus();
+    });
+  });
+
+  it('jumps to the first and last row with Home and End', async () => {
     const user = userEvent.setup();
     renderCultureDetail(<KeyboardNavigationHarness initialSelectedId={2} />);
 
@@ -287,8 +308,13 @@ describe('CultureDetail Component', () => {
     await user.keyboard('{End}');
     expect(screen.getByRole('heading', { level: 2, name: 'Asparagus' })).toBeInTheDocument();
 
+    // Home lands on the first row — the collapsed "Tomato" group header, which
+    // has no varietyless entry of its own — so only the focus moves.
     await user.keyboard('{Home}');
-    expect(screen.getByRole('heading', { level: 2, name: 'Tomato' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Asparagus' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomato' })).toHaveFocus();
+    });
   });
 
   it('does not wrap around at the beginning or end of the culture list', async () => {
@@ -314,8 +340,7 @@ describe('CultureDetail Component', () => {
     fireEvent.change(searchInput, { target: { value: 't' } });
 
     const cultureList = screen.getByRole('listbox', { name: translations.cultures.title });
-    const tomatoOption = within(cultureList).getByRole('option', { name: /Tomato/ });
-    tomatoOption.focus();
+    within(cultureList).getByRole('option', { name: 'Cherry' }).focus();
 
     await user.keyboard('{ArrowDown}');
 
@@ -327,6 +352,219 @@ describe('CultureDetail Component', () => {
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 2, name: 'Lettuce' })).toBeInTheDocument();
+  });
+
+  describe('live filtered culture search list', () => {
+    const searchCultures: Culture[] = [
+      { id: 100, name: 'Karotte', variety: '', crop_species: 1 },
+      { id: 101, name: 'Karotte', variety: 'Nantaise', crop_species: 1 },
+      { id: 102, name: 'Karotte', variety: 'Rodelika', crop_species: 1 },
+      { id: 200, name: 'Kohlrabi', variety: '', crop_species: 2 },
+      { id: 201, name: 'Kohlrabi', variety: 'Superschmelz', crop_species: 2 },
+      { id: 300, name: 'Zwiebel', variety: '', crop_species: 3 },
+    ];
+
+    const renderSearchList = (onCultureSelect = vi.fn(), selectedCultureId?: number) => {
+      renderCultureDetail(
+        <CultureDetail
+          cultures={searchCultures}
+          selectedCultureId={selectedCultureId}
+          onCultureSelect={onCultureSelect}
+        />,
+      );
+      return {
+        onCultureSelect,
+        searchInput: screen.getByLabelText(translations.cultures.searchPlaceholder),
+        list: screen.getByRole('listbox', { name: translations.cultures.title }),
+      };
+    };
+
+    it('shows every Kultur as a collapsed group header with its count while the search field is empty', () => {
+      const { list } = renderSearchList();
+
+      expect(within(list).getAllByRole('option').map((row) => row.textContent)).toEqual([
+        'Karotte(2)',
+        'Kohlrabi(1)',
+        'Zwiebel(0)',
+      ]);
+    });
+
+    it('filters from the very first character', () => {
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'z' } });
+
+      expect(within(list).queryByRole('option', { name: 'Karotte' })).not.toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Zwiebel' })).toBeInTheDocument();
+    });
+
+    it('opens a hit group with all of its Sorten, not only the matching one', () => {
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'rodelika' } });
+
+      expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Rodelika' })).toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+      expect(within(list).queryByRole('option', { name: 'Kohlrabi' })).not.toBeInTheDocument();
+    });
+
+    it('marks the matched part of the Kultur and Sorten names', () => {
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+
+      const marks = within(list).getAllByText('Ka', { selector: 'mark' });
+      expect(marks.length).toBeGreaterThan(0);
+      expect(within(within(list).getByRole('option', { name: 'Karotte' })).getByText('Ka', { selector: 'mark' })).toBeInTheDocument();
+      expect(within(within(list).getByRole('option', { name: 'Rodelika' })).getByText('ka', { selector: 'mark' })).toBeInTheDocument();
+    });
+
+    it('keeps a manually collapsed group closed while it still matches', async () => {
+      const user = userEvent.setup();
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'k' } });
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      const karotteRow = within(list).getByRole('option', { name: 'Karotte' });
+      await user.click(within(karotteRow).getByRole('button', { name: 'Kultur zuklappen' }));
+      expect(within(list).queryByRole('option', { name: 'Nantaise' })).not.toBeInTheDocument();
+
+      // "Karotte" is still a hit for "ka", so typing on must not re-open it.
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+
+      expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
+      expect(within(list).queryByRole('option', { name: 'Nantaise' })).not.toBeInTheDocument();
+    });
+
+    it('re-opens a group that dropped out of the results and matches again', async () => {
+      const user = userEvent.setup();
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+      const karotteRow = within(list).getByRole('option', { name: 'Karotte' });
+      await user.click(within(karotteRow).getByRole('button', { name: 'Kultur zuklappen' }));
+      expect(within(list).queryByRole('option', { name: 'Nantaise' })).not.toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'zwie' } });
+      expect(within(list).queryByRole('option', { name: 'Karotte' })).not.toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+    });
+
+    it('collapses the groups the search opened once the field is cleared', () => {
+      const { list, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      expect(within(list).queryByRole('option', { name: 'Nantaise' })).not.toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
+    });
+
+    it('leaves a group the user expanded before searching open when the search is cleared', async () => {
+      const user = userEvent.setup();
+      const { list, searchInput } = renderSearchList();
+
+      const karotteRow = within(list).getByRole('option', { name: 'Karotte' });
+      await user.click(within(karotteRow).getByRole('button', { name: 'Kultur aufklappen' }));
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // The search never opened this group, so clearing it must not close it.
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+    });
+
+    it('keeps the selected Sorte visible when the search is cleared', () => {
+      const { list, searchInput } = renderSearchList(vi.fn(), 101);
+
+      fireEvent.change(searchInput, { target: { value: 'nantaise' } });
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      // Collapsing the group here would drop the selected row out of the list
+      // while the detail view still shows it.
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+    });
+
+    it('selects a Sorte with Enter and leaves the filtered list standing', async () => {
+      const user = userEvent.setup();
+      const { list, onCultureSelect, searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'ka' } });
+      within(list).getByRole('option', { name: 'Nantaise' }).focus();
+      await user.keyboard('{Enter}');
+
+      expect(onCultureSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 101 }));
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Rodelika' })).toBeInTheDocument();
+      expect(searchInput).toHaveValue('ka');
+    });
+
+    it('toggles a group with Enter on its header without changing the selection', async () => {
+      const user = userEvent.setup();
+      const { list, onCultureSelect } = renderSearchList();
+
+      const karotteHeader = within(list).getByRole('option', { name: 'Karotte' });
+      karotteHeader.focus();
+      expect(karotteHeader).toHaveAttribute('aria-expanded', 'false');
+
+      await user.keyboard('{Enter}');
+
+      expect(onCultureSelect).not.toHaveBeenCalled();
+      expect(within(list).getByRole('option', { name: 'Nantaise' })).toBeInTheDocument();
+      expect(within(list).getByRole('option', { name: 'Karotte' })).toHaveAttribute('aria-expanded', 'true');
+
+      await user.keyboard('{Enter}');
+
+      expect(onCultureSelect).not.toHaveBeenCalled();
+      expect(within(list).queryByRole('option', { name: 'Nantaise' })).not.toBeInTheDocument();
+    });
+
+    it('keeps Enter on a Kultur without Sorten as a selection', async () => {
+      const user = userEvent.setup();
+      const { list, onCultureSelect } = renderSearchList();
+
+      within(list).getByRole('option', { name: 'Zwiebel' }).focus();
+      await user.keyboard('{Enter}');
+
+      expect(onCultureSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 300 }));
+    });
+
+    it('clears the search from the field', async () => {
+      const user = userEvent.setup();
+      const { list, searchInput } = renderSearchList();
+
+      expect(screen.queryByRole('button', { name: translations.cultures.clearSearch })).not.toBeInTheDocument();
+
+      fireEvent.change(searchInput, { target: { value: 'zwie' } });
+      await user.click(screen.getByRole('button', { name: translations.cultures.clearSearch }));
+
+      expect(searchInput).toHaveValue('');
+      expect(within(list).getByRole('option', { name: 'Karotte' })).toBeInTheDocument();
+      // The button unmounts as it clears, so focus has to land back on the field.
+      expect(searchInput).toHaveFocus();
+    });
+
+    it('shows the no-results text when nothing matches', () => {
+      const { searchInput } = renderSearchList();
+
+      fireEvent.change(searchInput, { target: { value: 'xyz' } });
+
+      expect(screen.getByText(translations.cultures.noOptionsEnhanced)).toBeInTheDocument();
+      // The message replaces the listbox rather than sitting inside it as a
+      // role-less row assistive tech would prune.
+      expect(screen.queryByRole('listbox', { name: translations.cultures.title })).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('option')).toHaveLength(0);
+    });
   });
 
   it('does not intercept arrow keys while the search field is focused', async () => {
@@ -962,6 +1200,26 @@ describe('CultureDetail Component', () => {
     expect(within(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).getByText('Anbauplan hinzufügen')).toHaveStyle({
       display: 'none',
     });
+  });
+
+  it('shows the no-results text in the mobile culture selector', async () => {
+    const user = userEvent.setup();
+    mockPhoneLandscapeViewport();
+
+    renderCultureDetail(
+      <CultureDetail
+        cultures={mockCultures}
+        selectedCultureId={1}
+        onCultureSelect={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Kultur auswählen' }));
+    fireEvent.change(screen.getByLabelText(translations.cultures.searchPlaceholder), {
+      target: { value: 'xyz' },
+    });
+
+    expect(screen.getByText(translations.cultures.noOptionsEnhanced)).toBeInTheDocument();
   });
 
   describe('Varieties section', () => {

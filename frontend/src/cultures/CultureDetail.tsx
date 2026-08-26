@@ -2,7 +2,7 @@
  * Culture Detail component with searchable dropdown and detailed crop information view.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useSearchParams } from 'react-router';
@@ -15,6 +15,7 @@ import { CultureMobileSelectorDialog } from './CultureMobileSelectorDialog';
 import { CultureHeaderActionsMenu } from './CultureHeaderActionsMenu';
 import { CultureTitleSelectorButton } from './CultureTitleSelectorButton';
 import TuneIcon from '@mui/icons-material/Tune';
+import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
@@ -38,14 +39,13 @@ import {
   Stack,
   Button,
   IconButton,
+  TextField,
 } from '@mui/material';
 import type { Culture } from '../api/api';
-import type { SearchableSelectOption } from '../components/inputs/SearchableSelect';
-import { CultureSearchSelect } from './CultureSearchSelect';
-import { UI_LABEL_SEPARATOR } from '../utils/uiLabelSeparator';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
+import { useSearchExpandedGroups } from './useSearchExpandedGroups';
 import { DetailPageActions } from '../components/layout/DetailPageActions';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { getCultureDisplayName } from './cultureDisplay';
@@ -55,7 +55,12 @@ import {
   getCropSpeciesKey,
   getFirstVarietyItem,
   withGroupGeneralCultures,
+  withGroupSiblingCultures,
 } from './cropHierarchy';
+import {
+  cultureMatchesSearchQuery,
+  normalizeCultureSearchQuery,
+} from './cultureSearchMatch';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
@@ -212,6 +217,11 @@ export function CultureDetail({
   };
 
   const [filters, setFilters] = useState<PersistedCultureFilters>(initializeFilters);
+  // The clear button unmounts as it empties the field, so focus has to be put
+  // back on the input explicitly instead of dropping to the document body.
+  // The input is addressed by id because `searchInputRef` belongs to the
+  // caller and may be a callback ref this component cannot read back.
+  const searchFieldId = useId();
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<HTMLElement | null>(null);
   const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
@@ -220,6 +230,7 @@ export function CultureDetail({
     expandedRows: expandedCropRows,
     toggleExpand: toggleCropRow,
     ensureExpanded: ensureCropRowExpanded,
+    collapse: collapseCropRow,
   } = useExpandedState('projectCropLibrary');
   const isFilterPopoverOpen = Boolean(filterAnchorEl);
 const detailSectionGridSx = {
@@ -349,23 +360,19 @@ const detailSectionGridSx = {
     return () => window.clearTimeout(timeoutId);
   }, [searchParams, setSearchParams]);
 
-  const matchingCultures = useMemo(() => {
+  const normalizedSearchQuery = normalizeCultureSearchQuery(filters.searchQuery);
+
+  // Every filter except the search term. The search runs on top of this
+  // because it widens matches to whole Kultur groups (see below), and that
+  // widening must never reach past the other filters.
+  const filterMatchingCultures = useMemo(() => {
     const parsedGrowthDaysMin = filters.growthDaysMin ? Number(filters.growthDaysMin) : null;
     const parsedGrowthDaysMax = filters.growthDaysMax ? Number(filters.growthDaysMax) : null;
     const parsedYieldMin = filters.yieldMin ? Number(filters.yieldMin) : null;
     const parsedYieldMax = filters.yieldMax ? Number(filters.yieldMax) : null;
 
-    const normalizedQuery = filters.searchQuery.trim().toLowerCase();
     const selectedSupplierId = filters.selectedSupplierFilter ? Number(filters.selectedSupplierFilter) : null;
     return cultures.filter((culture) => {
-      const displayName = getCultureDisplayName(culture);
-      const cultureName = displayName.toLowerCase();
-      const storedCultureName = culture.name?.toLowerCase() ?? '';
-      const varietyName = culture.variety?.toLowerCase() ?? '';
-      const nameMatches = normalizedQuery.length === 0
-        || cultureName.includes(normalizedQuery)
-        || storedCultureName.includes(normalizedQuery)
-        || varietyName.includes(normalizedQuery);
       const familyMatches = filters.selectedFamilyFilter.length === 0 || culture.crop_family === filters.selectedFamilyFilter;
       const cultivationValues = culture.cultivation_types && culture.cultivation_types.length > 0
         ? culture.cultivation_types
@@ -398,8 +405,7 @@ const detailSectionGridSx = {
       const supplierMatches = selectedSupplierId === null
         || supplierIds.some((supplierId) => supplierId === selectedSupplierId);
 
-      return nameMatches
-        && familyMatches
+      return familyMatches
         && cultivationMatches
         && growthMatches
         && nutrientMatches
@@ -412,9 +418,25 @@ const detailSectionGridSx = {
     filters,
   ]);
 
+  // The Kultur rows the search term itself hit — the groups that count as a
+  // result, and the set the auto-expand below keys off.
+  const searchMatchingCultures = useMemo(
+    () => (normalizedSearchQuery
+      ? filterMatchingCultures.filter((culture) => cultureMatchesSearchQuery(culture, normalizedSearchQuery))
+      : filterMatchingCultures),
+    [filterMatchingCultures, normalizedSearchQuery],
+  );
+
+  const matchingCultures = useMemo(
+    () => (normalizedSearchQuery
+      ? withGroupSiblingCultures(searchMatchingCultures, filterMatchingCultures)
+      : searchMatchingCultures),
+    [filterMatchingCultures, normalizedSearchQuery, searchMatchingCultures],
+  );
+
   // A filter that only matched Sorten would otherwise drop their Kultur row,
   // leaving the tree with a Kultur node that has no data of its own to show
-  // and the search dropdown with variety rows detached from their Kultur.
+  // and variety rows detached from their Kultur.
   const filteredCultures = useMemo(
     () => withGroupGeneralCultures(matchingCultures, cultures),
     [cultures, matchingCultures],
@@ -430,24 +452,20 @@ const detailSectionGridSx = {
     [cropHierarchyItems, expandedCropRows],
   );
 
-  const selectableCropRows = useMemo(
-    () => cropHierarchyItems.filter((item) => item.culture?.id !== undefined),
-    [cropHierarchyItems],
+  // Every row the arrow keys stop on: the Kultur group headers plus the Sorten
+  // of the groups that are open. Rows hidden behind a collapsed header are not
+  // stops — the list walks exactly what is on screen.
+  const navigableCropRows = useMemo(
+    () => visibleCropRows.map((row) => row.node),
+    [visibleCropRows],
   );
 
-  const cultureOptions: SearchableSelectOption<Culture>[] = useMemo(
-    () => {
-      const optionCultures = [...filteredCultures];
-
-      return optionCultures
-        .filter((culture) => culture.id !== undefined)
-        .map((culture) => ({
-        value: culture.id!,
-        label: `${getCultureDisplayName(culture)}${culture.variety ? `${UI_LABEL_SEPARATOR}${culture.variety}` : ''}${culture.seed_supplier ? ` | ${culture.seed_supplier}` : ''}`,
-        data: culture,
-      }));
-    },
-    [filteredCultures]
+  /** Row ids of the Kultur groups the current search term hit. */
+  const matchedGroupRowIds = useMemo(
+    () => (normalizedSearchQuery
+      ? new Set(searchMatchingCultures.map((culture) => `species:${getCropSpeciesKey(culture)}`))
+      : new Set<string>()),
+    [normalizedSearchQuery, searchMatchingCultures],
   );
 
   const selectedCulture = useMemo(
@@ -474,29 +492,32 @@ const detailSectionGridSx = {
     ),
   );
 
+  // The group holding the selected Sorte: kept open so the selected row can
+  // never drop out of the list while the detail view still shows it.
+  const selectedVarietyGroupRowIds = useMemo(
+    () => (selectedCulture?.variety && !isSpeciesView && selectedCultureSpeciesKey
+      ? new Set([`species:${selectedCultureSpeciesKey}`])
+      : new Set<string>()),
+    [isSpeciesView, selectedCulture, selectedCultureSpeciesKey],
+  );
+
   useEffect(() => {
-    if (!selectedCulture?.variety || isSpeciesView || !selectedCultureSpeciesKey) {
-      return;
-    }
-    ensureCropRowExpanded(`species:${selectedCultureSpeciesKey}`);
-  }, [ensureCropRowExpanded, isSpeciesView, selectedCulture, selectedCultureSpeciesKey]);
-  useEffect(() => {
-    if (!filters.searchQuery.trim()) {
-      return;
-    }
-    cropHierarchyItems.forEach((item) => {
-      if (item.kind === 'variety' && item.parentId) {
-        ensureCropRowExpanded(item.parentId);
-      }
-    });
-  }, [cropHierarchyItems, ensureCropRowExpanded, filters.searchQuery]);
+    selectedVarietyGroupRowIds.forEach((rowId) => ensureCropRowExpanded(rowId));
+  }, [ensureCropRowExpanded, selectedVarietyGroupRowIds]);
+  useSearchExpandedGroups({
+    matchedGroupRowIds,
+    isExpanded: (rowId) => expandedCropRows.has(rowId),
+    ensureExpanded: ensureCropRowExpanded,
+    collapse: collapseCropRow,
+    keepExpandedRowIds: selectedVarietyGroupRowIds,
+  });
 
   const selectedCropRowId = selectedCulture
     ? (isSpeciesView && selectedCultureSpeciesKey ? `species:${selectedCultureSpeciesKey}` : `culture:${selectedCulture.id}`)
     : null;
 
   const cultureListNavigation = useCultureListKeyboardNavigation({
-    items: selectableCropRows,
+    items: navigableCropRows,
     selectedId: selectedCropRowId,
     getId: (item) => item.id,
     onSelect: (item) => {
@@ -506,19 +527,6 @@ const detailSectionGridSx = {
       }
     },
   });
-
-  const selectedOption = useMemo(
-    () => (
-      selectedCulture?.id === undefined
-        ? null
-        : {
-          value: selectedCulture.id,
-          label: `${getCultureDisplayName(selectedCulture)}${selectedCulture.variety ? `${UI_LABEL_SEPARATOR}${selectedCulture.variety}` : ''}${selectedCulture.seed_supplier ? ` | ${selectedCulture.seed_supplier}` : ''}`,
-          data: selectedCulture,
-        }
-    ),
-    [selectedCulture],
-  );
 
   const selectedSpeciesCulture = useMemo(
     () => findSpeciesCulture(selectedCulture, cultures),
@@ -719,37 +727,49 @@ const detailSectionGridSx = {
       <Box sx={{ width: '100%', p: 1.25, borderBottom: '1px solid #e5e7eb', bgcolor: '#fcfdfc' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, }} >
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <CultureSearchSelect
-              options={cultureOptions}
-              value={selectedOption}
-              onChange={(option) => {
-                setSelectedSpeciesViewKey(option?.data && !(option.data.variety || '').trim() ? getCropSpeciesKey(option.data) : null);
-                onCultureSelect(option?.data ?? null);
-              }}
+            <TextField
               label={t('searchPlaceholder')}
               placeholder={t('searchInputPlaceholderEnhanced')}
-              noOptionsText={t('noOptionsEnhanced')}
+              id={searchFieldId}
               inputRef={searchInputRef}
-              textFieldSx={{
-                width: '100%',
+              value={filters.searchQuery}
+              onChange={(event) => updateFilter('searchQuery', event.target.value)}
+              fullWidth
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <>
+                      {filters.searchQuery ? (
+                        <AppTooltip title={t('clearSearch')}>
+                          <IconButton
+                            size="small"
+                            aria-label={t('clearSearch')}
+                            onClick={() => {
+                              updateFilter('searchQuery', '');
+                              document.getElementById(searchFieldId)?.focus();
+                            }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </AppTooltip>
+                      ) : null}
+                      <IconButton
+                        size="small"
+                        onClick={(event) => setFilterAnchorEl(event.currentTarget)}
+                        aria-expanded={isFilterPopoverOpen}
+                        aria-haspopup="dialog"
+                        aria-controls={isFilterPopoverOpen ? 'culture-filters-popover' : undefined}
+                        aria-label={t('filters.openAdvanced')}
+                        sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                      >
+                        <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
+                          <TuneIcon fontSize="small" />
+                        </Badge>
+                      </IconButton>
+                    </>
+                  ),
+                },
               }}
-              inputValue={filters.searchQuery}
-              onInputChange={(value) => updateFilter('searchQuery', value)}
-              endAdornment={(
-                <IconButton
-                  size="small"
-                  onClick={(event) => setFilterAnchorEl(event.currentTarget)}
-                  aria-expanded={isFilterPopoverOpen}
-                  aria-haspopup="dialog"
-                  aria-controls={isFilterPopoverOpen ? 'culture-filters-popover' : undefined}
-                  aria-label={t('filters.openAdvanced')}
-                  sx={{ bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent' }}
-                >
-                  <Badge color="primary" badgeContent={activeFilterCount > 0 ? activeFilterCount : null}>
-                    <TuneIcon fontSize="small" />
-                  </Badge>
-                </IconButton>
-              )}
             />
           </Box>
         </Stack>
@@ -815,6 +835,15 @@ const detailSectionGridSx = {
             }}
           >
             {selectorControl}
+            {visibleCropRows.length === 0 ? (
+              // Rendered instead of the listbox, not inside it: a plain <li>
+              // in there carries no role of its own and gets pruned, and an
+              // empty listbox would still flex-grow and push the message to
+              // the bottom of the card. Mirrors the public crop library page.
+              <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 2 }}>
+                {t('noOptionsEnhanced')}
+              </Typography>
+            ) : (
             <List
               {...cultureListNavigation.getListProps()}
               dense
@@ -840,7 +869,7 @@ const detailSectionGridSx = {
                 // inert. Mirrors the public crop library list (PublicCropLibraryPage.tsx).
                 const firstVariety = !culture ? getFirstVarietyItem(cropHierarchyItems, node.id) : null;
                 const isClickable = culture?.id !== undefined || firstVariety !== null;
-                const itemProps = isClickable ? cultureListNavigation.getItemProps(node) : {};
+                const itemProps = cultureListNavigation.getItemProps(node);
                 const isRowSelected = Boolean(
                   culture?.id !== undefined
                   && selectedCulture?.id === culture.id
@@ -864,6 +893,18 @@ const detailSectionGridSx = {
                     isPrimaryEmphasized={node.kind === 'species'}
                     secondary={undefined}
                     varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
+                    showZeroVarietyCount={node.kind === 'species'}
+                    highlightQuery={normalizedSearchQuery}
+                    onKeyboardActivate={() => {
+                      // Enter on a Kultur group header opens or closes the
+                      // group and leaves the selection alone; the Sorte rows
+                      // keep Enter as "select this Sorte".
+                      if (node.kind !== 'species' || !hasChildren) {
+                        return false;
+                      }
+                      toggleCropRow(node.id);
+                      return true;
+                    }}
                     onClick={() => {
                       if (culture) {
                         cultureListNavigation.selectItem(node);
@@ -885,6 +926,7 @@ const detailSectionGridSx = {
                 );
               })}
             </List>
+            )}
           </Card>) : null}
           <Box
             sx={{
@@ -1380,6 +1422,8 @@ const detailSectionGridSx = {
           cultures={filteredCultures}
           selectedCultureId={selectedCulture?.id}
           selectedSpeciesViewKey={selectedSpeciesViewKey}
+          highlightQuery={normalizedSearchQuery}
+          matchedGroupRowIds={matchedGroupRowIds}
           onSelect={(culture, itemKind, speciesKey) => {
             setSelectedSpeciesViewKey(itemKind === 'species' ? speciesKey : null);
             onCultureSelect(culture);

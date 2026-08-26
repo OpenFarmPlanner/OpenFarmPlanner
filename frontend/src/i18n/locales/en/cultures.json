@@ -6,6 +6,7 @@
   "searchInputPlaceholderEnhanced": "Search by crop name (e.g. carrot)",
   "searchHelperText_one": "{{count}} crop found. Use the filters to narrow it down further.",
   "searchHelperText_other": "{{count}} crops found. Use the filters to narrow it down further.",
+  "clearSearch": "Clear search",
   "noOptionsEnhanced": "No matching crop. Check your search or filters.",
   "selectPrompt": "Select a crop from the list to see its details.",
   "selectCulture": "Select crop",

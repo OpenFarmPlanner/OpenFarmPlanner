@@ -1,7 +1,10 @@
+import { useRef } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { ListItemButton, ListItemText, Typography } from '@mui/material';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
+import { HighlightedText } from '../components/HighlightedText';
 import { compactCropChevronButtonSx } from './cropHierarchyRowSx';
+import type { CultureListItemProps } from './useCultureListKeyboardNavigation';
 
 interface CropHierarchyRowProps {
   depth: number;
@@ -16,10 +19,28 @@ interface CropHierarchyRowProps {
   isPrimaryEmphasized: boolean;
   secondary?: string;
   varietyCount?: number;
+  /**
+   * Shows "(0)" on a row that has no varieties instead of no count at all.
+   * The Kultur search list needs every group header to carry its Sorten
+   * count; plain browsing lists stay quieter and leave an empty group
+   * uncounted.
+   */
+  showZeroVarietyCount?: boolean;
+  /**
+   * Lower-cased needle whose occurrences are marked inside `primary`. Left
+   * unset, the row renders plain text.
+   */
+  highlightQuery?: string;
   ariaLabel?: string;
   onClick: () => void;
   onDoubleClick: (event: MouseEvent) => void;
-  itemProps?: Record<string, unknown>;
+  itemProps?: Partial<CultureListItemProps>;
+  /**
+   * Handles Enter/Space on the row itself. Returning `true` marks the key
+   * press as fully handled and suppresses the selection click it would
+   * otherwise produce — see the `onKeyDown` comment below.
+   */
+  onKeyboardActivate?: () => boolean;
   endAdornment?: ReactNode;
   /**
    * When true, `endAdornment` (the pending-suggestion hourglass) takes the
@@ -49,14 +70,25 @@ export function CropHierarchyRow({
   isPrimaryEmphasized,
   secondary,
   varietyCount,
+  showZeroVarietyCount = false,
+  highlightQuery,
   ariaLabel,
   onClick,
   onDoubleClick,
   itemProps = {},
+  onKeyboardActivate,
   endAdornment,
   isPendingSuggestion = false,
 }: CropHierarchyRowProps) {
-  const countLabel = typeof varietyCount === 'number' && varietyCount > 0 ? (
+  const { onKeyDown: itemOnKeyDown, ...listItemProps } = itemProps;
+  // MUI's ButtonBase answers Enter (and Space) on a non-native button with a
+  // programmatic `.click()` on the row, so a caller that wants those keys to
+  // mean something other than "select" only ever sees the click. This records
+  // that the click about to arrive came from the keyboard; any pointer
+  // interaction clears it first, so a stale flag can never divert a real tap.
+  const keyboardActivationRef = useRef(false);
+  const hasCount = typeof varietyCount === 'number' && (varietyCount > 0 || showZeroVarietyCount);
+  const countLabel = hasCount ? (
     <Typography
       component="span"
       sx={{
@@ -71,13 +103,33 @@ export function CropHierarchyRow({
   ) : null;
   return (
     <ListItemButton
-      {...itemProps}
+      {...listItemProps}
       role={isClickable ? 'option' : 'presentation'}
       aria-label={ariaLabel}
       aria-selected={isClickable ? isSelected : undefined}
+      aria-expanded={hasChildren ? isExpanded : undefined}
       selected={isSelected}
       disabled={!isClickable}
-      onClick={onClick}
+      onKeyDown={(event) => {
+        itemOnKeyDown?.(event);
+        // Only the row's own key presses count; Enter on the nested chevron
+        // bubbles through here but is the chevron's to handle.
+        if (event.target !== event.currentTarget) {
+          return;
+        }
+        keyboardActivationRef.current = event.key === 'Enter' || event.key === ' ';
+      }}
+      onPointerDown={() => {
+        keyboardActivationRef.current = false;
+      }}
+      onClick={() => {
+        const isKeyboardActivation = keyboardActivationRef.current;
+        keyboardActivationRef.current = false;
+        if (isKeyboardActivation && onKeyboardActivate?.()) {
+          return;
+        }
+        onClick();
+      }}
       onDoubleClick={onDoubleClick}
       sx={{
         borderRadius: 1.5,
@@ -105,7 +157,7 @@ export function CropHierarchyRow({
         sx={compactCropChevronButtonSx}
       />
       <ListItemText
-        primary={primary}
+        primary={highlightQuery ? <HighlightedText text={primary} query={highlightQuery} /> : primary}
         secondary={secondary}
         sx={{ my: 0 }}
         slotProps={{
