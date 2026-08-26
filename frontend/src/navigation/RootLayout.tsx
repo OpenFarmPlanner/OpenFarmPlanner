@@ -114,20 +114,13 @@ import { TOPBAR_BADGE_SX } from './topbarMenuStyles';
 
 const HIERARCHY_CREATE_LOCATION_ACTION_ID = 'fields-global-add-location';
 const TOPBAR_ACTION_GROUP_GAP = 1.25;
-// Spacing hierarchy for the topbar's trailing items. The cluster's buttons
-// carry ~5px of their own horizontal padding on each side, so ~10px of the
-// perceived distance between two of them comes from padding rather than the
-// gap: a gap that differs by only a few pixels reads as uniform. Measured
-// perceived whitespace with the values below — primary action → cluster 22px
-// (the cluster group's 10px margin plus the action group's 4px padding plus
-// the season button's 8px padding; the contained action button's own padding
-// is filled, so it does not read as whitespace), inside the cluster 14px,
-// cluster → "Mehr" 26px. The cluster therefore stays the tightest spacing in
-// the row while both of its boundaries read as breaks. Widening the cluster
-// gap itself is counterproductive: it weakens the boundary towards the primary
-// action button, which stays deliberately unchanged.
-const TOPBAR_STATUS_CLUSTER_GAP = 0.5;
-const TOPBAR_OVERFLOW_MENU_GAP = 2;
+// Spacing knobs for the topbar's trailing items. TOPBAR_TRAILING_CONTROL_GAP
+// controls all three neighbour gaps: season -> project -> bell -> "Mehr".
+// The visible distance is the flex gap plus the controls' own horizontal padding.
+const TOPBAR_TRAILING_CONTROL_GAP = 0.5;
+const TOPBAR_STATUS_BUTTON_PX = 1;
+const TOPBAR_STATUS_CLUSTER_GAP = TOPBAR_TRAILING_CONTROL_GAP;
+const TOPBAR_OVERFLOW_MENU_GAP = TOPBAR_TRAILING_CONTROL_GAP;
 const COMPACT_TOPBAR_TOGGLE_SIZE = 44;
 
 interface SnackbarState {
@@ -1433,6 +1426,7 @@ function RootLayout() {
               controller={activeSeason}
               onOpenProjectSettings={handleOpenProjectSettings}
               isPhone={isPhone}
+              buttonPx={TOPBAR_STATUS_BUTTON_PX}
             />
           ) : null}
           <Button
@@ -1447,6 +1441,7 @@ function RootLayout() {
               textTransform: 'none',
               maxWidth: { xs: 210, sm: 190, md: 240, lg: 320 },
               minWidth: 0,
+              px: TOPBAR_STATUS_BUTTON_PX,
             }}
             startIcon={<NavEmojiIcon emoji="📁" />}
             endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
@@ -1479,7 +1474,7 @@ function RootLayout() {
             onOpenProjectTrash={handleOpenProjectTrash}
             t={t}
           />
-          <NotificationBell controller={notifications} />
+          <NotificationBell controller={notifications} buttonSize={36} />
           </Box>
           <IconButton
             aria-label="Mehr"
