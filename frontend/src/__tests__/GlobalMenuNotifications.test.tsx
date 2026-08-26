@@ -101,14 +101,56 @@ describe('GlobalMenu notifications section', () => {
     expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
   });
 
-  it('shows an empty state when there is nothing to show', async () => {
+  it('shows a subtle hint when nothing is unread, and still links to the history', async () => {
     notificationListMock.mockResolvedValue({
       data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
     });
 
     renderMenu();
 
-    expect(await screen.findByText('Keine Benachrichtigungen')).toBeInTheDocument();
+    expect(await screen.findByText('Keine neuen Benachrichtigungen')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Alle Benachrichtigungen anzeigen'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/app/notifications');
+  });
+
+  it('drops entries that were marked read since the last load', async () => {
+    notificationListMock.mockResolvedValue({
+      data: {
+        count: 2,
+        next: null,
+        previous: null,
+        results: [
+          notification(),
+          notification({ id: 2, notification_type: 'crop_species_proposal_rejected', context: { name: 'Rote Bete' }, is_read: true }),
+        ],
+        unread_count: 1,
+      },
+    });
+
+    renderMenu();
+
+    expect(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.')).toBeInTheDocument();
+    expect(screen.queryByText('Dein Vorschlag für die Kulturart „Rote Bete“ wurde abgelehnt.')).not.toBeInTheDocument();
+  });
+
+  it('opens showing its first section instead of scrolled to the active language', async () => {
+    renderMenu();
+
+    await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.');
+
+    // MUI's default `selectedMenu` variant hands the initial focus to the
+    // *selected* item — the active language, far down the list — and focusing
+    // it scrolls the menu there, which is what made the dropdown open showing
+    // its bottom. Focus has to stay above that section.
+    const menuItems = Array.from(screen.getByRole('menu').querySelectorAll('li'));
+    const activeLanguageItem = screen.getByRole('menuitemradio', { checked: true });
+
+    await waitFor(() => expect(menuItems).toContain(document.activeElement));
+    expect(activeLanguageItem).not.toHaveFocus();
+    expect(menuItems.indexOf(document.activeElement as HTMLElement))
+      .toBeLessThan(menuItems.indexOf(activeLanguageItem));
   });
 
   it('omits the section entirely on the full topbar, where the bell owns it', async () => {

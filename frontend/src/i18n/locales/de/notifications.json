@@ -3,8 +3,19 @@
     "ariaLabel": "Benachrichtigungen",
     "unreadAriaLabel": "Benachrichtigungen ({{unread}} ungelesen)",
     "title": "Benachrichtigungen",
-    "empty": "Keine Benachrichtigungen",
-    "loadError": "Benachrichtigungen konnten nicht geladen werden."
+    "loadError": "Benachrichtigungen konnten nicht geladen werden.",
+    "noUnread": "Keine neuen Benachrichtigungen",
+    "showAll": "Alle Benachrichtigungen anzeigen"
+  },
+  "history": {
+    "title": "Alle Benachrichtigungen",
+    "back": "Zurück",
+    "unreadSubtitle": "{{unread}} ungelesen",
+    "emptyTitle": "Noch keine Benachrichtigungen",
+    "emptyDescription": "Hier erscheinen Entscheidungen zu deinen Vorschlägen und Hinweise aus der Kulturbibliothek, sobald es etwas zu berichten gibt.",
+    "pageAriaLabel": "Seite {{page}}",
+    "nextPageAriaLabel": "Nächste Seite",
+    "previousPageAriaLabel": "Vorherige Seite"
   },
   "messages": {
     "crop_species_proposal_accepted": "Dein Vorschlag für die Kulturart „{{name}}“ wurde angenommen.",

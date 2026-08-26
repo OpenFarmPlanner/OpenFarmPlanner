@@ -1,24 +1,38 @@
 /**
- * Loads the signed-in user's notifications for the topbar bell.
+ * Loads the signed-in user's **unread** notifications for the topbar bell.
  *
  * Fetched once on mount, whenever the dropdown is opened, and when the
  * authenticated user's WebSocket stream reports that notifications changed.
+ *
+ * The unread filter is applied by the backend, not here: picking the unread
+ * rows out of one page of the full history would show an empty dropdown next
+ * to a non-zero badge as soon as the newest page holds no unread row. The full
+ * archive lives on the history page (`useNotificationHistory`).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationAPI } from '../api/api';
 import type { AppNotification } from '../api/types';
 import { useWebSocket, type WebSocketEvent } from '../realtime/useWebSocket';
 import { getNotificationLink } from './notificationDisplay';
 
+/** How many unread rows the dropdown loads; the badge always counts them all. */
+export const NOTIFICATION_DROPDOWN_PAGE_SIZE = 20;
+
 export interface NotificationsController {
+  /** The loaded page of unread notifications, newest first. */
   notifications: AppNotification[];
+  /**
+   * The rows the dropdowns render: `notifications` minus the ones marked read
+   * since the last load, so a clicked row disappears without a refetch.
+   */
+  unreadNotifications: AppNotification[];
   unreadCount: number;
   isLoading: boolean;
   hasError: boolean;
   reload: () => void;
-  markRead: (id: number) => void;
+  markRead: (notification: AppNotification) => void;
 }
 
 export function useNotifications(enabled: boolean): NotificationsController {
@@ -27,6 +41,9 @@ export function useNotifications(enabled: boolean): NotificationsController {
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  // Ids whose mark-read request is in flight or done, so the same notification
+  // reached through a second, independently loaded copy is a no-op.
+  const markedReadIdsRef = useRef<Set<number>>(new Set());
 
   const reload = useCallback((): void => {
     setReloadToken((token) => token + 1);
@@ -54,7 +71,7 @@ export function useNotifications(enabled: boolean): NotificationsController {
     queueMicrotask(() => {
       if (!cancelled) setIsLoading(true);
     });
-    notificationAPI.list()
+    notificationAPI.list({ is_read: false, page_size: NOTIFICATION_DROPDOWN_PAGE_SIZE })
       .then((response) => {
         if (cancelled) return;
         setNotifications(response.data.results);
@@ -72,42 +89,63 @@ export function useNotifications(enabled: boolean): NotificationsController {
     };
   }, [enabled, reloadToken]);
 
-  const markRead = useCallback((id: number): void => {
-    if (!notifications.some((notification) => notification.id === id && !notification.is_read)) {
+  // Takes the notification rather than its id so the history page can mark a
+  // row this controller never loaded (anything past the dropdown's page) and
+  // still have the topbar badge follow along. Because that caller's copy can be
+  // stale — it was fetched separately and still says `is_read: false` — the ids
+  // already handled are remembered here, so a second click on the same
+  // notification cannot decrement the badge twice or re-POST.
+  const markRead = useCallback((notification: AppNotification): void => {
+    if (notification.is_read || markedReadIdsRef.current.has(notification.id)) {
       return;
     }
+    markedReadIdsRef.current.add(notification.id);
     // Applied locally first so the badge reacts immediately; a failing request
-    // only means the row reappears as unread on the next load.
+    // only means the row reappears as unread on the next load, and is then
+    // retryable again.
     setNotifications((previous) => previous.map(
-      (notification) => (notification.id === id ? { ...notification, is_read: true } : notification),
+      (entry) => (entry.id === notification.id ? { ...entry, is_read: true } : entry),
     ));
     setUnreadCount((count) => Math.max(0, count - 1));
-    void notificationAPI.markRead(id).catch(() => undefined);
-  }, [notifications]);
+    void notificationAPI.markRead(notification.id).catch(() => {
+      markedReadIdsRef.current.delete(notification.id);
+    });
+  }, []);
+
+  const unreadNotifications = useMemo(
+    () => notifications.filter((notification) => !notification.is_read),
+    [notifications],
+  );
 
   // Stable identity across renders that don't actually change any of these
   // fields, so consumers (NotificationBell, useNotificationMenuItems) can
   // memoize off the controller instead of re-deriving on every RootLayout
   // render.
   return useMemo(
-    () => ({ notifications, unreadCount, isLoading, hasError, reload, markRead }),
-    [notifications, unreadCount, isLoading, hasError, reload, markRead],
+    () => ({ notifications, unreadNotifications, unreadCount, isLoading, hasError, reload, markRead }),
+    [notifications, unreadNotifications, unreadCount, isLoading, hasError, reload, markRead],
   );
 }
 
 /**
- * What clicking a single notification does, shared by the desktop bell and the
- * compact topbar's menu section: mark exactly that one as read, then open the
- * object it refers to (if it still has one).
+ * What clicking a single notification does, shared by the desktop bell, the
+ * compact topbar's menu section and the history page: mark exactly that one as
+ * read, then open the object it refers to (if it still has one).
  */
 export function useNotificationSelection(
-  controller: NotificationsController,
+  controller: NotificationsController | null,
 ): (notification: AppNotification) => void {
   const navigate = useNavigate();
-  const { markRead } = controller;
+  const markRead = controller?.markRead ?? null;
 
   return useCallback((notification: AppNotification): void => {
-    markRead(notification.id);
+    if (markRead) {
+      markRead(notification);
+    } else if (!notification.is_read) {
+      // Rendered without the topbar's controller (no badge to keep in sync);
+      // the row itself still has to be marked read.
+      void notificationAPI.markRead(notification.id).catch(() => undefined);
+    }
     const link = getNotificationLink(notification);
     if (link) {
       void navigate(link);

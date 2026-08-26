@@ -51,6 +51,53 @@ class NotificationViewSetTest(DRFAPITestCase):
         self.assertEqual(response.data['unread_count'], 2)
         self.assertNotIn('Not mine', [item['context'].get('name') for item in response.data['results']])
 
+    def test_filters_by_is_read_while_the_unread_count_stays_account_wide(self):
+        unread = self._create(self.user, name='Unread')
+        self._create(self.user, name='Read one', is_read=True)
+        self._create(self.other_user, name='Not mine')
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/openfarmplanner/api/notifications/?is_read=false')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['id'] for item in response.data['results']], [unread.id])
+        # The dropdown lists the filtered rows but badges the whole account, so
+        # the count must not follow the filter.
+        self.assertEqual(response.data['unread_count'], 1)
+
+    def test_unread_filter_reaches_past_the_first_page_of_the_history(self):
+        for index in range(3):
+            self._create(self.user, name=f'Read {index}', is_read=True)
+        buried = self._create(self.user, name='Buried unread')
+        for index in range(3):
+            self._create(self.user, name=f'Newer read {index}', is_read=True)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/openfarmplanner/api/notifications/?is_read=false&page_size=2')
+
+        self.assertEqual([item['id'] for item in response.data['results']], [buried.id])
+
+    def test_ignores_an_unparsable_is_read_value(self):
+        self._create(self.user, name='Unread')
+        self._create(self.user, name='Read one', is_read=True)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get('/openfarmplanner/api/notifications/?is_read=maybe')
+
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_is_read_parameter_does_not_block_marking_as_read(self):
+        notification = self._create(self.user)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            f'/openfarmplanner/api/notifications/{notification.id}/read/?is_read=true',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
     def test_marking_one_as_read_lowers_the_unread_count(self):
         notification = self._create(self.user)
         self._create(self.user, name='Still unread')

@@ -1,3 +1,5 @@
+import type { NotificationsController } from '../notifications/useNotifications';
+
 /**
  * Shared types for the topbar action contract between the root layout and pages.
  *
@@ -35,4 +37,10 @@ export interface RootLayoutOutletContext {
   setTopbarTitleActions: (actions: TopbarContextAction[]) => void;
   /** Start year of the currently active season, once loaded; null while loading or without a project/season. */
   activeSeasonYear: number | null;
+  /**
+   * The single notification controller the topbar owns. Handed to pages so the
+   * notification history page marks rows read through the same state the bell's
+   * unread badge reads from, instead of a second copy that would drift.
+   */
+  notifications: NotificationsController;
 }

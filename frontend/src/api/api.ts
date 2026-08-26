@@ -163,8 +163,14 @@ export const cultureAPI = {
 };
 
 export const notificationAPI = {
-  /** Newest first; the unread count rides along so the bell needs one request. */
-  list: () => http.get<NotificationListResponse>('/notifications/'),
+  /**
+   * Newest first; the unread count rides along so the bell needs one request.
+   * `is_read` narrows the rows (the dropdowns ask for unread only) while the
+   * count stays account-wide; the history page pages through the same endpoint
+   * unfiltered.
+   */
+  list: (params?: { page?: number; page_size?: number; is_read?: boolean }) =>
+    http.get<NotificationListResponse>('/notifications/', { params }),
   markRead: (id: number) => http.post<AppNotification>(`/notifications/${id}/read/`),
 };
 

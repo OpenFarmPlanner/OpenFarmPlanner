@@ -11,3 +11,16 @@ export const ACTION_MENU_ICON_PROPS = { fontSize: 'small' } as const;
 // complete, unclipped circle. See commit a2a2f6fd for why the ancestors'
 // `overflow` can't be the fix instead.
 export const TOPBAR_BADGE_SX = { '& .MuiBadge-badge': { top: 6 } } as const;
+
+// Section label rows inside the topbar menus ("APP", "SPRACHE", "ACCOUNT",
+// "BENACHRICHTIGUNGEN", "PROJEKTAKTIONEN"). They are `MenuItem`s only so MUI
+// keeps them in the list it renders; as labels they are never a touch target,
+// so the item's default minimum height is dropped in favour of compact padding.
+export const MENU_SECTION_LABEL_SX = {
+  opacity: 1,
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
+  minHeight: 0,
+  py: 0.25,
+} as const;

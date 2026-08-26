@@ -54,7 +54,9 @@ server-side through `notifications.services.create_notification`.
 
 - `GET /api/notifications/` — paginated, newest first, with `unread_count`
   folded into the same payload. The bell needs both numbers on every app load,
-  and one request beats two.
+  and one request beats two. `?is_read=false` narrows the rows (what the
+  dropdowns request); `unread_count` deliberately stays account-wide, so the
+  badge never disagrees with the list it sits on.
 - `POST /api/notifications/<id>/read/` — marks exactly one as read. Someone
   else's id 404s (it is filtered out of the queryset, not merely rejected).
 
@@ -116,7 +118,7 @@ boundary.
 
 - `NotificationBell.tsx` — the **full topbar** only: an icon with an unread
   `Badge` (no badge at zero, which is MUI's default for `badgeContent={0}`)
-  and a `Menu` of entries.
+  and a `Menu` of the unread entries plus a link to the full history.
 - `useNotificationMenuItems.tsx` — the same entries as items of the **compact
   topbar's** "Mehr" (⋮) menu, with the unread `Badge` moved onto that menu's
   own button. The compact topbar has no room for another icon: adding a
@@ -133,16 +135,54 @@ boundary.
   points, so the list is fetched once regardless of breakpoint.
 - `useNotifications.ts` — loads on mount, again on every dropdown open, and
   after `notifications.updated` WebSocket invalidations. While the socket is
-  unavailable it falls back to the shared low-frequency polling behaviour.
-  Mark-read is applied optimistically so the badge reacts immediately.
-- `notificationDisplay.ts` — type + context → localized text, and
-  target → in-app route.
+  unavailable it falls back to the shared low-frequency polling behaviour. It
+  asks the backend for **unread** rows only (see below). Mark-read is applied
+  optimistically so the badge reacts immediately.
+- `NotificationItemContent.tsx` — the message + relative time of one row,
+  shared by all three surfaces so unread emphasis and timestamp formatting
+  cannot drift apart. `showUnreadDot` is off in the dropdowns (every row there
+  is unread, so a dot per row says nothing) and on in the history list, which
+  mixes both states.
+- `pages/NotificationHistoryPage.tsx` + `useNotificationHistory.ts` — the full
+  archive at `/app/notifications`, read and unread alike, paged 20 at a time
+  through the same list endpoint. The page is account-scoped, so it is listed
+  in `PROJECT_INDEPENDENT_APP_ROUTES` (`navigation/mainNavigation.ts`).
+- `notificationDisplay.ts` — type + context → localized text,
+  target → in-app route, and `NOTIFICATION_HISTORY_ROUTE` as the one place the
+  history path is written down.
 
-Two behaviours are load-bearing and easy to "fix" wrongly:
+**The dropdowns show unread entries only**, filtered by the backend rather
+than out of a page of the full history: the badge counts the whole account, so
+a client-side filter would show an empty dropdown next to a non-zero badge as
+soon as no unread row sits on the newest page. They are the "what is new"
+surface; everything already seen lives on the history page, which both of them
+link to unconditionally (also when nothing is unread, where the list is
+replaced by a plain "keine neuen Benachrichtigungen" hint rather than an alarm
+or an empty section). That is what keeps the dropdown short enough to stay a
+glance instead of a page.
+
+**Marking read has one owner.** The history page holds its own paginated list
+but does *not* call the mark-read endpoint itself: it reuses
+`useNotificationSelection` with the topbar's controller, handed down through
+`RootLayoutOutletContext.notifications`, so clicking a row there moves the
+bell's badge too. `markRead` therefore takes the notification rather than its
+id — the row may be on a page the controller never loaded, and only the row
+itself knows whether it was still unread. Since that copy can be *stale* (the
+history page fetched it before the same row was read in the dropdown), the
+controller also remembers the ids it already handled: replaying one is a
+no-op, never a second badge decrement or a second POST. The outlet context is
+optional like everywhere else in the app; without it the page marks rows read
+directly, and only the badge — which then does not exist — is missed.
+
+Two further behaviours are load-bearing and easy to "fix" wrongly:
 
 - **Opening the dropdown marks nothing as read.** Only clicking one entry
-  does. A bulk "seen" on open would silently bury a decision the user glanced
-  past.
+  does — on the history page exactly as in the dropdowns. A bulk "seen" on
+  open would silently bury a decision the user glanced past.
+- **`GlobalMenu` renders its `Menu` as `variant="menu"`.** MUI's default
+  (`selectedMenu`) hands the initial focus to the *selected* item — the active
+  language, far down the list — and focusing it scrolls the menu there, so the
+  dropdown opened showing its bottom instead of its first section.
 - **Relative timestamps use `Intl.RelativeTimeFormat` with
   `numeric: 'always'`** (`frontend/src/utils/relativeTime.ts`), not translated
   strings. Wording, plural rules and word order differ per language and the

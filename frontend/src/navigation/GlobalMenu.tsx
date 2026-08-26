@@ -7,7 +7,7 @@ import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX } from './topbarMenuStyles';
+import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX, MENU_SECTION_LABEL_SX } from './topbarMenuStyles';
 import { LanguageMenuItems } from '../i18n/LanguageSwitcher';
 import { AppTooltip } from '../components/AppTooltip';
 import type { ReactNode } from 'react';
@@ -99,26 +99,26 @@ export function GlobalMenu(props: GlobalMenuProps) {
 
   const mobileMenuItems = [
     ...(notificationItems ? [
-      <MenuItem key="mobile-section-notifications" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.notifications')}</MenuItem>,
+      <MenuItem key="mobile-section-notifications" disabled sx={MENU_SECTION_LABEL_SX}>{t('globalMenu.notifications')}</MenuItem>,
       ...notificationItems,
       <Divider key="mobile-divider-notifications" />,
     ] : []),
-    <MenuItem key="mobile-section-project" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.projectActions')}</MenuItem>,
+    <MenuItem key="mobile-section-project" disabled sx={MENU_SECTION_LABEL_SX}>{t('globalMenu.projectActions')}</MenuItem>,
     <MenuItem key="mobile-project-switcher" onClick={wrap(onOpenProjectSwitcher)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SwapHorizIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('projectSwitcher.ariaLabel')}</MenuItem>,
     <MenuItem key="mobile-project-create" onClick={wrap(onOpenCreateProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><AddIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.create')}</MenuItem>,
     <MenuItem key="mobile-project-settings" onClick={wrap(onOpenProjectSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('project.settings')}</MenuItem>,
     <MenuItem key="mobile-project-history" onClick={wrapAsync(onOpenProjectHistory)} disabled={historyLoading}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HistoryOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.openVersionHistory')}</MenuItem>,
     <Divider key="mobile-divider-project-app" />,
-    <MenuItem key="mobile-section-app" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.app')}</MenuItem>,
+    <MenuItem key="mobile-section-app" disabled sx={MENU_SECTION_LABEL_SX}>{t('globalMenu.app')}</MenuItem>,
     <MenuItem key="mobile-app-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
     pageHelpItem,
     <MenuItem key="mobile-app-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
     <MenuItem key="mobile-app-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="mobile-divider-app-language" />,
-    <MenuItem key="mobile-section-language" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('language.label')}</MenuItem>,
+    <MenuItem key="mobile-section-language" disabled sx={MENU_SECTION_LABEL_SX}>{t('language.label')}</MenuItem>,
     <LanguageMenuItems key="mobile-language-items" onSelected={onClose} />,
     <Divider key="mobile-divider-app-account" />,
-    <MenuItem key="mobile-section-account" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('globalMenu.account')}</MenuItem>,
+    <MenuItem key="mobile-section-account" disabled sx={MENU_SECTION_LABEL_SX}>{t('globalMenu.account')}</MenuItem>,
     canLeaveDemoProject ? <MenuItem key="mobile-account-leave-demo" onClick={wrapAsync(onLeaveDemoProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><ExitToAppIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.leaveDemo')}</MenuItem> : null,
     !isGuestDemoSession ? <MenuItem key="mobile-account-logout" onClick={wrapAsync(onLogout)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><LogoutIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.logout')} {userLabel}</MenuItem> : null,
   ];
@@ -128,7 +128,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <Divider key="desktop-divider-project" />,
     <MenuItem key="desktop-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="desktop-divider-language" />,
-    <MenuItem key="desktop-section-language" disabled sx={{ opacity: 1, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('language.label')}</MenuItem>,
+    <MenuItem key="desktop-section-language" disabled sx={MENU_SECTION_LABEL_SX}>{t('language.label')}</MenuItem>,
     <LanguageMenuItems key="desktop-language-items" onSelected={onClose} />,
     <Divider key="desktop-divider-language-end" />,
     <MenuItem key="desktop-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
@@ -136,5 +136,19 @@ export function GlobalMenu(props: GlobalMenuProps) {
     canLeaveDemoProject ? <MenuItem key="desktop-leave-demo" onClick={wrapAsync(onLeaveDemoProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><ExitToAppIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.leaveDemo')}</MenuItem> : null,
     !isGuestDemoSession ? <MenuItem key="desktop-logout" onClick={wrapAsync(onLogout)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><LogoutIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.logout')} {userLabel}</MenuItem> : null,
   ];
-  return <Menu id="global-actions-menu" anchorEl={anchorEl} open={open} onClose={onClose}>{isMobile ? mobileMenuItems : desktopMenuItems}</Menu>;
+  // `variant="menu"` rather than MUI's default `selectedMenu`: the latter moves
+  // the initial focus onto the *selected* item — the active language, which
+  // sits far down the list — and focusing it scrolls the menu there, so the
+  // dropdown opened showing its bottom instead of its first section.
+  return (
+    <Menu
+      id="global-actions-menu"
+      variant="menu"
+      anchorEl={anchorEl}
+      open={open}
+      onClose={onClose}
+    >
+      {isMobile ? mobileMenuItems : desktopMenuItems}
+    </Menu>
+  );
 }
