@@ -15,7 +15,18 @@ if [[ -z "${LAN_IP}" ]]; then
   exit 1
 fi
 
-export DEBUG="${DEBUG:-True}"
+case "${DEBUG:-}" in
+  ""|True|true|1|yes|Yes)
+    export DEBUG=True
+    ;;
+  False|false|0|no|No)
+    export DEBUG=False
+    ;;
+  *)
+    echo "Ignoring unsupported ambient DEBUG=${DEBUG}; using DEBUG=True for LAN development." >&2
+    export DEBUG=True
+    ;;
+esac
 export DJANGO_ENV="${DJANGO_ENV:-development}"
 export DEV_LAN_HOSTS="${DEV_LAN_HOSTS:-${LAN_IP}}"
 export ALLOWED_HOSTS="${ALLOWED_HOSTS:-localhost,127.0.0.1,${LAN_IP}}"
