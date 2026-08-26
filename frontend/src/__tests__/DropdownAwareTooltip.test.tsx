@@ -21,4 +21,24 @@ describe('DropdownAwareTooltip', () => {
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
   });
+
+  it('allows a normal field tooltip after a dropdown trigger had focus', async () => {
+    render(
+      <>
+        <DropdownAwareTooltip title="Dropdown-Hilfe">
+          <Button role="combobox" aria-haspopup="listbox">
+            Einheit
+          </Button>
+        </DropdownAwareTooltip>
+        <DropdownAwareTooltip title="Normale Hilfe">
+          <Button>Normales Feld</Button>
+        </DropdownAwareTooltip>
+      </>
+    );
+
+    fireEvent.focusIn(screen.getByRole('combobox'));
+    fireEvent.mouseOver(screen.getByRole('button', { name: 'Normale Hilfe' }));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Normale Hilfe');
+  });
 });

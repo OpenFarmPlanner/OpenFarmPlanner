@@ -6,10 +6,19 @@ import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotifications, type NotificationsController } from '../notifications/useNotifications';
 import type { AppNotification } from '../api/types';
 
-const { notificationListMock, notificationMarkReadMock, navigateMock } = vi.hoisted(() => ({
+const {
+  notificationListMock,
+  notificationMarkReadMock,
+  navigateMock,
+  webSocketSubscriptions,
+} = vi.hoisted(() => ({
   notificationListMock: vi.fn(),
   notificationMarkReadMock: vi.fn(),
   navigateMock: vi.fn(),
+  webSocketSubscriptions: [] as Array<{
+    onEvent: (event: { type: string; [key: string]: unknown }) => void;
+    path: string | null;
+  }>,
 }));
 
 vi.mock('../api/api', async () => {
@@ -27,6 +36,15 @@ vi.mock('react-router', async () => {
   const actual = await vi.importActual<typeof import('react-router')>('react-router');
   return { ...actual, useNavigate: () => navigateMock };
 });
+
+vi.mock('../realtime/useWebSocket', () => ({
+  useWebSocket: vi.fn((options: {
+    onEvent: (event: { type: string; [key: string]: unknown }) => void;
+    path: string | null;
+  }) => {
+    webSocketSubscriptions.push({ onEvent: options.onEvent, path: options.path });
+  }),
+}));
 
 const notification = (overrides: Partial<AppNotification> = {}): AppNotification => ({
   id: 1,
@@ -58,6 +76,7 @@ describe('NotificationBell', () => {
     notificationListMock.mockReset();
     notificationMarkReadMock.mockReset();
     navigateMock.mockReset();
+    webSocketSubscriptions.length = 0;
     notificationMarkReadMock.mockResolvedValue({ data: notification({ is_read: true }) });
     notificationListMock.mockResolvedValue({
       data: { count: 1, next: null, previous: null, results: [notification()], unread_count: 1 },
@@ -168,5 +187,28 @@ describe('NotificationBell', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Benachrichtigungen' }));
 
     expect(await screen.findByText('Benachrichtigungen konnten nicht geladen werden.')).toBeInTheDocument();
+  });
+
+  it('reloads when the notification WebSocket reports a change', async () => {
+    notificationListMock
+      .mockResolvedValueOnce({
+        data: { count: 0, next: null, previous: null, results: [], unread_count: 0 },
+      })
+      .mockResolvedValueOnce({
+        data: { count: 1, next: null, previous: null, results: [notification()], unread_count: 1 },
+      });
+
+    renderBell();
+
+    await screen.findByRole('button', { name: 'Benachrichtigungen' });
+    expect(webSocketSubscriptions.at(-1)?.path).toBe('ws/notifications/');
+
+    webSocketSubscriptions.at(-1)?.onEvent({
+      type: 'notifications.updated',
+      notification_id: 1,
+    });
+
+    await waitFor(() => expect(notificationListMock).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('button', { name: /Benachrichtigungen \(1 ungelesen\)/i })).toBeInTheDocument();
   });
 });

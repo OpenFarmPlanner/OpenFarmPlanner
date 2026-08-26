@@ -1,10 +1,8 @@
 /**
  * Loads the signed-in user's **unread** notifications for the topbar bell.
  *
- * Fetched once on mount and again whenever the dropdown is opened, rather than
- * polled: notifications here are the outcome of a human moderation decision,
- * so a refresh on open is timely enough and costs one request instead of one
- * per interval for every open tab.
+ * Fetched once on mount, whenever the dropdown is opened, and when the
+ * authenticated user's WebSocket stream reports that notifications changed.
  *
  * The unread filter is applied by the backend, not here: picking the unread
  * rows out of one page of the full history would show an empty dropdown next
@@ -16,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { notificationAPI } from '../api/api';
 import type { AppNotification } from '../api/types';
+import { useWebSocket, type WebSocketEvent } from '../realtime/useWebSocket';
 import { getNotificationLink } from './notificationDisplay';
 
 /** How many unread rows the dropdown loads; the badge always counts them all. */
@@ -46,6 +45,22 @@ export function useNotifications(enabled: boolean): NotificationsController {
   // reached through a second, independently loaded copy is a no-op.
   const markedReadIdsRef = useRef<Set<number>>(new Set());
 
+  const reload = useCallback((): void => {
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  const handleNotificationEvent = useCallback((event: WebSocketEvent): void => {
+    if (event.type === 'notifications.updated') {
+      reload();
+    }
+  }, [reload]);
+
+  useWebSocket({
+    path: enabled ? 'ws/notifications/' : null,
+    onEvent: handleNotificationEvent,
+    onFallbackPoll: reload,
+  });
+
   useEffect(() => {
     if (!enabled) {
       return undefined;
@@ -73,10 +88,6 @@ export function useNotifications(enabled: boolean): NotificationsController {
       cancelled = true;
     };
   }, [enabled, reloadToken]);
-
-  const reload = useCallback((): void => {
-    setReloadToken((token) => token + 1);
-  }, []);
 
   // Takes the notification rather than its id so the history page can mark a
   // row this controller never loaded (anything past the dropdown's page) and
@@ -117,9 +128,9 @@ export function useNotifications(enabled: boolean): NotificationsController {
 }
 
 /**
- * What clicking a single notification does, shared by the desktop bell and the
- * compact topbar's menu section: mark exactly that one as read, then open the
- * object it refers to (if it still has one).
+ * What clicking a single notification does, shared by the desktop bell, the
+ * compact topbar's menu section and the history page: mark exactly that one as
+ * read, then open the object it refers to (if it still has one).
  */
 export function useNotificationSelection(
   controller: NotificationsController | null,

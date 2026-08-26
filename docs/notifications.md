@@ -88,6 +88,30 @@ kind opens the same page.
 `create_notification` skips missing and inactive recipients, so producers do
 not each re-implement that check.
 
+## Real-time invalidation
+
+Signed-in clients can subscribe to:
+
+```text
+/<URL_PREFIX>/ws/notifications/
+```
+
+The consumer accepts only authenticated Django sessions and joins a group
+derived from `request.user.id`, never from a client-supplied id. When a
+`Notification` row is created, updated, or deleted, a post-commit signal emits:
+
+```json
+{
+  "type": "notifications.updated",
+  "notification_id": 123
+}
+```
+
+The event is an invalidation only. The frontend reloads `/api/notifications/`
+after receiving it, so list ordering, unread counts, localization inputs, and
+target links remain controlled by the existing REST serializer and permission
+boundary.
+
 ## Frontend
 
 `frontend/src/notifications/`
@@ -109,11 +133,11 @@ not each re-implement that check.
   given.
 - `RootLayout` owns one `useNotifications` controller and feeds both entry
   points, so the list is fetched once regardless of breakpoint.
-- `useNotifications.ts` — loads on mount and again on every dropdown open.
-  Deliberately **not** polled: these are the outcome of a human moderation
-  decision, so a refresh on open is timely enough and costs one request rather
-  than one per interval per open tab. Mark-read is applied optimistically so
-  the badge reacts immediately.
+- `useNotifications.ts` — loads on mount, again on every dropdown open, and
+  after `notifications.updated` WebSocket invalidations. While the socket is
+  unavailable it falls back to the shared low-frequency polling behaviour. It
+  asks the backend for **unread** rows only (see below). Mark-read is applied
+  optimistically so the badge reacts immediately.
 - `NotificationItemContent.tsx` — the message + relative time of one row,
   shared by all three surfaces so unread emphasis and timestamp formatting
   cannot drift apart. `showUnreadDot` is off in the dropdowns (every row there
