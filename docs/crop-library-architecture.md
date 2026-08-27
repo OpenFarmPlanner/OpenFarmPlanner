@@ -787,8 +787,20 @@ empty-`variety`) published entry yet, the backend
 creates one automatically from the culture's own current values, in the same
 transaction as the variety publish. If a general entry already exists for
 that species, it is left untouched — publishing a variety never overwrites
-another contributor's general data. `publish_as_general=True` remains
-supported by the backend (and by `publishPreview`/`publishPublic` in
+another contributor's general data.
+
+The auto-created entry takes its **values** from the Sorte, but records the
+project's own general Kultur (when the project has one) as its
+`source_project_culture`. That link is what the culture list reads back as
+`owned_public_culture_id`, so the Kultur the user sees as published is
+recognized as published: its overflow menu offers "Kulturbibliothek
+aktualisieren" with the usual block reasons instead of "Veröffentlichen", and
+a later publish from that Kultur updates the existing entry instead of
+tripping the duplicate check. Without a general Kultur in the project there is
+no other row to own the entry, so it stays linked to the Sorte. Migration
+`0093_relink_general_public_cultures` re-points entries created before this.
+
+`publish_as_general=True` remains supported by the backend (and by `publishPreview`/`publishPublic` in
 `api/api.ts`) for backward compatibility, but the wizard no longer sends it.
 
 `build_publishing_check_result()` also returns an optional

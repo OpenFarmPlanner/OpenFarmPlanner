@@ -32,7 +32,7 @@ from farm.models import (
 # The local Kultur/Sorte grouping is a farm-app concern this module deliberately
 # does not re-implement: it only calls the service that owns it whenever
 # publishing links a project culture to a crop species.
-from farm.services.culture_inheritance import sync_crop_species_across_culture_group
+from farm.services.culture_inheritance import get_general_culture, sync_crop_species_across_culture_group
 
 User = get_user_model()
 
@@ -443,13 +443,27 @@ def normalize_identity_value(value: str | None) -> str:
     return compacted.lower()
 
 
-def build_public_culture_payload(culture: Culture, *, public_variety: str | None = None) -> dict[str, Any]:
+def build_public_culture_payload(
+    culture: Culture,
+    *,
+    public_variety: str | None = None,
+    source_culture: Culture | None = None,
+) -> dict[str, Any]:
+    """The public-entry fields taken from ``culture``.
+
+    ``source_culture`` overrides which project culture the entry records as its
+    origin. It differs from ``culture`` only when a Sorte's publish creates the
+    species-level entry alongside it: the values come from the Sorte, but the
+    entry belongs to the project's general Kultur, which is the row that later
+    updates it (see :func:`ensure_general_public_culture`).
+    """
     payload = _copy_fields(culture)
     if public_variety is not None:
         payload['variety'] = public_variety
     payload['seed_packages'] = _seed_packages_payload_from_culture(culture)
-    payload['source_project_culture'] = culture
-    payload['source_project'] = culture.project
+    origin_culture = source_culture or culture
+    payload['source_project_culture'] = origin_culture
+    payload['source_project'] = origin_culture.project
     payload['published_at'] = timezone.now()
     return payload
 
@@ -803,6 +817,11 @@ def ensure_general_public_culture(
     Publishing a variety must never touch an *existing* general entry — other
     contributors may already have curated it — so this is a no-op whenever one
     is found, regardless of how different `culture`'s own values are.
+
+    The entry's values come from the Sorte, but it is recorded as originating
+    from the project's general Kultur when there is one: that row is what the
+    user sees as the published Kultur afterwards, so it must be the row that
+    owns and updates the entry.
     """
     if find_general_public_culture(crop_species) is not None:
         return None
@@ -813,7 +832,11 @@ def ensure_general_public_culture(
         version=1,
         crop_species=crop_species,
         original_language_code=original_language_code,
-        **build_public_culture_payload(culture, public_variety=''),
+        **build_public_culture_payload(
+            culture,
+            public_variety='',
+            source_culture=get_general_culture(culture),
+        ),
     )
     sync_original_language_translation(public_culture)
     _record_public_culture_status_event(

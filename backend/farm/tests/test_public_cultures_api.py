@@ -432,6 +432,95 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(existing_general.growth_duration_days, 99)
         self.assertEqual(existing_general.version, 1)
 
+    def _create_general_kultur(self, **overrides) -> Culture:
+        return Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=overrides.pop('growth_duration_days', 60),
+            harvest_duration_days=overrides.pop('harvest_duration_days', 30),
+            project=self.project,
+            **overrides,
+        )
+
+    def test_publishing_a_sorte_records_the_general_kultur_as_the_entry_owner(self):
+        """The species-level entry belongs to the Kultur, not to the Sorte.
+
+        Publishing a Sorte creates the species-level entry alongside it. If that
+        entry kept pointing at the Sorte, the Kultur the user then sees as
+        published would not be recognized as published at all and its menu would
+        keep offering "publish" instead of "update library".
+        """
+        general_kultur = self._create_general_kultur()
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general_public_culture = PublicCulture.objects.get(variety='')
+        self.assertEqual(general_public_culture.source_project_culture, general_kultur)
+        self.assertEqual(general_public_culture.source_project, self.project)
+        self.assertEqual(
+            PublicCulture.objects.get(variety='Bijella').source_project_culture,
+            self.culture,
+        )
+
+    def test_publishing_a_sorte_without_a_general_kultur_keeps_the_sorte_as_owner(self):
+        """Nothing else can own the entry when the project has no general Kultur."""
+        self.publish_current_culture()
+
+        self.assertEqual(PublicCulture.objects.get(variety='').source_project_culture, self.culture)
+
+    def test_general_kultur_published_through_a_sorte_offers_a_library_update(self):
+        """The menu state the frontend derives must match a directly published Kultur."""
+        general_kultur = self._create_general_kultur()
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        general_row = rows[general_kultur.id]
+        general_public_culture = PublicCulture.objects.get(variety='')
+        self.assertEqual(general_row['owned_public_culture_id'], general_public_culture.id)
+        self.assertEqual(general_row['owned_public_culture_role'], 'contributor')
+        # The entry carries the Sorte's values, so the Kultur still has
+        # something of its own to contribute and the action stays enabled.
+        self.assertIsNone(general_row['public_publish_blocked_reason'])
+
+    def test_general_kultur_published_through_a_sorte_reports_no_local_changes(self):
+        """With identical values there is nothing to contribute, exactly as for a Sorte."""
+        # Same values as the Sorte the entry was published from, so the
+        # published fields of both sides match.
+        general_kultur = self._create_general_kultur(
+            growth_duration_days=self.culture.growth_duration_days,
+            harvest_duration_days=self.culture.harvest_duration_days,
+            notes=self.culture.notes,
+            display_color=self.culture.display_color,
+        )
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[general_kultur.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+    def test_publishing_the_general_kultur_updates_the_entry_created_by_the_sorte(self):
+        general_kultur = self._create_general_kultur()
+        self.publish_current_culture()
+        general_public_culture = PublicCulture.objects.get(variety='')
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{general_kultur.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+                'publish_as_general': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        general_public_culture.refresh_from_db()
+        self.assertEqual(general_public_culture.growth_duration_days, 60)
+        self.assertEqual(general_public_culture.version, 2)
+
     def test_publishing_one_sorte_keeps_the_local_kultur_group_together(self):
         """Publishing must link the whole Kultur group, not fork off the published Sorte.
 
