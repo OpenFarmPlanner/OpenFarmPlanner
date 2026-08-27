@@ -47,6 +47,50 @@ describe('PublicCropHierarchyList', () => {
     expect(screen.queryByText('Direktsaat')).not.toBeInTheDocument();
   });
 
+  it('shows all varieties in a matched crop group and highlights the search text', async () => {
+    render(
+      <PublicCropHierarchyList
+        cultures={[
+          {
+            id: 10,
+            status: 'published',
+            name: 'Tomate',
+            variety: '',
+            crop_species_name: 'Tomate',
+            version: 1,
+          },
+          {
+            id: 11,
+            status: 'published',
+            name: 'Tomate',
+            variety: 'Roma',
+            crop_species_name: 'Tomate',
+            version: 1,
+          },
+          {
+            id: 12,
+            status: 'published',
+            name: 'Tomate',
+            variety: 'Cherry',
+            crop_species_name: 'Tomate',
+            version: 1,
+          },
+        ]}
+        selectedCultureId={11}
+        isSpeciesView={false}
+        onSelect={vi.fn()}
+        ariaLabel="Crop library"
+        searchQuery="rom"
+      />,
+    );
+
+    expect(await screen.findByRole('option', { name: 'Tomate (Roma)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Tomate' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Tomate (Cherry)' })).toBeInTheDocument();
+    expect(screen.getByText('(2)')).toBeInTheDocument();
+    expect(screen.getByText('Rom').tagName.toLowerCase()).toBe('mark');
+  });
+
   it('shows only the pending-suggestion icon for a species with a single pending variety', async () => {
     const pendingCultures: PublicCulture[] = [{
       id: 3,

@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
@@ -59,9 +60,11 @@ import { useTranslation } from '../../i18n';
 import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
-import { findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
+import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
+import { filterCultureGroupsForSearch } from '../../cultures/cultureGroupSearch';
 import { CultureForm } from '../../cultures/CultureForm';
 import { CultureTitleSelectorButton } from '../../cultures/CultureTitleSelectorButton';
+import { CultureVarietiesOverview } from '../../cultures/CultureVarietiesOverview';
 import {
   buildPublicCultureUpdatePayload,
   publicCultureToCultureFormData,
@@ -85,6 +88,10 @@ import { VarietyValueLegend } from '../../cultures/VarietyValueLegend';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
 import { CropSpeciesPendingChip } from '../../cultures/CropSpeciesPendingChip';
 import { isCropSpeciesPending } from '../../cultures/cropSpeciesPending';
+import {
+  normalizePublicCultureSearchQuery,
+  publicCultureMatchesSearchQuery,
+} from '../../cultures/publicCultureSearchMatch';
 import { PublicCultureFiltersPopover } from '../components/PublicCultureFiltersPopover';
 import {
   EMPTY_PUBLIC_CULTURE_FILTERS,
@@ -385,9 +392,19 @@ export default function PublicCropLibraryPage() {
     [cultures, selectedCultureId],
   );
   const libraryFilterOptions = useMemo(() => getPublicCultureFilterOptions(cultures), [cultures]);
-  const filteredLibraryCultures = useMemo(
+  const normalizedSearchQuery = normalizePublicCultureSearchQuery(query);
+  const filterMatchingLibraryCultures = useMemo(
     () => cultures.filter((culture) => matchesPublicCultureFilters(culture, libraryFilters)),
     [cultures, libraryFilters],
+  );
+  const filteredLibraryCultures = useMemo(
+    () => filterCultureGroupsForSearch({
+      cultures,
+      filterMatchingCultures: filterMatchingLibraryCultures,
+      normalizedSearchQuery,
+      matchesSearchQuery: publicCultureMatchesSearchQuery,
+    }).filteredCultures,
+    [cultures, filterMatchingLibraryCultures, normalizedSearchQuery],
   );
   const selectedCultureSpeciesKey = selectedCulture ? getCropSpeciesKey(selectedCulture) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCulture && !(selectedCulture.variety || '').trim());
@@ -413,6 +430,31 @@ export default function PublicCropLibraryPage() {
   const editFormCulture = useMemo(
     () => (selectedCulture ? publicCultureToCultureFormData(selectedCulture) : undefined),
     [selectedCulture],
+  );
+  const publicCropHierarchyItems = useMemo(
+    () => buildCropHierarchy(cultures),
+    [cultures],
+  );
+  const publicVarietySiblings = useMemo(
+    () => (
+      selectedCultureSpeciesKey
+        ? publicCropHierarchyItems.filter((item) => (
+          item.kind === 'variety'
+          && item.speciesKey === selectedCultureSpeciesKey
+          && item.culture?.id !== selectedCulture?.id
+        ))
+        : []
+    ),
+    [publicCropHierarchyItems, selectedCulture, selectedCultureSpeciesKey],
+  );
+  const publicVarietyRows = useMemo(
+    () => publicVarietySiblings
+      .filter((variety): variety is typeof variety & { culture: PublicCulture } => Boolean(variety.culture))
+      .map((variety) => ({
+        culture: publicCultureToCultureFormData(variety.culture),
+        label: variety.label,
+      })),
+    [publicVarietySiblings],
   );
   const selectedSpeciesCulture = useMemo(
     () => findSpeciesCulture(selectedCulture, cultures),
@@ -734,14 +776,14 @@ export default function PublicCropLibraryPage() {
     }, 0);
   }, [cultures.length, loadStatus, selectedCultureId]);
 
-  const loadCultures = useCallback(async (searchQuery: string): Promise<void> => {
+  const loadCultures = useCallback(async (): Promise<void> => {
     const requestId = cultureListRequestIdRef.current + 1;
     cultureListRequestIdRef.current = requestId;
     setLoadStatus('loading');
     setLoadError('');
     try {
-      const response = await publicCultureAPI.list(searchQuery.trim() ? { q: searchQuery.trim() } : undefined);
-      let results = response.data.results;
+      const response = await publicCultureAPI.listAll();
+      let results = response.results;
       const currentSelectedCultureId = selectedCultureIdRef.current;
       if (currentSelectedCultureId !== null && !results.some((culture) => culture.id === currentSelectedCultureId)) {
         try {
@@ -833,11 +875,8 @@ export default function PublicCropLibraryPage() {
   });
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      void loadCultures(query);
-    }, query.trim() ? 250 : 0);
-    return () => window.clearTimeout(timeout);
-  }, [loadCultures, query]);
+    void loadCultures();
+  }, [loadCultures]);
 
   useEffect(() => {
     if (selectedCultureId === null) {
@@ -949,7 +988,6 @@ export default function PublicCropLibraryPage() {
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    void loadCultures(query);
   };
 
   const performImport = useCallback(async (
@@ -1084,7 +1122,7 @@ export default function PublicCropLibraryPage() {
       setRemoveDialogOpen(false);
       setRemoveReason('');
       updateSelectedCultureId(null);
-      await loadCultures(query);
+      await loadCultures();
     } catch {
       showGlobalSnackbar({ message: t('library.removeError'), severity: 'error' });
     } finally {
@@ -1132,17 +1170,19 @@ export default function PublicCropLibraryPage() {
   // see into the imported spec factory to know the callback is only stored, not
   // invoked, so it assumes the ref could be read during render. The ref is only
   // ever touched when the command runs.
-  // eslint-disable-next-line react-hooks/refs
-  const commandSpecs = useMemo(() => createPublicCropLibraryCommandSpecs({
-    t,
-    cultures,
-    focusSearch,
-    goToRelativeCulture,
-    handleImport: () => void handleImport(),
-    openEditDialog,
-    selectedCulture,
-    importing: importingId !== null,
-  }), [cultures, focusSearch, goToRelativeCulture, handleImport, importingId, openEditDialog, selectedCulture, t]);
+  const commandSpecs = useMemo(() => (
+    // eslint-disable-next-line react-hooks/refs
+    createPublicCropLibraryCommandSpecs({
+      t,
+      cultures,
+      focusSearch,
+      goToRelativeCulture,
+      handleImport: () => void handleImport(),
+      openEditDialog,
+      selectedCulture,
+      importing: importingId !== null,
+    })
+  ), [cultures, focusSearch, goToRelativeCulture, handleImport, importingId, openEditDialog, selectedCulture, t]);
 
   useRegisterCommands('public-crop-library-page', commandSpecs);
 
@@ -1503,25 +1543,41 @@ export default function PublicCropLibraryPage() {
                   label={t('library.searchLabel')}
                   size="small"
                   fullWidth
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <IconButton
-                          size="small"
-                          onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
-                          aria-expanded={isLibraryFilterPopoverOpen}
-                          aria-haspopup="dialog"
-                          aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
-                          aria-label={t('filters.openAdvanced')}
-                          sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
-                        >
-                          <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
-                            <TuneIcon fontSize="small" />
-                          </Badge>
-                        </IconButton>
-                      ),
-                    }
-                  }}
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <>
+                            {query ? (
+                              <AppTooltip title={t('clearSearch')}>
+                                <IconButton
+                                  size="small"
+                                  aria-label={t('clearSearch')}
+                                  onClick={() => {
+                                    setQuery('');
+                                    searchInputRef.current?.focus();
+                                  }}
+                                >
+                                  <CloseIcon fontSize="small" />
+                                </IconButton>
+                              </AppTooltip>
+                            ) : null}
+                            <IconButton
+                              size="small"
+                              onClick={(event) => setLibraryFilterAnchorEl(event.currentTarget)}
+                              aria-expanded={isLibraryFilterPopoverOpen}
+                              aria-haspopup="dialog"
+                              aria-controls={isLibraryFilterPopoverOpen ? 'public-culture-filters-popover' : undefined}
+                              aria-label={t('filters.openAdvanced')}
+                              sx={{ bgcolor: activeLibraryFilterCount > 0 ? 'action.selected' : 'transparent' }}
+                            >
+                              <Badge color="primary" badgeContent={activeLibraryFilterCount > 0 ? activeLibraryFilterCount : null}>
+                                <TuneIcon fontSize="small" />
+                              </Badge>
+                            </IconButton>
+                          </>
+                        ),
+                      }
+                    }}
                 />
               </Box>
               <PublicCultureFiltersPopover
@@ -1795,16 +1851,31 @@ export default function PublicCropLibraryPage() {
                   </Tabs>
                   <Divider />
 
-                  {activeTab === 0 ? (
-                    <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
-                      {showVarietyValueLegend ? (
-                        <VarietyValueLegend
-                          sampleLabel={t('hierarchy.ownValueLegendSample')}
-                          description={t('hierarchy.ownValueLegendDescription')}
-                        />
-                      ) : null}
+                    {activeTab === 0 ? (
+                      <Stack spacing={2.5} sx={{ p: { xs: 2, sm: 2.5 } }}>
+                        {showVarietyValueLegend ? (
+                          <VarietyValueLegend
+                            sampleLabel={t('hierarchy.ownValueLegendSample')}
+                            description={t('hierarchy.ownValueLegendDescription')}
+                          />
+                        ) : null}
 
-                      <DetailSection title={t('library.page.sections.general')} outlined>
+                        {isSpeciesView && editFormCulture ? (
+                          <>
+                            <CultureVarietiesOverview
+                              varieties={publicVarietyRows}
+                              cropCulture={editFormCulture}
+                              onSelect={(culture) => {
+                                if (culture.id !== undefined) {
+                                  updateSelectedCultureId(culture.id, { replace: false });
+                                }
+                              }}
+                            />
+                            <Divider />
+                          </>
+                        ) : null}
+
+                        <DetailSection title={t('library.page.sections.general')} outlined>
                         <DetailGrid>
                           <DetailRow label={t('library.page.fields.cropSpecies')} value={selectedCultureName.text || t('library.page.notSpecified')} />
                           {!isSpeciesView ? (
@@ -2159,9 +2230,9 @@ export default function PublicCropLibraryPage() {
         </Stack>
       </Box>
       <PublicCultureMobileSelectorDialog
-        open={mobileSelectorOpen}
-        query={query}
-        cultures={cultures}
+          open={mobileSelectorOpen}
+          query={query}
+          cultures={filteredLibraryCultures}
         loading={isCultureLoading}
         error={loadStatus === 'error' ? loadError : ''}
         selectedCultureId={selectedCultureId}

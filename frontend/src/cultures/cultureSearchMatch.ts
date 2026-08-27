@@ -1,11 +1,12 @@
 import { getCultureDisplayName, type CultureDisplayFields } from './cultureDisplay';
+import { normalizeCultureGroupSearchQuery } from './cultureGroupSearch';
 
 /**
  * The needle used by the Kultur search, trimmed and lower-cased. An empty
  * result means "no search term" — every Kultur matches.
  */
 export function normalizeCultureSearchQuery(query: string): string {
-  return query.trim().toLowerCase();
+  return normalizeCultureGroupSearchQuery(query);
 }
 
 function cultureNameMatchesSearchQuery(

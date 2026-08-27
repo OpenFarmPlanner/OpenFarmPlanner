@@ -85,6 +85,7 @@ vi.mock('../api/api', async () => {
     publicCultureAPI: {
       ...actual.publicCultureAPI,
       list: publicCultureApiMocks.list,
+      listAll: publicCultureApiMocks.list,
       get: publicCultureApiMocks.get,
       discussionTopics: publicCultureApiMocks.discussionTopics,
       discussionComments: publicCultureApiMocks.discussionComments,
@@ -266,6 +267,13 @@ function createDeferred<T>(): {
   return { promise, resolve, reject };
 }
 
+const paginated = <T,>(results: T[]) => ({
+  count: results.length,
+  next: null,
+  previous: null,
+  results,
+});
+
 describe('PublicCropLibraryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -275,7 +283,7 @@ describe('PublicCropLibraryPage', () => {
     mockDesktopViewport();
     window.localStorage.clear();
     window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cultureId=1');
-    publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
+    publicCultureApiMocks.list.mockResolvedValue(paginated(publicCultures));
     publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
     publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
     publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
@@ -377,7 +385,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('does not show the empty state while public cultures are still loading', () => {
-    const deferredList = createDeferred<{ data: { results: PublicCulture[] } }>();
+    const deferredList = createDeferred<ReturnType<typeof paginated<PublicCulture>>>();
     publicCultureApiMocks.list.mockReturnValue(deferredList.promise);
 
     renderPage();
@@ -398,33 +406,31 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('uses the project seed layout without package sizes in public crop details', async () => {
-    publicCultureApiMocks.list.mockResolvedValue({
-      data: {
-        results: [{
-          id: 10,
-          status: 'published',
-          name: 'Möhre',
-          variety: 'Nantaise',
-          crop_species_name: 'Möhre',
-          cultivation_types: ['pre_cultivation', 'direct_sowing'],
-          seed_rate_direct_value: 0.014,
-          seed_rate_direct_unit: 'seeds_per_lfm',
-          sowing_calculation_safety_percent_direct: 5,
-          seed_rate_pre_cultivation_value: 1.357,
-          seed_rate_pre_cultivation_unit: 'seeds_per_plant',
-          sowing_calculation_safety_percent_pre_cultivation: 10,
-          thousand_kernel_weight_g: 1.3,
-          seeding_requirement: 4.5,
-          seeding_requirement_type: 'per_sqm',
-          seed_packages: [{ size_value: 250, size_unit: 'g' }],
-          version: 1,
-          original_language_code: 'de',
-          published_at: '2026-07-24T10:00:00Z',
-          created_at: '2026-07-21T08:00:00Z',
-          updated_at: '2026-07-25T12:00:00Z',
-        }],
+    publicCultureApiMocks.list.mockResolvedValue(paginated([
+      {
+        id: 10,
+        status: 'published',
+        name: 'Möhre',
+        variety: 'Nantaise',
+        crop_species_name: 'Möhre',
+        cultivation_types: ['pre_cultivation', 'direct_sowing'],
+        seed_rate_direct_value: 0.014,
+        seed_rate_direct_unit: 'seeds_per_lfm',
+        sowing_calculation_safety_percent_direct: 5,
+        seed_rate_pre_cultivation_value: 1.357,
+        seed_rate_pre_cultivation_unit: 'seeds_per_plant',
+        sowing_calculation_safety_percent_pre_cultivation: 10,
+        thousand_kernel_weight_g: 1.3,
+        seeding_requirement: 4.5,
+        seeding_requirement_type: 'per_sqm',
+        seed_packages: [{ size_value: 250, size_unit: 'g' }],
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
       },
-    });
+    ]));
 
     renderPage(['/app/crop-library?cultureId=10']);
 
@@ -451,54 +457,50 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('marks public variety values as from the crop or own values', async () => {
-    publicCultureApiMocks.list.mockResolvedValue({
-      data: {
-        results: [
-          {
-            id: 20,
-            status: 'published',
-            name: 'Tomate',
-            variety: '',
-            crop_species: 7,
-            crop_species_name: 'Tomate',
-            crop_family: 'Nachtschattengewächse',
-            nutrient_demand: 'high',
-            cultivation_types: ['pre_cultivation'],
-            growth_duration_days: 78,
-            harvest_duration_days: 56,
-            row_spacing_m: 0.80,
-            distance_within_row_m: 0.50,
-            seed_rate_by_cultivation: {
-              pre_cultivation: { value: 1.2, unit: 'seeds_per_plant' },
-            },
-            thousand_kernel_weight_g: 3.1,
-            harvest_method: 'per_plant',
-            expected_yield: 4.5,
-            version: 1,
-            original_language_code: 'de',
-            published_at: '2026-07-24T10:00:00Z',
-            created_at: '2026-07-21T08:00:00Z',
-            updated_at: '2026-07-25T12:00:00Z',
-          },
-          {
-            id: 21,
-            status: 'published',
-            name: 'Tomate',
-            variety: 'Roma',
-            crop_species: 7,
-            crop_species_name: 'Tomate',
-            growth_duration_days: 72,
-            row_spacing_m: 0.70,
-            thousand_kernel_weight_g: 3.2,
-            version: 1,
-            original_language_code: 'de',
-            published_at: '2026-07-24T10:00:00Z',
-            created_at: '2026-07-21T08:00:00Z',
-            updated_at: '2026-07-25T12:00:00Z',
-          },
-        ],
+    publicCultureApiMocks.list.mockResolvedValue(paginated([
+      {
+        id: 20,
+        status: 'published',
+        name: 'Tomate',
+        variety: '',
+        crop_species: 7,
+        crop_species_name: 'Tomate',
+        crop_family: 'Nachtschattengewächse',
+        nutrient_demand: 'high',
+        cultivation_types: ['pre_cultivation'],
+        growth_duration_days: 78,
+        harvest_duration_days: 56,
+        row_spacing_m: 0.80,
+        distance_within_row_m: 0.50,
+        seed_rate_by_cultivation: {
+          pre_cultivation: { value: 1.2, unit: 'seeds_per_plant' },
+        },
+        thousand_kernel_weight_g: 3.1,
+        harvest_method: 'per_plant',
+        expected_yield: 4.5,
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
       },
-    });
+      {
+        id: 21,
+        status: 'published',
+        name: 'Tomate',
+        variety: 'Roma',
+        crop_species: 7,
+        crop_species_name: 'Tomate',
+        growth_duration_days: 72,
+        row_spacing_m: 0.70,
+        thousand_kernel_weight_g: 3.2,
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
+      },
+    ]));
 
     renderPage(['/app/crop-library?cultureId=21']);
 
@@ -512,6 +514,73 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('= gelten nur für diese Sorte.')).toBeInTheDocument();
     expect(screen.queryByText('Eigener Wert')).not.toBeInTheDocument();
     expect(screen.queryByText('Aus der Kultur')).not.toBeInTheDocument();
+  });
+
+  it('shows the shared varieties overview on public crop species details', async () => {
+    const user = userEvent.setup();
+    publicCultureApiMocks.list.mockResolvedValue(paginated([
+      {
+        id: 20,
+        status: 'published',
+        name: 'Tomate',
+        variety: '',
+        crop_species: 7,
+        crop_species_name: 'Tomate',
+        growth_duration_days: 78,
+        harvest_duration_days: 56,
+        thousand_kernel_weight_g: 3.1,
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
+      },
+      {
+        id: 21,
+        status: 'published',
+        name: 'Tomate',
+        variety: 'Roma',
+        crop_species: 7,
+        crop_species_name: 'Tomate',
+        growth_duration_days: 72,
+        thousand_kernel_weight_g: 3.2,
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
+      },
+      {
+        id: 22,
+        status: 'published',
+        name: 'Tomate',
+        variety: 'Cherry',
+        crop_species: 7,
+        crop_species_name: 'Tomate',
+        growth_duration_days: 65,
+        thousand_kernel_weight_g: 2.8,
+        version: 1,
+        original_language_code: 'de',
+        published_at: '2026-07-24T10:00:00Z',
+        created_at: '2026-07-21T08:00:00Z',
+        updated_at: '2026-07-25T12:00:00Z',
+      },
+    ]));
+
+    renderPage(['/app/crop-library?cultureId=20']);
+
+    await screen.findByRole('heading', { level: 2, name: 'Tomate' });
+    expect(screen.getByRole('heading', { name: 'Sorten' })).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('Roma')).toBeInTheDocument();
+    expect(within(table).getByText('Cherry')).toBeInTheDocument();
+    expect(within(table).getByText('72 Tage')).toBeInTheDocument();
+    expect(within(table).getByText('2,8 g')).toBeInTheDocument();
+
+    await user.click(within(table).getByText('Cherry'));
+
+    expect(await screen.findByText('65 Tage')).toBeInTheDocument();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=22');
   });
 
   it('uses the selected public culture title as the mobile selector trigger', async () => {
@@ -613,7 +682,7 @@ describe('PublicCropLibraryPage', () => {
       name: 'Sehr lange Tomatenkultur mit vielen beschreibenden Namensbestandteilen',
       variety: 'Roma Spezial',
     };
-    publicCultureApiMocks.list.mockResolvedValue({ data: { results: [longTitleCulture] } });
+    publicCultureApiMocks.list.mockResolvedValue(paginated([longTitleCulture]));
     mockMobileViewport();
 
     renderPage(['/app/crop-library?cultureId=3']);
@@ -637,7 +706,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('shows a compact, single-surface empty state before any culture is selected', async () => {
-    publicCultureApiMocks.list.mockResolvedValue({ data: { results: [] } });
+    publicCultureApiMocks.list.mockResolvedValue(paginated([]));
     renderPage();
 
     await screen.findByText('Keine öffentlichen Kulturen gefunden.');
@@ -1712,9 +1781,21 @@ describe('PublicCropLibraryPage', () => {
 
     await user.keyboard('{ArrowDown}');
 
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowUp}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
     });
 
     await user.keyboard('{ArrowUp}');
@@ -1737,6 +1818,12 @@ describe('PublicCropLibraryPage', () => {
 
     await user.keyboard('{ArrowDown}');
 
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
@@ -1753,18 +1840,20 @@ describe('PublicCropLibraryPage', () => {
 
     await user.keyboard('{ArrowDown}');
 
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
     expect(screen.getByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toHaveFocus();
     });
   });
 
-  it('keeps focus in the public culture search field after search results reload', async () => {
+  it('filters the public culture list locally while keeping focus in the search field', async () => {
     const user = userEvent.setup();
-    const searchReload = createDeferred<{ data: { results: PublicCulture[] } }>();
-    publicCultureApiMocks.list
-      .mockResolvedValueOnce({ data: { results: publicCultures } })
-      .mockReturnValueOnce(searchReload.promise);
 
     renderPage(['/app/crop-library?cultureId=1']);
 
@@ -1774,15 +1863,12 @@ describe('PublicCropLibraryPage', () => {
 
     const searchInput = screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' });
     await user.click(searchInput);
-    await user.type(searchInput, 'nant');
+    await user.type(searchInput, 'mai');
 
-    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
-
-    await act(async () => {
-      searchReload.resolve({ data: { results: publicCultures } });
-    });
-
-    await screen.findByRole('option', { name: 'Tomate (Roma)' });
+    expect(screen.queryByRole('option', { name: 'Tomate (Roma)' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Salat' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toBeInTheDocument();
+    expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(1);
     expect(searchInput).toHaveFocus();
   });
 
@@ -1868,13 +1954,9 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(publicCultureApiMocks.get).toHaveBeenCalledWith(1));
   }, 30000);
 
-  it('keeps the saved public culture details when a stale list refresh resolves later', async () => {
+  it('keeps the saved public culture details while the search field filters locally', async () => {
     const user = userEvent.setup();
-    const staleList = createDeferred<{ data: { results: PublicCulture[] } }>();
     const pendingUpdate = createDeferred<{ data: PublicCulture }>();
-    publicCultureApiMocks.list
-      .mockResolvedValueOnce({ data: { results: publicCultures } })
-      .mockImplementation(() => staleList.promise);
     publicCultureApiMocks.update.mockReturnValueOnce(pendingUpdate.promise);
 
     renderPage(['/app/crop-library?cultureId=1']);
@@ -1892,7 +1974,7 @@ describe('PublicCropLibraryPage', () => {
     const searchForm = searchInput.closest('form');
     expect(searchForm).not.toBeNull();
     fireEvent.submit(searchForm as HTMLFormElement);
-    await waitFor(() => expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(2));
+    expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       pendingUpdate.resolve({
@@ -1905,19 +1987,7 @@ describe('PublicCropLibraryPage', () => {
       });
     });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
-    // Deliberately no assertion on the saved values here. The search above
-    // refreshes the list on a debounce, so a request can still be in flight at
-    // this point, and while it is the page shows "Kulturen werden geladen…"
-    // with no detail pane at all. Whether that request has fired yet is a race,
-    // which is what made this spot flaky — raising the timeout could not fix
-    // it, because nothing arrives until the response below lands.
 
-    await act(async () => {
-      staleList.resolve({ data: { results: publicCultures } });
-    });
-
-    // The actual subject: the stale response carries the pre-save culture, and
-    // must not roll the saved values back.
     await waitFor(() => expect(screen.getByText('48 Tage')).toBeInTheDocument(), { timeout: 10000 });
     expect(screen.queryByText('70 Tage')).not.toBeInTheDocument();
   }, 30000);
@@ -2122,37 +2192,33 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('expands the group and selects the first variety when clicking a multi-variety species row with no general entry', async () => {
-      publicCultureApiMocks.list.mockResolvedValue({
-        data: {
-          results: [
-            ...publicCultures,
-            {
-              id: 3,
-              status: 'published',
-              name: 'Kohl',
-              variety: 'Odysseus',
-              crop_species_name: 'Kohl',
-              version: 1,
-              original_language_code: 'de',
-              published_at: '2026-07-24T10:00:00Z',
-              created_at: '2026-07-21T08:00:00Z',
-              updated_at: '2026-07-25T12:00:00Z',
-            },
-            {
-              id: 4,
-              status: 'published',
-              name: 'Kohl',
-              variety: 'Noriko',
-              crop_species_name: 'Kohl',
-              version: 1,
-              original_language_code: 'de',
-              published_at: '2026-07-24T10:00:00Z',
-              created_at: '2026-07-21T08:00:00Z',
-              updated_at: '2026-07-25T12:00:00Z',
-            },
-          ],
+      publicCultureApiMocks.list.mockResolvedValue(paginated([
+        ...publicCultures,
+        {
+          id: 3,
+          status: 'published',
+          name: 'Kohl',
+          variety: 'Odysseus',
+          crop_species_name: 'Kohl',
+          version: 1,
+          original_language_code: 'de',
+          published_at: '2026-07-24T10:00:00Z',
+          created_at: '2026-07-21T08:00:00Z',
+          updated_at: '2026-07-25T12:00:00Z',
         },
-      });
+        {
+          id: 4,
+          status: 'published',
+          name: 'Kohl',
+          variety: 'Noriko',
+          crop_species_name: 'Kohl',
+          version: 1,
+          original_language_code: 'de',
+          published_at: '2026-07-24T10:00:00Z',
+          created_at: '2026-07-21T08:00:00Z',
+          updated_at: '2026-07-25T12:00:00Z',
+        },
+      ]));
       const user = userEvent.setup();
       renderPage();
 
@@ -2167,17 +2233,13 @@ describe('PublicCropLibraryPage', () => {
 
   describe('import button reflects project_import_status', () => {
     it('shows "Im Projekt aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
-      publicCultureApiMocks.list.mockResolvedValue({
-        data: {
-          results: [
-            {
-              ...publicCultures[0],
-              project_import_status: { culture_id: 5, culture_name: 'Tomate (Roma)', is_modified_from_source: false },
-            },
-            publicCultures[1],
-          ],
+      publicCultureApiMocks.list.mockResolvedValue(paginated([
+        {
+          ...publicCultures[0],
+          project_import_status: { culture_id: 5, culture_name: 'Tomate (Roma)', is_modified_from_source: false },
         },
-      });
+        publicCultures[1],
+      ]));
       const user = userEvent.setup();
       renderPage();
 
@@ -2218,7 +2280,7 @@ describe('PublicCropLibraryPage', () => {
     ];
 
     it('marks the entry as pending and blocks import while the species is unreviewed', async () => {
-      publicCultureApiMocks.list.mockResolvedValue({ data: { results: pendingCultures } });
+      publicCultureApiMocks.list.mockResolvedValue(paginated(pendingCultures));
       const user = userEvent.setup();
       renderPage();
 
@@ -2230,7 +2292,7 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('blocks starting a discussion and explains why', async () => {
-      publicCultureApiMocks.list.mockResolvedValue({ data: { results: pendingCultures } });
+      publicCultureApiMocks.list.mockResolvedValue(paginated(pendingCultures));
       const user = userEvent.setup();
       renderPage();
 
@@ -2242,7 +2304,7 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('leaves everything enabled for a species that was already reviewed', async () => {
-      publicCultureApiMocks.list.mockResolvedValue({ data: { results: publicCultures } });
+      publicCultureApiMocks.list.mockResolvedValue(paginated(publicCultures));
       const user = userEvent.setup();
       renderPage();
 

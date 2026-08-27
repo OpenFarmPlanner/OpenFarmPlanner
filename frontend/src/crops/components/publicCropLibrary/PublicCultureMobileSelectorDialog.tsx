@@ -21,8 +21,12 @@ import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } f
 import { flattenTreeRows } from '../../../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../../../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from '../../../cultures/CropHierarchyExpandToggle';
+import { HighlightedText } from '../../../components/HighlightedText';
 import { useOverlayHistory } from '../../../hooks/useOverlayHistory';
 import { getPublicCultureTitle } from '../../publicCultureDisplay';
+import { useSearchExpandedGroups } from '../../../cultures/useSearchExpandedGroups';
+import { getSearchMatchedHierarchyGroupRowIds } from '../../../cultures/cultureGroupSearch';
+import { normalizePublicCultureSearchQuery } from '../../../cultures/publicCultureSearchMatch';
 
 export interface PublicCultureMobileSelectorDialogProps {
   open: boolean;
@@ -61,29 +65,36 @@ export function PublicCultureMobileSelectorDialog({
     expandedRows,
     toggleExpand,
     ensureExpanded,
+    collapse,
   } = useExpandedState('publicCropLibraryMobile');
+  const normalizedSearchQuery = normalizePublicCultureSearchQuery(query);
   const hierarchyItems = useMemo(() => buildCropHierarchy(cultures), [cultures]);
-  useEffect(() => {
+
+  const selectedVarietyGroupRowIds = useMemo(() => {
     const selectedVariety = hierarchyItems.find((item) => (
       item.kind === 'variety'
       && item.culture?.id === selectedCultureId
       && selectedSpeciesViewKey !== item.speciesKey
     ));
-    if (!selectedVariety?.parentId) {
-      return;
-    }
-    ensureExpanded(selectedVariety.parentId);
-  }, [ensureExpanded, hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+    return selectedVariety?.parentId ? new Set([selectedVariety.parentId]) : new Set<string>();
+  }, [hierarchyItems, selectedCultureId, selectedSpeciesViewKey]);
+
   useEffect(() => {
-    if (!query.trim()) {
-      return;
-    }
-    hierarchyItems.forEach((item) => {
-      if (item.kind === 'variety' && item.parentId) {
-        ensureExpanded(item.parentId);
-      }
-    });
-  }, [ensureExpanded, hierarchyItems, query]);
+    selectedVarietyGroupRowIds.forEach((rowId) => ensureExpanded(rowId));
+  }, [ensureExpanded, selectedVarietyGroupRowIds]);
+
+  const matchedGroupRowIds = useMemo(
+    () => getSearchMatchedHierarchyGroupRowIds(hierarchyItems, normalizedSearchQuery),
+    [hierarchyItems, normalizedSearchQuery],
+  );
+
+  useSearchExpandedGroups({
+    matchedGroupRowIds,
+    isExpanded: (rowId) => expandedRows.has(rowId),
+    ensureExpanded,
+    collapse,
+    keepExpandedRowIds: selectedVarietyGroupRowIds,
+  });
   const visibleRows = useMemo(
     () => flattenTreeRows(hierarchyItems, { expandedIds: expandedRows }),
     [expandedRows, hierarchyItems],
@@ -196,8 +207,13 @@ export function PublicCultureMobileSelectorDialog({
                   />
                   <ListItemText
                     primary={node.kind === 'species'
-                      ? node.label
-                      : node.label || (culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : '')}
+                      ? <HighlightedText text={node.label} query={normalizedSearchQuery} />
+                      : (
+                        <HighlightedText
+                          text={node.label || (culture ? getPublicCultureTitle(culture, language, t('library.translation.missingName')) : '')}
+                          query={normalizedSearchQuery}
+                        />
+                      )}
                     slotProps={{
                       primary: { sx: { fontSize: '0.95rem', fontWeight: node.kind === 'species' ? 700 : 500, lineHeight: 1.2 } },
                     }}
