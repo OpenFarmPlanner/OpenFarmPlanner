@@ -12,10 +12,10 @@ from rest_framework.response import Response
 from config.languages import resolve_request_language
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import _entity_display_name, _serialize_instance
-from farm.models import Bed, EntityRevision, PlantingPlan, Task
+from farm.models import Bed, EntityRevision, PlantingPlan, Season, Task
 from farm.project_context import get_active_project_or_400, resolve_season_id_from_request
 from farm.services.seasons import get_or_create_season_for_date
-from farm.services.yield_calendar import build_yield_calendar
+from farm.services.yield_calendar import build_yield_calendar, build_yield_calendar_for_season
 from farm.services_area import calculate_remaining_bed_area
 
 from .serializers import PlantingPlanSerializer, TaskSerializer
@@ -75,8 +75,20 @@ class YieldCalendarListView(generics.GenericAPIView):
         if iso_year < 1 or iso_year > 9999:
             return Response({'detail': 'Year out of supported range.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        language_code = resolve_request_language(request)
         season_id = resolve_season_id_from_request(request)
-        return Response(build_yield_calendar(active_project, iso_year, resolve_request_language(request), season_id=season_id))
+        season = (
+            Season.objects.filter(pk=season_id, project=active_project).first()
+            if season_id is not None
+            else None
+        )
+        # An active season fully scopes the calendar (same as the planting-plans
+        # list) — return every ISO year it spans, not just one, so a season that
+        # straddles a calendar-year boundary is shown whole. An explicit ?year=
+        # still wins for backwards compatibility with direct API callers.
+        if season is not None and not year_param:
+            return Response(build_yield_calendar_for_season(active_project, season, language_code))
+        return Response(build_yield_calendar(active_project, iso_year, language_code, season_id=season_id))
 
 
 class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):

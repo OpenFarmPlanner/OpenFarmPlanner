@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from farm.models import PlantingPlan, Project
+from farm.models import PlantingPlan, Project, Season
 from farm.services.culture_display import resolve_culture_display_name
 
 
@@ -59,6 +59,26 @@ def build_yield_calendar(
         _accumulate_plan_yield(weekly_data, plan, iso_year, language_code, project.region)
 
     return _build_response_rows(weekly_data)
+
+
+def build_yield_calendar_for_season(
+    project: Project,
+    season: Season,
+    language_code: str,
+) -> list[dict[str, object]]:
+    """Return the weekly yield rows spanning every ISO year the season touches.
+
+    A season that does not align with the calendar year (e.g. Sep–Aug) covers
+    weeks in two ISO years; the single-year `build_yield_calendar` would only
+    ever show half of it. Weeks are keyed by ISO year+week, so concatenating
+    per-year results never collides.
+    """
+    rows: list[dict[str, object]] = []
+    for iso_year in range(season.start_date.year, season.end_date.year + 1):
+        rows.extend(
+            build_yield_calendar(project, iso_year, language_code, season_id=season.id)
+        )
+    return rows
 
 
 def _accumulate_plan_yield(

@@ -5,7 +5,16 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from crops.models import CropSpecies, CropSpeciesTranslation
-from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, ProjectMembership
+from farm.models import (
+    Bed,
+    Culture,
+    Field,
+    Location,
+    PlantingPlan,
+    Project,
+    ProjectMembership,
+    Season,
+)
 from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION
 
 User = get_user_model()
@@ -343,6 +352,74 @@ def test_planting_plan_without_culture_or_bed_is_rejected():
 
     create_response = client.post('/openfarmplanner/api/planting-plans/', data={})
     assert create_response.status_code == 400, create_response.content
+
+
+def _season_boundary_fixture(slug: str) -> tuple[APIClient, Project, Culture, Season]:
+    """A project with a non-calendar-aligned season and one culture."""
+    user = User.objects.create_user(
+        username=f'{slug}-user',
+        email=f'{slug}@example.com',
+        password='testpass',
+        is_active=True,
+    )
+    project = Project.objects.create(name=f'{slug} Project', slug=f'{slug}-project')
+    ProjectMembership.objects.create(user=user, project=project, role='admin')
+    culture = Culture.objects.create(name='Mais', variety='', project=project)
+    season = Season.objects.create(
+        project=project,
+        start_date=date(2025, 9, 1),
+        end_date=date(2026, 8, 31),
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    client.defaults['HTTP_X_PROJECT_ID'] = str(project.id)
+    client.defaults['HTTP_X_SEASON_ID'] = str(season.id)
+    return client, project, culture, season
+
+
+@pytest.mark.django_db
+def test_planting_plan_create_rejects_planting_date_outside_active_season():
+    client, _project, culture, _season = _season_boundary_fixture('season-create-oob')
+
+    response = client.post(
+        '/openfarmplanner/api/planting-plans/',
+        data={'culture': culture.id, 'planting_date': '2025-03-15'},
+    )
+
+    assert response.status_code == 400, response.content
+    assert 'Pflanzdatum muss innerhalb der Saison liegen' in str(response.content)
+    assert '01.09.2025' in response.json()['planting_date'][0]
+
+
+@pytest.mark.django_db
+def test_planting_plan_create_accepts_planting_date_inside_active_season():
+    client, _project, culture, season = _season_boundary_fixture('season-create-ok')
+
+    response = client.post(
+        '/openfarmplanner/api/planting-plans/',
+        data={'culture': culture.id, 'planting_date': '2025-10-01'},
+    )
+
+    assert response.status_code == 201, response.content
+    plan = PlantingPlan.objects.get(pk=response.json()['id'])
+    assert plan.season_id == season.id
+
+
+@pytest.mark.django_db
+def test_planting_plan_update_rejects_moving_planting_date_outside_season():
+    client, project, culture, season = _season_boundary_fixture('season-update-oob')
+    plan = PlantingPlan.objects.create(
+        culture=culture, project=project, season=season, planting_date=date(2025, 10, 1),
+    )
+
+    response = client.patch(
+        f'/openfarmplanner/api/planting-plans/{plan.id}/',
+        data={'planting_date': '2026-11-01'},
+    )
+
+    assert response.status_code == 400, response.content
+    plan.refresh_from_db()
+    assert plan.planting_date == date(2025, 10, 1)
 
 
 def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Culture, Bed]:
