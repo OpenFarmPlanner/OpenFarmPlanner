@@ -201,8 +201,9 @@ export const publicLibraryModeratorRequestAPI = {
 
 
 export const publicCultureAPI = {
-  list: (params?: { q?: string; name?: string; variety?: string; crop_species?: number; status?: 'removed' }, signal?: AbortSignal) =>
+  list: (params?: { q?: string; name?: string; variety?: string; crop_species?: number; status?: 'removed'; page_size?: number }, signal?: AbortSignal) =>
     http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params, signal }),
+  listAll: () => fetchAllPaginated<PublicCulture>('/public-cultures/'),
   get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
   update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
     http.patch<PublicCulture>(`/public-cultures/${id}/`, data),

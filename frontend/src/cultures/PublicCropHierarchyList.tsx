@@ -6,10 +6,13 @@ import { buildCropHierarchy, getCropSpeciesKey, getFirstVarietyItem, type CropHi
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
+import { useSearchExpandedGroups } from './useSearchExpandedGroups';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
 import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { isCropSpeciesPending } from './cropSpeciesPending';
+import { getSearchMatchedHierarchyGroupRowIds } from './cultureGroupSearch';
+import { normalizePublicCultureSearchQuery } from './publicCultureSearchMatch';
 
 interface PublicCropHierarchyListProps {
   cultures: PublicCulture[];
@@ -56,13 +59,22 @@ export function PublicCropHierarchyList({
     expandedRows: expandedRowIds,
     toggleExpand: toggleRow,
     ensureExpanded: ensureRowExpanded,
+    collapse: collapseRow,
   } = useExpandedState(storageKey);
 
+  const normalizedSearchQuery = normalizePublicCultureSearchQuery(searchQuery ?? '');
   const cropHierarchyItems = useMemo(() => buildCropHierarchy(cultures), [cultures]);
 
   const selectedCulture = useMemo(
     () => (selectedCultureId === null ? null : cultures.find((culture) => culture.id === selectedCultureId) ?? null),
     [cultures, selectedCultureId],
+  );
+
+  const selectedVarietyGroupRowIds = useMemo(
+    () => (selectedCulture?.variety && !isSpeciesView
+      ? new Set([`species:${getCropSpeciesKey(selectedCulture)}`])
+      : new Set<string>()),
+    [isSpeciesView, selectedCulture],
   );
 
   useEffect(() => {
@@ -76,24 +88,30 @@ export function PublicCropHierarchyList({
   }, [cropHierarchyItems, ensureRowExpanded, isSpeciesView, selectedCulture]);
 
   useEffect(() => {
-    if (!searchQuery?.trim()) {
-      return;
-    }
-    cropHierarchyItems.forEach((item) => {
-      if (item.kind === 'variety' && item.parentId) {
-        ensureRowExpanded(item.parentId);
-      }
-    });
-  }, [cropHierarchyItems, ensureRowExpanded, searchQuery]);
+    selectedVarietyGroupRowIds.forEach((rowId) => ensureRowExpanded(rowId));
+  }, [ensureRowExpanded, selectedVarietyGroupRowIds]);
+
+  const matchedGroupRowIds = useMemo(
+    () => getSearchMatchedHierarchyGroupRowIds(cropHierarchyItems, normalizedSearchQuery),
+    [cropHierarchyItems, normalizedSearchQuery],
+  );
+
+  useSearchExpandedGroups({
+    matchedGroupRowIds,
+    isExpanded: (rowId) => expandedRowIds.has(rowId),
+    ensureExpanded: ensureRowExpanded,
+    collapse: collapseRow,
+    keepExpandedRowIds: selectedVarietyGroupRowIds,
+  });
 
   const visibleRows = useMemo(
     () => flattenTreeRows(cropHierarchyItems, { expandedIds: expandedRowIds }),
     [cropHierarchyItems, expandedRowIds],
   );
 
-  const selectableRows = useMemo(
-    () => cropHierarchyItems.filter((item) => item.culture?.id !== undefined),
-    [cropHierarchyItems],
+  const navigableRows = useMemo(
+    () => visibleRows.map((row) => row.node),
+    [visibleRows],
   );
 
   const selectedRowId = selectedCulture
@@ -101,7 +119,7 @@ export function PublicCropHierarchyList({
     : null;
 
   const listNavigation = useCultureListKeyboardNavigation({
-    items: selectableRows,
+    items: navigableRows,
     selectedId: selectedRowId,
     getId: (item) => item.id,
     onSelect: (item) => {
@@ -166,12 +184,20 @@ export function PublicCropHierarchyList({
             isPrimaryEmphasized={node.kind === 'species'}
             secondary={undefined}
             varietyCount={node.kind === 'species' ? node.varietyCount : undefined}
+            showZeroVarietyCount={node.kind === 'species' && Boolean(normalizedSearchQuery)}
+            highlightQuery={normalizedSearchQuery}
             endAdornment={showPendingMarker ? <CropSpeciesPendingChip iconOnly /> : undefined}
             isPendingSuggestion={showPendingMarker}
+            onKeyboardActivate={() => {
+              if (node.kind !== 'species' || !hasChildren) {
+                return false;
+              }
+              toggleRow(node.id);
+              return true;
+            }}
             onClick={() => {
               if (culture?.id !== undefined) {
-                onSelect(culture, { kind: node.kind, speciesKey: node.speciesKey });
-                listNavigation.focusItem(node.id);
+                listNavigation.selectItem(node);
               } else if (firstVarietyCulture) {
                 ensureRowExpanded(node.id);
                 onSelect(firstVarietyCulture, { kind: 'variety', speciesKey: node.speciesKey });

@@ -19,7 +19,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCultureUpdateNotice } from './PublicCultureUpdateNotice';
 import { PublicCultureUpdateMarker } from './PublicCultureUpdateMarker';
@@ -54,18 +53,17 @@ import {
   findSpeciesCulture,
   getCropSpeciesKey,
   getFirstVarietyItem,
-  withGroupGeneralCultures,
-  withGroupSiblingCultures,
 } from './cropHierarchy';
 import {
   cultureMatchesSearchQuery,
   normalizeCultureSearchQuery,
 } from './cultureSearchMatch';
+import { filterCultureGroupsForSearch } from './cultureGroupSearch';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CultureSeedDetails, type CultureSeedRateRow, type ValueSource } from './CultureSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
-import { VarietiesComparisonTable } from './VarietiesComparisonTable';
+import { CultureVarietiesOverview } from './CultureVarietiesOverview';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
 
@@ -418,28 +416,14 @@ const detailSectionGridSx = {
     filters,
   ]);
 
-  // The Kultur rows the search term itself hit — the groups that count as a
-  // result, and the set the auto-expand below keys off.
-  const searchMatchingCultures = useMemo(
-    () => (normalizedSearchQuery
-      ? filterMatchingCultures.filter((culture) => cultureMatchesSearchQuery(culture, normalizedSearchQuery))
-      : filterMatchingCultures),
-    [filterMatchingCultures, normalizedSearchQuery],
-  );
-
-  const matchingCultures = useMemo(
-    () => (normalizedSearchQuery
-      ? withGroupSiblingCultures(searchMatchingCultures, filterMatchingCultures)
-      : searchMatchingCultures),
-    [filterMatchingCultures, normalizedSearchQuery, searchMatchingCultures],
-  );
-
-  // A filter that only matched Sorten would otherwise drop their Kultur row,
-  // leaving the tree with a Kultur node that has no data of its own to show
-  // and variety rows detached from their Kultur.
-  const filteredCultures = useMemo(
-    () => withGroupGeneralCultures(matchingCultures, cultures),
-    [cultures, matchingCultures],
+  const { filteredCultures, matchedGroupRowIds } = useMemo(
+    () => filterCultureGroupsForSearch({
+      cultures,
+      filterMatchingCultures,
+      normalizedSearchQuery,
+      matchesSearchQuery: cultureMatchesSearchQuery,
+    }),
+    [cultures, filterMatchingCultures, normalizedSearchQuery],
   );
 
   const cropHierarchyItems = useMemo(
@@ -458,14 +442,6 @@ const detailSectionGridSx = {
   const navigableCropRows = useMemo(
     () => visibleCropRows.map((row) => row.node),
     [visibleCropRows],
-  );
-
-  /** Row ids of the Kultur groups the current search term hit. */
-  const matchedGroupRowIds = useMemo(
-    () => (normalizedSearchQuery
-      ? new Set(searchMatchingCultures.map((culture) => `species:${getCropSpeciesKey(culture)}`))
-      : new Set<string>()),
-    [normalizedSearchQuery, searchMatchingCultures],
   );
 
   const selectedCulture = useMemo(
@@ -1074,39 +1050,17 @@ const detailSectionGridSx = {
                 overview, not a single variety's own detail page. */}
             {isSpeciesView ? (
             <>
-            <Box sx={{ mb: 3, p: { xs: 1.25, sm: 2 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Stack direction="row" sx={{ mb: varietySiblings.length > 0 ? 1.5 : 0,
-                alignItems: "center",
-                justifyContent: "space-between", }}   >
-                <Stack direction="row" sx={{ alignItems: "center", }}  spacing={0.5}>
-                  <Typography variant="h6">
-                    {t('hierarchy.varietiesTitle')}
-                  </Typography>
-                  <AppTooltip title={t('hierarchy.varietiesColumnsTooltip')}>
-                    <Box component="span" tabIndex={0} sx={{ display: 'inline-flex', color: 'text.secondary', cursor: 'default' }}>
-                      <InfoOutlinedIcon fontSize="small" />
-                    </Box>
-                  </AppTooltip>
-                </Stack>
-                {addVarietyButton}
-              </Stack>
-              {varietySiblings.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  {t('hierarchy.varietiesEmpty')}
-                </Typography>
-              ) : (
-                <VarietiesComparisonTable
-                  varieties={varietySiblings
-                    .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
-                    .map((variety) => ({ culture: variety.culture, label: variety.label }))}
-                  cropCulture={selectedCulture}
-                  onSelect={(culture) => {
-                    setSelectedSpeciesViewKey(null);
-                    (onNavigateToVariety ?? onCultureSelect)(culture);
-                  }}
-                />
-              )}
-            </Box>
+            <CultureVarietiesOverview
+              varieties={varietySiblings
+                .filter((variety): variety is typeof variety & { culture: Culture } => Boolean(variety.culture))
+                .map((variety) => ({ culture: variety.culture, label: variety.label }))}
+              cropCulture={selectedCulture}
+              action={addVarietyButton}
+              onSelect={(culture) => {
+                setSelectedSpeciesViewKey(null);
+                (onNavigateToVariety ?? onCultureSelect)(culture);
+              }}
+            />
 
             <Divider sx={{ mb: 2.5 }} />
             </>
