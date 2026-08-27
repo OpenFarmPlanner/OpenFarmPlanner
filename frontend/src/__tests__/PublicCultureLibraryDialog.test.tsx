@@ -83,6 +83,7 @@ function renderDialog(props: Parameters<typeof PublicCultureLibraryDialog>[0]): 
 describe('PublicCultureLibraryDialog', () => {
   beforeEach(() => {
     mockMobileViewport();
+    window.sessionStorage.clear();
     window.history.replaceState({ page: 'cultures' }, '', '/app/cultures');
   });
 
@@ -285,23 +286,43 @@ describe('PublicCultureLibraryDialog', () => {
     expect(await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
 
     // Each fixture culture is its own single-variety group with no general
-    // entry, so the first ArrowDown from the collapsed species row expands
-    // it and selects its own variety before subsequent presses advance to
-    // the next crop group — mirrors the full public crop library page.
+    // entry, so the keyboard flow mirrors the full public crop library page:
+    // Enter opens a group, arrows then move through the visible rows.
     screen.getByRole('option', { name: 'Tomate' }).focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('option', { name: 'Tomate (Roma)' })).toBeInTheDocument();
+
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
+
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Salat' })).toHaveFocus();
+    });
+
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('option', { name: 'Salat (Maikönig)' })).toBeInTheDocument();
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 6, name: 'Salat (Maikönig)' })).toBeInTheDocument();
 
     await user.keyboard('{End}');
-    expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Möhre' })).toHaveFocus();
+    });
+
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('option', { name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 6, name: 'Möhre (Nantaise)' })).toBeInTheDocument();
 
     await user.keyboard('{Home}');
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Tomate' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
     expect(screen.getByRole('heading', { level: 6, name: 'Tomate (Roma)' })).toBeInTheDocument();
 
     await waitFor(() => {
