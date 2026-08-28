@@ -166,6 +166,7 @@ function FieldsBedsHierarchy({
   const hasInitiallyExpandedRef = useRef(false);
   const handledCreateFieldRequestRef = useRef(0);
   const rowSnapshotRef = useRef<Map<string, HierarchyRow>>(new Map());
+  const pendingSameRowEditTargetRef = useRef<{ rowId: GridRowId; field: string } | null>(null);
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const stableScrollbarTrackRef = useRef<HTMLDivElement | null>(null);
   const pageContentRef = useRef<HTMLDivElement | null>(null);
@@ -948,11 +949,13 @@ function FieldsBedsHierarchy({
 
       const savedRow = await processRowUpdate(newRow);
       const savedRowIdChanged = String(savedRow.id) !== String(newRow.id);
-      const requestedMode = rowModesModelRef.current[newRow.id]
-        ?? rowModesModelRef.current[String(newRow.id)];
+      const pendingTarget = pendingSameRowEditTargetRef.current;
+      if (pendingTarget && String(pendingTarget.rowId) === String(newRow.id)) {
+        pendingSameRowEditTargetRef.current = null;
+      }
 
-      if (savedRowIdChanged && requestedMode?.mode === GridRowModes.Edit) {
-        const fieldToFocus = requestedMode.fieldToFocus ?? preferredField ?? "name";
+      if (savedRowIdChanged && pendingTarget && String(pendingTarget.rowId) === String(newRow.id)) {
+        const fieldToFocus = pendingTarget.field;
         rememberFocusedField(fieldToFocus);
         queuePostEditFocus(savedRow.id, fieldToFocus, newRow.id);
         setRowModesModel((previousModel) => {
@@ -993,6 +996,49 @@ function FieldsBedsHierarchy({
       selectRow,
     ],
   );
+
+  const rememberSameRowEditTarget = useCallback((event: React.PointerEvent<HTMLElement>): void => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const cell = target.closest<HTMLElement>('[role="gridcell"][data-field]');
+    const row = target.closest<HTMLElement>('[role="row"][data-id]');
+    const rowId = row?.dataset.id;
+    const field = cell?.dataset.field;
+    if (!rowId || !field) {
+      return;
+    }
+
+    const currentMode = rowModesModelRef.current[rowId];
+    const rowData = rowsByIdRef.current.get(rowId);
+    const activeCell = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLElement>('[role="gridcell"][data-field]')
+      : null;
+    const activeRow = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLElement>('[role="row"][data-id]')
+      : null;
+    if (
+      currentMode?.mode !== GridRowModes.Edit
+      || !rowData?.isNew
+      || activeRow?.dataset.id !== rowId
+      || activeCell?.dataset.field === field
+    ) {
+      return;
+    }
+
+    const cellParams = gridApiRef.current?.getCellParams?.(rowId, field);
+    if (!cellParams || !gridApiRef.current?.isCellEditable?.(cellParams)) {
+      return;
+    }
+
+    pendingSameRowEditTargetRef.current = { rowId, field };
+  }, [gridApiRef]);
 
   const handleReadOnlyHierarchyCellMouseDown = useCallback((event: React.MouseEvent<HTMLElement>): void => {
     const target = event.target;
@@ -1568,6 +1614,7 @@ function FieldsBedsHierarchy({
               },
             }}
             onClick={() => setTreeActive(true)}
+            onPointerDownCapture={rememberSameRowEditTarget}
             onContextMenuCapture={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}

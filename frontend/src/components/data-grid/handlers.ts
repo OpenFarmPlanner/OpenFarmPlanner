@@ -25,15 +25,7 @@ export function handleEditableCellClick(
   rowModesModel: GridRowModesModel,
   setRowModesModel: Dispatch<SetStateAction<GridRowModesModel>>
 ): void {
-  if (!params.isEditable) {
-    return;
-  }
-
-  const currentMode = rowModesModel[params.id];
-  if (
-    currentMode?.mode !== GridRowModes.Edit
-    || currentMode.fieldToFocus !== params.field
-  ) {
+  if (params.isEditable && rowModesModel[params.id]?.mode !== GridRowModes.Edit) {
     setRowModesModel((oldModel) => ({
       ...oldModel,
       [params.id]: { mode: GridRowModes.Edit, fieldToFocus: params.field },

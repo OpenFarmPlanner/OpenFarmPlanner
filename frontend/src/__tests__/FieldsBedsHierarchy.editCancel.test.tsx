@@ -131,7 +131,9 @@ vi.mock('@mui/x-data-grid', async () => {
   }: {
     apiRef?: {
       current?: {
+        getCellParams?: (id: string | number, field: string) => unknown;
         getRowWithUpdatedValues?: (id: string | number, field: string) => unknown;
+        isCellEditable?: (params: unknown) => boolean;
         stopRowEditMode?: (params: { id: string | number }) => void;
       };
     };
@@ -161,6 +163,14 @@ vi.mock('@mui/x-data-grid', async () => {
       }
 
       apiRef.current.getRowWithUpdatedValues = (id: string | number) => mockDrafts.get(String(id)) ?? null;
+      apiRef.current.getCellParams = (id: string | number, field: string) => {
+        const row = rows.find((candidate) => String(candidate.id) === String(id));
+        return row ? { id: row.id, field, row } : null;
+      };
+      apiRef.current.isCellEditable = (params: unknown) => {
+        const cellParams = params as { field: string; row: Record<string, unknown> };
+        return isCellEditable?.(cellParams) ?? true;
+      };
       // Mirrors MUI's real stopRowEditMode: forces the same commit path the
       // "Blur"/"Enter" test buttons use, since production code relies on this
       // to actually save a row when focus leaves the grid entirely.
@@ -218,16 +228,18 @@ vi.mock('@mui/x-data-grid', async () => {
               >
                 {`Edit ${row.id}`}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const lengthColumn = columns.find((column) => column.field === 'length_m');
-                  const lengthEditable = Boolean(lengthColumn?.editable) && (isCellEditable?.({ row, field: 'length_m' }) ?? true);
-                  onCellClick?.({ id: row.id, field: 'length_m', isEditable: lengthEditable, row });
-                }}
-              >
-                {`Edit length ${row.id}`}
-              </button>
+              <div data-field="length_m" role="gridcell">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lengthColumn = columns.find((column) => column.field === 'length_m');
+                    const lengthEditable = Boolean(lengthColumn?.editable) && (isCellEditable?.({ row, field: 'length_m' }) ?? true);
+                    onCellClick?.({ id: row.id, field: 'length_m', isEditable: lengthEditable, row });
+                  }}
+                >
+                  {`Edit length ${row.id}`}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -625,7 +637,8 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     await addNewBed();
 
     await user.click(screen.getByRole('button', { name: 'Partial name -1700000000000' }));
-    await user.click(screen.getByRole('button', { name: 'Edit length -1700000000000' }));
+    const lengthCell = screen.getByRole('button', { name: 'Edit length -1700000000000' });
+    fireEvent.pointerDown(lengthCell, { button: 0 });
     await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
 
     await waitFor(() => expect(bedCreateMock).toHaveBeenCalled());
