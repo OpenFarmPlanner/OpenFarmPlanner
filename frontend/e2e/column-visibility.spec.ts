@@ -26,7 +26,7 @@ async function setUpPlantingPlan(page: Page, request: APIRequestContext, scenari
   await page.goto('/login');
   await page.getByLabel('E-Mail').fill(setup.admin.email);
   await page.locator('input[type="password"]').fill(setup.admin.password);
-  await page.getByRole('button', { name: 'Anmelden' }).click();
+  await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
   await expect(page).toHaveURL(/\/app\//, { timeout: 10_000 });
 
   const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));

@@ -299,7 +299,7 @@ class PlantingPlanSeasonFallbackTest(ProjectApiTestCase):
 
     def test_season_header_still_wins_over_the_fallback(self):
         season = Season.objects.create(
-            project=self.project, start_date=date(2024, 1, 1), end_date=date(2024, 12, 31),
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         response = self._create_plan(HTTP_X_SEASON_ID=str(season.id))
 
@@ -311,4 +311,3 @@ class PlantingPlanSeasonFallbackTest(ProjectApiTestCase):
         self._create_plan(planting_date='2026-04-01')
         self._create_plan(planting_date='2026-09-15')
         self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
-
