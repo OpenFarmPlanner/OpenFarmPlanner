@@ -77,10 +77,30 @@ def compute_due_season_period(project: Project, today: date | None = None) -> tu
 
 
 def find_due_but_missing_season(project: Project, today: date | None = None) -> tuple[date, date] | None:
-    """Return the due season period if it isn't an existing Season yet, else None."""
-    due_start, due_end = compute_due_season_period(project, today)
-    exists = Season.objects.filter(project=project, start_date=due_start).exists()
-    return None if exists else (due_start, due_end)
+    """Return the next season period that can be created for ``project``.
+
+    Once a project has seasons, the suggestion follows its chronologically
+    latest season rather than the period containing today's date. Projects
+    without a season retain the initial suggestion for the current period.
+    """
+    latest_season = Season.objects.filter(project=project).order_by('-start_date').first()
+    if latest_season is None:
+        due_start, due_end = compute_due_season_period(project, today)
+        return due_start, due_end
+
+    pattern = get_or_create_season_pattern(project)
+    anchor_year = latest_season.start_date.year + 1
+    next_start, next_end = compute_season_period(pattern, anchor_year)
+    while next_start <= latest_season.end_date:
+        anchor_year += 1
+        next_start, next_end = compute_season_period(pattern, anchor_year)
+
+    overlaps_existing = Season.objects.filter(
+        project=project,
+        start_date__lte=next_end,
+        end_date__gte=next_start,
+    ).exists()
+    return None if overlaps_existing else (next_start, next_end)
 
 
 def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:

@@ -60,6 +60,46 @@ class SeasonPatternMathTest(ProjectApiTestCase):
         self.assertEqual(periods[1]['start_date'], date(2026, 1, 1))
         self.assertEqual(periods[1]['end_date'], date(2026, 12, 31))
 
+    def test_next_suggestion_follows_latest_season_independent_of_today(self):
+        SeasonPattern.objects.update_or_create(
+            project=self.project,
+            defaults={'start_day': 1, 'start_month': 9},
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 8, 31),
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+
+        suggestion = find_due_but_missing_season(self.project, today=date(2026, 2, 1))
+
+        self.assertEqual(suggestion, (date(2026, 9, 1), date(2027, 8, 31)))
+
+    def test_next_suggestion_advances_after_future_season_is_created(self):
+        SeasonPattern.objects.update_or_create(
+            project=self.project,
+            defaults={'start_day': 1, 'start_month': 9},
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2026, 9, 1),
+            end_date=date(2027, 8, 31),
+        )
+
+        suggestion = find_due_but_missing_season(self.project, today=date(2026, 2, 1))
+
+        self.assertEqual(suggestion, (date(2027, 9, 1), date(2028, 8, 31)))
+
 
 class SeasonCopyServiceTest(ProjectApiTestCase):
     def test_copy_is_additive_not_replacing(self):
@@ -111,6 +151,24 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['copied_count'], 1)
         self.assertEqual(response.data['target_planting_plan_count'], 1)
+
+    def test_create_rejects_duplicate_or_overlapping_period(self):
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+
+        duplicate_response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2025-09-01', 'end_date': '2026-08-31',
+        })
+        overlap_response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-08-01', 'end_date': '2027-07-31',
+        })
+
+        self.assertEqual(duplicate_response.status_code, 400)
+        self.assertEqual(overlap_response.status_code, 400)
+        self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
 
     def test_planting_plans_can_be_filtered_by_season_header(self):
         season_a = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
@@ -197,13 +255,16 @@ class SeasonSetupApiTest(ProjectApiTestCase):
         pattern = SeasonPattern.objects.get(project=self.project)
         self.assertEqual((pattern.start_day, pattern.start_month), (1, 1))
 
-    def test_due_suggestion_hidden_once_season_exists(self):
+    def test_due_suggestion_advances_once_season_exists(self):
         start_date, end_date = compute_due_season_period(self.project, today=date(2026, 6, 1))
         missing = find_due_but_missing_season(self.project, today=date(2026, 6, 1))
         self.assertEqual(missing, (start_date, end_date))
 
         Season.objects.create(project=self.project, start_date=start_date, end_date=end_date)
-        self.assertIsNone(find_due_but_missing_season(self.project, today=date(2026, 6, 1)))
+        self.assertEqual(
+            find_due_but_missing_season(self.project, today=date(2026, 6, 1)),
+            (date(2027, 1, 1), date(2027, 12, 31)),
+        )
 
 
 class SeededProjectSeasonTest(ProjectApiTestCase):

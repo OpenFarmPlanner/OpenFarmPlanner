@@ -200,7 +200,11 @@ and gated on `seasonSetupAPI.status().needs_setup`):
 `backend/farm/services/seasons.py` is the single source of truth for period
 math (`compute_season_period`, `compute_period_containing`,
 `compute_preview_periods`, `compute_due_season_period`,
-`find_due_but_missing_season`). The project settings "Saison-Muster" card
+`find_due_but_missing_season`). For projects with existing seasons, the
+switcher's suggestion is the configured pattern period immediately after the
+chronologically latest season, regardless of today's date. Only a project with
+no seasons uses the pattern period containing today as its initial suggestion.
+The project settings "Saison-Muster" card
 (`frontend/src/seasons/SeasonPatternCard.tsx`) and the season switcher's
 due-season suggestion both call the same `/season-pattern/preview/` and
 `/seasons/due-suggestion/` endpoints rather than re-deriving the math

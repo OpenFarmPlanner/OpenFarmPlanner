@@ -31,6 +31,18 @@ class SeasonSerializer(serializers.ModelSerializer):
         end_date = attrs.get('end_date') or (self.instance.end_date if self.instance else None)
         if start_date is not None and end_date is not None and end_date <= start_date:
             raise serializers.ValidationError({'end_date': 'End date must be after start date.'})
+        request = self.context.get('request')
+        project = getattr(request, 'active_project', None)
+        if project is not None and start_date is not None and end_date is not None:
+            overlapping_seasons = Season.objects.filter(
+                project=project,
+                start_date__lte=end_date,
+                end_date__gte=start_date,
+            )
+            if self.instance is not None:
+                overlapping_seasons = overlapping_seasons.exclude(pk=self.instance.pk)
+            if overlapping_seasons.exists():
+                raise serializers.ValidationError('Season dates must not overlap an existing season.')
         return attrs
 
 
