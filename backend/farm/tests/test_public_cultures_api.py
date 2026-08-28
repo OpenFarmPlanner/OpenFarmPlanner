@@ -86,6 +86,48 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             ).exists()
         )
 
+    def test_public_culture_response_exposes_project_culture_unit_aliases(self):
+        PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.species,
+            created_by=self.user,
+            cultivation_types=['direct_sowing', 'pre_cultivation'],
+            distance_within_row_m=Decimal('0.30'),
+            row_spacing_m=Decimal('0.44'),
+            sowing_depth_m=Decimal('0.02'),
+            seed_rate_by_cultivation={
+                'direct_sowing': {'value': 12, 'unit': 'seeds_per_lfm'},
+                'pre_cultivation': {'value': 3, 'unit': 'seeds_per_plant'},
+            },
+            sowing_calculation_safety_percent=15,
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture = response.data['results'][0]
+        self.assertEqual(public_culture['distance_within_row_m'], 0.3)
+        self.assertEqual(public_culture['distance_within_row_cm'], 30)
+        self.assertEqual(public_culture['row_spacing_m'], 0.44)
+        self.assertEqual(public_culture['row_spacing_cm'], 44)
+        self.assertEqual(public_culture['sowing_depth_m'], 0.02)
+        self.assertEqual(public_culture['sowing_depth_cm'], 2)
+        self.assertEqual(
+            public_culture['seed_requirements'],
+            {
+                'direct_sowing': {'value': 12, 'unit': 'seeds_per_lfm'},
+                'pre_cultivation': {'value': 3, 'unit': 'seeds_per_plant'},
+            },
+        )
+        self.assertEqual(public_culture['seed_rate_direct_value'], 12)
+        self.assertEqual(public_culture['seed_rate_direct_unit'], 'seeds_per_lfm')
+        self.assertEqual(public_culture['seed_rate_pre_cultivation_value'], 3)
+        self.assertEqual(public_culture['seed_rate_pre_cultivation_unit'], 'seeds_per_plant')
+        self.assertEqual(public_culture['sowing_calculation_safety_percent_direct'], 15)
+        self.assertEqual(public_culture['sowing_calculation_safety_percent_pre_cultivation'], 15)
+
     def test_publish_requires_public_library_contribution_terms(self):
         response = self.client.post(f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/', {}, format='json')
 
@@ -431,6 +473,184 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         existing_general.refresh_from_db()
         self.assertEqual(existing_general.growth_duration_days, 99)
         self.assertEqual(existing_general.version, 1)
+
+    def test_general_kultur_uses_existing_owned_general_public_entry_from_another_project(self):
+        """Publishing a Sorte should connect the local Kultur to the user's general entry."""
+        other_project = Project.objects.create(name='Previous Project', slug='previous-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        other_general_kultur = Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            project=other_project,
+        )
+        existing_general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            source_project=other_project,
+            source_project_culture=other_general_kultur,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+        )
+        general_kultur = self._create_general_kultur()
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.source_project_culture, other_general_kultur)
+
+        rows = {
+            row['id']: row
+            for row in self.client.get('/openfarmplanner/api/cultures/').data['results']
+        }
+        general_row = rows[general_kultur.id]
+        self.assertEqual(general_row['owned_public_culture_id'], existing_general.id)
+        self.assertEqual(general_row['owned_public_culture_role'], 'contributor')
+        self.assertIsNone(general_row['public_publish_blocked_reason'])
+
+    def test_publishing_general_kultur_updates_existing_owned_general_public_entry(
+        self,
+    ):
+        other_project = Project.objects.create(name='Previous Project', slug='previous-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        other_general_kultur = Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            project=other_project,
+        )
+        existing_general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            source_project=other_project,
+            source_project_culture=other_general_kultur,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            version=3,
+        )
+        general_kultur = self._create_general_kultur(
+            growth_duration_days=60,
+            harvest_duration_days=30,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{general_kultur.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+                'publish_as_general': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(response.data['public_culture']['id'], existing_general.id)
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.source_project_culture, general_kultur)
+        self.assertEqual(existing_general.growth_duration_days, 60)
+        self.assertEqual(existing_general.version, 4)
+
+    def _create_general_kultur(self, **overrides) -> Culture:
+        return Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=overrides.pop('growth_duration_days', 60),
+            harvest_duration_days=overrides.pop('harvest_duration_days', 30),
+            project=self.project,
+            **overrides,
+        )
+
+    def test_publishing_a_sorte_records_the_general_kultur_as_the_entry_owner(self):
+        """The species-level entry belongs to the Kultur, not to the Sorte.
+
+        Publishing a Sorte creates the species-level entry alongside it. If that
+        entry kept pointing at the Sorte, the Kultur the user then sees as
+        published would not be recognized as published at all and its menu would
+        keep offering "publish" instead of "update library".
+        """
+        general_kultur = self._create_general_kultur()
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general_public_culture = PublicCulture.objects.get(variety='')
+        self.assertEqual(general_public_culture.source_project_culture, general_kultur)
+        self.assertEqual(general_public_culture.source_project, self.project)
+        self.assertEqual(
+            PublicCulture.objects.get(variety='Bijella').source_project_culture,
+            self.culture,
+        )
+
+    def test_publishing_a_sorte_without_a_general_kultur_keeps_the_sorte_as_owner(self):
+        """Nothing else can own the entry when the project has no general Kultur."""
+        self.publish_current_culture()
+
+        self.assertEqual(PublicCulture.objects.get(variety='').source_project_culture, self.culture)
+
+    def test_general_kultur_published_through_a_sorte_offers_a_library_update(self):
+        """The menu state the frontend derives must match a directly published Kultur."""
+        general_kultur = self._create_general_kultur()
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        general_row = rows[general_kultur.id]
+        general_public_culture = PublicCulture.objects.get(variety='')
+        self.assertEqual(general_row['owned_public_culture_id'], general_public_culture.id)
+        self.assertEqual(general_row['owned_public_culture_role'], 'contributor')
+        # The entry carries the Sorte's values, so the Kultur still has
+        # something of its own to contribute and the action stays enabled.
+        self.assertIsNone(general_row['public_publish_blocked_reason'])
+
+    def test_general_kultur_published_through_a_sorte_reports_no_local_changes(self):
+        """With identical values there is nothing to contribute, exactly as for a Sorte."""
+        # Same values as the Sorte the entry was published from, so the
+        # published fields of both sides match.
+        general_kultur = self._create_general_kultur(
+            growth_duration_days=self.culture.growth_duration_days,
+            harvest_duration_days=self.culture.harvest_duration_days,
+            notes=self.culture.notes,
+            display_color=self.culture.display_color,
+        )
+        self.publish_current_culture()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/cultures/').data['results']}
+        self.assertEqual(rows[general_kultur.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+    def test_publishing_the_general_kultur_updates_the_entry_created_by_the_sorte(self):
+        general_kultur = self._create_general_kultur()
+        self.publish_current_culture()
+        general_public_culture = PublicCulture.objects.get(variety='')
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{general_kultur.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+                'publish_as_general': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        general_public_culture.refresh_from_db()
+        self.assertEqual(general_public_culture.growth_duration_days, 60)
+        self.assertEqual(general_public_culture.version, 2)
 
     def test_publishing_one_sorte_keeps_the_local_kultur_group_together(self):
         """Publishing must link the whole Kultur group, not fork off the published Sorte.

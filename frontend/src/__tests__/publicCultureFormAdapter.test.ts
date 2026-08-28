@@ -35,6 +35,21 @@ describe('publicCultureToCultureFormData', () => {
     expect(form.seed_rate_pre_cultivation_value).toBeNull();
   });
 
+  it('prefers centimeter response aliases over converting meter fields', () => {
+    const form = publicCultureToCultureFormData(buildPublicCulture({
+      distance_within_row_m: 0.3,
+      distance_within_row_cm: 31,
+      row_spacing_m: 0.4,
+      row_spacing_cm: 41,
+      sowing_depth_m: 0.02,
+      sowing_depth_cm: 3,
+    }));
+
+    expect(form.distance_within_row_cm).toBe(31);
+    expect(form.row_spacing_cm).toBe(41);
+    expect(form.sowing_depth_cm).toBe(3);
+  });
+
   it('defaults cultivation types to pre_cultivation when none are set', () => {
     const form = publicCultureToCultureFormData(buildPublicCulture({}));
 
