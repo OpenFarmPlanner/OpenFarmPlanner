@@ -27,7 +27,9 @@ class SeasonSerializer(serializers.ModelSerializer):
         read_only_fields = ['project', 'created_at', 'updated_at']
 
     def validate(self, attrs):
-        start_date = attrs.get('start_date') or (self.instance.start_date if self.instance else None)
+        start_date = attrs.get('start_date') or (
+            self.instance.start_date if self.instance else None
+        )
         end_date = attrs.get('end_date') or (self.instance.end_date if self.instance else None)
         if start_date is not None and end_date is not None and end_date <= start_date:
             raise serializers.ValidationError({'end_date': 'End date must be after start date.'})
@@ -42,7 +44,9 @@ class SeasonSerializer(serializers.ModelSerializer):
             if self.instance is not None:
                 overlapping_seasons = overlapping_seasons.exclude(pk=self.instance.pk)
             if overlapping_seasons.exists():
-                raise serializers.ValidationError('Season dates must not overlap an existing season.')
+                raise serializers.ValidationError(
+                    'Season dates must not overlap an existing season.',
+                )
         return attrs
 
 
