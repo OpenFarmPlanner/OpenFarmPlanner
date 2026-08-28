@@ -11,7 +11,7 @@ from config.languages import (
     resolve_request_language,
 )
 from crops.permissions import is_public_library_moderator
-from farm.common.serializer_fields import LocalizedDecimalField
+from farm.common.serializer_fields import CentimetersField, LocalizedDecimalField
 from farm.models import (
     PublicCulture,
     PublicCultureChangeProposal,
@@ -92,6 +92,16 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     translations = serializers.SerializerMethodField()
     project_import_status = serializers.SerializerMethodField()
     imported_cultures_count = serializers.SerializerMethodField()
+    distance_within_row_cm = CentimetersField(source='distance_within_row_m', read_only=True)
+    row_spacing_cm = CentimetersField(source='row_spacing_m', read_only=True)
+    sowing_depth_cm = CentimetersField(source='sowing_depth_m', read_only=True)
+    seed_requirements = serializers.SerializerMethodField()
+    seed_rate_direct_value = serializers.SerializerMethodField()
+    seed_rate_direct_unit = serializers.SerializerMethodField()
+    seed_rate_pre_cultivation_value = serializers.SerializerMethodField()
+    seed_rate_pre_cultivation_unit = serializers.SerializerMethodField()
+    sowing_calculation_safety_percent_direct = serializers.SerializerMethodField()
+    sowing_calculation_safety_percent_pre_cultivation = serializers.SerializerMethodField()
     thousand_kernel_weight_g = LocalizedDecimalField(
         max_digits=6,
         decimal_places=2,
@@ -130,11 +140,21 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'harvest_method',
             'expected_yield',
             'distance_within_row_m',
+            'distance_within_row_cm',
             'row_spacing_m',
+            'row_spacing_cm',
             'sowing_depth_m',
+            'sowing_depth_cm',
             'seed_rate_value',
             'seed_rate_unit',
             'seed_rate_by_cultivation',
+            'seed_requirements',
+            'seed_rate_direct_value',
+            'seed_rate_direct_unit',
+            'sowing_calculation_safety_percent_direct',
+            'seed_rate_pre_cultivation_value',
+            'seed_rate_pre_cultivation_unit',
+            'sowing_calculation_safety_percent_pre_cultivation',
             'sowing_calculation_safety_percent',
             'thousand_kernel_weight_g',
             'seeding_requirement',
@@ -152,6 +172,51 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'imported_cultures_count',
         ]
         read_only_fields = fields
+
+    def _seed_rate_for_method(self, obj: PublicCulture, method: str) -> dict[str, Any] | None:
+        method_specific = (obj.seed_rate_by_cultivation or {}).get(method)
+        if method_specific:
+            return method_specific
+        if obj.cultivation_type == method or method in (obj.cultivation_types or []):
+            if obj.seed_rate_value is not None or obj.seed_rate_unit:
+                return {
+                    'value': obj.seed_rate_value,
+                    'unit': obj.seed_rate_unit,
+                }
+        return None
+
+    def get_seed_requirements(self, obj: PublicCulture) -> dict[str, dict[str, Any]]:
+        requirements = {}
+        for method in ('direct_sowing', 'pre_cultivation'):
+            entry = self._seed_rate_for_method(obj, method)
+            if entry and entry.get('value') is not None and entry.get('unit'):
+                requirements[method] = {
+                    'value': entry['value'],
+                    'unit': entry['unit'],
+                }
+        return requirements
+
+    def get_seed_rate_direct_value(self, obj: PublicCulture) -> float | None:
+        entry = self._seed_rate_for_method(obj, 'direct_sowing')
+        return entry.get('value') if entry else None
+
+    def get_seed_rate_direct_unit(self, obj: PublicCulture) -> str | None:
+        entry = self._seed_rate_for_method(obj, 'direct_sowing')
+        return entry.get('unit') if entry else None
+
+    def get_seed_rate_pre_cultivation_value(self, obj: PublicCulture) -> float | None:
+        entry = self._seed_rate_for_method(obj, 'pre_cultivation')
+        return entry.get('value') if entry else None
+
+    def get_seed_rate_pre_cultivation_unit(self, obj: PublicCulture) -> str | None:
+        entry = self._seed_rate_for_method(obj, 'pre_cultivation')
+        return entry.get('unit') if entry else None
+
+    def get_sowing_calculation_safety_percent_direct(self, obj: PublicCulture) -> float | None:
+        return obj.sowing_calculation_safety_percent
+
+    def get_sowing_calculation_safety_percent_pre_cultivation(self, obj: PublicCulture) -> float | None:
+        return obj.sowing_calculation_safety_percent
 
     def get_created_by_label(self, obj: PublicCulture) -> str:
         return obj.created_by_label

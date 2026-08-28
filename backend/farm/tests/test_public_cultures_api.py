@@ -86,6 +86,48 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
             ).exists()
         )
 
+    def test_public_culture_response_exposes_project_culture_unit_aliases(self):
+        PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.species,
+            created_by=self.user,
+            cultivation_types=['direct_sowing', 'pre_cultivation'],
+            distance_within_row_m=Decimal('0.30'),
+            row_spacing_m=Decimal('0.44'),
+            sowing_depth_m=Decimal('0.02'),
+            seed_rate_by_cultivation={
+                'direct_sowing': {'value': 12, 'unit': 'seeds_per_lfm'},
+                'pre_cultivation': {'value': 3, 'unit': 'seeds_per_plant'},
+            },
+            sowing_calculation_safety_percent=15,
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture = response.data['results'][0]
+        self.assertEqual(public_culture['distance_within_row_m'], 0.3)
+        self.assertEqual(public_culture['distance_within_row_cm'], 30)
+        self.assertEqual(public_culture['row_spacing_m'], 0.44)
+        self.assertEqual(public_culture['row_spacing_cm'], 44)
+        self.assertEqual(public_culture['sowing_depth_m'], 0.02)
+        self.assertEqual(public_culture['sowing_depth_cm'], 2)
+        self.assertEqual(
+            public_culture['seed_requirements'],
+            {
+                'direct_sowing': {'value': 12, 'unit': 'seeds_per_lfm'},
+                'pre_cultivation': {'value': 3, 'unit': 'seeds_per_plant'},
+            },
+        )
+        self.assertEqual(public_culture['seed_rate_direct_value'], 12)
+        self.assertEqual(public_culture['seed_rate_direct_unit'], 'seeds_per_lfm')
+        self.assertEqual(public_culture['seed_rate_pre_cultivation_value'], 3)
+        self.assertEqual(public_culture['seed_rate_pre_cultivation_unit'], 'seeds_per_plant')
+        self.assertEqual(public_culture['sowing_calculation_safety_percent_direct'], 15)
+        self.assertEqual(public_culture['sowing_calculation_safety_percent_pre_cultivation'], 15)
+
     def test_publish_requires_public_library_contribution_terms(self):
         response = self.client.post(f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/', {}, format='json')
 

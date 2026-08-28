@@ -13,6 +13,13 @@ const centimetersFromMeters = (value: number | null | undefined): number | undef
   value === null || value === undefined ? undefined : Math.round(value * 100)
 );
 
+const publicCultureCentimeters = (
+  centimeters: number | null | undefined,
+  meters: number | null | undefined,
+): number | undefined => (
+  centimeters === null || centimeters === undefined ? centimetersFromMeters(meters) : centimeters
+);
+
 const metersFromCentimeters = (value: number | null | undefined): number | null => (
   value === null || value === undefined ? null : value / 100
 );
@@ -78,9 +85,9 @@ export function publicCultureToCultureFormData(culture: PublicCulture): Culture 
     propagation_duration_days: culture.propagation_duration_days ?? undefined,
     harvest_method: culture.harvest_method ?? '',
     expected_yield: culture.expected_yield ?? undefined,
-    distance_within_row_cm: centimetersFromMeters(culture.distance_within_row_m),
-    row_spacing_cm: centimetersFromMeters(culture.row_spacing_m),
-    sowing_depth_cm: centimetersFromMeters(culture.sowing_depth_m),
+    distance_within_row_cm: publicCultureCentimeters(culture.distance_within_row_cm, culture.distance_within_row_m),
+    row_spacing_cm: publicCultureCentimeters(culture.row_spacing_cm, culture.row_spacing_m),
+    sowing_depth_cm: publicCultureCentimeters(culture.sowing_depth_cm, culture.sowing_depth_m),
     seed_rate_value: culture.seed_rate_value ?? null,
     seed_rate_unit: normalizeSeedRateUnit(culture.seed_rate_unit),
     seed_rate_by_cultivation: culture.seed_rate_by_cultivation ?? null,

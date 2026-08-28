@@ -513,7 +513,7 @@ describe('Cultures save payload', () => {
     await waitFor(() => expect(screen.getByTestId('culture-list')).toHaveTextContent('Karotte, Neue Kultur'));
   });
 
-  it('passes the explicit copy-defaults opt-in to the first variety create request', async () => {
+  it('copies first-variety values to the general culture after explicit opt-in', async () => {
     listMock
       .mockResolvedValueOnce({
         data: {
@@ -543,6 +543,9 @@ describe('Cultures save payload', () => {
       variety: '',
       growth_duration_days: 70,
       row_spacing_cm: 30,
+      seed_rate_direct_value: 12,
+      seed_rate_direct_unit: 'seeds_per_lfm',
+      expected_yield: 2.5,
     } as Culture);
     saveFirstVarietyMock.mockReturnValueOnce({ name: 'Nova', copyValuesToCulture: true });
 
@@ -561,8 +564,11 @@ describe('Cultures save payload', () => {
     const cropPayload = createMock.mock.calls[0][0] as Record<string, unknown>;
     const varietyPayload = createMock.mock.calls[1][0] as Record<string, unknown>;
     expect(cropPayload.copy_values_to_culture).toBeUndefined();
-    expect(cropPayload.growth_duration_days).toBeUndefined();
-    expect(cropPayload.row_spacing_cm).toBeUndefined();
+    expect(cropPayload.growth_duration_days).toBe(70);
+    expect(cropPayload.row_spacing_cm).toBe(30);
+    expect(cropPayload.seed_rate_direct_value).toBe(12);
+    expect(cropPayload.seed_rate_direct_unit).toBe('seeds_per_lfm');
+    expect(cropPayload.expected_yield).toBe(2.5);
     expect(varietyPayload.copy_values_to_culture).toBe(true);
   });
 

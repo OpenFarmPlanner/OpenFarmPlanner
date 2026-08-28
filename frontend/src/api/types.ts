@@ -295,11 +295,15 @@ export interface PublicCulture {
   harvest_method?: 'per_plant' | 'per_sqm' | '';
   expected_yield?: number | null;
   distance_within_row_m?: number | null;
+  distance_within_row_cm?: number | null;
   row_spacing_m?: number | null;
+  row_spacing_cm?: number | null;
   sowing_depth_m?: number | null;
+  sowing_depth_cm?: number | null;
   seed_rate_value?: number | null;
   seed_rate_unit?: SeedRateUnit | null;
   seed_rate_by_cultivation?: SeedRateByCultivation | null;
+  seed_requirements?: SeedRequirements;
   seed_rate_direct_value?: number | null;
   seed_rate_direct_unit?: SeedRateUnit | null;
   sowing_calculation_safety_percent_direct?: number | null;

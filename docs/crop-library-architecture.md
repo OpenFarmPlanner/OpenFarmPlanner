@@ -405,6 +405,13 @@ query: the serializer builds a per-request `crop_species → general Kultur` ind
 for the active project (`build_general_culture_index`) instead of looking up a
 sibling per row.
 
+Public culture storage and update payloads keep SI units for distances
+(`*_m`) in the database. Read responses additionally expose read-only
+centimeter aliases (`distance_within_row_cm`, `row_spacing_cm`,
+`sowing_depth_cm`) plus the same seed-rate convenience fields as
+`CultureSerializer`, so frontend form/import code can consume public and
+project cultures through the same shape without changing stored units.
+
 **Planning reads effective values.** `PlantingPlan.calculate_effective_harvest_dates()`
 is the shared side-effect-free calculation behind
 `recalculate_harvest_dates()` and `_get_active_period()`. The
