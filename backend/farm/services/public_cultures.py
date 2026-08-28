@@ -19,8 +19,8 @@ from django.utils import timezone
 
 from config.languages import SUPPORTED_LANGUAGE_CODES, normalize_language_tag
 from crops.models import CropSpecies
-from crops.services import find_species_by_common_name
 from crops.permissions import is_public_library_moderator
+from crops.services import find_species_by_common_name
 from farm.models import (
     Culture,
     Project,
@@ -32,7 +32,10 @@ from farm.models import (
 # The local Kultur/Sorte grouping is a farm-app concern this module deliberately
 # does not re-implement: it only calls the service that owns it whenever
 # publishing links a project culture to a crop species.
-from farm.services.culture_inheritance import get_general_culture, sync_crop_species_across_culture_group
+from farm.services.culture_inheritance import (
+    get_general_culture,
+    sync_crop_species_across_culture_group,
+)
 
 User = get_user_model()
 
@@ -870,11 +873,38 @@ def find_owned_public_culture_for_update(*, culture: Culture, user: User | None)
         # already published their own copy of this same project culture, so fall
         # through to the source_project_culture lookup below instead of bailing.
 
-    return PublicCulture.objects.filter(
+    linked_public_culture = PublicCulture.objects.filter(
         source_project_culture=culture,
         created_by=user,
         status__in=[PublicCulture.STATUS_PUBLISHED, PublicCulture.STATUS_WITHDRAWN],
     ).order_by('-updated_at', '-id').first()
+    if linked_public_culture is not None:
+        return linked_public_culture
+
+    return find_owned_general_public_culture_for_update(culture=culture, user=user)
+
+
+def find_owned_general_public_culture_for_update(
+    *,
+    culture: Culture,
+    user: User | None,
+) -> PublicCulture | None:
+    """Return this user's species-level public entry for a local general Kultur."""
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return None
+    if not culture.crop_species_id or (culture.variety or '').strip():
+        return None
+    return (
+        PublicCulture.objects
+        .filter(
+            Q(variety_normalized__isnull=True) | Q(variety_normalized=''),
+            crop_species_id=culture.crop_species_id,
+            created_by=user,
+            status__in=[PublicCulture.STATUS_PUBLISHED, PublicCulture.STATUS_WITHDRAWN],
+        )
+        .order_by('-updated_at', '-id')
+        .first()
+    )
 
 
 def _record_public_culture_status_event(

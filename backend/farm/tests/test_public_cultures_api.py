@@ -432,6 +432,95 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(existing_general.growth_duration_days, 99)
         self.assertEqual(existing_general.version, 1)
 
+    def test_general_kultur_uses_existing_owned_general_public_entry_from_another_project(self):
+        """Publishing a Sorte should connect the local Kultur to the user's general entry."""
+        other_project = Project.objects.create(name='Previous Project', slug='previous-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        other_general_kultur = Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            project=other_project,
+        )
+        existing_general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            source_project=other_project,
+            source_project_culture=other_general_kultur,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+        )
+        general_kultur = self._create_general_kultur()
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.source_project_culture, other_general_kultur)
+
+        rows = {
+            row['id']: row
+            for row in self.client.get('/openfarmplanner/api/cultures/').data['results']
+        }
+        general_row = rows[general_kultur.id]
+        self.assertEqual(general_row['owned_public_culture_id'], existing_general.id)
+        self.assertEqual(general_row['owned_public_culture_role'], 'contributor')
+        self.assertIsNone(general_row['public_publish_blocked_reason'])
+
+    def test_publishing_general_kultur_updates_existing_owned_general_public_entry(
+        self,
+    ):
+        other_project = Project.objects.create(name='Previous Project', slug='previous-project')
+        ProjectMembership.objects.create(user=self.user, project=other_project, role='admin')
+        other_general_kultur = Culture.objects.create(
+            name='Lettuce',
+            crop_species=self.species,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            project=other_project,
+        )
+        existing_general = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            source_project=other_project,
+            source_project_culture=other_general_kultur,
+            growth_duration_days=99,
+            harvest_duration_days=99,
+            version=3,
+        )
+        general_kultur = self._create_general_kultur(
+            growth_duration_days=60,
+            harvest_duration_days=30,
+        )
+
+        response = self.client.post(
+            f'/openfarmplanner/api/cultures/{general_kultur.id}/publish-public/',
+            {
+                'accepted_public_library_terms': True,
+                'crop_species_id': self.species.id,
+                'original_language_code': 'en',
+                'publish_as_general': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['operation'], 'updated')
+        self.assertEqual(response.data['public_culture']['id'], existing_general.id)
+        self.assertEqual(PublicCulture.objects.filter(variety='').count(), 1)
+        existing_general.refresh_from_db()
+        self.assertEqual(existing_general.source_project_culture, general_kultur)
+        self.assertEqual(existing_general.growth_duration_days, 60)
+        self.assertEqual(existing_general.version, 4)
+
     def _create_general_kultur(self, **overrides) -> Culture:
         return Culture.objects.create(
             name='Lettuce',
