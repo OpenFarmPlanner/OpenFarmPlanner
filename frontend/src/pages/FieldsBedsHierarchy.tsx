@@ -947,6 +947,25 @@ function FieldsBedsHierarchy({
       queuePostEditFocus(getPostEnterSaveFocusTarget(newRow.id), preferredField, newRow.id);
 
       const savedRow = await processRowUpdate(newRow);
+      const savedRowIdChanged = String(savedRow.id) !== String(newRow.id);
+      const requestedMode = rowModesModelRef.current[newRow.id]
+        ?? rowModesModelRef.current[String(newRow.id)];
+
+      if (savedRowIdChanged && requestedMode?.mode === GridRowModes.Edit) {
+        const fieldToFocus = requestedMode.fieldToFocus ?? preferredField ?? "name";
+        rememberFocusedField(fieldToFocus);
+        queuePostEditFocus(savedRow.id, fieldToFocus, newRow.id);
+        setRowModesModel((previousModel) => {
+          const nextModel = { ...previousModel };
+          delete nextModel[newRow.id];
+          delete nextModel[String(newRow.id)];
+          nextModel[savedRow.id] = { mode: GridRowModes.Edit, fieldToFocus };
+          return nextModel;
+        });
+        selectRow(savedRow.id);
+        return savedRow;
+      }
+
       // MUI's own onRowModesModelChange usually flips this row to View (and our
       // rowModesModel layout effect already restores focus onto the queued target)
       // well before this async save resolves. Only re-anchor and re-apply View mode
@@ -971,6 +990,7 @@ function FieldsBedsHierarchy({
       processRowUpdate,
       queuePostEditFocus,
       rememberFocusedField,
+      selectRow,
     ],
   );
 

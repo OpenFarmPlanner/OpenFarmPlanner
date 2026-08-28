@@ -25,6 +25,14 @@ trigger conditions and hierarchy-specific actions — when you change one,
 check whether the other needs the same fix, but don't assume every layer is
 shared.
 
+New Parzelle and Beet rows in that hierarchy begin with temporary negative
+IDs. The first blur save replaces the temporary row with the server row, so a
+same-row cell click made while that save starts must migrate both the row edit
+mode and `fieldToFocus` to the returned ID. Otherwise the replacement discards
+the click and touch users have to tap the target cell twice. The hierarchy's
+save handler performs that ID reconciliation without delaying or replaying the
+pointer event.
+
 ## File map
 
 ```text

@@ -221,6 +221,16 @@ vi.mock('@mui/x-data-grid', async () => {
               <button
                 type="button"
                 onClick={() => {
+                  const lengthColumn = columns.find((column) => column.field === 'length_m');
+                  const lengthEditable = Boolean(lengthColumn?.editable) && (isCellEditable?.({ row, field: 'length_m' }) ?? true);
+                  onCellClick?.({ id: row.id, field: 'length_m', isEditable: lengthEditable, row });
+                }}
+              >
+                {`Edit length ${row.id}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   mockDrafts.set(String(row.id), { ...row, name: 'Teilweise gefuellt' });
                 }}
               >
@@ -607,6 +617,20 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(await screen.findByText('Teilweise gefuellt')).toBeInTheDocument();
     await waitFor(() => expect(bedCreateMock).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByTestId('row--1700000000000')).not.toBeInTheDocument());
+  });
+
+  it('keeps the first tapped dimension cell editing when saving replaces a new row id', async () => {
+    const user = userEvent.setup();
+    renderHierarchy();
+    await addNewBed();
+
+    await user.click(screen.getByRole('button', { name: 'Partial name -1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Edit length -1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
+
+    await waitFor(() => expect(bedCreateMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('mode-101')).toHaveTextContent('edit'));
+    expect(screen.getByTestId('focus-field-101')).toHaveTextContent('length_m');
   });
 
   it('persists a new bed before saving notes from the notes drawer', async () => {
