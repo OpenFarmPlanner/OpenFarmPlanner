@@ -447,7 +447,11 @@ describe("PlantingPlans save-time area validation", () => {
       expect.objectContaining({ minWidth: 142, width: 142, maxWidth: 142 }),
       expect.objectContaining({ minWidth: 142, width: 142, maxWidth: 142 }),
     ]);
-    expect(dateColumns.every((column) => column?.renderEditCell === undefined)).toBe(true);
+    // The planting-date column has a season-constrained custom edit cell; the
+    // (read-only calculated) harvest columns keep the default rendering.
+    const [plantingDateColumn, ...harvestColumns] = dateColumns;
+    expect(typeof plantingDateColumn?.renderEditCell).toBe("function");
+    expect(harvestColumns.every((column) => column?.renderEditCell === undefined)).toBe(true);
   });
 
   it("explains the harvest start and end calculations separately", async () => {

@@ -150,3 +150,23 @@ class YieldCalendarAPITest(TestCase):
 
         scoped = self.client.get('/openfarmplanner/api/yield-calendar/?year=2026', HTTP_X_SEASON_ID=str(season_a.id))
         self.assertAlmostEqual(scoped.json()[0]['cultures'][0]['yield'], 70.0, places=2)
+
+    def test_active_season_without_year_param_spans_every_iso_year_it_covers(self):
+        """A non-calendar-aligned season returns weeks from both of its ISO
+        years in one response, instead of only the single year that would
+        otherwise default from today's date."""
+        carrot = Culture.objects.create(name='Karotte', expected_yield=70, display_color='#F4A261', project=self.project)
+        season = Season.objects.create(
+            project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+        )
+        for plan in (
+            self._create_plan(culture=carrot, harvest_start=date(2025, 10, 6), harvest_end=date(2025, 10, 9)),
+            self._create_plan(culture=carrot, harvest_start=date(2026, 3, 3), harvest_end=date(2026, 3, 6)),
+        ):
+            plan.season = season
+            plan.save(update_fields=['season'])
+
+        response = self.client.get('/openfarmplanner/api/yield-calendar/', HTTP_X_SEASON_ID=str(season.id))
+        self.assertEqual(response.status_code, 200)
+        iso_weeks = {row['iso_week'] for row in response.json()}
+        self.assertEqual(iso_weeks, {'2025-W41', '2026-W10'})

@@ -43,6 +43,8 @@ interface MobilePlanFormDialogProps {
   bedOptions: SearchableSelectOption[];
   cultivationTypeOptions: CultivationTypeSelectOption[];
   numberLocale: string;
+  /** Shown under the planting-date field to signal the active season's range. */
+  plantingDateHelperText?: string;
   getPlantsPerSqm: (cultureId: string) => number | null;
   /** Called when the user edits one of the two linked area/plants inputs. */
   onLinkedFieldEdited: (field: "area_m2" | "plants_count") => void;
@@ -66,6 +68,7 @@ export function MobilePlanFormDialog({
   bedOptions,
   cultivationTypeOptions,
   numberLocale,
+  plantingDateHelperText,
   getPlantsPerSqm,
   onLinkedFieldEdited,
   onClose,
@@ -145,6 +148,7 @@ export function MobilePlanFormDialog({
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, planting_date: event.target.value }))
               }
+              helperText={plantingDateHelperText}
               sx={compactFieldSx}
               slotProps={{
                 inputLabel: { shrink: true }

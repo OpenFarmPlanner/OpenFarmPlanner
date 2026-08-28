@@ -77,7 +77,17 @@ const getSegmentFromSelection = (selectionStart: number | null): DateSegment => 
   return 'day';
 };
 
-function DateEditCellComponent(params: GridRenderEditCellParams) {
+/**
+ * Optional inclusive bounds. When set, the native date picker is constrained
+ * to the range so an out-of-range date can't be picked; typed/arrow-key input
+ * is still surfaced through the grid's own validation, not silently clamped.
+ */
+export interface DateEditCellBoundsProps {
+  minDate?: Date | string | null;
+  maxDate?: Date | string | null;
+}
+
+function DateEditCellComponent(params: GridRenderEditCellParams & DateEditCellBoundsProps) {
   const { t } = useTranslation(['plantingPlans', 'common']);
   const editCellNavigation = useEditCellNavigation();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -247,6 +257,8 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
   };
 
   const pickerValue = toIsoDateString(parseGermanDateText(displayedText) ?? params.value) ?? '';
+  const pickerMin = params.minDate != null ? toIsoDateString(params.minDate) ?? undefined : undefined;
+  const pickerMax = params.maxDate != null ? toIsoDateString(params.maxDate) ?? undefined : undefined;
 
   return (
     <>
@@ -300,6 +312,8 @@ function DateEditCellComponent(params: GridRenderEditCellParams) {
         type="date"
         aria-hidden="true"
         tabIndex={-1}
+        min={pickerMin}
+        max={pickerMax}
         value={pickerValue}
         onChange={(event) => {
           const nextValue = event.target.value ? new Date(`${event.target.value}T00:00:00`) : null;
@@ -323,4 +337,6 @@ export const DateEditCell = memo(DateEditCellComponent, (previous, next) => (
   && previous.field === next.field
   && previous.value === next.value
   && previous.hasFocus === next.hasFocus
+  && previous.minDate === next.minDate
+  && previous.maxDate === next.maxDate
 ));

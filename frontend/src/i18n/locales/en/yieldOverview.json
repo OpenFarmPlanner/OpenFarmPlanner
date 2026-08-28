@@ -6,7 +6,6 @@
   "filters": {
     "culture": "Crop",
     "allCultures": "All crops",
-    "year": "Year",
     "period": "Display",
     "week": "Week",
     "month": "Month"
@@ -15,7 +14,8 @@
     "title": "Yield distribution",
     "tooltip": "{{period}} · {{culture}}: {{yield}} kg",
     "tooltipPeriod": "Period",
-    "tooltipYield": "Yield"
+    "tooltipYield": "Yield",
+    "yearBoundary": "Year change: {{year1}} → {{year2}}"
   },
   "legend": {
     "showAll": "Show all {{count}} crops",
@@ -30,8 +30,8 @@
     "noPlansTitle": "No yield forecast available yet",
     "description": "Yield forecasts become available once planting plans with harvest periods exist.",
     "createPlanAction": "Add planting plan",
-    "noYieldTitle": "No expected yields for {{year}}",
-    "noYieldDescription": "No harvest data exists for {{year}}. Try a different year or make sure your crops have expected yields entered.",
+    "noYieldTitle": "No expected yields in this season",
+    "noYieldDescription": "No harvest data exists for the active season. Make sure your crops have expected yields entered.",
     "openPlansAction": "Open planting plans"
   }
 }

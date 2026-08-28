@@ -71,22 +71,58 @@ description), one level down:
 - Switching the active season reloads the page — the same deliberate choice
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
-- Pages with their own year-based UI state (the Anbaukalender's Gantt/occupancy
-  timeline in `frontend/src/pages/GanttChart.tsx`, and the yield overview's
-  year filter in `frontend/src/pages/YieldOverview.tsx`) default that state to
-  the active season's own start year rather than today's calendar year, via
-  `RootLayoutOutletContext.activeSeasonYear` (computed once in `RootLayout.tsx`
-  from `useActiveSeason()` and passed down through the route `Outlet`
-  context). Each page applies it once, in a `useEffect` guarded by a ref, so a
-  season that is still loading falls back to today's year at first and does
-  not fight a year the user has since navigated to manually. Without this,
-  switching to a season other than the one containing today's date left these
-  two views showing an empty "today's year" range instead of the season just
+- The Anbaukalender's Gantt/occupancy timeline
+  (`frontend/src/pages/GanttChart.tsx`) still has its own year-based UI state
+  and defaults it to the active season's own start year rather than today's
+  calendar year, via `RootLayoutOutletContext.activeSeasonYear` (computed once
+  in `RootLayout.tsx` from `useActiveSeason()` and passed down through the
+  route `Outlet` context). It applies it once, in a `useEffect` guarded by a
+  ref, so a season that is still loading falls back to today's year at first
+  and does not fight a year the user has since navigated to manually. Without
+  this, switching to a season other than the one containing today's date left
+  the Gantt showing an empty "today's year" range instead of the season just
   switched to.
+- The yield overview (`frontend/src/pages/YieldOverview.tsx`) used to carry a
+  "Jahr" filter with the same season-start-year default. It was removed: the
+  page is fully season-scoped through `X-Season-Id`, and for a
+  non-calendar-aligned season the calendar-year filter was actively
+  misleading. `YieldCalendarListView` now returns every ISO year the active
+  season spans (`build_yield_calendar_for_season`) instead of a single year,
+  so a Sep–Aug season is shown whole. `RootLayoutOutletContext.activeSeason`
+  carries the full season down to the page, which uses it only to decide
+  whether to draw the year-boundary marker on the chart (see below).
 
 There is no server-persisted "last active season" (unlike
 `UserProjectSettings.last_project`); it is a client-only, per-project
 convenience that defaults to the newest season when unset or stale.
+
+## Year-boundary marker on season-spanning axes
+
+A season whose period crosses a calendar-year boundary
+(`season.start_date.year != season.end_date.year`) makes any calendar-week or
+month axis ambiguous — "KW01" can be either end of the range. The yield
+overview chart marks this with a subtle dashed vertical line between the last
+column of the old year and the first column of the new year, spanning the plot
+area only (it stops above the axis-label row), with a hover/tap tooltip
+"Jahreswechsel: `<year1>` → `<year2>`".
+
+Implementation worth reusing for other season-spanning axes (e.g. the
+Anbaukalender Gantt):
+
+- The boundary index is derived from the rendered columns
+  (`useYieldChartData` returns `yearBoundary`), not assumed — it is the first
+  column whose calendar year differs from its predecessor. Works for both the
+  week axis (calendar year of the week start) and the month axis.
+- The marker is only drawn when the active season actually straddles a year
+  (`YieldDistributionChart` gates on `activeSeason` from the outlet context) —
+  a plain calendar-year season never needs it.
+- `YieldYearBoundaryMarker` measures the boundary column's offset inside the
+  `position: relative` plot container and re-measures via `ResizeObserver`.
+  The tooltip uses `AppTooltip` with an explicit `open` boolean driven by
+  `hovered || pinned`, where `pinned` toggles on click — the same
+  hover-or-tap pattern the chart segments use, so it works on touch.
+- The colour is a dedicated muted theme token (`palette.chart.yearBoundary`),
+  deliberately outside the crop series palette.
 
 ## Copy-data action
 
@@ -188,6 +224,18 @@ season exists as a row to read `label` off of.
   this is deliberate (the source data is the source of truth for its own
   timing), not a bug, but worth knowing before assuming copied plans are
   automatically renormalized.
+- `PlantingPlan.planting_date` otherwise has a **hard boundary**: on API
+  create/update `PlantingPlanSerializer` rejects a `planting_date` outside the
+  target season's `start_date`–`end_date` range
+  (`_validate_planting_date_within_season`), and the frontend constrains the
+  date picker (the `PlantingPlans` grid's inline edit via `DateEditCell`'s
+  `minDate`/`maxDate`, the mobile create/edit form via a helper text plus a
+  submit-time check). The copy flow above is the one sanctioned way to
+  produce an out-of-range date, because `bulk_create` bypasses serializer
+  validation; the constrained editor then lets the user pull such a plan back
+  into range. This boundary applies to `planting_date` only — harvest dates
+  are still free (they are derived from culture timing and legitimately fall
+  after a season's end).
 - A season's `computed_label` is not guaranteed unique within a project:
   changing the season pattern repeatedly can produce two different date
   ranges that both compute to the same "YY/YY" label (e.g. two periods both

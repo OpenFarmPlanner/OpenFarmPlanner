@@ -2060,7 +2060,7 @@ function RootLayout() {
           minWidth: 0,
         }}
       >
-        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear, notifications } satisfies RootLayoutOutletContext} />
+        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear, activeSeason: activeSeason.activeSeason, notifications } satisfies RootLayoutOutletContext} />
       </Box>
       </Box>
 

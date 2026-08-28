@@ -11,7 +11,8 @@ from farm.common.serializer_fields import (
     AuditUserSerializer,
     _resolve_active_project_from_serializer,
 )
-from farm.models import Culture, PlantingPlan, Task
+from farm.models import Culture, PlantingPlan, Season, Task
+from farm.project_context import resolve_season_id_from_request
 from farm.services.culture_display import resolve_culture_display_name
 from farm.services.culture_inheritance import (
     build_general_culture_index,
@@ -172,9 +173,51 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         self._validate_minimal_identity(attrs)
         self._validate_project_scope(attrs)
+        self._validate_planting_date_within_season(attrs)
         self._apply_area_input_conversion(attrs)
         self._run_model_clean(attrs)
         return attrs
+
+    def _resolve_target_season(self, attrs) -> Season | None:
+        """The season the plan will end up in, mirroring PlantingPlanViewSet.
+
+        Priority: an explicit ``season`` in the payload, then the season already
+        on the instance (updates), then the active ``X-Season-Id`` header. When
+        none of these resolve, ``perform_create`` auto-creates the season around
+        the plan's own planting date, so the date is in range by construction
+        and there is nothing to validate here.
+        """
+        if 'season' in attrs:
+            return attrs['season']
+        if self.instance is not None and self.instance.season_id:
+            return self.instance.season
+        request = self.context.get('request')
+        if request is None:
+            return None
+        season_id = resolve_season_id_from_request(request)
+        if season_id is None:
+            return None
+        return Season.objects.filter(pk=season_id).first()
+
+    def _validate_planting_date_within_season(self, attrs) -> None:
+        """Hard boundary: planting_date must fall inside the season's period."""
+        planting_date = attrs.get('planting_date')
+        if planting_date is None and self.instance is not None:
+            planting_date = self.instance.planting_date
+        if planting_date is None:
+            return
+        season = self._resolve_target_season(attrs)
+        if season is None:
+            return
+        if season.start_date <= planting_date <= season.end_date:
+            return
+        period = (
+            f"{season.start_date.strftime('%d.%m.%Y')} – "
+            f"{season.end_date.strftime('%d.%m.%Y')}"
+        )
+        raise serializers.ValidationError({
+            'planting_date': f'Pflanzdatum muss innerhalb der Saison liegen ({period}).',
+        })
 
     def _validate_minimal_identity(self, attrs):
         """A plan can be saved as a draft missing bed/planting_date/

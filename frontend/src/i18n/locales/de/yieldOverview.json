@@ -6,7 +6,6 @@
   "filters": {
     "culture": "Kultur",
     "allCultures": "Alle Kulturen",
-    "year": "Jahr",
     "period": "Darstellung",
     "week": "Woche",
     "month": "Monat"
@@ -15,7 +14,8 @@
     "title": "Ertragsverteilung",
     "tooltip": "{{period}} · {{culture}}: {{yield}} kg",
     "tooltipPeriod": "Zeitraum",
-    "tooltipYield": "Ertrag"
+    "tooltipYield": "Ertrag",
+    "yearBoundary": "Jahreswechsel: {{year1}} → {{year2}}"
   },
   "legend": {
     "showAll": "Alle {{count}} Kulturen anzeigen",
@@ -30,8 +30,8 @@
     "noPlansTitle": "Noch keine Ertragsprognose verfügbar",
     "description": "Ertragsprognosen werden verfügbar, sobald Anbaupläne mit Erntezeiträumen vorhanden sind.",
     "createPlanAction": "Anbauplan hinzufügen",
-    "noYieldTitle": "Keine erwarteten Erträge für {{year}}",
-    "noYieldDescription": "Für das Jahr {{year}} sind keine Erntedaten vorhanden. Wähle ein anderes Jahr oder stelle sicher, dass deine Kulturen erwartete Erträge eingetragen haben.",
+    "noYieldTitle": "Keine erwarteten Erträge in dieser Saison",
+    "noYieldDescription": "Für die aktive Saison sind keine Erntedaten vorhanden. Stelle sicher, dass deine Kulturen erwartete Erträge eingetragen haben.",
     "openPlansAction": "Anbaupläne öffnen"
   }
 }

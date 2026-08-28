@@ -9,7 +9,7 @@
 
 import { useCallback, useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { isTypingInEditableElement } from "../hooks/useKeyboardShortcuts";
-import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router";
 import type {
   GridColDef,
   GridRenderCellParams,
@@ -74,6 +74,9 @@ import {
   FULL_CELL_TOOLTIP_CELL_CLASS,
 } from "../components/data-grid";
 import { CALCULATED_COLUMN_CELL_CLASS } from "../components/data-grid/calculatedColumns";
+import { DateEditCell } from "../components/data-grid/DateEditCell";
+import { formatSeasonDate, resolveSeasonDateLocale } from "../seasons/formatSeasonDate";
+import type { RootLayoutOutletContext } from "../navigation/topbarTypes";
 import { MobileCardList } from "../components/mobile/MobileCardList";
 import { NotesDrawer } from "../components/data-grid/NotesDrawer";
 import ProjectRequiredState from "../components/project/ProjectRequiredState";
@@ -129,7 +132,30 @@ const BED_COLUMN_MAX_WIDTH = 220;
 const PLANTING_PLAN_DIALOG_EDIT_FIELDS = ["bed"];
 
 function PlantingPlans() {
-  const { t } = useTranslation(["plantingPlans", "common"]);
+  const { t, i18n } = useTranslation(["plantingPlans", "common"]);
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
+  const activeSeason = outletContext?.activeSeason ?? null;
+  const seasonBounds = useMemo(() => {
+    if (!activeSeason) {
+      return null;
+    }
+    const locale = resolveSeasonDateLocale(i18n);
+    return {
+      minDate: activeSeason.start_date,
+      maxDate: activeSeason.end_date,
+      startLabel: formatSeasonDate(activeSeason.start_date, locale),
+      endLabel: formatSeasonDate(activeSeason.end_date, locale),
+    };
+  }, [activeSeason, i18n]);
+  const isPlantingDateWithinSeason = useCallback(
+    (isoDate: string | null | undefined): boolean => {
+      if (!seasonBounds || !isoDate) {
+        return true;
+      }
+      return isoDate >= seasonBounds.minDate && isoDate <= seasonBounds.maxDate;
+    },
+    [seasonBounds],
+  );
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -612,8 +638,17 @@ function PlantingPlans() {
         type: "date",
         editable: true,
         valueGetter: (value) => toGridDateValue(value),
+        renderEditCell: (params) => (
+          <DateEditCell
+            {...params}
+            minDate={seasonBounds?.minDate}
+            maxDate={seasonBounds?.maxDate}
+          />
+        ),
         preProcessEditCellProps: (params) => {
-          const hasError = !params.props.value;
+          const isoValue = toIsoDateString(params.props.value);
+          const hasError =
+            !params.props.value || !isPlantingDateWithinSeason(isoValue);
           return { ...params.props, error: hasError };
         },
       },
@@ -780,6 +815,8 @@ function PlantingPlans() {
       areaColumnLabel,
       fieldBedColumnLabel,
       numberLocale,
+      seasonBounds,
+      isPlantingDateWithinSeason,
       t,
     ],
   );
@@ -1181,6 +1218,20 @@ function PlantingPlans() {
     }
     if (!parseGermanDateText(mobileCreateForm.planting_date)) {
       setMobileCreateError(t("plantingPlans:validation.plantingDateRequired"));
+      return false;
+    }
+    if (
+      seasonBounds &&
+      !isPlantingDateWithinSeason(
+        toIsoDateString(parseGermanDateText(mobileCreateForm.planting_date)),
+      )
+    ) {
+      setMobileCreateError(
+        t("plantingPlans:validation.plantingDateOutsideSeason", {
+          start: seasonBounds.startLabel,
+          end: seasonBounds.endLabel,
+        }),
+      );
       return false;
     }
     if (
@@ -1736,8 +1787,14 @@ function PlantingPlans() {
           }}
           getRowValidationErrors={(row) => {
             const errors: Record<string, string> = {};
+            const plantingDateIso = toIsoDateString(row.planting_date);
             if (!row.planting_date) {
               errors.planting_date = t("plantingPlans:validation.plantingDateRequired");
+            } else if (seasonBounds && !isPlantingDateWithinSeason(plantingDateIso)) {
+              errors.planting_date = t("plantingPlans:validation.plantingDateOutsideSeason", {
+                start: seasonBounds.startLabel,
+                end: seasonBounds.endLabel,
+              });
             }
             if (!row.culture || row.culture === 0) {
               errors.culture = t("plantingPlans:validation.cultureRequired");
@@ -1903,6 +1960,14 @@ function PlantingPlans() {
         bedOptions={bedOptions}
         cultivationTypeOptions={cultivationTypeOptions}
         numberLocale={numberLocale}
+        plantingDateHelperText={
+          seasonBounds
+            ? t("plantingPlans:hints.plantingDateSeasonRange", {
+                start: seasonBounds.startLabel,
+                end: seasonBounds.endLabel,
+              })
+            : undefined
+        }
         getPlantsPerSqm={getPlantsPerSqmForCulture}
         onLinkedFieldEdited={handleMobileLinkedFieldEdited}
         onClose={closeMobileCreateDialog}

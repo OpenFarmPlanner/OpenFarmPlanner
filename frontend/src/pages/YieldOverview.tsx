@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
 import { useOutletContext } from "react-router";
 import {
@@ -33,22 +33,7 @@ export default function YieldOverviewPage() {
   const { shouldShowProjectRequiredState, missingProjectReason } =
     useProjectRequirement();
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  // Defaults to today's year before the active season has loaded; once it
-  // has, snap once to the season's own start year so switching to a
-  // non-current season doesn't land on an empty "today's year" view.
-  const appliedSeasonYearRef = useRef(false);
-  useEffect(() => {
-    const seasonYear = outletContext?.activeSeasonYear;
-    if (appliedSeasonYearRef.current || seasonYear == null) {
-      return;
-    }
-    appliedSeasonYearRef.current = true;
-    if (seasonYear !== currentYear) {
-      setSelectedYear(seasonYear);
-    }
-  }, [currentYear, outletContext?.activeSeasonYear]);
+  const activeSeason = outletContext?.activeSeason ?? null;
   const [selectedCultureId, setSelectedCultureId] = useState(ALL_CULTURES);
   const [period, setPeriod] = useState<ChartPeriod>("week");
   const [isFetching, setLoading] = useState(true);
@@ -80,7 +65,7 @@ export default function YieldOverviewPage() {
         setError(null);
         const [plansRes, weeklyYieldRes] = await Promise.all([
           plantingPlanAPI.list(),
-          yieldCalendarAPI.list(selectedYear),
+          yieldCalendarAPI.list(),
         ]);
         if (ignore) {
           return;
@@ -104,7 +89,7 @@ export default function YieldOverviewPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedYear, shouldShowProjectRequiredState, t]);
+  }, [shouldShowProjectRequiredState, t]);
 
   const cultures = useMemo(() => {
     const cultureMap = new Map<number, YieldCultureMeta>();
@@ -171,10 +156,8 @@ export default function YieldOverviewPage() {
           <YieldFilterBar
             cultures={cultures}
             selectedCultureId={selectedCultureId}
-            selectedYear={selectedYear}
             period={period}
             onCultureChange={setSelectedCultureId}
-            onYearChange={setSelectedYear}
             onPeriodChange={setPeriod}
           />
 
@@ -196,11 +179,12 @@ export default function YieldOverviewPage() {
               weeklyYield={weeklyYield}
               selectedCultureId={selectedCultureId}
               period={period}
+              activeSeason={activeSeason}
             />
           ) : (
             <EmptyStateCard
-              title={t("empty.noYieldTitle", { year: selectedYear })}
-              description={t("empty.noYieldDescription", { year: selectedYear })}
+              title={t("empty.noYieldTitle")}
+              description={t("empty.noYieldDescription")}
               actions={[
                 { label: t("empty.openPlansAction"), to: "/app/planting-plans" },
               ]}

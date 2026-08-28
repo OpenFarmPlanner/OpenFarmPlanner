@@ -71,6 +71,11 @@ export function useYieldChartData(
         chartData: [] as YieldChartColumn[],
         chartCultures: [] as YieldChartCulture[],
         availableCultures,
+        yearBoundary: null as {
+          columnId: string;
+          year1: number;
+          year2: number;
+        } | null,
         maxTotalYield: 0,
       };
     }
@@ -154,10 +159,34 @@ export function useYieldChartData(
         right.totalYield - left.totalYield
       ));
 
+    // The single index where the visible columns cross a calendar-year
+    // boundary (Dec → Jan). At most one exists within a ~12-month season.
+    // `columnId` is the first column of the new year; the marker renders on
+    // its leading edge.
+    const columnYear = (column: YieldChartColumn): number =>
+      period === "week"
+        ? parseDateString(column.startDate).getFullYear()
+        : Number(column.id.split("-")[0]);
+    let yearBoundary: { columnId: string; year1: number; year2: number } | null =
+      null;
+    for (let index = 1; index < chartData.length; index += 1) {
+      const previousYear = columnYear(chartData[index - 1]);
+      const currentYear = columnYear(chartData[index]);
+      if (previousYear !== currentYear) {
+        yearBoundary = {
+          columnId: chartData[index].id,
+          year1: previousYear,
+          year2: currentYear,
+        };
+        break;
+      }
+    }
+
     return {
       chartData,
       chartCultures,
       availableCultures,
+      yearBoundary,
       maxTotalYield: chartData.reduce(
         (max, column) => Math.max(max, column.totalYield),
         0,

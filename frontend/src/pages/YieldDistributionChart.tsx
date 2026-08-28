@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Box, Button, Card, CardContent, Divider, MenuItem, Typography } from "@mui/material";
 import { type YieldCalendarWeek } from "../api/api";
+import { type Season } from "../api/types";
+import { YieldYearBoundaryMarker } from "./YieldYearBoundaryMarker";
 import { copyTextToClipboardSilently } from "../components/data-grid";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
 import { useContextMenuPositionState } from "../components/contextMenu/useContextMenuPositionState";
@@ -35,21 +37,34 @@ interface YieldDistributionChartProps {
   weeklyYield: YieldCalendarWeek[];
   selectedCultureId: string;
   period: ChartPeriod;
+  activeSeason: Season | null;
 }
 
 export function YieldDistributionChart({
   weeklyYield,
   selectedCultureId,
   period,
+  activeSeason,
 }: YieldDistributionChartProps) {
   const { t, i18n } = useTranslation(["yieldOverview", "common"]);
   const navigate = useNavigate();
-  const { chartData, chartCultures, maxTotalYield } = useYieldChartData(
+  const { chartData, chartCultures, maxTotalYield, yearBoundary } = useYieldChartData(
     weeklyYield,
     selectedCultureId,
     period,
     i18n.resolvedLanguage ?? i18n.language,
   );
+
+  // Only mark the calendar-year boundary when the active season deliberately
+  // straddles one (e.g. a Sep–Aug season); a plain calendar-year season never
+  // crosses and needs no marker.
+  const seasonCrossesYearBoundary = Boolean(
+    activeSeason &&
+      new Date(`${activeSeason.start_date}T00:00:00`).getFullYear() !==
+        new Date(`${activeSeason.end_date}T00:00:00`).getFullYear(),
+  );
+  const visibleYearBoundary =
+    seasonCrossesYearBoundary && yearBoundary ? yearBoundary : null;
   const axisRef = useRef<HTMLDivElement | null>(null);
   const chartPlotRef = useRef<HTMLDivElement | null>(null);
   useFocusRegion('yield-chart', chartPlotRef, { label: t('chart.title'), order: 3 });
@@ -439,6 +454,7 @@ export function YieldDistributionChart({
               ref={chartPlotRef}
               data-testid="yield-chart-plot"
               sx={{
+                position: "relative",
                 width: "100%",
                 height: { xs: 300, md: 400 },
                 px: { xs: 0.25, sm: 0.75 },
@@ -509,6 +525,17 @@ export function YieldDistributionChart({
                   </Box>
                 </Box>
               ))}
+              {visibleYearBoundary ? (
+                <YieldYearBoundaryMarker
+                  plotRef={chartPlotRef}
+                  boundaryColumnId={visibleYearBoundary.columnId}
+                  label={t("chart.yearBoundary", {
+                    year1: visibleYearBoundary.year1,
+                    year2: visibleYearBoundary.year2,
+                  })}
+                  remeasureKey={`${period}:${chartData.length}:${axisWidth}`}
+                />
+              ) : null}
             </Box>
 
             <Box

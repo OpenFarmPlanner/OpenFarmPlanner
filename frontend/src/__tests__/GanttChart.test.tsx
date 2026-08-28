@@ -181,6 +181,7 @@ vi.mock('react-router', async () => {
         topbarContext.setTopbarTitleActions(actions);
       },
       activeSeasonYear: outletSeasonState.activeSeasonYear,
+      activeSeason: null,
     }),
     useNavigate: () => mocks.navigate,
   };

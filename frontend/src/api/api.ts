@@ -363,7 +363,13 @@ export const seedDemandAPI = {
 };
 
 export const yieldCalendarAPI = {
-  list: (year: number) => http.get<YieldCalendarWeek[]>('/yield-calendar/', { params: { year } }),
+  // No year: the endpoint scopes to the active season (via the X-Season-Id
+  // header) and returns every ISO year that season spans. An explicit year is
+  // still accepted for direct API callers.
+  list: (year?: number) =>
+    http.get<YieldCalendarWeek[]>('/yield-calendar/', {
+      params: year === undefined ? {} : { year },
+    }),
 };
 
 export const fieldAPI = {
