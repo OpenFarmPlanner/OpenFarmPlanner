@@ -96,16 +96,31 @@ Two restore paths, both admin-only (`require_project_admin`):
   `deleted_at`, and saves with `_history_action = ACTION_RESTORED`.
 - **`ProjectHistoryRestoreView`** restores the *whole project* to a target
   timestamp (`_restore_project_state_at`): for every restorable entity
-  type, it deletes all current rows of that type in the project and
-  bulk-recreates them from `_entity_states_at(project, entity_type,
-  target_time)` — which, for each `object_id`, takes the most recent
-  revision at or before `target_time` (a `None` snapshot, i.e. the entity
-  was deleted by then, means it's simply not recreated). Entity types are
-  deleted in **reverse** dependency order before being recreated in forward
-  order, to avoid FK constraint errors during the rebuild.
-  `_restore_project_state_at` tolerates schema drift: a snapshot may carry
-  fields the current model no longer has (from before a field was renamed
-  or removed), and those are silently dropped rather than raising.
+  type it deletes the rows history *knows about* (any `object_id` that has an
+  `EntityRevision` for the project) and bulk-recreates them from
+  `_entity_states_at(project, entity_type, target_time)` — which, for each
+  `object_id`, takes the most recent revision at or before `target_time` (a
+  `None` snapshot, i.e. the entity was deleted by then, means it's simply not
+  recreated). Entity types are deleted in **reverse** dependency order before
+  being recreated in forward order, to avoid FK constraint errors during the
+  rebuild.
+  - **Untracked rows are left alone.** Rows created outside the API have no
+    revision — the auto `"Hauptstandort"` default
+    (`ProjectScopedMixin.ensure_active_project_location`), demo-seeder rows
+    (`demo_project.py` uses plain `Model.objects.create`), anything from
+    before history tracking. The rebuild can't reconstruct them, so it does
+    not delete them either. (Historically it nuked *all* rows and rebuilt,
+    which silently emptied any project with untracked rows.)
+  - `_bulk_create_skipping_conflicts` recreates newest-`object_id`-first and,
+    if a bulk insert hits a (possibly partial) unique constraint — two stale
+    snapshots that both look "active" because one entity was hard-deleted
+    without an `ACTION_DELETED` revision — falls back to per-row inserts that
+    skip the losers. `created_ids[model]` is then every row actually present
+    (recreated **plus** untracked survivors), so a child FK check that a row's
+    parent exists stays correct.
+  - Tolerates schema drift: a snapshot may carry fields the current model no
+    longer has (from before a field was renamed or removed), silently dropped
+    rather than raising.
 
 ## What to check before changing this
 

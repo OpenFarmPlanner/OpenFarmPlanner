@@ -199,6 +199,43 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(general_tomate.count(), 1)
         self.assertEqual(general_tomate.first().pk, live.pk)
 
+    def test_project_history_restore_leaves_untracked_rows_untouched(self) -> None:
+        """Rows created outside the API (the demo seeder, the auto default
+        location) have no EntityRevision. A restore rebuilds only what history
+        recorded and must leave those rows alone — not delete them, which once
+        emptied a whole demo project."""
+        headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
+        location = Location.objects.create(name='Seeded L', project=self.project)
+        field = location.fields.create(name='Seeded F', project=self.project)
+        bed = field.beds.create(name='Seeded B', area_sqm=10, project=self.project)
+        # A tracked culture so a restore point exists and the rebuild has work.
+        culture_response = self.client.post(
+            '/openfarmplanner/api/cultures/', {'name': 'Tracked', 'variety': ''}, format='json', **headers,
+        )
+        self.client.patch(
+            f'/openfarmplanner/api/cultures/{culture_response.data["id"]}/',
+            {'name': 'Tracked renamed'}, format='json', **headers,
+        )
+
+        history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
+        history_id = next(
+            entry['history_id'] for entry in history
+            if not entry.get('is_batch') and entry.get('action') == 'created'
+        )
+        response = self.client.post(
+            '/openfarmplanner/api/history/project/restore/',
+            {'history_id': history_id}, format='json', **headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(Location.objects.filter(pk=location.pk).exists())
+        self.assertTrue(Field.objects.filter(pk=field.pk).exists())
+        self.assertTrue(Bed.objects.filter(pk=bed.pk).exists())
+        # The tracked culture was rolled back to its pre-rename snapshot.
+        self.assertEqual(
+            Culture.objects.get(pk=culture_response.data['id']).name, 'Tracked',
+        )
+
     def test_create_project_without_slug_succeeds(self) -> None:
         response = self.client.post('/openfarmplanner/api/projects/', {'name': 'Neues Projekt', 'description': ''}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

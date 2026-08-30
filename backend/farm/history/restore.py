@@ -9,6 +9,10 @@ from farm.models import EntityRevision, Project
 from .records import _RESTORABLE_ENTITY_TYPES
 
 
+def _model_manager(model):
+    return getattr(model, 'all_objects', None) or model._base_manager
+
+
 def _bulk_create_skipping_conflicts(model, instances: list, object_ids: list[int]) -> set[int]:
     """Recreate `instances` (aligned with `object_ids`), returning the ids that
     landed.
@@ -57,15 +61,28 @@ def _entity_states_at(project: Project, entity_type: str, target_time) -> dict[i
 
 
 def _restore_project_state_at(project: Project, target_time) -> None:
-    """Reconstruct every restorable entity type to its state at target_time."""
+    """Reconstruct every restorable entity type to its state at target_time.
+
+    Only rows that history actually recorded are rebuilt. Rows created outside
+    the API — the auto "Hauptstandort" default location, demo-seeder rows,
+    anything predating history — have no revision to rebuild from and are left
+    untouched rather than deleted for good.
+    """
     restorable_models = {model for model, _entity_type in _RESTORABLE_ENTITY_TYPES}
     with transaction.atomic():
-        for model, _entity_type in reversed(_RESTORABLE_ENTITY_TYPES):
-            manager = getattr(model, 'all_objects', None) or model._base_manager
-            manager.filter(project=project).delete()
+        for model, entity_type in reversed(_RESTORABLE_ENTITY_TYPES):
+            tracked_ids = list(
+                EntityRevision.objects
+                .filter(project=project, entity_type=entity_type)
+                .values_list('object_id', flat=True)
+                .distinct()
+            )
+            if tracked_ids:
+                _model_manager(model).filter(project=project, pk__in=tracked_ids).delete()
 
         created_ids: dict[type, set[int]] = {}
         for model, entity_type in _RESTORABLE_ENTITY_TYPES:
+            manager = _model_manager(model)
             allowed_fields = {field.attname for field in model._meta.concrete_fields}
             # FKs to other restorable types: a DB-level cascade delete of the parent
             # (e.g. deleting a Location hard-deletes its Fields/Beds) never records an
@@ -119,8 +136,11 @@ def _restore_project_state_at(project: Project, target_time) -> None:
             # Newest object_id first, so a unique-constraint collision between
             # two stale snapshots resolves in favour of the most recent one.
             candidates.sort(key=lambda pair: pair[0], reverse=True)
-            created_ids[model] = _bulk_create_skipping_conflicts(
+            _bulk_create_skipping_conflicts(
                 model,
                 [instance for _object_id, instance in candidates],
                 [object_id for object_id, _instance in candidates],
             )
+            # Every row now present: recreated plus the untracked survivors a
+            # child FK may legitimately point at.
+            created_ids[model] = set(manager.filter(project=project).values_list('pk', flat=True))
