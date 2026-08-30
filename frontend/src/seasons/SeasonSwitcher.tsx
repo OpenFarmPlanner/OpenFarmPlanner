@@ -5,6 +5,10 @@ import {
   Button,
   Checkbox,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   IconButton,
   Menu,
@@ -52,15 +56,31 @@ export function SeasonSwitcher({
   const [rowMenuSeasonId, setRowMenuSeasonId] = useState<number | null>(null);
   const [renameSeasonTarget, setRenameSeasonTarget] = useState<Season | null>(null);
   const [copyDialogTarget, setCopyDialogTarget] = useState<Season | null>(null);
-  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [suggestionDialogOpen, setSuggestionDialogOpen] = useState(false);
   const [copyFromCurrent, setCopyFromCurrent] = useState(true);
   const [creatingSuggested, setCreatingSuggested] = useState(false);
 
   const rowMenuSeason = seasons.find((season) => season.id === rowMenuSeasonId) ?? null;
-  const showSuggestion = Boolean(dueSuggestion?.due) && !suggestionDismissed && dueSuggestion?.start_date && dueSuggestion?.end_date;
+  const showSuggestion = Boolean(dueSuggestion?.due && dueSuggestion?.start_date && dueSuggestion?.end_date);
   const suggestedLabel = showSuggestion ? computeSeasonLabel(dueSuggestion!.start_date!, dueSuggestion!.end_date!) : '';
+  const suggestedPeriod = showSuggestion
+    ? formatSeasonPeriod(dueSuggestion!.start_date!, dueSuggestion!.end_date!, locale)
+    : '';
 
   const closeMenu = () => setMenuAnchor(null);
+
+  const handleOpenSuggestionDialog = () => {
+    setCopyFromCurrent(true);
+    closeMenu();
+    setSuggestionDialogOpen(true);
+  };
+
+  const handleCloseSuggestionDialog = () => {
+    if (!creatingSuggested) {
+      setSuggestionDialogOpen(false);
+      setCopyFromCurrent(true);
+    }
+  };
 
   const handleCreateSuggested = async () => {
     if (!dueSuggestion?.start_date || !dueSuggestion.end_date) {
@@ -74,6 +94,8 @@ export function SeasonSwitcher({
         copyFromCurrent && activeSeason ? activeSeason.id : undefined,
       );
       switchSeason(created.id);
+      setSuggestionDialogOpen(false);
+      setCopyFromCurrent(true);
     } finally {
       setCreatingSuggested(false);
     }
@@ -153,43 +175,53 @@ export function SeasonSwitcher({
         })}
 
         {showSuggestion ? (
-          <Box sx={{ p: 2, maxWidth: 340 }}>
-            <Divider sx={{ mb: 1.5 }} />
-            <Typography variant="subtitle2">
-              {t('navigation:seasonSwitcher.suggestion.title', { label: suggestedLabel })}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-              {t('navigation:seasonSwitcher.suggestion.subtitle', {
-                start: formatSeasonPeriod(dueSuggestion!.start_date!, dueSuggestion!.end_date!, locale).split(' – ')[0],
-                end: formatSeasonPeriod(dueSuggestion!.start_date!, dueSuggestion!.end_date!, locale).split(' – ')[1],
-              })}
-            </Typography>
-            {activeSeason ? (
-              <FormControlLabel
-                sx={{ mb: 1 }}
-                control={(
-                  <Checkbox
-                    size="small"
-                    checked={copyFromCurrent}
-                    onChange={(event) => setCopyFromCurrent(event.target.checked)}
-                  />
-                )}
-                label={(
-                  <Typography variant="body2">
-                    {t('navigation:seasonSwitcher.suggestion.copyCheckbox', { label: activeSeason.label })}
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem onClick={handleOpenSuggestionDialog}>
+              <Stack direction="row" spacing={1} sx={{ flex: 1, minWidth: 0, alignItems: 'flex-start' }}>
+                <Box
+                  component="span"
+                  aria-hidden="true"
+                  sx={{
+                    mt: 0.25,
+                    width: 2,
+                    height: 2,
+                    borderRadius: '50%',
+                    bgcolor: 'success.main',
+                    color: 'success.contrastText',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    typography: 'caption',
+                    fontWeight: 700,
+                    flex: '0 0 auto',
+                  }}
+                >
+                  +
+                </Box>
+                <Stack sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 500 }}>
+                    {t('navigation:seasonSwitcher.suggestion.title', { label: suggestedLabel })}
                   </Typography>
-                )}
-              />
-            ) : null}
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-              <Button size="small" onClick={() => setSuggestionDismissed(true)}>
-                {t('navigation:seasonSwitcher.suggestion.later')}
-              </Button>
-              <Button size="small" variant="contained" disabled={creatingSuggested} onClick={() => void handleCreateSuggested()}>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    {suggestedPeriod}
+                  </Typography>
+                </Stack>
+              </Stack>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={creatingSuggested}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleOpenSuggestionDialog();
+                }}
+                sx={{ ml: 1, flex: '0 0 auto' }}
+              >
                 {t('navigation:seasonSwitcher.suggestion.create')}
               </Button>
-            </Stack>
-          </Box>
+            </MenuItem>
+          </>
         ) : null}
 
         <Divider sx={{ my: 0.5 }} />
@@ -220,6 +252,55 @@ export function SeasonSwitcher({
         onClose={() => setCopyDialogTarget(null)}
         onConfirm={copyDataInto}
       />
+
+      <Dialog open={suggestionDialogOpen && showSuggestion} onClose={handleCloseSuggestionDialog} fullWidth maxWidth="xs">
+        <DialogTitle>{t('navigation:seasonSwitcher.suggestion.confirmTitle', { label: suggestedLabel })}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              {suggestedPeriod}
+            </Typography>
+            {activeSeason ? (
+              <Box
+                sx={{
+                  borderRadius: 1,
+                  bgcolor: 'success.50',
+                  p: 1.5,
+                }}
+              >
+                <FormControlLabel
+                  sx={{ alignItems: 'flex-start', m: 0 }}
+                  control={(
+                    <Checkbox
+                      checked={copyFromCurrent}
+                      onChange={(event) => setCopyFromCurrent(event.target.checked)}
+                      sx={{ pt: 0 }}
+                    />
+                  )}
+                  label={(
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2">
+                        {t('navigation:seasonSwitcher.suggestion.copyCheckbox', { label: activeSeason.label })}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('navigation:seasonSwitcher.suggestion.copyDescription')}
+                      </Typography>
+                    </Stack>
+                  )}
+                />
+              </Box>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseSuggestionDialog} disabled={creatingSuggested}>
+            {t('common:actions.cancel')}
+          </Button>
+          <Button variant="contained" onClick={() => void handleCreateSuggested()} disabled={creatingSuggested}>
+            {t('navigation:seasonSwitcher.suggestion.create')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {pendingDeletions.map((deletion, index) => (
         <DeleteUndoSnackbar

@@ -64,10 +64,51 @@ describe('SeasonSwitcher', () => {
 
     await user.click(screen.getByRole('button', { name: 'Aktive Saison wechseln' }));
     expect(screen.getByText('Saison 26/27 anlegen')).toBeInTheDocument();
+    expect(screen.getByText('1.9.2026 – 31.8.2027')).toBeInTheDocument();
 
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(screen.getByRole('heading', { name: 'Saison 26/27 anlegen?' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Daten aus Saison 25\/26 übernehmen/ })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
     expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2027-08-31', 2);
     expect(switchSeason).toHaveBeenCalledWith(3);
+  });
+
+  it('creates the suggested season without copying when the dialog option is unchecked', async () => {
+    const user = userEvent.setup();
+    const createSeason = vi.fn().mockResolvedValue({ ...seasons[0], id: 3, label: '26/27' });
+    const controller = {
+      seasons,
+      activeSeason: seasons[0],
+      dueSuggestion: {
+        due: true,
+        start_date: '2026-09-01',
+        end_date: '2027-08-31',
+      },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason: vi.fn(),
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonSwitcher
+        controller={controller}
+        onOpenProjectSettings={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Aktive Saison wechseln' }));
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+    await user.click(screen.getByRole('checkbox', { name: /Daten aus Saison 25\/26 übernehmen/ }));
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2027-08-31', undefined);
   });
 });
