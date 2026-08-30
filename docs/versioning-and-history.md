@@ -87,48 +87,41 @@ history shows them as one collapsible entry instead of a dozen unrelated
 
 ## Restoring
 
-Two restore paths, both admin-only (`require_project_admin`):
+Both restore paths are admin-only (`require_project_admin`) and **single-entity
+and non-destructive** — nothing else in the project changes:
 
 - **`GlobalHistoryRestoreView`** restores a *single culture* from one of its
   own past revisions: copies every allowed field from that revision's
   snapshot onto the (possibly soft-deleted — looked up via
   `Culture.all_objects`, not the default manager) culture row, clears
   `deleted_at`, and saves with `_history_action = ACTION_RESTORED`.
-- **`ProjectHistoryRestoreView`** restores the *whole project* to a target
-  timestamp (`_restore_project_state_at`): for every restorable entity
-  type it deletes the rows history *knows about* (any `object_id` that has an
-  `EntityRevision` for the project) and bulk-recreates them from
-  `_entity_states_at(project, entity_type, target_time)` — which, for each
-  `object_id`, takes the most recent revision at or before `target_time` (a
-  `None` snapshot, i.e. the entity was deleted by then, means it's simply not
-  recreated). Entity types are deleted in **reverse** dependency order before
-  being recreated in forward order, to avoid FK constraint errors during the
-  rebuild.
-  - **Untracked rows are left alone.** Rows created outside the API have no
-    revision — the auto `"Hauptstandort"` default
-    (`ProjectScopedMixin.ensure_active_project_location`), demo-seeder rows
-    (`demo_project.py` uses plain `Model.objects.create`), anything from
-    before history tracking. The rebuild can't reconstruct them, so it does
-    not delete them either. (Historically it nuked *all* rows and rebuilt,
-    which silently emptied any project with untracked rows.)
-  - `_bulk_create_skipping_conflicts` recreates newest-`object_id`-first and,
-    if a bulk insert hits a (possibly partial) unique constraint — two stale
-    snapshots that both look "active" because one entity was hard-deleted
-    without an `ACTION_DELETED` revision — falls back to per-row inserts that
-    skip the losers. `created_ids[model]` is then every row actually present
-    (recreated **plus** untracked survivors), so a child FK check that a row's
-    parent exists stays correct.
-  - Tolerates schema drift: a snapshot may carry fields the current model no
-    longer has (from before a field was renamed or removed), silently dropped
-    rather than raising.
+- **`ProjectHistoryRestoreView`** does the same generically for *whichever
+  entity* the clicked history entry belongs to
+  (`restore_entity_from_revision`, `farm/history/restore.py`): looks the
+  model up from `entity_type`, and either `UPDATE`s the live row or
+  `bulk_create`s it back (bypassing `Model.save()`, so no harvest recalcs or
+  auto-revisions) from the snapshot, with the original PK and `deleted_at`
+  cleared. A `deleted` revision holds the last state before deletion, so
+  restoring it brings the entity back. Then it records an `ACTION_RESTORED`
+  `EntityRevision` for that entity.
+  - Snapshot fields the model no longer has (renamed/removed in a later
+    schema change) are skipped, not fed to the constructor.
+  - An FK whose target row is gone is nulled if the field is nullable;
+    otherwise, and on any `IntegrityError` (e.g. the recreated row would
+    collide with a live one on a unique constraint — a stale snapshot of an
+    entity hard-deleted without an `ACTION_DELETED` revision), the view
+    returns **422** and changes nothing.
+  - It used to restore the *whole project* to the revision's timestamp by
+    deleting and rebuilding every restorable entity type. That silently
+    emptied projects whose hierarchy (locations/fields/beds) was seeded
+    outside the API and so had no revisions to rebuild from — hence the
+    switch to single-entity.
 
 ## What to check before changing this
 
-- If you add a new project-scoped model that should participate in
-  project-wide point-in-time restore, add it to the restorable-entity-type
-  list used by `_restore_project_state_at` and make sure something calls
-  `record_entity_revision` for it — being project-scoped alone does not
-  give a model history for free.
+- Any entity type that appears in the project history (`_ENTITY_TYPE_LABELS`,
+  plus `season`) must be reachable from `_MODEL_BY_ENTITY_TYPE` in
+  `restore.py` for its entries to be individually restorable.
 - Don't write new rows to `CultureRevision`/`ProjectRevision` — they're
   drain-only.
 - Remember `EntityRevision.object_id` is a plain integer, not a real FK —
@@ -136,20 +129,18 @@ Two restore paths, both admin-only (`require_project_admin`):
   to its live entity table; this is an intentional generic-relation-like
   pattern, not an oversight.
 
-## What participates in whole-project restore
+## Entity-type registries
 
-`_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`) is an ordered
-list — parents before children, because restore deletes in reverse order and
-recreates in forward order:
+`_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`) lists the types
+whose mutations are recorded via `record_entity_revision`:
 
 `Location` → `Field` → `Bed` → `BedLayout` → `FieldLayout` → `Supplier` →
 `Culture` → `PlantingPlan` → `Task` → `NoteAttachment`.
 
-Three more entity types get revision rows but are **not** part of
-whole-project restore (they are in `_ENTITY_TYPE_LABELS` only):
-`MediaFile`, `SeedPackage`, and `CultureSupplierData`. That mirrors what the
-older whole-project serializer already omitted. Read the list in the source
-before relying on it — this is the kind of thing a new model silently misses.
+`_ENTITY_TYPE_LABELS` adds three more that also get revision rows —
+`MediaFile`, `SeedPackage`, `CultureSupplierData` — and `restore.py` adds
+`season`. Any entity type a history entry can carry needs a mapping in
+`_MODEL_BY_ENTITY_TYPE` to be individually restorable.
 
 Public crop-library entries have their **own**, separate version history
 (`PublicCultureRevision`, see

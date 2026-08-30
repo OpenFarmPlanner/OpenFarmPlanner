@@ -7,6 +7,7 @@
  */
 
 import { Navigate, Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router';
+import axios from 'axios';
 import {
   AppBar,
   Badge,
@@ -372,14 +373,18 @@ function RootLayout() {
   const handleRestoreProjectVersion = async (historyId: number) => {
     try {
       await cultureAPI.projectRestore(historyId);
-      showSnackbar('Version wiederhergestellt. Die vorherige Version wurde automatisch gespeichert.', 'success');
+      showSnackbar('Version wiederhergestellt.', 'success');
       setProjectHistoryOpen(false);
       setPendingRestoreEntry(null);
       window.location.reload();
     } catch (error) {
       console.error('Error restoring project version:', error);
       setPendingRestoreEntry(null);
-      showSnackbar(t('commandPalette.feedback.versionRestoreError'), 'error');
+      const responseDetail = axios.isAxiosError(error)
+        && typeof (error.response?.data as { detail?: unknown } | undefined)?.detail === 'string'
+        ? (error.response!.data as { detail: string }).detail
+        : null;
+      showSnackbar(responseDetail ?? t('commandPalette.feedback.versionRestoreError'), 'error');
     }
   };
 

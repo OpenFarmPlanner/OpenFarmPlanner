@@ -154,13 +154,14 @@ class CultureHistoryTests(TestCase):
         self.assertEqual(self.culture.name, 'Carrot')
 
     def test_project_restore_ignores_fields_removed_since_the_snapshot_was_taken(self):
-        """A restorable entity's revision may carry a field no longer on the model
-        (renamed/removed in a later schema change) — restore must skip it, not crash."""
+        """A revision may carry a field no longer on the model (renamed/removed
+        in a later schema change) — restore must skip it, not crash."""
         location = Location.objects.create(project=self.project, name='Hauptstandort Alt')
-        EntityRevision.objects.create(
+        location_id = location.id
+        revision = EntityRevision.objects.create(
             project=self.project,
             entity_type='location',
-            object_id=location.id,
+            object_id=location_id,
             action=EntityRevision.ACTION_CREATED,
             snapshot={
                 'id': location.id,
@@ -170,30 +171,16 @@ class CultureHistoryTests(TestCase):
             },
             changed_fields=['created'],
         )
-
-        mutation_response = self.client.patch(
-            f'/openfarmplanner/api/cultures/{self.culture.id}/',
-            data={
-                'name': 'Snapshot Trigger 2',
-                'variety': self.culture.variety,
-                'growth_duration_days': self.culture.growth_duration_days,
-                'harvest_duration_days': self.culture.harvest_duration_days,
-                'harvest_method': self.culture.harvest_method,
-            },
-            content_type='application/json',
-        )
-        self.assertEqual(mutation_response.status_code, 200)
-        after = self.client.get('/openfarmplanner/api/history/project/')
-        latest_revision_id = after.json()[0]['history_id']
+        location.delete()
 
         restore_response = self.client.post(
             '/openfarmplanner/api/history/project/restore/',
-            data={'history_id': latest_revision_id},
+            data={'history_id': revision.id},
             content_type='application/json',
         )
         self.assertEqual(restore_response.status_code, 200)
         restored_location = Location.objects.get(project=self.project, name='Hauptstandort Alt')
-        self.assertEqual(restored_location.id, location.id)
+        self.assertEqual(restored_location.id, location_id)
 
     def test_project_restore_nulls_out_stale_non_restorable_fk_reference(self):
         """A culture snapshot can reference a PublicCulture that was later hard-deleted

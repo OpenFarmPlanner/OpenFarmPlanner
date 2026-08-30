@@ -160,18 +160,47 @@ class ProjectsApiTests(APITestCase):
         self.assertFalse(Field.objects.filter(project=self.project).exists())
         self.assertFalse(Bed.objects.filter(project=self.project).exists())
 
-    def test_project_history_restore_survives_stale_duplicate_snapshots(self) -> None:
-        """A culture hard-deleted without an ACTION_DELETED revision (e.g. an
-        old demo reset) leaves a snapshot that still looks 'active'. Restoring
-        must not 500 on the unique-constraint collision with the live culture —
-        the newest snapshot wins, the stale one is skipped."""
+    def test_history_restore_brings_back_one_deleted_entity_and_touches_nothing_else(self) -> None:
+        """Restoring a `deleted` history entry recreates just that entity from
+        its pre-deletion snapshot — every other row is left exactly as it is."""
+        headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
+        location = self.client.post(
+            '/openfarmplanner/api/locations/', {'name': 'L', 'address': '', 'notes': ''}, format='json', **headers,
+        ).data
+        field = self.client.post(
+            '/openfarmplanner/api/fields/', {'name': 'F', 'location': location['id']}, format='json', **headers,
+        ).data
+        bed_a = self.client.post(
+            '/openfarmplanner/api/beds/', {'name': 'Bed A', 'field': field['id']}, format='json', **headers,
+        ).data
+        bed_b = self.client.post(
+            '/openfarmplanner/api/beds/', {'name': 'Bed B', 'field': field['id']}, format='json', **headers,
+        ).data
+        self.client.delete(f'/openfarmplanner/api/beds/{bed_a["id"]}/', **headers)
+
+        history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
+        deleted_entry = next(
+            entry for entry in history
+            if entry.get('object_type') == 'bed' and entry.get('action') == 'deleted'
+        )
+        response = self.client.post(
+            '/openfarmplanner/api/history/project/restore/',
+            {'history_id': deleted_entry['history_id']}, format='json', **headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(Bed.objects.filter(pk=bed_a['id'], name='Bed A').exists())
+        self.assertTrue(Bed.objects.filter(pk=bed_b['id']).exists())
+        self.assertEqual(Bed.objects.filter(project=self.project).count(), 2)
+
+    def test_history_restore_refuses_when_the_entity_would_collide(self) -> None:
+        """A `created` snapshot of an entity hard-deleted without an
+        ACTION_DELETED revision (an old demo reset) can collide with a live row
+        on a unique constraint. The restore must refuse and change nothing."""
         from farm.history import record_entity_revision
         from farm.models import EntityRevision
 
         headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
-        # A ghost general 'Tomate': created, then hard-deleted by a queryset
-        # delete that records no ACTION_DELETED revision (as a demo reset does),
-        # so its "created" snapshot still looks active.
         ghost = Culture.objects.create(name='Tomate', variety='', project=self.project)
         ghost_id = ghost.pk
         Culture.objects.filter(pk=ghost_id).delete()
@@ -179,61 +208,23 @@ class ProjectsApiTests(APITestCase):
             project=self.project, entity_type='culture', object_id=ghost_id,
             action=EntityRevision.ACTION_CREATED,
             snapshot={'id': ghost_id, 'name': 'Tomate', 'variety': '',
-                      'name_normalized': 'tomate', 'variety_normalized': '',
+                      'name_normalized': 'tomate', 'variety_normalized': None,
                       'deleted_at': None, 'project_id': self.project.id},
         )
         live = Culture.objects.create(name='Tomate', variety='', project=self.project)
-        Location.objects.create(name='anchor', project=self.project)
+        ghost_revision = (
+            EntityRevision.objects.filter(object_id=ghost_id, entity_type='culture').latest('id')
+        )
 
-        history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
-        history_id = next(entry['history_id'] for entry in history if not entry.get('is_batch'))
         response = self.client.post(
             '/openfarmplanner/api/history/project/restore/',
-            {'history_id': history_id}, format='json', **headers,
+            {'history_id': ghost_revision.id}, format='json', **headers,
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        general_tomate = Culture.objects.filter(
-            project=self.project, name_normalized='tomate', variety_normalized__isnull=True,
-        )
-        self.assertEqual(general_tomate.count(), 1)
-        self.assertEqual(general_tomate.first().pk, live.pk)
-
-    def test_project_history_restore_leaves_untracked_rows_untouched(self) -> None:
-        """Rows created outside the API (the demo seeder, the auto default
-        location) have no EntityRevision. A restore rebuilds only what history
-        recorded and must leave those rows alone — not delete them, which once
-        emptied a whole demo project."""
-        headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
-        location = Location.objects.create(name='Seeded L', project=self.project)
-        field = location.fields.create(name='Seeded F', project=self.project)
-        bed = field.beds.create(name='Seeded B', area_sqm=10, project=self.project)
-        # A tracked culture so a restore point exists and the rebuild has work.
-        culture_response = self.client.post(
-            '/openfarmplanner/api/cultures/', {'name': 'Tracked', 'variety': ''}, format='json', **headers,
-        )
-        self.client.patch(
-            f'/openfarmplanner/api/cultures/{culture_response.data["id"]}/',
-            {'name': 'Tracked renamed'}, format='json', **headers,
-        )
-
-        history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
-        history_id = next(
-            entry['history_id'] for entry in history
-            if not entry.get('is_batch') and entry.get('action') == 'created'
-        )
-        response = self.client.post(
-            '/openfarmplanner/api/history/project/restore/',
-            {'history_id': history_id}, format='json', **headers,
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertTrue(Location.objects.filter(pk=location.pk).exists())
-        self.assertTrue(Field.objects.filter(pk=field.pk).exists())
-        self.assertTrue(Bed.objects.filter(pk=bed.pk).exists())
-        # The tracked culture was rolled back to its pre-rename snapshot.
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
         self.assertEqual(
-            Culture.objects.get(pk=culture_response.data['id']).name, 'Tracked',
+            list(Culture.objects.filter(project=self.project, name_normalized='tomate').values_list('pk', flat=True)),
+            [live.pk],
         )
 
     def test_create_project_without_slug_succeeds(self) -> None:

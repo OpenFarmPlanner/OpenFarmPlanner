@@ -1,146 +1,71 @@
-"""Whole-project point-in-time restore built on recorded entity revisions."""
+"""Restore a single entity from one of its recorded revisions.
+
+Every `EntityRevision` carries the entity's full field snapshot at that point,
+so restoring one sets just that entity back to that state — nothing else in the
+project is touched. A `deleted` revision holds the entity's last state before
+deletion, so restoring it brings the entity back.
+"""
 
 from typing import Any
 
 from django.db import IntegrityError, transaction
 
-from farm.models import EntityRevision, Project
+from farm.models import EntityRevision, Project, Season
 
-from .records import _RESTORABLE_ENTITY_TYPES
+from .records import _ENTITY_TYPE_LABELS
+
+_MODEL_BY_ENTITY_TYPE: dict[str, type] = {label: model for model, label in _ENTITY_TYPE_LABELS.items()}
+# Seasons record history but are not in the whole-project entity-type list.
+_MODEL_BY_ENTITY_TYPE['season'] = Season
+
+_SKIP_ON_UPDATE = {'id', 'created_at', 'updated_at'}
 
 
-def _model_manager(model):
+class RevisionNotRestorableError(Exception):
+    """The revision can't be applied as a single-entity restore: unknown entity
+    type, empty snapshot, a non-nullable related row it points at is gone, or
+    the insert would violate a constraint."""
+
+
+def _target_manager(model):
     return getattr(model, 'all_objects', None) or model._base_manager
 
 
-def _bulk_create_skipping_conflicts(model, instances: list, object_ids: list[int]) -> set[int]:
-    """Recreate `instances` (aligned with `object_ids`), returning the ids that
-    landed.
+def restore_entity_from_revision(project: Project, revision: EntityRevision) -> None:
+    """Set the entity `revision` belongs to back to that revision's snapshot."""
+    model = _MODEL_BY_ENTITY_TYPE.get(revision.entity_type)
+    snapshot = revision.snapshot
+    if model is None or not isinstance(snapshot, dict) or not snapshot:
+        raise RevisionNotRestorableError(revision.entity_type)
 
-    Fast path is one `bulk_create`. It can still fail when two historical
-    snapshots both look "active" and collide on a (possibly partial) unique
-    constraint — which happens when an entity was hard-deleted without an
-    `ACTION_DELETED` revision (e.g. an old demo reset). Then fall back to
-    inserting row by row in savepoints and skip the losers; callers pass the
-    rows newest-id-first, so the most recent snapshot wins.
-    """
-    if not instances:
-        return set()
+    concrete = {field.attname for field in model._meta.concrete_fields}
+    row_data: dict[str, Any] = {key: value for key, value in snapshot.items() if key in concrete}
+    row_data['project_id'] = project.id
+
+    # A related row referenced by the snapshot may be gone. Null the FK if it is
+    # optional, refuse the restore if it is required.
+    for field in model._meta.concrete_fields:
+        if field.remote_field is None or field.attname not in row_data:
+            continue
+        related_id = row_data[field.attname]
+        if related_id is None:
+            continue
+        if not _target_manager(field.remote_field.model).filter(pk=related_id).exists():
+            if not field.null:
+                raise RevisionNotRestorableError(revision.entity_type)
+            row_data[field.attname] = None
+
+    if 'deleted_at' in concrete:
+        row_data['deleted_at'] = None
+
+    manager = _target_manager(model)
     try:
         with transaction.atomic():
-            model.objects.bulk_create(instances)
-        return set(object_ids)
-    except IntegrityError:
-        pass
-
-    inserted: set[int] = set()
-    for instance, object_id in zip(instances, object_ids):
-        try:
-            with transaction.atomic():
-                model.objects.bulk_create([instance])
-            inserted.add(object_id)
-        except IntegrityError:
-            continue
-    return inserted
-
-
-def _entity_states_at(project: Project, entity_type: str, target_time) -> dict[int, dict[str, Any] | None]:
-    """Return {object_id: snapshot} for every object with a revision at/before
-    target_time; a value of None marks an object that was deleted by then."""
-    revisions = (
-        EntityRevision.objects
-        .filter(project=project, entity_type=entity_type, created_at__lte=target_time)
-        .order_by('object_id', '-created_at')
-    )
-    states: dict[int, dict[str, Any] | None] = {}
-    for revision in revisions:
-        if revision.object_id in states:
-            continue
-        states[revision.object_id] = None if revision.action == EntityRevision.ACTION_DELETED else revision.snapshot
-    return states
-
-
-def _restore_project_state_at(project: Project, target_time) -> None:
-    """Reconstruct every restorable entity type to its state at target_time.
-
-    Only rows that history actually recorded are rebuilt. Rows created outside
-    the API — the auto "Hauptstandort" default location, demo-seeder rows,
-    anything predating history — have no revision to rebuild from and are left
-    untouched rather than deleted for good.
-    """
-    restorable_models = {model for model, _entity_type in _RESTORABLE_ENTITY_TYPES}
-    with transaction.atomic():
-        for model, entity_type in reversed(_RESTORABLE_ENTITY_TYPES):
-            tracked_ids = list(
-                EntityRevision.objects
-                .filter(project=project, entity_type=entity_type)
-                .values_list('object_id', flat=True)
-                .distinct()
-            )
-            if tracked_ids:
-                _model_manager(model).filter(project=project, pk__in=tracked_ids).delete()
-
-        created_ids: dict[type, set[int]] = {}
-        for model, entity_type in _RESTORABLE_ENTITY_TYPES:
-            manager = _model_manager(model)
-            allowed_fields = {field.attname for field in model._meta.concrete_fields}
-            # FKs to other restorable types: a DB-level cascade delete of the parent
-            # (e.g. deleting a Location hard-deletes its Fields/Beds) never records an
-            # EntityRevision for the cascaded child, so its last snapshot can still look
-            # "active" even though the row — and its parent — are long gone. Recreating
-            # such an orphan would reference a parent row that was correctly *not*
-            # recreated, violating the FK constraint, so it's dropped here instead.
-            restorable_fk_fields = [
-                field for field in model._meta.concrete_fields
-                if field.remote_field is not None and field.remote_field.model in restorable_models
-            ]
-            # FKs to non-restorable models (e.g. Culture -> PublicCulture) aren't
-            # touched by this restore, but the referenced row can still have been
-            # hard-deleted since the snapshot was taken. Re-inserting a stale
-            # reference would violate the FK constraint, so — unlike restorable
-            # FKs above, where the whole row is dropped — these are simply nulled
-            # out if the target no longer exists.
-            external_fk_fields = [
-                field for field in model._meta.concrete_fields
-                if field.remote_field is not None
-                and field.remote_field.model not in restorable_models
-                and field.null
-            ]
-            existing_external_ids: dict[type, set[int]] = {
-                field.remote_field.model: set(
-                    field.remote_field.model._base_manager.values_list('pk', flat=True)
+            if manager.filter(project=project, pk=revision.object_id).exists():
+                manager.filter(pk=revision.object_id).update(
+                    **{key: value for key, value in row_data.items() if key not in _SKIP_ON_UPDATE},
                 )
-                for field in external_fk_fields
-            }
-            states = _entity_states_at(project, entity_type, target_time)
-            candidates: list[tuple[int, Any]] = []
-            for object_id, snapshot in states.items():
-                if snapshot is None:
-                    continue
-                if any(
-                    snapshot.get(field.attname) is not None
-                    and snapshot[field.attname] not in created_ids.get(field.remote_field.model, set())
-                    for field in restorable_fk_fields
-                ):
-                    continue
-                # Old snapshots may carry fields since renamed/removed from the model
-                # (schema changes don't rewrite historical JSON) — drop anything the
-                # current model no longer has instead of crashing on an unknown kwarg.
-                row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
-                for field in external_fk_fields:
-                    if row_data.get(field.attname) is not None and row_data[field.attname] not in existing_external_ids[field.remote_field.model]:
-                        row_data[field.attname] = None
-                row_data['project_id'] = project.id
-                candidates.append((object_id, model(**row_data)))
-
-            # Newest object_id first, so a unique-constraint collision between
-            # two stale snapshots resolves in favour of the most recent one.
-            candidates.sort(key=lambda pair: pair[0], reverse=True)
-            _bulk_create_skipping_conflicts(
-                model,
-                [instance for _object_id, instance in candidates],
-                [object_id for object_id, _instance in candidates],
-            )
-            # Every row now present: recreated plus the untracked survivors a
-            # child FK may legitimately point at.
-            created_ids[model] = set(manager.filter(project=project).values_list('pk', flat=True))
+            else:
+                model.objects.bulk_create([model(**row_data)])
+    except IntegrityError as exc:
+        raise RevisionNotRestorableError(revision.entity_type) from exc
