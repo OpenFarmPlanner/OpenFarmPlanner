@@ -50,6 +50,17 @@ deleted for real, but `_delete_planting_plans_with_season` records an
   primary keys and skipping any plan a user had already deleted individually
   beforehand.
 
+On the client, `useActiveSeason.deleteSeason` treats deleting the **active**
+season as an active-season change: it repoints the stored id at the newest
+remaining season and does the same full reload as `switchSeason`, so no
+mounted page keeps showing the deleted season's (or, with the header now
+absent, *every* season's) planting plans. The pending deletion is stashed in
+`sessionStorage` (`pendingSeasonDeletionStorage`) so the undo snackbar
+survives that reload; undoing an active-season deletion restores the season
+and switches back to it. A `useEffect` also writes the resolved active-season
+id back to `localStorage` whenever it falls back (stored id missing or stale),
+so the `X-Season-Id` header is never dropped while the project has seasons.
+
 ## Season-scoping of planting plans
 
 Planting plans are the only season-scoped entity. Everything downstream that
