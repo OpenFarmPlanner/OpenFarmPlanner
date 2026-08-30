@@ -100,6 +100,8 @@ table of what is and isn't implemented.
 
 ## Process / QA
 
+- [`security-automation.md`](./security-automation.md) — automated dependency,
+  SAST, Django deployment, and GitHub-native security coverage and triggers.
 - [`qa-strategy.md`](./qa-strategy.md) — when to do a full vs. targeted
   exploratory QA sweep.
 - [`qa-coverage-2026-07-27.md`](./qa-coverage-2026-07-27.md) (or a later

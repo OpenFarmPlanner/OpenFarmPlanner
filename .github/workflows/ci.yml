@@ -80,6 +80,18 @@ jobs:
           cd backend
           pdm install -dG test
 
+      - name: Run Django deployment security checks
+        env:
+          DEBUG: 'False'
+          DJANGO_ENV: production
+          SECRET_KEY: ci-only-deployment-check-secret-key-not-used-at-runtime
+          ALLOWED_HOSTS: openfarmplanner.example
+          FRONTEND_URL: https://openfarmplanner.example
+          PUBLIC_FRONTEND_URL: https://openfarmplanner.example
+        run: |
+          cd backend
+          pdm run python manage.py check --deploy --fail-level WARNING
+
       - name: Run backend tests
         run: |
           cd backend
