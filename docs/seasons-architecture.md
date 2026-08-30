@@ -134,6 +134,13 @@ single reusable action, not a per-entry-point special case:
   excludes the PK, timestamps, and audit fields) and `bulk_create`s the
   copies against the target season. It is always additive: existing plans in
   the target season are never touched, matched, or replaced.
+- `planting_date`, `harvest_date` and `harvest_end_date` are shifted forward
+  (or back) by the whole-year gap between the two seasons' start dates
+  (`PLANTING_PLAN_SHIFTED_DATE_FIELDS`), so a plan copied from 25/26 into
+  27/28 keeps its month and day but moves two years on. Feb 29 clamps to
+  Feb 28 when the shifted year is not a leap year (`add_months`). The shift is
+  a whole number of years, so it works for any season pattern, calendar-year
+  or not.
 - `SeasonViewSet.copy_from` (`backend/farm/seasons/views.py`) is the API
   surface both entry points call: the "Daten aus Saison X übernehmen"
   checkbox when creating a suggested season, and "Daten übernehmen von…" on
@@ -221,13 +228,12 @@ season exists as a row to read `label` off of.
   `/api/seasons/` beyond the one in `test_api_query_counts.py`; the
   `planting_plan_count` annotation is page-wide, not per-row, so it does not
   grow with the row count.
-- "Daten übernehmen" copies `planting_date`/`harvest_date`/`harvest_end_date`
-  verbatim — it does not shift dates into the target season's own range. A
-  copied plan can end up with dates outside its new season's period (e.g.
-  copying a plan dated in March into a season that starts in September);
-  this is deliberate (the source data is the source of truth for its own
-  timing), not a bug, but worth knowing before assuming copied plans are
-  automatically renormalized.
+- "Daten übernehmen" shifts `planting_date`/`harvest_date`/`harvest_end_date`
+  by the whole-year gap between the source and target season start dates (see
+  the "Copy-data action" section), so copies land in the target season's own
+  period rather than the source's. A copied `planting_date` can still fall
+  just outside the target period if the two seasons' patterns differ, but for
+  the common case (same pattern, N years apart) it stays in range.
 - `PlantingPlan.planting_date` otherwise has a **hard boundary**: on API
   create/update `PlantingPlanSerializer` rejects a `planting_date` outside the
   target season's `start_date`–`end_date` range

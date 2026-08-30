@@ -26,6 +26,10 @@ PLANTING_PLAN_COPY_FIELDS = (
     'notes',
 )
 
+# Date fields on a copied PlantingPlan that are shifted forward so the copy
+# lands in the target season's own period instead of the source season's.
+PLANTING_PLAN_SHIFTED_DATE_FIELDS = ('planting_date', 'harvest_date', 'harvest_end_date')
+
 
 def get_or_create_season_pattern(project: Project) -> SeasonPattern:
     """Return the project's season pattern, creating a Jan 1 default if missing."""
@@ -106,18 +110,27 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
 def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
     """Copy all planting plans from `source_season` into `target_season`, additively.
 
+    Planting, harvest and harvest-end dates are shifted forward (or back) by the
+    whole-year gap between the two seasons' start dates, so the copies land in
+    the target season's own period. Feb 29 is clamped to Feb 28 when the shifted
+    year is not a leap year.
+
     Existing planting plans already in `target_season` are left untouched —
     this only ever appends copies of the source season's plans.
     """
+    year_offset = target_season.start_date.year - source_season.start_date.year
+    month_offset = year_offset * 12
+
+    def shifted(value: date | None) -> date | None:
+        return None if value is None else add_months(value, month_offset)
+
     source_plans = PlantingPlan.objects.filter(season=source_season)
-    new_plans = [
-        PlantingPlan(
-            project=target_season.project,
-            season=target_season,
-            **{field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS},
-        )
-        for plan in source_plans
-    ]
+    new_plans = []
+    for plan in source_plans:
+        fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
+        for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
+            fields[date_field] = shifted(fields[date_field])
+        new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
     PlantingPlan.objects.bulk_create(new_plans)
     return len(new_plans)
 

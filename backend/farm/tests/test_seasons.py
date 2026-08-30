@@ -6,6 +6,7 @@ from farm.models import PlantingPlan, Season, SeasonPattern
 from farm.services.demo_project import populate_demo_project
 from farm.services.hint_test_project import populate_hint_test_project
 from farm.services.seasons import (
+    add_months,
     assign_unassigned_planting_plans,
     compute_due_season_period,
     compute_period_containing,
@@ -118,6 +119,32 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         target_plans = PlantingPlan.objects.filter(season=target)
         self.assertEqual(target_plans.count(), 2)
         self.assertTrue(target_plans.filter(pk=existing_target_plan.pk).exists())
+
+    def test_copy_shifts_dates_into_the_target_seasons_year(self):
+        source = Season.objects.create(project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2027, 9, 1), end_date=date(2028, 8, 31))
+        original = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2026, 4, 1),
+        )
+
+        copy_planting_plans(source_season=source, target_season=target)
+
+        copied = PlantingPlan.objects.get(season=target)
+        self.assertEqual(copied.planting_date, date(2028, 4, 1))
+        self.assertEqual(copied.harvest_date, add_months(original.harvest_date, 24))
+        self.assertEqual(copied.harvest_end_date, add_months(original.harvest_end_date, 24))
+
+    def test_copy_clamps_leap_day_when_shifted_year_is_not_a_leap_year(self):
+        source = Season.objects.create(project=self.project, start_date=date(2024, 1, 1), end_date=date(2024, 12, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2025, 1, 1), end_date=date(2025, 12, 31))
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source, planting_date=date(2024, 2, 29),
+        )
+
+        copy_planting_plans(source_season=source, target_season=target)
+
+        self.assertEqual(PlantingPlan.objects.get(season=target).planting_date, date(2025, 2, 28))
 
 
 class SeasonApiTest(ProjectApiTestCase):
