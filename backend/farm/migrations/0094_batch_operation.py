@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('farm', '0092_add_seasons'),
+        ('farm', '0093_relink_general_public_cultures'),
     ]
 
     operations = [
