@@ -28,11 +28,13 @@ interface HierarchyGridKeyboardApi {
   scrollToIndexes?: (indexes: { rowIndex?: number; colIndex?: number }) => void;
   setCellFocus?: (id: GridRowId, field: string) => void;
   setEditCellValue?: (params: { id: GridRowId; field: string; value: unknown }) => Promise<boolean> | boolean | void;
+  stopRowEditMode?: (params: { id: GridRowId }) => void;
 }
 
 interface UseHierarchyGridKeyboardParams {
   columns: GridColDef<HierarchyRow>[];
   discardRowEdit: (rowId: GridRowId) => void;
+  deferCrossRowEditOnClick?: boolean;
   gridApiRef: {
     current?: HierarchyGridKeyboardApi | null;
   };
@@ -88,6 +90,7 @@ const shouldSuppressModifiedPrintableViewEdit = (
 export function useHierarchyGridKeyboard({
   columns,
   discardRowEdit,
+  deferCrossRowEditOnClick = false,
   gridApiRef,
   isCellFocusable,
   isHierarchyCellAction,
@@ -199,17 +202,40 @@ export function useHierarchyGridKeyboard({
     }
 
     const editingRowId = getEditingRowId(rowModesModel);
-    if (editingRowId !== undefined && String(editingRowId) !== String(params.id)) {
-      discardRowEdit(rowsById.get(editingRowId)?.id ?? editingRowId);
+    const isChangingEditedRow = editingRowId !== undefined && String(editingRowId) !== String(params.id);
+    if (isChangingEditedRow) {
+      const rowIdToStop = rowsById.get(editingRowId)?.id ?? editingRowId;
+      if (gridApiRef.current?.stopRowEditMode) {
+        gridApiRef.current.stopRowEditMode({ id: rowIdToStop });
+      } else {
+        discardRowEdit(rowIdToStop);
+      }
     }
 
     rememberFocusedField(params.field);
     rememberRowSnapshot(params.id);
     selectRow(params.id);
     setTreeActive(true);
+    if (params.isEditable && isRowEditing(rowModesModel, params.id)) {
+      setRowModesModel((previousModel) => ({
+        ...previousModel,
+        [params.id]: { mode: GridRowModes.Edit, fieldToFocus: params.field },
+      }));
+      focusKeyboardNavigableCell<HierarchyRow>({
+        api: gridApiRef.current,
+        cell: { id: params.id, field: params.field },
+        focusEditInput: true,
+      });
+      return;
+    }
+    if (isChangingEditedRow && deferCrossRowEditOnClick) {
+      return;
+    }
     handleEditableCellClick(params, rowModesModel, setRowModesModel);
   }, [
+    deferCrossRowEditOnClick,
     discardRowEdit,
+    gridApiRef,
     isCellFocusable,
     rememberFocusedField,
     rememberRowSnapshot,

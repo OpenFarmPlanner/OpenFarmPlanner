@@ -80,6 +80,7 @@ const makeMouseEvent = (): MouseEventStub => ({
 const renderKeyboardHook = (
   rowModesModel: GridRowModesModel = {},
   hookRows: HierarchyRow[] = rows,
+  options: { deferCrossRowEditOnClick?: boolean } = {},
 ) => {
   const hookRowsById = new Map(hookRows.map((row) => [String(row.id), row]));
   const discardRowEdit = vi.fn();
@@ -92,6 +93,7 @@ const renderKeyboardHook = (
   const selectRow = vi.fn();
   const setEditCellValue = vi.fn().mockResolvedValue(true);
   const setRowModesModel = vi.fn();
+  const stopRowEditMode = vi.fn();
   const setTreeActive = vi.fn();
   const toggleExpand = vi.fn();
   const scrollToIndexes = vi.fn();
@@ -116,11 +118,13 @@ const renderKeyboardHook = (
     scrollToIndexes,
     setCellFocus: focusCell,
     setEditCellValue,
+    stopRowEditMode,
   };
 
   const hook = renderHook(() =>
     useHierarchyGridKeyboard({
       columns,
+      deferCrossRowEditOnClick: options.deferCrossRowEditOnClick,
       discardRowEdit,
       gridApiRef: { current: api },
       isCellFocusable: (row, field) => field === 'notes' || row.type !== 'location' && field !== 'area_sqm',
@@ -152,6 +156,7 @@ const renderKeyboardHook = (
     selectRow,
     setEditCellValue,
     setRowModesModel,
+    stopRowEditMode,
     setTreeActive,
     toggleExpand,
   };
@@ -423,8 +428,8 @@ describe('useHierarchyGridKeyboard', () => {
     expect(setRowModesModel).not.toHaveBeenCalled();
   });
 
-  it('discards the active row edit before clicking into another editable row', () => {
-    const { result, discardRowEdit, selectRow, setRowModesModel } = renderKeyboardHook({
+  it('commits the active row edit before clicking into another editable row on desktop', () => {
+    const { result, discardRowEdit, selectRow, setRowModesModel, stopRowEditMode } = renderKeyboardHook({
       'field-1': { mode: GridRowModes.Edit },
     });
 
@@ -432,8 +437,40 @@ describe('useHierarchyGridKeyboard', () => {
       result.current.handleCellClick(makeCellParams(101, 'name'), makeMouseEvent());
     });
 
-    expect(discardRowEdit).toHaveBeenCalledWith('field-1');
+    expect(stopRowEditMode).toHaveBeenCalledWith({ id: 'field-1' });
+    expect(discardRowEdit).not.toHaveBeenCalled();
     expect(selectRow).toHaveBeenCalledWith(101);
+    expect(setRowModesModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start another row edit from the first touch click after ending the active row edit', () => {
+    const { result, discardRowEdit, selectRow, setRowModesModel, stopRowEditMode } = renderKeyboardHook(
+      { 'field-1': { mode: GridRowModes.Edit } },
+      rows,
+      { deferCrossRowEditOnClick: true },
+    );
+
+    act(() => {
+      result.current.handleCellClick(makeCellParams(101, 'name'), makeMouseEvent());
+    });
+
+    expect(stopRowEditMode).toHaveBeenCalledWith({ id: 'field-1' });
+    expect(discardRowEdit).not.toHaveBeenCalled();
+    expect(selectRow).toHaveBeenCalledWith(101);
+    expect(setRowModesModel).not.toHaveBeenCalled();
+  });
+
+  it('still starts row edit with one touch click when no row is already being edited', () => {
+    const { result, setRowModesModel } = renderKeyboardHook(
+      {},
+      rows,
+      { deferCrossRowEditOnClick: true },
+    );
+
+    act(() => {
+      result.current.handleCellClick(makeCellParams(101, 'name'), makeMouseEvent());
+    });
+
     expect(setRowModesModel).toHaveBeenCalledTimes(1);
   });
 

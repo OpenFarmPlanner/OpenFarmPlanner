@@ -997,12 +997,7 @@ function FieldsBedsHierarchy({
     ],
   );
 
-  const rememberSameRowEditTarget = useCallback((event: React.PointerEvent<HTMLElement>): void => {
-    if (event.button !== 0) {
-      return;
-    }
-
-    const target = event.target;
+  const rememberSameRowEditTargetFromElement = useCallback((target: EventTarget | null): void => {
     if (!(target instanceof HTMLElement)) {
       return;
     }
@@ -1039,6 +1034,25 @@ function FieldsBedsHierarchy({
 
     pendingSameRowEditTargetRef.current = { rowId, field };
   }, [gridApiRef]);
+
+  const rememberSameRowPointerEditTarget = useCallback((event: React.PointerEvent<HTMLElement>): void => {
+    if (event.pointerType === "touch" && event.isPrimary === false) {
+      return;
+    }
+    if (event.pointerType !== "touch" && event.button !== 0) {
+      return;
+    }
+
+    rememberSameRowEditTargetFromElement(event.target);
+  }, [rememberSameRowEditTargetFromElement]);
+
+  const rememberSameRowTouchEditTarget = useCallback((event: React.TouchEvent<HTMLElement>): void => {
+    if (event.touches.length > 1) {
+      return;
+    }
+
+    rememberSameRowEditTargetFromElement(event.target);
+  }, [rememberSameRowEditTargetFromElement]);
 
   const handleReadOnlyHierarchyCellMouseDown = useCallback((event: React.MouseEvent<HTMLElement>): void => {
     const target = event.target;
@@ -1346,6 +1360,7 @@ function FieldsBedsHierarchy({
     handleCellKeyDown: handleHierarchyCellKeyDown,
   } = useHierarchyGridKeyboard({
     columns,
+    deferCrossRowEditOnClick: isTouchLikePointer,
     discardRowEdit,
     gridApiRef,
     isCellFocusable: isHierarchyCellFocusable,
@@ -1614,7 +1629,8 @@ function FieldsBedsHierarchy({
               },
             }}
             onClick={() => setTreeActive(true)}
-            onPointerDownCapture={rememberSameRowEditTarget}
+            onPointerDownCapture={rememberSameRowPointerEditTarget}
+            onTouchStartCapture={rememberSameRowTouchEditTarget}
             onContextMenuCapture={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}

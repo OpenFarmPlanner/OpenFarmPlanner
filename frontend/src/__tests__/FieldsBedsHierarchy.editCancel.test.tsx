@@ -646,6 +646,27 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getByTestId('focus-field-101')).toHaveTextContent('length_m');
   });
 
+  it('keeps the first touched dimension cell editing when saving replaces a new parcel id', async () => {
+    const user = userEvent.setup();
+    let fieldResults: Array<Record<string, unknown>> = [];
+    fieldListMock.mockImplementation(() => Promise.resolve({ data: { results: fieldResults } }));
+    fieldCreateMock.mockImplementation((data: Record<string, unknown>) => {
+      fieldResults = [{ id: 201, ...data }];
+      return Promise.resolve({ data: fieldResults[0] });
+    });
+    renderHierarchyWithCreateFieldRequest(1);
+
+    await waitFor(() => expect(screen.getByTestId('row-field--1700000000000')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Partial name field--1700000000000' }));
+    const lengthCell = screen.getByRole('button', { name: 'Edit length field--1700000000000' });
+    fireEvent.touchStart(lengthCell, { touches: [{ identifier: 1, clientX: 10, clientY: 10 }] });
+    await user.click(screen.getByRole('button', { name: 'Blur field--1700000000000' }));
+
+    await waitFor(() => expect(fieldCreateMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('mode-field-201')).toHaveTextContent('edit'));
+    expect(screen.getByTestId('focus-field-field-201')).toHaveTextContent('length_m');
+  });
+
   it('persists a new bed before saving notes from the notes drawer', async () => {
     const user = userEvent.setup();
     renderHierarchy();
