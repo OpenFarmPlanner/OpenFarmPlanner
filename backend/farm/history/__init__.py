@@ -14,7 +14,7 @@ from .records import (
     record_entity_revision,
     start_batch_operation,
 )
-from .restore import RevisionNotRestorableError, restore_entity_from_revision
+from .restore import _restore_project_state_at
 
 __all__ = [
     '_build_entity_revision_changes',
@@ -22,9 +22,8 @@ __all__ = [
     '_diff_changed_fields',
     '_entity_display_name',
     '_entity_type_for',
+    '_restore_project_state_at',
     '_serialize_instance',
     'record_entity_revision',
-    'restore_entity_from_revision',
-    'RevisionNotRestorableError',
     'start_batch_operation',
 ]

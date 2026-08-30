@@ -14,7 +14,7 @@ from farm.project_context import get_active_project_or_400, require_project_admi
 from farm.cultures.serializers import CultureSerializer
 
 from .records import _build_entity_revision_changes, _current_actor_label, record_entity_revision
-from .restore import RevisionNotRestorableError, restore_entity_from_revision
+from .restore import _restore_project_state_at
 from .serializers import CultureHistoryEntrySerializer, CultureRestoreSerializer
 
 
@@ -82,8 +82,7 @@ class ProjectHistoryListView(APIView):
 
 
 class ProjectHistoryRestoreView(APIView):
-    """Restore the single entity a history entry belongs to, to that entry's
-    snapshot. Non-destructive — nothing else in the project changes."""
+    """Restore whole project state to a past point in time."""
 
     def post(self, request):
         active_project = get_active_project_or_400(request)
@@ -93,25 +92,19 @@ class ProjectHistoryRestoreView(APIView):
         revision_id = serializer.validated_data['history_id']
 
         revision = get_object_or_404(EntityRevision.objects.filter(project=active_project), id=revision_id)
-        try:
-            restore_entity_from_revision(active_project, revision)
-        except RevisionNotRestorableError:
-            return Response(
-                {'detail': 'Dieser Eintrag kann nicht wiederhergestellt werden.'},
-                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            )
+        _restore_project_state_at(active_project, revision.created_at)
         record_entity_revision(
             project=active_project,
-            entity_type=revision.entity_type,
-            object_id=revision.object_id,
+            entity_type='project',
+            object_id=active_project.id,
             action=EntityRevision.ACTION_RESTORED,
-            snapshot=revision.snapshot,
-            display_name=revision.display_name,
+            snapshot={},
+            display_name=active_project.name,
             changed_fields=[],
             user_name=_current_actor_label(request),
         )
 
-        return Response({'detail': 'Restored.'}, status=status.HTTP_200_OK)
+        return Response({'detail': 'Project restored successfully.'}, status=status.HTTP_200_OK)
 
 
 class GlobalHistoryListView(APIView):

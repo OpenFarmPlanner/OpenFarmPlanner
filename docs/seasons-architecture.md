@@ -44,9 +44,8 @@ deleted for real, but `_delete_planting_plans_with_season` records an
   [versioning-and-history.md](./versioning-and-history.md#batch-operations-grouping-a-cascade));
   `undelete` groups its restores under `season_undelete`, and `copy-from`
   groups the copied plans' `created` revisions under `season_copy_data`;
-- each deleted plan can be brought back individually from its history entry
-  (`ProjectHistoryRestoreView` restores that one plan from its pre-deletion
-  snapshot);
+- whole-project point-in-time restore reconstructs the deletions like any
+  other planting-plan deletion;
 - `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
   any later manual undelete) recreates them. It finds the season's most recent
   `ACTION_DELETED` revision and, via
