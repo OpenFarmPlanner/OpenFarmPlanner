@@ -1886,6 +1886,7 @@ function FieldsBedsHierarchy({
         onConfirm={handleDiscardUnsavedRow}
         cancelButtonProps={{ variant: "contained" }}
         confirmButtonProps={{ color: "error" }}
+        disableBackdropClose
       />
     </Box>
   );
