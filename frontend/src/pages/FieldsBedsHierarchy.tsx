@@ -1611,7 +1611,24 @@ function FieldsBedsHierarchy({
       width_m: bed.width_m,
       notes: bed.notes,
     }))
-  ), [beds]);
+    // A partially filled new field can now also sit in View mode with its
+    // draft persisted (exitToViewPreservingDraft, ahead of the unsaved-row
+    // dialog) instead of staying in Edit, so it needs the same navigation
+    // warning as an unsaved bed draft - otherwise navigating away before
+    // answering the dialog silently drops it.
+    || fields.some((field) => isPartiallyFilledNamelessNewHierarchyRow({
+      id: field.id ?? "",
+      type: "field",
+      level: 0,
+      isNew: typeof field.id === "number" && field.id < 0,
+      name: field.name,
+      fieldId: field.id,
+      area_sqm: field.area_sqm,
+      length_m: field.length_m,
+      width_m: field.width_m,
+      notes: field.notes,
+    }))
+  ), [beds, fields]);
 
   const isAnyRowInEditMode = useMemo(
     () => Object.values(rowModesModel).some((mode) => mode.mode === GridRowModes.Edit),

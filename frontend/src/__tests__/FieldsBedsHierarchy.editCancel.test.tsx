@@ -830,6 +830,26 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(bedCreateMock).not.toHaveBeenCalled();
   });
 
+  it('warns before navigating away while a partially filled new field sits behind the unsaved-row dialog', async () => {
+    const user = userEvent.setup();
+    renderHierarchyWithCreateFieldRequest(1);
+
+    await waitFor(() => expect(screen.getByTestId('row-field--1700000000000')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Partial invalid field--1700000000000' }));
+    fireEvent.mouseDown(document.body);
+
+    expect(await screen.findByText('Zeile nicht gespeichert')).toBeInTheDocument();
+    // The row already exited edit mode before the dialog opened, so the
+    // generic "a row is being edited" navigation warning no longer applies -
+    // the unsaved-row-specific one has to cover it instead, or leaving the
+    // page while the dialog is still open silently drops the draft.
+    expect(mockUseNavigationBlocker).toHaveBeenLastCalledWith(
+      true,
+      'Es gibt eine nicht gespeicherte Zeile ohne Namen. Beim Verlassen der Seite geht sie verloren.',
+    );
+    expect(fieldCreateMock).not.toHaveBeenCalled();
+  });
+
   it('removes the row entirely when discarding it from the unsaved-row dialog', async () => {
     const user = userEvent.setup();
     renderHierarchy();
