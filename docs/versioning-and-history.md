@@ -94,41 +94,41 @@ Two restore paths, both admin-only (`require_project_admin`):
   snapshot onto the (possibly soft-deleted — looked up via
   `Culture.all_objects`, not the default manager) culture row, clears
   `deleted_at`, and saves with `_history_action = ACTION_RESTORED`.
-- **`ProjectHistoryRestoreView`** restores the *whole project* to a target
-  timestamp (`_restore_project_state_at`): for every restorable entity
-  type it deletes the rows history *knows about* (any `object_id` that has an
-  `EntityRevision` for the project) and bulk-recreates them from
-  `_entity_states_at(project, entity_type, target_time)` — which, for each
-  `object_id`, takes the most recent revision at or before `target_time` (a
-  `None` snapshot, i.e. the entity was deleted by then, means it's simply not
-  recreated). Entity types are deleted in **reverse** dependency order before
-  being recreated in forward order, to avoid FK constraint errors during the
-  rebuild.
-  - **Untracked rows are left alone.** Rows created outside the API have no
-    revision — the auto `"Hauptstandort"` default
+- **`ProjectHistoryRestoreView`** rolls the *whole project* back to the
+  clicked revision's timestamp (`_restore_project_state_at`). It works purely
+  through recorded revisions and **never mass-deletes**:
+  - `_entity_states_at(project, entity_type, target_time)` gives, per
+    `object_id`, the most recent revision at or before `target_time` — a
+    snapshot, or `None` if it was deleted by then.
+  - **Phase 1 (reverse dependency order):** delete only the rows whose state
+    is `None` (history positively records them as deleted by then).
+  - **Phase 2 (forward order):** every tracked row that existed at
+    `target_time` is `UPDATE`d in place to its snapshot (bypassing
+    `Model.save()`), or recreated with `bulk_create` if it had been deleted.
+    A row whose restorable parent wasn't restored is skipped; a dangling
+    nullable non-restorable FK is nulled; snapshot fields the model has since
+    dropped are ignored.
+  - **Left untouched:** rows with no revision at all — the auto
+    `"Hauptstandort"` default
     (`ProjectScopedMixin.ensure_active_project_location`), demo-seeder rows
-    (`demo_project.py` uses plain `Model.objects.create`), anything from
-    before history tracking. The rebuild can't reconstruct them, so it does
-    not delete them either. (Historically it nuked *all* rows and rebuilt,
-    which silently emptied any project with untracked rows.)
+    (`demo_project.py` uses plain `Model.objects.create`), pre-history data —
+    **and** entities merely *created after* `target_time`. Recovering old
+    state is the goal, not perfectly un-creating everything newer; the
+    alternative (deleting them) cascade-wiped untracked planting plans and
+    once emptied a demo project.
   - `_bulk_create_skipping_conflicts` recreates newest-`object_id`-first and,
-    if a bulk insert hits a (possibly partial) unique constraint — two stale
+    if an insert hits a (possibly partial) unique constraint — two stale
     snapshots that both look "active" because one entity was hard-deleted
     without an `ACTION_DELETED` revision — falls back to per-row inserts that
-    skip the losers. `created_ids[model]` is then every row actually present
-    (recreated **plus** untracked survivors), so a child FK check that a row's
-    parent exists stays correct.
-  - Tolerates schema drift: a snapshot may carry fields the current model no
-    longer has (from before a field was renamed or removed), silently dropped
-    rather than raising.
+    skip the losers.
+  - Records one `EntityRevision` (`entity_type='project'`, `ACTION_RESTORED`).
 
 ## What to check before changing this
 
-- If you add a new project-scoped model that should participate in
-  project-wide point-in-time restore, add it to the restorable-entity-type
-  list used by `_restore_project_state_at` and make sure something calls
-  `record_entity_revision` for it — being project-scoped alone does not
-  give a model history for free.
+- A new project-scoped model that should take part in whole-project restore
+  goes in `_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`), in
+  FK-dependency order, and needs something calling `record_entity_revision`
+  for it — being project-scoped alone gives no history.
 - Don't write new rows to `CultureRevision`/`ProjectRevision` — they're
   drain-only.
 - Remember `EntityRevision.object_id` is a plain integer, not a real FK —
@@ -143,13 +143,13 @@ list — parents before children, because restore deletes in reverse order and
 recreates in forward order:
 
 `Location` → `Field` → `Bed` → `BedLayout` → `FieldLayout` → `Supplier` →
-`Culture` → `PlantingPlan` → `Task` → `NoteAttachment`.
+`Culture` → `Season` → `PlantingPlan` → `Task` → `NoteAttachment`.
 
 Three more entity types get revision rows but are **not** part of
 whole-project restore (they are in `_ENTITY_TYPE_LABELS` only):
-`MediaFile`, `SeedPackage`, and `CultureSupplierData`. That mirrors what the
-older whole-project serializer already omitted. Read the list in the source
-before relying on it — this is the kind of thing a new model silently misses.
+`MediaFile`, `SeedPackage`, and `CultureSupplierData`. Read the list in the
+source before relying on it — this is the kind of thing a new model silently
+misses.
 
 Public crop-library entries have their **own**, separate version history
 (`PublicCultureRevision`, see

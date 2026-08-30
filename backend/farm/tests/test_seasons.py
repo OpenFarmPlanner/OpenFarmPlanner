@@ -165,6 +165,31 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(undelete_response.status_code, 200)
         self.assertTrue(Season.objects.filter(pk=season_id).exists())
 
+    def test_whole_project_restore_rebuilds_seasons_and_keeps_plans_linked(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        rename = self.client.patch(
+            f'/openfarmplanner/api/seasons/{season.pk}/', {'custom_label': 'Ursprung'},
+        )
+        self.assertEqual(rename.status_code, 200)
+        restore_point = self.client.get('/openfarmplanner/api/history/project/').json()[0]['history_id']
+
+        self.client.patch(f'/openfarmplanner/api/seasons/{season.pk}/', {'custom_label': 'Geändert'})
+        restore = self.client.post(
+            '/openfarmplanner/api/history/project/restore/', {'history_id': restore_point},
+        )
+
+        self.assertEqual(restore.status_code, 200, restore.data)
+        season.refresh_from_db()
+        self.assertEqual(season.custom_label, 'Ursprung')
+        # The plan stayed attached to the (rebuilt) season, not orphaned.
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan.pk, season=season).exists())
+
     def test_deleting_a_season_deletes_its_planting_plans_and_undelete_restores_them(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),

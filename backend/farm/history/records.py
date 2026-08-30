@@ -19,6 +19,7 @@ from farm.models import (
     NoteAttachment,
     PlantingPlan,
     Project,
+    Season,
     SeedPackage,
     Supplier,
     Task,
@@ -35,6 +36,7 @@ _RESTORABLE_ENTITY_TYPES: list[tuple[type, str]] = [
     (FieldLayout, 'field_layout'),
     (Supplier, 'supplier'),
     (Culture, 'culture'),
+    (Season, 'season'),
     (PlantingPlan, 'planting_plan'),
     (Task, 'task'),
     (NoteAttachment, 'note_attachment'),
@@ -95,6 +97,8 @@ def _entity_display_name(instance) -> str:
         return format_culture_display_name(instance.culture.name, instance.culture.variety) if instance.culture_id else ''
     if isinstance(instance, Task):
         return instance.title or ''
+    if isinstance(instance, Season):
+        return instance.label or ''
     return getattr(instance, 'name', None) or ''
 
 
