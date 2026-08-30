@@ -39,6 +39,7 @@ import AgricultureIcon from "@mui/icons-material/Agriculture";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { ContextMenuActionItem } from "../components/contextMenu/ContextMenuActionItem";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
+import { ConfirmationDialog } from "../components/feedback/ConfirmationDialog";
 import { HierarchyAddIcon } from "../components/hierarchy/HierarchyAddIcon";
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { PAGE_CONTAINER_SX } from '../components/layout/pageContainerStyles';
@@ -77,7 +78,7 @@ import { useBedOperations } from "../components/hierarchy/hooks/useBedOperations
 import { useHierarchyDelete } from "../components/hierarchy/hooks/useHierarchyDelete";
 import { useHierarchyGridFocus } from "../components/hierarchy/hooks/useHierarchyGridFocus";
 import { useHierarchyNavigationState } from "../components/hierarchy/hooks/useHierarchyNavigationState";
-import { useHierarchyRowUpdate } from "../components/hierarchy/hooks/useHierarchyRowUpdate";
+import { tagHierarchyRowUpdateError, useHierarchyRowUpdate } from "../components/hierarchy/hooks/useHierarchyRowUpdate";
 import { useHierarchyContextMenu } from "../components/hierarchy/hooks/useHierarchyContextMenu";
 import { keywordList } from "../commands/keywordList";
 import { useHierarchyKeyboard } from "../components/hierarchy/hooks/useHierarchyKeyboard";
@@ -157,15 +158,41 @@ function FieldsBedsHierarchy({
   const gridApiRef = useGridApiRef();
   const isTouchLikePointer = useMediaQuery("(pointer: coarse)");
   const isMobileViewport = useMediaQuery("(max-width:900px)");
+  const [viewportWidth, setViewportWidth] = useState(() => (
+    typeof window === "undefined" ? 1024 : window.innerWidth
+  ));
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const rowModesModelRef = useRef(rowModesModel);
   useLayoutEffect(() => {
     rowModesModelRef.current = rowModesModel;
   }, [rowModesModel]);
+
+  useEffect(() => {
+    const handleResize = (): void => {
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [draftValidationWarning, setDraftValidationWarning] = useState("");
+  const [unsavedRowDialogId, setUnsavedRowDialogId] = useState<GridRowId | null>(null);
+  // Opening the confirm dialog over a row whose edit input still has DOM focus
+  // fights MUI Modal's focus trap (it aria-hides the rest of the page while
+  // that input remains focused inside the hidden subtree), which can cause the
+  // dialog to be torn down again almost immediately. Blurring first avoids
+  // that conflict; it doesn't discard the row's in-progress edit, since the
+  // row stays in GridRowModes.Edit and MUI keeps its draft values regardless
+  // of DOM focus.
+  const openUnsavedRowDialog = useCallback((rowId: GridRowId): void => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setUnsavedRowDialogId(rowId);
+  }, []);
   const hasInitiallyExpandedRef = useRef(false);
   const handledCreateFieldRequestRef = useRef(0);
   const rowSnapshotRef = useRef<Map<string, HierarchyRow>>(new Map());
+  const pendingSameRowEditTargetRef = useRef<{ rowId: GridRowId; field: string } | null>(null);
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
   const stableScrollbarTrackRef = useRef<HTMLDivElement | null>(null);
   const pageContentRef = useRef<HTMLDivElement | null>(null);
@@ -407,11 +434,13 @@ function FieldsBedsHierarchy({
 
   const {
     discardRowEdit,
+    exitToViewPreservingDraft,
     processRowUpdate,
     handleProcessRowUpdateError,
   } = useHierarchyRowUpdate({
     getDraftRow,
     rowModesModel,
+    selectedRowIdRef,
     rowsById,
     beds,
     fields,
@@ -421,6 +450,7 @@ function FieldsBedsHierarchy({
     setLocations,
     rowSnapshotRef,
     setRowModesModel,
+    onUnsavedMissingName: openUnsavedRowDialog,
     setError,
     setDraftValidationWarning,
     fetchData,
@@ -946,7 +976,33 @@ function FieldsBedsHierarchy({
       }
       queuePostEditFocus(getPostEnterSaveFocusTarget(newRow.id), preferredField, newRow.id);
 
-      const savedRow = await processRowUpdate(newRow);
+      let savedRow: HierarchyRow;
+      try {
+        savedRow = await processRowUpdate(newRow);
+      } catch (err) {
+        throw tagHierarchyRowUpdateError(err, newRow.id);
+      }
+      const savedRowIdChanged = String(savedRow.id) !== String(newRow.id);
+      const pendingTarget = pendingSameRowEditTargetRef.current;
+      if (pendingTarget && String(pendingTarget.rowId) === String(newRow.id)) {
+        pendingSameRowEditTargetRef.current = null;
+      }
+
+      if (savedRowIdChanged && pendingTarget && String(pendingTarget.rowId) === String(newRow.id)) {
+        const fieldToFocus = pendingTarget.field;
+        rememberFocusedField(fieldToFocus);
+        queuePostEditFocus(savedRow.id, fieldToFocus, newRow.id);
+        setRowModesModel((previousModel) => {
+          const nextModel = { ...previousModel };
+          delete nextModel[newRow.id];
+          delete nextModel[String(newRow.id)];
+          nextModel[savedRow.id] = { mode: GridRowModes.Edit, fieldToFocus };
+          return nextModel;
+        });
+        selectRow(savedRow.id);
+        return savedRow;
+      }
+
       // MUI's own onRowModesModelChange usually flips this row to View (and our
       // rowModesModel layout effect already restores focus onto the queued target)
       // well before this async save resolves. Only re-anchor and re-apply View mode
@@ -971,8 +1027,66 @@ function FieldsBedsHierarchy({
       processRowUpdate,
       queuePostEditFocus,
       rememberFocusedField,
+      selectRow,
     ],
   );
+
+  const rememberSameRowEditTargetFromElement = useCallback((target: EventTarget | null): void => {
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const cell = target.closest<HTMLElement>('[role="gridcell"][data-field]');
+    const row = target.closest<HTMLElement>('[role="row"][data-id]');
+    const rowId = row?.dataset.id;
+    const field = cell?.dataset.field;
+    if (!rowId || !field) {
+      return;
+    }
+
+    const currentMode = rowModesModelRef.current[rowId];
+    const rowData = rowsByIdRef.current.get(rowId);
+    const activeCell = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLElement>('[role="gridcell"][data-field]')
+      : null;
+    const activeRow = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLElement>('[role="row"][data-id]')
+      : null;
+    if (
+      currentMode?.mode !== GridRowModes.Edit
+      || !rowData?.isNew
+      || activeRow?.dataset.id !== rowId
+      || activeCell?.dataset.field === field
+    ) {
+      return;
+    }
+
+    const cellParams = gridApiRef.current?.getCellParams?.(rowId, field);
+    if (!cellParams || !gridApiRef.current?.isCellEditable?.(cellParams)) {
+      return;
+    }
+
+    pendingSameRowEditTargetRef.current = { rowId, field };
+  }, [gridApiRef]);
+
+  const rememberSameRowPointerEditTarget = useCallback((event: React.PointerEvent<HTMLElement>): void => {
+    if (event.pointerType === "touch" && event.isPrimary === false) {
+      return;
+    }
+    if (event.pointerType !== "touch" && event.button !== 0) {
+      return;
+    }
+
+    rememberSameRowEditTargetFromElement(event.target);
+  }, [rememberSameRowEditTargetFromElement]);
+
+  const rememberSameRowTouchEditTarget = useCallback((event: React.TouchEvent<HTMLElement>): void => {
+    if (event.touches.length > 1) {
+      return;
+    }
+
+    rememberSameRowEditTargetFromElement(event.target);
+  }, [rememberSameRowEditTargetFromElement]);
 
   const handleReadOnlyHierarchyCellMouseDown = useCallback((event: React.MouseEvent<HTMLElement>): void => {
     const target = event.target;
@@ -1131,30 +1245,72 @@ function FieldsBedsHierarchy({
 
   useRegisterCommands("areas-page", areaCommands);
 
+  // A real save attempt (MUI's stopRowEditMode -> processRowUpdate) never
+  // actually reaches processRowUpdate for a row with an empty required
+  // "name" cell: the name column's preProcessEditCellProps marks that cell
+  // `error: true`, and MUI's own row-editing machinery silently refuses to
+  // exit edit mode for a row with an errored cell - it never calls
+  // processRowUpdate at all. So any code path that wants to end a row's edit
+  // session (clicking outside the grid, clicking into a different row) has
+  // to pre-check for this itself instead of just asking MUI to save: a
+  // still-blank draft is discarded silently (nothing was entered, nothing to
+  // confirm), a nameless-but-partially-filled draft asks the user via a
+  // confirm dialog instead of silently discarding or straining the row in
+  // edit mode, and anything else goes through MUI's real save (matching
+  // normal click-away-to-save UX and avoiding silent data loss).
+  const stopRowEditModeSafely = useCallback((rowId: GridRowId): void => {
+    const draftRow = getDraftRow(rowId);
+    if (draftRow && isCompletelyEmptyNewHierarchyRow(draftRow)) {
+      discardRowEdit(rowId);
+      return;
+    }
+    if (draftRow && isPartiallyFilledNamelessNewHierarchyRow(draftRow)) {
+      exitToViewPreservingDraft(rowId, draftRow);
+      openUnsavedRowDialog(rowId);
+      return;
+    }
+    gridApiRef.current?.stopRowEditMode({ id: rowId });
+  }, [discardRowEdit, exitToViewPreservingDraft, getDraftRow, gridApiRef, openUnsavedRowDialog]);
+
   // Clicking outside the grid while a row is being edited doesn't go through MUI's
   // own cell-focus-out handling (that only fires when focus moves to another grid
-  // cell), so the row is neither saved nor discarded by default. A still-blank
-  // draft is discarded, a nameless-but-partially-filled draft is preserved
-  // locally the same way Escape does (attempting a real save would just reject
-  // for the missing name and strand the row in edit mode), and anything else is
-  // committed for real (matching normal click-away-to-save UX and avoiding
-  // silent data loss).
+  // cell), so the row is neither saved nor discarded by default without this.
   const handleClickOutsideGrid = useCallback((): void => {
     const editingRowId = Object.entries(rowModesModel).find(
       ([, mode]) => mode.mode === GridRowModes.Edit,
     )?.[0];
     if (editingRowId === undefined) return;
     const rowId = rowsById.get(editingRowId)?.id ?? editingRowId;
-    const draftRow = getDraftRow(rowId);
-    if (
-      draftRow &&
-      (isCompletelyEmptyNewHierarchyRow(draftRow) || isPartiallyFilledNamelessNewHierarchyRow(draftRow))
-    ) {
-      discardRowEdit(rowId);
-      return;
-    }
-    gridApiRef.current?.stopRowEditMode({ id: rowId });
-  }, [discardRowEdit, getDraftRow, gridApiRef, rowModesModel, rowsById]);
+    stopRowEditModeSafely(rowId);
+  }, [rowModesModel, rowsById, stopRowEditModeSafely]);
+
+  const handleContinueEditingUnsavedRow = useCallback((): void => {
+    const rowId = unsavedRowDialogId;
+    setUnsavedRowDialogId(null);
+    if (rowId === null) return;
+    // Only one row can be in edit mode at a time - clicking into a different
+    // row while this one had unsaved changes is what triggered the dialog in
+    // the first place, so returning to this row means giving up that other
+    // row's (never-persisted) in-progress edit.
+    setRowModesModel((previousModel) => {
+      const nextModel: GridRowModesModel = {};
+      Object.entries(previousModel).forEach(([id, mode]) => {
+        nextModel[id] = mode.mode === GridRowModes.Edit && String(id) !== String(rowId)
+          ? { mode: GridRowModes.View, ignoreModifications: true }
+          : mode;
+      });
+      nextModel[rowId] = { mode: GridRowModes.Edit, fieldToFocus: "name" };
+      return nextModel;
+    });
+    focusRow(rowId, "name");
+  }, [focusRow, setRowModesModel, unsavedRowDialogId]);
+
+  const handleDiscardUnsavedRow = useCallback((): void => {
+    const rowId = unsavedRowDialogId;
+    setUnsavedRowDialogId(null);
+    if (rowId === null) return;
+    discardRowEdit(rowId, { force: true });
+  }, [discardRowEdit, unsavedRowDialogId]);
 
   useHierarchyKeyboard({
     contextMenuState,
@@ -1203,6 +1359,24 @@ function FieldsBedsHierarchy({
       (row) => measuredTextWidths.get(getHierarchyNameMeasureKey(row)) ?? 0,
     );
   }, [hierarchyIndex]);
+  const showPersistentContextMenuButton = isTouchLikePointer || isMobileViewport;
+  const effectiveNameColumnWidth = useMemo(() => {
+    if (!showPersistentContextMenuButton) {
+      return nameColumnWidth;
+    }
+
+    const visibleMobileNameWidth = Math.max(260, viewportWidth - 88);
+    return Math.min(nameColumnWidth, visibleMobileNameWidth);
+  }, [nameColumnWidth, showPersistentContextMenuButton, viewportWidth]);
+
+  const handleContextMenuButtonOpen = useCallback((row: HierarchyRow, origin: HTMLElement): void => {
+    const rect = origin.getBoundingClientRect();
+    window.setTimeout(() => {
+      openContextMenuForRow(row, rect.right - 8, rect.top + 12, origin, {
+        markHint: false,
+      });
+    }, 0);
+  }, [openContextMenuForRow]);
 
   /**
    * Create columns with callbacks
@@ -1241,10 +1415,12 @@ function FieldsBedsHierarchy({
       t,
       {
         ...DEFAULT_HIERARCHY_COLUMN_WIDTHS,
-        name: nameColumnWidth,
+        name: effectiveNameColumnWidth,
       },
       {
-        disableInlineHoverActions: isTouchLikePointer || isMobileViewport,
+        disableInlineHoverActions: showPersistentContextMenuButton,
+        onOpenContextMenuFromButton: handleContextMenuButtonOpen,
+        showPersistentContextMenuButton,
         // Embedded directly in the "Name" column header instead of a
         // dedicated row above the table (see HierarchyLevelButtons).
         // Desktop-only, matching the toggle's previous placement.
@@ -1263,11 +1439,12 @@ function FieldsBedsHierarchy({
     deleteHierarchyRowWithUndo,
     handleCreatePlantingPlan,
     handleNameCellContextMenu,
+    handleContextMenuButtonOpen,
     notesEditor.handleOpen,
     rowsById,
     t,
-    nameColumnWidth,
-    isTouchLikePointer,
+    effectiveNameColumnWidth,
+    showPersistentContextMenuButton,
     isMobileViewport,
     hierarchyLevelToggle.canExpand,
     hierarchyLevelToggle.canCollapse,
@@ -1280,6 +1457,7 @@ function FieldsBedsHierarchy({
     handleCellKeyDown: handleHierarchyCellKeyDown,
   } = useHierarchyGridKeyboard({
     columns,
+    deferCrossRowEditOnClick: isTouchLikePointer,
     discardRowEdit,
     gridApiRef,
     isCellFocusable: isHierarchyCellFocusable,
@@ -1294,6 +1472,7 @@ function FieldsBedsHierarchy({
     selectRow,
     setRowModesModel,
     setTreeActive,
+    stopEditingRow: stopRowEditModeSafely,
     toggleExpand,
   });
 
@@ -1432,7 +1611,24 @@ function FieldsBedsHierarchy({
       width_m: bed.width_m,
       notes: bed.notes,
     }))
-  ), [beds]);
+    // A partially filled new field can now also sit in View mode with its
+    // draft persisted (exitToViewPreservingDraft, ahead of the unsaved-row
+    // dialog) instead of staying in Edit, so it needs the same navigation
+    // warning as an unsaved bed draft - otherwise navigating away before
+    // answering the dialog silently drops it.
+    || fields.some((field) => isPartiallyFilledNamelessNewHierarchyRow({
+      id: field.id ?? "",
+      type: "field",
+      level: 0,
+      isNew: typeof field.id === "number" && field.id < 0,
+      name: field.name,
+      fieldId: field.id,
+      area_sqm: field.area_sqm,
+      length_m: field.length_m,
+      width_m: field.width_m,
+      notes: field.notes,
+    }))
+  ), [beds, fields]);
 
   const isAnyRowInEditMode = useMemo(
     () => Object.values(rowModesModel).some((mode) => mode.mode === GridRowModes.Edit),
@@ -1548,6 +1744,8 @@ function FieldsBedsHierarchy({
               },
             }}
             onClick={() => setTreeActive(true)}
+            onPointerDownCapture={rememberSameRowPointerEditTarget}
+            onTouchStartCapture={rememberSameRowTouchEditTarget}
             onContextMenuCapture={handleGridContextMenu}
             onMouseDownCapture={handleReadOnlyHierarchyCellMouseDown}
             onTouchStart={handleGridTouchStart}
@@ -1695,6 +1893,18 @@ function FieldsBedsHierarchy({
           }}
         />
       ))}
+      <ConfirmationDialog
+        open={unsavedRowDialogId !== null}
+        title={t("dialogs.unsavedRow.title")}
+        message={t("dialogs.unsavedRow.message")}
+        cancelLabel={t("dialogs.unsavedRow.continueEditing")}
+        confirmLabel={t("dialogs.unsavedRow.discard")}
+        onCancel={handleContinueEditingUnsavedRow}
+        onConfirm={handleDiscardUnsavedRow}
+        cancelButtonProps={{ variant: "contained" }}
+        confirmButtonProps={{ color: "error" }}
+        disableBackdropClose
+      />
     </Box>
   );
 }

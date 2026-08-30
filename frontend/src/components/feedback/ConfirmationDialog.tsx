@@ -32,6 +32,16 @@ interface ConfirmationDialogProps {
   cancelButtonProps?: DialogButtonProps;
   confirmButtonProps?: DialogButtonProps;
   actionsSx?: SxProps<Theme>;
+  /**
+   * Ignores backdrop clicks (Escape still cancels via onCancel). Use this
+   * when the interaction that opens the dialog is itself a touch/click
+   * outside some other element: on real touch devices, that single physical
+   * tap can deliver a synthesized mousedown *and* a later click/mouseup for
+   * the same gesture, and by the time the second one lands the backdrop has
+   * already mounted under the same coordinates - closing the dialog again
+   * within the same tap that opened it.
+   */
+  disableBackdropClose?: boolean;
 }
 
 export function ConfirmationDialog({
@@ -50,9 +60,15 @@ export function ConfirmationDialog({
   cancelButtonProps,
   confirmButtonProps,
   actionsSx,
+  disableBackdropClose,
 }: ConfirmationDialogProps) {
+  const handleClose = (_event: unknown, reason: 'backdropClick' | 'escapeKeyDown'): void => {
+    if (disableBackdropClose && reason === 'backdropClick') return;
+    onCancel();
+  };
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth={maxWidth} fullWidth={fullWidth}>
+    <Dialog open={open} onClose={handleClose} maxWidth={maxWidth} fullWidth={fullWidth}>
       <DialogTitle sx={titleSx}>{title}</DialogTitle>
       <DialogContent sx={contentSx}>
         <Typography variant="body2" {...messageTypographyProps}>

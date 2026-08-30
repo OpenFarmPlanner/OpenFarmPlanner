@@ -1,4 +1,4 @@
-import type { ReactElement, MouseEvent } from 'react';
+import type { ComponentProps, ReactElement, MouseEvent } from 'react';
 import type { TFunction } from 'i18next';
 import { Box, IconButton } from '@mui/material';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
@@ -146,18 +146,24 @@ function renderDeleteActionButton(
   return null;
 }
 
-function renderMoreActionsButton(
+export function renderMoreActionsButton(
   row: HierarchyRow,
   callbacks: NameCellCallbacks,
   t: TFunction,
   isStandaloneRender: boolean,
+  sx?: ComponentProps<typeof ContextMenuIndicator>['sx'],
 ): ReactElement {
   return (
     <ContextMenuIndicator
       label={t('common:actions.actions')}
       tabIndex={-1}
       onClick={(event) => callbacks.onOpenContextMenu(event, row)}
-      sx={isStandaloneRender ? { opacity: 1, pointerEvents: 'auto' } : undefined}
+      onTouchActivate={
+        callbacks.onOpenContextMenuFromButton
+          ? (event) => callbacks.onOpenContextMenuFromButton?.(row, event.currentTarget)
+          : undefined
+      }
+      sx={sx ?? (isStandaloneRender ? { opacity: 1, pointerEvents: 'auto' } : undefined)}
     />
   );
 }
