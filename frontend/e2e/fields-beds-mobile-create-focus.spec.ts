@@ -89,6 +89,28 @@ test.describe('fields-beds mobile create focus', () => {
     await expect(secondInput).toBeFocused();
     await expect(secondInput).toHaveValue(secondField.name);
   });
+
+  test('the persistent row actions button opens the existing context menu', async ({ page, request }) => {
+    await loginWithDeterministicProject(page, request, 'fields-mobile-context-menu-button', { loginAsAdmin: true });
+    const { secondField } = await createTwoParcelRows(
+      page,
+      'Mobile Context Menu Long Parcel Name',
+    );
+
+    await page.goto('/app/fields-beds');
+    const secondRow = page.locator(`[role="row"][data-id="field-${secondField.id}"]`);
+    await expect(secondRow).toBeVisible();
+
+    const actionsButton = secondRow.getByRole('button', { name: 'Aktionen' });
+    await expect(actionsButton).toBeVisible();
+    const actionsButtonBox = await actionsButton.boundingBox();
+    expect(actionsButtonBox).not.toBeNull();
+    expect(actionsButtonBox!.x + actionsButtonBox!.width).toBeLessThanOrEqual(390);
+    await tapCell(page, actionsButton);
+
+    await expect(page.getByRole('menuitem', { name: /^Beet hinzufügen/ })).toBeVisible();
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(0);
+  });
 });
 
 test.describe('fields-beds desktop cross-row editing', () => {

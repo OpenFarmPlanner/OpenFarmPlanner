@@ -1,7 +1,7 @@
 // Shared types and constants for the hierarchy grid columns and their row
 // action buttons.
 
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, PointerEvent, TouchEvent } from 'react';
 import type { HierarchyRow } from './utils/types';
 import type { HierarchyLevelButtonsProps } from './HierarchyLevelToggle';
 
@@ -24,11 +24,17 @@ export interface NameCellCallbacks {
   onDeleteField: (fieldId: number) => void;
   onDeleteLocation: (locationId: number) => void;
   onCreatePlantingPlan: (bedId: number) => void;
-  onOpenContextMenu: (event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, row: HierarchyRow) => void;
+  onOpenContextMenu: (
+    event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement> | TouchEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+    row: HierarchyRow,
+  ) => void;
+  onOpenContextMenuFromButton?: (row: HierarchyRow, origin: HTMLElement) => void;
 }
 
 export interface HierarchyColumnOptions {
   disableInlineHoverActions?: boolean;
+  onOpenContextMenuFromButton?: (row: HierarchyRow, origin: HTMLElement) => void;
+  showPersistentContextMenuButton?: boolean;
   /**
    * When provided, renders the expand/collapse-one-level buttons directly in
    * the "Name" column header (see HierarchyLevelButtons) instead of the

@@ -157,11 +157,22 @@ function FieldsBedsHierarchy({
   const gridApiRef = useGridApiRef();
   const isTouchLikePointer = useMediaQuery("(pointer: coarse)");
   const isMobileViewport = useMediaQuery("(max-width:900px)");
+  const [viewportWidth, setViewportWidth] = useState(() => (
+    typeof window === "undefined" ? 1024 : window.innerWidth
+  ));
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const rowModesModelRef = useRef(rowModesModel);
   useLayoutEffect(() => {
     rowModesModelRef.current = rowModesModel;
   }, [rowModesModel]);
+
+  useEffect(() => {
+    const handleResize = (): void => {
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   const [draftValidationWarning, setDraftValidationWarning] = useState("");
   const hasInitiallyExpandedRef = useRef(false);
   const handledCreateFieldRequestRef = useRef(0);
@@ -1283,6 +1294,24 @@ function FieldsBedsHierarchy({
       (row) => measuredTextWidths.get(getHierarchyNameMeasureKey(row)) ?? 0,
     );
   }, [hierarchyIndex]);
+  const showPersistentContextMenuButton = isTouchLikePointer || isMobileViewport;
+  const effectiveNameColumnWidth = useMemo(() => {
+    if (!showPersistentContextMenuButton) {
+      return nameColumnWidth;
+    }
+
+    const visibleMobileNameWidth = Math.max(260, viewportWidth - 88);
+    return Math.min(nameColumnWidth, visibleMobileNameWidth);
+  }, [nameColumnWidth, showPersistentContextMenuButton, viewportWidth]);
+
+  const handleContextMenuButtonOpen = useCallback((row: HierarchyRow, origin: HTMLElement): void => {
+    const rect = origin.getBoundingClientRect();
+    window.setTimeout(() => {
+      openContextMenuForRow(row, rect.right - 8, rect.top + 12, origin, {
+        markHint: false,
+      });
+    }, 0);
+  }, [openContextMenuForRow]);
 
   /**
    * Create columns with callbacks
@@ -1321,10 +1350,12 @@ function FieldsBedsHierarchy({
       t,
       {
         ...DEFAULT_HIERARCHY_COLUMN_WIDTHS,
-        name: nameColumnWidth,
+        name: effectiveNameColumnWidth,
       },
       {
-        disableInlineHoverActions: isTouchLikePointer || isMobileViewport,
+        disableInlineHoverActions: showPersistentContextMenuButton,
+        onOpenContextMenuFromButton: handleContextMenuButtonOpen,
+        showPersistentContextMenuButton,
         // Embedded directly in the "Name" column header instead of a
         // dedicated row above the table (see HierarchyLevelButtons).
         // Desktop-only, matching the toggle's previous placement.
@@ -1343,11 +1374,12 @@ function FieldsBedsHierarchy({
     deleteHierarchyRowWithUndo,
     handleCreatePlantingPlan,
     handleNameCellContextMenu,
+    handleContextMenuButtonOpen,
     notesEditor.handleOpen,
     rowsById,
     t,
-    nameColumnWidth,
-    isTouchLikePointer,
+    effectiveNameColumnWidth,
+    showPersistentContextMenuButton,
     isMobileViewport,
     hierarchyLevelToggle.canExpand,
     hierarchyLevelToggle.canCollapse,

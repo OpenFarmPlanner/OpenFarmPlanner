@@ -241,6 +241,50 @@ describe('hierarchy components and behaviors', () => {
     expect(openContextMenu).toHaveBeenLastCalledWith(expect.any(Object), expect.objectContaining({ id: 'field-10' }));
   }, 15000);
 
+  it('renders a persistent mobile context menu button inside the name cell without triggering row clicks', async () => {
+    const user = userEvent.setup();
+    const openContextMenu = vi.fn();
+    const rowClick = vi.fn();
+    const columns = createHierarchyColumns(
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      openContextMenu,
+      vi.fn(),
+      mockT as never,
+      undefined,
+      {
+        disableInlineHoverActions: true,
+        showPersistentContextMenuButton: true,
+      },
+    );
+    const nameColumn = columns.find((column) => column.field === 'name');
+
+    render(
+      <div role="presentation" onClick={rowClick}>
+        {nameColumn?.renderCell?.({
+          id: 'field-10',
+          field: 'name',
+          value: 'A very long parcel name with many name parts',
+          row: { id: 'field-10', type: 'field', fieldId: 10, level: 2 },
+        } as never)}
+      </div>,
+    );
+
+    expect(screen.queryByLabelText('Beet zu dieser Parzelle hinzufügen')).not.toBeInTheDocument();
+    const actionsButton = screen.getByRole('button', { name: 'Aktionen' });
+    expect(actionsButton).toBeVisible();
+
+    await user.click(actionsButton);
+
+    expect(openContextMenu).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ id: 'field-10' }));
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
 
 
   it('applies custom hierarchy column widths when provided', () => {
