@@ -1,7 +1,8 @@
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import IconButton from '@mui/material/IconButton';
 import type { SxProps, Theme } from '@mui/material/styles';
-import type { MouseEvent } from 'react';
+import { useRef } from 'react';
+import type { MouseEvent, PointerEvent, TouchEvent } from 'react';
 import { CONTEXT_MENU_INDICATOR_CLASS } from './contextMenuIndicatorStyles';
 import { AppTooltip } from '../AppTooltip';
 
@@ -9,6 +10,7 @@ interface ContextMenuIndicatorProps {
   /** Tooltip text and aria-label. */
   label: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onTouchActivate?: (event: PointerEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>) => void;
   tabIndex?: number;
   sx?: SxProps<Theme>;
   /**
@@ -37,7 +39,30 @@ interface ContextMenuIndicatorProps {
  * keep it visible on coarse-pointer (touch) devices, where hover doesn't
  * apply.
  */
-export function ContextMenuIndicator({ label, onClick, tabIndex, sx, withBackdrop }: ContextMenuIndicatorProps) {
+export function ContextMenuIndicator({
+  label,
+  onClick,
+  onTouchActivate,
+  tabIndex,
+  sx,
+  withBackdrop,
+}: ContextMenuIndicatorProps) {
+  const handledPointerTapRef = useRef(false);
+  const activateFromTouch = (
+    event: PointerEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>,
+  ): void => {
+    if (!onTouchActivate || handledPointerTapRef.current) {
+      return;
+    }
+    handledPointerTapRef.current = true;
+    event.preventDefault();
+    event.stopPropagation();
+    onTouchActivate(event);
+    window.setTimeout(() => {
+      handledPointerTapRef.current = false;
+    }, 350);
+  };
+
   return (
     <AppTooltip
       title={label}
@@ -49,7 +74,35 @@ export function ContextMenuIndicator({ label, onClick, tabIndex, sx, withBackdro
         size="small"
         aria-label={label}
         tabIndex={tabIndex}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          if (event.pointerType === 'pen') {
+            activateFromTouch(event);
+          }
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          if (event.pointerType !== 'pen') {
+            return;
+          }
+          activateFromTouch(event);
+        }}
+        onTouchStart={(event) => {
+          event.stopPropagation();
+        }}
+        onTouchEnd={(event) => {
+          event.stopPropagation();
+          activateFromTouch(event);
+        }}
         onClick={(event) => {
+          if (handledPointerTapRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
           event.preventDefault();
           event.stopPropagation();
           onClick(event);

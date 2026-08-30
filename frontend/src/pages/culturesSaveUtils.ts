@@ -13,6 +13,7 @@ import {
   normalizeSeedingRequirementType,
   normalizeSeedRateUnit,
 } from '../cultures/enumNormalization';
+import { VARIETY_INHERITABLE_FIELDS } from '../cultures/varietyValueSource';
 
 export type CultureSavePayload = Culture & {
   supplier_id: number | null;
@@ -37,6 +38,9 @@ type FirstVarietyGeneralCultureDraft = Pick<Culture, 'name'> & Partial<Culture>;
 
 export function buildGeneralCultureDraftForFirstVariety(
   culture: Culture,
+  {
+    copyValuesToCulture = false,
+  }: { copyValuesToCulture?: boolean } = {},
 ): FirstVarietyGeneralCultureDraft {
   const draft: FirstVarietyGeneralCultureDraft = {
     name: culture.name,
@@ -49,6 +53,7 @@ export function buildGeneralCultureDraftForFirstVariety(
   const fieldsToCopy = [
     ...ORGANIZATIONAL_GENERAL_FIELDS,
     ...SPECIES_INVARIANT_GENERAL_FIELDS,
+    ...(copyValuesToCulture ? VARIETY_INHERITABLE_FIELDS : []),
   ];
 
   fieldsToCopy.forEach((field) => {

@@ -73,7 +73,11 @@ export function useHierarchyContextMenu({
 
   const handleNameCellContextMenu = useCallback(
     (
-      event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>,
+      event:
+        | React.MouseEvent<HTMLElement>
+        | React.PointerEvent<HTMLElement>
+        | React.TouchEvent<HTMLElement>
+        | React.KeyboardEvent<HTMLElement>,
       row: HierarchyRow,
     ): void => {
       if (!shouldOpenCustomContextMenu(event.target)) return;

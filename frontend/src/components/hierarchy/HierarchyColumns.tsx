@@ -2,7 +2,7 @@
  * Column definitions for hierarchy grid
  */
 
-import type { ReactElement, KeyboardEvent, MouseEvent } from 'react';
+import type { ReactElement, KeyboardEvent, MouseEvent, PointerEvent, TouchEvent } from 'react';
 import { GridEditInputCell } from '@mui/x-data-grid';
 import type {
   GridColDef,
@@ -135,7 +135,10 @@ export function createHierarchyColumns(
   onDeleteField: (fieldId: number) => void,
   onDeleteLocationOrCreatePlantingPlan: ((locationId: number) => void) | ((bedId: number) => void),
   onCreatePlantingPlanOrOpenNotes: ((bedId: number) => void) | ((rowId: string | number, field: string) => void),
-  onOpenContextMenuOrT: ((event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, row: HierarchyRow) => void) | TFunction,
+  onOpenContextMenuOrT: ((
+    event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement> | TouchEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+    row: HierarchyRow,
+  ) => void) | TFunction,
   onOpenNotesOrColumnWidths?: ((rowId: string | number, field: string) => void) | Partial<HierarchyColumnWidths>,
   tOrColumnWidths?: TFunction | Partial<HierarchyColumnWidths>,
   columnWidths?: Partial<HierarchyColumnWidths>,
@@ -150,7 +153,10 @@ export function createHierarchyColumns(
     : onCreatePlantingPlanOrOpenNotes as (bedId: number) => void;
   const onOpenContextMenu = usesLegacySignature
     ? (): void => undefined
-    : onOpenContextMenuOrT as (event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>, row: HierarchyRow) => void;
+    : onOpenContextMenuOrT as (
+      event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement> | TouchEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+      row: HierarchyRow,
+    ) => void;
   const onOpenNotes = usesLegacySignature
     ? onCreatePlantingPlanOrOpenNotes as (rowId: string | number, field: string) => void
     : onOpenNotesOrColumnWidths as (rowId: string | number, field: string) => void;
@@ -170,6 +176,7 @@ export function createHierarchyColumns(
     onDeleteLocation,
     onCreatePlantingPlan,
     onOpenContextMenu,
+    onOpenContextMenuFromButton: options.onOpenContextMenuFromButton,
   };
 
   // Captured in a local so the type stays narrowed (non-undefined) inside

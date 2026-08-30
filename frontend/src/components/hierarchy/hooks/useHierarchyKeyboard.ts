@@ -44,7 +44,7 @@ export function useHierarchyKeyboard({
   // ArrowLeft/Right expand/collapse. A separate listener handles context-menu
   // keyboard shortcuts so its dependency array stays minimal.
   useEffect(() => {
-    const handleDocumentPointerDown = (event: MouseEvent) => {
+    const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
       if (!tableWrapperRef.current?.contains(event.target as Node)) {
         discardActiveRowEdit();
         setTreeActive(false);
@@ -113,12 +113,19 @@ export function useHierarchyKeyboard({
     };
 
     document.addEventListener("mousedown", handleDocumentPointerDown);
+    // Touch devices need their own listener: on a tap outside a focused input,
+    // mobile Safari/Chrome often only dismiss the on-screen keyboard on that
+    // first tap without synthesizing the usual mousedown/click on the new
+    // target, so the mousedown listener above alone never fires and a new,
+    // still-empty row is left stuck in edit mode.
+    document.addEventListener("touchstart", handleDocumentPointerDown);
     window.addEventListener("keydown", handleFocusTable);
     window.addEventListener("keydown", handleTreeNavigation);
     window.addEventListener("keydown", handleInsertShortcut);
 
     return () => {
       document.removeEventListener("mousedown", handleDocumentPointerDown);
+      document.removeEventListener("touchstart", handleDocumentPointerDown);
       window.removeEventListener("keydown", handleFocusTable);
       window.removeEventListener("keydown", handleTreeNavigation);
       window.removeEventListener("keydown", handleInsertShortcut);

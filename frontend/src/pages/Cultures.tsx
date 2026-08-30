@@ -487,7 +487,10 @@ function Cultures() {
           updateSelectedCultureId(savedCulture.id, 'internal');
         } else {
           const generalCulturePayload = firstVariety
-            ? buildCultureSavePayload(buildGeneralCultureDraftForFirstVariety(culture) as Culture)
+            ? buildCultureSavePayload(buildGeneralCultureDraftForFirstVariety(
+              culture,
+              { copyValuesToCulture: Boolean(firstVariety.copyValuesToCulture) },
+            ) as Culture)
             : savePayload;
           const response = await cultureAPI.create(generalCulturePayload as Culture);
           savedCulture = response.data;

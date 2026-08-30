@@ -5,7 +5,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import type { TFunction } from 'i18next';
 import type { HierarchyRow } from './utils/types';
 import { contextMenuActionsOverlaySx } from '../contextMenu/contextMenuIndicatorStyles';
-import { renderInlineActions } from './hierarchyRowActions';
+import { renderInlineActions, renderMoreActionsButton } from './hierarchyRowActions';
 import {
   NON_BLOCKING_TOOLTIP_PROPS,
   type HierarchyColumnOptions,
@@ -27,9 +27,29 @@ export function renderNameCell(
   const hasExpandToggle = (row.type === 'location' || row.type === 'field') && hasChildren;
   const isStandaloneRender = params.api === undefined;
   const inlineActions = renderInlineActions(row, callbacks, t, options, isStandaloneRender);
+  const supportsContextMenu = row.type === 'location' || row.type === 'field' || row.type === 'bed';
+  const persistentContextMenuButton = supportsContextMenu && options.showPersistentContextMenuButton
+    ? renderMoreActionsButton(row, callbacks, t, true, {
+        display: 'inline-flex',
+        opacity: 1,
+        pointerEvents: 'auto',
+        flex: '0 0 auto',
+        width: 40,
+        height: 40,
+        color: 'text.secondary',
+        p: 1,
+        '& .MuiSvgIcon-root': { fontSize: 20 },
+        '&:hover': { bgcolor: 'action.hover' },
+        '&.Mui-focusVisible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: -3,
+        },
+      })
+    : null;
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', pl: `${baseIndent}px`, width: '100%', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', pl: `${baseIndent}px`, width: '100%', minWidth: 0, gap: 0.5 }}>
       <Box
         sx={{
           width: EXPAND_ICON_SLOT_SIZE,
@@ -73,7 +93,8 @@ export function renderNameCell(
           display: 'inline-flex',
           alignItems: 'center',
           minWidth: 0,
-          width: '100%',
+          flex: '1 1 auto',
+          width: 'auto',
           overflow: 'hidden',
         }}
         onContextMenu={(event) => {
@@ -103,6 +124,8 @@ export function renderNameCell(
         >
           {params.value}
         </Box>
+
+        {persistentContextMenuButton}
 
         {inlineActions ? (
           <Box

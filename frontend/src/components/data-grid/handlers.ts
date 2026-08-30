@@ -53,4 +53,3 @@ export const handleRowEditStop: GridEventListener<'rowEditStop'> = (params, even
   }
   // rowFocusOut will trigger processRowUpdate, implementing autosave on blur
 };
-

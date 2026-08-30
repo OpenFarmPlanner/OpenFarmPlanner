@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  schedule:
+    # Re-scan unchanged lockfiles after vulnerability databases are updated.
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
 
 jobs:
   pip-audit:

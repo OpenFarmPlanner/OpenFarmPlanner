@@ -438,7 +438,9 @@ class CultureSerializer(serializers.ModelSerializer):
 
         prefetched = getattr(obj, '_prefetched_owned_public_cultures', None)
         if prefetched is not None:
-            return prefetched[0] if prefetched else None
+            if prefetched:
+                return prefetched[0]
+            return self._resolve_owned_general_public_culture(obj, user)
 
         linked_public = PublicCulture.objects.filter(
             source_project_culture=obj,
@@ -446,7 +448,51 @@ class CultureSerializer(serializers.ModelSerializer):
         )
         if not self._can_moderate_public_cultures(user):
             linked_public = linked_public.filter(created_by=user)
-        return linked_public.order_by('-updated_at', '-id').first()
+        resolved = linked_public.order_by('-updated_at', '-id').first()
+        if resolved is not None:
+            return resolved
+        return self._resolve_owned_general_public_culture(obj, user)
+
+    def _resolve_owned_general_public_culture(self, obj: Culture, user) -> PublicCulture | None:
+        """A user's species-level public entry can belong to another source project.
+
+        Publishing a Sorte does not overwrite an existing general public entry.
+        When that entry is already the user's own entry from a different
+        project, the current project's general Kultur should still act on that
+        public Kultur instead of offering a duplicate publication.
+        """
+        if not obj.crop_species_id or (obj.variety or '').strip():
+            return None
+
+        cache = self.context.setdefault('_owned_general_public_culture_index_by_project_user', {})
+        cache_key = (obj.project_id, user.id)
+        if cache_key not in cache:
+            general_row_filter = (
+                models.Q(variety_normalized__isnull=True)
+                | models.Q(variety_normalized='')
+            )
+            species_ids = (
+                Culture.objects
+                .filter(general_row_filter, project_id=obj.project_id, crop_species__isnull=False)
+                .values_list('crop_species_id', flat=True)
+                .distinct()
+            )
+            index: dict[int, PublicCulture] = {}
+            public_rows = (
+                PublicCulture.objects
+                .filter(
+                    general_row_filter,
+                    crop_species_id__in=species_ids,
+                    created_by=user,
+                    status=PublicCulture.STATUS_PUBLISHED,
+                )
+                .select_related('crop_species')
+                .order_by('crop_species_id', '-updated_at', '-id')
+            )
+            for public_culture in public_rows:
+                index.setdefault(public_culture.crop_species_id, public_culture)
+            cache[cache_key] = index
+        return cache[cache_key].get(obj.crop_species_id)
 
     def get_owned_public_culture_id(self, obj: Culture) -> int | None:
         public_culture = self._resolve_owned_public_culture(obj)
