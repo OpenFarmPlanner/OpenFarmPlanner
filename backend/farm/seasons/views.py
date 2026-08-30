@@ -38,7 +38,34 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
 
     def perform_create(self, serializer):
         current_user = self.request.user if self.request.user.is_authenticated else None
-        instance = serializer.save(project=self.request.active_project, created_by=current_user)
+        project = self.request.active_project
+
+        # A soft-deleted season still occupies its (project, start_date) slot via
+        # the unique constraint, and the active-only overlap check in the
+        # serializer cannot see it. Resurrect it instead of hitting an
+        # IntegrityError when the same period is created again.
+        resurrected = (
+            Season.all_objects
+            .filter(project=project, start_date=serializer.validated_data['start_date'], deleted_at__isnull=False)
+            .first()
+        )
+        if resurrected is not None:
+            resurrected.deleted_at = None
+            resurrected.end_date = serializer.validated_data['end_date']
+            resurrected.created_by = current_user
+            resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
+            self.record_revision(
+                resurrected, EntityRevision.ACTION_UPDATED,
+                changed_fields=['deleted_at', 'end_date'],
+            )
+            serializer.instance = (
+                Season.objects
+                .annotate(planting_plan_count=Count('planting_plans'))
+                .get(pk=resurrected.pk)
+            )
+            return
+
+        instance = serializer.save(project=project, created_by=current_user)
         self.record_revision(instance, EntityRevision.ACTION_CREATED)
 
     def perform_update(self, serializer):

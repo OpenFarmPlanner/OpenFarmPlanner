@@ -152,6 +152,22 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(response.data['copied_count'], 1)
         self.assertEqual(response.data['target_planting_plan_count'], 1)
 
+    def test_create_resurrects_a_soft_deleted_season_for_the_same_period(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+        )
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertFalse(Season.objects.filter(pk=season.pk).exists())
+
+        response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-09-01', 'end_date': '2027-08-31',
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['id'], season.pk)
+        self.assertTrue(Season.objects.filter(pk=season.pk).exists())
+        self.assertEqual(Season.all_objects.filter(project=self.project).count(), 1)
+
     def test_create_rejects_duplicate_or_overlapping_period(self):
         Season.objects.create(
             project=self.project,
