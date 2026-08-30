@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from farm.models import PlantingPlan, Season, SeasonPattern
+from farm.models import EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.services.demo_project import populate_demo_project
 from farm.services.hint_test_project import populate_hint_test_project
 from farm.services.seasons import (
@@ -164,6 +164,60 @@ class SeasonApiTest(ProjectApiTestCase):
         undelete_response = self.client.post(f'/openfarmplanner/api/seasons/{season_id}/undelete/')
         self.assertEqual(undelete_response.status_code, 200)
         self.assertTrue(Season.objects.filter(pk=season_id).exists())
+
+    def test_deleting_a_season_deletes_its_planting_plans_and_undelete_restores_them(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_ids = [
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                planting_date=date(2026, 4, day),
+            ).pk
+            for day in (1, 8, 15)
+        ]
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+
+        self.assertEqual(PlantingPlan.objects.filter(pk__in=plan_ids).count(), 0)
+        self.assertEqual(
+            EntityRevision.objects.filter(
+                project=self.project, entity_type='planting_plan',
+                object_id__in=plan_ids, action=EntityRevision.ACTION_DELETED,
+            ).count(),
+            3,
+        )
+
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        restored = PlantingPlan.objects.filter(season=season)
+        self.assertEqual(sorted(restored.values_list('pk', flat=True)), sorted(plan_ids))
+        self.assertEqual(
+            {plan.planting_date for plan in restored},
+            {date(2026, 4, 1), date(2026, 4, 8), date(2026, 4, 15)},
+        )
+
+    def test_undelete_leaves_individually_deleted_plans_deleted(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        kept = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        removed = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 5, 1),
+        )
+        self.client.delete(f'/openfarmplanner/api/planting-plans/{removed.pk}/')
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        self.assertEqual(
+            list(PlantingPlan.objects.filter(season=season).values_list('pk', flat=True)),
+            [kept.pk],
+        )
 
     def test_copy_from_endpoint_is_additive(self):
         source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))

@@ -24,10 +24,31 @@ that predate this feature.
   `computeSeasonLabel` for previews computed before a season exists server-side.
 - **`PlantingPlan.season`** — nullable `ForeignKey(Season, on_delete=CASCADE)`,
   mirroring the `culture`/`bed` FK pattern (nullable + CASCADE, but the actual
-  delete path is the soft-delete above, so CASCADE only fires on a real hard
-  delete). Nullable specifically so pre-existing projects keep working until
-  the first-run setup (below) assigns a season. Culture library and bed/field
-  structure stay season-independent, per the feature's original scope.
+  delete path is the soft-delete above, so the DB-level CASCADE never fires —
+  see the application-level cascade below). Nullable specifically so
+  pre-existing projects keep working until the first-run setup (below) assigns
+  a season. Culture library and bed/field structure stay season-independent,
+  per the feature's original scope.
+
+## Deleting a season
+
+`SeasonViewSet.destroy` soft-deletes the season and, in the same transaction,
+**hard-deletes its planting plans** — a season "contains" its plans, so
+removing it removes them. `PlantingPlan` has no soft-delete, so each plan is
+deleted for real, but `_delete_planting_plans_with_season` records an
+`EntityRevision` (`ACTION_DELETED`) per plan first, so:
+
+- the deletions show up in the project version history, and whole-project
+  point-in-time restore reconstructs them like any other planting-plan
+  deletion;
+- `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
+  any later manual undelete) recreates them. It finds the season's most recent
+  `ACTION_DELETED` revision and, via
+  `_restore_planting_plans_deleted_with_season`, re-inserts every
+  `planting_plan` whose latest revision at/after that timestamp is a deletion
+  with `snapshot['season_id']` pointing at this season — keeping the original
+  primary keys and skipping any plan a user had already deleted individually
+  beforehand.
 
 ## Season-scoping of planting plans
 

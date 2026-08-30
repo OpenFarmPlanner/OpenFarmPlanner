@@ -3,6 +3,7 @@ the first-run setup that migrates a project's unassigned planting plans."""
 
 from datetime import date
 
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -79,13 +80,31 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             return Response(status=status.HTTP_204_NO_CONTENT)
         snapshot = _serialize_instance(season)
         display_name = _entity_display_name(season)
-        season.deleted_at = timezone.now()
-        season.save(update_fields=['deleted_at', 'updated_at'])
-        self.record_revision(
-            season, EntityRevision.ACTION_DELETED,
-            snapshot=snapshot, display_name=display_name, changed_fields=[],
-        )
+        with transaction.atomic():
+            season.deleted_at = timezone.now()
+            season.save(update_fields=['deleted_at', 'updated_at'])
+            self.record_revision(
+                season, EntityRevision.ACTION_DELETED,
+                snapshot=snapshot, display_name=display_name, changed_fields=[],
+            )
+            # A season "contains" its planting plans, so deleting it deletes
+            # them too. They are hard-deleted (PlantingPlan has no soft-delete),
+            # but each deletion is recorded so version history / point-in-time
+            # restore and this season's own undelete can bring them back.
+            self._delete_planting_plans_with_season(season)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _delete_planting_plans_with_season(self, season: Season) -> None:
+        plans = list(
+            PlantingPlan.objects.filter(season=season).select_related('culture', 'bed')
+        )
+        for plan in plans:
+            self.record_revision(
+                plan, EntityRevision.ACTION_DELETED,
+                object_id=plan.pk, snapshot=_serialize_instance(plan),
+                display_name=_entity_display_name(plan), changed_fields=[],
+            )
+        PlantingPlan.objects.filter(season=season).delete()
 
     @action(detail=True, methods=['post'], url_path='undelete')
     def undelete(self, request, pk=None):
@@ -93,10 +112,67 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         if season is None:
             return Response({'detail': 'Season not found.'}, status=status.HTTP_404_NOT_FOUND)
         if season.deleted_at is not None:
-            season.deleted_at = None
-            season.save(update_fields=['deleted_at', 'updated_at'])
-            self.record_revision(season, EntityRevision.ACTION_UPDATED, changed_fields=['deleted_at'])
+            with transaction.atomic():
+                deleted_revision = (
+                    EntityRevision.objects
+                    .filter(
+                        project=self.request.active_project,
+                        entity_type='season',
+                        object_id=season.pk,
+                        action=EntityRevision.ACTION_DELETED,
+                    )
+                    .order_by('-created_at')
+                    .first()
+                )
+                season.deleted_at = None
+                season.save(update_fields=['deleted_at', 'updated_at'])
+                self.record_revision(season, EntityRevision.ACTION_UPDATED, changed_fields=['deleted_at'])
+                if deleted_revision is not None:
+                    self._restore_planting_plans_deleted_with_season(season, deleted_revision.created_at)
         return Response(SeasonSerializer(season).data)
+
+    def _restore_planting_plans_deleted_with_season(self, season: Season, deleted_since) -> None:
+        allowed_fields = {field.attname for field in PlantingPlan._meta.concrete_fields}
+        revisions = (
+            EntityRevision.objects
+            .filter(
+                project=self.request.active_project,
+                entity_type='planting_plan',
+                created_at__gte=deleted_since,
+            )
+            .order_by('object_id', '-created_at')
+        )
+        recreated: list[PlantingPlan] = []
+        seen: set[int] = set()
+        for revision in revisions:
+            if revision.object_id in seen:
+                continue
+            seen.add(revision.object_id)
+            snapshot = revision.snapshot
+            if (
+                revision.action != EntityRevision.ACTION_DELETED
+                or not isinstance(snapshot, dict)
+                or snapshot.get('season_id') != season.pk
+                or PlantingPlan.objects.filter(pk=revision.object_id).exists()
+            ):
+                continue
+            row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
+            row_data['project_id'] = season.project_id
+            row_data['season_id'] = season.pk
+            recreated.append(PlantingPlan(**row_data))
+        if not recreated:
+            return
+        PlantingPlan.objects.bulk_create(recreated)
+        for plan in (
+            PlantingPlan.objects
+            .filter(pk__in=[plan.pk for plan in recreated])
+            .select_related('culture', 'bed')
+        ):
+            self.record_revision(
+                plan, EntityRevision.ACTION_RESTORED,
+                snapshot=_serialize_instance(plan),
+                display_name=_entity_display_name(plan), changed_fields=[],
+            )
 
     @action(detail=True, methods=['post'], url_path='copy-from')
     def copy_from(self, request, pk=None):
