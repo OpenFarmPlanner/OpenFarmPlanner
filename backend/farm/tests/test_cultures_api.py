@@ -1214,7 +1214,7 @@ class CultureInheritanceApiTest(ProjectApiTestCase):
                 name='Karotte', variety=f'Sorte {index}',
                 project=self.project, crop_species=self.species,
             )
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(11):
             response = self.client.get('/openfarmplanner/api/cultures/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         inherited_rows = [

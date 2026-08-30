@@ -62,6 +62,9 @@
     "missingHarvestDuration": "Cannot be calculated because this culture has no harvest duration.",
     "missingGrowthAndHarvestDuration": "Cannot be calculated because this culture has neither a growth duration nor a harvest duration."
   },
+  "hints": {
+    "plantingDateSeasonRange": "Within the season: {{start}} – {{end}}"
+  },
   "errors": {
     "load": "Failed to load planting plans",
     "save": "Failed to save planting plan",
@@ -76,6 +79,7 @@
     "cultureRequired": "Culture is required",
     "bedRequired": "Bed is required",
     "cultivationTypeRequired": "Cultivation type is required",
+    "plantingDateOutsideSeason": "Planting date must fall within the season ({{start}} – {{end}}).",
     "requiredFields": "The following required fields must be filled in: {{fields}}",
     "cultureOrBedRequired": "Culture or bed is required",
     "areaExceedsRemaining": "The specified area exceeds this bed's available remaining area.",

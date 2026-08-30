@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { describe, expect, it, vi } from 'vitest';
@@ -80,5 +80,30 @@ describe('ConfirmationDialog — destructive-action keyboard safety', () => {
       expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus();
     });
     expect(screen.getByRole('button', { name: 'Löschen' })).not.toHaveFocus();
+  });
+
+  it('closes via cancel on a backdrop click by default', async () => {
+    const user = userEvent.setup();
+    const { onCancel, onConfirm } = renderDialog();
+
+    // MUI's backdrop is the sibling wrapping the dialog paper; clicking it
+    // (not the dialog content) is what a real backdrop tap looks like.
+    await user.click(document.querySelector('.MuiBackdrop-root') as Element);
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('ignores a backdrop click when disableBackdropClose is set, but Escape still cancels', async () => {
+    const user = userEvent.setup();
+    const { onCancel, onConfirm } = renderDialog({ disableBackdropClose: true });
+
+    await user.click(document.querySelector('.MuiBackdrop-root') as Element);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

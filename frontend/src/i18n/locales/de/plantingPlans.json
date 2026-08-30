@@ -62,6 +62,9 @@
     "missingHarvestDuration": "Nicht berechenbar, da für diese Kultur keine Erntezeit hinterlegt ist.",
     "missingGrowthAndHarvestDuration": "Nicht berechenbar, da für diese Kultur weder eine Wachstumszeit noch eine Erntezeit hinterlegt ist."
   },
+  "hints": {
+    "plantingDateSeasonRange": "Innerhalb der Saison: {{start}} – {{end}}"
+  },
   "errors": {
     "load": "Fehler beim Laden der Anbaupläne",
     "save": "Fehler beim Speichern des Anbauplans",
@@ -76,6 +79,7 @@
     "cultureRequired": "Kultur ist ein Pflichtfeld",
     "bedRequired": "Beet ist ein Pflichtfeld",
     "cultivationTypeRequired": "Anbauart ist ein Pflichtfeld",
+    "plantingDateOutsideSeason": "Pflanzdatum muss innerhalb der Saison liegen ({{start}} – {{end}}).",
     "requiredFields": "Folgende Pflichtfelder müssen ausgefüllt werden: {{fields}}",
     "cultureOrBedRequired": "Kultur oder Beet ist ein Pflichtfeld",
     "areaExceedsRemaining": "Die angegebene Fläche überschreitet die verfügbare Restfläche dieses Beets.",

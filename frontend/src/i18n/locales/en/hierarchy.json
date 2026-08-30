@@ -93,6 +93,12 @@
       "description": "Locations help you manage areas at different places separately. For a project with only one place, you don't need to set up anything else.",
       "nameLabel": "Location name",
       "submit": "Create location"
+    },
+    "unsavedRow": {
+      "title": "Row not saved",
+      "message": "Name is a required field. This row can't be saved without a name.",
+      "continueEditing": "Continue editing",
+      "discard": "Discard"
     }
   },
   "emptyAreas": {

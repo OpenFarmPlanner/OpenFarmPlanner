@@ -93,6 +93,12 @@
       "description": "Standorte helfen, Flächen an verschiedenen Orten getrennt zu verwalten. Für ein Projekt mit nur einem Ort musst du nichts weiter einrichten.",
       "nameLabel": "Name des Standorts",
       "submit": "Standort anlegen"
+    },
+    "unsavedRow": {
+      "title": "Zeile nicht gespeichert",
+      "message": "Name ist ein Pflichtfeld. Ohne Namen kann diese Zeile nicht gespeichert werden.",
+      "continueEditing": "Weiter bearbeiten",
+      "discard": "Verwerfen"
     }
   },
   "emptyAreas": {

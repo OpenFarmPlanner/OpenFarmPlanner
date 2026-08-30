@@ -57,6 +57,13 @@ interface UseHierarchyGridKeyboardParams {
   selectRow: (rowId: GridRowId) => void;
   setRowModesModel: React.Dispatch<React.SetStateAction<GridRowModesModel>>;
   setTreeActive: (active: boolean) => void;
+  // Ends a row's edit session the same way clicking outside the grid does:
+  // MUI's real stopRowEditMode never reaches processRowUpdate for a row with
+  // an empty required "name" cell (the column's preProcessEditCellProps
+  // marks it errored, and MUI silently refuses to exit edit mode for a row
+  // with an errored cell), so this pre-checks for that instead of calling
+  // stopRowEditMode directly.
+  stopEditingRow: (rowId: GridRowId) => void;
   toggleExpand: (rowId: GridRowId) => void;
 }
 
@@ -104,6 +111,7 @@ export function useHierarchyGridKeyboard({
   selectRow,
   setRowModesModel,
   setTreeActive,
+  stopEditingRow,
   toggleExpand,
 }: UseHierarchyGridKeyboardParams): UseHierarchyGridKeyboardResult {
   const spreadsheetEditStarter = useSpreadsheetEditStarter<HierarchyRow>({
@@ -205,11 +213,7 @@ export function useHierarchyGridKeyboard({
     const isChangingEditedRow = editingRowId !== undefined && String(editingRowId) !== String(params.id);
     if (isChangingEditedRow) {
       const rowIdToStop = rowsById.get(editingRowId)?.id ?? editingRowId;
-      if (gridApiRef.current?.stopRowEditMode) {
-        gridApiRef.current.stopRowEditMode({ id: rowIdToStop });
-      } else {
-        discardRowEdit(rowIdToStop);
-      }
+      stopEditingRow(rowIdToStop);
     }
 
     rememberFocusedField(params.field);
@@ -234,7 +238,6 @@ export function useHierarchyGridKeyboard({
     handleEditableCellClick(params, rowModesModel, setRowModesModel);
   }, [
     deferCrossRowEditOnClick,
-    discardRowEdit,
     gridApiRef,
     isCellFocusable,
     rememberFocusedField,
@@ -244,6 +247,7 @@ export function useHierarchyGridKeyboard({
     selectRow,
     setRowModesModel,
     setTreeActive,
+    stopEditingRow,
   ]);
 
   const handleCellKeyDown = useCallback((

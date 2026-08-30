@@ -30,7 +30,10 @@ vi.mock("../hooks/useProjectRequirement", () => ({
   useProjectRequirement: () => projectRequirementState,
 }));
 
-const outletContext = vi.hoisted(() => ({ activeSeasonYear: null as number | null }));
+const outletContext = vi.hoisted(() => ({
+  activeSeasonYear: null as number | null,
+  activeSeason: null as null | { start_date: string; end_date: string },
+}));
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<typeof import("react-router")>("react-router");
@@ -44,6 +47,7 @@ vi.mock("react-router", async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   outletContext.activeSeasonYear = null;
+  outletContext.activeSeason = null;
   projectRequirementState.shouldShowProjectRequiredState = false;
   projectRequirementState.missingProjectReason = null;
   mocks.planList.mockResolvedValue({
@@ -131,9 +135,7 @@ describe("YieldOverviewPage", () => {
       flex: "1 1 0",
     });
     expect(screen.getByLabelText("Kultur")).toHaveTextContent("Alle Kulturen");
-    expect(screen.getByLabelText("Jahr")).toHaveTextContent(
-      String(new Date().getFullYear()),
-    );
+    expect(screen.queryByLabelText("Jahr")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Woche" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -441,7 +443,6 @@ describe("YieldOverviewPage", () => {
   });
 
   it("shows a yield-data empty state when planting plans have no calculable yields", async () => {
-    const currentYear = new Date().getFullYear();
     render(
       <FocusManagerProvider><MemoryRouter>
         <YieldOverviewPage />
@@ -449,32 +450,24 @@ describe("YieldOverviewPage", () => {
     );
 
     expect(
-      await screen.findByText(`Keine erwarteten Erträge für ${currentYear}`),
+      await screen.findByText("Keine erwarteten Erträge in dieser Saison"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        `Für das Jahr ${currentYear} sind keine Erntedaten vorhanden. Wähle ein anderes Jahr oder stelle sicher, dass deine Kulturen erwartete Erträge eingetragen haben.`,
+        "Für die aktive Saison sind keine Erntedaten vorhanden. Stelle sicher, dass deine Kulturen erwartete Erträge eingetragen haben.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("reloads yield data when the year changes", async () => {
-    const currentYear = new Date().getFullYear();
+  it("requests yield data scoped to the active season, without a year parameter", async () => {
     render(
       <FocusManagerProvider><MemoryRouter>
         <YieldOverviewPage />
       </MemoryRouter></FocusManagerProvider>,
     );
 
-    await screen.findByText(`Keine erwarteten Erträge für ${currentYear}`);
-    const previousYear = new Date().getFullYear() - 1;
-
-    fireEvent.mouseDown(screen.getByLabelText("Jahr"));
-    fireEvent.click(screen.getByRole("option", { name: String(previousYear) }));
-
-    await waitFor(() => {
-      expect(mocks.yieldList).toHaveBeenLastCalledWith(previousYear);
-    });
+    await screen.findByText("Keine erwarteten Erträge in dieser Saison");
+    expect(mocks.yieldList).toHaveBeenCalledWith();
   });
 
   describe("legend", () => {
@@ -592,8 +585,22 @@ describe("YieldOverviewPage", () => {
     });
   });
 
-  it("defaults the selected year to the active season's start year once it loads", async () => {
-    outletContext.activeSeasonYear = 2025;
+  it("renders a year-boundary marker when the active season straddles a calendar year", async () => {
+    outletContext.activeSeason = { start_date: "2025-09-01", end_date: "2026-08-31" };
+    mocks.yieldList.mockResolvedValue({
+      data: [
+        {
+          iso_week: "2025-W52",
+          week_start: "2025-12-22",
+          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+        },
+        {
+          iso_week: "2026-W02",
+          week_start: "2026-01-05",
+          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+        },
+      ],
+    });
 
     render(
       <FocusManagerProvider><MemoryRouter>
@@ -601,9 +608,35 @@ describe("YieldOverviewPage", () => {
       </MemoryRouter></FocusManagerProvider>,
     );
 
-    await waitFor(() => expect(screen.getByLabelText("Jahr")).toHaveTextContent("2025"));
     await waitFor(() =>
-      expect(mocks.yieldList).toHaveBeenCalledWith(2025),
+      expect(
+        screen.getByTestId("yield-year-boundary-marker"),
+      ).toBeInTheDocument(),
     );
+    expect(screen.getByLabelText("Jahreswechsel: 2025 → 2026")).toBeInTheDocument();
+  });
+
+  it("renders no year-boundary marker for a calendar-aligned season", async () => {
+    outletContext.activeSeason = { start_date: "2026-01-01", end_date: "2026-12-31" };
+    mocks.yieldList.mockResolvedValue({
+      data: [
+        {
+          iso_week: "2026-W02",
+          week_start: "2026-01-05",
+          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+        },
+      ],
+    });
+
+    render(
+      <FocusManagerProvider><MemoryRouter>
+        <YieldOverviewPage />
+      </MemoryRouter></FocusManagerProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "Ertragsverteilung" });
+    expect(
+      screen.queryByTestId("yield-year-boundary-marker"),
+    ).not.toBeInTheDocument();
   });
 });

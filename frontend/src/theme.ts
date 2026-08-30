@@ -60,8 +60,15 @@ declare module '@mui/material/styles' {
     surfaceSoftBorder: string;
   }
 
+  interface ChartPalette {
+    /** Muted accent for the yield chart's calendar-year-boundary marker.
+     * Deliberately outside the crop series palette. */
+    yearBoundary: string;
+  }
+
   interface Palette {
     surface: SurfacePalette;
+    chart: ChartPalette;
     navigation: {
       inactiveText: string;
       inactiveIcon: string;
@@ -83,6 +90,7 @@ declare module '@mui/material/styles' {
 
   interface PaletteOptions {
     surface?: SurfacePalette;
+    chart?: ChartPalette;
     navigation?: {
       inactiveText: string;
       inactiveIcon: string;
@@ -149,6 +157,9 @@ const theme = createTheme({
       paper: surfaceColors.surfaceBackground,
     },
     surface: surfaceColors,
+    chart: {
+      yearBoundary: '#94a3b8',
+    },
     navigation: {
       inactiveText: '#000000',
       inactiveIcon: '#000000',

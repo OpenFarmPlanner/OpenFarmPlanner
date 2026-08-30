@@ -16,9 +16,29 @@ import {
 } from "../utils/hierarchyAreaParsing";
 import type { TFunction } from "i18next";
 
+// Tags a rejected processRowUpdate error with the row it failed for, so
+// handleProcessRowUpdateError can tell a "stale" rejection (the user already
+// moved on to editing a different row before this one's save came back) from
+// one for the row the user is still actively looking at.
+export type HierarchyRowUpdateError = Error & { hierarchyRowId?: GridRowId };
+
+export const tagHierarchyRowUpdateError = (error: unknown, rowId: GridRowId): unknown => {
+  if (error instanceof Error) {
+    (error as HierarchyRowUpdateError).hierarchyRowId = rowId;
+  }
+  return error;
+};
+
 interface UseHierarchyRowUpdateParams {
   getDraftRow: (rowId: GridRowId) => HierarchyRow | null;
   rowModesModel: GridRowModesModel;
+  // handleProcessRowUpdateError runs from a promise continuation that can
+  // resolve after the user has already, synchronously, clicked into a
+  // different row - selectRow updates this ref immediately (not through
+  // state/render), so it reliably reflects which row the user is actually
+  // looking at right now, telling a cross-row-triggered rejection apart from
+  // one for the row still being edited.
+  selectedRowIdRef: React.MutableRefObject<GridRowId | null>;
   rowsById: Map<string, HierarchyRow>;
   beds: Bed[];
   fields: Field[];
@@ -32,12 +52,18 @@ interface UseHierarchyRowUpdateParams {
   setDraftValidationWarning: (warning: string) => void;
   fetchData: (options?: { showLoading: boolean }) => Promise<void>;
   saveBed: (bed: Partial<Bed> & { id: number; field: number }) => Promise<Bed>;
+  // Called instead of the inline warning whenever a new row's edit ends
+  // (click outside handles this itself before ever reaching processRowUpdate,
+  // but a cross-row click or a natural blur still land here) while it has
+  // some field filled in but no name - opens the confirm dialog for that row.
+  onUnsavedMissingName: (rowId: GridRowId) => void;
   t: TFunction;
 }
 
 export function useHierarchyRowUpdate({
   getDraftRow,
   rowModesModel,
+  selectedRowIdRef,
   rowsById,
   beds,
   fields,
@@ -47,6 +73,7 @@ export function useHierarchyRowUpdate({
   setLocations,
   rowSnapshotRef,
   setRowModesModel,
+  onUnsavedMissingName,
   setError,
   setDraftValidationWarning,
   fetchData,
@@ -96,6 +123,69 @@ export function useHierarchyRowUpdate({
     [beds],
   );
 
+  // Writes a draft's typed values into the underlying beds/fields state
+  // without saving to the backend, so a row that exits edit mode without a
+  // name doesn't lose what was typed - re-entering edit mode later (e.g. from
+  // the unsaved-row dialog's "continue editing") resumes from these values.
+  const persistDraftValues = useCallback(
+    (draftRow: HierarchyRow): void => {
+      if (draftRow.type === "bed" && typeof draftRow.bedId === "number") {
+        setBeds((previousBeds) =>
+          previousBeds.map((bed) =>
+            bed.id === draftRow.bedId
+              ? {
+                  ...bed,
+                  name: draftRow.name ?? "",
+                  area_sqm: parseAreaValue(draftRow.area_sqm),
+                  length_m: parseDimensionValue(draftRow.length_m),
+                  width_m: parseDimensionValue(draftRow.width_m),
+                  notes: draftRow.notes ?? "",
+                }
+              : bed,
+          ),
+        );
+        return;
+      }
+      if (draftRow.type === "field" && typeof draftRow.fieldId === "number") {
+        setFields((previousFields) =>
+          previousFields.map((field) =>
+            field.id === draftRow.fieldId
+              ? {
+                  ...field,
+                  name: draftRow.name ?? "",
+                  area_sqm: parseAreaValue(draftRow.area_sqm),
+                  length_m: parseDimensionValue(draftRow.length_m),
+                  width_m: parseDimensionValue(draftRow.width_m),
+                  notes: draftRow.notes ?? "",
+                }
+              : field,
+          ),
+        );
+      }
+    },
+    [setBeds, setFields],
+  );
+
+  // Exits edit mode through the normal controlled rowModesModel transition
+  // (the same path a successful save takes) *before* a dialog is shown over
+  // the row. Opening a Dialog while the row's edit <input> still has focus
+  // fights MUI's own focus management (which tries to keep focus inside the
+  // still-mounted edit cell) and the Modal's focus trap, which can tear the
+  // dialog down again almost immediately - see the aria-hidden warning this
+  // caused. Persisting first means "continue editing" resumes with the
+  // typed values intact.
+  const exitToViewPreservingDraft = useCallback(
+    (rowId: GridRowId, draftRow: HierarchyRow): void => {
+      persistDraftValues(draftRow);
+      rowSnapshotRef.current.delete(String(rowId));
+      setRowModesModel((previousModel) => ({
+        ...previousModel,
+        [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
+      }));
+    },
+    [persistDraftValues, rowSnapshotRef, setRowModesModel],
+  );
+
   const preservePartialNewBedDraft = useCallback(
     (draftRow: HierarchyRow): void => {
       if (draftRow.type !== "bed" || typeof draftRow.bedId !== "number") return;
@@ -126,7 +216,7 @@ export function useHierarchyRowUpdate({
   );
 
   const discardRowEdit = useCallback(
-    (rowId: GridRowId): void => {
+    (rowId: GridRowId, options?: { force?: boolean }): void => {
       const draftRow = getDraftRow(rowId);
 
       if (draftRow?.isNew) {
@@ -143,7 +233,7 @@ export function useHierarchyRowUpdate({
           return;
         }
 
-        if (isCompletelyEmptyNewHierarchyRow(draftRow)) {
+        if (options?.force || isCompletelyEmptyNewHierarchyRow(draftRow)) {
           setBeds((previousBeds) =>
             previousBeds.filter((bed) => String(bed.id) !== String(rowId)),
           );
@@ -173,9 +263,19 @@ export function useHierarchyRowUpdate({
   const processRowUpdate = useCallback(
     async (newRow: HierarchyRow): Promise<HierarchyRow> => {
       if (!newRow.name || newRow.name.trim() === "") {
+        if (isCompletelyEmptyNewHierarchyRow(newRow)) {
+          // Nothing was entered - silently drop the draft instead of blocking
+          // the user with a "Name is required" error they can't dismiss.
+          discardRowEdit(newRow.id);
+          return newRow;
+        }
         if (isPartiallyFilledNamelessNewHierarchyRow(newRow)) {
-          preservePartialNewBedDraft(newRow);
-          throw new Error(t("messages.unsavedMissingName"));
+          // Resolve (don't throw) so the row cleanly exits edit mode through
+          // the normal path instead of being left stranded in Edit by a
+          // rejection - see exitToViewPreservingDraft for why.
+          exitToViewPreservingDraft(newRow.id, newRow);
+          onUnsavedMissingName(newRow.id);
+          return newRow;
         }
         setError(t("validation.nameRequired"));
         throw new Error(t("validation.nameRequired"));
@@ -424,13 +524,15 @@ export function useHierarchyRowUpdate({
       return newRow;
     },
     [
+      discardRowEdit,
+      exitToViewPreservingDraft,
       fetchData,
       fields,
       getBedAreaSum,
       hasDuplicateBedName,
       hasDuplicateFieldName,
       locations,
-      preservePartialNewBedDraft,
+      onUnsavedMissingName,
       saveBed,
       setDraftValidationWarning,
       setError,
@@ -441,20 +543,32 @@ export function useHierarchyRowUpdate({
   );
 
   const handleProcessRowUpdateError = useCallback(
-    (error: Error): void => {
+    (error: HierarchyRowUpdateError): void => {
       console.error("Row update error:", error);
-      if (error.message === t("messages.unsavedMissingName")) {
-        setDraftValidationWarning(error.message);
-        setError("");
-        return;
+
+      const erroredRowId = error.hierarchyRowId;
+      const currentSelectedRowId = selectedRowIdRef.current;
+      if (
+        erroredRowId !== undefined
+        && currentSelectedRowId !== null
+        && String(currentSelectedRowId) !== String(erroredRowId)
+      ) {
+        // The user already clicked into a different row before this row's
+        // save rejected - leaving it in Edit mode too would show two rows
+        // editable at once instead of reverting the abandoned attempt.
+        setRowModesModel((previousModel) => ({
+          ...previousModel,
+          [erroredRowId]: { mode: GridRowModes.View, ignoreModifications: true },
+        }));
       }
       setError(error.message || t("errors.save"));
     },
-    [setDraftValidationWarning, setError, t],
+    [selectedRowIdRef, setError, setRowModesModel, t],
   );
 
   return {
     preservePartialNewBedDraft,
+    exitToViewPreservingDraft,
     discardRowEdit,
     discardActiveRowEdit,
     processRowUpdate,

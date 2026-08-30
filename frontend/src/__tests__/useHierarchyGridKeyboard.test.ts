@@ -94,6 +94,7 @@ const renderKeyboardHook = (
   const setEditCellValue = vi.fn().mockResolvedValue(true);
   const setRowModesModel = vi.fn();
   const stopRowEditMode = vi.fn();
+  const stopEditingRow = vi.fn();
   const setTreeActive = vi.fn();
   const toggleExpand = vi.fn();
   const scrollToIndexes = vi.fn();
@@ -139,6 +140,7 @@ const renderKeyboardHook = (
       selectRow,
       setRowModesModel,
       setTreeActive,
+      stopEditingRow,
       toggleExpand,
     }),
   );
@@ -157,6 +159,7 @@ const renderKeyboardHook = (
     setEditCellValue,
     setRowModesModel,
     stopRowEditMode,
+    stopEditingRow,
     setTreeActive,
     toggleExpand,
   };
@@ -429,7 +432,7 @@ describe('useHierarchyGridKeyboard', () => {
   });
 
   it('commits the active row edit before clicking into another editable row on desktop', () => {
-    const { result, discardRowEdit, selectRow, setRowModesModel, stopRowEditMode } = renderKeyboardHook({
+    const { result, discardRowEdit, selectRow, setRowModesModel, stopEditingRow } = renderKeyboardHook({
       'field-1': { mode: GridRowModes.Edit },
     });
 
@@ -437,14 +440,14 @@ describe('useHierarchyGridKeyboard', () => {
       result.current.handleCellClick(makeCellParams(101, 'name'), makeMouseEvent());
     });
 
-    expect(stopRowEditMode).toHaveBeenCalledWith({ id: 'field-1' });
+    expect(stopEditingRow).toHaveBeenCalledWith('field-1');
     expect(discardRowEdit).not.toHaveBeenCalled();
     expect(selectRow).toHaveBeenCalledWith(101);
     expect(setRowModesModel).toHaveBeenCalledTimes(1);
   });
 
   it('does not start another row edit from the first touch click after ending the active row edit', () => {
-    const { result, discardRowEdit, selectRow, setRowModesModel, stopRowEditMode } = renderKeyboardHook(
+    const { result, discardRowEdit, selectRow, setRowModesModel, stopEditingRow } = renderKeyboardHook(
       { 'field-1': { mode: GridRowModes.Edit } },
       rows,
       { deferCrossRowEditOnClick: true },
@@ -454,7 +457,7 @@ describe('useHierarchyGridKeyboard', () => {
       result.current.handleCellClick(makeCellParams(101, 'name'), makeMouseEvent());
     });
 
-    expect(stopRowEditMode).toHaveBeenCalledWith({ id: 'field-1' });
+    expect(stopEditingRow).toHaveBeenCalledWith('field-1');
     expect(discardRowEdit).not.toHaveBeenCalled();
     expect(selectRow).toHaveBeenCalledWith(101);
     expect(setRowModesModel).not.toHaveBeenCalled();
