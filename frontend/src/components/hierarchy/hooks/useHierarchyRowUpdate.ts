@@ -147,7 +147,7 @@ export function useHierarchyRowUpdate({
   );
 
   const discardRowEdit = useCallback(
-    (rowId: GridRowId): void => {
+    (rowId: GridRowId, options?: { force?: boolean }): void => {
       const draftRow = getDraftRow(rowId);
 
       if (draftRow?.isNew) {
@@ -164,7 +164,7 @@ export function useHierarchyRowUpdate({
           return;
         }
 
-        if (isCompletelyEmptyNewHierarchyRow(draftRow)) {
+        if (options?.force || isCompletelyEmptyNewHierarchyRow(draftRow)) {
           setBeds((previousBeds) =>
             previousBeds.filter((bed) => String(bed.id) !== String(rowId)),
           );

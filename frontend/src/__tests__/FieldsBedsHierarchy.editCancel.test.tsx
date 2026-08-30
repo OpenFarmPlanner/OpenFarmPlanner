@@ -788,20 +788,49 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(bedCreateMock).not.toHaveBeenCalled();
   });
 
-  it('allows invalid missing-name edits to leave edit mode by clicking outside', async () => {
+  it('shows a name-required confirm dialog when clicking outside a partially filled new row', async () => {
     const user = userEvent.setup();
     renderHierarchy();
     await addNewBed();
 
     await user.click(screen.getByRole('button', { name: 'Partial invalid -1700000000000' }));
-    await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
-    expect(await screen.findByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).toBeInTheDocument();
-
     fireEvent.mouseDown(document.body);
 
+    expect(await screen.findByText('Zeile nicht gespeichert')).toBeInTheDocument();
+    expect(screen.getByText('Name ist ein Pflichtfeld. Ohne Namen kann diese Zeile nicht gespeichert werden.')).toBeInTheDocument();
+    // The row stays in edit mode behind the dialog - discarding/continuing is
+    // an explicit choice, not an implicit side effect of the outside click.
+    expect(screen.getByTestId('mode--1700000000000')).toHaveTextContent('edit');
+    expect(bedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('removes the row entirely when discarding it from the unsaved-row dialog', async () => {
+    const user = userEvent.setup();
+    renderHierarchy();
+    await addNewBed();
+
+    await user.click(screen.getByRole('button', { name: 'Partial invalid -1700000000000' }));
+    fireEvent.mouseDown(document.body);
+    await user.click(await screen.findByRole('button', { name: 'Verwerfen' }));
+
+    await waitFor(() => expect(screen.queryByTestId('row--1700000000000')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Zeile nicht gespeichert')).not.toBeInTheDocument());
+    expect(bedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps editing the row, focused on the name field, when continuing from the unsaved-row dialog', async () => {
+    const user = userEvent.setup();
+    renderHierarchy();
+    await addNewBed();
+
+    await user.click(screen.getByRole('button', { name: 'Partial invalid -1700000000000' }));
+    fireEvent.mouseDown(document.body);
+    await user.click(await screen.findByRole('button', { name: 'Weiter bearbeiten' }));
+
+    await waitFor(() => expect(screen.queryByText('Zeile nicht gespeichert')).not.toBeInTheDocument());
     expect(screen.getByTestId('row--1700000000000')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId('mode--1700000000000')).toHaveTextContent('view'));
-    expect(screen.getByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).toBeInTheDocument();
+    expect(screen.getByTestId('mode--1700000000000')).toHaveTextContent('edit');
+    expect(screen.getByTestId('focus-field--1700000000000')).toHaveTextContent('name');
     expect(bedCreateMock).not.toHaveBeenCalled();
   });
 

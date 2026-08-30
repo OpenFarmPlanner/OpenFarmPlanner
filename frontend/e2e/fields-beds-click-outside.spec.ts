@@ -57,6 +57,33 @@ test.describe('fields-beds row edit exit behavior', () => {
     await expect(page.locator('[role="row"][data-id]')).toHaveCount(rowCountBefore);
   });
 
+  test('clicking outside the grid on a partially filled, nameless new field shows a confirm dialog', async ({ page }) => {
+    const rowCountBefore = await page.locator('[role="row"][data-id]').count();
+
+    await page.getByRole('button', { name: 'Parzelle hinzufügen' }).first().click();
+    await page.waitForTimeout(400);
+
+    const lengthCell = page.locator('.MuiDataGrid-row--editing [role="gridcell"][data-field="length_m"]');
+    await lengthCell.click();
+    const lengthInput = page.locator('.MuiDataGrid-row--editing [data-field="length_m"] input');
+    await lengthInput.fill('4');
+    await page.waitForTimeout(300);
+
+    await page.locator('h1', { hasText: 'Anbauflächen' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByRole('heading', { name: 'Zeile nicht gespeichert' })).toBeVisible();
+    await expect(dialog.getByText('Name ist ein Pflichtfeld', { exact: false })).toBeVisible();
+    // The row must stay in edit mode behind the dialog - the user hasn't
+    // decided yet whether to discard it or keep editing.
+    await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
+
+    await dialog.getByRole('button', { name: 'Verwerfen' }).click();
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[role="row"][data-id]')).toHaveCount(rowCountBefore);
+  });
+
 });
 
 test.describe('fields-beds row edit exit behavior with existing rows', () => {

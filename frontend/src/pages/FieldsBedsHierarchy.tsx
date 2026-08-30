@@ -39,6 +39,7 @@ import AgricultureIcon from "@mui/icons-material/Agriculture";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { ContextMenuActionItem } from "../components/contextMenu/ContextMenuActionItem";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
+import { ConfirmationDialog } from "../components/feedback/ConfirmationDialog";
 import { HierarchyAddIcon } from "../components/hierarchy/HierarchyAddIcon";
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { PAGE_CONTAINER_SX } from '../components/layout/pageContainerStyles';
@@ -174,6 +175,7 @@ function FieldsBedsHierarchy({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
   const [draftValidationWarning, setDraftValidationWarning] = useState("");
+  const [unsavedRowDialogId, setUnsavedRowDialogId] = useState<GridRowId | null>(null);
   const hasInitiallyExpandedRef = useRef(false);
   const handledCreateFieldRequestRef = useRef(0);
   const rowSnapshotRef = useRef<Map<string, HierarchyRow>>(new Map());
@@ -1231,9 +1233,10 @@ function FieldsBedsHierarchy({
   // Clicking outside the grid while a row is being edited doesn't go through MUI's
   // own cell-focus-out handling (that only fires when focus moves to another grid
   // cell), so the row is neither saved nor discarded by default. A still-blank
-  // draft is discarded, a nameless-but-partially-filled draft is preserved
-  // locally the same way Escape does (attempting a real save would just reject
-  // for the missing name and strand the row in edit mode), and anything else is
+  // draft is discarded silently (nothing was entered, nothing to confirm). A
+  // nameless-but-partially-filled draft asks the user via a confirm dialog
+  // instead of silently discarding or straining the row in edit mode (a real
+  // save attempt would just reject for the missing name). Anything else is
   // committed for real (matching normal click-away-to-save UX and avoiding
   // silent data loss).
   const handleClickOutsideGrid = useCallback((): void => {
@@ -1243,15 +1246,34 @@ function FieldsBedsHierarchy({
     if (editingRowId === undefined) return;
     const rowId = rowsById.get(editingRowId)?.id ?? editingRowId;
     const draftRow = getDraftRow(rowId);
-    if (
-      draftRow &&
-      (isCompletelyEmptyNewHierarchyRow(draftRow) || isPartiallyFilledNamelessNewHierarchyRow(draftRow))
-    ) {
+    if (draftRow && isCompletelyEmptyNewHierarchyRow(draftRow)) {
       discardRowEdit(rowId);
+      return;
+    }
+    if (draftRow && isPartiallyFilledNamelessNewHierarchyRow(draftRow)) {
+      setUnsavedRowDialogId(rowId);
       return;
     }
     gridApiRef.current?.stopRowEditMode({ id: rowId });
   }, [discardRowEdit, getDraftRow, gridApiRef, rowModesModel, rowsById]);
+
+  const handleContinueEditingUnsavedRow = useCallback((): void => {
+    const rowId = unsavedRowDialogId;
+    setUnsavedRowDialogId(null);
+    if (rowId === null) return;
+    setRowModesModel((previousModel) => ({
+      ...previousModel,
+      [rowId]: { mode: GridRowModes.Edit, fieldToFocus: "name" },
+    }));
+    focusRow(rowId, "name");
+  }, [focusRow, setRowModesModel, unsavedRowDialogId]);
+
+  const handleDiscardUnsavedRow = useCallback((): void => {
+    const rowId = unsavedRowDialogId;
+    setUnsavedRowDialogId(null);
+    if (rowId === null) return;
+    discardRowEdit(rowId, { force: true });
+  }, [discardRowEdit, unsavedRowDialogId]);
 
   useHierarchyKeyboard({
     contextMenuState,
@@ -1816,6 +1838,17 @@ function FieldsBedsHierarchy({
           }}
         />
       ))}
+      <ConfirmationDialog
+        open={unsavedRowDialogId !== null}
+        title={t("dialogs.unsavedRow.title")}
+        message={t("dialogs.unsavedRow.message")}
+        cancelLabel={t("dialogs.unsavedRow.continueEditing")}
+        confirmLabel={t("dialogs.unsavedRow.discard")}
+        onCancel={handleContinueEditingUnsavedRow}
+        onConfirm={handleDiscardUnsavedRow}
+        cancelButtonProps={{ variant: "contained" }}
+        confirmButtonProps={{ color: "error" }}
+      />
     </Box>
   );
 }
