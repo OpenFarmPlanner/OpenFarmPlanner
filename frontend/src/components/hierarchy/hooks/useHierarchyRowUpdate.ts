@@ -16,9 +16,29 @@ import {
 } from "../utils/hierarchyAreaParsing";
 import type { TFunction } from "i18next";
 
+// Tags a rejected processRowUpdate error with the row it failed for, so
+// handleProcessRowUpdateError can tell a "stale" rejection (the user already
+// moved on to editing a different row before this one's save came back) from
+// one for the row the user is still actively looking at.
+export type HierarchyRowUpdateError = Error & { hierarchyRowId?: GridRowId };
+
+export const tagHierarchyRowUpdateError = (error: unknown, rowId: GridRowId): unknown => {
+  if (error instanceof Error) {
+    (error as HierarchyRowUpdateError).hierarchyRowId = rowId;
+  }
+  return error;
+};
+
 interface UseHierarchyRowUpdateParams {
   getDraftRow: (rowId: GridRowId) => HierarchyRow | null;
   rowModesModel: GridRowModesModel;
+  // handleProcessRowUpdateError runs from a promise continuation that can
+  // resolve after the user has already, synchronously, clicked into a
+  // different row - selectRow updates this ref immediately (not through
+  // state/render), so it reliably reflects which row the user is actually
+  // looking at right now, telling a cross-row-triggered rejection apart from
+  // one for the row still being edited.
+  selectedRowIdRef: React.MutableRefObject<GridRowId | null>;
   rowsById: Map<string, HierarchyRow>;
   beds: Bed[];
   fields: Field[];
@@ -38,6 +58,7 @@ interface UseHierarchyRowUpdateParams {
 export function useHierarchyRowUpdate({
   getDraftRow,
   rowModesModel,
+  selectedRowIdRef,
   rowsById,
   beds,
   fields,
@@ -173,6 +194,12 @@ export function useHierarchyRowUpdate({
   const processRowUpdate = useCallback(
     async (newRow: HierarchyRow): Promise<HierarchyRow> => {
       if (!newRow.name || newRow.name.trim() === "") {
+        if (isCompletelyEmptyNewHierarchyRow(newRow)) {
+          // Nothing was entered - silently drop the draft instead of blocking
+          // the user with a "Name is required" error they can't dismiss.
+          discardRowEdit(newRow.id);
+          return newRow;
+        }
         if (isPartiallyFilledNamelessNewHierarchyRow(newRow)) {
           preservePartialNewBedDraft(newRow);
           throw new Error(t("messages.unsavedMissingName"));
@@ -424,6 +451,7 @@ export function useHierarchyRowUpdate({
       return newRow;
     },
     [
+      discardRowEdit,
       fetchData,
       fields,
       getBedAreaSum,
@@ -441,8 +469,25 @@ export function useHierarchyRowUpdate({
   );
 
   const handleProcessRowUpdateError = useCallback(
-    (error: Error): void => {
+    (error: HierarchyRowUpdateError): void => {
       console.error("Row update error:", error);
+
+      const erroredRowId = error.hierarchyRowId;
+      const currentSelectedRowId = selectedRowIdRef.current;
+      if (
+        erroredRowId !== undefined
+        && currentSelectedRowId !== null
+        && String(currentSelectedRowId) !== String(erroredRowId)
+      ) {
+        // The user already clicked into a different row before this row's
+        // save rejected - leaving it in Edit mode too would show two rows
+        // editable at once instead of reverting the abandoned attempt.
+        setRowModesModel((previousModel) => ({
+          ...previousModel,
+          [erroredRowId]: { mode: GridRowModes.View, ignoreModifications: true },
+        }));
+      }
+
       if (error.message === t("messages.unsavedMissingName")) {
         setDraftValidationWarning(error.message);
         setError("");
@@ -450,7 +495,7 @@ export function useHierarchyRowUpdate({
       }
       setError(error.message || t("errors.save"));
     },
-    [setDraftValidationWarning, setError, t],
+    [selectedRowIdRef, setDraftValidationWarning, setError, setRowModesModel, t],
   );
 
   return {

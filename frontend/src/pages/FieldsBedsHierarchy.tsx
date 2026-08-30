@@ -77,7 +77,7 @@ import { useBedOperations } from "../components/hierarchy/hooks/useBedOperations
 import { useHierarchyDelete } from "../components/hierarchy/hooks/useHierarchyDelete";
 import { useHierarchyGridFocus } from "../components/hierarchy/hooks/useHierarchyGridFocus";
 import { useHierarchyNavigationState } from "../components/hierarchy/hooks/useHierarchyNavigationState";
-import { useHierarchyRowUpdate } from "../components/hierarchy/hooks/useHierarchyRowUpdate";
+import { tagHierarchyRowUpdateError, useHierarchyRowUpdate } from "../components/hierarchy/hooks/useHierarchyRowUpdate";
 import { useHierarchyContextMenu } from "../components/hierarchy/hooks/useHierarchyContextMenu";
 import { keywordList } from "../commands/keywordList";
 import { useHierarchyKeyboard } from "../components/hierarchy/hooks/useHierarchyKeyboard";
@@ -424,6 +424,7 @@ function FieldsBedsHierarchy({
   } = useHierarchyRowUpdate({
     getDraftRow,
     rowModesModel,
+    selectedRowIdRef,
     rowsById,
     beds,
     fields,
@@ -958,7 +959,12 @@ function FieldsBedsHierarchy({
       }
       queuePostEditFocus(getPostEnterSaveFocusTarget(newRow.id), preferredField, newRow.id);
 
-      const savedRow = await processRowUpdate(newRow);
+      let savedRow: HierarchyRow;
+      try {
+        savedRow = await processRowUpdate(newRow);
+      } catch (err) {
+        throw tagHierarchyRowUpdateError(err, newRow.id);
+      }
       const savedRowIdChanged = String(savedRow.id) !== String(newRow.id);
       const pendingTarget = pendingSameRowEditTargetRef.current;
       if (pendingTarget && String(pendingTarget.rowId) === String(newRow.id)) {

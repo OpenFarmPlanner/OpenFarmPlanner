@@ -431,6 +431,19 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getAllByRole('row')).toHaveLength(1);
   });
 
+  it('discards a completely empty new parcel row on blur without showing a validation error', async () => {
+    fieldListMock.mockResolvedValue({ data: { results: [] } });
+    renderHierarchyWithCreateFieldRequest(1);
+
+    await waitFor(() => expect(screen.getByTestId('row-field--1700000000000')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Blur field--1700000000000' }));
+
+    await waitFor(() => expect(screen.queryByTestId('row-field--1700000000000')).not.toBeInTheDocument());
+    expect(screen.queryByText('Name ist ein Pflichtfeld')).not.toBeInTheDocument();
+    expect(fieldCreateMock).not.toHaveBeenCalled();
+  });
+
   it('enters inline edit mode when a Standort name is clicked', async () => {
     const user = userEvent.setup();
     useMultipleLocations();
@@ -500,6 +513,33 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(fieldUpdateMock).not.toHaveBeenCalled();
   });
 
+  it('reverts a stale row to view instead of leaving two rows editable when a cross-row save is rejected', async () => {
+    const user = userEvent.setup();
+    fieldListMock.mockResolvedValue({
+      data: {
+        results: [
+          { id: 10, name: 'Teilweise gefuellt', location: 1, area_sqm: 20 },
+          { id: 11, name: 'Suedfeld', location: 1, area_sqm: 20 },
+        ],
+      },
+    });
+    renderHierarchy();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit field-11' }));
+    await user.click(screen.getByRole('button', { name: 'Partial name field-11' }));
+
+    // Click into a DIFFERENT row before field-11's (invalid, duplicate-name)
+    // save comes back - this is the async stopRowEditMode race: field-10
+    // enters edit mode synchronously while field-11's rejected save resolves
+    // later.
+    await user.click(screen.getByRole('button', { name: 'Edit field-10' }));
+
+    expect(await screen.findByText('Eine Parzelle mit diesem Namen existiert in diesem Standort bereits.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('mode-field-11')).toHaveTextContent('view'));
+    expect(screen.getByTestId('mode-field-10')).toHaveTextContent('edit');
+    expect(fieldUpdateMock).not.toHaveBeenCalled();
+  });
+
   it('rejects duplicate bed names within the same field before saving', async () => {
     const user = userEvent.setup();
     bedListMock.mockResolvedValue({
@@ -557,6 +597,48 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     await user.click(screen.getByRole('button', { name: 'Escape -1700000000000' }));
 
     await waitFor(() => expect(screen.queryByTestId('row--1700000000000')).not.toBeInTheDocument());
+    expect(screen.queryByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).not.toBeInTheDocument();
+  });
+
+  it('discards a completely empty new row on blur without showing a validation error', async () => {
+    renderHierarchy();
+    await addNewBed();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
+
+    await waitFor(() => expect(screen.queryByTestId('row--1700000000000')).not.toBeInTheDocument());
+    expect(screen.queryByText('Name ist ein Pflichtfeld')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).not.toBeInTheDocument();
+    expect(bedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('shows a validation error and keeps a partially filled new row open when blurred without a name', async () => {
+    const user = userEvent.setup();
+    renderHierarchy();
+    await addNewBed();
+
+    await user.click(screen.getByRole('button', { name: 'Partial invalid -1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
+
+    expect(await screen.findByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).toBeInTheDocument();
+    expect(screen.getByTestId('row--1700000000000')).toBeInTheDocument();
+    expect(screen.getByTestId('mode--1700000000000')).toHaveTextContent('edit');
+    expect(bedCreateMock).not.toHaveBeenCalled();
+  });
+
+  it('clears the missing-name validation warning once a name is entered and saved', async () => {
+    const user = userEvent.setup();
+    renderHierarchy();
+    await addNewBed();
+
+    await user.click(screen.getByRole('button', { name: 'Partial invalid -1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
+    expect(await screen.findByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Partial name -1700000000000' }));
+    await user.click(screen.getByRole('button', { name: 'Blur -1700000000000' }));
+
+    await waitFor(() => expect(bedCreateMock).toHaveBeenCalled());
     expect(screen.queryByText('Zeile wurde nicht gespeichert, da der Name fehlt.')).not.toBeInTheDocument();
   });
 
