@@ -486,7 +486,24 @@
       "seedPackage": "Saatgutpackung",
       "project": "Projekt",
       "fallback": "Eintrag",
-      "openTarget": "Öffnen"
+      "openTarget": "Öffnen",
+      "season": "Saison"
+    },
+    "batch": {
+      "seasonDelete": "Saison {{season}} gelöscht",
+      "seasonUndelete": "Saison {{season}} wiederhergestellt",
+      "seasonCopyData": "Daten aus Saison {{source}} übernommen",
+      "fallback": "Mehrere Änderungen",
+      "countDeleted_one": "{{count}} Anbauplan gelöscht",
+      "countDeleted_other": "{{count}} Anbaupläne gelöscht",
+      "countCreated_one": "{{count}} Anbauplan neu angelegt",
+      "countCreated_other": "{{count}} Anbaupläne neu angelegt",
+      "countRestored_one": "{{count}} Anbauplan wiederhergestellt",
+      "countRestored_other": "{{count}} Anbaupläne wiederhergestellt",
+      "countUpdated_one": "{{count}} Anbauplan bearbeitet",
+      "countUpdated_other": "{{count}} Anbaupläne bearbeitet",
+      "expandAria": "Einzeländerungen anzeigen",
+      "collapseAria": "Einzeländerungen ausblenden"
     }
   },
   "shortcuts": {

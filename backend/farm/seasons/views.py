@@ -12,8 +12,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
-from farm.history import _entity_display_name, _serialize_instance
-from farm.models import EntityRevision, PlantingPlan, Season, SeasonPattern
+from farm.history import _current_actor_label, _entity_display_name, _serialize_instance, start_batch_operation
+from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
     compute_preview_periods,
@@ -81,20 +81,29 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         snapshot = _serialize_instance(season)
         display_name = _entity_display_name(season)
         with transaction.atomic():
+            # A season "contains" its planting plans, so deleting it deletes
+            # them too. They are hard-deleted (PlantingPlan has no soft-delete),
+            # but each deletion is recorded so version history / point-in-time
+            # restore and this season's own undelete can bring them back. All
+            # those revisions are grouped under one BatchOperation so the
+            # cascade shows up as a single collapsible history entry.
+            batch = start_batch_operation(
+                project=self.request.active_project,
+                operation_type=BatchOperation.TYPE_SEASON_DELETE,
+                context={'season_label': season.label},
+                user_name=_current_actor_label(request),
+            )
             season.deleted_at = timezone.now()
             season.save(update_fields=['deleted_at', 'updated_at'])
             self.record_revision(
                 season, EntityRevision.ACTION_DELETED,
                 snapshot=snapshot, display_name=display_name, changed_fields=[],
+                batch_operation=batch,
             )
-            # A season "contains" its planting plans, so deleting it deletes
-            # them too. They are hard-deleted (PlantingPlan has no soft-delete),
-            # but each deletion is recorded so version history / point-in-time
-            # restore and this season's own undelete can bring them back.
-            self._delete_planting_plans_with_season(season)
+            self._delete_planting_plans_with_season(season, batch)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def _delete_planting_plans_with_season(self, season: Season) -> None:
+    def _delete_planting_plans_with_season(self, season: Season, batch: BatchOperation) -> None:
         plans = list(
             PlantingPlan.objects.filter(season=season).select_related('culture', 'bed')
         )
@@ -103,6 +112,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 plan, EntityRevision.ACTION_DELETED,
                 object_id=plan.pk, snapshot=_serialize_instance(plan),
                 display_name=_entity_display_name(plan), changed_fields=[],
+                batch_operation=batch,
             )
         PlantingPlan.objects.filter(season=season).delete()
 
@@ -124,14 +134,27 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                     .order_by('-created_at')
                     .first()
                 )
+                batch = start_batch_operation(
+                    project=self.request.active_project,
+                    operation_type=BatchOperation.TYPE_SEASON_UNDELETE,
+                    context={'season_label': season.label},
+                    user_name=_current_actor_label(request),
+                )
                 season.deleted_at = None
                 season.save(update_fields=['deleted_at', 'updated_at'])
-                self.record_revision(season, EntityRevision.ACTION_UPDATED, changed_fields=['deleted_at'])
+                self.record_revision(
+                    season, EntityRevision.ACTION_UPDATED,
+                    changed_fields=['deleted_at'], batch_operation=batch,
+                )
                 if deleted_revision is not None:
-                    self._restore_planting_plans_deleted_with_season(season, deleted_revision.created_at)
+                    self._restore_planting_plans_deleted_with_season(
+                        season, deleted_revision.created_at, batch,
+                    )
         return Response(SeasonSerializer(season).data)
 
-    def _restore_planting_plans_deleted_with_season(self, season: Season, deleted_since) -> None:
+    def _restore_planting_plans_deleted_with_season(
+        self, season: Season, deleted_since, batch: BatchOperation,
+    ) -> None:
         allowed_fields = {field.attname for field in PlantingPlan._meta.concrete_fields}
         revisions = (
             EntityRevision.objects
@@ -172,6 +195,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 plan, EntityRevision.ACTION_RESTORED,
                 snapshot=_serialize_instance(plan),
                 display_name=_entity_display_name(plan), changed_fields=[],
+                batch_operation=batch,
             )
 
     @action(detail=True, methods=['post'], url_path='copy-from')
@@ -188,9 +212,31 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         if source_season.pk == target_season.pk:
             return Response({'detail': 'Source and target season must be different.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        copied_count = copy_planting_plans(source_season=source_season, target_season=target_season)
+        with transaction.atomic():
+            created_plans = copy_planting_plans(source_season=source_season, target_season=target_season)
+            if created_plans:
+                # Copied plans are new rows — record a `created` revision per
+                # plan (so each is individually restorable) and group them
+                # under one BatchOperation.
+                batch = start_batch_operation(
+                    project=self.request.active_project,
+                    operation_type=BatchOperation.TYPE_SEASON_COPY_DATA,
+                    context={
+                        'source_season_label': source_season.label,
+                        'target_season_label': target_season.label,
+                    },
+                    user_name=_current_actor_label(request),
+                )
+                for plan in (
+                    PlantingPlan.objects
+                    .filter(pk__in=[plan.pk for plan in created_plans])
+                    .select_related('culture', 'bed')
+                ):
+                    self.record_revision(
+                        plan, EntityRevision.ACTION_CREATED, batch_operation=batch,
+                    )
         total_count = PlantingPlan.objects.filter(season=target_season).count()
-        return Response({'copied_count': copied_count, 'target_planting_plan_count': total_count})
+        return Response({'copied_count': len(created_plans), 'target_planting_plan_count': total_count})
 
     @action(detail=False, methods=['get'], url_path='due-suggestion')
     def due_suggestion(self, request):

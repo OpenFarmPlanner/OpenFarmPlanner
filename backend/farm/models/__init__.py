@@ -45,7 +45,7 @@ from .cultures import (  # noqa: E402
     format_culture_display_name,
     is_supplier_domain,
 )
-from .history import CultureRevision, EntityRevision, ProjectRevision  # noqa: E402
+from .history import BatchOperation, CultureRevision, EntityRevision, ProjectRevision  # noqa: E402
 from .notes import NoteAttachment  # noqa: E402
 from .planning import PlantingPlan, Task  # noqa: E402
 from .projects import (  # noqa: E402
@@ -63,6 +63,7 @@ __all__ = [
     'ActiveCultureManager',
     'ActiveSeasonManager',
     'AgentLoginToken',
+    'BatchOperation',
     'Bed',
     'BedLayout',
     'Culture',

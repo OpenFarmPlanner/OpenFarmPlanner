@@ -19,14 +19,26 @@ from .serializers import CultureHistoryEntrySerializer, CultureRestoreSerializer
 
 
 class ProjectHistoryListView(APIView):
-    """List recent per-entity revisions across the whole project."""
+    """List recent per-entity revisions across the whole project.
+
+    Revisions produced by the same cascading action (see `BatchOperation`) are
+    folded into one grouped entry (`is_batch`) that carries the individual
+    revision entries in `children`; ungrouped revisions are listed flat as
+    before.
+    """
 
     def get(self, request):
         active_project = get_active_project_or_400(request)
         since = timezone.now() - timedelta(days=30)
-        rows = EntityRevision.objects.filter(project=active_project, created_at__gte=since).order_by('-created_at')
-        payload = [
-            {
+        rows = (
+            EntityRevision.objects
+            .filter(project=active_project, created_at__gte=since)
+            .select_related('batch_operation')
+            .order_by('-created_at')
+        )
+
+        def revision_payload(row):
+            return {
                 'history_id': row.id,
                 'history_date': row.created_at,
                 'history_type': 'project_snapshot',
@@ -37,8 +49,35 @@ class ProjectHistoryListView(APIView):
                 'action': row.action,
                 'actor_label': row.user_name or None,
             }
-            for row in rows
-        ]
+
+        payload = []
+        groups_by_batch = {}
+        for row in rows:
+            batch = row.batch_operation
+            if batch is None:
+                payload.append(revision_payload(row))
+                continue
+            group = groups_by_batch.get(batch.id)
+            if group is None:
+                group = {
+                    'is_batch': True,
+                    'batch_id': batch.id,
+                    'batch_operation_type': batch.operation_type,
+                    'batch_context': batch.context or {},
+                    'history_date': batch.created_at,
+                    'history_type': 'batch',
+                    'history_user': batch.user_name or None,
+                    'actor_label': batch.user_name or None,
+                    'summary': f'{batch.operation_type} #{batch.id}',
+                    'children': [],
+                }
+                groups_by_batch[batch.id] = group
+                payload.append(group)
+            group['children'].append(revision_payload(row))
+
+        for group in groups_by_batch.values():
+            group['children'] = CultureHistoryEntrySerializer(group['children'], many=True).data
+
         return Response(CultureHistoryEntrySerializer(payload, many=True).data)
 
 

@@ -49,10 +49,41 @@ write path — it just creates an `EntityRevision` row. It's called:
   revision's snapshot and the *previous* revision for the same object,
   skipping internal/denormalized fields (`id`, timestamps, `project_id`,
   `*_normalized` fields, ...).
-- On the frontend, this only surfaces today as a standalone history
-  **dialog** on `Cultures.tsx` (see
+- On the frontend this surfaces as the per-culture/global history **dialog**
+  on `Cultures.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))
-  — it is not wired into the grid itself.
+  and as the project version-history dialog
+  (`frontend/src/navigation/ProjectHistoryDialog.tsx`, opened from the global
+  menu / command palette).
+
+## Batch operations (grouping a cascade)
+
+A single user action can cascade into many entity mutations — deleting a
+season also deletes every planting plan in it. `BatchOperation`
+(`backend/farm/models/history.py`) groups the resulting revisions so the
+history shows them as one collapsible entry instead of a dozen unrelated
+"planting plan deleted" rows.
+
+- `start_batch_operation(project=, operation_type=, context=, user_name=)`
+  (`backend/farm/history/records.py`) creates the group; pass the returned
+  instance as `batch_operation=` to every `record_entity_revision` /
+  `record_revision` call the action makes. `context` is free-form JSON the
+  frontend uses to phrase the summary (e.g. `{"season_label": "25/26"}`).
+- `EntityRevision.batch_operation` is a nullable `SET_NULL` FK — ordinary
+  single-entity edits leave it NULL and render flat as before. The
+  individual revisions stay in the DB and stay individually restorable; the
+  batch is only a display grouping.
+- Wired today in `SeasonViewSet` (`season_delete`, `season_undelete`,
+  `season_copy_data`). Reuse the same helper for any future cascade
+  (season-pattern application, crop-rotation batch edits) — no schema change
+  needed, just a new `operation_type` constant and a frontend label.
+- `ProjectHistoryListView` folds revisions sharing a `batch_operation` into
+  one `is_batch` entry carrying the individual entries in `children`; the
+  frontend (`isBatchGroupEntry` / `getBatchSummary` in
+  `frontend/src/pages/culturesHistoryUtils.ts`) renders a group only when
+  `children.length >= 2`, otherwise the lone child renders as a plain row.
+- `cleanup_history` drops `BatchOperation` rows older than the cutoff once
+  all their revisions have been pruned.
 
 ## Restoring
 

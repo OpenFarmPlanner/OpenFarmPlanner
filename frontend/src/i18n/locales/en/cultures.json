@@ -486,7 +486,24 @@
       "seedPackage": "Seed package",
       "project": "Project",
       "fallback": "Entry",
-      "openTarget": "Open"
+      "openTarget": "Open",
+      "season": "Season"
+    },
+    "batch": {
+      "seasonDelete": "Season {{season}} deleted",
+      "seasonUndelete": "Season {{season}} restored",
+      "seasonCopyData": "Data copied from season {{source}}",
+      "fallback": "Multiple changes",
+      "countDeleted_one": "{{count}} planting plan deleted",
+      "countDeleted_other": "{{count}} planting plans deleted",
+      "countCreated_one": "{{count}} planting plan created",
+      "countCreated_other": "{{count}} planting plans created",
+      "countRestored_one": "{{count}} planting plan restored",
+      "countRestored_other": "{{count}} planting plans restored",
+      "countUpdated_one": "{{count}} planting plan updated",
+      "countUpdated_other": "{{count}} planting plans updated",
+      "expandAria": "Show individual changes",
+      "collapseAria": "Hide individual changes"
     }
   },
   "shortcuts": {

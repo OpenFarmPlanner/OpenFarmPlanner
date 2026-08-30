@@ -12,21 +12,13 @@ import {
   Badge,
   Button,
   ButtonGroup,
-  Chip,
-  Divider,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
-  Link,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
-  Paper,
   Stack,
   Drawer,
   Toolbar,
@@ -57,11 +49,11 @@ import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotifications } from '../notifications/useNotifications';
 import { NOTIFICATION_HISTORY_ROUTE } from '../notifications/notificationDisplay';
 import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { cultureAPI, projectAPI } from '../api/api';
 import type { CultureHistoryEntry } from '../api/types';
 import { MobileProjectSwitcherDialog } from './MobileProjectSwitcherDialog';
 import { RestoreVersionDialog } from './RestoreVersionDialog';
+import { ProjectHistoryDialog } from './ProjectHistoryDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { useAuth } from '../auth/useAuth';
 import type { RootLayoutOutletContext, TopbarContextAction } from '../navigation/topbarTypes';
@@ -74,7 +66,7 @@ import {
   getStandardActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
-import { getHistoryEntryTarget, getHistoryEntryTitle, isCurrentHistoryEntry } from '../pages/culturesHistoryUtils';
+import { getHistoryEntryTitle } from '../pages/culturesHistoryUtils';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 import { createDemoProjectAndSwitch } from '../projects/demoProjectFlow';
 import { OPEN_CREATE_PROJECT_EVENT } from '../projects/projectCreationFlow';
@@ -2064,140 +2056,17 @@ function RootLayout() {
       </Box>
       </Box>
 
-      <Dialog open={projectHistoryOpen} onClose={() => setProjectHistoryOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{t('commandPalette.versionHistoryTitle')}</DialogTitle>
-        <DialogContent sx={{ py: isPhonePortrait ? 1 : 2 }}>
-          {historyItems.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-              {t('commandPalette.versionHistoryEmpty')}
-            </Typography>
-          ) : null}
-          <List>
-            {historyItems.map((item, index) => {
-              const isCurrentVersion = isCurrentHistoryEntry(item, index);
-              const historyTarget = getHistoryEntryTarget(item);
-              const title = getHistoryEntryTitle(item, tCultures);
-              const actorLabel = item.actor_label?.trim()
-                || item.history_user?.trim()
-                || fallbackHistoryActorLabel?.trim()
-                || 'Unbekannter Benutzer';
-              const timestampLabel = formatHistoryTimestamp(item.history_date);
-
-              return (
-                <ListItem key={item.history_id} disableGutters sx={{ mb: isPhonePortrait ? 1 : 0 }}>
-                  {isPhonePortrait ? (
-                    <Paper variant="outlined" sx={{ width: '100%', p: 1.25, borderRadius: 1.5 }}>
-                      <Stack spacing={1}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                          {isCurrentVersion
-                            ? <Chip label={t('versionHistory.currentChip')} size="small" color="success" variant="outlined" />
-                            : <Chip label={t('versionHistory.versionChip')} size="small" variant="outlined" />}
-                          {historyTarget ? (
-                            <Link
-                              component={RouterLink}
-                              to={historyTarget}
-                              underline="hover"
-                              onClick={() => setProjectHistoryOpen(false)}
-                              sx={{ fontSize: '0.78rem', color: 'text.secondary', flexShrink: 0 }}
-                            >
-                              {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
-                            </Link>
-                          ) : null}
-                        </Box>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            lineHeight: 1.35,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            wordBreak: 'normal',
-                            overflowWrap: 'break-word',
-                          }}
-                        >
-                          {title}
-                        </Typography>
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                          <PersonOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
-                          <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                            Von {actorLabel}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            · {timestampLabel}
-                          </Typography>
-                        </Box>
-                        {isCurrentVersion && item.action === 'restored' ? (
-                          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
-                            Originalversion vom {formatHistoryTimestamp(item.history_date)}
-                          </Typography>
-                        ) : null}
-                        {!isCurrentVersion ? (
-                          <>
-                            <Divider />
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => setPendingRestoreEntry(item)}
-                              sx={{ alignSelf: 'flex-start', minHeight: 34 }}
-                            >
-                              Version wiederherstellen
-                            </Button>
-                          </>
-                        ) : null}
-                      </Stack>
-                    </Paper>
-                  ) : (
-                    <Stack direction="row" spacing={2} sx={{ width: '100%',
-                      alignItems: "flex-start", }}  >
-                      <ListItemText
-                        sx={{ mr: 1 }}
-                        primary={(
-                          <>
-                            {title}
-                            {historyTarget ? (
-                              <>
-                                {' · '}
-                                <Link
-                                  component={RouterLink}
-                                  to={historyTarget}
-                                  underline="hover"
-                                  onClick={() => setProjectHistoryOpen(false)}
-                                >
-                                  {item.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
-                                </Link>
-                              </>
-                            ) : null}
-                          </>
-                        )}
-                        secondary={(
-                          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                            <PersonOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
-                            <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                              Von {actorLabel}
-                            </Typography>
-                            <Typography component="span" variant="caption" color="text.secondary">
-                              · {timestampLabel}
-                            </Typography>
-                          </Box>
-                        )}
-                      />
-                      {isCurrentVersion
-                        ? <Chip label={t('commandPalette.currentVersion')} size="small" color="success" variant="outlined" />
-                        : <Button onClick={() => setPendingRestoreEntry(item)} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>Version wiederherstellen</Button>}
-                    </Stack>
-                  )}
-                </ListItem>
-              );
-            })}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setProjectHistoryOpen(false)}>{t('common:actions.close')}</Button>
-        </DialogActions>
-      </Dialog>
+      <ProjectHistoryDialog
+        open={projectHistoryOpen}
+        items={historyItems}
+        isPhonePortrait={isPhonePortrait}
+        fallbackActorLabel={fallbackHistoryActorLabel}
+        formatTimestamp={formatHistoryTimestamp}
+        onClose={() => setProjectHistoryOpen(false)}
+        onRestore={(entry) => setPendingRestoreEntry(entry)}
+        t={t}
+        tCultures={tCultures}
+      />
 
       {seasonSetupStatus?.needs_setup && !seasonSetupDismissed && !isProjectIndependentRoute(location.pathname) ? (
         <SeasonSetupDialog

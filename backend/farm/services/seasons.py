@@ -107,7 +107,7 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
     return None if overlaps_existing else (next_start, next_end)
 
 
-def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
+def copy_planting_plans(*, source_season: Season, target_season: Season) -> list[PlantingPlan]:
     """Copy all planting plans from `source_season` into `target_season`, additively.
 
     Planting, harvest and harvest-end dates are shifted forward (or back) by the
@@ -116,7 +116,8 @@ def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
     year is not a leap year.
 
     Existing planting plans already in `target_season` are left untouched —
-    this only ever appends copies of the source season's plans.
+    this only ever appends copies of the source season's plans. Returns the
+    created plans so the caller can record revisions for them.
     """
     year_offset = target_season.start_date.year - source_season.start_date.year
     month_offset = year_offset * 12
@@ -131,8 +132,7 @@ def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
         for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
             fields[date_field] = shifted(fields[date_field])
         new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
-    PlantingPlan.objects.bulk_create(new_plans)
-    return len(new_plans)
+    return PlantingPlan.objects.bulk_create(new_plans)
 
 
 def get_or_create_season_for_period(

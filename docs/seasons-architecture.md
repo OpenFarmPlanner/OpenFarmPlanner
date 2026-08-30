@@ -38,9 +38,14 @@ removing it removes them. `PlantingPlan` has no soft-delete, so each plan is
 deleted for real, but `_delete_planting_plans_with_season` records an
 `EntityRevision` (`ACTION_DELETED`) per plan first, so:
 
-- the deletions show up in the project version history, and whole-project
-  point-in-time restore reconstructs them like any other planting-plan
-  deletion;
+- the deletions show up in the project version history — grouped under one
+  `BatchOperation` (`season_delete`) so the cascade is one collapsible entry,
+  not a dozen (see
+  [versioning-and-history.md](./versioning-and-history.md#batch-operations-grouping-a-cascade));
+  `undelete` groups its restores under `season_undelete`, and `copy-from`
+  groups the copied plans' `created` revisions under `season_copy_data`;
+- whole-project point-in-time restore reconstructs the deletions like any
+  other planting-plan deletion;
 - `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
   any later manual undelete) recreates them. It finds the season's most recent
   `ACTION_DELETED` revision and, via

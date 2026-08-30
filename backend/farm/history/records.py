@@ -6,6 +6,7 @@ from typing import Any
 from django.core.serializers.json import DjangoJSONEncoder
 
 from farm.models import (
+    BatchOperation,
     Bed,
     BedLayout,
     Culture,
@@ -97,6 +98,26 @@ def _entity_display_name(instance) -> str:
     return getattr(instance, 'name', None) or ''
 
 
+def start_batch_operation(
+    *,
+    project: Project,
+    operation_type: str,
+    context: dict[str, Any] | None = None,
+    user_name: str = '',
+) -> BatchOperation:
+    """Create a BatchOperation to group the revisions of one cascading action.
+
+    Pass the returned instance as `batch_operation` to every
+    `record_entity_revision` / `record_revision` call the action triggers.
+    """
+    return BatchOperation.objects.create(
+        project=project,
+        operation_type=operation_type,
+        context=context or {},
+        user_name=user_name or '',
+    )
+
+
 def record_entity_revision(
     *,
     project: Project,
@@ -107,6 +128,7 @@ def record_entity_revision(
     display_name: str = '',
     changed_fields: list[str] | None = None,
     user_name: str = '',
+    batch_operation: BatchOperation | None = None,
 ) -> None:
     EntityRevision.objects.create(
         project=project,
@@ -117,6 +139,7 @@ def record_entity_revision(
         snapshot=snapshot,
         changed_fields=changed_fields if changed_fields is not None else ([EntityRevision.ACTION_CREATED] if action == EntityRevision.ACTION_CREATED else []),
         user_name=user_name or '',
+        batch_operation=batch_operation,
     )
 
 

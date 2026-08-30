@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatHistoryChangeValue,
+  getBatchSummary,
   getHistoryChangeFieldLabel,
   getHistoryActorLabel,
   getHistoryEntryMeta,
   getHistoryEntryTarget,
   getHistoryEntryTitle,
+  isBatchGroupEntry,
 } from '../pages/culturesHistoryUtils';
 import i18n from '../i18n';
 import type { CultureHistoryEntry } from '../api/types';
@@ -92,6 +94,41 @@ describe('culturesHistoryUtils', () => {
 
     expect(getHistoryEntryTarget(plantingPlanEntry)).toBe('/app/planting-plans');
     expect(getHistoryEntryTarget(unsupportedEntry)).toBeNull();
+  });
+
+  it('treats a batch entry as a group only once it holds two or more revisions', () => {
+    const child = buildEntry({ object_type: 'planting_plan', action: 'deleted' });
+    expect(isBatchGroupEntry(buildEntry({ is_batch: true, children: [child] }))).toBe(false);
+    expect(isBatchGroupEntry(buildEntry({ is_batch: true, children: [child, child] }))).toBe(true);
+    expect(isBatchGroupEntry(buildEntry({ children: [child, child] }))).toBe(false);
+  });
+
+  it('summarizes a season-delete batch with per-action planting-plan counts', () => {
+    const entry = buildEntry({
+      is_batch: true,
+      batch_operation_type: 'season_delete',
+      batch_context: { season_label: '25/26' },
+      children: [
+        buildEntry({ object_type: 'season', action: 'deleted' }),
+        buildEntry({ object_type: 'planting_plan', action: 'deleted' }),
+        buildEntry({ object_type: 'planting_plan', action: 'deleted' }),
+      ],
+    });
+
+    expect(getBatchSummary(entry, t)).toBe('Saison 25/26 gelöscht: 2 Anbaupläne gelöscht');
+  });
+
+  it('summarizes a season copy-data batch', () => {
+    const entry = buildEntry({
+      is_batch: true,
+      batch_operation_type: 'season_copy_data',
+      batch_context: { source_season_label: '24/25', target_season_label: '25/26' },
+      children: [
+        buildEntry({ object_type: 'planting_plan', action: 'created' }),
+      ],
+    });
+
+    expect(getBatchSummary(entry, t)).toBe('Daten aus Saison 24/25 übernommen: 1 Anbauplan neu angelegt');
   });
 
   it('formats culture history change labels and values', () => {

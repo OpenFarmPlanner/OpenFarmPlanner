@@ -11,6 +11,7 @@ const OBJECT_TYPE_TRANSLATION_KEYS: Record<string, string> = {
   bed: 'history.objectTypes.bed',
   supplier: 'history.objectTypes.supplier',
   task: 'history.objectTypes.task',
+  season: 'history.objectTypes.season',
   note_attachment: 'history.objectTypes.noteAttachment',
   media_file: 'history.objectTypes.mediaFile',
   seed_package: 'history.objectTypes.seedPackage',
@@ -250,6 +251,54 @@ function extractObjectIdFromSummary(summary: string): number | null {
 
   const objectId = Number.parseInt(match[1], 10);
   return Number.isFinite(objectId) ? objectId : null;
+}
+
+const BATCH_OPERATION_BASE_KEYS: Record<string, string> = {
+  season_delete: 'history.batch.seasonDelete',
+  season_undelete: 'history.batch.seasonUndelete',
+  season_copy_data: 'history.batch.seasonCopyData',
+};
+
+const BATCH_COUNT_KEYS: Record<string, string> = {
+  deleted: 'history.batch.countDeleted',
+  created: 'history.batch.countCreated',
+  restored: 'history.batch.countRestored',
+  updated: 'history.batch.countUpdated',
+};
+
+/**
+ * A batch entry is only worth its own collapsible group once it bundles two or
+ * more revisions; a single-child batch (e.g. deleting an empty season) reads
+ * better rendered as the plain revision it contains.
+ */
+export function isBatchGroupEntry(entry: CultureHistoryEntry): boolean {
+  return Boolean(entry.is_batch) && (entry.children?.length ?? 0) >= 2;
+}
+
+export function getBatchSummary(entry: CultureHistoryEntry, t: TFunction<'cultures'>): string {
+  const context = (entry.batch_context ?? {}) as Record<string, unknown>;
+  const baseKey = BATCH_OPERATION_BASE_KEYS[entry.batch_operation_type ?? ''] ?? 'history.batch.fallback';
+  const base = t(baseKey, {
+    season: String(context.season_label ?? ''),
+    source: String(context.source_season_label ?? ''),
+    target: String(context.target_season_label ?? ''),
+  });
+
+  // Only planting plans carry a count today; the primary entity's own revision
+  // (e.g. the season) is described by the base text, not counted.
+  const counts = (entry.children ?? []).reduce<Record<string, number>>((acc, child) => {
+    if (child.object_type === 'planting_plan') {
+      const action = child.action ?? 'updated';
+      acc[action] = (acc[action] ?? 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const parts = ['deleted', 'created', 'restored', 'updated']
+    .filter((action) => counts[action])
+    .map((action) => t(BATCH_COUNT_KEYS[action], { count: counts[action] }));
+
+  return parts.length > 0 ? `${base}: ${parts.join(', ')}` : base;
 }
 
 export function getHistoryEntryTarget(entry: CultureHistoryEntry): string | null {

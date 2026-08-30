@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from farm.models import EntityRevision, PlantingPlan, Season, SeasonPattern
+from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.services.demo_project import populate_demo_project
 from farm.services.hint_test_project import populate_hint_test_project
 from farm.services.seasons import (
@@ -113,9 +113,9 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
             culture=self.culture, bed=self.bed, project=self.project, season=target, planting_date=date(2027, 4, 1),
         )
 
-        copied_count = copy_planting_plans(source_season=source, target_season=target)
+        created_plans = copy_planting_plans(source_season=source, target_season=target)
 
-        self.assertEqual(copied_count, 1)
+        self.assertEqual(len(created_plans), 1)
         target_plans = PlantingPlan.objects.filter(season=target)
         self.assertEqual(target_plans.count(), 2)
         self.assertTrue(target_plans.filter(pk=existing_target_plan.pk).exists())
@@ -195,6 +195,65 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(
             {plan.planting_date for plan in restored},
             {date(2026, 4, 1), date(2026, 4, 8), date(2026, 4, 15)},
+        )
+
+    def test_season_delete_groups_its_cascade_into_one_batch_operation(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        for day in (1, 8, 15):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                planting_date=date(2026, 4, day),
+            )
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_delete')
+        self.assertEqual(batch.context, {'season_label': season.label})
+        # 1 season revision + 3 planting-plan revisions, all in the same batch.
+        self.assertEqual(batch.revisions.count(), 4)
+        self.assertEqual(
+            batch.revisions.filter(entity_type='planting_plan').count(), 3,
+        )
+        self.assertEqual(
+            batch.revisions.filter(entity_type='season', object_id=season.pk).count(), 1,
+        )
+        # Nothing from this cascade was left ungrouped.
+        self.assertFalse(
+            EntityRevision.objects
+            .filter(project=self.project, batch_operation__isnull=True)
+            .filter(entity_type__in=['season', 'planting_plan'])
+            .exists()
+        )
+
+        history = self.client.get('/openfarmplanner/api/history/project/').json()
+        batch_entries = [entry for entry in history if entry.get('is_batch')]
+        self.assertEqual(len(batch_entries), 1)
+        self.assertEqual(batch_entries[0]['batch_operation_type'], 'season_delete')
+        self.assertEqual(len(batch_entries[0]['children']), 4)
+        child_ids = {child['history_id'] for child in batch_entries[0]['children']}
+        self.assertEqual(child_ids, set(batch.revisions.values_list('id', flat=True)))
+
+    def test_copy_from_records_grouped_created_revisions_for_copied_plans(self):
+        source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
+        for day in (1, 8):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=source,
+                planting_date=date(2026, 4, day),
+            )
+
+        response = self.client.post(f'/openfarmplanner/api/seasons/{target.pk}/copy-from/', {
+            'source_season_id': source.pk,
+        })
+
+        self.assertEqual(response.data['copied_count'], 2)
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_copy_data')
+        self.assertEqual(batch.context['target_season_label'], target.label)
+        self.assertEqual(
+            batch.revisions.filter(action=EntityRevision.ACTION_CREATED, entity_type='planting_plan').count(),
+            2,
         )
 
     def test_undelete_leaves_individually_deleted_plans_deleted(self):
