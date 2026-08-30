@@ -52,6 +52,11 @@ interface UseHierarchyRowUpdateParams {
   setDraftValidationWarning: (warning: string) => void;
   fetchData: (options?: { showLoading: boolean }) => Promise<void>;
   saveBed: (bed: Partial<Bed> & { id: number; field: number }) => Promise<Bed>;
+  // Called instead of the inline warning whenever a new row's edit ends
+  // (click outside handles this itself before ever reaching processRowUpdate,
+  // but a cross-row click or a natural blur still land here) while it has
+  // some field filled in but no name - opens the confirm dialog for that row.
+  onUnsavedMissingName: (rowId: GridRowId) => void;
   t: TFunction;
 }
 
@@ -68,6 +73,7 @@ export function useHierarchyRowUpdate({
   setLocations,
   rowSnapshotRef,
   setRowModesModel,
+  onUnsavedMissingName,
   setError,
   setDraftValidationWarning,
   fetchData,
@@ -115,6 +121,69 @@ export function useHierarchyRowUpdate({
       );
     },
     [beds],
+  );
+
+  // Writes a draft's typed values into the underlying beds/fields state
+  // without saving to the backend, so a row that exits edit mode without a
+  // name doesn't lose what was typed - re-entering edit mode later (e.g. from
+  // the unsaved-row dialog's "continue editing") resumes from these values.
+  const persistDraftValues = useCallback(
+    (draftRow: HierarchyRow): void => {
+      if (draftRow.type === "bed" && typeof draftRow.bedId === "number") {
+        setBeds((previousBeds) =>
+          previousBeds.map((bed) =>
+            bed.id === draftRow.bedId
+              ? {
+                  ...bed,
+                  name: draftRow.name ?? "",
+                  area_sqm: parseAreaValue(draftRow.area_sqm),
+                  length_m: parseDimensionValue(draftRow.length_m),
+                  width_m: parseDimensionValue(draftRow.width_m),
+                  notes: draftRow.notes ?? "",
+                }
+              : bed,
+          ),
+        );
+        return;
+      }
+      if (draftRow.type === "field" && typeof draftRow.fieldId === "number") {
+        setFields((previousFields) =>
+          previousFields.map((field) =>
+            field.id === draftRow.fieldId
+              ? {
+                  ...field,
+                  name: draftRow.name ?? "",
+                  area_sqm: parseAreaValue(draftRow.area_sqm),
+                  length_m: parseDimensionValue(draftRow.length_m),
+                  width_m: parseDimensionValue(draftRow.width_m),
+                  notes: draftRow.notes ?? "",
+                }
+              : field,
+          ),
+        );
+      }
+    },
+    [setBeds, setFields],
+  );
+
+  // Exits edit mode through the normal controlled rowModesModel transition
+  // (the same path a successful save takes) *before* a dialog is shown over
+  // the row. Opening a Dialog while the row's edit <input> still has focus
+  // fights MUI's own focus management (which tries to keep focus inside the
+  // still-mounted edit cell) and the Modal's focus trap, which can tear the
+  // dialog down again almost immediately - see the aria-hidden warning this
+  // caused. Persisting first means "continue editing" resumes with the
+  // typed values intact.
+  const exitToViewPreservingDraft = useCallback(
+    (rowId: GridRowId, draftRow: HierarchyRow): void => {
+      persistDraftValues(draftRow);
+      rowSnapshotRef.current.delete(String(rowId));
+      setRowModesModel((previousModel) => ({
+        ...previousModel,
+        [rowId]: { mode: GridRowModes.View, ignoreModifications: true },
+      }));
+    },
+    [persistDraftValues, rowSnapshotRef, setRowModesModel],
   );
 
   const preservePartialNewBedDraft = useCallback(
@@ -201,8 +270,12 @@ export function useHierarchyRowUpdate({
           return newRow;
         }
         if (isPartiallyFilledNamelessNewHierarchyRow(newRow)) {
-          preservePartialNewBedDraft(newRow);
-          throw new Error(t("messages.unsavedMissingName"));
+          // Resolve (don't throw) so the row cleanly exits edit mode through
+          // the normal path instead of being left stranded in Edit by a
+          // rejection - see exitToViewPreservingDraft for why.
+          exitToViewPreservingDraft(newRow.id, newRow);
+          onUnsavedMissingName(newRow.id);
+          return newRow;
         }
         setError(t("validation.nameRequired"));
         throw new Error(t("validation.nameRequired"));
@@ -452,13 +525,14 @@ export function useHierarchyRowUpdate({
     },
     [
       discardRowEdit,
+      exitToViewPreservingDraft,
       fetchData,
       fields,
       getBedAreaSum,
       hasDuplicateBedName,
       hasDuplicateFieldName,
       locations,
-      preservePartialNewBedDraft,
+      onUnsavedMissingName,
       saveBed,
       setDraftValidationWarning,
       setError,
@@ -487,19 +561,14 @@ export function useHierarchyRowUpdate({
           [erroredRowId]: { mode: GridRowModes.View, ignoreModifications: true },
         }));
       }
-
-      if (error.message === t("messages.unsavedMissingName")) {
-        setDraftValidationWarning(error.message);
-        setError("");
-        return;
-      }
       setError(error.message || t("errors.save"));
     },
-    [selectedRowIdRef, setDraftValidationWarning, setError, setRowModesModel, t],
+    [selectedRowIdRef, setError, setRowModesModel, t],
   );
 
   return {
     preservePartialNewBedDraft,
+    exitToViewPreservingDraft,
     discardRowEdit,
     discardActiveRowEdit,
     processRowUpdate,

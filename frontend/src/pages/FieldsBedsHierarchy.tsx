@@ -176,6 +176,19 @@ function FieldsBedsHierarchy({
   }, []);
   const [draftValidationWarning, setDraftValidationWarning] = useState("");
   const [unsavedRowDialogId, setUnsavedRowDialogId] = useState<GridRowId | null>(null);
+  // Opening the confirm dialog over a row whose edit input still has DOM focus
+  // fights MUI Modal's focus trap (it aria-hides the rest of the page while
+  // that input remains focused inside the hidden subtree), which can cause the
+  // dialog to be torn down again almost immediately. Blurring first avoids
+  // that conflict; it doesn't discard the row's in-progress edit, since the
+  // row stays in GridRowModes.Edit and MUI keeps its draft values regardless
+  // of DOM focus.
+  const openUnsavedRowDialog = useCallback((rowId: GridRowId): void => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setUnsavedRowDialogId(rowId);
+  }, []);
   const hasInitiallyExpandedRef = useRef(false);
   const handledCreateFieldRequestRef = useRef(0);
   const rowSnapshotRef = useRef<Map<string, HierarchyRow>>(new Map());
@@ -421,6 +434,7 @@ function FieldsBedsHierarchy({
 
   const {
     discardRowEdit,
+    exitToViewPreservingDraft,
     processRowUpdate,
     handleProcessRowUpdateError,
   } = useHierarchyRowUpdate({
@@ -436,6 +450,7 @@ function FieldsBedsHierarchy({
     setLocations,
     rowSnapshotRef,
     setRowModesModel,
+    onUnsavedMissingName: openUnsavedRowDialog,
     setError,
     setDraftValidationWarning,
     fetchData,
@@ -1230,41 +1245,63 @@ function FieldsBedsHierarchy({
 
   useRegisterCommands("areas-page", areaCommands);
 
-  // Clicking outside the grid while a row is being edited doesn't go through MUI's
-  // own cell-focus-out handling (that only fires when focus moves to another grid
-  // cell), so the row is neither saved nor discarded by default. A still-blank
-  // draft is discarded silently (nothing was entered, nothing to confirm). A
-  // nameless-but-partially-filled draft asks the user via a confirm dialog
-  // instead of silently discarding or straining the row in edit mode (a real
-  // save attempt would just reject for the missing name). Anything else is
-  // committed for real (matching normal click-away-to-save UX and avoiding
-  // silent data loss).
-  const handleClickOutsideGrid = useCallback((): void => {
-    const editingRowId = Object.entries(rowModesModel).find(
-      ([, mode]) => mode.mode === GridRowModes.Edit,
-    )?.[0];
-    if (editingRowId === undefined) return;
-    const rowId = rowsById.get(editingRowId)?.id ?? editingRowId;
+  // A real save attempt (MUI's stopRowEditMode -> processRowUpdate) never
+  // actually reaches processRowUpdate for a row with an empty required
+  // "name" cell: the name column's preProcessEditCellProps marks that cell
+  // `error: true`, and MUI's own row-editing machinery silently refuses to
+  // exit edit mode for a row with an errored cell - it never calls
+  // processRowUpdate at all. So any code path that wants to end a row's edit
+  // session (clicking outside the grid, clicking into a different row) has
+  // to pre-check for this itself instead of just asking MUI to save: a
+  // still-blank draft is discarded silently (nothing was entered, nothing to
+  // confirm), a nameless-but-partially-filled draft asks the user via a
+  // confirm dialog instead of silently discarding or straining the row in
+  // edit mode, and anything else goes through MUI's real save (matching
+  // normal click-away-to-save UX and avoiding silent data loss).
+  const stopRowEditModeSafely = useCallback((rowId: GridRowId): void => {
     const draftRow = getDraftRow(rowId);
     if (draftRow && isCompletelyEmptyNewHierarchyRow(draftRow)) {
       discardRowEdit(rowId);
       return;
     }
     if (draftRow && isPartiallyFilledNamelessNewHierarchyRow(draftRow)) {
-      setUnsavedRowDialogId(rowId);
+      exitToViewPreservingDraft(rowId, draftRow);
+      openUnsavedRowDialog(rowId);
       return;
     }
     gridApiRef.current?.stopRowEditMode({ id: rowId });
-  }, [discardRowEdit, getDraftRow, gridApiRef, rowModesModel, rowsById]);
+  }, [discardRowEdit, exitToViewPreservingDraft, getDraftRow, gridApiRef, openUnsavedRowDialog]);
+
+  // Clicking outside the grid while a row is being edited doesn't go through MUI's
+  // own cell-focus-out handling (that only fires when focus moves to another grid
+  // cell), so the row is neither saved nor discarded by default without this.
+  const handleClickOutsideGrid = useCallback((): void => {
+    const editingRowId = Object.entries(rowModesModel).find(
+      ([, mode]) => mode.mode === GridRowModes.Edit,
+    )?.[0];
+    if (editingRowId === undefined) return;
+    const rowId = rowsById.get(editingRowId)?.id ?? editingRowId;
+    stopRowEditModeSafely(rowId);
+  }, [rowModesModel, rowsById, stopRowEditModeSafely]);
 
   const handleContinueEditingUnsavedRow = useCallback((): void => {
     const rowId = unsavedRowDialogId;
     setUnsavedRowDialogId(null);
     if (rowId === null) return;
-    setRowModesModel((previousModel) => ({
-      ...previousModel,
-      [rowId]: { mode: GridRowModes.Edit, fieldToFocus: "name" },
-    }));
+    // Only one row can be in edit mode at a time - clicking into a different
+    // row while this one had unsaved changes is what triggered the dialog in
+    // the first place, so returning to this row means giving up that other
+    // row's (never-persisted) in-progress edit.
+    setRowModesModel((previousModel) => {
+      const nextModel: GridRowModesModel = {};
+      Object.entries(previousModel).forEach(([id, mode]) => {
+        nextModel[id] = mode.mode === GridRowModes.Edit && String(id) !== String(rowId)
+          ? { mode: GridRowModes.View, ignoreModifications: true }
+          : mode;
+      });
+      nextModel[rowId] = { mode: GridRowModes.Edit, fieldToFocus: "name" };
+      return nextModel;
+    });
     focusRow(rowId, "name");
   }, [focusRow, setRowModesModel, unsavedRowDialogId]);
 
@@ -1435,6 +1472,7 @@ function FieldsBedsHierarchy({
     selectRow,
     setRowModesModel,
     setTreeActive,
+    stopEditingRow: stopRowEditModeSafely,
     toggleExpand,
   });
 
