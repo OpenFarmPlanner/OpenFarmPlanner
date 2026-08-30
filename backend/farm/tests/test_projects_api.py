@@ -160,6 +160,45 @@ class ProjectsApiTests(APITestCase):
         self.assertFalse(Field.objects.filter(project=self.project).exists())
         self.assertFalse(Bed.objects.filter(project=self.project).exists())
 
+    def test_project_history_restore_survives_stale_duplicate_snapshots(self) -> None:
+        """A culture hard-deleted without an ACTION_DELETED revision (e.g. an
+        old demo reset) leaves a snapshot that still looks 'active'. Restoring
+        must not 500 on the unique-constraint collision with the live culture —
+        the newest snapshot wins, the stale one is skipped."""
+        from farm.history import record_entity_revision
+        from farm.models import EntityRevision
+
+        headers = {'HTTP_X_PROJECT_ID': str(self.project.id)}
+        # A ghost general 'Tomate': created, then hard-deleted by a queryset
+        # delete that records no ACTION_DELETED revision (as a demo reset does),
+        # so its "created" snapshot still looks active.
+        ghost = Culture.objects.create(name='Tomate', variety='', project=self.project)
+        ghost_id = ghost.pk
+        Culture.objects.filter(pk=ghost_id).delete()
+        record_entity_revision(
+            project=self.project, entity_type='culture', object_id=ghost_id,
+            action=EntityRevision.ACTION_CREATED,
+            snapshot={'id': ghost_id, 'name': 'Tomate', 'variety': '',
+                      'name_normalized': 'tomate', 'variety_normalized': '',
+                      'deleted_at': None, 'project_id': self.project.id},
+        )
+        live = Culture.objects.create(name='Tomate', variety='', project=self.project)
+        Location.objects.create(name='anchor', project=self.project)
+
+        history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
+        history_id = next(entry['history_id'] for entry in history if not entry.get('is_batch'))
+        response = self.client.post(
+            '/openfarmplanner/api/history/project/restore/',
+            {'history_id': history_id}, format='json', **headers,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        general_tomate = Culture.objects.filter(
+            project=self.project, name_normalized='tomate', variety_normalized__isnull=True,
+        )
+        self.assertEqual(general_tomate.count(), 1)
+        self.assertEqual(general_tomate.first().pk, live.pk)
+
     def test_create_project_without_slug_succeeds(self) -> None:
         response = self.client.post('/openfarmplanner/api/projects/', {'name': 'Neues Projekt', 'description': ''}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

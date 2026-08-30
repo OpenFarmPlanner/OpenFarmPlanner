@@ -2,11 +2,42 @@
 
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from farm.models import EntityRevision, Project
 
 from .records import _RESTORABLE_ENTITY_TYPES
+
+
+def _bulk_create_skipping_conflicts(model, instances: list, object_ids: list[int]) -> set[int]:
+    """Recreate `instances` (aligned with `object_ids`), returning the ids that
+    landed.
+
+    Fast path is one `bulk_create`. It can still fail when two historical
+    snapshots both look "active" and collide on a (possibly partial) unique
+    constraint — which happens when an entity was hard-deleted without an
+    `ACTION_DELETED` revision (e.g. an old demo reset). Then fall back to
+    inserting row by row in savepoints and skip the losers; callers pass the
+    rows newest-id-first, so the most recent snapshot wins.
+    """
+    if not instances:
+        return set()
+    try:
+        with transaction.atomic():
+            model.objects.bulk_create(instances)
+        return set(object_ids)
+    except IntegrityError:
+        pass
+
+    inserted: set[int] = set()
+    for instance, object_id in zip(instances, object_ids):
+        try:
+            with transaction.atomic():
+                model.objects.bulk_create([instance])
+            inserted.add(object_id)
+        except IntegrityError:
+            continue
+    return inserted
 
 
 def _entity_states_at(project: Project, entity_type: str, target_time) -> dict[int, dict[str, Any] | None]:
@@ -65,8 +96,7 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 for field in external_fk_fields
             }
             states = _entity_states_at(project, entity_type, target_time)
-            rows = []
-            ids: set[int] = set()
+            candidates: list[tuple[int, Any]] = []
             for object_id, snapshot in states.items():
                 if snapshot is None:
                     continue
@@ -84,8 +114,13 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                     if row_data.get(field.attname) is not None and row_data[field.attname] not in existing_external_ids[field.remote_field.model]:
                         row_data[field.attname] = None
                 row_data['project_id'] = project.id
-                rows.append(model(**row_data))
-                ids.add(object_id)
-            if rows:
-                model.objects.bulk_create(rows)
-            created_ids[model] = ids
+                candidates.append((object_id, model(**row_data)))
+
+            # Newest object_id first, so a unique-constraint collision between
+            # two stale snapshots resolves in favour of the most recent one.
+            candidates.sort(key=lambda pair: pair[0], reverse=True)
+            created_ids[model] = _bulk_create_skipping_conflicts(
+                model,
+                [instance for _object_id, instance in candidates],
+                [object_id for object_id, _instance in candidates],
+            )

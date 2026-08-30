@@ -58,6 +58,29 @@ class DemoProjectServiceTests(TestCase):
         self.assertFalse(Location.objects.filter(project=result.project, name='Temporary Location').exists())
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
 
+    def test_reset_wipes_stale_history_so_point_in_time_restore_stays_consistent(self) -> None:
+        from farm.models import BatchOperation, EntityRevision
+
+        result = create_or_reset_demo_project()
+        project = result.project
+        stale_revision_ids = set(
+            EntityRevision.objects.filter(project=project).values_list('id', flat=True)
+        )
+        self.assertTrue(stale_revision_ids)
+        stale_batch = BatchOperation.objects.create(
+            project=project, operation_type=BatchOperation.TYPE_SEASON_DELETE,
+        )
+
+        create_or_reset_demo_project()
+
+        # The reset hard-deletes every row; keeping their "created" revisions
+        # would let a restore recreate rows that no longer exist. The
+        # repopulation writes fresh revisions, but none of the old ones survive.
+        self.assertFalse(
+            EntityRevision.objects.filter(id__in=stale_revision_ids).exists()
+        )
+        self.assertFalse(BatchOperation.objects.filter(id=stale_batch.id).exists())
+
     def test_demo_project_has_multiple_seasons(self) -> None:
         result = create_or_reset_demo_project()
 
