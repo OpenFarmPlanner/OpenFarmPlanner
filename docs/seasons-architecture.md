@@ -24,10 +24,44 @@ that predate this feature.
   `computeSeasonLabel` for previews computed before a season exists server-side.
 - **`PlantingPlan.season`** — nullable `ForeignKey(Season, on_delete=CASCADE)`,
   mirroring the `culture`/`bed` FK pattern (nullable + CASCADE, but the actual
-  delete path is the soft-delete above, so CASCADE only fires on a real hard
-  delete). Nullable specifically so pre-existing projects keep working until
-  the first-run setup (below) assigns a season. Culture library and bed/field
-  structure stay season-independent, per the feature's original scope.
+  delete path is the soft-delete above, so the DB-level CASCADE never fires —
+  see the application-level cascade below). Nullable specifically so
+  pre-existing projects keep working until the first-run setup (below) assigns
+  a season. Culture library and bed/field structure stay season-independent,
+  per the feature's original scope.
+
+## Deleting a season
+
+`SeasonViewSet.destroy` soft-deletes the season and, in the same transaction,
+**hard-deletes its planting plans** — a season "contains" its plans, so
+removing it removes them. `PlantingPlan` has no soft-delete, so each plan is
+deleted for real, but `_delete_planting_plans_with_season` records an
+`EntityRevision` (`ACTION_DELETED`) per plan first, so:
+
+- the deletions show up in the project version history grouped under one
+  `BatchOperation` (`season_delete`) — one entry with a single "rückgängig
+  machen" that recreates the season and its plans, not a dozen loose rows
+  (see [versioning-and-history.md](./versioning-and-history.md#batch-operations-grouping-a-cascade)).
+  `season_create`, `season_undelete` and `season_copy_data` batch the same way;
+- `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
+  any later manual undelete) recreates them. It finds the season's most recent
+  `ACTION_DELETED` revision and, via
+  `_restore_planting_plans_deleted_with_season`, re-inserts every
+  `planting_plan` whose latest revision at/after that timestamp is a deletion
+  with `snapshot['season_id']` pointing at this season — keeping the original
+  primary keys and skipping any plan a user had already deleted individually
+  beforehand.
+
+On the client, `useActiveSeason.deleteSeason` treats deleting the **active**
+season as an active-season change: it repoints the stored id at the newest
+remaining season and does the same full reload as `switchSeason`, so no
+mounted page keeps showing the deleted season's (or, with the header now
+absent, *every* season's) planting plans. The pending deletion is stashed in
+`sessionStorage` (`pendingSeasonDeletionStorage`) so the undo snackbar
+survives that reload; undoing an active-season deletion restores the season
+and switches back to it. A `useEffect` also writes the resolved active-season
+id back to `localStorage` whenever it falls back (stored id missing or stale),
+so the `X-Season-Id` header is never dropped while the project has seasons.
 
 ## Season-scoping of planting plans
 
@@ -134,6 +168,13 @@ single reusable action, not a per-entry-point special case:
   excludes the PK, timestamps, and audit fields) and `bulk_create`s the
   copies against the target season. It is always additive: existing plans in
   the target season are never touched, matched, or replaced.
+- `planting_date`, `harvest_date` and `harvest_end_date` are shifted forward
+  (or back) by the whole-year gap between the two seasons' start dates
+  (`PLANTING_PLAN_SHIFTED_DATE_FIELDS`), so a plan copied from 25/26 into
+  27/28 keeps its month and day but moves two years on. Feb 29 clamps to
+  Feb 28 when the shifted year is not a leap year (`add_months`). The shift is
+  a whole number of years, so it works for any season pattern, calendar-year
+  or not.
 - `SeasonViewSet.copy_from` (`backend/farm/seasons/views.py`) is the API
   surface both entry points call: the "Daten aus Saison X übernehmen"
   checkbox when creating a suggested season, and "Daten übernehmen von…" on
@@ -200,7 +241,11 @@ and gated on `seasonSetupAPI.status().needs_setup`):
 `backend/farm/services/seasons.py` is the single source of truth for period
 math (`compute_season_period`, `compute_period_containing`,
 `compute_preview_periods`, `compute_due_season_period`,
-`find_due_but_missing_season`). The project settings "Saison-Muster" card
+`find_due_but_missing_season`). For projects with existing seasons, the
+switcher's suggestion is the configured pattern period immediately after the
+chronologically latest season, regardless of today's date. Only a project with
+no seasons uses the pattern period containing today as its initial suggestion.
+The project settings "Saison-Muster" card
 (`frontend/src/seasons/SeasonPatternCard.tsx`) and the season switcher's
 due-season suggestion both call the same `/season-pattern/preview/` and
 `/seasons/due-suggestion/` endpoints rather than re-deriving the math
@@ -217,13 +262,12 @@ season exists as a row to read `label` off of.
   `/api/seasons/` beyond the one in `test_api_query_counts.py`; the
   `planting_plan_count` annotation is page-wide, not per-row, so it does not
   grow with the row count.
-- "Daten übernehmen" copies `planting_date`/`harvest_date`/`harvest_end_date`
-  verbatim — it does not shift dates into the target season's own range. A
-  copied plan can end up with dates outside its new season's period (e.g.
-  copying a plan dated in March into a season that starts in September);
-  this is deliberate (the source data is the source of truth for its own
-  timing), not a bug, but worth knowing before assuming copied plans are
-  automatically renormalized.
+- "Daten übernehmen" shifts `planting_date`/`harvest_date`/`harvest_end_date`
+  by the whole-year gap between the source and target season start dates (see
+  the "Copy-data action" section), so copies land in the target season's own
+  period rather than the source's. A copied `planting_date` can still fall
+  just outside the target period if the two seasons' patterns differ, but for
+  the common case (same pattern, N years apart) it stays in range.
 - `PlantingPlan.planting_date` otherwise has a **hard boundary**: on API
   create/update `PlantingPlanSerializer` rejects a `planting_date` outside the
   target season's `start_date`–`end_date` range

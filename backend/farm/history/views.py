@@ -9,24 +9,35 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from farm.models import Culture, EntityRevision
+from farm.models import BatchOperation, Culture, EntityRevision
 from farm.project_context import get_active_project_or_400, require_project_admin
 from farm.cultures.serializers import CultureSerializer
 
 from .records import _build_entity_revision_changes, _current_actor_label, record_entity_revision
-from .restore import _restore_project_state_at
+from .restore import BatchRevertError, _restore_project_state_at, revert_batch_operation
 from .serializers import CultureHistoryEntrySerializer, CultureRestoreSerializer
 
 
 class ProjectHistoryListView(APIView):
-    """List recent per-entity revisions across the whole project."""
+    """List recent per-entity revisions across the whole project.
+
+    Revisions produced by the same cascading action (see `BatchOperation`) are
+    folded into one `is_batch` entry with a single revert action; ungrouped
+    revisions are listed flat.
+    """
 
     def get(self, request):
         active_project = get_active_project_or_400(request)
         since = timezone.now() - timedelta(days=30)
-        rows = EntityRevision.objects.filter(project=active_project, created_at__gte=since).order_by('-created_at')
-        payload = [
-            {
+        rows = (
+            EntityRevision.objects
+            .filter(project=active_project, created_at__gte=since)
+            .select_related('batch_operation')
+            .order_by('-created_at')
+        )
+
+        def revision_payload(row):
+            return {
                 'history_id': row.id,
                 'history_date': row.created_at,
                 'history_type': 'project_snapshot',
@@ -37,8 +48,35 @@ class ProjectHistoryListView(APIView):
                 'action': row.action,
                 'actor_label': row.user_name or None,
             }
-            for row in rows
-        ]
+
+        payload = []
+        groups_by_batch = {}
+        for row in rows:
+            batch = row.batch_operation
+            if batch is None:
+                payload.append(revision_payload(row))
+                continue
+            group = groups_by_batch.get(batch.id)
+            if group is None:
+                group = {
+                    'is_batch': True,
+                    'batch_id': batch.id,
+                    'batch_operation_type': batch.operation_type,
+                    'batch_context': batch.context or {},
+                    'history_date': batch.created_at,
+                    'history_type': 'batch',
+                    'history_user': batch.user_name or None,
+                    'actor_label': batch.user_name or None,
+                    'summary': f'{batch.operation_type} #{batch.id}',
+                    'children': [],
+                }
+                groups_by_batch[batch.id] = group
+                payload.append(group)
+            group['children'].append(revision_payload(row))
+
+        for group in groups_by_batch.values():
+            group['children'] = CultureHistoryEntrySerializer(group['children'], many=True).data
+
         return Response(CultureHistoryEntrySerializer(payload, many=True).data)
 
 
@@ -66,6 +104,26 @@ class ProjectHistoryRestoreView(APIView):
         )
 
         return Response({'detail': 'Project restored successfully.'}, status=status.HTTP_200_OK)
+
+
+class BatchOperationRevertView(APIView):
+    """Undo a whole `BatchOperation` — the single revert action behind a
+    grouped history entry."""
+
+    def post(self, request, batch_id):
+        active_project = get_active_project_or_400(request)
+        require_project_admin(request.user, active_project.id, request=request)
+        batch = get_object_or_404(
+            BatchOperation.objects.filter(project=active_project), id=batch_id,
+        )
+        try:
+            revert_batch_operation(active_project, batch, user_name=_current_actor_label(request))
+        except BatchRevertError:
+            return Response(
+                {'detail': 'This action cannot be reverted.', 'code': 'batch_not_revertible'},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return Response({'detail': 'Reverted.'}, status=status.HTTP_200_OK)
 
 
 class GlobalHistoryListView(APIView):

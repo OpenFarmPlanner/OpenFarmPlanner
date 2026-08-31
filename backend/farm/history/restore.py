@@ -1,12 +1,59 @@
-"""Whole-project point-in-time restore built on recorded entity revisions."""
+"""Point-in-time restore and batch-operation revert, built on recorded
+entity revisions."""
 
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from farm.models import EntityRevision, Project
 
-from .records import _RESTORABLE_ENTITY_TYPES
+from .records import (
+    _ENTITY_TYPE_LABELS,
+    _RESTORABLE_ENTITY_TYPES,
+    _entity_display_name,
+    _serialize_instance,
+    record_entity_revision,
+    start_batch_operation,
+)
+
+_MODEL_BY_ENTITY_TYPE: dict[str, type] = {label: model for model, label in _ENTITY_TYPE_LABELS.items()}
+_ENTITY_TYPE_ORDER: dict[str, int] = {label: index for index, (_m, label) in enumerate(_RESTORABLE_ENTITY_TYPES)}
+
+
+def _model_manager(model):
+    return getattr(model, 'all_objects', None) or model._base_manager
+
+
+def _bulk_create_skipping_conflicts(model, instances: list, object_ids: list[int]) -> set[int]:
+    """Recreate `instances` (aligned with `object_ids`), returning the ids that
+    landed.
+
+    Fast path is one `bulk_create`. It can still fail when two historical
+    snapshots both look "active" and collide on a (possibly partial) unique
+    constraint — which happens when an entity was hard-deleted without an
+    `ACTION_DELETED` revision (e.g. an old demo reset). Then fall back to
+    inserting row by row in savepoints and skip the losers; callers pass the
+    rows newest-id-first, so the most recent snapshot wins.
+    """
+    if not instances:
+        return set()
+    try:
+        with transaction.atomic():
+            model.objects.bulk_create(instances)
+        return set(object_ids)
+    except IntegrityError:
+        pass
+
+    inserted: set[int] = set()
+    for instance, object_id in zip(instances, object_ids):
+        try:
+            with transaction.atomic():
+                model.objects.bulk_create([instance])
+            inserted.add(object_id)
+        except IntegrityError:
+            continue
+    return inserted
 
 
 def _entity_states_at(project: Project, entity_type: str, target_time) -> dict[int, dict[str, Any] | None]:
@@ -25,33 +72,46 @@ def _entity_states_at(project: Project, entity_type: str, target_time) -> dict[i
     return states
 
 
+_SKIP_ON_UPDATE = {'id', 'created_at', 'updated_at'}
+
+
 def _restore_project_state_at(project: Project, target_time) -> None:
-    """Reconstruct every restorable entity type to its state at target_time."""
+    """Roll every restorable entity type back to its state at target_time.
+
+    Works only through recorded revisions and never mass-deletes: a tracked row
+    is *updated in place* to its snapshot (or recreated if it had been
+    deleted). The only rows it removes are ones history positively records as
+    deleted by target_time. Rows history never recorded (the auto
+    "Hauptstandort" default, demo-seeder rows, data predating history) — and
+    entities merely created *after* target_time — are left untouched, so a
+    partial history can't empty a project or orphan its planting plans. The
+    trade-off is deliberate: recovering old state matters more than perfectly
+    un-creating everything newer.
+    """
     restorable_models = {model for model, _entity_type in _RESTORABLE_ENTITY_TYPES}
     with transaction.atomic():
-        for model, _entity_type in reversed(_RESTORABLE_ENTITY_TYPES):
-            manager = getattr(model, 'all_objects', None) or model._base_manager
-            manager.filter(project=project).delete()
+        # 1. Remove tracked rows history records as deleted by target_time.
+        #    Reverse dependency order so a parent's delete cascade never hits a
+        #    child we still have to process.
+        for model, entity_type in reversed(_RESTORABLE_ENTITY_TYPES):
+            states = _entity_states_at(project, entity_type, target_time)
+            gone_at_target = {object_id for object_id, snap in states.items() if snap is None}
+            if gone_at_target:
+                _model_manager(model).filter(project=project, pk__in=gone_at_target).delete()
 
-        created_ids: dict[type, set[int]] = {}
+        # 2. Bring every tracked row that existed at target_time to its
+        #    snapshot — update in place, or recreate if it had been deleted.
+        present_ids: dict[type, set[int]] = {}
         for model, entity_type in _RESTORABLE_ENTITY_TYPES:
+            manager = _model_manager(model)
             allowed_fields = {field.attname for field in model._meta.concrete_fields}
-            # FKs to other restorable types: a DB-level cascade delete of the parent
-            # (e.g. deleting a Location hard-deletes its Fields/Beds) never records an
-            # EntityRevision for the cascaded child, so its last snapshot can still look
-            # "active" even though the row — and its parent — are long gone. Recreating
-            # such an orphan would reference a parent row that was correctly *not*
-            # recreated, violating the FK constraint, so it's dropped here instead.
             restorable_fk_fields = [
                 field for field in model._meta.concrete_fields
                 if field.remote_field is not None and field.remote_field.model in restorable_models
             ]
-            # FKs to non-restorable models (e.g. Culture -> PublicCulture) aren't
-            # touched by this restore, but the referenced row can still have been
-            # hard-deleted since the snapshot was taken. Re-inserting a stale
-            # reference would violate the FK constraint, so — unlike restorable
-            # FKs above, where the whole row is dropped — these are simply nulled
-            # out if the target no longer exists.
+            # FKs to non-restorable models can still dangle if the target row was
+            # hard-deleted since the snapshot — null the (nullable) FK instead of
+            # failing the insert.
             external_fk_fields = [
                 field for field in model._meta.concrete_fields
                 if field.remote_field is not None
@@ -64,28 +124,212 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 )
                 for field in external_fk_fields
             }
+
+            live_ids = set(manager.filter(project=project).values_list('pk', flat=True))
+            present_ids[model] = set(live_ids)
             states = _entity_states_at(project, entity_type, target_time)
-            rows = []
-            ids: set[int] = set()
+            recreate: list[tuple[int, Any]] = []
             for object_id, snapshot in states.items():
                 if snapshot is None:
                     continue
+                # Skip if a parent this row needs was itself not restored.
                 if any(
                     snapshot.get(field.attname) is not None
-                    and snapshot[field.attname] not in created_ids.get(field.remote_field.model, set())
+                    and snapshot[field.attname] not in present_ids.get(field.remote_field.model, set())
                     for field in restorable_fk_fields
                 ):
                     continue
-                # Old snapshots may carry fields since renamed/removed from the model
-                # (schema changes don't rewrite historical JSON) — drop anything the
-                # current model no longer has instead of crashing on an unknown kwarg.
+                # Snapshots may carry fields the model has since dropped — keep
+                # only what still exists rather than crashing on an unknown kwarg.
                 row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
                 for field in external_fk_fields:
-                    if row_data.get(field.attname) is not None and row_data[field.attname] not in existing_external_ids[field.remote_field.model]:
+                    if (
+                        row_data.get(field.attname) is not None
+                        and row_data[field.attname] not in existing_external_ids[field.remote_field.model]
+                    ):
                         row_data[field.attname] = None
                 row_data['project_id'] = project.id
-                rows.append(model(**row_data))
-                ids.add(object_id)
-            if rows:
-                model.objects.bulk_create(rows)
-            created_ids[model] = ids
+                if 'deleted_at' in allowed_fields:
+                    row_data['deleted_at'] = None
+
+                if object_id in live_ids:
+                    manager.filter(pk=object_id).update(
+                        **{key: value for key, value in row_data.items() if key not in _SKIP_ON_UPDATE},
+                    )
+                    present_ids[model].add(object_id)
+                else:
+                    recreate.append((object_id, model(**row_data)))
+
+            # Newest object_id first, so a unique-constraint collision between
+            # two stale snapshots resolves in favour of the most recent one.
+            recreate.sort(key=lambda pair: pair[0], reverse=True)
+            present_ids[model] |= _bulk_create_skipping_conflicts(
+                model,
+                [instance for _object_id, instance in recreate],
+                [object_id for object_id, _instance in recreate],
+            )
+
+
+class BatchRevertError(Exception):
+    """A batch operation can't be reverted (already reverted, unknown entity
+    type, or an insert would violate a constraint)."""
+
+
+_RESTORABLE_MODEL_ENTITY_TYPE: dict[type, str] = {model: label for model, label in _RESTORABLE_ENTITY_TYPES}
+
+
+def _record_cascade_deletions(project: Project, instances: list, batch, user_name: str) -> None:
+    """Record an `ACTION_DELETED` revision for every *restorable* row a DB
+    cascade delete of `instances` would also remove (a planting plan's tasks,
+    say) — so it lands in the same batch and a later restore can bring it back.
+    Does not delete anything; the caller does."""
+    if not instances:
+        return
+    from django.db.models.deletion import Collector
+
+    already = {(type(instance), instance.pk) for instance in instances}
+    collector = Collector(using=instances[0]._state.db or 'default')
+    collector.collect(list(instances))
+
+    dependents: dict[type, set] = {}
+    for model, objs in collector.data.items():
+        dependents.setdefault(model, set()).update(objs)
+    # Leaf models with nothing further to cascade go in `fast_deletes` as
+    # querysets rather than `data` — a plan's tasks land here.
+    for queryset in collector.fast_deletes:
+        dependents.setdefault(queryset.model, set()).update(queryset)
+
+    for model, objs in dependents.items():
+        entity_type = _RESTORABLE_MODEL_ENTITY_TYPE.get(model)
+        if entity_type is None:
+            continue
+        for obj in objs:
+            if (model, obj.pk) in already:
+                continue
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=obj.pk,
+                action=EntityRevision.ACTION_DELETED,
+                snapshot=_serialize_instance(obj),
+                display_name=_entity_display_name(obj),
+                changed_fields=[], user_name=user_name, batch_operation=batch,
+            )
+
+
+def _row_data_from_snapshot(model, snapshot: dict, project: Project) -> dict:
+    concrete = {field.attname for field in model._meta.concrete_fields}
+    row = {key: value for key, value in snapshot.items() if key in concrete}
+    row['project_id'] = project.id
+    if 'deleted_at' in concrete:
+        row['deleted_at'] = None
+    for field in model._meta.concrete_fields:
+        related_id = row.get(field.attname)
+        if field.remote_field is None or related_id is None:
+            continue
+        if not _model_manager(field.remote_field.model).filter(pk=related_id).exists():
+            row[field.attname] = None
+    return row
+
+
+def revert_batch_operation(project: Project, batch, *, user_name: str = '') -> None:
+    """Undo a whole `BatchOperation`: every entity it touched goes back to its
+    state just before the batch. `created` entities are deleted, `deleted` ones
+    recreated, `updated`/`restored` ones rolled back to the prior revision.
+
+    Idempotent — applying it again when the entities are already at their
+    pre-batch state is a no-op — and it composes: reverting a `batch_reverted`
+    batch re-applies the original action.
+    """
+    revisions = list(batch.revisions.all())
+    if not revisions:
+        raise BatchRevertError('empty batch')
+
+    first_batch_id: dict[tuple[str, int], int] = {}
+    for revision in revisions:
+        key = (revision.entity_type, revision.object_id)
+        first_batch_id[key] = min(first_batch_id.get(key, revision.id), revision.id)
+
+    to_delete: list[tuple[str, int]] = []
+    to_write: list[tuple[str, int, dict]] = []
+    for revision in revisions:
+        if revision.entity_type not in _MODEL_BY_ENTITY_TYPE:
+            raise BatchRevertError(revision.entity_type)
+        key = (revision.entity_type, revision.object_id)
+        if revision.action == EntityRevision.ACTION_CREATED:
+            to_delete.append(key)
+            continue
+        if revision.action == EntityRevision.ACTION_DELETED:
+            to_write.append((revision.entity_type, revision.object_id, revision.snapshot))
+            continue
+        prior = (
+            EntityRevision.objects
+            .filter(
+                project=project, entity_type=revision.entity_type,
+                object_id=revision.object_id, id__lt=first_batch_id[key],
+            )
+            .order_by('-id')
+            .first()
+        )
+        if prior is None or prior.action == EntityRevision.ACTION_DELETED:
+            to_delete.append(key)
+        else:
+            to_write.append((revision.entity_type, revision.object_id, prior.snapshot))
+
+    with transaction.atomic():
+        revert_batch = start_batch_operation(
+            project=project,
+            operation_type='batch_reverted',
+            context={'reverted_operation_type': batch.operation_type, **(batch.context or {})},
+            user_name=user_name,
+        )
+
+        # Children first so a parent's cascade never races us.
+        for entity_type, object_id in sorted(
+            to_delete, key=lambda pair: -_ENTITY_TYPE_ORDER.get(pair[0], 999),
+        ):
+            model = _MODEL_BY_ENTITY_TYPE[entity_type]
+            instance = _model_manager(model).filter(project=project, pk=object_id).first()
+            if instance is None:
+                continue
+            snapshot = _serialize_instance(instance)
+            display_name = _entity_display_name(instance)
+            # Rows a DB cascade would take with it (plans added to the season
+            # after it was created, their tasks) get their own revision so the
+            # revert stays reversible.
+            _record_cascade_deletions(project, [instance], revert_batch, user_name)
+            _model_manager(model).filter(pk=object_id).delete()
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=object_id,
+                action=EntityRevision.ACTION_DELETED, snapshot=snapshot,
+                display_name=display_name, changed_fields=[], user_name=user_name,
+                batch_operation=revert_batch,
+            )
+
+        # Parents first for the recreates/updates.
+        for entity_type, object_id, snapshot in sorted(
+            to_write, key=lambda item: _ENTITY_TYPE_ORDER.get(item[0], 999),
+        ):
+            model = _MODEL_BY_ENTITY_TYPE[entity_type]
+            manager = _model_manager(model)
+            row = _row_data_from_snapshot(model, snapshot, project)
+            if manager.filter(project=project, pk=object_id).exists():
+                manager.filter(pk=object_id).update(
+                    **{key: value for key, value in row.items() if key not in _SKIP_ON_UPDATE},
+                )
+                action = EntityRevision.ACTION_UPDATED
+            else:
+                try:
+                    with transaction.atomic():
+                        model.objects.bulk_create([model(**row)])
+                except IntegrityError as exc:
+                    raise BatchRevertError(entity_type) from exc
+                action = EntityRevision.ACTION_RESTORED
+            instance = manager.filter(pk=object_id).select_related().first()
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=object_id,
+                action=action, snapshot=_serialize_instance(instance) if instance else snapshot,
+                display_name=_entity_display_name(instance) if instance else '',
+                changed_fields=[], user_name=user_name, batch_operation=revert_batch,
+            )
+
+        batch.reverted_at = timezone.now()
+        batch.save(update_fields=['reverted_at'])

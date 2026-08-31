@@ -128,6 +128,7 @@ export const cultureAPI = {
   globalRestore: (history_id: number) => http.post<Culture>('/history/global/restore/', { history_id }),
   projectHistory: () => http.get<CultureHistoryEntry[]>('/history/project/'),
   projectRestore: (history_id: number) => http.post<{ detail: string }>('/history/project/restore/', { history_id }),
+  revertBatch: (batch_id: number) => http.post<{ detail: string }>(`/history/batch/${batch_id}/revert/`, {}),
   // Legacy import flow split into preview/apply endpoints.
   importPreview: (data: Record<string, unknown>[]) => http.post<{
     results: Array<{

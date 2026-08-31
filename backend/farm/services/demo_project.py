@@ -15,10 +15,12 @@ from config.languages import UI_LANGUAGE_AUTO, normalize_language_tag, parse_acc
 from crops.models import CropSpecies
 from crops.services import find_species_by_common_name
 from farm.models import (
+    BatchOperation,
     Bed,
     BedLayout,
     Culture,
     CultureSupplierData,
+    EntityRevision,
     Field,
     FieldLayout,
     Location,
@@ -216,6 +218,12 @@ def reset_project_demo_data(project: Project) -> None:
     SeedPackage.objects.filter(project=project).delete()
     Culture.all_objects.filter(project=project).delete()
     Supplier.objects.filter(project=project).delete()
+    # These hard deletes record no ACTION_DELETED revisions, so any surviving
+    # history would still describe the wiped rows as "active" and make a later
+    # point-in-time restore recreate them (and collide on unique constraints).
+    # A demo reset is a clean slate — drop the project's history too.
+    EntityRevision.objects.filter(project=project).delete()
+    BatchOperation.objects.filter(project=project).delete()
 
 
 def is_demo_project_description(description: str | None) -> bool:

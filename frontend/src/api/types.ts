@@ -851,6 +851,12 @@ export interface CultureHistoryEntry {
   actor_label?: string | null;
   is_current_version?: boolean;
   changes?: CultureHistoryChange[];
+  /** Project history only: this entry groups a cascading action's revisions. */
+  is_batch?: boolean;
+  batch_id?: number;
+  batch_operation_type?: string;
+  batch_context?: Record<string, unknown>;
+  children?: CultureHistoryEntry[];
 }
 
 export interface CultureHistoryChange {

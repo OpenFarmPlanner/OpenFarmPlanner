@@ -26,6 +26,10 @@ PLANTING_PLAN_COPY_FIELDS = (
     'notes',
 )
 
+# Date fields on a copied PlantingPlan that are shifted forward so the copy
+# lands in the target season's own period instead of the source season's.
+PLANTING_PLAN_SHIFTED_DATE_FIELDS = ('planting_date', 'harvest_date', 'harvest_end_date')
+
 
 def get_or_create_season_pattern(project: Project) -> SeasonPattern:
     """Return the project's season pattern, creating a Jan 1 default if missing."""
@@ -77,29 +81,58 @@ def compute_due_season_period(project: Project, today: date | None = None) -> tu
 
 
 def find_due_but_missing_season(project: Project, today: date | None = None) -> tuple[date, date] | None:
-    """Return the due season period if it isn't an existing Season yet, else None."""
-    due_start, due_end = compute_due_season_period(project, today)
-    exists = Season.objects.filter(project=project, start_date=due_start).exists()
-    return None if exists else (due_start, due_end)
+    """Return the next season period that can be created for ``project``.
+
+    Once a project has seasons, the suggestion follows its chronologically
+    latest season rather than the period containing today's date. Projects
+    without a season retain the initial suggestion for the current period.
+    """
+    latest_season = Season.objects.filter(project=project).order_by('-start_date').first()
+    if latest_season is None:
+        due_start, due_end = compute_due_season_period(project, today)
+        return due_start, due_end
+
+    pattern = get_or_create_season_pattern(project)
+    anchor_year = latest_season.start_date.year + 1
+    next_start, next_end = compute_season_period(pattern, anchor_year)
+    while next_start <= latest_season.end_date:
+        anchor_year += 1
+        next_start, next_end = compute_season_period(pattern, anchor_year)
+
+    overlaps_existing = Season.objects.filter(
+        project=project,
+        start_date__lte=next_end,
+        end_date__gte=next_start,
+    ).exists()
+    return None if overlaps_existing else (next_start, next_end)
 
 
-def copy_planting_plans(*, source_season: Season, target_season: Season) -> int:
+def copy_planting_plans(*, source_season: Season, target_season: Season) -> list[PlantingPlan]:
     """Copy all planting plans from `source_season` into `target_season`, additively.
 
+    Planting, harvest and harvest-end dates are shifted forward (or back) by the
+    whole-year gap between the two seasons' start dates, so the copies land in
+    the target season's own period. Feb 29 is clamped to Feb 28 when the shifted
+    year is not a leap year.
+
     Existing planting plans already in `target_season` are left untouched —
-    this only ever appends copies of the source season's plans.
+    this only ever appends copies of the source season's plans. Returns the
+    created plans so the caller can record revisions for them.
     """
+    year_offset = target_season.start_date.year - source_season.start_date.year
+    month_offset = year_offset * 12
+
+    def shifted(value: date | None) -> date | None:
+        return None if value is None else add_months(value, month_offset)
+
     source_plans = PlantingPlan.objects.filter(season=source_season)
-    new_plans = [
-        PlantingPlan(
-            project=target_season.project,
-            season=target_season,
-            **{field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS},
-        )
-        for plan in source_plans
-    ]
-    PlantingPlan.objects.bulk_create(new_plans)
-    return len(new_plans)
+    new_plans = []
+    for plan in source_plans:
+        fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
+        for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
+            fields[date_field] = shifted(fields[date_field])
+        new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
+    return PlantingPlan.objects.bulk_create(new_plans)
 
 
 def get_or_create_season_for_period(

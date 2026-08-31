@@ -6,6 +6,7 @@ from typing import Any
 from django.core.serializers.json import DjangoJSONEncoder
 
 from farm.models import (
+    BatchOperation,
     Bed,
     BedLayout,
     Culture,
@@ -18,6 +19,7 @@ from farm.models import (
     NoteAttachment,
     PlantingPlan,
     Project,
+    Season,
     SeedPackage,
     Supplier,
     Task,
@@ -34,6 +36,7 @@ _RESTORABLE_ENTITY_TYPES: list[tuple[type, str]] = [
     (FieldLayout, 'field_layout'),
     (Supplier, 'supplier'),
     (Culture, 'culture'),
+    (Season, 'season'),
     (PlantingPlan, 'planting_plan'),
     (Task, 'task'),
     (NoteAttachment, 'note_attachment'),
@@ -94,7 +97,29 @@ def _entity_display_name(instance) -> str:
         return format_culture_display_name(instance.culture.name, instance.culture.variety) if instance.culture_id else ''
     if isinstance(instance, Task):
         return instance.title or ''
+    if isinstance(instance, Season):
+        return instance.label or ''
     return getattr(instance, 'name', None) or ''
+
+
+def start_batch_operation(
+    *,
+    project: Project,
+    operation_type: str,
+    context: dict[str, Any] | None = None,
+    user_name: str = '',
+) -> BatchOperation:
+    """Create a BatchOperation to group the revisions of one cascading action.
+
+    Pass the returned instance as `batch_operation` to every
+    `record_entity_revision` / `record_revision` call the action triggers.
+    """
+    return BatchOperation.objects.create(
+        project=project,
+        operation_type=operation_type,
+        context=context or {},
+        user_name=user_name or '',
+    )
 
 
 def record_entity_revision(
@@ -107,6 +132,7 @@ def record_entity_revision(
     display_name: str = '',
     changed_fields: list[str] | None = None,
     user_name: str = '',
+    batch_operation: BatchOperation | None = None,
 ) -> None:
     EntityRevision.objects.create(
         project=project,
@@ -117,6 +143,7 @@ def record_entity_revision(
         snapshot=snapshot,
         changed_fields=changed_fields if changed_fields is not None else ([EntityRevision.ACTION_CREATED] if action == EntityRevision.ACTION_CREATED else []),
         user_name=user_name or '',
+        batch_operation=batch_operation,
     )
 
 

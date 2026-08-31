@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Max
 from django.utils import timezone
 
-from farm.models import CultureRevision, EntityRevision, ProjectRevision
+from farm.models import BatchOperation, CultureRevision, EntityRevision, ProjectRevision
 
 
 class Command(BaseCommand):
@@ -34,9 +34,19 @@ class Command(BaseCommand):
 
         deleted_culture, _ = CultureRevision.objects.filter(created_at__lt=cutoff).delete()
         deleted_project, _ = ProjectRevision.objects.filter(created_at__lt=cutoff).delete()
+
+        # Drop batch operations whose revisions have all been pruned (or NULLed
+        # via SET_NULL) — an empty group carries no history value.
+        deleted_batches, _ = (
+            BatchOperation.objects
+            .filter(created_at__lt=cutoff, revisions__isnull=True)
+            .delete()
+        )
+
         self.stdout.write(
             self.style.SUCCESS(
-                f'Deleted {deleted_entity} entity, {deleted_culture} legacy culture and '
-                f'{deleted_project} legacy project historical records.'
+                f'Deleted {deleted_entity} entity, {deleted_culture} legacy culture, '
+                f'{deleted_project} legacy project historical records and '
+                f'{deleted_batches} empty batch operations.'
             )
         )

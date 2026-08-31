@@ -36,6 +36,52 @@ class ProjectRevision(models.Model):
         ]
 
 
+class BatchOperation(models.Model):
+    """Groups the EntityRevisions produced by one cascading user action.
+
+    A single user action can cascade into many entity mutations — deleting a
+    season, for instance, also deletes every planting plan scheduled in it,
+    recording one EntityRevision per plan. A BatchOperation ties those
+    revisions together so the version history shows them as one entry with a
+    single "undo" that reverts the whole action.
+
+    Deliberately generic: only `operation_type` and `context` vary, so future
+    cascades (applying a season pattern, crop-rotation batch edits) reuse this
+    without a schema change. `context` carries whatever the frontend needs to
+    phrase the summary (e.g. `{"season_label": "25/26"}`).
+    """
+
+    TYPE_SEASON_CREATE = 'season_create'
+    TYPE_SEASON_DELETE = 'season_delete'
+    TYPE_SEASON_UNDELETE = 'season_undelete'
+    TYPE_SEASON_COPY_DATA = 'season_copy_data'
+    TYPE_REVERTED = 'batch_reverted'
+    TYPE_CHOICES = [
+        (TYPE_SEASON_CREATE, 'Season created'),
+        (TYPE_SEASON_DELETE, 'Season deleted'),
+        (TYPE_SEASON_UNDELETE, 'Season restored'),
+        (TYPE_SEASON_COPY_DATA, 'Season data copied'),
+        (TYPE_REVERTED, 'Batch operation reverted'),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='batch_operations')
+    operation_type = models.CharField(max_length=40, choices=TYPE_CHOICES)
+    context = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    user_name = models.CharField(max_length=150, blank=True)
+    reverted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['project', '-created_at']),
+        ]
+
+    def __str__(self) -> str:
+        """Return a short description for admin and debug output."""
+        return f'{self.operation_type} #{self.pk}'
+
+
 class EntityRevision(models.Model):
     """Per-entity snapshot recorded on every create/update/delete/restore.
 
@@ -46,6 +92,10 @@ class EntityRevision(models.Model):
     with entity size instead of project size. Point-in-time project restore is
     reconstructed by taking, for every (entity_type, object_id), the latest
     revision at or before the target time.
+
+    `batch_operation` is set when the revision was produced as part of a
+    cascading action (see `BatchOperation`); it stays NULL for ordinary
+    single-entity edits.
     """
 
     ACTION_CREATED = 'created'
@@ -68,6 +118,13 @@ class EntityRevision(models.Model):
     changed_fields = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     user_name = models.CharField(max_length=150, blank=True)
+    batch_operation = models.ForeignKey(
+        BatchOperation,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='revisions',
+    )
 
     class Meta:
         ordering = ['-created_at']

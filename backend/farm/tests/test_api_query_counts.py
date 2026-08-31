@@ -191,3 +191,25 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
     def test_seasons_list_query_count(self):
         """`planting_plan_count` is a page-wide annotation, not a per-row lookup."""
         self.assert_list_query_count('/openfarmplanner/api/seasons/', 5)
+
+    def test_project_history_list_query_count(self):
+        """`/history/project/` groups revisions by `batch_operation`; the FK is
+        `select_related`, so the cost stays constant no matter how many batches
+        (here: three deleted seasons, each cascading to three plans)."""
+        for index in range(ROW_COUNT):
+            season = Season.objects.create(
+                project=self.project,
+                start_date=date(2030 + index, 1, 1),
+                end_date=date(2030 + index, 12, 31),
+            )
+            for day in (1, 8, 15):
+                PlantingPlan.objects.create(
+                    culture=self.culture, bed=self.bed, project=self.project,
+                    season=season, planting_date=date(2030 + index, 4, day),
+                )
+            self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+
+        with self.assertNumQueries(4):
+            response = self.client.get('/openfarmplanner/api/history/project/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(sum(1 for entry in response.data if entry.get('is_batch')), ROW_COUNT)

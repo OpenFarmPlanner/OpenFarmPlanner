@@ -11,12 +11,20 @@ import {
   getStoredActiveSeasonId,
   setStoredActiveSeasonId,
 } from './activeSeasonStorage';
+import {
+  readPendingSeasonDeletions,
+  writePendingSeasonDeletions,
+} from './pendingSeasonDeletionStorage';
 
 export interface PendingSeasonDeletion {
   id: string;
   seasonId: number;
   message: string;
   visible: boolean;
+  /** Epoch ms the undo window closes at — also used to persist across reload. */
+  expiresAt: number;
+  /** The deleted season was the active one, so undo must switch back to it. */
+  restoreAsActive: boolean;
 }
 
 export function useActiveSeason() {
@@ -26,7 +34,9 @@ export function useActiveSeason() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dueSuggestion, setDueSuggestion] = useState<SeasonDueSuggestion | null>(null);
-  const [pendingDeletions, setPendingDeletions] = useState<PendingSeasonDeletion[]>([]);
+  const [pendingDeletions, setPendingDeletions] = useState<PendingSeasonDeletion[]>(
+    () => readPendingSeasonDeletions().map((entry) => ({ ...entry, visible: true })),
+  );
   const pendingDeleteTimersRef = useRef<Map<string, number>>(new Map());
 
   const activeSeasonId = activeProjectId ? getStoredActiveSeasonId(activeProjectId) : null;
@@ -40,6 +50,18 @@ export function useActiveSeason() {
     // missing, stale, or has never been set.
     return stored ?? seasons[0];
   }, [seasons, activeSeasonId]);
+
+  // Keep the persisted id pointing at whatever season is actually active, so
+  // the `X-Season-Id` request header (read straight from localStorage in
+  // httpClient) never goes missing while the project has seasons — otherwise
+  // planting-plan endpoints silently fall back to returning every season's
+  // data. Covers a stored id that was cleared (active season deleted) or has
+  // gone stale.
+  useEffect(() => {
+    if (activeProjectId && activeSeason && activeSeason.id !== activeSeasonId) {
+      setStoredActiveSeasonId(activeProjectId, activeSeason.id);
+    }
+  }, [activeProjectId, activeSeason, activeSeasonId]);
 
   const reload = useCallback(async () => {
     if (!activeProjectId) {
@@ -113,22 +135,48 @@ export function useActiveSeason() {
   }, [removePendingDeletion]);
 
   const deleteSeason = useCallback(async (season: Season): Promise<void> => {
+    const wasActive = activeSeason?.id === season.id;
     await seasonAPI.delete(season.id);
-    if (activeProjectId && activeSeasonId === season.id) {
-      clearStoredActiveSeasonId(activeProjectId);
-    }
-    await reload();
 
     const deletionId = createTransientId('season', season.id);
-    setPendingDeletions((current) => [...current, {
+    const pending: PendingSeasonDeletion = {
       id: deletionId,
       seasonId: season.id,
       message: t('navigation:seasonSwitcher.deleted', { label: season.label }),
       visible: true,
-    }]);
-    const timerId = window.setTimeout(() => expirePendingDeletion(deletionId), DELETE_UNDO_DURATION_MS);
-    pendingDeleteTimersRef.current.set(deletionId, timerId);
-  }, [activeProjectId, activeSeasonId, expirePendingDeletion, reload, t]);
+      expiresAt: Date.now() + DELETE_UNDO_DURATION_MS,
+      restoreAsActive: wasActive,
+    };
+
+    if (wasActive && activeProjectId) {
+      // Deleting the active season changes the active-season context, which
+      // the app only ever applies through a full reload (see switchSeason).
+      // Point the stored id at the best remaining season first so the reloaded
+      // app lands there, and stash the pending deletion so the undo snackbar
+      // survives the reload.
+      const fallback = seasons.find((candidate) => candidate.id !== season.id) ?? null;
+      if (fallback) {
+        setStoredActiveSeasonId(activeProjectId, fallback.id);
+      } else {
+        clearStoredActiveSeasonId(activeProjectId);
+      }
+      writePendingSeasonDeletions([
+        ...readPendingSeasonDeletions(),
+        {
+          id: pending.id,
+          seasonId: pending.seasonId,
+          message: pending.message,
+          expiresAt: pending.expiresAt,
+          restoreAsActive: true,
+        },
+      ]);
+      window.location.reload();
+      return;
+    }
+
+    await reload();
+    setPendingDeletions((current) => [...current, pending]);
+  }, [activeProjectId, activeSeason, reload, seasons, t]);
 
   const undoPendingDeletion = useCallback(async (deletionId: string): Promise<void> => {
     const deletion = pendingDeletions.find((pending) => pending.id === deletionId);
@@ -142,14 +190,47 @@ export function useActiveSeason() {
     }
     await seasonAPI.undelete(deletion.seasonId);
     removePendingDeletion(deletionId);
+    if (deletion.restoreAsActive && activeProjectId) {
+      // We bounced off this season when it was deleted — go back to it. Clear
+      // the stashed entry synchronously: the effect that mirrors state to
+      // sessionStorage won't get to run before the reload, so without this the
+      // snackbar would come back for an already-restored season.
+      writePendingSeasonDeletions(
+        readPendingSeasonDeletions().filter((entry) => entry.id !== deletionId),
+      );
+      setStoredActiveSeasonId(activeProjectId, deletion.seasonId);
+      window.location.reload();
+      return;
+    }
     await reload();
-  }, [pendingDeletions, removePendingDeletion, reload]);
+  }, [activeProjectId, pendingDeletions, removePendingDeletion, reload]);
 
   const closePendingDeletionSnackbar = useCallback((deletionId: string) => {
     setPendingDeletions((current) => current.map((deletion) => (
       deletion.id === deletionId ? { ...deletion, visible: false } : deletion
     )));
   }, []);
+
+  // Mirror pending deletions to sessionStorage so an in-flight undo survives a
+  // reload, and (re)arm each entry's expiry timer — including for entries
+  // rehydrated from storage after the reload that active-season deletion does.
+  useEffect(() => {
+    writePendingSeasonDeletions(pendingDeletions.map((deletion) => ({
+      id: deletion.id,
+      seasonId: deletion.seasonId,
+      message: deletion.message,
+      expiresAt: deletion.expiresAt,
+      restoreAsActive: deletion.restoreAsActive,
+    })));
+    pendingDeletions.forEach((deletion) => {
+      if (pendingDeleteTimersRef.current.has(deletion.id)) {
+        return;
+      }
+      const remaining = Math.max(0, deletion.expiresAt - Date.now());
+      const timerId = window.setTimeout(() => expirePendingDeletion(deletion.id), remaining);
+      pendingDeleteTimersRef.current.set(deletion.id, timerId);
+    });
+  }, [pendingDeletions, expirePendingDeletion]);
 
   useEffect(() => {
     const timers = pendingDeleteTimersRef.current;

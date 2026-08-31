@@ -2,10 +2,11 @@
 
 from datetime import date
 
-from farm.models import PlantingPlan, Season, SeasonPattern
+from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.services.demo_project import populate_demo_project
 from farm.services.hint_test_project import populate_hint_test_project
 from farm.services.seasons import (
+    add_months,
     assign_unassigned_planting_plans,
     compute_due_season_period,
     compute_period_containing,
@@ -60,6 +61,46 @@ class SeasonPatternMathTest(ProjectApiTestCase):
         self.assertEqual(periods[1]['start_date'], date(2026, 1, 1))
         self.assertEqual(periods[1]['end_date'], date(2026, 12, 31))
 
+    def test_next_suggestion_follows_latest_season_independent_of_today(self):
+        SeasonPattern.objects.update_or_create(
+            project=self.project,
+            defaults={'start_day': 1, 'start_month': 9},
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2024, 9, 1),
+            end_date=date(2025, 8, 31),
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+
+        suggestion = find_due_but_missing_season(self.project, today=date(2026, 2, 1))
+
+        self.assertEqual(suggestion, (date(2026, 9, 1), date(2027, 8, 31)))
+
+    def test_next_suggestion_advances_after_future_season_is_created(self):
+        SeasonPattern.objects.update_or_create(
+            project=self.project,
+            defaults={'start_day': 1, 'start_month': 9},
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2026, 9, 1),
+            end_date=date(2027, 8, 31),
+        )
+
+        suggestion = find_due_but_missing_season(self.project, today=date(2026, 2, 1))
+
+        self.assertEqual(suggestion, (date(2027, 9, 1), date(2028, 8, 31)))
+
 
 class SeasonCopyServiceTest(ProjectApiTestCase):
     def test_copy_is_additive_not_replacing(self):
@@ -72,12 +113,38 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
             culture=self.culture, bed=self.bed, project=self.project, season=target, planting_date=date(2027, 4, 1),
         )
 
-        copied_count = copy_planting_plans(source_season=source, target_season=target)
+        created_plans = copy_planting_plans(source_season=source, target_season=target)
 
-        self.assertEqual(copied_count, 1)
+        self.assertEqual(len(created_plans), 1)
         target_plans = PlantingPlan.objects.filter(season=target)
         self.assertEqual(target_plans.count(), 2)
         self.assertTrue(target_plans.filter(pk=existing_target_plan.pk).exists())
+
+    def test_copy_shifts_dates_into_the_target_seasons_year(self):
+        source = Season.objects.create(project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2027, 9, 1), end_date=date(2028, 8, 31))
+        original = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2026, 4, 1),
+        )
+
+        copy_planting_plans(source_season=source, target_season=target)
+
+        copied = PlantingPlan.objects.get(season=target)
+        self.assertEqual(copied.planting_date, date(2028, 4, 1))
+        self.assertEqual(copied.harvest_date, add_months(original.harvest_date, 24))
+        self.assertEqual(copied.harvest_end_date, add_months(original.harvest_end_date, 24))
+
+    def test_copy_clamps_leap_day_when_shifted_year_is_not_a_leap_year(self):
+        source = Season.objects.create(project=self.project, start_date=date(2024, 1, 1), end_date=date(2024, 12, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2025, 1, 1), end_date=date(2025, 12, 31))
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source, planting_date=date(2024, 2, 29),
+        )
+
+        copy_planting_plans(source_season=source, target_season=target)
+
+        self.assertEqual(PlantingPlan.objects.get(season=target).planting_date, date(2025, 2, 28))
 
 
 class SeasonApiTest(ProjectApiTestCase):
@@ -98,6 +165,293 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(undelete_response.status_code, 200)
         self.assertTrue(Season.objects.filter(pk=season_id).exists())
 
+    def test_whole_project_restore_rebuilds_seasons_and_keeps_plans_linked(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        rename = self.client.patch(
+            f'/openfarmplanner/api/seasons/{season.pk}/', {'custom_label': 'Ursprung'},
+        )
+        self.assertEqual(rename.status_code, 200)
+        restore_point = self.client.get('/openfarmplanner/api/history/project/').json()[0]['history_id']
+
+        self.client.patch(f'/openfarmplanner/api/seasons/{season.pk}/', {'custom_label': 'Geändert'})
+        restore = self.client.post(
+            '/openfarmplanner/api/history/project/restore/', {'history_id': restore_point},
+        )
+
+        self.assertEqual(restore.status_code, 200, restore.data)
+        season.refresh_from_db()
+        self.assertEqual(season.custom_label, 'Ursprung')
+        # The plan stayed attached to the (rebuilt) season, not orphaned.
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan.pk, season=season).exists())
+
+    def test_deleting_a_season_records_and_restores_its_plans_tasks(self):
+        from farm.models import Task
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        task_id = Task.objects.create(
+            project=self.project, planting_plan=plan, title='Aussäen',
+        ).pk
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertEqual(Task.objects.filter(pk=task_id).count(), 0)
+        self.assertTrue(
+            EntityRevision.objects.filter(
+                project=self.project, entity_type='task', object_id=task_id,
+                action=EntityRevision.ACTION_DELETED,
+            ).exists()
+        )
+
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+        restored = Task.objects.get(pk=task_id)
+        self.assertEqual(restored.title, 'Aussäen')
+        self.assertEqual(restored.planting_plan_id, plan.pk)
+
+    def test_reverting_season_create_records_the_cascade_deleted_plans(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project,
+            season_id=season_id, planting_date=date(2026, 4, 1),
+        ).pk
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_create')
+
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
+        self.assertEqual(PlantingPlan.objects.filter(pk=plan_id).count(), 0)
+
+        # The plan the DB cascade removed is recorded on the revert batch, so
+        # reverting the revert brings both season and plan back.
+        revert_batch = BatchOperation.objects.filter(
+            project=self.project, operation_type='batch_reverted',
+        ).latest('id')
+        self.assertTrue(
+            revert_batch.revisions.filter(
+                entity_type='planting_plan', object_id=plan_id,
+                action=EntityRevision.ACTION_DELETED,
+            ).exists()
+        )
+        second = self.client.post(f'/openfarmplanner/api/history/batch/{revert_batch.pk}/revert/')
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertTrue(Season.objects.filter(pk=season_id).exists())
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan_id, season_id=season_id).exists())
+
+    def test_undelete_nulls_a_planting_plan_fk_whose_target_is_gone(self):
+        from farm.models import Bed
+        bed = Bed.objects.create(project=self.project, field=self.field, name='Doomed', area_sqm=5)
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        ).pk
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        bed.delete()
+
+        response = self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        restored = PlantingPlan.objects.get(pk=plan_id)
+        self.assertIsNone(restored.bed_id)
+        self.assertEqual(restored.season_id, season.pk)
+
+    def test_recreating_a_seasons_period_also_restores_its_planting_plans(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        ).pk
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertEqual(PlantingPlan.objects.filter(pk=plan_id).count(), 0)
+
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+
+        self.assertEqual(create.status_code, 201)
+        self.assertEqual(create.data['id'], season.pk)
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan_id, season_id=season.pk).exists())
+
+    def test_deleting_a_season_deletes_its_planting_plans_and_undelete_restores_them(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_ids = [
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                planting_date=date(2026, 4, day),
+            ).pk
+            for day in (1, 8, 15)
+        ]
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+
+        self.assertEqual(PlantingPlan.objects.filter(pk__in=plan_ids).count(), 0)
+        self.assertEqual(
+            EntityRevision.objects.filter(
+                project=self.project, entity_type='planting_plan',
+                object_id__in=plan_ids, action=EntityRevision.ACTION_DELETED,
+            ).count(),
+            3,
+        )
+
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        restored = PlantingPlan.objects.filter(season=season)
+        self.assertEqual(sorted(restored.values_list('pk', flat=True)), sorted(plan_ids))
+        self.assertEqual(
+            {plan.planting_date for plan in restored},
+            {date(2026, 4, 1), date(2026, 4, 8), date(2026, 4, 15)},
+        )
+
+    def test_season_delete_groups_its_cascade_into_one_batch_operation(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        for day in (1, 8, 15):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                planting_date=date(2026, 4, day),
+            )
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_delete')
+        self.assertEqual(batch.context, {'season_label': season.label})
+        # 1 season revision + 3 planting-plan revisions, all in the same batch.
+        self.assertEqual(batch.revisions.count(), 4)
+        self.assertEqual(
+            batch.revisions.filter(entity_type='planting_plan').count(), 3,
+        )
+        self.assertEqual(
+            batch.revisions.filter(entity_type='season', object_id=season.pk).count(), 1,
+        )
+        # Nothing from this cascade was left ungrouped.
+        self.assertFalse(
+            EntityRevision.objects
+            .filter(project=self.project, batch_operation__isnull=True)
+            .filter(entity_type__in=['season', 'planting_plan'])
+            .exists()
+        )
+
+        history = self.client.get('/openfarmplanner/api/history/project/').json()
+        batch_entries = [entry for entry in history if entry.get('is_batch')]
+        self.assertEqual(len(batch_entries), 1)
+        self.assertEqual(batch_entries[0]['batch_operation_type'], 'season_delete')
+        self.assertEqual(len(batch_entries[0]['children']), 4)
+        child_ids = {child['history_id'] for child in batch_entries[0]['children']}
+        self.assertEqual(child_ids, set(batch.revisions.values_list('id', flat=True)))
+
+    def test_copy_from_records_grouped_created_revisions_for_copied_plans(self):
+        source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
+        target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
+        for day in (1, 8):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project, season=source,
+                planting_date=date(2026, 4, day),
+            )
+
+        response = self.client.post(f'/openfarmplanner/api/seasons/{target.pk}/copy-from/', {
+            'source_season_id': source.pk,
+        })
+
+        self.assertEqual(response.data['copied_count'], 2)
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_copy_data')
+        self.assertEqual(batch.context['target_season_label'], target.label)
+        self.assertEqual(
+            batch.revisions.filter(action=EntityRevision.ACTION_CREATED, entity_type='planting_plan').count(),
+            2,
+        )
+
+    def test_reverting_a_season_delete_batch_brings_season_and_plans_back(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        plan_ids = [
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season_id=season_id, planting_date=date(2026, 4, day),
+            ).pk
+            for day in (1, 8)
+        ]
+        self.client.delete(f'/openfarmplanner/api/seasons/{season_id}/')
+        self.assertFalse(Season.objects.filter(pk=season_id).exists())
+        self.assertEqual(PlantingPlan.objects.filter(pk__in=plan_ids).count(), 0)
+
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_delete')
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertTrue(Season.objects.filter(pk=season_id).exists())
+        self.assertEqual(
+            sorted(PlantingPlan.objects.filter(season_id=season_id).values_list('pk', flat=True)),
+            sorted(plan_ids),
+        )
+
+        # Reverting the revert re-applies the deletion.
+        revert_batch = BatchOperation.objects.filter(
+            project=self.project, operation_type='batch_reverted',
+        ).latest('id')
+        second = self.client.post(f'/openfarmplanner/api/history/batch/{revert_batch.pk}/revert/')
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertFalse(Season.objects.filter(pk=season_id).exists())
+
+    def test_reverting_a_season_create_batch_deletes_the_season(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_create')
+
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
+        # Reverting again is idempotent, not an error.
+        self.assertEqual(
+            self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/').status_code, 200,
+        )
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
+
+    def test_undelete_leaves_individually_deleted_plans_deleted(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        kept = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        removed = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 5, 1),
+        )
+        self.client.delete(f'/openfarmplanner/api/planting-plans/{removed.pk}/')
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        self.assertEqual(
+            list(PlantingPlan.objects.filter(season=season).values_list('pk', flat=True)),
+            [kept.pk],
+        )
+
     def test_copy_from_endpoint_is_additive(self):
         source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
         target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
@@ -111,6 +465,40 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['copied_count'], 1)
         self.assertEqual(response.data['target_planting_plan_count'], 1)
+
+    def test_create_resurrects_a_soft_deleted_season_for_the_same_period(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+        )
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertFalse(Season.objects.filter(pk=season.pk).exists())
+
+        response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-09-01', 'end_date': '2027-08-31',
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['id'], season.pk)
+        self.assertTrue(Season.objects.filter(pk=season.pk).exists())
+        self.assertEqual(Season.all_objects.filter(project=self.project).count(), 1)
+
+    def test_create_rejects_duplicate_or_overlapping_period(self):
+        Season.objects.create(
+            project=self.project,
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+
+        duplicate_response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2025-09-01', 'end_date': '2026-08-31',
+        })
+        overlap_response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-08-01', 'end_date': '2027-07-31',
+        })
+
+        self.assertEqual(duplicate_response.status_code, 400)
+        self.assertEqual(overlap_response.status_code, 400)
+        self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
 
     def test_planting_plans_can_be_filtered_by_season_header(self):
         season_a = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
@@ -197,13 +585,16 @@ class SeasonSetupApiTest(ProjectApiTestCase):
         pattern = SeasonPattern.objects.get(project=self.project)
         self.assertEqual((pattern.start_day, pattern.start_month), (1, 1))
 
-    def test_due_suggestion_hidden_once_season_exists(self):
+    def test_due_suggestion_advances_once_season_exists(self):
         start_date, end_date = compute_due_season_period(self.project, today=date(2026, 6, 1))
         missing = find_due_but_missing_season(self.project, today=date(2026, 6, 1))
         self.assertEqual(missing, (start_date, end_date))
 
         Season.objects.create(project=self.project, start_date=start_date, end_date=end_date)
-        self.assertIsNone(find_due_but_missing_season(self.project, today=date(2026, 6, 1)))
+        self.assertEqual(
+            find_due_but_missing_season(self.project, today=date(2026, 6, 1)),
+            (date(2027, 1, 1), date(2027, 12, 31)),
+        )
 
 
 class SeededProjectSeasonTest(ProjectApiTestCase):

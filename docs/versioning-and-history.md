@@ -49,10 +49,45 @@ write path — it just creates an `EntityRevision` row. It's called:
   revision's snapshot and the *previous* revision for the same object,
   skipping internal/denormalized fields (`id`, timestamps, `project_id`,
   `*_normalized` fields, ...).
-- On the frontend, this only surfaces today as a standalone history
-  **dialog** on `Cultures.tsx` (see
+- On the frontend this surfaces as the per-culture/global history **dialog**
+  on `Cultures.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))
-  — it is not wired into the grid itself.
+  and as the project version-history dialog
+  (`frontend/src/navigation/ProjectHistoryDialog.tsx`, opened from the global
+  menu / command palette).
+
+## Batch operations (grouping a cascade)
+
+A single user action can cascade into many entity mutations — deleting a
+season also deletes every planting plan in it. `BatchOperation`
+(`backend/farm/models/history.py`) groups the resulting revisions so the
+history shows them as **one entry with a single "rückgängig machen"** instead
+of a dozen unrelated "planting plan deleted" rows.
+
+- `start_batch_operation(project=, operation_type=, context=, user_name=)`
+  (`backend/farm/history/records.py`) creates the group; pass the returned
+  instance as `batch_operation=` to every `record_entity_revision` /
+  `record_revision` call the action makes. `context` is free-form JSON the
+  frontend uses to phrase the summary (e.g. `{"season_label": "25/26"}`).
+- `EntityRevision.batch_operation` is a nullable `SET_NULL` FK — ordinary
+  single-entity edits leave it NULL and render flat with "Version
+  wiederherstellen" (whole-project point-in-time restore).
+- Wired in `SeasonViewSet`: `season_create`, `season_delete`,
+  `season_undelete`, `season_copy_data`. Reuse the helper for any future
+  cascade — no schema change, just a new `operation_type` constant + a
+  frontend label in `BATCH_OPERATION_BASE_KEYS`.
+- `ProjectHistoryListView` folds revisions sharing a `batch_operation` into
+  one `is_batch` payload entry (still carrying the members in `children`, used
+  only for the summary counts). `ProjectHistoryDialog` renders it as one row.
+- **Revert:** every batch entry (including a `batch_reverted` one) shows the
+  same "Version wiederherstellen" button. `BatchOperationRevertView` →
+  `revert_batch_operation` (`restore.py`) undoes the whole batch — every entity
+  goes back to its state *just before* the batch (`created` → deleted,
+  `deleted` → recreated, `updated`/`restored` → rolled back to the prior
+  revision), grouped under a new `batch_reverted` batch. It is idempotent and
+  composes: reverting a `batch_reverted` batch re-applies the original action.
+- `cleanup_history` drops `BatchOperation` rows older than the cutoff once
+  all their revisions have been pruned.
 
 ## Restoring
 
@@ -63,26 +98,41 @@ Two restore paths, both admin-only (`require_project_admin`):
   snapshot onto the (possibly soft-deleted — looked up via
   `Culture.all_objects`, not the default manager) culture row, clears
   `deleted_at`, and saves with `_history_action = ACTION_RESTORED`.
-- **`ProjectHistoryRestoreView`** restores the *whole project* to a target
-  timestamp (`_restore_project_state_at`): for every restorable entity
-  type, it deletes all current rows of that type in the project and
-  bulk-recreates them from `_entity_states_at(project, entity_type,
-  target_time)` — which, for each `object_id`, takes the most recent
-  revision at or before `target_time` (a `None` snapshot, i.e. the entity
-  was deleted by then, means it's simply not recreated). Entity types are
-  deleted in **reverse** dependency order before being recreated in forward
-  order, to avoid FK constraint errors during the rebuild.
-  `_restore_project_state_at` tolerates schema drift: a snapshot may carry
-  fields the current model no longer has (from before a field was renamed
-  or removed), and those are silently dropped rather than raising.
+- **`ProjectHistoryRestoreView`** rolls the *whole project* back to the
+  clicked revision's timestamp (`_restore_project_state_at`). It works purely
+  through recorded revisions and **never mass-deletes**:
+  - `_entity_states_at(project, entity_type, target_time)` gives, per
+    `object_id`, the most recent revision at or before `target_time` — a
+    snapshot, or `None` if it was deleted by then.
+  - **Phase 1 (reverse dependency order):** delete only the rows whose state
+    is `None` (history positively records them as deleted by then).
+  - **Phase 2 (forward order):** every tracked row that existed at
+    `target_time` is `UPDATE`d in place to its snapshot (bypassing
+    `Model.save()`), or recreated with `bulk_create` if it had been deleted.
+    A row whose restorable parent wasn't restored is skipped; a dangling
+    nullable non-restorable FK is nulled; snapshot fields the model has since
+    dropped are ignored.
+  - **Left untouched:** rows with no revision at all — the auto
+    `"Hauptstandort"` default
+    (`ProjectScopedMixin.ensure_active_project_location`), demo-seeder rows
+    (`demo_project.py` uses plain `Model.objects.create`), pre-history data —
+    **and** entities merely *created after* `target_time`. Recovering old
+    state is the goal, not perfectly un-creating everything newer; the
+    alternative (deleting them) cascade-wiped untracked planting plans and
+    once emptied a demo project.
+  - `_bulk_create_skipping_conflicts` recreates newest-`object_id`-first and,
+    if an insert hits a (possibly partial) unique constraint — two stale
+    snapshots that both look "active" because one entity was hard-deleted
+    without an `ACTION_DELETED` revision — falls back to per-row inserts that
+    skip the losers.
+  - Records one `EntityRevision` (`entity_type='project'`, `ACTION_RESTORED`).
 
 ## What to check before changing this
 
-- If you add a new project-scoped model that should participate in
-  project-wide point-in-time restore, add it to the restorable-entity-type
-  list used by `_restore_project_state_at` and make sure something calls
-  `record_entity_revision` for it — being project-scoped alone does not
-  give a model history for free.
+- A new project-scoped model that should take part in whole-project restore
+  goes in `_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`), in
+  FK-dependency order, and needs something calling `record_entity_revision`
+  for it — being project-scoped alone gives no history.
 - Don't write new rows to `CultureRevision`/`ProjectRevision` — they're
   drain-only.
 - Remember `EntityRevision.object_id` is a plain integer, not a real FK —
@@ -97,13 +147,13 @@ list — parents before children, because restore deletes in reverse order and
 recreates in forward order:
 
 `Location` → `Field` → `Bed` → `BedLayout` → `FieldLayout` → `Supplier` →
-`Culture` → `PlantingPlan` → `Task` → `NoteAttachment`.
+`Culture` → `Season` → `PlantingPlan` → `Task` → `NoteAttachment`.
 
 Three more entity types get revision rows but are **not** part of
 whole-project restore (they are in `_ENTITY_TYPE_LABELS` only):
-`MediaFile`, `SeedPackage`, and `CultureSupplierData`. That mirrors what the
-older whole-project serializer already omitted. Read the list in the source
-before relying on it — this is the kind of thing a new model silently misses.
+`MediaFile`, `SeedPackage`, and `CultureSupplierData`. Read the list in the
+source before relying on it — this is the kind of thing a new model silently
+misses.
 
 Public crop-library entries have their **own**, separate version history
 (`PublicCultureRevision`, see

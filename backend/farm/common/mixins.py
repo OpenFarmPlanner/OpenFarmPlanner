@@ -30,6 +30,7 @@ class ProjectRevisionMixin:
         snapshot: dict[str, Any] | None = None,
         display_name: str | None = None,
         changed_fields: list[str] | None = None,
+        batch_operation=None,
     ) -> None:
         resolved_snapshot = snapshot if snapshot is not None else _serialize_instance(instance)
         resolved_changed_fields = changed_fields
@@ -49,6 +50,7 @@ class ProjectRevisionMixin:
             display_name=display_name if display_name is not None else _entity_display_name(instance),
             changed_fields=resolved_changed_fields,
             user_name=_current_actor_label(self.request),
+            batch_operation=batch_operation,
         )
 
 

@@ -12,6 +12,7 @@ from .records import (
     _entity_type_for,
     _serialize_instance,
     record_entity_revision,
+    start_batch_operation,
 )
 from .restore import _restore_project_state_at
 
@@ -24,4 +25,5 @@ __all__ = [
     '_restore_project_state_at',
     '_serialize_instance',
     'record_entity_revision',
+    'start_batch_operation',
 ]

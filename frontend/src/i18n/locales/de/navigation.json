@@ -57,9 +57,9 @@
     },
     "suggestion": {
       "title": "Saison {{label}} anlegen",
-      "subtitle": "Berechnet aus deinem Saison-Muster: {{start}} – {{end}}",
+      "confirmTitle": "Saison {{label}} anlegen?",
       "copyCheckbox": "Daten aus Saison {{label}} übernehmen",
-      "later": "Später",
+      "copyDescription": "Anbauflächen, Beete und Fruchtfolge-Zuordnungen werden in die neue Saison kopiert.",
       "create": "Anlegen",
       "createError": "Saison konnte nicht angelegt werden."
     },
@@ -272,7 +272,6 @@
         "create": "Lieferant hinzufügen"
       }
     },
-    "currentVersion": "Aktuelle Version",
     "versionHistoryTitle": "Versionsverlauf",
     "versionHistoryEmpty": "Noch keine Änderungen aufgezeichnet.",
     "restoreVersion": "Zu dieser Version wechseln",
@@ -328,9 +327,5 @@
   },
   "language": {
     "label": "Sprache"
-  },
-  "versionHistory": {
-    "currentChip": "Aktuell",
-    "versionChip": "Version"
   }
 }
