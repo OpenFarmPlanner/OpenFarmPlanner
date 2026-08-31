@@ -40,6 +40,14 @@ export interface RootLayoutOutletContext {
   activeSeasonYear: number | null;
   /** The currently active season, once loaded; null while loading or without a project/season. */
   activeSeason: Season | null;
+  /** Whether the root layout is currently loading seasons for the active project. */
+  activeSeasonLoading: boolean;
+  /** Whether the active project's season list has completed its first load. */
+  activeSeasonLoaded: boolean;
+  /** True when the active project already has at least one season. */
+  hasSeasons: boolean;
+  /** Opens the shared suggested-season creation dialog. */
+  requestSeasonCreation: () => void;
   /**
    * The single notification controller the topbar owns. Handed to pages so the
    * notification history page marks rows read through the same state the bell's

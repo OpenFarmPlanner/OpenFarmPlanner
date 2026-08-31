@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlantingPlans from "../pages/PlantingPlans";
+import type { RootLayoutOutletContext } from "../navigation/topbarTypes";
 
 const apiMocks = vi.hoisted(() => ({
   cultureList: vi.fn(),
@@ -77,6 +78,34 @@ describe("PlantingPlans project requirement state", () => {
     apiMocks.bedList.mockResolvedValue({ data: { results: [] } });
     apiMocks.planList.mockResolvedValue({ data: { results: [] } });
   });
+
+  function renderWithOutletContext(context: Partial<RootLayoutOutletContext>) {
+    const outletContext = {
+      setTopbarContextActions: vi.fn(),
+      setTopbarTitleActions: vi.fn(),
+      activeSeasonYear: null,
+      activeSeason: null,
+      activeSeasonLoading: false,
+      activeSeasonLoaded: true,
+      hasSeasons: false,
+      requestSeasonCreation: vi.fn(),
+      notifications: {} as RootLayoutOutletContext["notifications"],
+      ...context,
+    } satisfies RootLayoutOutletContext;
+
+    return {
+      outletContext,
+      ...render(
+        <MemoryRouter initialEntries={["/app/anbauplaene"]}>
+          <Routes>
+            <Route element={<Outlet context={outletContext} />}>
+              <Route path="/app/anbauplaene" element={<PlantingPlans />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      ),
+    };
+  }
 
   it("shows friendly no-project state and skips project-bound loading", async () => {
     projectRequirementState.shouldShowProjectRequiredState = true;
@@ -171,5 +200,26 @@ describe("PlantingPlans project requirement state", () => {
     await waitFor(() => {
       expect(container.querySelector(".MuiDataGrid-row--editing")).toBeInTheDocument();
     });
+  });
+
+  it("requires a season before a planting plan can be created", async () => {
+    apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
+    apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: "Nord", location: 1 }] } });
+    apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: "Beet A", field: 2 }] } });
+    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
+    const requestSeasonCreation = vi.fn();
+
+    const { container } = renderWithOutletContext({ requestSeasonCreation });
+
+    expect(await screen.findByText("Noch keine Saison angelegt")).toBeInTheDocument();
+    const seasonButton = screen.getByRole("button", { name: "Saison anlegen" });
+    const createButton = screen.getByRole("button", { name: "Anbauplan hinzufügen" });
+    expect(createButton).toBeDisabled();
+
+    fireEvent.click(createButton);
+    expect(container.querySelector(".MuiDataGrid-row--editing")).not.toBeInTheDocument();
+
+    fireEvent.click(seasonButton);
+    expect(requestSeasonCreation).toHaveBeenCalledTimes(1);
   });
 });

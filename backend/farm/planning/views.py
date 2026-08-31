@@ -14,7 +14,6 @@ from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import _entity_display_name, _serialize_instance
 from farm.models import Bed, EntityRevision, PlantingPlan, Season, Task
 from farm.project_context import get_active_project_or_400, resolve_season_id_from_request
-from farm.services.seasons import get_or_create_season_for_date
 from farm.services.yield_calendar import build_yield_calendar, build_yield_calendar_for_season
 from farm.services_area import calculate_remaining_bed_area
 
@@ -130,17 +129,6 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
             season_id = resolve_season_id_from_request(self.request)
             if season_id is not None:
                 extra_fields['season_id'] = season_id
-            else:
-                # No usable active season — a project whose seasons the client
-                # has never resolved. Anchor the plan in the season its own
-                # planting date falls into instead of storing it season-less,
-                # which is reserved for rows predating the seasons feature and
-                # would send a brand-new project into the first-run setup modal.
-                extra_fields['season'] = get_or_create_season_for_date(
-                    self.request.active_project,
-                    serializer.validated_data.get('planting_date'),
-                    created_by=current_user,
-                )
         instance = serializer.save(
             created_by=current_user, updated_by=current_user, project=self.request.active_project, **extra_fields,
         )

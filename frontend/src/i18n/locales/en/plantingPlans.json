@@ -136,6 +136,10 @@
         "title": "You haven't created any cultures yet.",
         "description": "Cultures are required to create planting plans."
       },
+      "seasons": {
+        "title": "No season created yet",
+        "description": "Create a season before adding planting plans."
+      },
       "plans": {
         "title": "You haven't created a planting plan yet.",
         "description": "Create your first planting plan now."
@@ -146,8 +150,10 @@
       "createAreas": "Go to Fields & Beds",
       "openCultureLibrary": "Open culture library",
       "addCulture": "Add culture",
+      "createSeason": "Create season",
       "createPlan": "Add planting plan"
-    }
+    },
+    "createRequiresSeasonTooltip": "Planting plans require an active season first."
   },
   "commands": {
     "edit": "Edit planting plan (Alt+E)",

@@ -91,6 +91,7 @@ interface CultureDetailProps {
   onPublicUpdateApplied?: () => void;
   onDeleteCulture?: (culture: Culture) => void;
   canCreatePlan?: boolean;
+  createPlanDisabledTooltip?: string;
   isPublishingCulture?: boolean;
   publishActionLabel?: string;
   searchInputRef?: Ref<HTMLInputElement>;
@@ -123,6 +124,7 @@ export function CultureDetail({
   onPublicUpdateApplied,
   onDeleteCulture,
   canCreatePlan = true,
+  createPlanDisabledTooltip,
   isPublishingCulture = false,
   publishActionLabel,
   searchInputRef,
@@ -1007,7 +1009,7 @@ const detailSectionGridSx = {
                       icon: <AgricultureIcon fontSize="small" />,
                       onClick: () => onCreatePlan?.(),
                       disabled: !canCreatePlan || !onCreatePlan,
-                      tooltip: canCreatePlan ? undefined : t('buttons.createPlantingPlanMissingBedsTooltip'),
+                      tooltip: canCreatePlan ? undefined : (createPlanDisabledTooltip ?? t('buttons.createPlantingPlanMissingBedsTooltip')),
                       variant: 'contained',
                     },
                   ]}

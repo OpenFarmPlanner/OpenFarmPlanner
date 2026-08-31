@@ -94,9 +94,8 @@ description), one level down:
   filters by `season_id` when the header is present; `perform_create` injects
   it onto new plans the same way project injection works, unless the
   serializer payload already specifies a season explicitly. Without a usable
-  header it falls back to `get_or_create_season_for_date` (the season the
-  plan's own `planting_date` falls into), so `season IS NULL` stays reserved
-  for rows that predate the feature — see the first-run setup below.
+  active season the serializer rejects creation; `season IS NULL` stays
+  reserved for rows that predate the feature — see the first-run setup below.
 - `YieldCalendarListView`/`build_yield_calendar` and
   `SeedDemandListView`/`build_seed_demand_rows` take the same resolved
   `season_id` and filter their own `PlantingPlan` queries by it when present;
@@ -188,17 +187,22 @@ single reusable action, not a per-entry-point special case:
 ## First-run setup (migrating pre-existing projects)
 
 Projects created before this feature have `PlantingPlan` rows with
-`season IS NULL`. That state is reserved for them: everything that creates
-planting plans today assigns a season up front — the API (above) and the
-project seeders, which call
+`season IS NULL`. That state is reserved for them: ordinary API creation now
+requires an active season up front, and the project seeders call
 `farm/services/seasons.py::assign_unassigned_planting_plans` after building
 their fixtures (`populate_demo_project`, `populate_hint_test_project`).
 Without that, a freshly created demo project would greet its owner with the
-migration modal below. Season creation goes through one helper in all three
-paths (`get_or_create_season_for_period`, wrapped by
-`get_or_create_season_for_date`), and `reset_project_demo_data` drops a
-project's seasons along with the rest of its farm data so repopulating never
-accumulates them.
+migration modal below. `reset_project_demo_data` drops a project's seasons
+along with the rest of its farm data so repopulating never accumulates them.
+
+The planting-plans page also mirrors this rule in the UI: when a project has
+no active season it shows a "Noch keine Saison angelegt" empty state with a
+CTA into the shared suggested-season dialog, and plan creation is disabled
+with an explanatory tooltip. If direct season creation would leave existing
+unassigned plans outside the proposed period (planting date through harvest
+end), the API rejects it with a structured
+`season_unassigned_data_outside_period` error so the dialog can explain which
+legacy plans conflict instead of silently retrying.
 
 `SeasonSetupStatusView`/`SeasonSetupApplyView`
 (`backend/farm/seasons/views.py`) drive a one-time modal
