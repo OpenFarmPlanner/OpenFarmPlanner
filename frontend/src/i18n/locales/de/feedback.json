@@ -1,7 +1,7 @@
 {
   "dialog": {
     "title": "Feedback geben",
-    "subtitle": "Wir lesen jede Nachricht persönlich – danke, dass du OpenFarmPlanner mitgestaltest.",
+    "subtitle": "Danke, dass du OpenFarmPlanner mitgestaltest.",
     "categoryLabel": "Kategorie (optional)",
     "categoryAriaLabel": "Kategorie des Feedbacks",
     "categories": {

@@ -1,6 +1,8 @@
 """Outbound email for in-app feedback."""
 
 import logging
+from email.charset import QP, Charset
+from email.header import Header
 
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -8,6 +10,26 @@ from django.core.mail import EmailMessage
 from farm.models import Feedback
 
 logger = logging.getLogger(__name__)
+
+# Force quoted-printable (instead of Django's default Base64) for the Subject
+# header so the raw mail source stays human-readable while debugging (log
+# files, mail catchers, "view source") once the project name contains
+# non-ASCII characters such as umlauts.
+_QP_UTF8_CHARSET = Charset('utf-8')
+_QP_UTF8_CHARSET.header_encoding = QP
+
+
+def encode_subject_quoted_printable(subject: str) -> str:
+    """Return the Subject header value, QP-encoded when it is not pure ASCII.
+
+    Pure-ASCII subjects are returned unchanged so they stay readable; anything
+    with non-ASCII characters is encoded as an RFC 2047 quoted-printable word.
+    """
+    try:
+        subject.encode('ascii')
+    except UnicodeEncodeError:
+        return Header(subject, _QP_UTF8_CHARSET, header_name='Subject').encode(maxlinelen=998)
+    return subject
 
 CATEGORY_SUBJECT_LABELS: dict[str, str] = {
     Feedback.Category.BUG: 'Fehler',
@@ -26,7 +48,7 @@ def build_feedback_subject(feedback: Feedback) -> str:
     parts = [CATEGORY_SUBJECT_LABELS.get(feedback.category, 'Allgemein')]
     if feedback.project_name:
         parts.append(feedback.project_name)
-    return f'[Feedback] {" – ".join(parts)}'
+    return f'[Feedback] {" - ".join(parts)}'
 
 
 def build_feedback_body(feedback: Feedback) -> str:
@@ -57,7 +79,7 @@ def send_feedback_email(feedback: Feedback) -> bool:
     the feedback row is already stored and must not be lost.
     """
     message = EmailMessage(
-        subject=build_feedback_subject(feedback),
+        subject=encode_subject_quoted_printable(build_feedback_subject(feedback)),
         body=build_feedback_body(feedback),
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[settings.SUPPORT_CONTACT_EMAIL],

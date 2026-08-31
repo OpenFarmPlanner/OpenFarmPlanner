@@ -1,5 +1,6 @@
 """API tests for the in-app feedback endpoint."""
 
+from email.header import decode_header, make_header
 from unittest.mock import patch
 
 from django.core import mail
@@ -39,7 +40,7 @@ class FeedbackApiTest(ProjectApiTestCase):
 
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
-        self.assertEqual(message.subject, '[Feedback] Fehler – Test Project')
+        self.assertEqual(message.subject, '[Feedback] Fehler - Test Project')
         self.assertEqual(message.to, ['info@openfarmplanner.org'])
         self.assertFalse(message.reply_to)
         self.assertIn('Der Anbauplan lässt sich nicht speichern.', message.body)
@@ -59,7 +60,7 @@ class FeedbackApiTest(ProjectApiTestCase):
         self.assertTrue(feedback.contact_consent)
         self.assertEqual(feedback.contact_email, self.user.email)
         self.assertEqual(mail.outbox[0].reply_to, [self.user.email])
-        self.assertEqual(mail.outbox[0].subject, '[Feedback] Idee – Test Project')
+        self.assertEqual(mail.outbox[0].subject, '[Feedback] Idee - Test Project')
 
     def test_feedback_without_category_uses_generic_subject(self):
         response = self.client.post(FEEDBACK_URL, {
@@ -68,7 +69,24 @@ class FeedbackApiTest(ProjectApiTestCase):
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(mail.outbox[0].subject, '[Feedback] Allgemein – Test Project')
+        self.assertEqual(mail.outbox[0].subject, '[Feedback] Allgemein - Test Project')
+
+    def test_subject_with_umlauts_uses_quoted_printable_encoding(self):
+        response = self.client.post(FEEDBACK_URL, {
+            'category': 'idea',
+            'message': 'Feedback mit Umlauten im Projektnamen.',
+            'project_name': 'Öko Gärtnerei Größenwahn',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        raw_subject = str(mail.outbox[0].message()['Subject'])
+        # Quoted-printable word, not a Base64 blob, so the raw source stays
+        # readable while debugging.
+        self.assertTrue(raw_subject.startswith('=?utf-8?q?'))
+        self.assertEqual(
+            str(make_header(decode_header(raw_subject))),
+            '[Feedback] Idee - Öko Gärtnerei Größenwahn',
+        )
 
     def test_project_name_falls_back_to_active_project(self):
         response = self.client.post(FEEDBACK_URL, {

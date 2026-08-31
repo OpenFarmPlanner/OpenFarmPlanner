@@ -75,6 +75,23 @@ describe('FeedbackDialog', () => {
     expect(screen.getByRole('button', { name: 'Schließen' })).toBeInTheDocument();
   });
 
+  it('clears the category when the selected chip is clicked again', async () => {
+    render(<FeedbackDialog {...baseProps} />);
+
+    const bugChip = screen.getByRole('button', { name: 'Fehler' });
+    await userEvent.click(bugChip);
+    expect(bugChip).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(bugChip);
+    expect(bugChip).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.type(screen.getByRole('textbox'), 'Etwas klemmt');
+    await userEvent.click(screen.getByRole('button', { name: 'Absenden' }));
+
+    await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+    expect(submitMock.mock.calls[0][0]).toMatchObject({ category: '' });
+  });
+
   it('keeps the entered message and allows retrying when sending fails', async () => {
     submitMock.mockRejectedValueOnce(new Error('network'));
     vi.spyOn(console, 'error').mockImplementation(() => {});

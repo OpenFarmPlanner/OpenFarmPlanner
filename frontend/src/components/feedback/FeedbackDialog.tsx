@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -17,20 +18,27 @@ import {
   FormControlLabel,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import MailOutlineIcon from '@mui/icons-material/MailOutlineOutlined';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import type { SvgIconComponent } from '@mui/icons-material';
 import { feedbackAPI, type FeedbackCategory } from '../../api/api';
 import { useTranslation } from '../../i18n';
 import { AppTooltip } from '../AppTooltip';
-import {
-  segmentedToggleButtonGroupSx,
-  segmentedToggleButtonSx,
-} from '../buttons/segmentedControlStyles';
+
+const CATEGORY_ICONS: Record<FeedbackCategory, SvgIconComponent> = {
+  bug: ErrorOutlineIcon,
+  idea: LightbulbOutlinedIcon,
+  question: HelpOutlineIcon,
+  other: MoreHorizIcon,
+};
 
 const CATEGORIES: FeedbackCategory[] = ['bug', 'idea', 'question', 'other'];
 
@@ -140,20 +148,42 @@ export function FeedbackDialog({ open, projectName, route, userEmail, onClose }:
           <Typography variant="subtitle2" component="p" sx={{ mb: 1 }}>
             {t('dialog.categoryLabel')}
           </Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={category}
+          <Stack
+            direction="row"
+            role="group"
             aria-label={t('dialog.categoryAriaLabel')}
-            onChange={(_event, next: FeedbackCategory | null) => setCategory(next ?? '')}
-            sx={{ ...segmentedToggleButtonGroupSx, mb: 2, flexWrap: 'wrap' }}
+            sx={{ gap: 1, flexWrap: 'wrap', mb: 2 }}
           >
-            {CATEGORIES.map((value) => (
-              <ToggleButton key={value} value={value} sx={segmentedToggleButtonSx}>
-                {t(`dialog.categories.${value}`)}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+            {CATEGORIES.map((value) => {
+              const Icon = CATEGORY_ICONS[value];
+              const selected = category === value;
+              return (
+                <Chip
+                  key={value}
+                  clickable
+                  variant="outlined"
+                  aria-pressed={selected}
+                  icon={<Icon fontSize="small" />}
+                  label={t(`dialog.categories.${value}`)}
+                  onClick={() => setCategory(selected ? '' : value)}
+                  sx={(theme) => ({
+                    borderColor: selected ? theme.palette.primary.main : theme.palette.divider,
+                    color: selected ? theme.palette.primary.dark : theme.palette.text.secondary,
+                    fontWeight: selected ? 500 : 400,
+                    bgcolor: selected
+                      ? alpha(theme.palette.primary.main, 0.12)
+                      : 'transparent',
+                    '&:hover': {
+                      bgcolor: selected
+                        ? alpha(theme.palette.primary.main, 0.18)
+                        : theme.palette.action.hover,
+                    },
+                    '& .MuiChip-icon': { color: 'inherit' },
+                  })}
+                />
+              );
+            })}
+          </Stack>
 
           <TextField
             fullWidth
