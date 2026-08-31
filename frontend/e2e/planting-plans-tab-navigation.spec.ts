@@ -35,6 +35,7 @@ async function createAutocompleteFixture(
     return response.json() as Promise<T>;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Tastaturhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Tabfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Autocomplete-Beet', field: field.id, area_sqm: 12 });
@@ -56,6 +57,7 @@ async function createAutocompleteFixture(
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: initialCulture.id,
+    season: season.id,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -83,6 +85,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
     return response.json() as Promise<T>;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Anbauart-Enter-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Anbauart-Enter-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Anbauart-Enter-Beet', field: field.id, area_sqm: 12 });
@@ -96,6 +99,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
+    season: season.id,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -123,6 +127,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
     return response.json() as Promise<T>;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Tab-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Tab-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Tab-Beet', field: field.id, area_sqm: 12 });
@@ -135,6 +140,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
+    season: season.id,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -162,6 +168,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
     return response.json() as Promise<T>;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Limit-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Limit-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Limit-Beet', field: field.id, area_sqm: 7 });
@@ -176,6 +183,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
+    season: season.id,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,

@@ -14,11 +14,23 @@ from farm.models import (
     PlantingPlan,
     Project,
     ProjectMembership,
+    Season,
 )
 from farm.tests.api_base import ProjectApiTestCase, User
 
 
 class PlantingPlanApiTest(ProjectApiTestCase):
+    def setUp(self):
+        super().setUp()
+        # Planting plans now require an active season; every create in this
+        # class works inside 2024, so anchor one season and send it by default.
+        self.season = Season.objects.create(
+            project=self.project,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+        self.client.defaults['HTTP_X_SEASON_ID'] = str(self.season.id)
+
     def test_planting_plan_create_rejects_bed_from_other_project(self):
         other_project = Project.objects.create(name='Other project 2', slug='other-project-2')
         other_location = Location.objects.create(name='Other location', project=other_project)
@@ -211,7 +223,16 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
             harvest_duration_days=20,
             project=self.project,
         )
-    
+
+        # Planting plans require an active season; every plan in this class lives
+        # in 2024, so anchor one season and send it as the active-season header.
+        self.season = Season.objects.create(
+            project=self.project,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+        self.client.defaults['HTTP_X_SEASON_ID'] = str(self.season.id)
+
     def test_plants_per_m2_calculation(self):
         """Test that plants_per_m2 is calculated correctly."""
         # 10000 / (50 * 40) = 10000 / 2000 = 5.0
@@ -327,8 +348,9 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
             planting_date=date(2024, 3, 1),
             area_usage_sqm=1.0,
             project=self.project,
+            season=self.season,
         )
-        
+
         # Update with PLANTS input: 15 plants / 5 plants_per_m2 = 3.0 m²
         data = {
             'culture': self.culture_with_spacing.id,
@@ -348,10 +370,11 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         plan = PlantingPlan.objects.create(
             culture=self.culture_with_spacing,
             bed=self.bed,
-            planting_date=date(2026, 1, 1),
+            planting_date=date(2024, 1, 1),
             area_usage_sqm=1.0,
             project=self.project,
             cultivation_type='pre_cultivation',
+            season=self.season,
         )
 
         response = self.client.put(
@@ -359,7 +382,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
             {
                 'culture': self.culture_with_spacing.id,
                 'bed': self.bed.id,
-                'planting_date': '2026-01-01',
+                'planting_date': '2024-01-01',
                 'quantity': None,
                 'notes': '',
                 'cultivation_type': 'pre_cultivation',

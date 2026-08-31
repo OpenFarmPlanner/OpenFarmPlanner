@@ -90,6 +90,7 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
     return JSON.parse(result.text) as T;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Layout Testhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Layout Testfeld', location: location.id });
   const culture = await api<{ id: number }>('/cultures/', {
@@ -113,6 +114,7 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
     await api('/planting-plans/', {
       bed: bed.id,
       culture: culture.id,
+      season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',

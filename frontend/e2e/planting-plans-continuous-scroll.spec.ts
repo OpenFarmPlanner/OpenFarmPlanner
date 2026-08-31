@@ -30,6 +30,7 @@ async function createPlantingPlanFixtures(
     return response.json() as Promise<T>;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Scrollhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Scrollfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Scrollbeet', field: field.id, area_sqm: 10_000 });
@@ -51,6 +52,7 @@ async function createPlantingPlanFixtures(
       return api('/planting-plans/', {
         bed: bed.id,
         culture: culture.id,
+        season: season.id,
         cultivation_type: 'pre_cultivation',
         planting_date: `2026-04-${day}`,
         harvest_date: `2026-05-${day}`,
