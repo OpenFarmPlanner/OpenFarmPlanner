@@ -58,6 +58,7 @@ function MenuHarness({ compact }: { compact: boolean }) {
       onOpenAccountSettings={() => {}}
       onOpenShortcuts={() => {}}
       onOpenHelp={() => {}}
+      onOpenFeedback={() => {}}
       canLeaveDemoProject={false}
       isGuestDemoSession={false}
       onLeaveDemoProject={async () => {}}

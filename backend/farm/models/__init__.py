@@ -45,6 +45,7 @@ from .cultures import (  # noqa: E402
     format_culture_display_name,
     is_supplier_domain,
 )
+from .feedback import Feedback  # noqa: E402
 from .history import BatchOperation, CultureRevision, EntityRevision, ProjectRevision  # noqa: E402
 from .notes import NoteAttachment  # noqa: E402
 from .planning import PlantingPlan, Task  # noqa: E402
@@ -71,6 +72,7 @@ __all__ = [
     'CultureRevision',
     'CultureSupplierData',
     'EntityRevision',
+    'Feedback',
     'Field',
     'FieldLayout',
     'Location',

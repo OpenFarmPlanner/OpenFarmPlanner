@@ -497,6 +497,28 @@ export const versionAPI = {
   get: () => http.get<VersionResponse>('/version/'),
 };
 
+export type FeedbackCategory = 'bug' | 'idea' | 'question' | 'other';
+
+export interface FeedbackPayload {
+  /** Empty string when the user picked no category — the field is optional. */
+  category: FeedbackCategory | '';
+  message: string;
+  project_name: string;
+  route: string;
+  browser_info: string;
+  /** When true the backend attaches the account email as the mail's reply-to. */
+  contact_consent: boolean;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  email_delivered: boolean;
+}
+
+export const feedbackAPI = {
+  submit: (payload: FeedbackPayload) => http.post<FeedbackResponse>('/feedback/', payload),
+};
+
 /**
  * Project-bound API tokens for external agents.
  *
@@ -559,4 +581,5 @@ export default {
   mediaFiles: mediaFileAPI,
   layouts: layoutAPI,
   projects: projectAPI,
+  feedback: feedbackAPI,
 };

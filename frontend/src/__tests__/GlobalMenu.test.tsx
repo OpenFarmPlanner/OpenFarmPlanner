@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { GlobalMenu } from '../navigation/GlobalMenu';
 
@@ -10,6 +11,8 @@ const labels: Record<string, string> = {
   'globalMenu.pageHelp': 'Hilfe zu dieser Seite',
   'globalMenu.pageHelpUnavailable': 'Für diese Seite ist keine spezifische Hilfe verfügbar.',
   'globalMenu.appHelp': 'App-Hilfe',
+  'globalMenu.feedback': 'Feedback geben',
+  'globalMenu.feedbackNewBadge': 'NEU',
   'commandPalette.commands.logout': 'Abmelden',
   'language.label': 'Sprache',
   'projectSwitcher.ariaLabel': 'Aktives Projekt wechseln',
@@ -31,6 +34,7 @@ const baseProps = {
   onOpenAccountSettings: vi.fn(),
   onOpenShortcuts: vi.fn(),
   onOpenHelp: vi.fn(),
+  onOpenFeedback: vi.fn(),
   canLeaveDemoProject: false,
   isGuestDemoSession: false,
   onLeaveDemoProject: vi.fn(async () => undefined),
@@ -53,6 +57,7 @@ describe('GlobalMenu (desktop)', () => {
       'Sprache',
       'Tastenkürzel',
       'App-Hilfe',
+      'Feedback geben',
       'Abmelden test@example.com',
     ]);
 
@@ -111,5 +116,44 @@ describe('GlobalMenu (mobile) "Hilfe zu dieser Seite" entry', () => {
     const item = screen.getByRole('menuitem', { name: 'Hilfe zu dieser Seite' });
     expect(item).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByLabelText('Für diese Seite ist keine spezifische Hilfe verfügbar.')).toBeInTheDocument();
+  });
+});
+
+describe('GlobalMenu "Feedback geben" entry', () => {
+  it('sits directly below "App-Hilfe" and opens the feedback dialog', async () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+    const onOpenFeedback = vi.fn();
+    const onClose = vi.fn();
+
+    render(<GlobalMenu {...baseProps} anchorEl={anchor} onOpenFeedback={onOpenFeedback} onClose={onClose} />);
+
+    const labelsInOrder = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(labelsInOrder[labelsInOrder.indexOf('App-Hilfe') + 1]).toBe('Feedback geben');
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Feedback geben' }));
+    expect(onOpenFeedback).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows the "NEU" badge only until it has been marked as seen', () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+
+    const { rerender } = render(<GlobalMenu {...baseProps} anchorEl={anchor} showFeedbackNewBadge />);
+    expect(screen.getByRole('menuitem', { name: /Feedback geben/ }).textContent).toContain('NEU');
+
+    rerender(<GlobalMenu {...baseProps} anchorEl={anchor} showFeedbackNewBadge={false} />);
+    expect(screen.getByRole('menuitem', { name: /Feedback geben/ }).textContent).not.toContain('NEU');
+  });
+
+  it('is also available in the mobile menu', () => {
+    const anchor = document.createElement('button');
+    document.body.appendChild(anchor);
+
+    render(<GlobalMenu {...baseProps} isMobile anchorEl={anchor} />);
+
+    const labelsInOrder = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(labelsInOrder[labelsInOrder.indexOf('App-Hilfe') + 1]).toBe('Feedback geben');
   });
 });
