@@ -504,8 +504,8 @@
       "countUpdated_one": "{{count}} planting plan updated",
       "countUpdated_other": "{{count}} planting plans updated",
       "reverted": "Undone: {{what}}",
-      "revertButton": "Undo",
-      "revertedChip": "Undone"
+      "revertButton": "Restore version",
+      "revertedChip": "Restored"
     }
   },
   "shortcuts": {

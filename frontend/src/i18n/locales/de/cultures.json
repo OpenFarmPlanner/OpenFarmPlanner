@@ -504,8 +504,8 @@
       "countUpdated_one": "{{count}} Anbauplan bearbeitet",
       "countUpdated_other": "{{count}} Anbaupläne bearbeitet",
       "reverted": "Rückgängig gemacht: {{what}}",
-      "revertButton": "Rückgängig machen",
-      "revertedChip": "Rückgängig gemacht"
+      "revertButton": "Version wiederherstellen",
+      "revertedChip": "Wiederhergestellt"
     }
   },
   "shortcuts": {

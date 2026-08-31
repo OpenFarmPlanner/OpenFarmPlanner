@@ -43,7 +43,7 @@ export function RestoreVersionDialog({
 
   return (
     <Dialog open={Boolean(entry)} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>{isBatch ? 'Aktion rückgängig machen?' : 'Version wiederherstellen?'}</DialogTitle>
+      <DialogTitle>Version wiederherstellen?</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 1.5 }}>
           {isBatch
@@ -94,7 +94,7 @@ export function RestoreVersionDialog({
             }
           }}
         >
-          {isBatch ? 'Rückgängig machen' : 'Version wiederherstellen'}
+          Version wiederherstellen
         </Button>
       </DialogActions>
     </Dialog>

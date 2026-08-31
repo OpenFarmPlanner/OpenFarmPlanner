@@ -386,7 +386,7 @@ function RootLayout() {
   const handleRevertBatch = async (batchId: number) => {
     try {
       await cultureAPI.revertBatch(batchId);
-      showSnackbar('Aktion rückgängig gemacht.', 'success');
+      showSnackbar('Version wiederhergestellt.', 'success');
       setProjectHistoryOpen(false);
       setPendingRestoreEntry(null);
       window.location.reload();

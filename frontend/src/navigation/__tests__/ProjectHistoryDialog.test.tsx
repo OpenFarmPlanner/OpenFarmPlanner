@@ -61,11 +61,12 @@ describe('ProjectHistoryDialog', () => {
     const { onRevertBatch } = renderDialog([batchEntry]);
 
     expect(screen.getByText('Saison 25/26 gelöscht: 2 Anbaupläne gelöscht')).toBeInTheDocument();
-    // No individual child rows.
+    // One summary row, no individual child rows.
     expect(screen.queryByText(/Salat \/ Beet 1/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Version wiederherstellen' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Rückgängig machen' }));
+    const buttons = screen.getAllByRole('button', { name: 'Version wiederherstellen' });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]);
     expect(onRevertBatch).toHaveBeenCalledWith(batchEntry);
   });
 
@@ -82,8 +83,8 @@ describe('ProjectHistoryDialog', () => {
     ]);
 
     expect(screen.getByText('Saison 26/27 erstellt')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Rückgängig machen' })).not.toBeInTheDocument();
-    expect(screen.getByText('Rückgängig gemacht')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Version wiederherstellen' })).not.toBeInTheDocument();
+    expect(screen.getByText('Wiederhergestellt')).toBeInTheDocument();
   });
 
   it('lists ungrouped revisions flat with "Version wiederherstellen"', () => {
