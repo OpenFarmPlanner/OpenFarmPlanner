@@ -1,12 +1,24 @@
-"""Whole-project point-in-time restore built on recorded entity revisions."""
+"""Point-in-time restore and batch-operation revert, built on recorded
+entity revisions."""
 
 from typing import Any
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from farm.models import EntityRevision, Project
 
-from .records import _RESTORABLE_ENTITY_TYPES
+from .records import (
+    _ENTITY_TYPE_LABELS,
+    _RESTORABLE_ENTITY_TYPES,
+    _entity_display_name,
+    _serialize_instance,
+    record_entity_revision,
+    start_batch_operation,
+)
+
+_MODEL_BY_ENTITY_TYPE: dict[str, type] = {label: model for model, label in _ENTITY_TYPE_LABELS.items()}
+_ENTITY_TYPE_ORDER: dict[str, int] = {label: index for index, (_m, label) in enumerate(_RESTORABLE_ENTITY_TYPES)}
 
 
 def _model_manager(model):
@@ -156,3 +168,122 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 [instance for _object_id, instance in recreate],
                 [object_id for object_id, _instance in recreate],
             )
+
+
+class BatchRevertError(Exception):
+    """A batch operation can't be reverted (already reverted, unknown entity
+    type, or an insert would violate a constraint)."""
+
+
+def _row_data_from_snapshot(model, snapshot: dict, project: Project) -> dict:
+    concrete = {field.attname for field in model._meta.concrete_fields}
+    row = {key: value for key, value in snapshot.items() if key in concrete}
+    row['project_id'] = project.id
+    if 'deleted_at' in concrete:
+        row['deleted_at'] = None
+    for field in model._meta.concrete_fields:
+        related_id = row.get(field.attname)
+        if field.remote_field is None or related_id is None:
+            continue
+        if not _model_manager(field.remote_field.model).filter(pk=related_id).exists():
+            row[field.attname] = None
+    return row
+
+
+def revert_batch_operation(project: Project, batch, *, user_name: str = '') -> None:
+    """Undo a whole `BatchOperation`: every entity it touched goes back to its
+    state just before the batch. `created` entities are deleted, `deleted` ones
+    recreated, `updated`/`restored` ones rolled back to the prior revision.
+    """
+    if batch.reverted_at is not None:
+        raise BatchRevertError('already reverted')
+    revisions = list(batch.revisions.all())
+    if not revisions:
+        raise BatchRevertError('empty batch')
+
+    first_batch_id: dict[tuple[str, int], int] = {}
+    for revision in revisions:
+        key = (revision.entity_type, revision.object_id)
+        first_batch_id[key] = min(first_batch_id.get(key, revision.id), revision.id)
+
+    to_delete: list[tuple[str, int]] = []
+    to_write: list[tuple[str, int, dict]] = []
+    for revision in revisions:
+        if revision.entity_type not in _MODEL_BY_ENTITY_TYPE:
+            raise BatchRevertError(revision.entity_type)
+        key = (revision.entity_type, revision.object_id)
+        if revision.action == EntityRevision.ACTION_CREATED:
+            to_delete.append(key)
+            continue
+        if revision.action == EntityRevision.ACTION_DELETED:
+            to_write.append((revision.entity_type, revision.object_id, revision.snapshot))
+            continue
+        prior = (
+            EntityRevision.objects
+            .filter(
+                project=project, entity_type=revision.entity_type,
+                object_id=revision.object_id, id__lt=first_batch_id[key],
+            )
+            .order_by('-id')
+            .first()
+        )
+        if prior is None or prior.action == EntityRevision.ACTION_DELETED:
+            to_delete.append(key)
+        else:
+            to_write.append((revision.entity_type, revision.object_id, prior.snapshot))
+
+    with transaction.atomic():
+        revert_batch = start_batch_operation(
+            project=project,
+            operation_type='batch_reverted',
+            context={'reverted_operation_type': batch.operation_type, **(batch.context or {})},
+            user_name=user_name,
+        )
+
+        # Children first so a parent's cascade never races us.
+        for entity_type, object_id in sorted(
+            to_delete, key=lambda pair: -_ENTITY_TYPE_ORDER.get(pair[0], 999),
+        ):
+            model = _MODEL_BY_ENTITY_TYPE[entity_type]
+            instance = _model_manager(model).filter(project=project, pk=object_id).first()
+            if instance is None:
+                continue
+            snapshot = _serialize_instance(instance)
+            display_name = _entity_display_name(instance)
+            _model_manager(model).filter(pk=object_id).delete()
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=object_id,
+                action=EntityRevision.ACTION_DELETED, snapshot=snapshot,
+                display_name=display_name, changed_fields=[], user_name=user_name,
+                batch_operation=revert_batch,
+            )
+
+        # Parents first for the recreates/updates.
+        for entity_type, object_id, snapshot in sorted(
+            to_write, key=lambda item: _ENTITY_TYPE_ORDER.get(item[0], 999),
+        ):
+            model = _MODEL_BY_ENTITY_TYPE[entity_type]
+            manager = _model_manager(model)
+            row = _row_data_from_snapshot(model, snapshot, project)
+            if manager.filter(project=project, pk=object_id).exists():
+                manager.filter(pk=object_id).update(
+                    **{key: value for key, value in row.items() if key not in _SKIP_ON_UPDATE},
+                )
+                action = EntityRevision.ACTION_UPDATED
+            else:
+                try:
+                    with transaction.atomic():
+                        model.objects.bulk_create([model(**row)])
+                except IntegrityError as exc:
+                    raise BatchRevertError(entity_type) from exc
+                action = EntityRevision.ACTION_RESTORED
+            instance = manager.filter(pk=object_id).select_related().first()
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=object_id,
+                action=action, snapshot=_serialize_instance(instance) if instance else snapshot,
+                display_name=_entity_display_name(instance) if instance else '',
+                changed_fields=[], user_name=user_name, batch_operation=revert_batch,
+            )
+
+        batch.reverted_at = timezone.now()
+        batch.save(update_fields=['reverted_at'])

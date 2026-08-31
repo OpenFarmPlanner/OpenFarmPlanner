@@ -96,9 +96,9 @@ describe('culturesHistoryUtils', () => {
     expect(getHistoryEntryTarget(unsupportedEntry)).toBeNull();
   });
 
-  it('treats a batch entry as a group only once it holds two or more revisions', () => {
+  it('treats any batch entry as a group and plain revisions as not', () => {
     const child = buildEntry({ object_type: 'planting_plan', action: 'deleted' });
-    expect(isBatchGroupEntry(buildEntry({ is_batch: true, children: [child] }))).toBe(false);
+    expect(isBatchGroupEntry(buildEntry({ is_batch: true, children: [child] }))).toBe(true);
     expect(isBatchGroupEntry(buildEntry({ is_batch: true, children: [child, child] }))).toBe(true);
     expect(isBatchGroupEntry(buildEntry({ children: [child, child] }))).toBe(false);
   });

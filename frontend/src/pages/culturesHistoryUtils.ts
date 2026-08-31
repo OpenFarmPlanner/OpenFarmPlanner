@@ -254,6 +254,7 @@ function extractObjectIdFromSummary(summary: string): number | null {
 }
 
 const BATCH_OPERATION_BASE_KEYS: Record<string, string> = {
+  season_create: 'history.batch.seasonCreate',
   season_delete: 'history.batch.seasonDelete',
   season_undelete: 'history.batch.seasonUndelete',
   season_copy_data: 'history.batch.seasonCopyData',
@@ -266,23 +267,34 @@ const BATCH_COUNT_KEYS: Record<string, string> = {
   updated: 'history.batch.countUpdated',
 };
 
-/**
- * A batch entry is only worth its own collapsible group once it bundles two or
- * more revisions; a single-child batch (e.g. deleting an empty season) reads
- * better rendered as the plain revision it contains.
- */
+/** A batch entry always renders as one row with a single revert action. */
 export function isBatchGroupEntry(entry: CultureHistoryEntry): boolean {
-  return Boolean(entry.is_batch) && (entry.children?.length ?? 0) >= 2;
+  return Boolean(entry.is_batch);
 }
 
-export function getBatchSummary(entry: CultureHistoryEntry, t: TFunction<'cultures'>): string {
-  const context = (entry.batch_context ?? {}) as Record<string, unknown>;
-  const baseKey = BATCH_OPERATION_BASE_KEYS[entry.batch_operation_type ?? ''] ?? 'history.batch.fallback';
-  const base = t(baseKey, {
+function batchBaseText(
+  operationType: string | undefined,
+  context: Record<string, unknown>,
+  t: TFunction<'cultures'>,
+): string {
+  const baseKey = BATCH_OPERATION_BASE_KEYS[operationType ?? ''] ?? 'history.batch.fallback';
+  return t(baseKey, {
     season: String(context.season_label ?? ''),
     source: String(context.source_season_label ?? ''),
     target: String(context.target_season_label ?? ''),
   });
+}
+
+export function getBatchSummary(entry: CultureHistoryEntry, t: TFunction<'cultures'>): string {
+  const context = (entry.batch_context ?? {}) as Record<string, unknown>;
+
+  if (entry.batch_operation_type === 'batch_reverted') {
+    return t('history.batch.reverted', {
+      what: batchBaseText(String(context.reverted_operation_type ?? ''), context, t),
+    });
+  }
+
+  const base = batchBaseText(entry.batch_operation_type, context, t);
 
   // Only planting plans carry a count today; the primary entity's own revision
   // (e.g. the season) is described by the base text, not counted.

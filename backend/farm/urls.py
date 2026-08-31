@@ -35,6 +35,7 @@ from .cultures.views import (
     SupplierViewSet,
 )
 from .history.views import (
+    BatchOperationRevertView,
     GlobalHistoryListView,
     GlobalHistoryRestoreView,
     ProjectHistoryListView,
@@ -87,6 +88,7 @@ urlpatterns = [
     path('culture-imports/<uuid:draft_id>/apply/', CultureImportApplyView.as_view(), name='culture-import-apply'),
     path('history/project/', ProjectHistoryListView.as_view(), name='project-history-list'),
     path('history/project/restore/', ProjectHistoryRestoreView.as_view(), name='project-history-restore'),
+    path('history/batch/<int:batch_id>/revert/', BatchOperationRevertView.as_view(), name='batch-operation-revert'),
     path('history/global/', GlobalHistoryListView.as_view(), name='global-history-list'),
     path('history/global/restore/', GlobalHistoryRestoreView.as_view(), name='global-history-restore'),
     path('media-files/upload/', MediaFileUploadView.as_view(), name='media-file-upload'),

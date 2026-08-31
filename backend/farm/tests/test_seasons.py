@@ -281,6 +281,50 @@ class SeasonApiTest(ProjectApiTestCase):
             2,
         )
 
+    def test_reverting_a_season_delete_batch_brings_season_and_plans_back(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        plan_ids = [
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season_id=season_id, planting_date=date(2026, 4, day),
+            ).pk
+            for day in (1, 8)
+        ]
+        self.client.delete(f'/openfarmplanner/api/seasons/{season_id}/')
+        self.assertFalse(Season.objects.filter(pk=season_id).exists())
+        self.assertEqual(PlantingPlan.objects.filter(pk__in=plan_ids).count(), 0)
+
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_delete')
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertTrue(Season.objects.filter(pk=season_id).exists())
+        self.assertEqual(
+            sorted(PlantingPlan.objects.filter(season_id=season_id).values_list('pk', flat=True)),
+            sorted(plan_ids),
+        )
+        batch.refresh_from_db()
+        self.assertIsNotNone(batch.reverted_at)
+
+    def test_reverting_a_season_create_batch_deletes_the_season(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_create')
+
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
+        # A second revert is refused.
+        self.assertEqual(
+            self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/').status_code, 422,
+        )
+
     def test_undelete_leaves_individually_deleted_plans_deleted(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),

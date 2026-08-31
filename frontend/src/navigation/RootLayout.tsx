@@ -383,6 +383,20 @@ function RootLayout() {
     }
   };
 
+  const handleRevertBatch = async (batchId: number) => {
+    try {
+      await cultureAPI.revertBatch(batchId);
+      showSnackbar('Aktion rückgängig gemacht.', 'success');
+      setProjectHistoryOpen(false);
+      setPendingRestoreEntry(null);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error reverting batch operation:', error);
+      setPendingRestoreEntry(null);
+      showSnackbar(t('commandPalette.feedback.versionRestoreError'), 'error');
+    }
+  };
+
   const formatHistoryTimestamp = (value: string): string => new Date(value).toLocaleString('de-DE');
 
   const handleOpenShortcuts = () => {
@@ -2064,6 +2078,7 @@ function RootLayout() {
         formatTimestamp={formatHistoryTimestamp}
         onClose={() => setProjectHistoryOpen(false)}
         onRestore={(entry) => setPendingRestoreEntry(entry)}
+        onRevertBatch={(entry) => setPendingRestoreEntry(entry)}
         t={t}
         tCultures={tCultures}
       />
@@ -2099,8 +2114,10 @@ function RootLayout() {
         entry={pendingRestoreEntry}
         getEntryTitle={(entry) => getHistoryEntryTitle(entry, tCultures)}
         formatTimestamp={formatHistoryTimestamp}
+        tCultures={tCultures}
         onClose={() => setPendingRestoreEntry(null)}
         onConfirm={(historyId) => void handleRestoreProjectVersion(historyId)}
+        onConfirmRevertBatch={(batchId) => void handleRevertBatch(batchId)}
       />
 
       <CreateProjectDialog

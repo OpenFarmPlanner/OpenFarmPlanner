@@ -9,12 +9,12 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from farm.models import Culture, EntityRevision
+from farm.models import BatchOperation, Culture, EntityRevision
 from farm.project_context import get_active_project_or_400, require_project_admin
 from farm.cultures.serializers import CultureSerializer
 
 from .records import _build_entity_revision_changes, _current_actor_label, record_entity_revision
-from .restore import _restore_project_state_at
+from .restore import BatchRevertError, _restore_project_state_at, revert_batch_operation
 from .serializers import CultureHistoryEntrySerializer, CultureRestoreSerializer
 
 
@@ -22,9 +22,8 @@ class ProjectHistoryListView(APIView):
     """List recent per-entity revisions across the whole project.
 
     Revisions produced by the same cascading action (see `BatchOperation`) are
-    folded into one grouped entry (`is_batch`) that carries the individual
-    revision entries in `children`; ungrouped revisions are listed flat as
-    before.
+    folded into one `is_batch` entry with a single revert action; ungrouped
+    revisions are listed flat.
     """
 
     def get(self, request):
@@ -64,6 +63,7 @@ class ProjectHistoryListView(APIView):
                     'batch_id': batch.id,
                     'batch_operation_type': batch.operation_type,
                     'batch_context': batch.context or {},
+                    'batch_reverted': batch.reverted_at is not None,
                     'history_date': batch.created_at,
                     'history_type': 'batch',
                     'history_user': batch.user_name or None,
@@ -105,6 +105,26 @@ class ProjectHistoryRestoreView(APIView):
         )
 
         return Response({'detail': 'Project restored successfully.'}, status=status.HTTP_200_OK)
+
+
+class BatchOperationRevertView(APIView):
+    """Undo a whole `BatchOperation` — the single "rückgängig machen" action
+    behind a grouped history entry."""
+
+    def post(self, request, batch_id):
+        active_project = get_active_project_or_400(request)
+        require_project_admin(request.user, active_project.id, request=request)
+        batch = get_object_or_404(
+            BatchOperation.objects.filter(project=active_project), id=batch_id,
+        )
+        try:
+            revert_batch_operation(active_project, batch, user_name=_current_actor_label(request))
+        except BatchRevertError:
+            return Response(
+                {'detail': 'Diese Aktion kann nicht rückgängig gemacht werden.'},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return Response({'detail': 'Reverted.'}, status=status.HTTP_200_OK)
 
 
 class GlobalHistoryListView(APIView):

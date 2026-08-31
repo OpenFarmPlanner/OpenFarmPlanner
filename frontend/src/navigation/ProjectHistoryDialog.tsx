@@ -1,15 +1,12 @@
-import { useState } from 'react';
 import {
   Box,
   Button,
   Chip,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  IconButton,
   Link,
   List,
   ListItem,
@@ -18,7 +15,6 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { Link as RouterLink } from 'react-router';
 import type { TFunction } from 'i18next';
@@ -40,19 +36,19 @@ interface ProjectHistoryDialogProps {
   formatTimestamp: (value: string) => string;
   onClose: () => void;
   onRestore: (entry: CultureHistoryEntry) => void;
+  onRevertBatch: (entry: CultureHistoryEntry) => void;
   /** `navigation` namespace translator (also resolves `common:`/`navigation:`). */
   t: TFunction;
   tCultures: TFunction<'cultures'>;
 }
 
 /**
- * Presentational project version-history dialog. Cascading actions (season
- * delete/undelete, season data copy) arrive from the API pre-grouped into
- * `is_batch` entries carrying their individual revisions in `children`; those
- * render as one collapsible row whose expanded children keep their own
- * "restore" actions. Everything else renders flat, unchanged. State, data
- * loading and the restore handler live in RootLayout.tsx. German-only copy for
- * the non-batch parts is intentional, matching RestoreVersionDialog.
+ * Presentational project version-history dialog. A cascading action (season
+ * create/delete/undelete/data-copy) arrives from the API as one `is_batch`
+ * entry that renders as a single row with a single "rückgängig machen"; every
+ * other revision renders flat with "Version wiederherstellen". State, data
+ * loading and the action handlers live in RootLayout.tsx. German-only copy is
+ * intentional, matching RestoreVersionDialog.
  */
 export function ProjectHistoryDialog({
   open,
@@ -62,15 +58,10 @@ export function ProjectHistoryDialog({
   formatTimestamp,
   onClose,
   onRestore,
+  onRevertBatch,
   t,
   tCultures,
 }: ProjectHistoryDialogProps) {
-  const [expandedBatchIds, setExpandedBatchIds] = useState<Record<number, boolean>>({});
-
-  const toggleBatch = (batchId: number) => {
-    setExpandedBatchIds((current) => ({ ...current, [batchId]: !current[batchId] }));
-  };
-
   const actorOf = (entry: CultureHistoryEntry): string => (
     entry.actor_label?.trim()
     || entry.history_user?.trim()
@@ -78,9 +69,61 @@ export function ProjectHistoryDialog({
     || 'Unbekannter Benutzer'
   );
 
+  const renderBatchMeta = (entry: CultureHistoryEntry) => (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+      <PersonOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
+      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+        Von {actorOf(entry)}
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        · {formatTimestamp(entry.history_date)}
+      </Typography>
+    </Box>
+  );
+
+  const renderBatchGroup = (entry: CultureHistoryEntry) => {
+    const summary = getBatchSummary(entry, tCultures);
+    const isRevertEntry = entry.batch_operation_type === 'batch_reverted';
+    const action = entry.batch_reverted ? (
+      <Chip label={tCultures('history.batch.revertedChip')} size="small" color="success" variant="outlined" />
+    ) : isRevertEntry ? null : (
+      <Button
+        onClick={() => onRevertBatch(entry)}
+        size={isPhonePortrait ? 'small' : 'medium'}
+        variant={isPhonePortrait ? 'outlined' : 'text'}
+        sx={{ whiteSpace: 'nowrap', flexShrink: 0, alignSelf: isPhonePortrait ? 'flex-start' : undefined }}
+      >
+        {tCultures('history.batch.revertButton')}
+      </Button>
+    );
+
+    if (isPhonePortrait) {
+      return (
+        <Paper variant="outlined" sx={{ width: '100%', p: 1.25, borderRadius: 1.5 }}>
+          <Stack spacing={1}>
+            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>{summary}</Typography>
+            {renderBatchMeta(entry)}
+            {action ? <><Divider />{action}</> : null}
+          </Stack>
+        </Paper>
+      );
+    }
+    return (
+      <Stack direction="row" spacing={2} sx={{ width: '100%', alignItems: 'flex-start' }}>
+        <ListItemText
+          sx={{ mr: 1 }}
+          disableTypography
+          primary={<Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>{summary}</Typography>}
+          secondary={renderBatchMeta(entry)}
+        />
+        {action}
+      </Stack>
+    );
+  };
+
   const renderEntry = (
     entry: CultureHistoryEntry,
-    { isCurrentVersion, nested }: { isCurrentVersion: boolean; nested: boolean },
+    { isCurrentVersion }: { isCurrentVersion: boolean },
   ) => {
     const historyTarget = getHistoryEntryTarget(entry);
     const title = getHistoryEntryTitle(entry, tCultures);
@@ -157,7 +200,7 @@ export function ProjectHistoryDialog({
     }
 
     return (
-      <Stack direction="row" spacing={2} sx={{ width: '100%', alignItems: 'flex-start', pl: nested ? 2 : 0 }}>
+      <Stack direction="row" spacing={2} sx={{ width: '100%', alignItems: 'flex-start' }}>
         <ListItemText
           sx={{ mr: 1 }}
           primary={(
@@ -194,57 +237,6 @@ export function ProjectHistoryDialog({
     );
   };
 
-  const renderBatchGroup = (entry: CultureHistoryEntry) => {
-    const batchId = entry.batch_id ?? 0;
-    const expanded = Boolean(expandedBatchIds[batchId]);
-    const children = entry.children ?? [];
-    return (
-      <Stack spacing={1} sx={{ width: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>
-              {getBatchSummary(entry, tCultures)}
-            </Typography>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-              <PersonOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                Von {actorOf(entry)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                · {formatTimestamp(entry.history_date)}
-              </Typography>
-            </Box>
-          </Box>
-          <IconButton
-            size="small"
-            onClick={() => toggleBatch(batchId)}
-            aria-expanded={expanded}
-            aria-label={expanded
-              ? tCultures('history.batch.collapseAria')
-              : tCultures('history.batch.expandAria')}
-          >
-            <ExpandMoreIcon
-              fontSize="small"
-              sx={{ transition: 'transform 160ms ease-in-out', transform: expanded ? 'rotate(180deg)' : 'none' }}
-            />
-          </IconButton>
-        </Box>
-        <Collapse in={expanded} unmountOnExit>
-          <Stack
-            spacing={1.5}
-            sx={{ mt: 0.5, pl: isPhonePortrait ? 0 : 1, borderLeft: isPhonePortrait ? 0 : 2, borderColor: 'divider' }}
-          >
-            {children.map((child, childIndex) => (
-              <Box key={child.history_id ?? childIndex}>
-                {renderEntry(child, { isCurrentVersion: false, nested: true })}
-              </Box>
-            ))}
-          </Stack>
-        </Collapse>
-      </Stack>
-    );
-  };
-
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>{t('commandPalette.versionHistoryTitle')}</DialogTitle>
@@ -255,25 +247,17 @@ export function ProjectHistoryDialog({
           </Typography>
         ) : null}
         <List>
-          {items.map((item, index) => {
-            if (isBatchGroupEntry(item)) {
-              return (
-                <ListItem key={`batch-${item.batch_id}`} disableGutters sx={{ mb: isPhonePortrait ? 1 : 0.5 }}>
-                  {renderBatchGroup(item)}
-                </ListItem>
-              );
-            }
-            const entry = item.is_batch && item.children?.length ? item.children[0] : item;
-            return (
-              <ListItem
-                key={item.is_batch ? `batch-${item.batch_id}` : item.history_id}
-                disableGutters
-                sx={{ mb: isPhonePortrait ? 1 : 0 }}
-              >
-                {renderEntry(entry, { isCurrentVersion: isCurrentHistoryEntry(item, index), nested: false })}
-              </ListItem>
-            );
-          })}
+          {items.map((item, index) => (
+            <ListItem
+              key={isBatchGroupEntry(item) ? `batch-${item.batch_id}` : item.history_id}
+              disableGutters
+              sx={{ mb: isPhonePortrait ? 1 : 0 }}
+            >
+              {isBatchGroupEntry(item)
+                ? renderBatchGroup(item)
+                : renderEntry(item, { isCurrentVersion: isCurrentHistoryEntry(item, index) })}
+            </ListItem>
+          ))}
         </List>
       </DialogContent>
       <DialogActions>

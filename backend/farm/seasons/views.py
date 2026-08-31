@@ -55,9 +55,14 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             resurrected.end_date = serializer.validated_data['end_date']
             resurrected.created_by = current_user
             resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
+            batch = start_batch_operation(
+                project=project, operation_type=BatchOperation.TYPE_SEASON_CREATE,
+                context={'season_label': resurrected.label},
+                user_name=_current_actor_label(request=self.request),
+            )
             self.record_revision(
                 resurrected, EntityRevision.ACTION_UPDATED,
-                changed_fields=['deleted_at', 'end_date'],
+                changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
             )
             serializer.instance = (
                 Season.objects
@@ -67,7 +72,12 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             return
 
         instance = serializer.save(project=project, created_by=current_user)
-        self.record_revision(instance, EntityRevision.ACTION_CREATED)
+        batch = start_batch_operation(
+            project=project, operation_type=BatchOperation.TYPE_SEASON_CREATE,
+            context={'season_label': instance.label},
+            user_name=_current_actor_label(request=self.request),
+        )
+        self.record_revision(instance, EntityRevision.ACTION_CREATED, batch_operation=batch)
 
     def perform_update(self, serializer):
         previous_snapshot = _serialize_instance(serializer.instance)

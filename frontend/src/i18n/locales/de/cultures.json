@@ -490,6 +490,7 @@
       "season": "Saison"
     },
     "batch": {
+      "seasonCreate": "Saison {{season}} erstellt",
       "seasonDelete": "Saison {{season}} gelöscht",
       "seasonUndelete": "Saison {{season}} wiederhergestellt",
       "seasonCopyData": "Daten aus Saison {{source}} übernommen",
@@ -502,8 +503,9 @@
       "countRestored_other": "{{count}} Anbaupläne wiederhergestellt",
       "countUpdated_one": "{{count}} Anbauplan bearbeitet",
       "countUpdated_other": "{{count}} Anbaupläne bearbeitet",
-      "expandAria": "Einzeländerungen anzeigen",
-      "collapseAria": "Einzeländerungen ausblenden"
+      "reverted": "Rückgängig gemacht: {{what}}",
+      "revertButton": "Rückgängig machen",
+      "revertedChip": "Rückgängig gemacht"
     }
   },
   "shortcuts": {

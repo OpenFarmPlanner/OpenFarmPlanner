@@ -42,22 +42,26 @@ class BatchOperation(models.Model):
     A single user action can cascade into many entity mutations — deleting a
     season, for instance, also deletes every planting plan scheduled in it,
     recording one EntityRevision per plan. A BatchOperation ties those
-    revisions together so the version history can show them as one collapsible
-    group while each revision stays individually restorable.
+    revisions together so the version history shows them as one entry with a
+    single "undo" that reverts the whole action.
 
     Deliberately generic: only `operation_type` and `context` vary, so future
     cascades (applying a season pattern, crop-rotation batch edits) reuse this
     without a schema change. `context` carries whatever the frontend needs to
-    phrase the group summary (e.g. `{"season_label": "25/26"}`).
+    phrase the summary (e.g. `{"season_label": "25/26"}`).
     """
 
+    TYPE_SEASON_CREATE = 'season_create'
     TYPE_SEASON_DELETE = 'season_delete'
     TYPE_SEASON_UNDELETE = 'season_undelete'
     TYPE_SEASON_COPY_DATA = 'season_copy_data'
+    TYPE_REVERTED = 'batch_reverted'
     TYPE_CHOICES = [
+        (TYPE_SEASON_CREATE, 'Season created'),
         (TYPE_SEASON_DELETE, 'Season deleted'),
         (TYPE_SEASON_UNDELETE, 'Season restored'),
         (TYPE_SEASON_COPY_DATA, 'Season data copied'),
+        (TYPE_REVERTED, 'Batch operation reverted'),
     ]
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='batch_operations')
@@ -65,6 +69,7 @@ class BatchOperation(models.Model):
     context = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     user_name = models.CharField(max_length=150, blank=True)
+    reverted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']

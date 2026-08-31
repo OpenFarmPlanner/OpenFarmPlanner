@@ -9,6 +9,8 @@ import {
 } from '@mui/material';
 
 import type { CultureHistoryEntry } from '../api/types';
+import { getBatchSummary, isBatchGroupEntry } from '../pages/culturesHistoryUtils';
+import type { TFunction } from 'i18next';
 
 interface RestoreVersionDialogProps {
   /** The dialog is open while this is non-null. */
@@ -16,37 +18,47 @@ interface RestoreVersionDialogProps {
   /** Fallback title when the entry has no display name (page supplies i18n). */
   getEntryTitle: (entry: CultureHistoryEntry) => string;
   formatTimestamp: (value: string) => string;
+  tCultures: TFunction<'cultures'>;
   onClose: () => void;
   onConfirm: (historyId: number) => void;
+  onConfirmRevertBatch: (batchId: number) => void;
 }
 
 /**
- * Presentational confirmation dialog for restoring a project version from
- * the history panel. State and the restore handler live in RootLayout.tsx;
- * this component only renders. The copy is intentionally German-only,
- * matching the original inline dialog.
+ * Presentational confirmation dialog for the project version history. A plain
+ * revision entry offers "restore to this version"; a batch entry offers
+ * "undo this action". State and the handlers live in RootLayout.tsx. The copy
+ * is intentionally German-only, matching the original inline dialog.
  */
 export function RestoreVersionDialog({
   entry,
   getEntryTitle,
   formatTimestamp,
+  tCultures,
   onClose,
   onConfirm,
+  onConfirmRevertBatch,
 }: RestoreVersionDialogProps) {
+  const isBatch = entry ? isBatchGroupEntry(entry) : false;
+
   return (
     <Dialog open={Boolean(entry)} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Version wiederherstellen?</DialogTitle>
+      <DialogTitle>{isBatch ? 'Aktion rückgängig machen?' : 'Version wiederherstellen?'}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 1.5 }}>
-          Du stellst eine frühere Version wieder her.
+          {isBatch
+            ? 'Du machst diese Aktion mit allen zugehörigen Änderungen rückgängig.'
+            : 'Du stellst eine frühere Version wieder her.'}
         </Typography>
         {entry ? (
           <Box sx={{ mb: 1.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {entry.object_display_name?.trim() || getEntryTitle(entry)}
+              {isBatch
+                ? getBatchSummary(entry, tCultures)
+                : (entry.object_display_name?.trim() || getEntryTitle(entry))}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Bearbeitet am {formatTimestamp(entry.history_date)}
+              {formatTimestamp(entry.history_date)}
             </Typography>
           </Box>
         ) : null}
@@ -61,24 +73,28 @@ export function RestoreVersionDialog({
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            Die aktuelle Version bleibt erhalten. Vor der Wiederherstellung wird automatisch eine neue Version erstellt, sodass du jederzeit wieder zurückwechseln kannst.
+            {isBatch
+              ? 'Der vorherige Stand wird wiederhergestellt. Die Aktion selbst bleibt im Verlauf und kann erneut ausgeführt werden.'
+              : 'Die aktuelle Version bleibt erhalten. Vor der Wiederherstellung wird automatisch eine neue Version erstellt, sodass du jederzeit wieder zurückwechseln kannst.'}
           </Typography>
         </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
-          Es gehen keine Daten verloren.
-        </Typography>
       </DialogContent>
       <DialogActions>
         <Button autoFocus variant="outlined" onClick={onClose}>Abbrechen</Button>
         <Button
           variant="contained"
           onClick={() => {
-            if (entry) {
+            if (!entry) {
+              return;
+            }
+            if (isBatch && entry.batch_id != null) {
+              onConfirmRevertBatch(entry.batch_id);
+            } else {
               onConfirm(entry.history_id);
             }
           }}
         >
-          Version wiederherstellen
+          {isBatch ? 'Rückgängig machen' : 'Version wiederherstellen'}
         </Button>
       </DialogActions>
     </Dialog>

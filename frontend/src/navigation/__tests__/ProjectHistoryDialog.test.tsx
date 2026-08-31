@@ -21,7 +21,10 @@ function entry(partial: Partial<CultureHistoryEntry>): CultureHistoryEntry {
   };
 }
 
-function renderDialog(items: CultureHistoryEntry[], onRestore = vi.fn()) {
+function renderDialog(
+  items: CultureHistoryEntry[],
+  { onRestore = vi.fn(), onRevertBatch = vi.fn() } = {},
+) {
   render(
     <MemoryRouter>
       <ProjectHistoryDialog
@@ -32,63 +35,64 @@ function renderDialog(items: CultureHistoryEntry[], onRestore = vi.fn()) {
         formatTimestamp={(value) => new Date(value).toLocaleString('de-DE')}
         onClose={vi.fn()}
         onRestore={onRestore}
+        onRevertBatch={onRevertBatch}
         t={t}
         tCultures={tCultures}
       />
     </MemoryRouter>,
   );
-  return { onRestore };
+  return { onRestore, onRevertBatch };
 }
 
 describe('ProjectHistoryDialog', () => {
-  it('collapses a cascade into one summarized, expandable batch row', async () => {
+  it('renders a cascade as one summarized row with a single undo action', async () => {
     const user = userEvent.setup();
-    const child1 = entry({ object_type: 'planting_plan', object_display_name: 'Salat / Beet 1', action: 'deleted' });
-    const child2 = entry({ object_type: 'planting_plan', object_display_name: 'Karotte / Beet 2', action: 'deleted' });
-    const { onRestore } = renderDialog([
-      entry({
-        is_batch: true,
-        batch_id: 7,
-        batch_operation_type: 'season_delete',
-        batch_context: { season_label: '25/26' },
-        children: [child1, child2],
-      }),
-    ]);
+    const batchEntry = entry({
+      is_batch: true,
+      batch_id: 7,
+      batch_operation_type: 'season_delete',
+      batch_context: { season_label: '25/26' },
+      children: [
+        entry({ object_type: 'season', action: 'deleted' }),
+        entry({ object_type: 'planting_plan', object_display_name: 'Salat / Beet 1', action: 'deleted' }),
+        entry({ object_type: 'planting_plan', object_display_name: 'Karotte / Beet 2', action: 'deleted' }),
+      ],
+    });
+    const { onRevertBatch } = renderDialog([batchEntry]);
 
     expect(screen.getByText('Saison 25/26 gelöscht: 2 Anbaupläne gelöscht')).toBeInTheDocument();
-    // Children are hidden until expanded.
+    // No individual child rows.
     expect(screen.queryByText(/Salat \/ Beet 1/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Version wiederherstellen' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Einzeländerungen anzeigen' }));
-
-    expect(screen.getByText(/Salat \/ Beet 1/)).toBeInTheDocument();
-    const restoreButtons = screen.getAllByRole('button', { name: 'Version wiederherstellen' });
-    expect(restoreButtons).toHaveLength(2);
-
-    await user.click(restoreButtons[0]);
-    expect(onRestore).toHaveBeenCalledWith(child1);
+    await user.click(screen.getByRole('button', { name: 'Rückgängig machen' }));
+    expect(onRevertBatch).toHaveBeenCalledWith(batchEntry);
   });
 
-  it('renders a single-child batch as a plain entry, not a group', () => {
+  it('shows a chip and no action once a batch has been reverted', () => {
     renderDialog([
       entry({
         is_batch: true,
         batch_id: 9,
-        batch_operation_type: 'season_delete',
-        batch_context: { season_label: '25/26' },
-        children: [entry({ object_type: 'season', object_display_name: '25/26', action: 'deleted' })],
+        batch_operation_type: 'season_create',
+        batch_context: { season_label: '26/27' },
+        batch_reverted: true,
+        children: [entry({ object_type: 'season', action: 'created' })],
       }),
     ]);
 
-    expect(screen.queryByRole('button', { name: 'Einzeländerungen anzeigen' })).not.toBeInTheDocument();
-    expect(screen.getByText(/25\/26/)).toBeInTheDocument();
+    expect(screen.getByText('Saison 26/27 erstellt')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rückgängig machen' })).not.toBeInTheDocument();
+    expect(screen.getByText('Rückgängig gemacht')).toBeInTheDocument();
   });
 
-  it('still lists ungrouped revisions flat', () => {
+  it('lists ungrouped revisions flat with "Version wiederherstellen"', () => {
     renderDialog([
+      entry({ object_type: 'culture', object_display_name: 'Newest', action: 'updated' }),
       entry({ object_type: 'culture', object_display_name: 'Bijella', action: 'updated' }),
     ]);
 
     expect(screen.getByText(/Bijella/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Version wiederherstellen' }).length).toBeGreaterThan(0);
   });
 });
