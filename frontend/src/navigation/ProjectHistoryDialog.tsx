@@ -1,7 +1,6 @@
 import {
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -25,7 +24,6 @@ import {
   getHistoryEntryTarget,
   getHistoryEntryTitle,
   isBatchGroupEntry,
-  isCurrentHistoryEntry,
 } from '../pages/culturesHistoryUtils';
 
 interface ProjectHistoryDialogProps {
@@ -81,21 +79,24 @@ export function ProjectHistoryDialog({
     </Box>
   );
 
+  const restoreButton = (onClick: () => void) => (
+    isPhonePortrait ? (
+      <>
+        <Divider />
+        <Button variant="outlined" size="small" onClick={onClick} sx={{ alignSelf: 'flex-start', minHeight: 34 }}>
+          Version wiederherstellen
+        </Button>
+      </>
+    ) : (
+      <Button onClick={onClick} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+        Version wiederherstellen
+      </Button>
+    )
+  );
+
   const renderBatchGroup = (entry: CultureHistoryEntry) => {
     const summary = getBatchSummary(entry, tCultures);
-    const isRevertEntry = entry.batch_operation_type === 'batch_reverted';
-    const action = entry.batch_reverted ? (
-      <Chip label={tCultures('history.batch.revertedChip')} size="small" color="success" variant="outlined" />
-    ) : isRevertEntry ? null : (
-      <Button
-        onClick={() => onRevertBatch(entry)}
-        size={isPhonePortrait ? 'small' : 'medium'}
-        variant={isPhonePortrait ? 'outlined' : 'text'}
-        sx={{ whiteSpace: 'nowrap', flexShrink: 0, alignSelf: isPhonePortrait ? 'flex-start' : undefined }}
-      >
-        {tCultures('history.batch.revertButton')}
-      </Button>
-    );
+    const action = restoreButton(() => onRevertBatch(entry));
 
     if (isPhonePortrait) {
       return (
@@ -103,7 +104,7 @@ export function ProjectHistoryDialog({
           <Stack spacing={1}>
             <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.35 }}>{summary}</Typography>
             {renderBatchMeta(entry)}
-            {action ? <><Divider />{action}</> : null}
+            {action}
           </Stack>
         </Paper>
       );
@@ -121,10 +122,7 @@ export function ProjectHistoryDialog({
     );
   };
 
-  const renderEntry = (
-    entry: CultureHistoryEntry,
-    { isCurrentVersion }: { isCurrentVersion: boolean },
-  ) => {
+  const renderEntry = (entry: CultureHistoryEntry) => {
     const historyTarget = getHistoryEntryTarget(entry);
     const title = getHistoryEntryTitle(entry, tCultures);
     const actorLabel = actorOf(entry);
@@ -145,12 +143,9 @@ export function ProjectHistoryDialog({
       return (
         <Paper variant="outlined" sx={{ width: '100%', p: 1.25, borderRadius: 1.5 }}>
           <Stack spacing={1}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-              {isCurrentVersion
-                ? <Chip label={t('versionHistory.currentChip')} size="small" color="success" variant="outlined" />
-                : <Chip label={t('versionHistory.versionChip')} size="small" variant="outlined" />}
-              {targetLink}
-            </Box>
+            {targetLink ? (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>{targetLink}</Box>
+            ) : null}
             <Typography
               variant="body2"
               sx={{
@@ -176,24 +171,7 @@ export function ProjectHistoryDialog({
                 · {timestampLabel}
               </Typography>
             </Box>
-            {isCurrentVersion && entry.action === 'restored' ? (
-              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
-                Originalversion vom {formatTimestamp(entry.history_date)}
-              </Typography>
-            ) : null}
-            {!isCurrentVersion ? (
-              <>
-                <Divider />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => onRestore(entry)}
-                  sx={{ alignSelf: 'flex-start', minHeight: 34 }}
-                >
-                  Version wiederherstellen
-                </Button>
-              </>
-            ) : null}
+            {restoreButton(() => onRestore(entry))}
           </Stack>
         </Paper>
       );
@@ -226,13 +204,7 @@ export function ProjectHistoryDialog({
             </Box>
           )}
         />
-        {isCurrentVersion
-          ? <Chip label={t('commandPalette.currentVersion')} size="small" color="success" variant="outlined" />
-          : (
-            <Button onClick={() => onRestore(entry)} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-              Version wiederherstellen
-            </Button>
-          )}
+        {restoreButton(() => onRestore(entry))}
       </Stack>
     );
   };
@@ -247,15 +219,13 @@ export function ProjectHistoryDialog({
           </Typography>
         ) : null}
         <List>
-          {items.map((item, index) => (
+          {items.map((item) => (
             <ListItem
               key={isBatchGroupEntry(item) ? `batch-${item.batch_id}` : item.history_id}
               disableGutters
               sx={{ mb: isPhonePortrait ? 1 : 0 }}
             >
-              {isBatchGroupEntry(item)
-                ? renderBatchGroup(item)
-                : renderEntry(item, { isCurrentVersion: isCurrentHistoryEntry(item, index) })}
+              {isBatchGroupEntry(item) ? renderBatchGroup(item) : renderEntry(item)}
             </ListItem>
           ))}
         </List>

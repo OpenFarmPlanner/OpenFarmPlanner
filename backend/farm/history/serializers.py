@@ -23,7 +23,6 @@ class CultureHistoryEntrySerializer(serializers.Serializer):
     batch_id = serializers.IntegerField(required=False)
     batch_operation_type = serializers.CharField(required=False, allow_blank=True)
     batch_context = serializers.DictField(required=False)
-    batch_reverted = serializers.BooleanField(required=False)
     children = serializers.ListField(child=serializers.DictField(), required=False)
 
 

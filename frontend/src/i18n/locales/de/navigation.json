@@ -272,7 +272,6 @@
         "create": "Lieferant hinzufügen"
       }
     },
-    "currentVersion": "Aktuelle Version",
     "versionHistoryTitle": "Versionsverlauf",
     "versionHistoryEmpty": "Noch keine Änderungen aufgezeichnet.",
     "restoreVersion": "Zu dieser Version wechseln",
@@ -328,9 +327,5 @@
   },
   "language": {
     "label": "Sprache"
-  },
-  "versionHistory": {
-    "currentChip": "Aktuell",
-    "versionChip": "Version"
   }
 }

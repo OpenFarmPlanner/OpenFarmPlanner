@@ -272,7 +272,6 @@
         "create": "Add supplier"
       }
     },
-    "currentVersion": "Current version",
     "versionHistoryTitle": "Version history",
     "versionHistoryEmpty": "No changes recorded yet.",
     "restoreVersion": "Switch to this version",
@@ -328,9 +327,5 @@
   },
   "language": {
     "label": "Language"
-  },
-  "versionHistory": {
-    "currentChip": "Current",
-    "versionChip": "Version"
   }
 }

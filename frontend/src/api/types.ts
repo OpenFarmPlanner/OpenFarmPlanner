@@ -856,7 +856,6 @@ export interface CultureHistoryEntry {
   batch_id?: number;
   batch_operation_type?: string;
   batch_context?: Record<string, unknown>;
-  batch_reverted?: boolean;
   children?: CultureHistoryEntry[];
 }
 

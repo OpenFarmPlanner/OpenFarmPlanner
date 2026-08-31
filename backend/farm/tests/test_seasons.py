@@ -306,8 +306,14 @@ class SeasonApiTest(ProjectApiTestCase):
             sorted(PlantingPlan.objects.filter(season_id=season_id).values_list('pk', flat=True)),
             sorted(plan_ids),
         )
-        batch.refresh_from_db()
-        self.assertIsNotNone(batch.reverted_at)
+
+        # Reverting the revert re-applies the deletion.
+        revert_batch = BatchOperation.objects.filter(
+            project=self.project, operation_type='batch_reverted',
+        ).latest('id')
+        second = self.client.post(f'/openfarmplanner/api/history/batch/{revert_batch.pk}/revert/')
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertFalse(Season.objects.filter(pk=season_id).exists())
 
     def test_reverting_a_season_create_batch_deletes_the_season(self):
         create = self.client.post('/openfarmplanner/api/seasons/', {
@@ -320,10 +326,11 @@ class SeasonApiTest(ProjectApiTestCase):
 
         self.assertEqual(revert.status_code, 200, revert.data)
         self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
-        # A second revert is refused.
+        # Reverting again is idempotent, not an error.
         self.assertEqual(
-            self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/').status_code, 422,
+            self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/').status_code, 200,
         )
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
 
     def test_undelete_leaves_individually_deleted_plans_deleted(self):
         season = Season.objects.create(

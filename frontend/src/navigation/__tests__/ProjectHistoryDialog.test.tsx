@@ -70,21 +70,20 @@ describe('ProjectHistoryDialog', () => {
     expect(onRevertBatch).toHaveBeenCalledWith(batchEntry);
   });
 
-  it('shows a chip and no action once a batch has been reverted', () => {
-    renderDialog([
-      entry({
-        is_batch: true,
-        batch_id: 9,
-        batch_operation_type: 'season_create',
-        batch_context: { season_label: '26/27' },
-        batch_reverted: true,
-        children: [entry({ object_type: 'season', action: 'created' })],
-      }),
-    ]);
+  it('shows a "revert of a revert" entry with the same restore button', async () => {
+    const user = userEvent.setup();
+    const revertEntry = entry({
+      is_batch: true,
+      batch_id: 9,
+      batch_operation_type: 'batch_reverted',
+      batch_context: { reverted_operation_type: 'season_delete', season_label: '25/26' },
+      children: [entry({ object_type: 'season', action: 'restored' })],
+    });
+    const { onRevertBatch } = renderDialog([revertEntry]);
 
-    expect(screen.getByText('Saison 26/27 erstellt')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Version wiederherstellen' })).not.toBeInTheDocument();
-    expect(screen.getByText('Wiederhergestellt')).toBeInTheDocument();
+    expect(screen.getByText('Wiederhergestellt: Saison 25/26 gelöscht')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Version wiederherstellen' }));
+    expect(onRevertBatch).toHaveBeenCalledWith(revertEntry);
   });
 
   it('lists ungrouped revisions flat with "Version wiederherstellen"', () => {

@@ -63,7 +63,6 @@ class ProjectHistoryListView(APIView):
                     'batch_id': batch.id,
                     'batch_operation_type': batch.operation_type,
                     'batch_context': batch.context or {},
-                    'batch_reverted': batch.reverted_at is not None,
                     'history_date': batch.created_at,
                     'history_type': 'batch',
                     'history_user': batch.user_name or None,

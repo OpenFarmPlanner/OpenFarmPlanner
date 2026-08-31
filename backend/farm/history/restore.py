@@ -194,9 +194,11 @@ def revert_batch_operation(project: Project, batch, *, user_name: str = '') -> N
     """Undo a whole `BatchOperation`: every entity it touched goes back to its
     state just before the batch. `created` entities are deleted, `deleted` ones
     recreated, `updated`/`restored` ones rolled back to the prior revision.
+
+    Idempotent — applying it again when the entities are already at their
+    pre-batch state is a no-op — and it composes: reverting a `batch_reverted`
+    batch re-applies the original action.
     """
-    if batch.reverted_at is not None:
-        raise BatchRevertError('already reverted')
     revisions = list(batch.revisions.all())
     if not revisions:
         raise BatchRevertError('empty batch')

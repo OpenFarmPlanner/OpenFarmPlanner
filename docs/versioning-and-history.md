@@ -79,12 +79,13 @@ of a dozen unrelated "planting plan deleted" rows.
 - `ProjectHistoryListView` folds revisions sharing a `batch_operation` into
   one `is_batch` payload entry (still carrying the members in `children`, used
   only for the summary counts). `ProjectHistoryDialog` renders it as one row.
-- **Revert:** `BatchOperationRevertView` → `revert_batch_operation`
-  (`restore.py`) undoes the whole batch — every entity goes back to its state
-  *just before* the batch (`created` → deleted, `deleted` → recreated,
-  `updated`/`restored` → rolled back to the prior revision), grouped under a
-  new `batch_reverted` batch. `BatchOperation.reverted_at` is then set; a
-  second revert returns 422.
+- **Revert:** every batch entry (including a `batch_reverted` one) shows the
+  same "Version wiederherstellen" button. `BatchOperationRevertView` →
+  `revert_batch_operation` (`restore.py`) undoes the whole batch — every entity
+  goes back to its state *just before* the batch (`created` → deleted,
+  `deleted` → recreated, `updated`/`restored` → rolled back to the prior
+  revision), grouped under a new `batch_reverted` batch. It is idempotent and
+  composes: reverting a `batch_reverted` batch re-applies the original action.
 - `cleanup_history` drops `BatchOperation` rows older than the cutoff once
   all their revisions have been pruned.
 
