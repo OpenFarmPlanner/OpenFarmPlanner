@@ -191,7 +191,13 @@ export function useActiveSeason() {
     await seasonAPI.undelete(deletion.seasonId);
     removePendingDeletion(deletionId);
     if (deletion.restoreAsActive && activeProjectId) {
-      // We bounced off this season when it was deleted — go back to it.
+      // We bounced off this season when it was deleted — go back to it. Clear
+      // the stashed entry synchronously: the effect that mirrors state to
+      // sessionStorage won't get to run before the reload, so without this the
+      // snackbar would come back for an already-restored season.
+      writePendingSeasonDeletions(
+        readPendingSeasonDeletions().filter((entry) => entry.id !== deletionId),
+      );
       setStoredActiveSeasonId(activeProjectId, deletion.seasonId);
       window.location.reload();
       return;

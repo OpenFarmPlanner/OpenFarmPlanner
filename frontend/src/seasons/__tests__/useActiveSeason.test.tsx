@@ -108,5 +108,8 @@ describe('useActiveSeason', () => {
     expect(undeleteMock).toHaveBeenCalledWith(3);
     expect(window.localStorage.getItem('activeSeasonId:1')).toBe('3');
     expect(reloadMock).toHaveBeenCalled();
+    // The stashed entry is cleared synchronously before the reload, so the
+    // snackbar does not come back for the already-restored season.
+    expect(JSON.parse(window.sessionStorage.getItem('pendingSeasonDeletions') ?? '[]')).toHaveLength(0);
   });
 });

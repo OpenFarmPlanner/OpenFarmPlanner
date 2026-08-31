@@ -190,6 +190,45 @@ class SeasonApiTest(ProjectApiTestCase):
         # The plan stayed attached to the (rebuilt) season, not orphaned.
         self.assertTrue(PlantingPlan.objects.filter(pk=plan.pk, season=season).exists())
 
+    def test_undelete_nulls_a_planting_plan_fk_whose_target_is_gone(self):
+        from farm.models import Bed
+        bed = Bed.objects.create(project=self.project, field=self.field, name='Doomed', area_sqm=5)
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        ).pk
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        bed.delete()
+
+        response = self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        restored = PlantingPlan.objects.get(pk=plan_id)
+        self.assertIsNone(restored.bed_id)
+        self.assertEqual(restored.season_id, season.pk)
+
+    def test_recreating_a_seasons_period_also_restores_its_planting_plans(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        ).pk
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertEqual(PlantingPlan.objects.filter(pk=plan_id).count(), 0)
+
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+
+        self.assertEqual(create.status_code, 201)
+        self.assertEqual(create.data['id'], season.pk)
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan_id, season_id=season.pk).exists())
+
     def test_deleting_a_season_deletes_its_planting_plans_and_undelete_restores_them(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),

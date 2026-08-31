@@ -64,6 +64,9 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 resurrected, EntityRevision.ACTION_UPDATED,
                 changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
             )
+            # Re-creating a season's period is an undelete — bring its planting
+            # plans back too, same as the `undelete` action does.
+            self._restore_season_planting_plans(resurrected, batch)
             serializer.instance = (
                 Season.objects
                 .annotate(planting_plan_count=Count('planting_plans'))
@@ -133,17 +136,6 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             return Response({'detail': 'Season not found.'}, status=status.HTTP_404_NOT_FOUND)
         if season.deleted_at is not None:
             with transaction.atomic():
-                deleted_revision = (
-                    EntityRevision.objects
-                    .filter(
-                        project=self.request.active_project,
-                        entity_type='season',
-                        object_id=season.pk,
-                        action=EntityRevision.ACTION_DELETED,
-                    )
-                    .order_by('-created_at')
-                    .first()
-                )
                 batch = start_batch_operation(
                     project=self.request.active_project,
                     operation_type=BatchOperation.TYPE_SEASON_UNDELETE,
@@ -156,11 +148,27 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                     season, EntityRevision.ACTION_UPDATED,
                     changed_fields=['deleted_at'], batch_operation=batch,
                 )
-                if deleted_revision is not None:
-                    self._restore_planting_plans_deleted_with_season(
-                        season, deleted_revision.created_at, batch,
-                    )
+                self._restore_season_planting_plans(season, batch)
         return Response(SeasonSerializer(season).data)
+
+    def _restore_season_planting_plans(self, season: Season, batch: BatchOperation) -> None:
+        """Recreate the planting plans hard-deleted when `season` was deleted,
+        from the revisions recorded at that time."""
+        deleted_revision = (
+            EntityRevision.objects
+            .filter(
+                project=self.request.active_project,
+                entity_type='season',
+                object_id=season.pk,
+                action=EntityRevision.ACTION_DELETED,
+            )
+            .order_by('-created_at')
+            .first()
+        )
+        if deleted_revision is not None:
+            self._restore_planting_plans_deleted_with_season(
+                season, deleted_revision.created_at, batch,
+            )
 
     def _restore_planting_plans_deleted_with_season(
         self, season: Season, deleted_since, batch: BatchOperation,
@@ -192,6 +200,24 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
             row_data['project_id'] = season.project_id
             row_data['season_id'] = season.pk
+            # A FK target (bed/culture/user) may have been hard-deleted since
+            # the snapshot — null the nullable ones rather than 500 on insert,
+            # matching the other restore paths.
+            for field in PlantingPlan._meta.concrete_fields:
+                related_id = row_data.get(field.attname)
+                if (
+                    field.remote_field is None
+                    or related_id is None
+                    or field.attname in ('project_id', 'season_id')
+                    or not field.null
+                ):
+                    continue
+                target_manager = (
+                    getattr(field.remote_field.model, 'all_objects', None)
+                    or field.remote_field.model._base_manager
+                )
+                if not target_manager.filter(pk=related_id).exists():
+                    row_data[field.attname] = None
             recreated.append(PlantingPlan(**row_data))
         if not recreated:
             return
