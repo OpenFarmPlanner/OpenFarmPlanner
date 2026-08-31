@@ -22,7 +22,12 @@ import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { collectHierarchyAvailability } from '../components/planting-plans/areaHierarchySelection';
 import type { SearchableSelectOption } from '../components/data-grid';
 import { useTranslation } from '../i18n';
-import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+import {
+  formatCultureVarietyLabel,
+  getCultureDisplayName,
+  getCultureVariety,
+} from '../cultures/cultureDisplay';
+import type { CultureOptionParts } from '../components/planting-plans/CultureSelectOption';
 
 export interface CultivationTypeSelectOption {
   value: CultivationType;
@@ -102,13 +107,17 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
     fetchData();
   }, [shouldShowProjectRequiredState]);
 
-  const cultureOptions: SearchableSelectOption[] = useMemo(
+  const cultureOptions: SearchableSelectOption<CultureOptionParts>[] = useMemo(
     () =>
       cultures
         .filter((c) => c.id !== undefined)
         .map((c) => ({
           value: c.id!,
-          label: formatCultureDisplayName(c),
+          label: formatCultureVarietyLabel(c),
+          data: {
+            cultureName: getCultureDisplayName(c),
+            variety: getCultureVariety(c),
+          },
         })),
     [cultures],
   );
@@ -224,7 +233,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
 
   const dynamicWidths = useMemo(() => {
     const cultureWidth = estimateColumnWidth(
-      [t('plantingPlans:columns.culture'), ...cultureOptions.map((option) => option.label)],
+      [t('plantingPlans:columns.cultureVariety'), ...cultureOptions.map((option) => option.label)],
       170,
       CULTURE_COLUMN_MAX_WIDTH,
     );

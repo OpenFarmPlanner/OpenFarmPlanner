@@ -56,7 +56,43 @@ describe('usePlantingPlanHierarchy', () => {
     await waitFor(() => expect(result.current.isHierarchyLoading).toBe(false));
 
     expect(result.current.cultureOptions).toEqual([
-      { value: 1, label: 'Broad bean (Hangdown)' },
+      {
+        value: 1,
+        label: 'Broad bean · Hangdown',
+        data: { cultureName: 'Broad bean', variety: 'Hangdown' },
+      },
+    ]);
+  });
+
+  it('keeps the culture and its variety separately available for the dropdown rendering', async () => {
+    apiMocks.cultureListAll.mockResolvedValue({
+      results: [
+        { id: 1, name: 'Salat', variety: 'Lollo Bionda' },
+        { id: 2, name: 'Salat', variety: 'Lollo Rossa' },
+        { id: 3, name: 'Karotte', variety: '' },
+      ],
+    });
+
+    const { result } = renderHook(() => usePlantingPlanHierarchy(false));
+
+    await waitFor(() => expect(result.current.isHierarchyLoading).toBe(false));
+
+    expect(result.current.cultureOptions).toEqual([
+      {
+        value: 1,
+        label: 'Salat · Lollo Bionda',
+        data: { cultureName: 'Salat', variety: 'Lollo Bionda' },
+      },
+      {
+        value: 2,
+        label: 'Salat · Lollo Rossa',
+        data: { cultureName: 'Salat', variety: 'Lollo Rossa' },
+      },
+      {
+        value: 3,
+        label: 'Karotte',
+        data: { cultureName: 'Karotte', variety: '' },
+      },
     ]);
   });
 });

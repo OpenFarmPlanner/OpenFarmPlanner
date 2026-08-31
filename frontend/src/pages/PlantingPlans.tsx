@@ -96,7 +96,8 @@ import {
 } from "./requirementFlow";
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
 import EmptyStateCard from "../components/project/EmptyStateCard";
-import { formatCultureDisplayName } from "../cultures/cultureDisplay";
+import { formatCultureVarietyLabel } from "../cultures/cultureDisplay";
+import { renderCultureSelectOption } from "../components/planting-plans/CultureSelectOption";
 import { getEffectiveCultureValue } from "../cultures/varietyValueSource";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
@@ -498,13 +499,14 @@ function PlantingPlans() {
       {
         ...createSearchableSelectColumn<PlantingPlanRow>({
           field: "culture",
-          headerName: t("plantingPlans:columns.culture"),
+          headerName: t("plantingPlans:columns.cultureVariety"),
           flex: 0,
           minWidth: dynamicWidths.culture,
           maxWidth: CULTURE_COLUMN_MAX_WIDTH,
           truncateCellText: true,
           options: cultureOptions,
           placeholder: t("plantingPlans:placeholders.selectCulture"),
+          renderOption: renderCultureSelectOption,
         }),
         valueSetter: (value, row) => {
           const nextRow = row as PlantingPlanRow;
@@ -823,7 +825,7 @@ function PlantingPlans() {
 
   const getCultureLabel = (row: PlantingPlanRow): string => {
     const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    const cultureLabel = formatCultureDisplayName({
+    const cultureLabel = formatCultureVarietyLabel({
       name: linkedCulture?.name,
       culture_name: row.culture_name,
       culture_display_name: row.culture_display_name ?? linkedCulture?.culture_display_name,

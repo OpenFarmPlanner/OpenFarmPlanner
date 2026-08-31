@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
+import {
+  formatCultureDisplayName,
+  formatCultureVarietyLabel,
+  getCultureDisplayName,
+} from '../cultures/cultureDisplay';
 
 describe('culture display names', () => {
   it('prefers the localized culture display name', () => {
@@ -31,5 +35,16 @@ describe('culture display names', () => {
       culture_display_name: 'Broad bean',
       variety: 'Hangdown',
     })).toBe('Broad bean (Hangdown)');
+  });
+
+  it('separates culture and variety with a middle dot for select labels', () => {
+    expect(formatCultureVarietyLabel({
+      name: 'Salat',
+      variety: 'Lollo Bionda',
+    })).toBe('Salat · Lollo Bionda');
+  });
+
+  it('shows only the culture name when there is no variety', () => {
+    expect(formatCultureVarietyLabel({ name: 'Karotte', variety: '' })).toBe('Karotte');
   });
 });

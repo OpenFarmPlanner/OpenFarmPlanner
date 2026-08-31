@@ -2,6 +2,7 @@
   "title": "Anbaupläne",
   "columns": {
     "culture": "Kultur",
+    "cultureVariety": "Kultur / Sorte",
     "location": "Standort",
     "field": "Parzelle",
     "bed": "Beet",

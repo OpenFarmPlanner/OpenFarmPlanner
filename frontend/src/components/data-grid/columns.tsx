@@ -3,6 +3,7 @@
  */
 
 import type { GridColDef } from '@mui/x-data-grid';
+import type { ReactNode } from 'react';
 import { Box } from '@mui/material';
 import { OverflowTooltip } from '../OverflowTooltip';
 import { SearchableSelectEditCell } from './SearchableSelectEditCell';
@@ -20,6 +21,17 @@ export interface SearchableSelectColumnConfig<Row extends { [key: string]: unkno
   placeholder?: string;
 }
 
+export interface SearchableSelectColumnWithOptionRenderingConfig<
+  Row extends { [key: string]: unknown },
+> extends SearchableSelectColumnConfig<Row> {
+  /**
+   * Optional custom markup for a dropdown row. The cell, the input value,
+   * search, keyboard navigation and clipboard export all keep using the
+   * option's plain `label`.
+   */
+  renderOption?: (option: SearchableSelectOption) => ReactNode;
+}
+
 /**
  * Build a searchable single-select column for the Data Grid.
  *
@@ -30,7 +42,7 @@ export interface SearchableSelectColumnConfig<Row extends { [key: string]: unkno
  * @returns Data Grid column definition.
  */
 export const createSearchableSelectColumn = <Row extends { [key: string]: unknown }>(
-  config: SearchableSelectColumnConfig<Row>
+  config: SearchableSelectColumnWithOptionRenderingConfig<Row>
 ): GridColDef => {
   const {
     field,
@@ -41,6 +53,7 @@ export const createSearchableSelectColumn = <Row extends { [key: string]: unknow
     maxWidth,
     truncateCellText = false,
     placeholder,
+    renderOption,
   } = config;
 
   return {
@@ -91,6 +104,7 @@ export const createSearchableSelectColumn = <Row extends { [key: string]: unknow
         {...params}
         options={options}
         placeholder={placeholder}
+        renderOption={renderOption}
       />
     ),
     valueSetter: (value, row) => {

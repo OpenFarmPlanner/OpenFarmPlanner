@@ -39,7 +39,10 @@ export { parseGermanDateText, formatDateAsGerman } from './GermanDateEditCell';
 export { SearchableSelectEditCell } from './SearchableSelectEditCell';
 export type { SearchableSelectOption, SearchableSelectEditCellProps } from './SearchableSelectEditCell';
 export { createSearchableSelectColumn, createSingleSelectColumn } from './columns';
-export type { SearchableSelectColumnConfig } from './columns';
+export type {
+  SearchableSelectColumnConfig,
+  SearchableSelectColumnWithOptionRenderingConfig,
+} from './columns';
 export { getCalculatedColumnProps } from './calculatedColumns';
 export type { DataGridColumnState } from './calculatedColumns';
 export { FullCellTooltip, FULL_CELL_TOOLTIP_CELL_CLASS } from './FullCellTooltip';

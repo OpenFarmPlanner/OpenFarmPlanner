@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import { SearchableSelect } from '../inputs/SearchableSelect';
@@ -20,6 +21,8 @@ export interface SearchableSelectEditCellProps extends GridRenderEditCellParams 
   options: SearchableSelectOption[];
   onValueChange?: (nextValue: number | null) => Promise<void> | void;
   placeholder?: string;
+  /** Custom markup for a dropdown row; the input keeps showing `option.label`. */
+  renderOption?: (option: SearchableSelectOption) => ReactNode;
 }
 
 export function SearchableSelectEditCell({
@@ -29,6 +32,7 @@ export function SearchableSelectEditCell({
   options,
   onValueChange,
   placeholder,
+  renderOption,
   hasFocus,
 }: SearchableSelectEditCellProps) {
   const apiRef = useGridApiContext();
@@ -82,6 +86,16 @@ export function SearchableSelectEditCell({
       open={open}
       onOpen={handleOpen}
       onClose={handleClose}
+      renderOption={renderOption
+        ? (optionProps, option) => {
+          const { key, ...listProps } = optionProps;
+          return (
+            <li {...listProps} key={key as number}>
+              {renderOption(option)}
+            </li>
+          );
+        }
+        : undefined}
     />
   );
 }

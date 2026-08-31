@@ -244,7 +244,14 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   through `StandardSingleSelectEditCell`, which reuses the shared closed
   Select typeahead hook from `components/inputs/selectTypeahead.ts` so typing
   on a focused closed editor selects by the localized visible label just like
-  form-level Selects. A primary click on an inline `singleSelect` cell opens
+  form-level Selects. `createSearchableSelectColumn` takes an optional
+  `renderOption`, which only replaces the markup of a *dropdown row* in the
+  Autocomplete editor; the cell, the input value, search, keyboard navigation
+  and clipboard export all keep using the option's plain `label`. The planting-plan culture column uses it to show a
+  Sorte as subdued, indented secondary text under its Kultur
+  (`components/planting-plans/CultureSelectOption.tsx`), while the label
+  itself stays the combined "Kultur · Sorte" string. A primary click on an
+  inline `singleSelect` cell opens
   row edit mode and immediately requests the mounted select editor to open its
   dropdown via `SelectEditCellContext`; keyboard entry into the same cell only
   focuses the editor, so Tab/F2/type-to-edit behavior stays unchanged. When a

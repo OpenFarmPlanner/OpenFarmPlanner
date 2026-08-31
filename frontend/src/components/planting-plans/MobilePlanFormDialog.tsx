@@ -24,6 +24,8 @@ import type { SearchableSelectOption } from "../data-grid";
 import type { MobileCreateFormState } from "../../pages/plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "../../pages/usePlantingPlanHierarchy";
 import { TypeaheadSelect as Select } from "../inputs/TypeaheadSelect";
+import { CultureSelectOption } from "./CultureSelectOption";
+import type { CultureOptionParts } from "./CultureSelectOption";
 import {
   compactFieldSx,
   formRowSx,
@@ -95,18 +97,28 @@ export function MobilePlanFormDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
           <FormControl sx={wideFieldSx}>
-            <InputLabel>{t("plantingPlans:columns.culture")}</InputLabel>
+            <InputLabel>{t("plantingPlans:columns.cultureVariety")}</InputLabel>
             <Select
               fullWidth
               value={form.culture}
-              label={t("plantingPlans:columns.culture")}
+              label={t("plantingPlans:columns.cultureVariety")}
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, culture: String(event.target.value) }))
               }
+              renderValue={(selected) =>
+                cultureOptions.find((option) => String(option.value) === String(selected))?.label ?? ""
+              }
             >
-              {cultureOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-              ))}
+              {cultureOptions.map((option) => {
+                const parts = option.data as CultureOptionParts | undefined;
+                return (
+                  <MenuItem key={option.value} value={option.value}>
+                    {parts
+                      ? <CultureSelectOption cultureName={parts.cultureName} variety={parts.variety} />
+                      : option.label}
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
           <FormControl sx={wideFieldSx}>

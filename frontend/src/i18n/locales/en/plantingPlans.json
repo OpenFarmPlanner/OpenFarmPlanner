@@ -2,6 +2,7 @@
   "title": "Planting plans",
   "columns": {
     "culture": "Culture",
+    "cultureVariety": "Culture / Variety",
     "location": "Location",
     "field": "Field",
     "bed": "Bed",
