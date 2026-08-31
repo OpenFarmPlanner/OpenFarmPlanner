@@ -199,8 +199,8 @@ export function SeasonCreateSuggestionDialog({
               bgcolor: 'action.hover',
             }}
           >
-            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary', mt: '2px', flexShrink: 0 }} />
-            <Typography variant="caption" color="text.secondary">
+            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary', mt: '3px', flexShrink: 0 }} />
+            <Typography variant="body2" color="text.secondary">
               {t('navigation:seasonSwitcher.suggestion.patternHint.prefix')}
               {' '}
               <Link
@@ -209,6 +209,7 @@ export function SeasonCreateSuggestionDialog({
                 onClick={handleEditSeasonPattern}
                 sx={{
                   fontWeight: 700,
+                  fontSize: 'inherit',
                   color: 'primary.main',
                   textDecoration: 'none',
                   verticalAlign: 'baseline',
