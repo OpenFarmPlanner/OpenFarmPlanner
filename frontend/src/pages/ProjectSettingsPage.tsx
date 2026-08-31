@@ -1,7 +1,7 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useOutletContext } from 'react-router';
 import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload, type ProjectRegion } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
@@ -10,6 +10,7 @@ import { useTranslation } from '../i18n';
 import { showProjectDeleteUndoSnackbar } from '../projects/projectDeletionFeedback';
 import { compactFieldSx, wideFieldSx } from '../components/forms/formLayout';
 import { SeasonPatternCard } from '../seasons/SeasonPatternCard';
+import type { RootLayoutOutletContext } from '../navigation/topbarTypes';
 
 interface InviteFeedback {
   severity: 'success' | 'warning' | 'error';
@@ -20,6 +21,7 @@ export default function ProjectSettingsPage() {
   const { t } = useTranslation('projectInvitations');
   const navigate = useNavigate();
   const { hash } = useLocation();
+  const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const { user, refreshUser, activeProjectId } = useAuth();
   const resolvedActiveProjectId = activeProjectId ?? Number(window.localStorage.getItem('activeProjectId'));
   const activeMembership = useMemo(
@@ -412,7 +414,7 @@ export default function ProjectSettingsPage() {
           </CardContent>
         </Card>
 
-        <SeasonPatternCard id="season-pattern" />
+        <SeasonPatternCard id="season-pattern" onSaved={() => outletContext?.reloadActiveSeason()} />
 
         <Card variant="outlined" aria-labelledby="project-invite-section-title">
           <CardContent sx={sectionCardContentSx}>

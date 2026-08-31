@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router';
 import ProjectSettingsPage from '../pages/ProjectSettingsPage';
+import type { RootLayoutOutletContext } from '../navigation/topbarTypes';
 
 const inviteMock = vi.fn(async () => ({ data: { code: 'invitation_sent', mail_sent: true } }));
 const listMock = vi.fn(async () => ({ data: [] }));
@@ -25,6 +26,9 @@ const updateProjectMock = vi.fn(async () => ({ data: { id: 1, name: 'Beta' } }))
 const deleteProjectMock = vi.fn(async () => ({}));
 const restoreProjectMock = vi.fn(async () => ({ data: { id: 1, name: 'Alpha' } }));
 const refreshUserMock = vi.fn(async () => null);
+const seasonPatternGetMock = vi.fn(async () => ({ data: { start_day: 1, start_month: 1 } }));
+const seasonPatternPreviewMock = vi.fn(async () => ({ data: [] }));
+const seasonPatternUpdateMock = vi.fn(async () => ({ data: { start_day: 1, start_month: 3 } }));
 
 const authState = {
   user: {
@@ -54,6 +58,12 @@ vi.mock('../api/api', async () => {
       delete: (...args: unknown[]) => deleteProjectMock(...args),
       restore: (...args: unknown[]) => restoreProjectMock(...args),
     },
+    seasonPatternAPI: {
+      ...actual.seasonPatternAPI,
+      get: (...args: unknown[]) => seasonPatternGetMock(...args),
+      preview: (...args: unknown[]) => seasonPatternPreviewMock(...args),
+      update: (...args: unknown[]) => seasonPatternUpdateMock(...args),
+    },
   };
 });
 
@@ -74,6 +84,9 @@ describe('ProjectSettingsPage', () => {
     deleteProjectMock.mockClear();
     restoreProjectMock.mockClear();
     refreshUserMock.mockClear();
+    seasonPatternGetMock.mockClear();
+    seasonPatternPreviewMock.mockClear();
+    seasonPatternUpdateMock.mockClear();
     listMock.mockResolvedValue({ data: [] });
     listMembersMock.mockResolvedValue({
       data: [
@@ -355,5 +368,27 @@ describe('ProjectSettingsPage', () => {
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+
+  it('refreshes the active-season suggestion after the season pattern is saved', async () => {
+    const reloadActiveSeason = vi.fn();
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            element={<Outlet context={{ reloadActiveSeason } as unknown as RootLayoutOutletContext} />}
+          >
+            <Route index element={<ProjectSettingsPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.mouseDown(await screen.findByLabelText('Monat'));
+    fireEvent.click(await screen.findByRole('option', { name: 'März' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Saison-Muster speichern' }));
+
+    await waitFor(() => expect(seasonPatternUpdateMock).toHaveBeenCalledWith({ start_day: 1, start_month: 3 }));
+    await waitFor(() => expect(reloadActiveSeason).toHaveBeenCalledTimes(1));
   });
 });

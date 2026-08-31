@@ -21,7 +21,7 @@ import { SeasonStartDateFields } from './SeasonStartDateFields';
 
 const sectionCardContentSx = { p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } };
 
-export function SeasonPatternCard({ id }: { id?: string }) {
+export function SeasonPatternCard({ id, onSaved }: { id?: string; onSaved?: () => void }) {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const locale = resolveSeasonDateLocale(i18n);
   const [startDay, setStartDay] = useState(1);
@@ -78,6 +78,9 @@ export function SeasonPatternCard({ id }: { id?: string }) {
       setSavedStartDay(startDay);
       setSavedStartMonth(startMonth);
       setFeedback({ severity: 'success', message: t('navigation:seasonPattern.saveSuccess') });
+      // The due-season suggestion is derived from the pattern; let the app
+      // refresh it so a later "create season" uses the new period.
+      onSaved?.();
     } catch (saveError) {
       setFeedback({ severity: 'error', message: extractApiErrorMessage(saveError, t, t('navigation:seasonPattern.saveError')) });
     } finally {

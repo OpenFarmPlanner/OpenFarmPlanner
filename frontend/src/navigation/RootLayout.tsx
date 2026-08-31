@@ -2081,6 +2081,7 @@ function RootLayout() {
           activeSeasonLoaded: activeSeason.loaded,
           hasSeasons: activeSeason.seasons.length > 0,
           requestSeasonCreation,
+          reloadActiveSeason: () => { void activeSeason.reload(); },
           notifications,
         } satisfies RootLayoutOutletContext} />
       </Box>

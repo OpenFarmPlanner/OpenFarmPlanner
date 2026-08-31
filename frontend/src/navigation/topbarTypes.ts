@@ -49,6 +49,12 @@ export interface RootLayoutOutletContext {
   /** Opens the shared suggested-season creation dialog. */
   requestSeasonCreation: () => void;
   /**
+   * Re-fetches the active project's seasons and the due-season suggestion.
+   * Call after something outside the season list changes what the suggestion
+   * derives from (e.g. editing the season pattern in project settings).
+   */
+  reloadActiveSeason: () => void;
+  /**
    * The single notification controller the topbar owns. Handed to pages so the
    * notification history page marks rows read through the same state the bell's
    * unread badge reads from, instead of a second copy that would drift.
