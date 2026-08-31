@@ -64,7 +64,12 @@
       "createError": "Saison konnte nicht angelegt werden.",
       "outOfRangeError_one": "Die Saison kann für {{period}} nicht angelegt werden, weil ein bestehender Anbauplan außerhalb dieses Zeitraums liegt: {{examples}}. Passe das Saison-Muster in den Projekteinstellungen an und lege die Saison danach erneut an.",
       "outOfRangeError_other": "Die Saison kann für {{period}} nicht angelegt werden, weil {{count}} bestehende Anbaupläne außerhalb dieses Zeitraums liegen: {{examples}}. Passe das Saison-Muster in den Projekteinstellungen an und lege die Saison danach erneut an.",
-      "outOfRangeFallbackExamples": "bestehende Anbaupläne"
+      "outOfRangeFallbackExamples": "bestehende Anbaupläne",
+      "patternHint": {
+        "prefix": "Zeitraum stimmt nicht? Das Saison-Muster kannst du in den",
+        "link": "Projekteinstellungen",
+        "suffix": "anpassen — die Änderung gilt dann für künftige Saisons."
+      }
     },
     "renameDialog": {
       "title": "Saison umbenennen",

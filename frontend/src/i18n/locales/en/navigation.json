@@ -64,7 +64,12 @@
       "createError": "Season could not be created.",
       "outOfRangeError_one": "The season for {{period}} cannot be created because one existing planting plan lies outside that period: {{examples}}. Adjust the season pattern in project settings, then create the season again.",
       "outOfRangeError_other": "The season for {{period}} cannot be created because {{count}} existing planting plans lie outside that period: {{examples}}. Adjust the season pattern in project settings, then create the season again.",
-      "outOfRangeFallbackExamples": "existing planting plans"
+      "outOfRangeFallbackExamples": "existing planting plans",
+      "patternHint": {
+        "prefix": "Period doesn't fit? You can adjust the season pattern in",
+        "link": "project settings",
+        "suffix": "— the change then applies to future seasons."
+      }
     },
     "renameDialog": {
       "title": "Rename season",

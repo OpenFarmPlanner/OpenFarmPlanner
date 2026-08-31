@@ -1,7 +1,7 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { projectAPI, type ProjectInvitationPayload, type ProjectMemberPayload, type ProjectRegion } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
@@ -19,6 +19,7 @@ interface InviteFeedback {
 export default function ProjectSettingsPage() {
   const { t } = useTranslation('projectInvitations');
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const { user, refreshUser, activeProjectId } = useAuth();
   const resolvedActiveProjectId = activeProjectId ?? Number(window.localStorage.getItem('activeProjectId'));
   const activeMembership = useMemo(
@@ -109,6 +110,18 @@ export default function ProjectSettingsPage() {
     setProjectNameDraft(activeMembership?.project_name ?? '');
     setProjectNameError(null);
   }, [activeMembership?.project_name]);
+
+  // Support deep links to a specific section (e.g. the season-pattern hint in
+  // the "create season" dialog navigates here with #season-pattern).
+  useEffect(() => {
+    if (!hash) {
+      return;
+    }
+    const target = document.getElementById(hash.slice(1));
+    if (typeof target?.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [hash]);
 
   const sortedInvitations = useMemo(() => (
     [...invitations].sort((left, right) => {
@@ -399,7 +412,7 @@ export default function ProjectSettingsPage() {
           </CardContent>
         </Card>
 
-        <SeasonPatternCard />
+        <SeasonPatternCard id="season-pattern" />
 
         <Card variant="outlined" aria-labelledby="project-invite-section-title">
           <CardContent sx={sectionCardContentSx}>

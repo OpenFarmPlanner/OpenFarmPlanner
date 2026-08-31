@@ -12,6 +12,7 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  Link,
   Menu,
   MenuItem,
   Stack,
@@ -21,6 +22,7 @@ import axios from 'axios';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CheckIcon from '@mui/icons-material/Check';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { Season } from '../api/types';
 import { useTranslation } from '../i18n';
 import type { UseActiveSeasonReturn } from './useActiveSeason';
@@ -51,6 +53,11 @@ interface SeasonCreateSuggestionDialogProps {
   controller: UseActiveSeasonReturn;
   open: boolean;
   onClose: () => void;
+  /**
+   * Close the dialog (no season is created) and open the project settings page
+   * scrolled to the season-pattern section.
+   */
+  onEditSeasonPattern: () => void;
 }
 
 function getSeasonCreateErrorMessage(
@@ -84,6 +91,7 @@ export function SeasonCreateSuggestionDialog({
   controller,
   open,
   onClose,
+  onEditSeasonPattern,
 }: SeasonCreateSuggestionDialogProps) {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const locale = resolveSeasonDateLocale(i18n);
@@ -103,6 +111,14 @@ export function SeasonCreateSuggestionDialog({
       setCreateError(null);
       setCopyFromCurrent(true);
       onClose();
+    }
+  };
+
+  const handleEditSeasonPattern = () => {
+    if (!creatingSuggested) {
+      setCreateError(null);
+      setCopyFromCurrent(true);
+      onEditSeasonPattern();
     }
   };
 
@@ -172,6 +188,39 @@ export function SeasonCreateSuggestionDialog({
               />
             </Box>
           ) : null}
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 1,
+              p: 1.5,
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'action.hover',
+            }}
+          >
+            <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary', mt: '2px', flexShrink: 0 }} />
+            <Typography variant="caption" color="text.secondary">
+              {t('navigation:seasonSwitcher.suggestion.patternHint.prefix')}
+              {' '}
+              <Link
+                component="button"
+                type="button"
+                onClick={handleEditSeasonPattern}
+                sx={{
+                  fontWeight: 700,
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  verticalAlign: 'baseline',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                {t('navigation:seasonSwitcher.suggestion.patternHint.link')}
+              </Link>
+              {' '}
+              {t('navigation:seasonSwitcher.suggestion.patternHint.suffix')}
+            </Typography>
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions>

@@ -338,4 +338,22 @@ describe('ProjectSettingsPage', () => {
     await waitFor(() => expect(deleteProjectMock).toHaveBeenCalledWith(1));
     await waitFor(() => expect(refreshUserMock).toHaveBeenCalled());
   });
+
+  it('scrolls the season-pattern section into view when deep-linked with #season-pattern', async () => {
+    const original = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(
+        <MemoryRouter initialEntries={['/app/project-settings#season-pattern']}>
+          <ProjectSettingsPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+      expect(document.getElementById('season-pattern')).not.toBeNull();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
 });

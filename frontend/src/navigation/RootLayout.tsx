@@ -2090,6 +2090,10 @@ function RootLayout() {
         controller={activeSeason}
         open={seasonSuggestionDialogOpen}
         onClose={() => setSeasonSuggestionDialogOpen(false)}
+        onEditSeasonPattern={() => {
+          setSeasonSuggestionDialogOpen(false);
+          navigate('/app/project-settings#season-pattern');
+        }}
       />
 
       <ProjectHistoryDialog

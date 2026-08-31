@@ -77,6 +77,7 @@ describe('SeasonSwitcher', () => {
         controller={controller}
         open
         onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
       />,
     );
 
@@ -114,6 +115,7 @@ describe('SeasonSwitcher', () => {
         controller={controller}
         open
         onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
       />,
     );
 
@@ -161,6 +163,7 @@ describe('SeasonSwitcher', () => {
         controller={controller}
         open
         onClose={onClose}
+        onEditSeasonPattern={vi.fn()}
       />,
     );
 
@@ -171,5 +174,40 @@ describe('SeasonSwitcher', () => {
     expect(createSeason).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
     expect(switchSeason).not.toHaveBeenCalled();
+  });
+
+  it('links from the create dialog to the season-pattern settings without creating a season', async () => {
+    const user = userEvent.setup();
+    const createSeason = vi.fn();
+    const onClose = vi.fn();
+    const onEditSeasonPattern = vi.fn();
+    const controller = {
+      seasons: [],
+      activeSeason: null,
+      dueSuggestion: { due: true, start_date: '2026-01-01', end_date: '2026-12-31' },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason: vi.fn(),
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={onClose}
+        onEditSeasonPattern={onEditSeasonPattern}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Projekteinstellungen' }));
+
+    expect(onEditSeasonPattern).toHaveBeenCalledTimes(1);
+    expect(createSeason).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,7 @@ import { SeasonStartDateFields } from './SeasonStartDateFields';
 
 const sectionCardContentSx = { p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } };
 
-export function SeasonPatternCard() {
+export function SeasonPatternCard({ id }: { id?: string }) {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const locale = resolveSeasonDateLocale(i18n);
   const [startDay, setStartDay] = useState(1);
@@ -86,7 +86,7 @@ export function SeasonPatternCard() {
   };
 
   return (
-    <Card variant="outlined" aria-labelledby="project-season-pattern-title">
+    <Card id={id} variant="outlined" aria-labelledby="project-season-pattern-title" sx={{ scrollMarginTop: 80 }}>
       <CardContent sx={sectionCardContentSx}>
         <Typography id="project-season-pattern-title" variant="h6" sx={{ mb: 2 }}>
           {t('navigation:seasonPattern.title')}
