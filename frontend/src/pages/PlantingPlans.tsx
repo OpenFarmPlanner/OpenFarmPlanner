@@ -1547,12 +1547,6 @@ function PlantingPlans() {
                 label: t("plantingPlans:emptyStates.actions.createSeason"),
                 onClick: outletContext?.requestSeasonCreation,
               },
-              {
-                label: t("plantingPlans:emptyStates.actions.createPlan"),
-                onClick: handleCreatePlan,
-                disabled: true,
-                tooltip: t("plantingPlans:emptyStates.createRequiresSeasonTooltip"),
-              },
             ]}
           />
         ) : shouldShowPrerequisiteState ? (

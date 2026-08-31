@@ -150,10 +150,8 @@
       "createAreas": "Go to Fields & Beds",
       "openCultureLibrary": "Open culture library",
       "addCulture": "Add culture",
-      "createSeason": "Create season",
-      "createPlan": "Add planting plan"
-    },
-    "createRequiresSeasonTooltip": "Planting plans require an active season first."
+      "createSeason": "Create season"
+    }
   },
   "commands": {
     "edit": "Edit planting plan (Alt+E)",

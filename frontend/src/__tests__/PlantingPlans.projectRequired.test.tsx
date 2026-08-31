@@ -213,10 +213,9 @@ describe("PlantingPlans project requirement state", () => {
 
     expect(await screen.findByText("Noch keine Saison angelegt")).toBeInTheDocument();
     const seasonButton = screen.getByRole("button", { name: "Saison anlegen" });
-    const createButton = screen.getByRole("button", { name: "Anbauplan hinzufügen" });
-    expect(createButton).toBeDisabled();
-
-    fireEvent.click(createButton);
+    // The season empty state offers only the "create season" action — no
+    // separate disabled "add planting plan" button.
+    expect(screen.queryByRole("button", { name: "Anbauplan hinzufügen" })).not.toBeInTheDocument();
     expect(container.querySelector(".MuiDataGrid-row--editing")).not.toBeInTheDocument();
 
     fireEvent.click(seasonButton);

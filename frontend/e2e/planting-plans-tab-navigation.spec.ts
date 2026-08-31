@@ -14,6 +14,30 @@ const focusedField = async (page: Page): Promise<string | null> =>
   page.evaluate(() =>
     document.activeElement?.closest('[role="gridcell"]')?.getAttribute('data-field') ?? null);
 
+// These fixtures run against the demo project, which already seeds its own
+// seasons (Jan–Dec, one per year of demo data). Creating another season for the
+// same period fails the overlap check, so reuse the existing season that
+// contains the fixture planting date instead of creating one.
+async function resolveSeasonId(page: Page, projectId: number, containedDate: string): Promise<number> {
+  const response = await page.request.get(`${apiBase}/seasons/`, {
+    headers: { 'X-Project-Id': String(projectId) },
+  });
+  expect(
+    response.ok(),
+    `GET /seasons/ -> ${response.status()}: ${await response.text()}`,
+  ).toBeTruthy();
+  const { results } = (await response.json()) as {
+    results: Array<{ id: number; start_date: string; end_date: string }>;
+  };
+  const season = results.find(
+    (entry) => entry.start_date <= containedDate && containedDate <= entry.end_date,
+  );
+  if (!season) {
+    throw new Error(`No demo season contains ${containedDate} (project ${projectId})`);
+  }
+  return season.id;
+}
+
 async function createAutocompleteFixture(
   page: Page,
 ): Promise<{ planId: number; targetCultureName: string }> {
@@ -35,7 +59,7 @@ async function createAutocompleteFixture(
     return response.json() as Promise<T>;
   };
 
-  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
+  const seasonId = await resolveSeasonId(page, projectId, '2026-05-01');
   const location = await api<{ id: number }>('/locations/', { name: 'Tastaturhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Tabfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Autocomplete-Beet', field: field.id, area_sqm: 12 });
@@ -57,7 +81,7 @@ async function createAutocompleteFixture(
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: initialCulture.id,
-    season: season.id,
+    season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -85,7 +109,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
     return response.json() as Promise<T>;
   };
 
-  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
+  const seasonId = await resolveSeasonId(page, projectId, '2026-05-01');
   const location = await api<{ id: number }>('/locations/', { name: 'Anbauart-Enter-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Anbauart-Enter-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Anbauart-Enter-Beet', field: field.id, area_sqm: 12 });
@@ -99,7 +123,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
-    season: season.id,
+    season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -127,7 +151,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
     return response.json() as Promise<T>;
   };
 
-  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
+  const seasonId = await resolveSeasonId(page, projectId, '2026-05-01');
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Tab-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Tab-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Tab-Beet', field: field.id, area_sqm: 12 });
@@ -140,7 +164,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
-    season: season.id,
+    season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
@@ -168,7 +192,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
     return response.json() as Promise<T>;
   };
 
-  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
+  const seasonId = await resolveSeasonId(page, projectId, '2026-05-01');
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Limit-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Limit-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Limit-Beet', field: field.id, area_sqm: 7 });
@@ -183,7 +207,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
     culture: culture.id,
-    season: season.id,
+    season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,

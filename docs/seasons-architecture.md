@@ -205,9 +205,9 @@ migration modal below. `reset_project_demo_data` drops a project's seasons
 along with the rest of its farm data so repopulating never accumulates them.
 
 The planting-plans page also mirrors this rule in the UI: when a project has
-no active season it shows a "Noch keine Saison angelegt" empty state with a
-CTA into the shared suggested-season dialog, and plan creation is disabled
-with an explanatory tooltip. If direct season creation would leave existing
+no active season it shows a "Noch keine Saison angelegt" empty state whose
+only action is a CTA into the shared suggested-season dialog. If direct season
+creation would leave existing
 unassigned plans outside the proposed period (planting date through harvest
 end), the API rejects it with a structured
 `season_unassigned_data_outside_period` error so the dialog can explain which

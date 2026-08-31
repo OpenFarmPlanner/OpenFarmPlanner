@@ -150,10 +150,8 @@
       "createAreas": "Zu Anbauflächen",
       "openCultureLibrary": "Kulturbibliothek öffnen",
       "addCulture": "Kultur hinzufügen",
-      "createSeason": "Saison anlegen",
-      "createPlan": "Anbauplan hinzufügen"
-    },
-    "createRequiresSeasonTooltip": "Für Anbaupläne brauchst du zuerst eine aktive Saison."
+      "createSeason": "Saison anlegen"
+    }
   },
   "commands": {
     "edit": "Anbauplan bearbeiten (Alt+E)",
