@@ -49,6 +49,10 @@ function LayoutHarness() {
     setTopbarTitleActions: () => {},
     activeSeasonYear: null,
     activeSeason: null,
+    activeSeasonLoading: false,
+    activeSeasonLoaded: true,
+    hasSeasons: false,
+    requestSeasonCreation: () => {},
     notifications,
   } satisfies RootLayoutOutletContext}
   />;

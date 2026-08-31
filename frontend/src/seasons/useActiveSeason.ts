@@ -32,6 +32,7 @@ export function useActiveSeason() {
   const { activeProjectId } = useAuth();
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dueSuggestion, setDueSuggestion] = useState<SeasonDueSuggestion | null>(null);
   const [pendingDeletions, setPendingDeletions] = useState<PendingSeasonDeletion[]>(
@@ -66,9 +67,12 @@ export function useActiveSeason() {
   const reload = useCallback(async () => {
     if (!activeProjectId) {
       setSeasons([]);
+      setDueSuggestion(null);
+      setLoaded(true);
       return;
     }
     setLoading(true);
+    setLoaded(false);
     setError(null);
     try {
       const [seasonsResponse, dueResponse] = await Promise.all([
@@ -80,6 +84,7 @@ export function useActiveSeason() {
     } catch (loadError) {
       setError(extractApiErrorMessage(loadError, t, t('navigation:seasonSwitcher.loadError')));
     } finally {
+      setLoaded(true);
       setLoading(false);
     }
   }, [activeProjectId, t]);
@@ -244,6 +249,7 @@ export function useActiveSeason() {
     seasons,
     activeSeason,
     loading,
+    loaded,
     error,
     dueSuggestion,
     pendingDeletions,

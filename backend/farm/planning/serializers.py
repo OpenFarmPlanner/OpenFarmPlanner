@@ -173,6 +173,7 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         self._validate_minimal_identity(attrs)
         self._validate_project_scope(attrs)
+        self._validate_create_has_active_season(attrs)
         self._validate_planting_date_within_season(attrs)
         self._apply_area_input_conversion(attrs)
         self._run_model_clean(attrs)
@@ -182,10 +183,7 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         """The season the plan will end up in, mirroring PlantingPlanViewSet.
 
         Priority: an explicit ``season`` in the payload, then the season already
-        on the instance (updates), then the active ``X-Season-Id`` header. When
-        none of these resolve, ``perform_create`` auto-creates the season around
-        the plan's own planting date, so the date is in range by construction
-        and there is nothing to validate here.
+        on the instance (updates), then the active ``X-Season-Id`` header.
         """
         if 'season' in attrs:
             return attrs['season']
@@ -197,7 +195,23 @@ class PlantingPlanSerializer(serializers.ModelSerializer):
         season_id = resolve_season_id_from_request(request)
         if season_id is None:
             return None
-        return Season.objects.filter(pk=season_id).first()
+        project = _resolve_active_project_from_serializer(self)
+        queryset = Season.objects.filter(pk=season_id)
+        if project is not None:
+            queryset = queryset.filter(project=project)
+        return queryset.first()
+
+    def _validate_create_has_active_season(self, attrs) -> None:
+        """New planting plans must be attached to an active season."""
+        if self.instance is not None:
+            return
+        if 'season' in attrs and attrs['season'] is not None:
+            return
+        if self._resolve_target_season(attrs) is not None:
+            return
+        raise serializers.ValidationError({
+            'season': 'An active season is required before creating planting plans.',
+        })
 
     def _validate_planting_date_within_season(self, attrs) -> None:
         """Hard boundary: planting_date must fall inside the season's period."""

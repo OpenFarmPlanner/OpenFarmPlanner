@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SeasonSwitcher } from '../SeasonSwitcher';
+import type { AxiosError } from 'axios';
+import { SeasonCreateSuggestionDialog, SeasonSwitcher } from '../SeasonSwitcher';
 import type { Season } from '../../api/types';
 import type { UseActiveSeasonReturn } from '../useActiveSeason';
 
@@ -54,11 +55,13 @@ describe('SeasonSwitcher', () => {
       undoPendingDeletion: vi.fn(),
       closePendingDeletionSnackbar: vi.fn(),
     } as unknown as UseActiveSeasonReturn;
+    const onOpenCreateSuggestion = vi.fn();
 
     render(
       <SeasonSwitcher
         controller={controller}
         onOpenProjectSettings={vi.fn()}
+        onOpenCreateSuggestion={onOpenCreateSuggestion}
       />,
     );
 
@@ -67,6 +70,16 @@ describe('SeasonSwitcher', () => {
     expect(screen.getByText('1.9.2026 – 31.8.2027')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(onOpenCreateSuggestion).toHaveBeenCalledTimes(1);
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole('heading', { name: 'Saison 26/27 anlegen?' })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /Daten aus Saison 25\/26 übernehmen/ })).toBeChecked();
@@ -98,17 +111,103 @@ describe('SeasonSwitcher', () => {
     } as unknown as UseActiveSeasonReturn;
 
     render(
-      <SeasonSwitcher
+      <SeasonCreateSuggestionDialog
         controller={controller}
-        onOpenProjectSettings={vi.fn()}
+        open
+        onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Aktive Saison wechseln' }));
-    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
     await user.click(screen.getByRole('checkbox', { name: /Daten aus Saison 25\/26 übernehmen/ }));
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
     expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2027-08-31', undefined);
+  });
+
+  it('keeps the create dialog open and shows a concrete conflict reason when creation fails', async () => {
+    const user = userEvent.setup();
+    const createSeason = vi.fn().mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: {
+          code: 'season_unassigned_data_outside_period',
+          conflict_count: '1',
+          conflicts: [{ label: 'Tomate in Beet A - 2026-12-15' }],
+        },
+      },
+    } as AxiosError);
+    const onClose = vi.fn();
+    const switchSeason = vi.fn();
+    const controller = {
+      seasons: [],
+      activeSeason: null,
+      dueSuggestion: {
+        due: true,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+      },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason,
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={onClose}
+        onEditSeasonPattern={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(await screen.findByText(/Tomate in Beet A/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Saison 2026 anlegen?' })).toBeInTheDocument();
+    expect(createSeason).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(switchSeason).not.toHaveBeenCalled();
+  });
+
+  it('links from the create dialog to the season-pattern settings without creating a season', async () => {
+    const user = userEvent.setup();
+    const createSeason = vi.fn();
+    const onClose = vi.fn();
+    const onEditSeasonPattern = vi.fn();
+    const controller = {
+      seasons: [],
+      activeSeason: null,
+      dueSuggestion: { due: true, start_date: '2026-01-01', end_date: '2026-12-31' },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason: vi.fn(),
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={onClose}
+        onEditSeasonPattern={onEditSeasonPattern}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Projekteinstellungen' }));
+
+    expect(onEditSeasonPattern).toHaveBeenCalledTimes(1);
+    expect(createSeason).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

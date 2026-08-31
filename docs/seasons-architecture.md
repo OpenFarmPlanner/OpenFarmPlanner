@@ -94,9 +94,8 @@ description), one level down:
   filters by `season_id` when the header is present; `perform_create` injects
   it onto new plans the same way project injection works, unless the
   serializer payload already specifies a season explicitly. Without a usable
-  header it falls back to `get_or_create_season_for_date` (the season the
-  plan's own `planting_date` falls into), so `season IS NULL` stays reserved
-  for rows that predate the feature — see the first-run setup below.
+  active season the serializer rejects creation; `season IS NULL` stays
+  reserved for rows that predate the feature — see the first-run setup below.
 - `YieldCalendarListView`/`build_yield_calendar` and
   `SeedDemandListView`/`build_seed_demand_rows` take the same resolved
   `season_id` and filter their own `PlantingPlan` queries by it when present;
@@ -106,16 +105,25 @@ description), one level down:
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
 - The Anbaukalender's Gantt/occupancy timeline
-  (`frontend/src/pages/GanttChart.tsx`) still has its own year-based UI state
-  and defaults it to the active season's own start year rather than today's
-  calendar year, via `RootLayoutOutletContext.activeSeasonYear` (computed once
-  in `RootLayout.tsx` from `useActiveSeason()` and passed down through the
-  route `Outlet` context). It applies it once, in a `useEffect` guarded by a
-  ref, so a season that is still loading falls back to today's year at first
-  and does not fight a year the user has since navigated to manually. Without
-  this, switching to a season other than the one containing today's date left
-  the Gantt showing an empty "today's year" range instead of the season just
-  switched to.
+  (`frontend/src/pages/GanttChart.tsx`) does **not** anchor its visible time
+  axis to a calendar year. The axis follows the actual data range of the
+  season's plans: `startDate` = the earliest `planting_date`, `endDate` = the
+  latest relevant date (harvest end, falling back to the harvest date), even
+  when that reaches past the season's end. The `planting_date` itself stays
+  hard-clamped to the season boundary on the serializer side — only the *end*
+  of the displayed axis may extend beyond the season. The range is computed
+  globally across every Fläche/Standort/Parzelle so all rows share the same
+  columns and stay comparable, and gaps in the middle of the range are never
+  collapsed. The occupancy view and the seedling/Anzucht view each get their
+  own range (`getOccupancyCalendarRange` / `getSeedlingCalendarRange` in
+  `ganttChartUtils.ts`), because propagation starts before the planting date.
+  The zoom levels (Tag/Woche/Monat/Quartal/Jahr) only change the column
+  granularity, not the anchor. When a season has no plans at all, the axis
+  falls back to the season's calendar year (`displayYear`, seeded once from
+  `RootLayoutOutletContext.activeSeasonYear` — computed in `RootLayout.tsx`
+  from `useActiveSeason()` and passed through the route `Outlet` context) and
+  the existing empty state renders; no season-year-specific axis logic is
+  needed beyond that fallback.
 - The yield overview (`frontend/src/pages/YieldOverview.tsx`) used to carry a
   "Jahr" filter with the same season-start-year default. It was removed: the
   page is fully season-scoped through `X-Season-Id`, and for a
@@ -188,17 +196,22 @@ single reusable action, not a per-entry-point special case:
 ## First-run setup (migrating pre-existing projects)
 
 Projects created before this feature have `PlantingPlan` rows with
-`season IS NULL`. That state is reserved for them: everything that creates
-planting plans today assigns a season up front — the API (above) and the
-project seeders, which call
+`season IS NULL`. That state is reserved for them: ordinary API creation now
+requires an active season up front, and the project seeders call
 `farm/services/seasons.py::assign_unassigned_planting_plans` after building
 their fixtures (`populate_demo_project`, `populate_hint_test_project`).
 Without that, a freshly created demo project would greet its owner with the
-migration modal below. Season creation goes through one helper in all three
-paths (`get_or_create_season_for_period`, wrapped by
-`get_or_create_season_for_date`), and `reset_project_demo_data` drops a
-project's seasons along with the rest of its farm data so repopulating never
-accumulates them.
+migration modal below. `reset_project_demo_data` drops a project's seasons
+along with the rest of its farm data so repopulating never accumulates them.
+
+The planting-plans page also mirrors this rule in the UI: when a project has
+no active season it shows a "Noch keine Saison angelegt" empty state whose
+only action is a CTA into the shared suggested-season dialog. If direct season
+creation would leave existing
+unassigned plans outside the proposed period (planting date through harvest
+end), the API rejects it with a structured
+`season_unassigned_data_outside_period` error so the dialog can explain which
+legacy plans conflict instead of silently retrying.
 
 `SeasonSetupStatusView`/`SeasonSetupApplyView`
 (`backend/farm/seasons/views.py`) drive a one-time modal

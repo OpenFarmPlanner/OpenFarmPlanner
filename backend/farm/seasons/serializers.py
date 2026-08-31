@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from farm.models import Season, SeasonPattern
+from farm.models import PlantingPlan, Season, SeasonPattern
 
 
 class SeasonSerializer(serializers.ModelSerializer):
@@ -47,7 +47,48 @@ class SeasonSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'Season dates must not overlap an existing season.',
                 )
+            if self.instance is None:
+                self._validate_unassigned_planting_plans_fit(project, start_date, end_date)
         return attrs
+
+    def _validate_unassigned_planting_plans_fit(self, project, start_date, end_date) -> None:
+        """Reject a new season if legacy unassigned plans would fall outside it."""
+        conflicts = []
+        conflict_count = 0
+        plans = (
+            PlantingPlan.objects
+            .filter(project=project, season__isnull=True)
+            .select_related('culture', 'bed')
+            .order_by('planting_date', 'pk')
+        )
+        for plan in plans:
+            active_period = plan._get_active_period()
+            if active_period is None:
+                continue
+            active_start, active_end = active_period
+            if start_date <= active_start and active_end <= end_date:
+                continue
+            conflict_count += 1
+            if len(conflicts) < 3:
+                conflicts.append({
+                    'id': plan.pk,
+                    'label': str(plan),
+                    'active_start_date': active_start.isoformat(),
+                    'active_end_date': active_end.isoformat(),
+                })
+
+        if conflict_count == 0:
+            return
+
+        raise serializers.ValidationError({
+            'code': 'season_unassigned_data_outside_period',
+            'detail': (
+                'Season cannot be created because existing unassigned planting '
+                'plans fall outside the selected period.'
+            ),
+            'conflict_count': conflict_count,
+            'conflicts': conflicts,
+        })
 
 
 class SeasonPatternSerializer(serializers.ModelSerializer):

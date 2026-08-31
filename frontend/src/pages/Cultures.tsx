@@ -84,6 +84,8 @@ function Cultures() {
   const { user } = useAuth();
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
+  const activeSeasonLoaded = outletContext?.activeSeasonLoaded ?? true;
+  const isMissingActiveSeason = Boolean(outletContext) && activeSeasonLoaded && !outletContext?.activeSeason;
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
   const { selectedCultureId, updateSelectedCultureId } = useSelectedCultureSync();
   const fallbackHistoryActorLabel = user?.display_label || user?.display_name || user?.email || undefined;
@@ -548,10 +550,10 @@ function Cultures() {
   };
 
   const handleCreatePlantingPlan = useCallback(() => {
-    if (selectedCultureId) {
+    if (selectedCultureId && !isMissingActiveSeason) {
       navigate(`/app/planting-plans?cultureId=${selectedCultureId}`);
     }
-  }, [navigate, selectedCultureId]);
+  }, [isMissingActiveSeason, navigate, selectedCultureId]);
 
   const firstMissingPlanRequirement = getFirstMissingCultivationPlanRequirement({
     hasFields,
@@ -561,8 +563,21 @@ function Cultures() {
   const firstMissingPlanAction = firstMissingPlanRequirement
     ? getTranslatedProjectSetupAction(firstMissingPlanRequirement, t)
     : null;
-  const canCreatePlantingPlan = Boolean(selectedCulture) && firstMissingPlanRequirement === null;
-  const planRequirementEmptyState = firstMissingPlanRequirement === 'fields'
+  const planRequirementActions = isMissingActiveSeason
+    ? [{ label: t('buttons.createSeason'), onClick: outletContext?.requestSeasonCreation }]
+    : firstMissingPlanAction
+      ? [firstMissingPlanAction]
+      : [];
+  const canCreatePlantingPlan = Boolean(selectedCulture) && firstMissingPlanRequirement === null && !isMissingActiveSeason;
+  const createPlanDisabledTooltip = isMissingActiveSeason
+    ? t('buttons.createPlantingPlanMissingSeasonTooltip')
+    : undefined;
+  const planRequirementEmptyState = isMissingActiveSeason
+    ? {
+      title: t('buttons.createPlantingPlanMissingSeasonTitle'),
+      description: t('buttons.createPlantingPlanDisabled.seasons'),
+    }
+    : firstMissingPlanRequirement === 'fields'
     ? {
       title: t('buttons.createPlantingPlanMissingFieldsTitle'),
       description: t('buttons.createPlantingPlanDisabled.fields'),
@@ -700,6 +715,7 @@ function Cultures() {
           }}
           onDeleteCulture={handleDelete}
           canCreatePlan={canCreatePlantingPlan}
+          createPlanDisabledTooltip={createPlanDisabledTooltip}
           isPublishingCulture={Boolean(selectedCulture && publishingCultureId === selectedCulture.id)}
           publishActionLabel={publishingCultureId === selectedCulture?.id
             ? (isUpdatingOwnPublicCulture ? t('library.updating') : t('library.publishing'))
@@ -714,7 +730,7 @@ function Cultures() {
             <EmptyStateCard
               title={planRequirementEmptyState.title}
               description={planRequirementEmptyState.description}
-              actions={firstMissingPlanAction ? [firstMissingPlanAction] : []}
+              actions={planRequirementActions}
               containerSx={PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_CONTAINER_SX}
               titleSx={PLANTING_PLAN_REQUIREMENT_EMPTY_STATE_TITLE_SX}
             />

@@ -5,7 +5,9 @@ import {
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
   formatCultureDisplayLabel,
+  getOccupancyCalendarRange,
   getOccupancyTaskPhase,
+  getSeedlingCalendarRange,
 } from '../pages/ganttChartUtils';
 
 const locations = [{ id: 1, name: 'Hof' }];
@@ -19,6 +21,62 @@ describe('getOccupancyTaskPhase', () => {
 
   it('identifies harvest tasks by id suffix', () => {
     expect(getOccupancyTaskPhase({ id: 'plan-1-harvest' })).toBe('harvest');
+  });
+});
+
+describe('getOccupancyCalendarRange', () => {
+  it('spans the earliest planting date and the latest harvest end across all plans', () => {
+    const range = getOccupancyCalendarRange([
+      { id: 1, bed: 100, planting_date: '2026-04-10', harvest_date: '2026-06-01', harvest_end_date: '2026-06-20' },
+      { id: 2, bed: 101, planting_date: '2026-02-15', harvest_date: '2026-05-01' },
+      // Reaches past the season end (Dec) into the next year.
+      { id: 3, bed: 102, planting_date: '2026-11-20', harvest_date: '2027-01-10', harvest_end_date: '2027-02-05' },
+    ]);
+
+    expect(range?.start.toISOString()).toContain('2026-02-15');
+    expect(range?.end.toISOString()).toContain('2027-02-05');
+  });
+
+  it('falls back to the harvest date when no harvest end date is set', () => {
+    const range = getOccupancyCalendarRange([
+      { id: 1, bed: 100, planting_date: '2026-04-10', harvest_date: '2026-09-30' },
+    ]);
+
+    expect(range?.start.toISOString()).toContain('2026-04-10');
+    expect(range?.end.toISOString()).toContain('2026-09-30');
+  });
+
+  it('returns null when the season has no scheduled plans', () => {
+    expect(getOccupancyCalendarRange([])).toBeNull();
+    expect(getOccupancyCalendarRange([{ id: 1, bed: 100, planting_date: null }])).toBeNull();
+  });
+});
+
+describe('getSeedlingCalendarRange', () => {
+  const seedlingCultures = [
+    { id: 7, name: 'Tomate', propagation_duration_days: 21, cultivation_type: 'pre_cultivation' },
+  ];
+
+  it('spans the earliest propagation start and the latest transplant date', () => {
+    const range = getSeedlingCalendarRange(
+      [
+        { id: 1, culture: 7, planting_date: '2026-05-10', cultivation_type: 'pre_cultivation' },
+        { id: 2, culture: 7, planting_date: '2026-03-01', cultivation_type: 'pre_cultivation' },
+      ],
+      seedlingCultures,
+    );
+
+    // 2026-03-01 minus 21 days of propagation.
+    expect(range?.start.toISOString()).toContain('2026-02-08');
+    expect(range?.end.toISOString()).toContain('2026-05-10');
+  });
+
+  it('returns null when there are no pre-cultivation plans', () => {
+    const range = getSeedlingCalendarRange(
+      [{ id: 1, culture: 7, planting_date: '2026-05-10', cultivation_type: 'direct_sowing' }],
+      seedlingCultures,
+    );
+    expect(range).toBeNull();
   });
 });
 
@@ -58,7 +116,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [
         {
           id: 7,
@@ -102,7 +159,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [
         {
           id: 9,
@@ -150,7 +206,6 @@ describe('buildSeedlingTaskGroups', () => {
         { id: 100, name: 'Beet A', field: 10 },
         { id: 200, name: 'Beet B', field: 20 },
       ],
-      displayYear: 2026,
       cultures: [
         {
           id: 7,
@@ -216,7 +271,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -245,7 +299,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [
         {
           id: 77,
@@ -280,7 +333,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [
         {
           id: 7,
@@ -323,7 +375,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -349,7 +400,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -377,7 +427,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -412,7 +461,6 @@ describe('buildSeedlingTaskGroups', () => {
         { id: 100, name: 'Beet A', field: 10 },
         { id: 200, name: 'Beet B', field: 20 },
       ],
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -450,7 +498,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -477,7 +524,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [{
         id: 23,
@@ -502,7 +548,6 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -549,7 +594,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [],
     });
@@ -567,7 +611,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [],
     });
@@ -583,7 +626,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: multiLocationLocations,
       fields: multiLocationFields,
       beds: multiLocationBeds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [],
     });
@@ -602,7 +644,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: multiLocationLocations,
       fields: multiLocationFields,
       beds: multiLocationBeds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -644,7 +685,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -671,7 +711,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [
         {
@@ -698,7 +737,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: [],
       fields,
       beds,
-      displayYear: 2026,
       cultures: [],
       plantingPlans: [],
     });
@@ -712,7 +750,6 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      displayYear: 2026,
       cultures: [
         {
           id: 42,

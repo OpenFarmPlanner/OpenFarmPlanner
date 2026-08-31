@@ -135,6 +135,8 @@ function PlantingPlans() {
   const { t, i18n } = useTranslation(["plantingPlans", "common"]);
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const activeSeason = outletContext?.activeSeason ?? null;
+  const activeSeasonLoaded = outletContext?.activeSeasonLoaded ?? true;
+  const isMissingActiveSeason = Boolean(outletContext) && activeSeasonLoaded && !activeSeason;
   const seasonBounds = useMemo(() => {
     if (!activeSeason) {
       return null;
@@ -1447,8 +1449,9 @@ function PlantingPlans() {
     hasBeds,
     hasCultures,
   });
-  const canCreatePlan = firstMissingRequirement === null;
-  const shouldShowPrerequisiteState = !canCreatePlan;
+  const canCreatePlan = firstMissingRequirement === null && !isMissingActiveSeason;
+  const shouldShowNoSeasonState = isMissingActiveSeason;
+  const shouldShowPrerequisiteState = !canCreatePlan && !shouldShowNoSeasonState;
   const shouldShowNoPlansState = canCreatePlan && !hasPlans;
   const isInitialLoading = !shouldShowProjectRequiredState && (isHierarchyLoading || (!shouldShowPrerequisiteState && isPlansLoading));
   const prerequisiteActions = firstMissingRequirement
@@ -1457,12 +1460,15 @@ function PlantingPlans() {
   const createPlanAction = getTranslatedProjectSetupAction("plans", t);
 
   const handleCreatePlan = useCallback((): void => {
+    if (isMissingActiveSeason) {
+      return;
+    }
     if (isMobile) {
       openMobileCreateDialog();
       return;
     }
     gridCommandApiRef.current?.addRow();
-  }, [isMobile, openMobileCreateDialog]);
+  }, [isMissingActiveSeason, isMobile, openMobileCreateDialog]);
 
   const createActions = useMemo(() => [
     {
@@ -1532,6 +1538,17 @@ function PlantingPlans() {
               </Typography>
             </Stack>
           </Box>
+        ) : shouldShowNoSeasonState ? (
+          <EmptyStateCard
+            title={t("plantingPlans:emptyStates.states.seasons.title")}
+            description={t("plantingPlans:emptyStates.states.seasons.description")}
+            actions={[
+              {
+                label: t("plantingPlans:emptyStates.actions.createSeason"),
+                onClick: outletContext?.requestSeasonCreation,
+              },
+            ]}
+          />
         ) : shouldShowPrerequisiteState ? (
           <EmptyStateCard
             title={t(`plantingPlans:emptyStates.states.${firstMissingRequirement}.title`)}

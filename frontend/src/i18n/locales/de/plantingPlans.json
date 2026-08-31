@@ -136,6 +136,10 @@
         "title": "Du hast noch keine Kulturen angelegt.",
         "description": "Kulturen werden benötigt, um Anbaupläne zu erstellen."
       },
+      "seasons": {
+        "title": "Noch keine Saison angelegt",
+        "description": "Lege zuerst eine Saison an, bevor du Anbaupläne erstellst."
+      },
       "plans": {
         "title": "Du hast noch keinen Anbauplan erstellt.",
         "description": "Erstelle jetzt deinen ersten Anbauplan."
@@ -146,7 +150,7 @@
       "createAreas": "Zu Anbauflächen",
       "openCultureLibrary": "Kulturbibliothek öffnen",
       "addCulture": "Kultur hinzufügen",
-      "createPlan": "Anbauplan hinzufügen"
+      "createSeason": "Saison anlegen"
     }
   },
   "commands": {

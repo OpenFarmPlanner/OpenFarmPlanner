@@ -67,6 +67,7 @@ async function createAreaDialogFixture(
     ? 'Tomatenreihe mit besonders langer Beetbezeichnung 2026'
     : 'Salat 1';
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: locationName });
   const field = await api<{ id: number }>('/fields/', { name: fieldName, location: location.id });
   const bed = await api<{ id: number }>('/beds/', {
@@ -86,6 +87,7 @@ async function createAreaDialogFixture(
     await api<{ id: number }>('/planting-plans/', {
       bed: bed.id,
       culture: culture.id,
+      season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: `2026-04-${String(10 + index).padStart(2, '0')}`,
       area_usage_sqm: 2,

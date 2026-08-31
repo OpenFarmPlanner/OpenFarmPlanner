@@ -3,12 +3,15 @@ import { Link as RouterLink, UNSAFE_LocationContext } from 'react-router';
 import RequirementChecklist from './RequirementChecklist';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useContext, type ReactNode } from 'react';
+import { AppTooltip } from '../AppTooltip';
 
 export interface EmptyStateAction {
   label: string;
   to?: string;
   onClick?: () => void;
   icon?: ReactNode;
+  disabled?: boolean;
+  tooltip?: string;
 }
 
 interface EmptyStateCardProps {
@@ -86,19 +89,32 @@ export default function EmptyStateCard({
       ) : null}
       {visibleActions.length > 0 ? (
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
-          {visibleActions.map((action, index) => (
-            <Button
-              key={`${action.label}-${action.to}`}
-              component={action.to ? RouterLink : 'button'}
-              to={action.to}
-              onClick={action.onClick}
-              variant={index === 0 ? 'contained' : 'outlined'}
-              size="small"
-              startIcon={action.icon}
-            >
-              {action.label}
-            </Button>
-          ))}
+          {visibleActions.map((action, index) => {
+            const actionButton = (
+              <Button
+                component={action.to && !action.disabled ? RouterLink : 'button'}
+                to={action.disabled ? undefined : action.to}
+                onClick={action.disabled ? undefined : action.onClick}
+                variant={index === 0 ? 'contained' : 'outlined'}
+                size="small"
+                startIcon={action.icon}
+                disabled={action.disabled}
+              >
+                {action.label}
+              </Button>
+            );
+            return action.tooltip ? (
+              <AppTooltip key={`${action.label}-${action.to ?? index}`} title={action.tooltip} describeChild>
+                <Box component="span" sx={{ display: 'inline-flex' }}>
+                  {actionButton}
+                </Box>
+              </AppTooltip>
+            ) : (
+              <Box key={`${action.label}-${action.to ?? index}`} component="span" sx={{ display: 'inline-flex' }}>
+                {actionButton}
+              </Box>
+            );
+          })}
         </Box>
       ) : null}
     </Paper>

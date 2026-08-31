@@ -50,6 +50,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
       return response.json() as Promise<T>;
     };
 
+    const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
     const location = await api<{ id: number }>('/locations/', { name: 'Testhof' });
     const field = await api<{ id: number }>('/fields/', { name: 'Testfeld', location: location.id });
     const bed = await api<{ id: number }>('/beds/', { name: 'Testbeet', field: field.id, area_sqm: 5 });
@@ -66,6 +67,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
     const plan = await api<{ id: number }>('/planting-plans/', {
       bed: bed.id,
       culture: culture.id,
+      season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',

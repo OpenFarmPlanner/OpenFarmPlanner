@@ -90,13 +90,19 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
     return JSON.parse(result.text) as T;
   };
 
+  const season = await api<{ id: number }>('/seasons/', { start_date: '2026-01-01', end_date: '2026-12-31' });
   const location = await api<{ id: number }>('/locations/', { name: 'Layout Testhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Layout Testfeld', location: location.id });
+  // The Gantt timeline spans the actual data range of the season's plans, so
+  // these durations are deliberately long: the occupancy range (planting ->
+  // harvest end) and the seedling range (propagation start -> planting) each
+  // need to be wide enough that the timeline overflows its viewport and stays a
+  // horizontal scroll container at every tested width, up to 1920px.
   const culture = await api<{ id: number }>('/cultures/', {
     name: 'Layout Kultur',
-    growth_duration_days: 30,
-    harvest_duration_days: 14,
-    propagation_duration_days: 21,
+    growth_duration_days: 380,
+    harvest_duration_days: 20,
+    propagation_duration_days: 380,
     cultivation_type: 'pre_cultivation',
     cultivation_types: ['pre_cultivation'],
     plants_per_m2: 4,
@@ -113,6 +119,7 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
     await api('/planting-plans/', {
       bed: bed.id,
       culture: culture.id,
+      season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',

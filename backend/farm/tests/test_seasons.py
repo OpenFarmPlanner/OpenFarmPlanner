@@ -165,6 +165,22 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(undelete_response.status_code, 200)
         self.assertTrue(Season.objects.filter(pk=season_id).exists())
 
+    def test_create_rejects_unassigned_plan_outside_period(self):
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project,
+            planting_date=date(2026, 12, 15),
+        )
+        PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2027, 1, 20))
+
+        response = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'][0], 'season_unassigned_data_outside_period')
+        self.assertEqual(str(response.data['conflict_count'][0]), '1')
+        self.assertEqual(str(response.data['conflicts'][0]['id']), str(plan.pk))
+
     def test_whole_project_restore_rebuilds_seasons_and_keeps_plans_linked(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
@@ -657,8 +673,8 @@ class SeededProjectSeasonTest(ProjectApiTestCase):
         self.assertEqual(Season.objects.filter(project=self.project).count(), 0)
 
 
-class PlantingPlanSeasonFallbackTest(ProjectApiTestCase):
-    """A plan created without an active season must not look like legacy data."""
+class PlantingPlanSeasonCreateGuardTest(ProjectApiTestCase):
+    """New planting plans require an active season."""
 
     def _create_plan(self, planting_date='2026-04-01', **headers):
         payload = {
@@ -671,24 +687,19 @@ class PlantingPlanSeasonFallbackTest(ProjectApiTestCase):
             payload['planting_date'] = planting_date
         return self.client.post('/openfarmplanner/api/planting-plans/', payload, **headers)
 
-    def test_create_without_season_header_anchors_the_plan_in_its_own_period(self):
+    def test_create_without_season_header_is_rejected(self):
         response = self._create_plan()
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('season', response.data)
+        self.assertEqual(PlantingPlan.objects.filter(project=self.project).count(), 0)
+        self.assertEqual(Season.objects.filter(project=self.project).count(), 0)
 
-        plan = PlantingPlan.objects.get(pk=response.data['id'])
-        self.assertIsNotNone(plan.season_id)
-        self.assertEqual(plan.season.start_date, date(2026, 1, 1))
-        self.assertEqual(plan.season.end_date, date(2026, 12, 31))
-
-        status_response = self.client.get('/openfarmplanner/api/season-setup/status/')
-        self.assertFalse(status_response.data['needs_setup'])
-
-    def test_create_without_planting_date_still_gets_a_season(self):
+    def test_create_without_planting_date_is_rejected_without_active_season(self):
         response = self._create_plan(planting_date=None)
-        self.assertEqual(response.status_code, 201)
-        self.assertIsNotNone(PlantingPlan.objects.get(pk=response.data['id']).season_id)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('season', response.data)
 
-    def test_season_header_still_wins_over_the_fallback(self):
+    def test_season_header_assigns_the_plan(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
@@ -698,7 +709,11 @@ class PlantingPlanSeasonFallbackTest(ProjectApiTestCase):
         self.assertEqual(PlantingPlan.objects.get(pk=response.data['id']).season_id, season.id)
         self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
 
-    def test_repeated_creates_reuse_the_same_season(self):
-        self._create_plan(planting_date='2026-04-01')
-        self._create_plan(planting_date='2026-09-15')
+    def test_repeated_creates_use_the_active_season(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        self._create_plan(planting_date='2026-04-01', HTTP_X_SEASON_ID=str(season.id))
+        self._create_plan(planting_date='2026-09-15', HTTP_X_SEASON_ID=str(season.id))
         self.assertEqual(Season.objects.filter(project=self.project).count(), 1)
+        self.assertEqual(PlantingPlan.objects.filter(project=self.project, season=season).count(), 2)

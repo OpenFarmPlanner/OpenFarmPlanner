@@ -95,7 +95,7 @@ import { getNavItemEmoji, CROP_LIBRARY_EMOJI } from '../navigation/navigationIco
 import { NavEmojiIcon } from '../navigation/NavEmojiIcon';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import { useActiveSeason } from '../seasons/useActiveSeason';
-import { SeasonSwitcher } from '../seasons/SeasonSwitcher';
+import { SeasonCreateSuggestionDialog, SeasonSwitcher } from '../seasons/SeasonSwitcher';
 import { SeasonSetupDialog } from '../seasons/SeasonSetupDialog';
 import { dismissSeasonSetup, isSeasonSetupDismissed } from '../seasons/seasonSetupDismissal';
 import { seasonSetupAPI } from '../api/api';
@@ -195,6 +195,10 @@ function RootLayout() {
   // compact widths, the "Mehr" menu — so the list is fetched once.
   const notifications = useNotifications(true);
   const activeSeason = useActiveSeason();
+  const [seasonSuggestionDialogOpen, setSeasonSuggestionDialogOpen] = useState(false);
+  const requestSeasonCreation = useCallback(() => {
+    setSeasonSuggestionDialogOpen(true);
+  }, []);
   const activeSeasonYear = useMemo(
     () => (activeSeason.activeSeason ? new Date(activeSeason.activeSeason.start_date).getFullYear() : null),
     [activeSeason.activeSeason],
@@ -1435,6 +1439,7 @@ function RootLayout() {
             <SeasonSwitcher
               controller={activeSeason}
               onOpenProjectSettings={handleOpenProjectSettings}
+              onOpenCreateSuggestion={requestSeasonCreation}
               isPhone={isPhone}
               buttonPx={TOPBAR_STATUS_BUTTON_PX}
             />
@@ -1783,6 +1788,7 @@ function RootLayout() {
                   <SeasonSwitcher
                     controller={activeSeason}
                     onOpenProjectSettings={handleOpenProjectSettings}
+                    onOpenCreateSuggestion={requestSeasonCreation}
                     isPhone={isPhone}
                   />
                 ) : null}
@@ -2066,9 +2072,30 @@ function RootLayout() {
           minWidth: 0,
         }}
       >
-        <Outlet context={{ setTopbarContextActions, setTopbarTitleActions, activeSeasonYear, activeSeason: activeSeason.activeSeason, notifications } satisfies RootLayoutOutletContext} />
+        <Outlet context={{
+          setTopbarContextActions,
+          setTopbarTitleActions,
+          activeSeasonYear,
+          activeSeason: activeSeason.activeSeason,
+          activeSeasonLoading: activeSeason.loading,
+          activeSeasonLoaded: activeSeason.loaded,
+          hasSeasons: activeSeason.seasons.length > 0,
+          requestSeasonCreation,
+          reloadActiveSeason: () => { void activeSeason.reload(); },
+          notifications,
+        } satisfies RootLayoutOutletContext} />
       </Box>
       </Box>
+
+      <SeasonCreateSuggestionDialog
+        controller={activeSeason}
+        open={seasonSuggestionDialogOpen}
+        onClose={() => setSeasonSuggestionDialogOpen(false)}
+        onEditSeasonPattern={() => {
+          setSeasonSuggestionDialogOpen(false);
+          navigate('/app/project-settings#season-pattern');
+        }}
+      />
 
       <ProjectHistoryDialog
         open={projectHistoryOpen}

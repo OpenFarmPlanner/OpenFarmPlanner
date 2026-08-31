@@ -261,9 +261,14 @@ def test_planting_plan_can_be_saved_as_draft_with_only_culture():
         project=project,
     )
 
+    season = Season.objects.create(
+        project=project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+    )
+
     client = APIClient()
     client.force_authenticate(user=user)
     client.defaults['HTTP_X_PROJECT_ID'] = str(project.id)
+    client.defaults['HTTP_X_SEASON_ID'] = str(season.id)
 
     create_response = client.post(
         '/openfarmplanner/api/planting-plans/',
@@ -308,10 +313,14 @@ def test_planting_plan_can_be_saved_as_draft_with_only_bed():
     location = Location.objects.create(name='Hof', project=project)
     field = Field.objects.create(name='Nordfeld', location=location, project=project)
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
+    season = Season.objects.create(
+        project=project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+    )
 
     client = APIClient()
     client.force_authenticate(user=user)
     client.defaults['HTTP_X_PROJECT_ID'] = str(project.id)
+    client.defaults['HTTP_X_SEASON_ID'] = str(season.id)
 
     create_response = client.post(
         '/openfarmplanner/api/planting-plans/',

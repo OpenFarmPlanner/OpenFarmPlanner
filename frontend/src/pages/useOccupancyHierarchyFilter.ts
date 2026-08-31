@@ -11,7 +11,6 @@ interface UseOccupancyHierarchyFilterParams {
   beds: Bed[];
   plantingPlans: PlantingPlan[];
   cultures: Culture[];
-  displayYear: number;
   activeProjectId: number | null;
 }
 
@@ -29,7 +28,6 @@ export function useOccupancyHierarchyFilter({
   beds,
   plantingPlans,
   cultures,
-  displayYear,
   activeProjectId,
 }: UseOccupancyHierarchyFilterParams) {
   const [occupancyLocationFilter, setOccupancyLocationFilter] = useState<number | 'all'>('all');
@@ -53,8 +51,7 @@ export function useOccupancyHierarchyFilter({
     beds,
     plantingPlans,
     cultures,
-    displayYear,
-  }), [beds, cultures, displayYear, fields, locations, plantingPlans]);
+  }), [beds, cultures, fields, locations, plantingPlans]);
 
   // Default expansion — once per project, until the user manually
   // expands/collapses something (which then persists via useExpandedState's

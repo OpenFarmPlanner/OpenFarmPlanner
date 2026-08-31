@@ -16,9 +16,9 @@ project with two locations, four fields, twelve beds, three suppliers, twenty
 crop-library rows, seed package data for the planned varieties, and seventeen
 planting plans split across two seasons — five in a previous, already-harvested
 2025 season and twelve in the current 2026 season — so the season switcher has
-more than one season to demonstrate. Each plan's season is derived from its own
-`planting_date` via `get_or_create_season_for_date` rather than assigned in
-bulk, so specs stay free to add further seasons by date alone. The crop rows deliberately include
+more than one season to demonstrate. Each plan's season is assigned during
+fixture creation, so demo data never relies on the ordinary planting-plan API
+accepting season-less creates. The crop rows deliberately include
 selectable species entries plus varieties with different shared and own values
 so the species → variety relationship can be reviewed in the UI. All personal
 and guest demo records are project-scoped and owned by the receiving user

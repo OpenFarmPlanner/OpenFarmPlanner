@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework import serializers
 
-from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, Supplier
+from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, Season, Supplier
 from farm.common.serializer_fields import CentimetersField
 from farm.planning.serializers import PlantingPlanSerializer
 from farm.cultures.serializers import CultureSerializer
@@ -360,11 +360,18 @@ class SerializerBranchCoverageTest(TestCase):
             project=self.project,
         )
 
+        season = Season.objects.create(
+            project=self.project,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+
         serializer = PlantingPlanSerializer()
         attrs = serializer.validate(
             {
                 'culture': culture,
                 'bed': self.bed,
+                'season': season,
                 'planting_date': date(2024, 4, 1),
                 'area_input_value': Decimal('100'),
                 'area_input_unit': 'PLANTS',
