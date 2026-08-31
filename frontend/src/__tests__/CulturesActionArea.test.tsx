@@ -16,6 +16,7 @@ const {
   publishPreviewMock,
   publicCultureListMock,
   publicCultureGetMock,
+  publicCultureImportToProjectMock,
   publishPublicMock,
   deletePreviewMock,
   deleteMock,
@@ -31,6 +32,7 @@ const {
   publishPreviewMock: vi.fn(),
   publicCultureListMock: vi.fn(),
   publicCultureGetMock: vi.fn(),
+  publicCultureImportToProjectMock: vi.fn(),
   publishPublicMock: vi.fn(),
   deletePreviewMock: vi.fn(),
   deleteMock: vi.fn(),
@@ -80,6 +82,7 @@ vi.mock('../api/api', async () => {
       ...actual.publicCultureAPI,
       list: publicCultureListMock,
       get: publicCultureGetMock,
+      importToProject: publicCultureImportToProjectMock,
     },
   };
 });
@@ -208,6 +211,12 @@ describe('Cultures action area', () => {
         original_language_code: 'de',
         growth_duration_days: 1,
         harvest_duration_days: 1,
+      },
+    });
+    publicCultureImportToProjectMock.mockResolvedValue({
+      data: {
+        operation: 'created',
+        culture: { id: 42, name: 'Salat', variety: 'Maikönig', growth_duration_days: 45, harvest_duration_days: 10 },
       },
     });
     locationListMock.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
@@ -438,6 +447,82 @@ describe('Cultures action area', () => {
 
     expect(screen.queryByText('Salat (Bijella)')).not.toBeInTheDocument();
     expect(publicCultureListMock).not.toHaveBeenCalled();
+  });
+
+  it('closes the import dialog and selects the imported culture after a successful library import', async () => {
+    const initialCulture = { id: 1, name: 'Tomate', variety: 'Roma', crop_species: 1, cultivation_type: 'pre_cultivation', growth_duration_days: 1, harvest_duration_days: 1 };
+    const importedCulture = { id: 42, name: 'Salat', variety: 'Maikönig', growth_duration_days: 45, harvest_duration_days: 10 };
+    listMock
+      .mockResolvedValueOnce({
+        data: {
+          count: 1,
+          next: null,
+          previous: null,
+          results: [initialCulture],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          count: 2,
+          next: null,
+          previous: null,
+          results: [initialCulture, importedCulture],
+        },
+      });
+    publicCultureListMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 77, name: 'Salat', variety: 'Maikönig', status: 'published', version: 1, growth_duration_days: 45, harvest_duration_days: 10 },
+        ],
+      },
+    });
+    publicCultureImportToProjectMock.mockResolvedValue({
+      data: {
+        operation: 'created',
+        culture: importedCulture,
+      },
+    });
+
+    renderCultures('/cultures?library=true');
+
+    const dialog = await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
+    fireEvent.click(within(dialog).getByRole('option', { name: 'Salat' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'In Projekt importieren' }));
+
+    await waitFor(() => expect(publicCultureImportToProjectMock).toHaveBeenCalledWith(77));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('selected-culture-id')).toHaveTextContent('42');
+    expect(screen.getByTestId('culture-row-42')).toHaveTextContent('Salat');
+    expect(screen.getByText('„Salat (Maikönig)“ wurde in dieses Projekt importiert.')).toBeInTheDocument();
+  });
+
+  it('keeps the import dialog open and shows the existing error when a library import fails', async () => {
+    publicCultureListMock.mockResolvedValue({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 77, name: 'Salat', variety: 'Maikönig', status: 'published', version: 1, growth_duration_days: 45, harvest_duration_days: 10 },
+        ],
+      },
+    });
+    publicCultureImportToProjectMock.mockRejectedValue(new Error('network'));
+
+    renderCultures('/cultures?library=true');
+
+    const dialog = await screen.findByRole('dialog', { name: 'Aus Kulturbibliothek importieren' });
+    fireEvent.click(within(dialog).getByRole('option', { name: 'Salat' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'In Projekt importieren' }));
+
+    await waitFor(() => expect(publicCultureImportToProjectMock).toHaveBeenCalledWith(77));
+    expect(await within(dialog).findByText('Die öffentliche Kultur konnte nicht importiert werden.')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
   });
 
   it('shows update label for cultures linked to an owned public culture', async () => {

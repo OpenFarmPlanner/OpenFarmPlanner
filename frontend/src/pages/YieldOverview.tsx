@@ -168,7 +168,7 @@ export default function YieldOverviewPage() {
               actions={[
                 {
                   label: t("empty.createPlanAction"),
-                  to: "/app/planting-plans?action=create",
+                  to: "/app/planting-plans?create=true",
                   icon: <AddIcon fontSize="small" />,
                 },
               ]}

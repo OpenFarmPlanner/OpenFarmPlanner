@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlantingPlans from "../pages/PlantingPlans";
@@ -147,5 +147,29 @@ describe("PlantingPlans project requirement state", () => {
     expect(libraryLink.className).toContain("MuiButton-contained");
     expect(createCultureLink).toHaveAttribute("href", "/app/cultures?create=true");
     expect(createCultureLink.className).toContain("MuiButton-outlined");
+  });
+
+  it("uses the create handler from the no-plans empty state", async () => {
+    apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
+    apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: "Nord", location: 1 }] } });
+    apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: "Beet A", field: 2 }] } });
+    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/app/anbauplaene"]}>
+        <PlantingPlans />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Du hast noch keinen Anbauplan erstellt.")).toBeInTheDocument();
+
+    const createButton = screen.getByRole("button", { name: "Anbauplan hinzufügen" });
+    expect(screen.queryByRole("link", { name: "Anbauplan hinzufügen" })).not.toBeInTheDocument();
+
+    fireEvent.click(createButton);
+
+    await waitFor(() => {
+      expect(container.querySelector(".MuiDataGrid-row--editing")).toBeInTheDocument();
+    });
   });
 });

@@ -246,9 +246,11 @@ function Cultures() {
     showSnackbar,
   });
 
-  const onPublicLibraryImportSuccess = useCallback(async (cultureId: number) => {
-    await fetchCultures();
-    updateSelectedCultureId(cultureId, 'internal');
+  const onPublicLibraryImportSuccess = useCallback(async (culture: Culture) => {
+    await fetchCultures(culture);
+    if (culture.id !== undefined) {
+      updateSelectedCultureId(culture.id, 'internal');
+    }
   }, [fetchCultures, updateSelectedCultureId]);
 
   const onClearFormForLibrary = useCallback(() => {

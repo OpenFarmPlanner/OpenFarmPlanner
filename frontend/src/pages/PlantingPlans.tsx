@@ -1542,7 +1542,7 @@ function PlantingPlans() {
           <EmptyStateCard
             title={t("plantingPlans:emptyStates.states.plans.title")}
             description={t("plantingPlans:emptyStates.states.plans.description")}
-            actions={[createPlanAction]}
+            actions={[{ label: createPlanAction.label, onClick: handleCreatePlan }]}
           />
         ) : null}
 

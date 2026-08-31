@@ -14,7 +14,7 @@ import { getPublicCultureTitle } from '../crops/publicCultureDisplay';
 interface UsePublicCultureLibraryConfig {
   shouldShowProjectRequiredState: boolean;
   selectedCulture: Culture | undefined;
-  onImportSuccess: (cultureId: number) => Promise<void>;
+  onImportSuccess: (culture: Culture) => Promise<void>;
   onPublicCultureStatusChange?: () => Promise<void>;
   onClearForm: () => void;
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info') => void;
@@ -83,10 +83,9 @@ export function usePublicCultureLibrary({
     try {
       setPublicLibraryImportingId(publicCulture.id);
       const response = await publicCultureAPI.importToProject(publicCulture.id);
-      // Deliberately doesn't close the dialog (unlike a plain "select and
-      // done" flow) — staying open lets the user import several cultures
-      // from the library in one sitting instead of reopening it each time.
-      await onImportSuccess(response.data.culture.id!);
+      const importedCulture = response.data.culture;
+      await onImportSuccess(importedCulture);
+      setPublicLibraryOpen(false);
       if (response.data.operation === 'unchanged') {
         showSnackbar(t('library.importUnchanged', { name }), 'info');
       } else if (response.data.operation === 'updated') {
