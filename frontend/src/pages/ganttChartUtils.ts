@@ -60,7 +60,12 @@ interface BuildTaskGroupsArgs {
   beds: Bed[];
   plantingPlans: PlantingPlan[];
   cultures: Culture[];
-  displayYear: number;
+}
+
+/** Inclusive start/end of the calendar's visible time axis. */
+export interface CalendarDateRange {
+  start: Date;
+  end: Date;
 }
 
 type ScheduledPlantingPlan = PlantingPlan & {
@@ -136,11 +141,123 @@ function getCultureColor(
   return culture?.display_color || fallbackColor || getDefaultCultureColor(cultureName);
 }
 
-function getVisibleYearInterval(displayYear: number): { start: Date; end: Date } {
+/**
+ * Pre-cultivation (Anzucht) window for a single plan: the propagation start
+ * (planting date minus the effective propagation duration) and the transplant
+ * date (the planting date itself). Returns null for direct sowings, plans
+ * without a usable propagation duration, or plans that are not scheduled yet.
+ */
+function getPlanPreCultivationDates(
+  plan: PlantingPlan,
+  cultureById: Map<number, Culture>,
+): { propagationStartDate: Date; transplantDate: Date; propagationDurationDays: number } | null {
+  if (!plan.id || !plan.culture || !plan.planting_date) {
+    return null;
+  }
+
+  const culture = cultureById.get(plan.culture);
+  // Effective values throughout: a Sorte inherits any timing/cultivation field
+  // it does not set from its general Kultur, and the plan row already carries
+  // the same resolved values as a fallback.
+  const propagationDurationDays = getEffectiveCultureValue(culture, 'propagation_duration_days')
+    ?? plan.culture_propagation_duration_days
+    ?? undefined;
+  if (!propagationDurationDays || propagationDurationDays <= 0) {
+    return null;
+  }
+
+  const cultureCultivationType = getEffectiveCultureValue(culture, 'cultivation_type')
+    || plan.culture_cultivation_type || '';
+  const cultureCultivationTypes = getEffectiveCultureValue(culture, 'cultivation_types')
+    || plan.culture_cultivation_types || [];
+  const isPreCultivation = plan.cultivation_type === 'pre_cultivation'
+    || (!plan.cultivation_type && (
+      cultureCultivationType === 'pre_cultivation'
+      || cultureCultivationTypes.includes('pre_cultivation')
+    ));
+  if (!isPreCultivation) {
+    return null;
+  }
+
+  const transplantDate = parseDateString(plan.planting_date);
+  const propagationStartDate = addUtcDays(transplantDate, -propagationDurationDays);
+  return { propagationStartDate, transplantDate, propagationDurationDays };
+}
+
+function buildCultureById(cultures: Culture[]): Map<number, Culture> {
+  const cultureById = new Map<number, Culture>();
+  cultures.forEach((culture) => {
+    if (culture.id) {
+      cultureById.set(culture.id, culture);
+    }
+  });
+  return cultureById;
+}
+
+function extendRange(
+  range: { start: Date; end: Date } | null,
+  candidateStart: Date,
+  candidateEnd: Date,
+): { start: Date; end: Date } {
+  if (!range) {
+    return { start: candidateStart, end: candidateEnd };
+  }
   return {
-    start: new Date(displayYear, 0, 1),
-    end: new Date(displayYear, 11, 31, 23, 59, 59),
+    start: candidateStart < range.start ? candidateStart : range.start,
+    end: candidateEnd > range.end ? candidateEnd : range.end,
   };
+}
+
+/**
+ * Visible time axis for the occupancy (Belegungs) calendar: the earliest
+ * planting date and the latest relevant date (harvest end, falling back to the
+ * harvest date) across every scheduled plan of the active season. Computed
+ * globally so all rows share the same columns. The planting date itself stays
+ * clamped to the season boundary elsewhere; only the end of the axis may reach
+ * past the season end. Returns null when the season has no scheduled plans —
+ * the caller then falls back and the existing empty state renders.
+ */
+export function getOccupancyCalendarRange(plantingPlans: PlantingPlan[]): CalendarDateRange | null {
+  let range: { start: Date; end: Date } | null = null;
+  plantingPlans.forEach((plan) => {
+    if (!isScheduledPlantingPlan(plan)) {
+      return;
+    }
+    const plantingDate = parseDateString(plan.planting_date);
+    if (Number.isNaN(plantingDate.getTime())) {
+      return;
+    }
+    const harvestEndSource = plan.harvest_end_date || plan.harvest_date;
+    const harvestEndDate = parseDateString(harvestEndSource);
+    const rangeEnd = !Number.isNaN(harvestEndDate.getTime()) && harvestEndDate > plantingDate
+      ? harvestEndDate
+      : plantingDate;
+    range = extendRange(range, plantingDate, rangeEnd);
+  });
+  return range;
+}
+
+/**
+ * Visible time axis for the seedling (Anzucht) calendar: the earliest
+ * propagation start and the latest transplant date across every pre-cultivation
+ * plan of the active season. Kept separate from the occupancy range because
+ * propagation starts before the planting date. Returns null when there are no
+ * pre-cultivation plans.
+ */
+export function getSeedlingCalendarRange(
+  plantingPlans: PlantingPlan[],
+  cultures: Culture[],
+): CalendarDateRange | null {
+  const cultureById = buildCultureById(cultures);
+  let range: { start: Date; end: Date } | null = null;
+  plantingPlans.forEach((plan) => {
+    const preCultivation = getPlanPreCultivationDates(plan, cultureById);
+    if (!preCultivation) {
+      return;
+    }
+    range = extendRange(range, preCultivation.propagationStartDate, preCultivation.transplantDate);
+  });
+  return range;
 }
 
 export function formatCultureDisplayLabel(cultureName?: string | null, variety?: string | null): string {
@@ -262,23 +379,16 @@ export function buildFieldOccupancyTaskGroups({
   beds,
   plantingPlans,
   cultures,
-  displayYear,
 }: BuildTaskGroupsArgs): GanttTaskGroup[] {
   if (!locations.length || !fields.length || !beds.length || !plantingPlans.length) {
     return [];
   }
 
   const candidates: OccupancyBedGroupCandidate[] = [];
-  const { start: visStart, end: visEnd } = getVisibleYearInterval(displayYear);
   const plansByBed = new Map<number, ScheduledPlantingPlan[]>();
 
   plantingPlans.forEach((plan) => {
     if (!isScheduledPlantingPlan(plan)) {
-      return;
-    }
-    const plantingDate = parseDateString(plan.planting_date);
-    const harvestDate = parseDateString(plan.harvest_date);
-    if (harvestDate < visStart || plantingDate > visEnd) {
       return;
     }
     const bedPlans = plansByBed.get(plan.bed) ?? [];
@@ -455,22 +565,15 @@ export function buildFieldOccupancyHierarchy({
   beds,
   plantingPlans,
   cultures,
-  displayYear,
 }: BuildTaskGroupsArgs): OccupancyHierarchyNode[] {
   if (!locations.length) {
     return [];
   }
 
-  const { start: visStart, end: visEnd } = getVisibleYearInterval(displayYear);
   const plansByBed = new Map<number, ScheduledPlantingPlan[]>();
 
   plantingPlans.forEach((plan) => {
     if (!isScheduledPlantingPlan(plan)) {
-      return;
-    }
-    const plantingDate = parseDateString(plan.planting_date);
-    const harvestDate = parseDateString(plan.harvest_date);
-    if (harvestDate < visStart || plantingDate > visEnd) {
       return;
     }
     const bedPlans = plansByBed.get(plan.bed) ?? [];
@@ -631,59 +734,23 @@ export function buildFieldOccupancyHierarchy({
 export function buildSeedlingTaskGroups({
   plantingPlans,
   cultures,
-  displayYear,
 }: BuildTaskGroupsArgs): GanttTaskGroup[] {
   if (!plantingPlans.length) {
     return [];
   }
 
-  const { start: visStart, end: visEnd } = getVisibleYearInterval(displayYear);
-  const cultureById = new Map<number, Culture>();
-  cultures.forEach((culture) => {
-    if (culture.id) {
-      cultureById.set(culture.id, culture);
-    }
-  });
+  const cultureById = buildCultureById(cultures);
 
   const groupsByCulture = new Map<string, GanttTaskGroup>();
   const aggregatedTasksByKey = new Map<string, GanttTask>();
 
   plantingPlans.forEach((plan) => {
-    if (!plan.id || !plan.culture || !plan.planting_date) {
+    const preCultivation = getPlanPreCultivationDates(plan, cultureById);
+    if (!preCultivation) {
       return;
     }
-
-    const culture = cultureById.get(plan.culture);
-    // Effective values throughout: a Sorte inherits any timing/cultivation
-    // field it does not set from its general Kultur, and the plan row already
-    // carries the same resolved values as a fallback.
-    const propagationDurationDays = getEffectiveCultureValue(culture, 'propagation_duration_days')
-      ?? plan.culture_propagation_duration_days
-      ?? undefined;
-    if (!propagationDurationDays || propagationDurationDays <= 0) {
-      return;
-    }
-
-    const cultureCultivationType = getEffectiveCultureValue(culture, 'cultivation_type')
-      || plan.culture_cultivation_type || '';
-    const cultureCultivationTypes = getEffectiveCultureValue(culture, 'cultivation_types')
-      || plan.culture_cultivation_types || [];
-    const isPreCultivation = plan.cultivation_type === 'pre_cultivation'
-      || (!plan.cultivation_type && (
-        cultureCultivationType === 'pre_cultivation'
-        || cultureCultivationTypes.includes('pre_cultivation')
-      ));
-
-    if (!isPreCultivation) {
-      return;
-    }
-
-    const transplantDate = parseDateString(plan.planting_date);
-    const propagationStartDate = addUtcDays(transplantDate, -propagationDurationDays);
-
-    if (transplantDate < visStart || propagationStartDate > visEnd) {
-      return;
-    }
+    const { propagationStartDate, transplantDate, propagationDurationDays } = preCultivation;
+    const culture = plan.culture ? cultureById.get(plan.culture) : undefined;
 
     const cultureDisplayName = getPlanCultureDisplayName(plan);
     const cultureLabel = culture

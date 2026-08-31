@@ -105,16 +105,25 @@ description), one level down:
   `switchActiveProject` makes for projects, to guarantee no page holds stale
   cross-season state.
 - The Anbaukalender's Gantt/occupancy timeline
-  (`frontend/src/pages/GanttChart.tsx`) still has its own year-based UI state
-  and defaults it to the active season's own start year rather than today's
-  calendar year, via `RootLayoutOutletContext.activeSeasonYear` (computed once
-  in `RootLayout.tsx` from `useActiveSeason()` and passed down through the
-  route `Outlet` context). It applies it once, in a `useEffect` guarded by a
-  ref, so a season that is still loading falls back to today's year at first
-  and does not fight a year the user has since navigated to manually. Without
-  this, switching to a season other than the one containing today's date left
-  the Gantt showing an empty "today's year" range instead of the season just
-  switched to.
+  (`frontend/src/pages/GanttChart.tsx`) does **not** anchor its visible time
+  axis to a calendar year. The axis follows the actual data range of the
+  season's plans: `startDate` = the earliest `planting_date`, `endDate` = the
+  latest relevant date (harvest end, falling back to the harvest date), even
+  when that reaches past the season's end. The `planting_date` itself stays
+  hard-clamped to the season boundary on the serializer side — only the *end*
+  of the displayed axis may extend beyond the season. The range is computed
+  globally across every Fläche/Standort/Parzelle so all rows share the same
+  columns and stay comparable, and gaps in the middle of the range are never
+  collapsed. The occupancy view and the seedling/Anzucht view each get their
+  own range (`getOccupancyCalendarRange` / `getSeedlingCalendarRange` in
+  `ganttChartUtils.ts`), because propagation starts before the planting date.
+  The zoom levels (Tag/Woche/Monat/Quartal/Jahr) only change the column
+  granularity, not the anchor. When a season has no plans at all, the axis
+  falls back to the season's calendar year (`displayYear`, seeded once from
+  `RootLayoutOutletContext.activeSeasonYear` — computed in `RootLayout.tsx`
+  from `useActiveSeason()` and passed through the route `Outlet` context) and
+  the existing empty state renders; no season-year-specific axis logic is
+  needed beyond that fallback.
 - The yield overview (`frontend/src/pages/YieldOverview.tsx`) used to carry a
   "Jahr" filter with the same season-start-year default. It was removed: the
   page is fully season-scoped through `X-Season-Id`, and for a

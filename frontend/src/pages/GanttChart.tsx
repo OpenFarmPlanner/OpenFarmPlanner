@@ -104,7 +104,10 @@ import {
   formatSeedlingTooltipTitle,
   formatPlantCount,
   getOccupancyTaskPhase,
+  getOccupancyCalendarRange,
+  getSeedlingCalendarRange,
   parseDateString,
+  type CalendarDateRange,
   type GanttTask,
   type GanttTaskGroup,
   type OccupancyHierarchyNode,
@@ -245,8 +248,6 @@ function GanttChartPage() {
       setDisplayYear(seasonYear);
     }
   }, [currentYear, outletContext?.activeSeasonYear]);
-  const startDate = useMemo(() => new Date(displayYear, 0, 1), [displayYear]);
-  const endDate = useMemo(() => new Date(displayYear, 11, 31), [displayYear]);
 
   const {
     occupancyHierarchyNodes,
@@ -268,7 +269,6 @@ function GanttChartPage() {
     beds,
     plantingPlans,
     cultures,
-    displayYear,
     activeProjectId,
   });
 
@@ -311,6 +311,28 @@ function GanttChartPage() {
   const [timelineViewMode, setTimelineViewMode] = useState<ViewMode>(() => (
     getStoredTimelineViewModeFromState(storedGanttState) ?? DEFAULT_TIMELINE_VIEW_MODE
   ));
+
+  // The visible time axis follows the actual data range of the season's plans
+  // rather than the season's calendar year: it starts at the earliest planting
+  // date and ends at the latest relevant date (harvest end), even when that
+  // reaches past the season end. Computed globally so every row shares the same
+  // columns. Occupancy and seedling views get their own range because
+  // propagation starts before the planting date. When the season has no plans,
+  // fall back to its calendar year — the existing empty state then renders.
+  const calendarDataRange = useMemo<CalendarDateRange | null>(
+    () => (calendarMode === 'seedlings'
+      ? getSeedlingCalendarRange(plantingPlans, cultures)
+      : getOccupancyCalendarRange(plantingPlans)),
+    [calendarMode, plantingPlans, cultures],
+  );
+  const startDate = useMemo(
+    () => calendarDataRange?.start ?? new Date(displayYear, 0, 1),
+    [calendarDataRange, displayYear],
+  );
+  const endDate = useMemo(
+    () => calendarDataRange?.end ?? new Date(displayYear, 11, 31),
+    [calendarDataRange, displayYear],
+  );
   const activeGanttLeftColumnWidth = useMobileFilterLayout
     ? ganttLeftColumnWidthMobile
     : ganttLeftColumnWidthDesktop;
@@ -931,7 +953,6 @@ function GanttChartPage() {
       beds: [],
       plantingPlans,
       cultures,
-      displayYear,
     });
 
     const normalizedSearch = seedlingSearchText.trim().toLowerCase();
@@ -942,7 +963,7 @@ function GanttChartPage() {
     return allGroups.filter((group) => (
       (group.name || '').toLowerCase().includes(normalizedSearch)
     ));
-  }, [cultures, displayYear, plantingPlans, seedlingSearchText]);
+  }, [cultures, plantingPlans, seedlingSearchText]);
 
   const resolvedLocale = useMemo(() => {
     const language = i18n.resolvedLanguage || i18n.language || 'de';
