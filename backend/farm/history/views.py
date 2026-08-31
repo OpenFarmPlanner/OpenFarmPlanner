@@ -107,8 +107,8 @@ class ProjectHistoryRestoreView(APIView):
 
 
 class BatchOperationRevertView(APIView):
-    """Undo a whole `BatchOperation` — the single "rückgängig machen" action
-    behind a grouped history entry."""
+    """Undo a whole `BatchOperation` — the single revert action behind a
+    grouped history entry."""
 
     def post(self, request, batch_id):
         active_project = get_active_project_or_400(request)
@@ -120,7 +120,7 @@ class BatchOperationRevertView(APIView):
             revert_batch_operation(active_project, batch, user_name=_current_actor_label(request))
         except BatchRevertError:
             return Response(
-                {'detail': 'Diese Aktion kann nicht rückgängig gemacht werden.'},
+                {'detail': 'This action cannot be reverted.', 'code': 'batch_not_revertible'},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
         return Response({'detail': 'Reverted.'}, status=status.HTTP_200_OK)

@@ -190,6 +190,65 @@ class SeasonApiTest(ProjectApiTestCase):
         # The plan stayed attached to the (rebuilt) season, not orphaned.
         self.assertTrue(PlantingPlan.objects.filter(pk=plan.pk, season=season).exists())
 
+    def test_deleting_a_season_records_and_restores_its_plans_tasks(self):
+        from farm.models import Task
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 4, 1),
+        )
+        task_id = Task.objects.create(
+            project=self.project, planting_plan=plan, title='Aussäen',
+        ).pk
+
+        self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
+        self.assertEqual(Task.objects.filter(pk=task_id).count(), 0)
+        self.assertTrue(
+            EntityRevision.objects.filter(
+                project=self.project, entity_type='task', object_id=task_id,
+                action=EntityRevision.ACTION_DELETED,
+            ).exists()
+        )
+
+        self.client.post(f'/openfarmplanner/api/seasons/{season.pk}/undelete/')
+        restored = Task.objects.get(pk=task_id)
+        self.assertEqual(restored.title, 'Aussäen')
+        self.assertEqual(restored.planting_plan_id, plan.pk)
+
+    def test_reverting_season_create_records_the_cascade_deleted_plans(self):
+        create = self.client.post('/openfarmplanner/api/seasons/', {
+            'start_date': '2026-01-01', 'end_date': '2026-12-31',
+        })
+        season_id = create.data['id']
+        plan_id = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project,
+            season_id=season_id, planting_date=date(2026, 4, 1),
+        ).pk
+        batch = BatchOperation.objects.get(project=self.project, operation_type='season_create')
+
+        revert = self.client.post(f'/openfarmplanner/api/history/batch/{batch.pk}/revert/')
+        self.assertEqual(revert.status_code, 200, revert.data)
+        self.assertFalse(Season.all_objects.filter(pk=season_id).exists())
+        self.assertEqual(PlantingPlan.objects.filter(pk=plan_id).count(), 0)
+
+        # The plan the DB cascade removed is recorded on the revert batch, so
+        # reverting the revert brings both season and plan back.
+        revert_batch = BatchOperation.objects.filter(
+            project=self.project, operation_type='batch_reverted',
+        ).latest('id')
+        self.assertTrue(
+            revert_batch.revisions.filter(
+                entity_type='planting_plan', object_id=plan_id,
+                action=EntityRevision.ACTION_DELETED,
+            ).exists()
+        )
+        second = self.client.post(f'/openfarmplanner/api/history/batch/{revert_batch.pk}/revert/')
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertTrue(Season.objects.filter(pk=season_id).exists())
+        self.assertTrue(PlantingPlan.objects.filter(pk=plan_id, season_id=season_id).exists())
+
     def test_undelete_nulls_a_planting_plan_fk_whose_target_is_gone(self):
         from farm.models import Bed
         bed = Bed.objects.create(project=self.project, field=self.field, name='Doomed', area_sqm=5)

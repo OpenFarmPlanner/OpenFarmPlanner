@@ -175,6 +175,46 @@ class BatchRevertError(Exception):
     type, or an insert would violate a constraint)."""
 
 
+_RESTORABLE_MODEL_ENTITY_TYPE: dict[type, str] = {model: label for model, label in _RESTORABLE_ENTITY_TYPES}
+
+
+def _record_cascade_deletions(project: Project, instances: list, batch, user_name: str) -> None:
+    """Record an `ACTION_DELETED` revision for every *restorable* row a DB
+    cascade delete of `instances` would also remove (a planting plan's tasks,
+    say) — so it lands in the same batch and a later restore can bring it back.
+    Does not delete anything; the caller does."""
+    if not instances:
+        return
+    from django.db.models.deletion import Collector
+
+    already = {(type(instance), instance.pk) for instance in instances}
+    collector = Collector(using=instances[0]._state.db or 'default')
+    collector.collect(list(instances))
+
+    dependents: dict[type, set] = {}
+    for model, objs in collector.data.items():
+        dependents.setdefault(model, set()).update(objs)
+    # Leaf models with nothing further to cascade go in `fast_deletes` as
+    # querysets rather than `data` — a plan's tasks land here.
+    for queryset in collector.fast_deletes:
+        dependents.setdefault(queryset.model, set()).update(queryset)
+
+    for model, objs in dependents.items():
+        entity_type = _RESTORABLE_MODEL_ENTITY_TYPE.get(model)
+        if entity_type is None:
+            continue
+        for obj in objs:
+            if (model, obj.pk) in already:
+                continue
+            record_entity_revision(
+                project=project, entity_type=entity_type, object_id=obj.pk,
+                action=EntityRevision.ACTION_DELETED,
+                snapshot=_serialize_instance(obj),
+                display_name=_entity_display_name(obj),
+                changed_fields=[], user_name=user_name, batch_operation=batch,
+            )
+
+
 def _row_data_from_snapshot(model, snapshot: dict, project: Project) -> dict:
     concrete = {field.attname for field in model._meta.concrete_fields}
     row = {key: value for key, value in snapshot.items() if key in concrete}
@@ -252,6 +292,10 @@ def revert_batch_operation(project: Project, batch, *, user_name: str = '') -> N
                 continue
             snapshot = _serialize_instance(instance)
             display_name = _entity_display_name(instance)
+            # Rows a DB cascade would take with it (plans added to the season
+            # after it was created, their tasks) get their own revision so the
+            # revert stays reversible.
+            _record_cascade_deletions(project, [instance], revert_batch, user_name)
             _model_manager(model).filter(pk=object_id).delete()
             record_entity_revision(
                 project=project, entity_type=entity_type, object_id=object_id,
