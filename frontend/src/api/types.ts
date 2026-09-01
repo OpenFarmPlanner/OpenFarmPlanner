@@ -776,6 +776,13 @@ export interface SeasonPatternPreviewResponse {
   transition: SeasonPeriodTransition | null;
 }
 
+/** How many of a source season's planting plans would land inside a target period. */
+export interface SeasonCopyCounts {
+  total: number;
+  copied: number;
+  skipped: number;
+}
+
 export interface SeasonCreationOptions {
   start_day: number;
   start_month: number;
@@ -785,6 +792,13 @@ export interface SeasonCreationOptions {
   seamless_period: SeasonPeriodRange | null;
   manual_period: SeasonPeriodRange | null;
   manual_residual: SeasonPeriodTransition | null;
+  copy_source_label: string | null;
+  copy_preview: {
+    adopt: SeasonCopyCounts | null;
+    transition: SeasonCopyCounts | null;
+    transition_followup: SeasonCopyCounts | null;
+    manual: SeasonCopyCounts | null;
+  };
 }
 
 export interface SeasonDueSuggestion {
@@ -795,6 +809,7 @@ export interface SeasonDueSuggestion {
 
 export interface SeasonCopyFromResponse {
   copied_count: number;
+  skipped_count: number;
   target_planting_plan_count: number;
 }
 

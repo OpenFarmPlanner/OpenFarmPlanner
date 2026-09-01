@@ -210,6 +210,29 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
 
         self.assertIsNone(response.data['manual_residual'])
 
+    def test_creation_options_reports_copy_preview_for_each_option(self):
+        self._set_pattern(1, 1)
+        last_season = Season.objects.create(
+            project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+        )
+        for planting_date in (date(2025, 10, 15), date(2025, 12, 20), date(2026, 3, 1)):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season=last_season, planting_date=planting_date,
+            )
+
+        response = self.client.get('/openfarmplanner/api/seasons/creation-options/')
+
+        self.assertEqual(response.data['seamless_period'], {
+            'start_date': '2026-09-01', 'end_date': '2026-12-31',
+        })
+        self.assertEqual(response.data['due_period']['start_date'], '2027-01-01')
+        self.assertEqual(response.data['copy_source_label'], last_season.label)
+        preview = response.data['copy_preview']
+        self.assertEqual(preview['transition'], {'total': 3, 'copied': 2, 'skipped': 1})
+        self.assertEqual(preview['transition_followup'], {'total': 2, 'copied': 2, 'skipped': 0})
+        self.assertEqual(preview['adopt']['skipped'], 1)
+
 
 class SeasonCopyServiceTest(ProjectApiTestCase):
     def test_copy_is_additive_not_replacing(self):
@@ -222,9 +245,10 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
             culture=self.culture, bed=self.bed, project=self.project, season=target, planting_date=date(2027, 4, 1),
         )
 
-        created_plans = copy_planting_plans(source_season=source, target_season=target)
+        created_plans, skipped_count = copy_planting_plans(source_season=source, target_season=target)
 
         self.assertEqual(len(created_plans), 1)
+        self.assertEqual(skipped_count, 0)
         target_plans = PlantingPlan.objects.filter(season=target)
         self.assertEqual(target_plans.count(), 2)
         self.assertTrue(target_plans.filter(pk=existing_target_plan.pk).exists())
@@ -254,6 +278,28 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         copy_planting_plans(source_season=source, target_season=target)
 
         self.assertEqual(PlantingPlan.objects.get(season=target).planting_date, date(2025, 2, 28))
+
+    def test_copy_skips_plans_whose_shifted_planting_date_leaves_a_short_target(self):
+        source = Season.objects.create(
+            project=self.project, start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        )
+        target = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 4, 30),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2025, 3, 1),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2025, 9, 1),
+        )
+
+        created_plans, skipped_count = copy_planting_plans(source_season=source, target_season=target)
+
+        self.assertEqual(len(created_plans), 1)
+        self.assertEqual(skipped_count, 1)
+        self.assertEqual(created_plans[0].planting_date, date(2026, 3, 1))
 
 
 class SeasonApiTest(ProjectApiTestCase):

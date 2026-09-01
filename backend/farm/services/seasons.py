@@ -159,17 +159,38 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
     return None if overlaps_existing else (next_start, next_end)
 
 
-def copy_planting_plans(*, source_season: Season, target_season: Season) -> list[PlantingPlan]:
-    """Copy all planting plans from `source_season` into `target_season`, additively.
+def planting_date_fits_period(planting_date: date | None, start_date: date, end_date: date) -> bool:
+    """Whether a (already shifted) `planting_date` falls inside `[start_date, end_date]`.
+
+    A missing `planting_date` always fits — there is nothing to place out of
+    range. Harvest dates are deliberately not checked here: they legitimately
+    fall after a season's end (see docs/seasons-architecture.md).
+    """
+    return planting_date is None or start_date <= planting_date <= end_date
+
+
+def copy_planting_plans(
+    *,
+    source_season: Season,
+    target_season: Season,
+    restrict_to_target_period: bool = True,
+) -> tuple[list[PlantingPlan], int]:
+    """Copy planting plans from `source_season` into `target_season`, additively.
 
     Planting, harvest and harvest-end dates are shifted forward (or back) by the
     whole-year gap between the two seasons' start dates, so the copies land in
     the target season's own period. Feb 29 is clamped to Feb 28 when the shifted
     year is not a leap year.
 
+    When `restrict_to_target_period` is True (the default), a source plan is
+    only copied if its *shifted* `planting_date` falls within the target
+    season's period — relevant for short transition seasons, where most shifted
+    plans no longer fit. Harvest dates are never range-checked.
+
     Existing planting plans already in `target_season` are left untouched —
-    this only ever appends copies of the source season's plans. Returns the
-    created plans so the caller can record revisions for them.
+    this only ever appends copies of the source season's plans. Returns
+    `(created_plans, skipped_count)` so the caller can record revisions and
+    report how many plans were left out.
     """
     year_offset = target_season.start_date.year - source_season.start_date.year
     month_offset = year_offset * 12
@@ -179,12 +200,56 @@ def copy_planting_plans(*, source_season: Season, target_season: Season) -> list
 
     source_plans = PlantingPlan.objects.filter(season=source_season)
     new_plans = []
+    skipped_count = 0
     for plan in source_plans:
         fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
         for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
             fields[date_field] = shifted(fields[date_field])
+        if restrict_to_target_period and not planting_date_fits_period(
+            fields['planting_date'], target_season.start_date, target_season.end_date,
+        ):
+            skipped_count += 1
+            continue
         new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
-    return PlantingPlan.objects.bulk_create(new_plans)
+    return PlantingPlan.objects.bulk_create(new_plans), skipped_count
+
+
+def shift_planting_dates_into_period(
+    planting_dates: list[date | None],
+    source_start_year: int,
+    target_start: date,
+    target_end: date,
+) -> list[date | None]:
+    """Shift each planting_date by the whole-year gap and keep only those landing
+    within `[target_start, target_end]` (``None`` entries pass through).
+
+    Lets the create flow chain a copy preview across two seasons (last season →
+    transition season → regular follow-up season) without writing any rows.
+    """
+    year_offset = target_start.year - source_start_year
+    kept: list[date | None] = []
+    for planting_date in planting_dates:
+        shifted = None if planting_date is None else add_months(planting_date, year_offset * 12)
+        if planting_date_fits_period(shifted, target_start, target_end):
+            kept.append(shifted)
+    return kept
+
+
+def preview_copy_counts(
+    *,
+    source_planting_dates: list[date | None],
+    source_start_year: int,
+    target_start: date,
+    target_end: date,
+) -> dict:
+    """Count how many of `source_planting_dates` would be copied into a target
+    period once shifted, and how many fall outside it. Returns
+    `{total, copied, skipped}`."""
+    kept = shift_planting_dates_into_period(
+        source_planting_dates, source_start_year, target_start, target_end,
+    )
+    total = len(source_planting_dates)
+    return {'total': total, 'copied': len(kept), 'skipped': total - len(kept)}
 
 
 def get_or_create_season_for_period(

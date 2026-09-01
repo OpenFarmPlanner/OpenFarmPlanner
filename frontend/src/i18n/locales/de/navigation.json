@@ -81,6 +81,7 @@
           "overlap": "Überlappung übernehmen (Saison exakt nach Muster-Berechnung)"
         },
         "transition": "Übergangssaison anlegen (schließt nahtlos an die letzte Saison an)",
+        "transitionTwoSeasons": "Es werden zwei Saisonen angelegt: Übergangssaison {{transitionPeriod}} und {{followupLabel}} ({{followupPeriod}}).",
         "manual": "Startdatum manuell anpassen",
         "manualStartLabel": "Startdatum",
         "manualPeriod": "Zeitraum: {{period}}",
@@ -91,7 +92,10 @@
         "residualRemains": {
           "gap": "Es bleibt eine Restlücke: {{period}}.",
           "overlap": "Es bleibt eine Überlappung: {{period}}."
-        }
+        },
+        "copyPreviewAll": "Alle {{total}} Anbaupläne aus {{label}} werden übernommen.",
+        "copyPreviewPartial": "{{copied}} von {{total}} Anbauplänen aus {{label}} werden übernommen – {{skipped}} liegen außerhalb des Zeitraums und werden nicht übernommen.",
+        "copyPreviewFollowup": "Folge-Saison {{label}}: {{copied}} von {{total}} Anbauplänen werden übernommen."
       }
     },
     "renameDialog": {

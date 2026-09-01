@@ -81,6 +81,7 @@
           "overlap": "Keep the overlap (season exactly as computed by the pattern)"
         },
         "transition": "Create a transition season (joins the last season seamlessly)",
+        "transitionTwoSeasons": "Two seasons will be created: transition season {{transitionPeriod}} and {{followupLabel}} ({{followupPeriod}}).",
         "manual": "Set the start date manually",
         "manualStartLabel": "Start date",
         "manualPeriod": "Period: {{period}}",
@@ -91,7 +92,10 @@
         "residualRemains": {
           "gap": "A remaining gap stays: {{period}}.",
           "overlap": "An overlap stays: {{period}}."
-        }
+        },
+        "copyPreviewAll": "All {{total}} planting plans from {{label}} will be copied.",
+        "copyPreviewPartial": "{{copied}} of {{total}} planting plans from {{label}} will be copied – {{skipped}} lie outside the period and will not be copied.",
+        "copyPreviewFollowup": "Follow-up season {{label}}: {{copied}} of {{total}} planting plans will be copied."
       }
     },
     "renameDialog": {

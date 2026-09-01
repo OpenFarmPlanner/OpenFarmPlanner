@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -29,7 +29,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import type { Season } from '../api/types';
+import type { Season, SeasonCopyCounts } from '../api/types';
+import { seasonAPI } from '../api/api';
 import { useTranslation } from '../i18n';
 import type { UseActiveSeasonReturn } from './useActiveSeason';
 import { SeasonRowActionsMenu } from './SeasonRowActionsMenu';
@@ -108,6 +109,7 @@ export function SeasonCreateSuggestionDialog({
   const [createError, setCreateError] = useState<string | null>(null);
   const [gapChoice, setGapChoice] = useState<'adopt' | 'transition' | 'manual' | ''>('');
   const [manualStartDate, setManualStartDate] = useState('');
+  const [manualCopyPreview, setManualCopyPreview] = useState<SeasonCopyCounts | null>(null);
 
   const showSuggestion = Boolean(dueSuggestion?.start_date && dueSuggestion?.end_date);
   const suggestedLabel = showSuggestion ? computeSeasonLabel(dueSuggestion!.start_date!, dueSuggestion!.end_date!) : '';
@@ -125,6 +127,9 @@ export function SeasonCreateSuggestionDialog({
   );
 
   const seamlessPeriod = seasonCreationOptions?.seamless_period ?? null;
+  const duePeriod = seasonCreationOptions?.due_period ?? null;
+  const followupLabel = duePeriod ? computeSeasonLabel(duePeriod.start_date, duePeriod.end_date) : '';
+  const copyFromLabel = seasonCreationOptions?.copy_source_label ?? activeSeason?.label ?? '';
   const manualEndDate = manualStartDate && seasonCreationOptions
     ? computeCustomSeasonEnd(
       manualStartDate,
@@ -137,11 +142,50 @@ export function SeasonCreateSuggestionDialog({
     ? analyzePeriodTransition(lastSeason.end_date, manualStartDate)
     : null;
 
+  // The copy split for the manual option depends on the chosen start date, so
+  // it is re-fetched from the server rather than derived client-side (which
+  // would need the source season's planting dates).
+  useEffect(() => {
+    if (gapChoice !== 'manual' || !manualValid) {
+      setManualCopyPreview(null);
+      return;
+    }
+    let cancelled = false;
+    seasonAPI.creationOptions({ manual_start_date: manualStartDate })
+      .then((response) => {
+        if (!cancelled) {
+          setManualCopyPreview(response.data.copy_preview.manual);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setManualCopyPreview(null);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [gapChoice, manualValid, manualStartDate]);
+
+  const activeCopyPreview: SeasonCopyCounts | null = (() => {
+    const preview = seasonCreationOptions?.copy_preview;
+    if (!needsGapDecision || gapChoice === 'adopt') {
+      return preview?.adopt ?? null;
+    }
+    if (gapChoice === 'transition') {
+      return preview?.transition ?? null;
+    }
+    if (gapChoice === 'manual') {
+      return manualCopyPreview;
+    }
+    return null;
+  })();
+  const followupCopyPreview = seasonCreationOptions?.copy_preview?.transition_followup ?? null;
+
   const resetTransientState = () => {
     setCreateError(null);
     setCopyFromCurrent(true);
     setGapChoice('');
     setManualStartDate('');
+    setManualCopyPreview(null);
   };
 
   const handleClose = () => {
@@ -177,24 +221,43 @@ export function SeasonCreateSuggestionDialog({
     return null;
   };
 
-  const canSubmit = !creatingSuggested && resolveCreatePeriod() !== null;
+  // The transition option creates two seasons: the gap-filling transition
+  // season plus the regular follow-up season the pattern computes next.
+  const isTransitionTwoSeason = needsGapDecision && gapChoice === 'transition';
+  const canSubmit = !creatingSuggested && (
+    isTransitionTwoSeason
+      ? Boolean(seamlessPeriod && duePeriod)
+      : resolveCreatePeriod() !== null
+  );
 
   const handleCreateSuggested = async () => {
-    const period = resolveCreatePeriod();
-    if (!period) {
-      return;
-    }
     setCreatingSuggested(true);
     setCreateError(null);
     try {
-      const created = await createSeason(
-        period.start,
-        period.end,
-        copyFromCurrent && activeSeason ? activeSeason.id : undefined,
-      );
+      const copySourceId = copyFromCurrent && activeSeason ? activeSeason.id : undefined;
+      let seasonToActivate: Season;
+      if (isTransitionTwoSeason && seamlessPeriod && duePeriod) {
+        const transitionSeason = await createSeason(
+          seamlessPeriod.start_date,
+          seamlessPeriod.end_date,
+          copySourceId,
+        );
+        seasonToActivate = await createSeason(
+          duePeriod.start_date,
+          duePeriod.end_date,
+          copyFromCurrent ? transitionSeason.id : undefined,
+        );
+      } else {
+        const period = resolveCreatePeriod();
+        if (!period) {
+          setCreatingSuggested(false);
+          return;
+        }
+        seasonToActivate = await createSeason(period.start, period.end, copySourceId);
+      }
       resetTransientState();
       onClose();
-      switchSeason(created.id);
+      switchSeason(seasonToActivate.id);
     } catch (error) {
       setCreateError(getSeasonCreateErrorMessage(
         error,
@@ -257,11 +320,19 @@ export function SeasonCreateSuggestionDialog({
                         <Typography variant="body2">
                           {t('navigation:seasonSwitcher.suggestion.gap.transition')}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {seamlessPeriod
-                            ? formatSeasonPeriod(seamlessPeriod.start_date, seamlessPeriod.end_date, locale)
-                            : ''}
-                        </Typography>
+                        {seamlessPeriod && duePeriod ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {t('navigation:seasonSwitcher.suggestion.gap.transitionTwoSeasons', {
+                              transitionPeriod: formatSeasonPeriod(
+                                seamlessPeriod.start_date, seamlessPeriod.end_date, locale,
+                              ),
+                              followupLabel,
+                              followupPeriod: formatSeasonPeriod(
+                                duePeriod.start_date, duePeriod.end_date, locale,
+                              ),
+                            })}
+                          </Typography>
+                        ) : null}
                       </Stack>
                     )}
                   />
@@ -325,7 +396,8 @@ export function SeasonCreateSuggestionDialog({
           ) : null}
 
           {activeSeason ? (
-            <Box
+            <Stack
+              spacing={1}
               sx={{
                 borderRadius: 1,
                 bgcolor: 'success.50',
@@ -352,7 +424,33 @@ export function SeasonCreateSuggestionDialog({
                   </Stack>
                 )}
               />
-            </Box>
+              {copyFromCurrent && activeCopyPreview && activeCopyPreview.total > 0 ? (
+                <Typography
+                  variant="caption"
+                  color={activeCopyPreview.skipped > 0 ? 'warning.dark' : 'text.secondary'}
+                  sx={{ pl: 4 }}
+                >
+                  {t(
+                    activeCopyPreview.skipped > 0
+                      ? 'navigation:seasonSwitcher.suggestion.gap.copyPreviewPartial'
+                      : 'navigation:seasonSwitcher.suggestion.gap.copyPreviewAll',
+                    { ...activeCopyPreview, label: copyFromLabel },
+                  )}
+                </Typography>
+              ) : null}
+              {copyFromCurrent && isTransitionTwoSeason && followupCopyPreview && followupCopyPreview.total > 0 ? (
+                <Typography
+                  variant="caption"
+                  color={followupCopyPreview.skipped > 0 ? 'warning.dark' : 'text.secondary'}
+                  sx={{ pl: 4 }}
+                >
+                  {t('navigation:seasonSwitcher.suggestion.gap.copyPreviewFollowup', {
+                    ...followupCopyPreview,
+                    label: followupLabel,
+                  })}
+                </Typography>
+              ) : null}
+            </Stack>
           ) : null}
           <Box
             sx={{

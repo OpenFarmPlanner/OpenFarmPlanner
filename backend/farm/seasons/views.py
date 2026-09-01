@@ -32,6 +32,8 @@ from farm.services.seasons import (
     get_or_create_season_for_period,
     get_or_create_season_pattern,
     latest_existing_season,
+    preview_copy_counts,
+    shift_planting_dates_into_period,
 )
 
 from .serializers import SeasonCopyFromSerializer, SeasonPatternSerializer, SeasonSerializer
@@ -318,7 +320,9 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             return Response({'detail': 'Source and target season must be different.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            created_plans = copy_planting_plans(source_season=source_season, target_season=target_season)
+            created_plans, skipped_count = copy_planting_plans(
+                source_season=source_season, target_season=target_season,
+            )
             if created_plans:
                 # Copied plans are new rows — record a `created` revision per
                 # plan (so each is individually restorable) and group them
@@ -341,7 +345,11 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                         plan, EntityRevision.ACTION_CREATED, batch_operation=batch,
                     )
         total_count = PlantingPlan.objects.filter(season=target_season).count()
-        return Response({'copied_count': len(created_plans), 'target_planting_plan_count': total_count})
+        return Response({
+            'copied_count': len(created_plans),
+            'skipped_count': skipped_count,
+            'target_planting_plan_count': total_count,
+        })
 
     @action(detail=False, methods=['get'], url_path='creation-options')
     def creation_options(self, request):
@@ -376,16 +384,29 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 'end_date': due_end.isoformat(),
             }
 
+        payload['copy_source_label'] = latest_season.label if latest_season is not None else None
+        payload['copy_preview'] = {'adopt': None, 'transition': None, 'transition_followup': None, 'manual': None}
+
+        last_planting_dates: list = []
         if latest_season is not None:
+            last_planting_dates = list(
+                PlantingPlan.objects
+                .filter(season=latest_season)
+                .values_list('planting_date', flat=True)
+            )
             payload['last_season'] = {
                 'start_date': latest_season.start_date.isoformat(),
                 'end_date': latest_season.end_date.isoformat(),
                 'label': latest_season.label,
             }
             if due_period is not None:
-                raw_transition = analyze_period_transition(
-                    latest_season.end_date, due_period[0],
+                due_start, due_end = due_period
+                payload['copy_preview']['adopt'] = preview_copy_counts(
+                    source_planting_dates=last_planting_dates,
+                    source_start_year=latest_season.start_date.year,
+                    target_start=due_start, target_end=due_end,
                 )
+                raw_transition = analyze_period_transition(latest_season.end_date, due_start)
                 if raw_transition is not None:
                     payload['transition'] = _serialize_transition(raw_transition)
                     seamless_start = latest_season.end_date + timedelta(days=1)
@@ -394,6 +415,21 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                         'start_date': seamless_start.isoformat(),
                         'end_date': seamless_end.isoformat(),
                     }
+                    payload['copy_preview']['transition'] = preview_copy_counts(
+                        source_planting_dates=last_planting_dates,
+                        source_start_year=latest_season.start_date.year,
+                        target_start=seamless_start, target_end=seamless_end,
+                    )
+                    # The follow-up regular season copies from the transition
+                    # season, i.e. from the plans that landed in it.
+                    landed_in_transition = shift_planting_dates_into_period(
+                        last_planting_dates, latest_season.start_date.year, seamless_start, seamless_end,
+                    )
+                    payload['copy_preview']['transition_followup'] = preview_copy_counts(
+                        source_planting_dates=landed_in_transition,
+                        source_start_year=seamless_start.year,
+                        target_start=due_start, target_end=due_end,
+                    )
 
         manual_start_param = request.query_params.get('manual_start_date')
         if manual_start_param:
@@ -413,6 +449,11 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 raw_residual = analyze_period_transition(latest_season.end_date, manual_start)
                 payload['manual_residual'] = (
                     _serialize_transition(raw_residual) if raw_residual is not None else None
+                )
+                payload['copy_preview']['manual'] = preview_copy_counts(
+                    source_planting_dates=last_planting_dates,
+                    source_start_year=latest_season.start_date.year,
+                    target_start=manual_start, target_end=manual_end,
                 )
 
         return Response(payload)
