@@ -162,6 +162,11 @@ ALLOWED_HOSTS = _dedupe(
 # Application definition
 
 INSTALLED_APPS = [
+    # `daphne` must precede `django.contrib.staticfiles` so its ASGI-capable
+    # `runserver` replaces Django's WSGI-only one; without it local development
+    # (`manage.py runserver`, see scripts/dev-lan.sh) cannot serve the
+    # `/ws/` WebSocket endpoints and the frontend socket fails to connect.
+    'daphne',
     'channels',
     'django.contrib.admin',
     'django.contrib.auth',

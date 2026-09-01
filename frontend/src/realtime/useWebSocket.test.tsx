@@ -52,18 +52,16 @@ describe('useWebSocket', () => {
       { protocol: 'https:', host: 'example.test' },
       '/openfarmplanner/',
       undefined,
-      false,
     )).toBe('wss://example.test/openfarmplanner/ws/public-cultures/1/discussions/');
   });
 
-  it('targets the default backend port in local development', () => {
+  it('stays on the page origin so the Vite dev proxy handles local development', () => {
     expect(buildWebSocketUrl(
       'ws/notifications/',
       { protocol: 'http:', host: 'localhost:5173' },
       '/',
       undefined,
-      true,
-    )).toBe('ws://localhost:8000/ws/notifications/');
+    )).toBe('ws://localhost:5173/ws/notifications/');
   });
 
   it('allows production-preview tests to target the ASGI backend directly', () => {

@@ -85,12 +85,18 @@ normal REST use.
 
 No Redis installation is needed. With `CHANNEL_REDIS_URL` unset, Channels uses
 its in-memory layer. This supports a single application process and automated
-tests only. Run the backend through an ASGI-capable server when manually
-testing sockets; Daphne is included as an application dependency. In local
-development the frontend targets port `8000` for WebSockets by default, using
-the current browser hostname so LAN testing keeps working. Set
-`VITE_WS_BASE_URL` when the backend listens somewhere else. Vite also proxies
-`/ws` with WebSocket upgrades as well as proxying `/api`.
+tests only.
+
+`daphne` sits at the top of `INSTALLED_APPS`, so `manage.py runserver` (used by
+`scripts/dev-lan.sh`) runs Daphne and serves the `/ws/` endpoints directly - no
+separate ASGI process is needed for manual socket testing.
+
+The frontend opens the socket on the page's own origin. The Vite dev server
+proxies `/ws` (with WebSocket upgrades, alongside `/api`) to the backend, so the
+connection stays same-origin and the session cookie is always sent - including
+over the LAN and regardless of whether the page was opened as `localhost` or
+`127.0.0.1`. Set `VITE_WS_BASE_URL` only for the production preview build, which
+has no proxy and must reach the ASGI backend directly.
 
 ## Redis-backed channel layer
 

@@ -37,19 +37,18 @@ export function buildWebSocketUrl(
   location: Pick<Location, 'protocol' | 'host'> = window.location,
   basePath = import.meta.env.BASE_URL,
   websocketBaseUrl = import.meta.env.VITE_WS_BASE_URL,
-  isDevelopment = import.meta.env.DEV,
 ): string {
   const relativePath = path.replace(/^\//, '');
   const overrideBaseUrl = normalizeWebSocketBaseUrl(websocketBaseUrl);
   if (overrideBaseUrl) {
     return `${overrideBaseUrl}${relativePath}`;
   }
+  // Connect through the page's own origin. In local development the Vite dev
+  // server proxies `/ws` (with WebSocket upgrades) to the backend, so the
+  // socket stays same-origin and the session cookie is always sent - targeting
+  // the backend port directly breaks when the page is opened on a different
+  // host alias (`localhost` vs `127.0.0.1`) or over the LAN.
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  if (isDevelopment) {
-    const backendUrl = new URL(`${location.protocol}//${location.host}`);
-    backendUrl.port = '8000';
-    return `${protocol}//${backendUrl.host}${normalizeBasePath(basePath)}${relativePath}`;
-  }
   return `${protocol}//${location.host}${normalizeBasePath(basePath)}${relativePath}`;
 }
 
