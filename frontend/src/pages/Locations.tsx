@@ -418,6 +418,7 @@ function Locations() {
             error={formErrorField === 'coordinates'}
             helperText={formErrorField === 'coordinates' ? formError : t('locations:helpers.coordinatesExample')}
             sx={mediumFieldSx}
+            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
           />
           <TextField
             label={t('locations:columns.address')}

@@ -1647,7 +1647,7 @@ function PlantingPlans() {
           sx={isMobile ? { position: 'fixed', top: '-9999px', left: 0, width: '100vw', height: 1, overflow: 'hidden', pointerEvents: 'none', visibility: 'hidden' } : undefined}
         >
           <EditableDataGrid<PlantingPlanRow>
-            surfaceSizing="contentFit"
+            surfaceSizing={isMobile ? "fullWorkspace" : "contentFit"}
             scrollMode="continuous"
             columns={columns}
             api={plantingPlanGridAPI}

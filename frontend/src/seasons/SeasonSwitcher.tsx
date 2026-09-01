@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Alert,
-  Badge,
   Box,
   Button,
   Checkbox,
@@ -286,20 +285,12 @@ export function SeasonSwitcher({
           minWidth: 0,
           px: buttonPx ?? (isPhone ? 0.75 : 1),
         }}
-        startIcon={!isPhone ? (
-          <Badge variant="dot" color="warning" invisible={!dueSuggestion?.due}>
-            <NavEmojiIcon emoji={SEASON_SWITCHER_EMOJI} />
-          </Badge>
-        ) : undefined}
+        startIcon={!isPhone ? <NavEmojiIcon emoji={SEASON_SWITCHER_EMOJI} /> : undefined}
         endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
       >
-        {/* Phone: no room for the icon or the dropdown arrow — the due-season
-            dot rides on the label itself instead of the (now absent) icon. */}
-        <Badge variant="dot" color="warning" invisible={!isPhone || !dueSuggestion?.due}>
-          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activeSeason?.label ?? '–'}
-          </Box>
-        </Badge>
+        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {activeSeason?.label ?? '–'}
+        </Box>
       </Button>
 
       <Menu

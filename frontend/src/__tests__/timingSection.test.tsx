@@ -31,9 +31,17 @@ describe('TimingSection', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('form.growthDurationDaysPlaceholder'), { target: { value: '30' } });
-    fireEvent.change(screen.getByPlaceholderText('form.harvestDurationDaysPlaceholder'), { target: { value: '12' } });
-    fireEvent.change(screen.getByLabelText(/Anzuchtdauer \(Tage\)/), { target: { value: '8' } });
+    const growthInput = screen.getByPlaceholderText('form.growthDurationDaysPlaceholder');
+    const harvestInput = screen.getByPlaceholderText('form.harvestDurationDaysPlaceholder');
+    const propagationInput = screen.getByLabelText(/Anzuchtdauer \(Tage\)/);
+
+    expect(growthInput).toHaveAttribute('inputmode', 'numeric');
+    expect(harvestInput).toHaveAttribute('inputmode', 'numeric');
+    expect(propagationInput).toHaveAttribute('inputmode', 'numeric');
+
+    fireEvent.change(growthInput, { target: { value: '30' } });
+    fireEvent.change(harvestInput, { target: { value: '12' } });
+    fireEvent.change(propagationInput, { target: { value: '8' } });
 
     expect(onChange).toHaveBeenCalledWith('growth_duration_days', 30);
     expect(onChange).toHaveBeenCalledWith('harvest_duration_days', 12);

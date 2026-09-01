@@ -50,6 +50,15 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 const renderImmediateEditInputCell = (
   params: GridRenderEditCellParams<HierarchyRow>,
 ): ReactElement => <GridEditInputCell {...params} debounceMs={0} />;
+const renderDecimalEditInputCell = (
+  params: GridRenderEditCellParams<HierarchyRow>,
+): ReactElement => (
+  <GridEditInputCell
+    {...params}
+    debounceMs={0}
+    slotProps={{ root: { slotProps: { htmlInput: { inputMode: 'decimal' } } } }}
+  />
+);
 
 /** Returns true when a dimension edit cell value is non-empty but invalid (non-numeric or negative). */
 export const isDimensionEditValueInvalid = (value: unknown): boolean => {
@@ -226,7 +235,7 @@ export function createHierarchyColumns(
       width: widths.dimensions,
       type: 'string',
       editable: true,
-      renderEditCell: renderImmediateEditInputCell,
+      renderEditCell: renderDecimalEditInputCell,
       valueGetter: (_value, row: HierarchyRow) => row.type === 'location' ? undefined : row.length_m,
       cellClassName: (params) => getDimensionCellClassName(params.row, 'length'),
       renderCell: (params) => renderDimensionCell(params, 'length', t),
@@ -247,7 +256,7 @@ export function createHierarchyColumns(
       width: widths.dimensions,
       type: 'string',
       editable: true,
-      renderEditCell: renderImmediateEditInputCell,
+      renderEditCell: renderDecimalEditInputCell,
       valueGetter: (_value, row: HierarchyRow) => row.type === 'location' ? undefined : row.width_m,
       cellClassName: (params) => getDimensionCellClassName(params.row, 'width'),
       renderCell: (params) => renderDimensionCell(params, 'width', t),

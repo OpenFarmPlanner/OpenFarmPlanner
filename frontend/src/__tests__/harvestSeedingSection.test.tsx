@@ -26,6 +26,7 @@ describe('HarvestSection and SeedingSection', () => {
     fireEvent.click(screen.getByRole('option', { name: 'Pro Pflanze' }));
 
     expect(onChange).toHaveBeenCalledWith('harvest_method', 'per_plant');
+    expect(screen.getByLabelText('Erwarteter Ertrag (kg)')).toHaveAttribute('inputmode', 'decimal');
     expect(screen.getByText('Ertragseinheit ist bei angegebenem Ertrag erforderlich')).toBeInTheDocument();
   });
 
@@ -44,8 +45,12 @@ describe('HarvestSection and SeedingSection', () => {
     const amountInput = screen.getByLabelText('Menge');
     expect(amountInput).toHaveAttribute('min', '0.001');
     expect(amountInput).toHaveAttribute('step', '0.001');
+    expect(amountInput).toHaveAttribute('inputmode', 'decimal');
     fireEvent.change(amountInput, { target: { value: '4' } });
     expect(onChange).toHaveBeenCalledWith('seed_rate_direct_value', 4);
+
+    expect(screen.getByLabelText('Sicherheitszuschlag für Saatgut (%)')).toHaveAttribute('inputmode', 'decimal');
+    expect(screen.getByLabelText('1000-Korn-Gewicht (g)')).toHaveAttribute('inputmode', 'decimal');
 
     const unitCombobox = screen.getAllByRole('combobox')[0];
     fireEvent.mouseDown(unitCombobox);

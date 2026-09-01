@@ -122,9 +122,17 @@ describe('culture form UI sections', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Abstand in der Reihe (cm)'), { target: { value: '25' } });
-    fireEvent.change(screen.getByLabelText('Reihenabstand (cm)'), { target: { value: '40' } });
-    fireEvent.change(screen.getByLabelText('Saattiefe (cm)'), { target: { value: '2.1' } });
+    const distanceWithinRowInput = screen.getByLabelText('Abstand in der Reihe (cm)');
+    const rowSpacingInput = screen.getByLabelText('Reihenabstand (cm)');
+    const sowingDepthInput = screen.getByLabelText('Saattiefe (cm)');
+
+    expect(distanceWithinRowInput).toHaveAttribute('inputmode', 'numeric');
+    expect(rowSpacingInput).toHaveAttribute('inputmode', 'numeric');
+    expect(sowingDepthInput).toHaveAttribute('inputmode', 'decimal');
+
+    fireEvent.change(distanceWithinRowInput, { target: { value: '25' } });
+    fireEvent.change(rowSpacingInput, { target: { value: '40' } });
+    fireEvent.change(sowingDepthInput, { target: { value: '2.1' } });
 
     expect(onChange).toHaveBeenCalledWith('distance_within_row_cm', 25);
     expect(onChange).toHaveBeenCalledWith('row_spacing_cm', 40);
@@ -297,6 +305,7 @@ describe('culture form UI sections', () => {
 
     const yieldInput = screen.getByLabelText('Erwarteter Ertrag (kg)');
     expect(yieldInput).toHaveValue(3.5);
+    expect(yieldInput).toHaveAttribute('inputmode', 'decimal');
 
     fireEvent.change(yieldInput, { target: { value: '4.25' } });
     expect(onChange).toHaveBeenCalledWith('expected_yield', 4.25);

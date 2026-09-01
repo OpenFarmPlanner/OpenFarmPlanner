@@ -113,6 +113,7 @@ export function PublicCultureFiltersPopover({
         label={t('filters.growthDaysMin')}
         value={filters.growthDaysMin}
         onChange={(event) => onFilterChange('growthDaysMin', event.target.value)}
+        slotProps={{ htmlInput: { inputMode: 'numeric' } }}
       />
       <TextField
         size="small"
@@ -120,6 +121,7 @@ export function PublicCultureFiltersPopover({
         label={t('filters.growthDaysMax')}
         value={filters.growthDaysMax}
         onChange={(event) => onFilterChange('growthDaysMax', event.target.value)}
+        slotProps={{ htmlInput: { inputMode: 'numeric' } }}
       />
       <TextField
         size="small"
@@ -127,6 +129,7 @@ export function PublicCultureFiltersPopover({
         label={t('filters.yieldMin')}
         value={filters.yieldMin}
         onChange={(event) => onFilterChange('yieldMin', event.target.value)}
+        slotProps={{ htmlInput: { inputMode: 'decimal' } }}
       />
       <TextField
         size="small"
@@ -134,6 +137,7 @@ export function PublicCultureFiltersPopover({
         label={t('filters.yieldMax')}
         value={filters.yieldMax}
         onChange={(event) => onFilterChange('yieldMax', event.target.value)}
+        slotProps={{ htmlInput: { inputMode: 'decimal' } }}
       />
     </FilterPopoverShell>
   );
