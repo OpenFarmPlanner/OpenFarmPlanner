@@ -123,8 +123,22 @@ export function useActiveSeason() {
     return created;
   }, [reload]);
 
+  const createTransitionSeasons = useCallback(async (copy: boolean) => {
+    const response = await seasonAPI.createTransition({ copy });
+    await reload();
+    return response.data;
+  }, [reload]);
+
   const renameSeason = useCallback(async (seasonId: number, customLabel: string): Promise<void> => {
     await seasonAPI.update(seasonId, { custom_label: customLabel });
+    await reload();
+  }, [reload]);
+
+  const updateSeasonPeriod = useCallback(async (
+    seasonId: number,
+    period: { start_date: string; end_date: string },
+  ): Promise<void> => {
+    await seasonAPI.update(seasonId, period);
     await reload();
   }, [reload]);
 
@@ -261,7 +275,9 @@ export function useActiveSeason() {
     reload,
     switchSeason,
     createSeason,
+    createTransitionSeasons,
     renameSeason,
+    updateSeasonPeriod,
     copyDataInto,
     deleteSeason,
     undoPendingDeletion,

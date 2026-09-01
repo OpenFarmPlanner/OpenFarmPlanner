@@ -210,6 +210,39 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
 
         self.assertIsNone(response.data['manual_residual'])
 
+    def test_create_transition_distributes_plans_across_both_new_seasons(self):
+        self._set_pattern(1, 1)
+        last_season = Season.objects.create(
+            project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+        )
+        # One plan per month across the source season (Sep 2025 – Aug 2026).
+        months = [(2025, m) for m in (9, 10, 11, 12)] + [(2026, m) for m in range(1, 9)]
+        for year, month in months:
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season=last_season, planting_date=date(year, month, 15),
+            )
+
+        response = self.client.post(
+            '/openfarmplanner/api/seasons/create-transition/', {'copy': True},
+        )
+
+        self.assertEqual(response.status_code, 201, getattr(response, 'data', None))
+        transition = Season.objects.get(pk=response.data['transition_season']['id'])
+        followup = Season.objects.get(pk=response.data['followup_season']['id'])
+        self.assertEqual((transition.start_date, transition.end_date), (date(2026, 9, 1), date(2026, 12, 31)))
+        self.assertEqual((followup.start_date, followup.end_date), (date(2027, 1, 1), date(2027, 12, 31)))
+
+        transition_dates = sorted(PlantingPlan.objects.filter(season=transition).values_list('planting_date', flat=True))
+        followup_dates = sorted(PlantingPlan.objects.filter(season=followup).values_list('planting_date', flat=True))
+        self.assertEqual(transition_dates, [date(2026, m, 15) for m in (9, 10, 11, 12)])
+        self.assertEqual(followup_dates, [date(2027, m, 15) for m in range(1, 9)])
+        self.assertEqual(response.data['transition_copied_count'], 4)
+        self.assertEqual(response.data['followup_copied_count'], 8)
+        self.assertEqual(response.data['skipped_count'], 0)
+        # Every source plan landed in exactly one of the two seasons.
+        self.assertEqual(len(transition_dates) + len(followup_dates), len(months))
+
     def test_creation_options_reports_copy_preview_for_each_option(self):
         self._set_pattern(1, 1)
         last_season = Season.objects.create(
@@ -229,8 +262,10 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         self.assertEqual(response.data['due_period']['start_date'], '2027-01-01')
         self.assertEqual(response.data['copy_source_label'], last_season.label)
         preview = response.data['copy_preview']
-        self.assertEqual(preview['transition'], {'total': 3, 'copied': 2, 'skipped': 1})
-        self.assertEqual(preview['transition_followup'], {'total': 2, 'copied': 2, 'skipped': 0})
+        # Bridged routing: 2 of 3 plans land in the transition season, 1 in the
+        # follow-up season, none are lost.
+        self.assertEqual(preview['transition'], {'total': 3, 'copied': 2, 'skipped': 0})
+        self.assertEqual(preview['transition_followup'], {'total': 3, 'copied': 1, 'skipped': 0})
         self.assertEqual(preview['adopt']['skipped'], 1)
 
 
@@ -685,6 +720,78 @@ class SeasonApiTest(ProjectApiTestCase):
         self.assertEqual(response.status_code, 200)
         ids = [row['id'] for row in response.data['results']]
         self.assertEqual(ids, [plan_a.pk])
+
+
+class SeasonPeriodEditApiTest(ProjectApiTestCase):
+    def _patch_period(self, season, start_date, end_date):
+        return self.client.patch(
+            f'/openfarmplanner/api/seasons/{season.pk}/',
+            {'start_date': start_date, 'end_date': end_date},
+        )
+
+    def test_period_edit_succeeds_and_updates_dates(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 5, 1),
+        )
+
+        response = self._patch_period(season, '2026-03-01', '2026-12-31')
+
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        season.refresh_from_db()
+        self.assertEqual(season.start_date, date(2026, 3, 1))
+
+    def test_period_edit_blocked_by_planting_date_outside_new_period(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 2, 10),
+        )
+
+        response = self._patch_period(season, '2026-06-01', '2026-12-31')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'][0], 'season_period_edit_conflict')
+        conflict = response.data['planting_plan_conflicts'][0]
+        self.assertEqual(str(conflict['id']), str(plan.pk))
+        self.assertEqual(str(conflict['planting_date']), '2026-02-10')
+        season.refresh_from_db()
+        self.assertEqual(season.start_date, date(2026, 1, 1))
+
+    def test_period_edit_allows_harvest_dates_outside_new_period(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+        plan = PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            planting_date=date(2026, 11, 1),
+        )
+        PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2027, 3, 1))
+
+        response = self._patch_period(season, '2026-01-01', '2026-12-15')
+
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+
+    def test_period_edit_blocked_by_overlap_with_neighbouring_season(self):
+        Season.objects.create(
+            project=self.project, start_date=date(2025, 1, 1), end_date=date(2025, 12, 31),
+        )
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
+        )
+
+        response = self._patch_period(season, '2025-11-01', '2026-12-31')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'][0], 'season_period_edit_conflict')
+        overlap = response.data['overlap_conflicts'][0]
+        self.assertEqual(str(overlap['overlap_start_date']), '2025-11-01')
+        self.assertEqual(str(overlap['overlap_end_date']), '2025-12-31')
 
 
 class SeasonSetupApiTest(ProjectApiTestCase):

@@ -51,6 +51,7 @@ import type {
   SeasonPattern,
   SeasonPatternPreviewResponse,
   SeasonCreationOptions,
+  SeasonCreateTransitionResponse,
   SeasonDueSuggestion,
   SeasonCopyFromResponse,
   SeasonSetupStatus,
@@ -307,6 +308,8 @@ export const seasonAPI = {
   dueSuggestion: () => http.get<SeasonDueSuggestion>('/seasons/due-suggestion/'),
   creationOptions: (params?: { manual_start_date?: string }) =>
     http.get<SeasonCreationOptions>('/seasons/creation-options/', { params }),
+  createTransition: (data: { copy: boolean }) =>
+    http.post<SeasonCreateTransitionResponse>('/seasons/create-transition/', data),
 };
 
 export const seasonPatternAPI = {

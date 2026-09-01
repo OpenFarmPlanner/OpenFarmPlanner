@@ -28,12 +28,13 @@ from farm.services.seasons import (
     compute_preview_periods,
     compute_setup_target_period,
     copy_planting_plans,
+    distribute_planting_plans,
     find_due_but_missing_season,
     get_or_create_season_for_period,
     get_or_create_season_pattern,
     latest_existing_season,
+    preview_bridged_copy_counts,
     preview_copy_counts,
-    shift_planting_dates_into_period,
 )
 
 from .serializers import SeasonCopyFromSerializer, SeasonPatternSerializer, SeasonSerializer
@@ -415,21 +416,25 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                         'start_date': seamless_start.isoformat(),
                         'end_date': seamless_end.isoformat(),
                     }
-                    payload['copy_preview']['transition'] = preview_copy_counts(
+                    # Choosing "transition season" creates the transition season
+                    # AND the regular follow-up season; every source plan is
+                    # shifted once and routed to whichever of the two it lands in.
+                    bridged = preview_bridged_copy_counts(
                         source_planting_dates=last_planting_dates,
                         source_start_year=latest_season.start_date.year,
-                        target_start=seamless_start, target_end=seamless_end,
+                        transition_start=seamless_start, transition_end=seamless_end,
+                        followup_start=due_start, followup_end=due_end,
                     )
-                    # The follow-up regular season copies from the transition
-                    # season, i.e. from the plans that landed in it.
-                    landed_in_transition = shift_planting_dates_into_period(
-                        last_planting_dates, latest_season.start_date.year, seamless_start, seamless_end,
-                    )
-                    payload['copy_preview']['transition_followup'] = preview_copy_counts(
-                        source_planting_dates=landed_in_transition,
-                        source_start_year=seamless_start.year,
-                        target_start=due_start, target_end=due_end,
-                    )
+                    payload['copy_preview']['transition'] = {
+                        'total': bridged['total'],
+                        'copied': bridged['transition'],
+                        'skipped': bridged['skipped'],
+                    }
+                    payload['copy_preview']['transition_followup'] = {
+                        'total': bridged['total'],
+                        'copied': bridged['followup'],
+                        'skipped': bridged['skipped'],
+                    }
 
         manual_start_param = request.query_params.get('manual_start_date')
         if manual_start_param:
@@ -457,6 +462,101 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 )
 
         return Response(payload)
+
+    def _create_or_resurrect_season(self, project, start_date, end_date, user, batch):
+        """Create a season for `[start_date, end_date]`, or resurrect a
+        soft-deleted one occupying the same (project, start_date) slot."""
+        resurrected = (
+            Season.all_objects
+            .filter(project=project, start_date=start_date, deleted_at__isnull=False)
+            .first()
+        )
+        if resurrected is not None:
+            resurrected.deleted_at = None
+            resurrected.end_date = end_date
+            resurrected.created_by = user
+            resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
+            self.record_revision(
+                resurrected, EntityRevision.ACTION_UPDATED,
+                changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
+            )
+            return resurrected
+        season = Season.objects.create(
+            project=project, start_date=start_date, end_date=end_date, created_by=user,
+        )
+        self.record_revision(season, EntityRevision.ACTION_CREATED, batch_operation=batch)
+        return season
+
+    @action(detail=False, methods=['post'], url_path='create-transition')
+    def create_transition(self, request):
+        """Create the gap-filling transition season AND the regular follow-up
+        season in one transaction, distributing the last season's plans across
+        both (each plan shifted once and routed to the season it lands in).
+        """
+        project = self.request.active_project
+        pattern = get_or_create_season_pattern(project)
+        latest_season = latest_existing_season(project)
+        due_period = find_due_but_missing_season(project)
+        if latest_season is None or due_period is None:
+            return Response(
+                {'detail': 'No transition season is applicable.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        due_start, due_end = due_period
+        if analyze_period_transition(latest_season.end_date, due_start) is None:
+            return Response(
+                {'detail': 'There is no gap between the last season and the next pattern period.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        seamless_start, seamless_end = compute_custom_season_period(
+            pattern, latest_season.end_date + timedelta(days=1),
+        )
+        copy_requested = bool(request.data.get('copy'))
+        user = request.user if request.user.is_authenticated else None
+
+        transition_label = Season(start_date=seamless_start, end_date=seamless_end).computed_label
+        with transaction.atomic():
+            batch = start_batch_operation(
+                project=project, operation_type=BatchOperation.TYPE_SEASON_CREATE,
+                context={'season_label': transition_label},
+                user_name=_current_actor_label(request=request),
+            )
+            transition_season = self._create_or_resurrect_season(
+                project, seamless_start, seamless_end, user, batch,
+            )
+            followup_season = self._create_or_resurrect_season(
+                project, due_start, due_end, user, batch,
+            )
+            distribution = {'transition': [], 'followup': [], 'skipped': 0}
+            if copy_requested:
+                distribution = distribute_planting_plans(
+                    source_season=latest_season,
+                    transition_season=transition_season,
+                    followup_season=followup_season,
+                )
+                created_ids = [
+                    plan.pk
+                    for plan in (*distribution['transition'], *distribution['followup'])
+                ]
+                for plan in (
+                    PlantingPlan.objects
+                    .filter(pk__in=created_ids)
+                    .select_related('culture', 'bed')
+                ):
+                    self.record_revision(plan, EntityRevision.ACTION_CREATED, batch_operation=batch)
+
+        annotated = (
+            Season.objects
+            .annotate(planting_plan_count=Count('planting_plans'))
+            .in_bulk([transition_season.pk, followup_season.pk])
+        )
+        return Response({
+            'transition_season': SeasonSerializer(annotated[transition_season.pk]).data,
+            'followup_season': SeasonSerializer(annotated[followup_season.pk]).data,
+            'transition_copied_count': len(distribution['transition']),
+            'followup_copied_count': len(distribution['followup']),
+            'skipped_count': distribution['skipped'],
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='due-suggestion')
     def due_suggestion(self, request):

@@ -294,23 +294,56 @@ decides once, at the point the concrete season is actually created.
   still has no confirmation dialog and persists nothing about the gap.
 - **Create flow (`SeasonCreateSuggestionDialog`).**
   `GET /seasons/creation-options/` returns `last_season`, `due_period`,
-  `transition`, `seamless_period` (option 2) and — with a `manual_start_date`
-  query param — `manual_period` + `manual_residual` (option 3). When
-  `transition` is null the dialog behaves exactly as before. Otherwise it shows
-  a radio group (nothing preselected, "Anlegen" disabled until a choice is
-  made):
+  `transition`, `seamless_period` (option 2), a per-option `copy_preview`
+  (`{total, copied, skipped}` for `adopt`/`transition`/`transition_followup`,
+  and `manual` when a `manual_start_date` query param is passed) and
+  `manual_period` + `manual_residual` (option 3). When `transition` is null the
+  dialog behaves exactly as before. Otherwise it shows a radio group (nothing
+  preselected, "Anlegen" disabled until a choice is made):
   1. adopt the gap/overlap (create exactly `due_period`);
-  2. transition season (`seamless_period`: starts the day after the last
-     season, ends at the next pattern date − 1 day);
+  2. **transition season** — creates *two* seasons in one call
+     (`POST /seasons/create-transition/`): the gap-filling `seamless_period`
+     plus the regular follow-up season (`due_period`) the pattern computes
+     next. The dialog states this up front ("Es werden zwei Saisonen
+     angelegt: …").
   3. manual start date — end is derived the same way and shown read-only, with
      a live green "gap fully closed" / orange "remaining gap {period}" hint
      computed client-side via `seasons/seasonPeriodMath.ts` (a tested mirror of
-     the backend math, so option 3 needs no round-trip per keystroke).
-  Options 2 and 3 create a season with individual, non-12-month dates; every
+     the backend math, so option 3 needs no round-trip per keystroke). The
+     copy preview for a manual start *is* re-fetched from the server.
+  Options 2 and 3 create seasons with individual, non-12-month dates; every
   regular season created afterwards follows the pattern again. The suggested
   name comes from `computed_label` on the resulting range, so a
   within-one-year transition season is proposed as e.g. "2026", not "26/26"
   (still editable via "Umbenennen").
+- **Copy filtering.** Every copy into a newly created season (all three
+  options) drops a source plan whose *shifted* `planting_date` falls outside
+  the target period — `copy_planting_plans(..., restrict_to_target_period=True)`
+  and, for the transition pair, `distribute_planting_plans(source, transition,
+  followup)`: each source plan is shifted **once** (by the whole-year gap to
+  the transition season) and routed to whichever of the two new seasons its
+  shifted `planting_date` lands in — never both, never silently dropped without
+  the `skipped` count surfacing in the dialog. Harvest dates are never
+  range-checked (they legitimately run past a season's end).
+
+## Editing a season's period
+
+"Zeitraum bearbeiten" in a season row's ⋮ menu (`SeasonPeriodEditDialog`,
+available for **every** season) opens start/end date fields. On save the
+`SeasonSerializer.validate` update path (`_validate_period_edit`) blocks the
+change — with a structured `season_period_edit_conflict` error the dialog
+renders as lists — when:
+
+- an assigned plan's `planting_date` would fall outside the new period (only
+  `planting_date`, never harvest dates); the user must move those plans first,
+  nothing is shifted silently;
+- the new period overlaps another season (the error carries the exact overlap
+  range per conflicting season).
+
+The dialog follows the blocking-dialog convention: Enter does not save and
+default focus is on "Abbrechen". A successful edit is a plain `PATCH` +
+`reload()`, so the Gantt axis, the label suggestion, and every other
+range-derived view pick up the new dates.
 
 ## Known simplifications
 

@@ -214,27 +214,6 @@ def copy_planting_plans(
     return PlantingPlan.objects.bulk_create(new_plans), skipped_count
 
 
-def shift_planting_dates_into_period(
-    planting_dates: list[date | None],
-    source_start_year: int,
-    target_start: date,
-    target_end: date,
-) -> list[date | None]:
-    """Shift each planting_date by the whole-year gap and keep only those landing
-    within `[target_start, target_end]` (``None`` entries pass through).
-
-    Lets the create flow chain a copy preview across two seasons (last season →
-    transition season → regular follow-up season) without writing any rows.
-    """
-    year_offset = target_start.year - source_start_year
-    kept: list[date | None] = []
-    for planting_date in planting_dates:
-        shifted = None if planting_date is None else add_months(planting_date, year_offset * 12)
-        if planting_date_fits_period(shifted, target_start, target_end):
-            kept.append(shifted)
-    return kept
-
-
 def preview_copy_counts(
     *,
     source_planting_dates: list[date | None],
@@ -245,11 +224,103 @@ def preview_copy_counts(
     """Count how many of `source_planting_dates` would be copied into a target
     period once shifted, and how many fall outside it. Returns
     `{total, copied, skipped}`."""
-    kept = shift_planting_dates_into_period(
-        source_planting_dates, source_start_year, target_start, target_end,
+    year_offset = target_start.year - source_start_year
+    copied = sum(
+        1
+        for planting_date in source_planting_dates
+        if planting_date_fits_period(
+            None if planting_date is None else add_months(planting_date, year_offset * 12),
+            target_start,
+            target_end,
+        )
     )
     total = len(source_planting_dates)
-    return {'total': total, 'copied': len(kept), 'skipped': total - len(kept)}
+    return {'total': total, 'copied': copied, 'skipped': total - copied}
+
+
+def _route_shifted_planting_date(
+    shifted: date | None,
+    first_start: date, first_end: date,
+    second_start: date, second_end: date,
+) -> str:
+    """Return ``'first'``/``'second'``/``'skipped'`` for a shifted planting_date.
+
+    A missing planting_date always goes to the first (transition) season.
+    """
+    if shifted is None or first_start <= shifted <= first_end:
+        return 'first'
+    if second_start <= shifted <= second_end:
+        return 'second'
+    return 'skipped'
+
+
+def preview_bridged_copy_counts(
+    *,
+    source_planting_dates: list[date | None],
+    source_start_year: int,
+    transition_start: date, transition_end: date,
+    followup_start: date, followup_end: date,
+) -> dict:
+    """Route each source plan, shifted by the single whole-year gap to the
+    transition season, to whichever of the transition / follow-up season its
+    shifted planting_date lands in. Returns `{total, transition, followup, skipped}`."""
+    month_offset = (transition_start.year - source_start_year) * 12
+    counts = {'transition': 0, 'followup': 0, 'skipped': 0}
+    bucket = {'first': 'transition', 'second': 'followup', 'skipped': 'skipped'}
+    for planting_date in source_planting_dates:
+        shifted = None if planting_date is None else add_months(planting_date, month_offset)
+        target = _route_shifted_planting_date(
+            shifted, transition_start, transition_end, followup_start, followup_end,
+        )
+        counts[bucket[target]] += 1
+    return {'total': len(source_planting_dates), **counts}
+
+
+def distribute_planting_plans(
+    *,
+    source_season: Season,
+    transition_season: Season,
+    followup_season: Season,
+) -> dict:
+    """Copy `source_season`'s plans across the transition + follow-up season pair.
+
+    Every plan is shifted once, by the whole-year gap between the source and the
+    transition season, then routed to whichever of the two target seasons its
+    shifted `planting_date` falls in (the transition season also takes plans with
+    no `planting_date`). Plans landing in neither are skipped. Returns
+    `{transition: [plans], followup: [plans], skipped: int}`.
+    """
+    month_offset = (transition_season.start_date.year - source_season.start_date.year) * 12
+
+    def shifted(value: date | None) -> date | None:
+        return None if value is None else add_months(value, month_offset)
+
+    per_target: dict[str, list[PlantingPlan]] = {'first': [], 'second': []}
+    target_season = {'first': transition_season, 'second': followup_season}
+    skipped_count = 0
+    for plan in PlantingPlan.objects.filter(season=source_season):
+        fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
+        for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
+            fields[date_field] = shifted(fields[date_field])
+        route = _route_shifted_planting_date(
+            fields['planting_date'],
+            transition_season.start_date, transition_season.end_date,
+            followup_season.start_date, followup_season.end_date,
+        )
+        if route == 'skipped':
+            skipped_count += 1
+            continue
+        season = target_season[route]
+        per_target[route].append(
+            PlantingPlan(project=season.project, season=season, **fields)
+        )
+
+    created = {
+        'transition': PlantingPlan.objects.bulk_create(per_target['first']),
+        'followup': PlantingPlan.objects.bulk_create(per_target['second']),
+        'skipped': skipped_count,
+    }
+    return created
 
 
 def get_or_create_season_for_period(

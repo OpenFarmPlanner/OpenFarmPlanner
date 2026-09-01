@@ -19,6 +19,7 @@ vi.mock('../../api/api', () => ({
     delete: deleteMock,
     undelete: undeleteMock,
     create: vi.fn(),
+    createTransition: vi.fn(),
     update: vi.fn(),
     copyFrom: vi.fn(),
   },

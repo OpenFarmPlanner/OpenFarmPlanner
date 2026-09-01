@@ -53,7 +53,22 @@
       "openAria": "Saison-Aktionen öffnen",
       "copyDataFrom": "Daten übernehmen von…",
       "rename": "Umbenennen",
+      "editPeriod": "Zeitraum bearbeiten",
       "delete": "Löschen"
+    },
+    "periodEditDialog": {
+      "title": "Zeitraum bearbeiten",
+      "startLabel": "Startdatum",
+      "endLabel": "Enddatum",
+      "currentPeriod": "Bisheriger Zeitraum: {{period}}",
+      "endBeforeStart": "Das Enddatum muss nach dem Startdatum liegen.",
+      "save": "Speichern",
+      "error": "Der Zeitraum konnte nicht geändert werden.",
+      "unknownCulture": "Unbekannte Kultur",
+      "plantingConflictIntro": "Diese Anbaupläne liegen mit ihrem Pflanzdatum außerhalb des neuen Zeitraums. Passe sie zuerst an oder verschiebe sie, bevor du den Zeitraum änderst:",
+      "plantingConflictItem": "{{culture}} – Pflanzdatum {{date}}",
+      "overlapConflictIntro": "Der neue Zeitraum überschneidet sich mit einer anderen Saison:",
+      "overlapConflictItem": "Saison {{label}}: {{period}}"
     },
     "suggestion": {
       "title": "Saison {{label}} anlegen",

@@ -187,13 +187,19 @@ describe('SeasonSwitcher', () => {
 
   it('requires an explicit gap decision and creates two seasons for the transition option', async () => {
     const user = userEvent.setup();
-    const createSeason = vi.fn()
-      .mockResolvedValueOnce({ ...seasons[0], id: 3, label: '26' })
-      .mockResolvedValueOnce({ ...seasons[0], id: 4, label: '2027' });
+    const createSeason = vi.fn();
+    const createTransitionSeasons = vi.fn().mockResolvedValue({
+      transition_season: { ...seasons[0], id: 3, label: '26' },
+      followup_season: { ...seasons[0], id: 4, label: '2027' },
+      transition_copied_count: 4,
+      followup_copied_count: 8,
+      skipped_count: 0,
+    });
     const switchSeason = vi.fn();
     const controller = {
       seasons,
       activeSeason: seasons[0],
+      createTransitionSeasons,
       dueSuggestion: { due: true, start_date: '2027-01-01', end_date: '2027-12-31' },
       seasonCreationOptions: {
         start_day: 1,
@@ -240,8 +246,8 @@ describe('SeasonSwitcher', () => {
 
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
 
-    expect(createSeason).toHaveBeenNthCalledWith(1, '2026-09-01', '2026-12-31', 2);
-    expect(createSeason).toHaveBeenNthCalledWith(2, '2027-01-01', '2027-12-31', 3);
+    expect(createTransitionSeasons).toHaveBeenCalledWith(true);
+    expect(createSeason).not.toHaveBeenCalled();
     expect(switchSeason).toHaveBeenCalledWith(4);
   });
 

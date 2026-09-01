@@ -53,7 +53,22 @@
       "openAria": "Open season actions",
       "copyDataFrom": "Copy data from…",
       "rename": "Rename",
+      "editPeriod": "Edit period",
       "delete": "Delete"
+    },
+    "periodEditDialog": {
+      "title": "Edit period",
+      "startLabel": "Start date",
+      "endLabel": "End date",
+      "currentPeriod": "Current period: {{period}}",
+      "endBeforeStart": "The end date must be after the start date.",
+      "save": "Save",
+      "error": "The period could not be changed.",
+      "unknownCulture": "Unknown culture",
+      "plantingConflictIntro": "These planting plans have a planting date outside the new period. Adjust or move them first before changing the period:",
+      "plantingConflictItem": "{{culture}} – planting date {{date}}",
+      "overlapConflictIntro": "The new period overlaps another season:",
+      "overlapConflictItem": "Season {{label}}: {{period}}"
     },
     "suggestion": {
       "title": "Create season {{label}}",

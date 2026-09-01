@@ -35,6 +35,7 @@ import { useTranslation } from '../i18n';
 import type { UseActiveSeasonReturn } from './useActiveSeason';
 import { SeasonRowActionsMenu } from './SeasonRowActionsMenu';
 import { SeasonRenameDialog } from './SeasonRenameDialog';
+import { SeasonPeriodEditDialog } from './SeasonPeriodEditDialog';
 import { SeasonCopyDataDialog } from './SeasonCopyDataDialog';
 import { computeSeasonLabel, formatSeasonPeriod, resolveSeasonDateLocale } from './formatSeasonDate';
 import { analyzePeriodTransition, computeCustomSeasonEnd } from './seasonPeriodMath';
@@ -103,7 +104,10 @@ export function SeasonCreateSuggestionDialog({
 }: SeasonCreateSuggestionDialogProps) {
   const { t, i18n } = useTranslation(['navigation', 'common']);
   const locale = resolveSeasonDateLocale(i18n);
-  const { activeSeason, dueSuggestion, seasonCreationOptions, switchSeason, createSeason } = controller;
+  const {
+    activeSeason, dueSuggestion, seasonCreationOptions,
+    switchSeason, createSeason, createTransitionSeasons,
+  } = controller;
   const [copyFromCurrent, setCopyFromCurrent] = useState(true);
   const [creatingSuggested, setCreatingSuggested] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -237,16 +241,11 @@ export function SeasonCreateSuggestionDialog({
       const copySourceId = copyFromCurrent && activeSeason ? activeSeason.id : undefined;
       let seasonToActivate: Season;
       if (isTransitionTwoSeason && seamlessPeriod && duePeriod) {
-        const transitionSeason = await createSeason(
-          seamlessPeriod.start_date,
-          seamlessPeriod.end_date,
-          copySourceId,
-        );
-        seasonToActivate = await createSeason(
-          duePeriod.start_date,
-          duePeriod.end_date,
-          copyFromCurrent ? transitionSeason.id : undefined,
-        );
+        // One server call creates both seasons and distributes the last
+        // season's plans across them (each plan routed to the season its
+        // shifted planting date lands in).
+        const result = await createTransitionSeasons(copyFromCurrent && Boolean(activeSeason));
+        seasonToActivate = result.followup_season;
       } else {
         const period = resolveCreatePeriod();
         if (!period) {
@@ -511,7 +510,7 @@ export function SeasonSwitcher({
   const locale = resolveSeasonDateLocale(i18n);
   const {
     seasons, activeSeason, dueSuggestion, pendingDeletions,
-    switchSeason, renameSeason, copyDataInto, deleteSeason,
+    switchSeason, renameSeason, updateSeasonPeriod, copyDataInto, deleteSeason,
     undoPendingDeletion, closePendingDeletionSnackbar,
   } = controller;
 
@@ -519,6 +518,7 @@ export function SeasonSwitcher({
   const [rowMenuAnchor, setRowMenuAnchor] = useState<HTMLElement | null>(null);
   const [rowMenuSeasonId, setRowMenuSeasonId] = useState<number | null>(null);
   const [renameSeasonTarget, setRenameSeasonTarget] = useState<Season | null>(null);
+  const [periodEditTarget, setPeriodEditTarget] = useState<Season | null>(null);
   const [copyDialogTarget, setCopyDialogTarget] = useState<Season | null>(null);
 
   const rowMenuSeason = seasons.find((season) => season.id === rowMenuSeasonId) ?? null;
@@ -660,6 +660,7 @@ export function SeasonSwitcher({
         onClose={() => { setRowMenuAnchor(null); setRowMenuSeasonId(null); }}
         onCopyDataFrom={() => { if (rowMenuSeason) { setCopyDialogTarget(rowMenuSeason); } }}
         onRename={() => { if (rowMenuSeason) { setRenameSeasonTarget(rowMenuSeason); } }}
+        onEditPeriod={() => { if (rowMenuSeason) { setPeriodEditTarget(rowMenuSeason); } }}
         onDelete={() => { if (rowMenuSeason) { void deleteSeason(rowMenuSeason); closeMenu(); } }}
       />
 
@@ -668,6 +669,13 @@ export function SeasonSwitcher({
         season={renameSeasonTarget}
         onClose={() => setRenameSeasonTarget(null)}
         onConfirm={renameSeason}
+      />
+
+      <SeasonPeriodEditDialog
+        open={periodEditTarget !== null}
+        season={periodEditTarget}
+        onClose={() => setPeriodEditTarget(null)}
+        onConfirm={updateSeasonPeriod}
       />
 
       <SeasonCopyDataDialog

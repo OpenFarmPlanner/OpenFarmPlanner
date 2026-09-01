@@ -801,6 +801,35 @@ export interface SeasonCreationOptions {
   };
 }
 
+export interface SeasonPeriodEditPlantingConflict {
+  id: number | string;
+  label: string;
+  culture: string;
+  planting_date: string;
+}
+
+export interface SeasonPeriodEditOverlapConflict {
+  season_id: number;
+  season_label: string;
+  overlap_start_date: string;
+  overlap_end_date: string;
+}
+
+export interface SeasonPeriodEditConflict {
+  code: 'season_period_edit_conflict';
+  detail?: string;
+  planting_plan_conflicts: SeasonPeriodEditPlantingConflict[];
+  overlap_conflicts: SeasonPeriodEditOverlapConflict[];
+}
+
+export interface SeasonCreateTransitionResponse {
+  transition_season: Season;
+  followup_season: Season;
+  transition_copied_count: number;
+  followup_copied_count: number;
+  skipped_count: number;
+}
+
 export interface SeasonDueSuggestion {
   due: boolean;
   start_date?: string;
