@@ -74,6 +74,62 @@ def compute_preview_periods(pattern: SeasonPattern, today: date) -> list[dict]:
     ]
 
 
+def _pattern_start_for_year(pattern: SeasonPattern, year: int) -> date:
+    """Return the pattern's start day/month in `year`, clamped to the month length."""
+    day = min(pattern.start_day, calendar.monthrange(year, pattern.start_month)[1])
+    return date(year, pattern.start_month, day)
+
+
+def compute_next_pattern_start_after(pattern: SeasonPattern, reference_date: date) -> date:
+    """Return the earliest pattern start date strictly after `reference_date`."""
+    candidate = _pattern_start_for_year(pattern, reference_date.year)
+    if candidate <= reference_date:
+        candidate = _pattern_start_for_year(pattern, reference_date.year + 1)
+    return candidate
+
+
+def compute_custom_season_period(pattern: SeasonPattern, start_date: date) -> tuple[date, date]:
+    """Return an individual season period for a hand-picked `start_date`.
+
+    The end date is the day before the next pattern start on/after `start_date`,
+    so a transitional season snaps back onto the regular pattern grid rather
+    than running a fixed 12 months from an off-grid start.
+    """
+    return start_date, compute_next_pattern_start_after(pattern, start_date) - timedelta(days=1)
+
+
+def analyze_period_transition(previous_end: date, next_start: date) -> dict | None:
+    """Classify the join between one period's end and the next period's start.
+
+    Returns ``None`` when they are seamless (the next period starts the day
+    after the previous one ends), otherwise a dict with ``kind`` (``'gap'`` or
+    ``'overlap'``) and the ``start_date``/``end_date`` of the affected range.
+    """
+    seam = previous_end + timedelta(days=1)
+    if next_start == seam:
+        return None
+    if next_start > seam:
+        return {'kind': 'gap', 'start_date': seam, 'end_date': next_start - timedelta(days=1)}
+    return {'kind': 'overlap', 'start_date': next_start, 'end_date': previous_end}
+
+
+def latest_existing_season(project: Project) -> Season | None:
+    """Return the project's chronologically latest (not soft-deleted) season."""
+    return Season.objects.filter(project=project).order_by('-start_date').first()
+
+
+def compute_first_future_pattern_period(
+    pattern: SeasonPattern, latest_season: Season,
+) -> tuple[date, date]:
+    """Return the first full pattern period that starts after `latest_season` ends."""
+    anchor_year = latest_season.start_date.year + 1
+    next_start, next_end = compute_season_period(pattern, anchor_year)
+    while next_start <= latest_season.end_date:
+        anchor_year += 1
+        next_start, next_end = compute_season_period(pattern, anchor_year)
+    return next_start, next_end
+
+
 def compute_due_season_period(project: Project, today: date | None = None) -> tuple[date, date]:
     """Return the season pattern period that should be active today for `project`."""
     pattern = get_or_create_season_pattern(project)
@@ -87,17 +143,13 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
     latest season rather than the period containing today's date. Projects
     without a season retain the initial suggestion for the current period.
     """
-    latest_season = Season.objects.filter(project=project).order_by('-start_date').first()
+    latest_season = latest_existing_season(project)
     if latest_season is None:
         due_start, due_end = compute_due_season_period(project, today)
         return due_start, due_end
 
     pattern = get_or_create_season_pattern(project)
-    anchor_year = latest_season.start_date.year + 1
-    next_start, next_end = compute_season_period(pattern, anchor_year)
-    while next_start <= latest_season.end_date:
-        anchor_year += 1
-        next_start, next_end = compute_season_period(pattern, anchor_year)
+    next_start, next_end = compute_first_future_pattern_period(pattern, latest_season)
 
     overlaps_existing = Season.objects.filter(
         project=project,

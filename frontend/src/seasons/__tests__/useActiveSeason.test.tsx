@@ -3,17 +3,19 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { useActiveSeason } from '../useActiveSeason';
 import type { Season } from '../../api/types';
 
-const { listMock, dueMock, deleteMock, undeleteMock } = vi.hoisted(() => ({
+const { listMock, dueMock, deleteMock, undeleteMock, creationOptionsMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   dueMock: vi.fn(),
   deleteMock: vi.fn(),
   undeleteMock: vi.fn(),
+  creationOptionsMock: vi.fn(),
 }));
 
 vi.mock('../../api/api', () => ({
   seasonAPI: {
     list: listMock,
     dueSuggestion: dueMock,
+    creationOptions: creationOptionsMock,
     delete: deleteMock,
     undelete: undeleteMock,
     create: vi.fn(),
@@ -46,6 +48,7 @@ beforeEach(() => {
   window.sessionStorage.clear();
   listMock.mockResolvedValue({ data: { results: seasons } });
   dueMock.mockResolvedValue({ data: { due: false } });
+  creationOptionsMock.mockResolvedValue({ data: { transition: null } });
   deleteMock.mockResolvedValue({});
   undeleteMock.mockResolvedValue({ data: seasons[1] });
   Object.defineProperty(window, 'location', {

@@ -69,6 +69,29 @@
         "prefix": "Zeitraum stimmt nicht? Das Saison-Muster kannst du in den",
         "link": "Projekteinstellungen",
         "suffix": "anpassen — die Änderung gilt dann für künftige Saisons."
+      },
+      "gap": {
+        "intro": {
+          "gap": "Zwischen der letzten Saison „{{label}}“ und der neuen Saison liegt eine Lücke ({{period}}). Wähle, wie du fortfahren möchtest:",
+          "overlap": "Die neue Saison überlappt sich mit der letzten Saison „{{label}}“ ({{period}}). Wähle, wie du fortfahren möchtest:"
+        },
+        "chooseLabel": "Wie soll die neue Saison beginnen?",
+        "adopt": {
+          "gap": "Lücke übernehmen (Saison exakt nach Muster-Berechnung)",
+          "overlap": "Überlappung übernehmen (Saison exakt nach Muster-Berechnung)"
+        },
+        "transition": "Übergangssaison anlegen (schließt nahtlos an die letzte Saison an)",
+        "manual": "Startdatum manuell anpassen",
+        "manualStartLabel": "Startdatum",
+        "manualPeriod": "Zeitraum: {{period}}",
+        "residualClosed": {
+          "gap": "Die Lücke wird vollständig geschlossen.",
+          "overlap": "Die Überlappung wird vollständig vermieden."
+        },
+        "residualRemains": {
+          "gap": "Es bleibt eine Restlücke: {{period}}.",
+          "overlap": "Es bleibt eine Überlappung: {{period}}."
+        }
       }
     },
     "renameDialog": {
@@ -108,7 +131,13 @@
     "previewColumnLabel": "Jahr",
     "previewColumnPeriod": "Zeitraum",
     "current": "(aktuell)",
-    "changeNotice": "Eine Änderung des Musters wirkt sich nur auf künftig neu angelegte Saisonen aus. Bereits bestehende Saisonen und ihre Anbaupläne bleiben unverändert.",
+    "previewReferenceHint": "(zuletzt bestehende Saison)",
+    "transition": {
+      "gapLabel": "Lücke",
+      "overlapLabel": "Überlappung",
+      "rowHint": "Optionen beim Anlegen wählbar"
+    },
+    "changeNotice": "Die Änderung wirkt sich nur auf künftig neu angelegte Saisonen aus; bestehende Saisonen bleiben unverändert.",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "saveAriaLabel": "Saison-Muster speichern",

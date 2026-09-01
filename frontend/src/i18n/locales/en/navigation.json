@@ -69,6 +69,29 @@
         "prefix": "Period doesn't fit? You can adjust the season pattern in",
         "link": "project settings",
         "suffix": "— the change then applies to future seasons."
+      },
+      "gap": {
+        "intro": {
+          "gap": "There is a gap between the last season \"{{label}}\" and the new season ({{period}}). Choose how to proceed:",
+          "overlap": "The new season overlaps the last season \"{{label}}\" ({{period}}). Choose how to proceed:"
+        },
+        "chooseLabel": "How should the new season start?",
+        "adopt": {
+          "gap": "Keep the gap (season exactly as computed by the pattern)",
+          "overlap": "Keep the overlap (season exactly as computed by the pattern)"
+        },
+        "transition": "Create a transition season (joins the last season seamlessly)",
+        "manual": "Set the start date manually",
+        "manualStartLabel": "Start date",
+        "manualPeriod": "Period: {{period}}",
+        "residualClosed": {
+          "gap": "The gap is fully closed.",
+          "overlap": "The overlap is fully avoided."
+        },
+        "residualRemains": {
+          "gap": "A remaining gap stays: {{period}}.",
+          "overlap": "An overlap stays: {{period}}."
+        }
       }
     },
     "renameDialog": {
@@ -108,7 +131,13 @@
     "previewColumnLabel": "Year",
     "previewColumnPeriod": "Period",
     "current": "(current)",
-    "changeNotice": "Changing the pattern only affects seasons created from now on. Existing seasons and their planting plans stay unchanged.",
+    "previewReferenceHint": "(last existing season)",
+    "transition": {
+      "gapLabel": "Gap",
+      "overlapLabel": "Overlap",
+      "rowHint": "Options selectable when creating"
+    },
+    "changeNotice": "The change only affects seasons created from now on; existing seasons stay unchanged.",
     "cancel": "Cancel",
     "save": "Save",
     "saveAriaLabel": "Save season pattern",

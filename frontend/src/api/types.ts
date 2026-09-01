@@ -758,6 +758,35 @@ export interface SeasonPatternPreviewPeriod {
   is_current: boolean;
 }
 
+export interface SeasonPeriodRange {
+  start_date: string;
+  end_date: string;
+}
+
+/** A gap or overlap between the end of one season period and the start of the next. */
+export interface SeasonPeriodTransition {
+  kind: 'gap' | 'overlap';
+  start_date: string;
+  end_date: string;
+}
+
+export interface SeasonPatternPreviewResponse {
+  periods: SeasonPatternPreviewPeriod[];
+  reference_season: { start_date: string; end_date: string; label: string } | null;
+  transition: SeasonPeriodTransition | null;
+}
+
+export interface SeasonCreationOptions {
+  start_day: number;
+  start_month: number;
+  last_season: { start_date: string; end_date: string; label: string } | null;
+  due_period: SeasonPeriodRange | null;
+  transition: SeasonPeriodTransition | null;
+  seamless_period: SeasonPeriodRange | null;
+  manual_period: SeasonPeriodRange | null;
+  manual_residual: SeasonPeriodTransition | null;
+}
+
 export interface SeasonDueSuggestion {
   due: boolean;
   start_date?: string;

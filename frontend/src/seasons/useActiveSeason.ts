@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { seasonAPI } from '../api/api';
-import type { Season, SeasonDueSuggestion } from '../api/types';
+import type { Season, SeasonCreationOptions, SeasonDueSuggestion } from '../api/types';
 import { extractApiErrorMessage } from '../api/errors';
 import { useTranslation } from '../i18n';
 import { useAuth } from '../auth/useAuth';
@@ -35,6 +35,7 @@ export function useActiveSeason() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dueSuggestion, setDueSuggestion] = useState<SeasonDueSuggestion | null>(null);
+  const [seasonCreationOptions, setSeasonCreationOptions] = useState<SeasonCreationOptions | null>(null);
   const [pendingDeletions, setPendingDeletions] = useState<PendingSeasonDeletion[]>(
     () => readPendingSeasonDeletions().map((entry) => ({ ...entry, visible: true })),
   );
@@ -68,6 +69,7 @@ export function useActiveSeason() {
     if (!activeProjectId) {
       setSeasons([]);
       setDueSuggestion(null);
+      setSeasonCreationOptions(null);
       setLoaded(true);
       return;
     }
@@ -75,12 +77,14 @@ export function useActiveSeason() {
     setLoaded(false);
     setError(null);
     try {
-      const [seasonsResponse, dueResponse] = await Promise.all([
+      const [seasonsResponse, dueResponse, creationOptionsResponse] = await Promise.all([
         seasonAPI.list(),
         seasonAPI.dueSuggestion(),
+        seasonAPI.creationOptions(),
       ]);
       setSeasons(seasonsResponse.data.results);
       setDueSuggestion(dueResponse.data);
+      setSeasonCreationOptions(creationOptionsResponse.data);
     } catch (loadError) {
       setError(extractApiErrorMessage(loadError, t, t('navigation:seasonSwitcher.loadError')));
     } finally {
@@ -252,6 +256,7 @@ export function useActiveSeason() {
     loaded,
     error,
     dueSuggestion,
+    seasonCreationOptions,
     pendingDeletions,
     reload,
     switchSeason,

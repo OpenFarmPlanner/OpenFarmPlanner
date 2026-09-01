@@ -266,6 +266,47 @@ client-side — the one exception is the label itself
 (`computeSeasonLabel`), which is cheap and needed before a suggested
 season exists as a row to read `label` off of.
 
+## Gaps and overlaps between the last season and the next pattern period
+
+Changing the season pattern computes the future-period preview independently of
+the project's real seasons, so the pattern period that follows the latest
+existing season can leave a **gap** (or, with unusual custom seasons, an
+**overlap**). The design principle is *explicit, not silent*: nothing is
+auto-corrected and no decision is persisted when the pattern changes — the user
+decides once, at the point the concrete season is actually created.
+
+- `farm/services/seasons.py` owns the math:
+  `analyze_period_transition(previous_end, next_start)` classifies a join as
+  `gap`/`overlap`/seamless; `compute_custom_season_period(pattern, start_date)`
+  returns an individual period whose end is the day before the next pattern
+  start on/after `start_date` (so a transition season snaps back onto the
+  pattern grid rather than running a fixed 12 months);
+  `compute_first_future_pattern_period(pattern, latest_season)` is the
+  skip-ahead period `find_due_but_missing_season` already used, now shared.
+- **Preview (project settings, `SeasonPatternCard`).**
+  `GET /season-pattern/preview/` now returns
+  `{periods, reference_season, transition}`. The card renders the latest real
+  season as a greyed reference row and, when `transition` is set, a warn-styled
+  row (orange, warning icon) with an inline "Optionen beim Anlegen wählbar"
+  hint so it reads as a pending decision, not an error. Saving the pattern
+  still has no confirmation dialog and persists nothing about the gap.
+- **Create flow (`SeasonCreateSuggestionDialog`).**
+  `GET /seasons/creation-options/` returns `last_season`, `due_period`,
+  `transition`, `seamless_period` (option 2) and — with a `manual_start_date`
+  query param — `manual_period` + `manual_residual` (option 3). When
+  `transition` is null the dialog behaves exactly as before. Otherwise it shows
+  a radio group (nothing preselected, "Anlegen" disabled until a choice is
+  made):
+  1. adopt the gap/overlap (create exactly `due_period`);
+  2. transition season (`seamless_period`: starts the day after the last
+     season, ends at the next pattern date − 1 day);
+  3. manual start date — end is derived the same way and shown read-only, with
+     a live green "gap fully closed" / orange "remaining gap {period}" hint
+     computed client-side via `seasons/seasonPeriodMath.ts` (a tested mirror of
+     the backend math, so option 3 needs no round-trip per keystroke).
+  Options 2 and 3 create a season with individual, non-12-month dates; every
+  regular season created afterwards follows the pattern again.
+
 ## Known simplifications
 
 - There is no "due season available" indicator on the closed switcher pill.

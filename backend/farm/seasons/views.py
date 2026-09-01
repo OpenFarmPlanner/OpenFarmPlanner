@@ -1,7 +1,7 @@
 """API endpoints for the seasons domain: seasons, the season pattern, and
 the first-run setup that migrates a project's unassigned planting plans."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import Count
@@ -12,20 +12,38 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
-from farm.history import _current_actor_label, _entity_display_name, _serialize_instance, start_batch_operation
+from farm.history import (
+    _current_actor_label,
+    _entity_display_name,
+    _serialize_instance,
+    start_batch_operation,
+)
 from farm.history.restore import _record_cascade_deletions
 from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern, Task
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
+    analyze_period_transition,
+    compute_custom_season_period,
+    compute_first_future_pattern_period,
     compute_preview_periods,
     compute_setup_target_period,
     copy_planting_plans,
     find_due_but_missing_season,
     get_or_create_season_for_period,
     get_or_create_season_pattern,
+    latest_existing_season,
 )
 
 from .serializers import SeasonCopyFromSerializer, SeasonPatternSerializer, SeasonSerializer
+
+
+def _serialize_transition(raw_transition: dict) -> dict:
+    """Convert an ``analyze_period_transition`` result to JSON-safe ISO strings."""
+    return {
+        'kind': raw_transition['kind'],
+        'start_date': raw_transition['start_date'].isoformat(),
+        'end_date': raw_transition['end_date'].isoformat(),
+    }
 
 
 class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):
@@ -325,6 +343,80 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         total_count = PlantingPlan.objects.filter(season=target_season).count()
         return Response({'copied_count': len(created_plans), 'target_planting_plan_count': total_count})
 
+    @action(detail=False, methods=['get'], url_path='creation-options')
+    def creation_options(self, request):
+        """Describe the gap/overlap decision for the next season the user would create.
+
+        The season switcher's "create season" flow calls this before creating a
+        season based on the current pattern. When the pattern period following
+        the latest existing season leaves a gap (or overlaps it), the flow shows
+        an intermediate step so the user decides explicitly instead of silently
+        adopting whatever the pattern computes.
+        """
+        project = self.request.active_project
+        pattern = get_or_create_season_pattern(project)
+        latest_season = latest_existing_season(project)
+        due_period = find_due_but_missing_season(project)
+
+        payload: dict = {
+            'start_day': pattern.start_day,
+            'start_month': pattern.start_month,
+            'last_season': None,
+            'due_period': None,
+            'transition': None,
+            'seamless_period': None,
+            'manual_period': None,
+            'manual_residual': None,
+        }
+
+        if due_period is not None:
+            due_start, due_end = due_period
+            payload['due_period'] = {
+                'start_date': due_start.isoformat(),
+                'end_date': due_end.isoformat(),
+            }
+
+        if latest_season is not None:
+            payload['last_season'] = {
+                'start_date': latest_season.start_date.isoformat(),
+                'end_date': latest_season.end_date.isoformat(),
+                'label': latest_season.label,
+            }
+            if due_period is not None:
+                raw_transition = analyze_period_transition(
+                    latest_season.end_date, due_period[0],
+                )
+                if raw_transition is not None:
+                    payload['transition'] = _serialize_transition(raw_transition)
+                    seamless_start = latest_season.end_date + timedelta(days=1)
+                    seamless_start, seamless_end = compute_custom_season_period(pattern, seamless_start)
+                    payload['seamless_period'] = {
+                        'start_date': seamless_start.isoformat(),
+                        'end_date': seamless_end.isoformat(),
+                    }
+
+        manual_start_param = request.query_params.get('manual_start_date')
+        if manual_start_param:
+            try:
+                manual_start = date.fromisoformat(manual_start_param)
+            except ValueError:
+                return Response(
+                    {'detail': 'manual_start_date must be an ISO date (YYYY-MM-DD).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            manual_start, manual_end = compute_custom_season_period(pattern, manual_start)
+            payload['manual_period'] = {
+                'start_date': manual_start.isoformat(),
+                'end_date': manual_end.isoformat(),
+            }
+            if latest_season is not None:
+                raw_residual = analyze_period_transition(latest_season.end_date, manual_start)
+                payload['manual_residual'] = (
+                    _serialize_transition(raw_residual) if raw_residual is not None else None
+                )
+
+        return Response(payload)
+
     @action(detail=False, methods=['get'], url_path='due-suggestion')
     def due_suggestion(self, request):
         due_period = find_due_but_missing_season(self.request.active_project)
@@ -375,14 +467,31 @@ class SeasonPatternPreviewView(APIView):
                 return Response({'detail': 'start_month must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
 
         periods = compute_preview_periods(pattern, date.today())
-        return Response([
-            {
-                'start_date': period['start_date'].isoformat(),
-                'end_date': period['end_date'].isoformat(),
-                'is_current': period['is_current'],
+        latest_season = latest_existing_season(active_project)
+        reference_season = None
+        transition = None
+        if latest_season is not None:
+            reference_season = {
+                'start_date': latest_season.start_date.isoformat(),
+                'end_date': latest_season.end_date.isoformat(),
+                'label': latest_season.label,
             }
-            for period in periods
-        ])
+            future_start, _ = compute_first_future_pattern_period(pattern, latest_season)
+            raw_transition = analyze_period_transition(latest_season.end_date, future_start)
+            if raw_transition is not None:
+                transition = _serialize_transition(raw_transition)
+        return Response({
+            'periods': [
+                {
+                    'start_date': period['start_date'].isoformat(),
+                    'end_date': period['end_date'].isoformat(),
+                    'is_current': period['is_current'],
+                }
+                for period in periods
+            ],
+            'reference_season': reference_season,
+            'transition': transition,
+        })
 
 
 class SeasonSetupStatusView(APIView):

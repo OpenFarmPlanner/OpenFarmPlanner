@@ -27,7 +27,9 @@ const deleteProjectMock = vi.fn(async () => ({}));
 const restoreProjectMock = vi.fn(async () => ({ data: { id: 1, name: 'Alpha' } }));
 const refreshUserMock = vi.fn(async () => null);
 const seasonPatternGetMock = vi.fn(async () => ({ data: { start_day: 1, start_month: 1 } }));
-const seasonPatternPreviewMock = vi.fn(async () => ({ data: [] }));
+const seasonPatternPreviewMock = vi.fn(async () => ({
+  data: { periods: [], reference_season: null, transition: null },
+}));
 const seasonPatternUpdateMock = vi.fn(async () => ({ data: { start_day: 1, start_month: 3 } }));
 
 const authState = {
@@ -390,5 +392,26 @@ describe('ProjectSettingsPage', () => {
 
     await waitFor(() => expect(seasonPatternUpdateMock).toHaveBeenCalledWith({ start_day: 1, start_month: 3 }));
     await waitFor(() => expect(reloadActiveSeason).toHaveBeenCalledTimes(1));
+  });
+
+  it('shows the last existing season and a gap row in the season-pattern preview', async () => {
+    seasonPatternPreviewMock.mockResolvedValue({
+      data: {
+        periods: [{ start_date: '2026-01-01', end_date: '2026-12-31', is_current: true }],
+        reference_season: { start_date: '2024-09-01', end_date: '2025-08-31', label: '24/25' },
+        transition: { kind: 'gap', start_date: '2025-09-01', end_date: '2025-12-31' },
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <ProjectSettingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('24/25')).toBeInTheDocument();
+    expect(screen.getByText('(zuletzt bestehende Saison)')).toBeInTheDocument();
+    expect(screen.getByText('Lücke')).toBeInTheDocument();
+    expect(screen.getByText('Optionen beim Anlegen wählbar')).toBeInTheDocument();
   });
 });

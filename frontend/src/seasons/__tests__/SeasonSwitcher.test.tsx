@@ -176,6 +176,53 @@ describe('SeasonSwitcher', () => {
     expect(switchSeason).not.toHaveBeenCalled();
   });
 
+  it('requires an explicit gap decision before creating the season', async () => {
+    const user = userEvent.setup();
+    const createSeason = vi.fn().mockResolvedValue({ ...seasons[0], id: 3, label: '26/27' });
+    const switchSeason = vi.fn();
+    const controller = {
+      seasons,
+      activeSeason: seasons[0],
+      dueSuggestion: { due: true, start_date: '2026-10-01', end_date: '2027-09-30' },
+      seasonCreationOptions: {
+        start_day: 1,
+        start_month: 10,
+        last_season: { start_date: '2025-09-01', end_date: '2026-08-31', label: '25/26' },
+        due_period: { start_date: '2026-10-01', end_date: '2027-09-30' },
+        transition: { kind: 'gap', start_date: '2026-09-01', end_date: '2026-09-30' },
+        seamless_period: { start_date: '2026-09-01', end_date: '2026-09-30' },
+        manual_period: null,
+        manual_residual: null,
+      },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason,
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/liegt eine Lücke/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Anlegen' })).toBeDisabled();
+
+    await user.click(screen.getByRole('radio', { name: /Übergangssaison anlegen/ }));
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2026-09-30', 2);
+    expect(switchSeason).toHaveBeenCalledWith(3);
+  });
+
   it('links from the create dialog to the season-pattern settings without creating a season', async () => {
     const user = userEvent.setup();
     const createSeason = vi.fn();

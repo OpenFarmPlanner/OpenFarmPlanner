@@ -49,7 +49,8 @@ import type {
   SupplierUnlinkDeleteResponse,
   Season,
   SeasonPattern,
-  SeasonPatternPreviewPeriod,
+  SeasonPatternPreviewResponse,
+  SeasonCreationOptions,
   SeasonDueSuggestion,
   SeasonCopyFromResponse,
   SeasonSetupStatus,
@@ -304,6 +305,8 @@ export const seasonAPI = {
   copyFrom: (targetId: number, sourceSeasonId: number) =>
     http.post<SeasonCopyFromResponse>(`/seasons/${targetId}/copy-from/`, { source_season_id: sourceSeasonId }),
   dueSuggestion: () => http.get<SeasonDueSuggestion>('/seasons/due-suggestion/'),
+  creationOptions: (params?: { manual_start_date?: string }) =>
+    http.get<SeasonCreationOptions>('/seasons/creation-options/', { params }),
 };
 
 export const seasonPatternAPI = {
@@ -311,7 +314,7 @@ export const seasonPatternAPI = {
   update: (data: { start_day: number; start_month: number }) =>
     http.patch<SeasonPattern>('/season-pattern/', data),
   preview: (params?: { start_day?: number; start_month?: number }) =>
-    http.get<SeasonPatternPreviewPeriod[]>('/season-pattern/preview/', { params }),
+    http.get<SeasonPatternPreviewResponse>('/season-pattern/preview/', { params }),
 };
 
 export const seasonSetupAPI = {
