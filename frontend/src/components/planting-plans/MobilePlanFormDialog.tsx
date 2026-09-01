@@ -1,4 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
+import { useRef } from "react";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import {
   Alert,
   Box,
@@ -8,6 +10,8 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  IconButton,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Stack,
@@ -21,6 +25,8 @@ import {
   parseLocalizedNumber,
 } from "../../utils/numberLocalization";
 import type { SearchableSelectOption } from "../data-grid";
+import { formatDateAsGerman, parseGermanDateText } from "../data-grid/GermanDateEditCell";
+import { toIsoDateString } from "../data-grid/dateEditCellUtils";
 import type { MobileCreateFormState } from "../../pages/plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "../../pages/usePlantingPlanHierarchy";
 import { TypeaheadSelect as Select } from "../inputs/TypeaheadSelect";
@@ -75,6 +81,7 @@ export function MobilePlanFormDialog({
   onSubmit,
 }: MobilePlanFormDialogProps) {
   const { t } = useTranslation(["plantingPlans", "common"]);
+  const plantingDatePickerRef = useRef<HTMLInputElement | null>(null);
 
   const formatNumberForInput = (
     value: number,
@@ -85,6 +92,21 @@ export function MobilePlanFormDialog({
       maximumFractionDigits: 6,
       ...options,
     });
+
+  const pickerValue = toIsoDateString(parseGermanDateText(form.planting_date)) ?? "";
+  const openPlantingDatePicker = (): void => {
+    const pickerInput = plantingDatePickerRef.current;
+    if (!pickerInput) {
+      return;
+    }
+
+    if (typeof pickerInput.showPicker === "function") {
+      pickerInput.showPicker();
+      return;
+    }
+
+    pickerInput.click();
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -151,7 +173,42 @@ export function MobilePlanFormDialog({
               helperText={plantingDateHelperText}
               sx={compactFieldSx}
               slotProps={{
-                inputLabel: { shrink: true }
+                inputLabel: { shrink: true },
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={t("plantingPlans:dateEditor.openCalendar")}
+                        size="medium"
+                        sx={{ width: 44, height: 44 }}
+                        onClick={openPlantingDatePicker}
+                      >
+                        <CalendarTodayIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <input
+              ref={plantingDatePickerRef}
+              type="date"
+              aria-hidden="true"
+              tabIndex={-1}
+              value={pickerValue}
+              onChange={(event) => {
+                const nextValue = event.target.value ? new Date(`${event.target.value}T00:00:00`) : null;
+                setForm((previous) => ({
+                  ...previous,
+                  planting_date: formatDateAsGerman(nextValue),
+                }));
+              }}
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                opacity: 0,
+                pointerEvents: "none",
               }}
             />
             <TextField
