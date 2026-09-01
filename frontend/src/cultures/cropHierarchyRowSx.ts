@@ -32,3 +32,20 @@ export const compactCropChevronButtonSx = {
     bgcolor: 'rgba(37, 111, 42, 0.08)',
   },
 } as const;
+
+/** Minimum touch target size for the mobile selector dialogs, in pixels. */
+export const MOBILE_TOUCH_TARGET_SIZE = 44;
+
+/** Minimum row height for the mobile selector dialogs, in pixels. */
+export const MOBILE_ROW_MIN_HEIGHT = 48;
+
+// Used by the fullscreen mobile selector dialogs: the chevron keeps its small
+// icon, but the button spans the full mobile touch target so the toggle stays
+// tappable next to the (row-wide) select target.
+export const mobileCropChevronButtonSx = {
+  ...cropChevronButtonSx,
+  width: MOBILE_TOUCH_TARGET_SIZE,
+  height: MOBILE_TOUCH_TARGET_SIZE,
+  minWidth: MOBILE_TOUCH_TARGET_SIZE,
+  mr: 0.25,
+} as const;

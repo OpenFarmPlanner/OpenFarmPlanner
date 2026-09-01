@@ -12,6 +12,18 @@ const culture: Culture = {
   display_color: '',
 };
 
+const secondVariety: Culture = {
+  id: 59,
+  name: 'Tomate',
+  variety: 'Cherry',
+  crop_family: 'Nachtschatten',
+  display_color: '',
+};
+
+function pixelValue(element: Element, property: 'minHeight' | 'width' | 'height'): number {
+  return Number.parseFloat(window.getComputedStyle(element)[property] || '0');
+}
+
 describe('CultureMobileSelectorDialog', () => {
   beforeEach(() => {
     window.history.replaceState({ page: 'cultures' }, '', '/app/cultures?cultureId=58');
@@ -46,5 +58,29 @@ describe('CultureMobileSelectorDialog', () => {
       expect(window.location.pathname).toBe('/app/cultures');
       expect(window.location.search).toBe('?cultureId=58');
     });
+  });
+
+  it('gives every row and the expand toggle a mobile-sized touch target', async () => {
+    render(
+      <CultureMobileSelectorDialog
+        open
+        onClose={vi.fn()}
+        selectorControl={<div />}
+        cultures={[culture, secondVariety]}
+        selectedCultureId={culture.id}
+        onSelect={vi.fn()}
+        t={((key: string) => key) as never}
+      />,
+    );
+
+    const rows = await screen.findAllByRole('option');
+    expect(rows.length).toBeGreaterThan(1);
+    rows.forEach((row) => {
+      expect(pixelValue(row, 'minHeight')).toBeGreaterThanOrEqual(48);
+    });
+
+    const toggle = screen.getByRole('button', { name: /hierarchy\.(expand|collapse)Crop/ });
+    expect(pixelValue(toggle, 'width')).toBeGreaterThanOrEqual(44);
+    expect(pixelValue(toggle, 'height')).toBeGreaterThanOrEqual(44);
   });
 });

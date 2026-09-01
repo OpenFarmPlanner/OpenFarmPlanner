@@ -11,6 +11,8 @@ interface CropHierarchyExpandToggleProps {
   expandLabel: string;
   collapseLabel: string;
   sx?: SxProps<Theme>;
+  /** Width of the spacer rendered for rows without children, in pixels. */
+  placeholderWidth?: number;
 }
 
 /**
@@ -25,9 +27,10 @@ export function CropHierarchyExpandToggle({
   expandLabel,
   collapseLabel,
   sx = cropChevronButtonSx,
+  placeholderWidth = 24,
 }: CropHierarchyExpandToggleProps) {
   if (!hasChildren) {
-    return <Box component="span" sx={{ width: 24, flexShrink: 0 }} />;
+    return <Box component="span" sx={{ width: placeholderWidth, flexShrink: 0 }} />;
   }
 
   return (
