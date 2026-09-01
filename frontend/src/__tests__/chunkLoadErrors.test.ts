@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearRouteLoadRetry,
-  resetDynamicImportRecovery,
+  markDynamicImportRecoverySpent,
+  routeLoadRetryIsAvailable,
   shouldAutomaticallyReloadForChunkError,
   shouldAutomaticallyReloadForRouteLoadError,
 } from '../runtime/chunkLoadErrors';
@@ -39,15 +40,23 @@ describe('route load error recovery', () => {
     expect(shouldAutomaticallyReloadForRouteLoadError('/app/crop-library', now + 61_000)).toBe(true);
   });
 
-  it('clears both guards so a manual retry is never swallowed', () => {
+  it('peeks the route retry budget without consuming it', () => {
     const now = 1_000_000;
 
-    expect(shouldAutomaticallyReloadForChunkError(now)).toBe(true);
+    expect(routeLoadRetryIsAvailable('/app/crop-library', now)).toBe(true);
+    expect(routeLoadRetryIsAvailable('/app/crop-library', now)).toBe(true);
     expect(shouldAutomaticallyReloadForRouteLoadError('/app/crop-library', now)).toBe(true);
+    expect(routeLoadRetryIsAvailable('/app/crop-library', now)).toBe(false);
+    expect(routeLoadRetryIsAvailable('/app/crop-library', now + 61_000)).toBe(true);
+  });
 
-    resetDynamicImportRecovery('/app/crop-library');
+  it('marks both guards spent so a manual reload does not trigger a second automatic reload', () => {
+    const now = 1_000_000;
 
-    expect(shouldAutomaticallyReloadForChunkError(now)).toBe(true);
-    expect(shouldAutomaticallyReloadForRouteLoadError('/app/crop-library', now)).toBe(true);
+    markDynamicImportRecoverySpent('/app/crop-library', now);
+
+    expect(shouldAutomaticallyReloadForChunkError(now)).toBe(false);
+    expect(shouldAutomaticallyReloadForRouteLoadError('/app/crop-library', now)).toBe(false);
+    expect(routeLoadRetryIsAvailable('/app/crop-library', now)).toBe(false);
   });
 });

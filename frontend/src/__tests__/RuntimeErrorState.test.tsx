@@ -29,7 +29,7 @@ describe('RuntimeErrorState', () => {
     expect(screen.getByText('Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte lade die Seite neu.')).toBeInTheDocument();
   });
 
-  it('triggers the guard-clearing reload when the action is used', () => {
+  it('triggers the manual recovery reload when the action is used', () => {
     render(<RuntimeErrorState variant="applicationUpdated" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Seite neu laden' }));

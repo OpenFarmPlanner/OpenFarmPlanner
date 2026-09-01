@@ -69,6 +69,29 @@ export function shouldAutomaticallyReloadForChunkError(now = Date.now()): boolea
   return true;
 }
 
+/**
+ * Reads whether an automatic route reload is still allowed for `routeKey`
+ * without consuming the budget. Lets a render path decide synchronously that
+ * the fallback is imminent (avoiding a blank frame) while the authoritative
+ * one-shot claim still happens in `shouldAutomaticallyReloadForRouteLoadError`.
+ */
+export function routeLoadRetryIsAvailable(
+  routeKey = getCurrentRouteKey(),
+  now = Date.now(),
+): boolean {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return false;
+  }
+
+  const previousRetryAt = Number(storage.getItem(getRouteLoadRetryStorageKey(routeKey)));
+  return !(
+    Number.isFinite(previousRetryAt)
+    && previousRetryAt > 0
+    && now - previousRetryAt < ROUTE_LOAD_RETRY_WINDOW_MS
+  );
+}
+
 export function shouldAutomaticallyReloadForRouteLoadError(
   routeKey = getCurrentRouteKey(),
   now = Date.now(),
@@ -78,17 +101,11 @@ export function shouldAutomaticallyReloadForRouteLoadError(
     return false;
   }
 
-  const storageKey = getRouteLoadRetryStorageKey(routeKey);
-  const previousRetryAt = Number(storage.getItem(storageKey));
-  if (
-    Number.isFinite(previousRetryAt)
-    && previousRetryAt > 0
-    && now - previousRetryAt < ROUTE_LOAD_RETRY_WINDOW_MS
-  ) {
+  if (!routeLoadRetryIsAvailable(routeKey, now)) {
     return false;
   }
 
-  storage.setItem(storageKey, String(now));
+  storage.setItem(getRouteLoadRetryStorageKey(routeKey), String(now));
   return true;
 }
 
@@ -115,21 +132,27 @@ export function reloadOnceForDynamicImportError(error: unknown): boolean {
 }
 
 /**
- * Drops the guards that stop the app from reloading itself in a loop, so an
- * explicit user-triggered retry is never swallowed by a previous automatic
- * attempt.
+ * Marks both automatic-recovery guards as just spent for `routeKey`.
+ *
+ * The manual reload button performs the reload itself, so that reload *is* the
+ * one retry attempt: once the page comes back the boundary and the global
+ * handler must show the fallback again instead of firing a second automatic
+ * reload (which would flash another blank screen).
  */
-export function resetDynamicImportRecovery(routeKey = getCurrentRouteKey()): void {
+export function markDynamicImportRecoverySpent(
+  routeKey = getCurrentRouteKey(),
+  now = Date.now(),
+): void {
   const storage = getSessionStorage();
   if (!storage) {
     return;
   }
 
-  storage.removeItem(CHUNK_RELOAD_STORAGE_KEY);
-  storage.removeItem(getRouteLoadRetryStorageKey(routeKey));
+  storage.setItem(CHUNK_RELOAD_STORAGE_KEY, String(now));
+  storage.setItem(getRouteLoadRetryStorageKey(routeKey), String(now));
 }
 
 export function reloadForManualRecovery(routeKey = getCurrentRouteKey()): void {
-  resetDynamicImportRecovery(routeKey);
+  markDynamicImportRecoverySpent(routeKey);
   reloadPage();
 }
