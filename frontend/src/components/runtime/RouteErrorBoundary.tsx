@@ -4,6 +4,7 @@ import RuntimeErrorState from './RuntimeErrorState';
 import {
   isDynamicImportLoadError,
   reloadPage,
+  routeLoadRetryIsAvailable,
   shouldAutomaticallyReloadForRouteLoadError,
 } from '../../runtime/chunkLoadErrors';
 
@@ -12,11 +13,15 @@ export default function RouteErrorBoundary() {
   const location = useLocation();
   const isApplicationUpdateError = isDynamicImportLoadError(error);
   const routeKey = `${location.pathname}${location.search}`;
-  const [isReloading, setIsReloading] = useState(isApplicationUpdateError);
-  // The retry budget is consumed in session storage, so it must be claimed
-  // exactly once per mounted boundary. StrictMode invokes state initializers
-  // and effects twice in development, which previously burned the budget on
-  // the second call and left the user on the fallback instead of reloading.
+  // Seed synchronously from a read-only peek so a permanently broken chunk
+  // (retry budget already spent on the previous load) paints the fallback on
+  // the first render instead of flashing a blank screen for one frame. The
+  // budget itself is still claimed exactly once, in the effect below.
+  const [isReloading, setIsReloading] = useState(
+    () => isApplicationUpdateError && routeLoadRetryIsAvailable(routeKey),
+  );
+  // StrictMode invokes effects twice in development; the ref plus the
+  // session-storage guard keep the reload to a single attempt.
   const hasClaimedRetryRef = useRef(false);
 
   useEffect(() => {

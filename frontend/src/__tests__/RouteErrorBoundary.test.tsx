@@ -48,11 +48,13 @@ describe('RouteErrorBoundary', () => {
     expect(screen.queryByRole('button', { name: 'Seite neu laden' })).not.toBeInTheDocument();
   });
 
-  it('offers a manual reload once the automatic retry is used up', async () => {
+  it('offers a manual reload once the automatic retry is used up, without an interim blank state', async () => {
     sessionStorage.setItem('openFarmPlanner.routeLoadRetry./app/crop-library', String(Date.now()));
 
     renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crops/pages/PublicCropLibraryPage.tsx'));
 
+    // The boundary seeds `isReloading` from a read-only peek, so the very first
+    // committed render already shows the fallback instead of a blank screen.
     expect(await screen.findByRole('button', { name: 'Seite neu laden' })).toBeInTheDocument();
     expect(screen.getByText('Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte lade die Seite neu.')).toBeInTheDocument();
     expect(reloadPage).not.toHaveBeenCalled();
