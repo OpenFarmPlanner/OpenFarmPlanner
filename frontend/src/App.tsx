@@ -8,7 +8,7 @@
  * @returns The main App component with routing
  */
 
-import { createBrowserRouter, Outlet, redirect, useLocation, Navigate, useRouteError } from 'react-router';
+import { createBrowserRouter, Outlet, redirect, useLocation, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from './auth/ProtectedRoute';
@@ -18,12 +18,11 @@ import { buildInvitationAcceptPath } from './pages/invitationAcceptance';
 import { resolveRouterBasename } from './routerBasename';
 import RuntimeErrorState from './components/runtime/RuntimeErrorState';
 import RouteSeo from './seo/RouteSeo';
+import RouteErrorBoundary from './components/runtime/RouteErrorBoundary';
 import {
   clearRouteLoadRetry,
   isDynamicImportLoadError,
   reloadOnceForDynamicImportError,
-  reloadPage,
-  shouldAutomaticallyReloadForRouteLoadError,
 } from './runtime/chunkLoadErrors';
 
 
@@ -73,32 +72,10 @@ function TokenInvitationRedirect() {
   return <Navigate to={buildInvitationAcceptPath(token)} replace />;
 }
 
-function withLazyFallback(element: React.ReactElement): React.ReactElement {
-  return <Suspense fallback={null}>{element}</Suspense>;
-}
-
-function RouteErrorBoundary() {
-  const error = useRouteError();
-  const location = useLocation();
-  const isApplicationUpdateError = isDynamicImportLoadError(error);
-  const routeKey = `${location.pathname}${location.search}`;
-  const [isReloading] = useState(
-    () => isApplicationUpdateError && shouldAutomaticallyReloadForRouteLoadError(routeKey),
-  );
-
-  useEffect(() => {
-    if (isReloading) {
-      reloadPage();
-    }
-  }, [isReloading]);
-
-  if (isReloading) {
-    return null;
-  }
-
-  return <RuntimeErrorState variant={isApplicationUpdateError ? 'applicationUpdated' : 'routeError'} />;
-}
-
+// Mounted as a sibling of the lazy element inside the same Suspense boundary,
+// so it only commits once that element's chunk has actually loaded. Clearing the
+// retry marker any earlier (e.g. from the root layout) would hand every failed
+// load a fresh retry budget and reload the page in a loop.
 function RouteLoadSuccessMarker() {
   const location = useLocation();
 
@@ -107,6 +84,15 @@ function RouteLoadSuccessMarker() {
   }, [location.pathname, location.search]);
 
   return null;
+}
+
+function withLazyFallback(element: React.ReactElement): React.ReactElement {
+  return (
+    <Suspense fallback={null}>
+      {element}
+      <RouteLoadSuccessMarker />
+    </Suspense>
+  );
 }
 
 interface GlobalRuntimeErrorHandlerProps {
@@ -175,7 +161,6 @@ function GlobalRuntimeErrorHandler({ children }: GlobalRuntimeErrorHandlerProps)
 function RootSeoLayout() {
   return (
     <>
-      <RouteLoadSuccessMarker />
       <RouteSeo />
       <Outlet />
     </>

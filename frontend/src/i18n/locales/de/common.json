@@ -177,8 +177,9 @@
     "demoCreateError": "Demo-Projekt konnte nicht erstellt werden. Bitte versuche es erneut."
   },
   "runtime": {
-    "applicationUpdatedFallback": "Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte versuche es später erneut.",
-    "routeErrorFallback": "Die Seite konnte nicht automatisch wiederhergestellt werden. Bitte versuche es später erneut."
+    "applicationUpdatedFallback": "Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte lade die Seite neu.",
+    "routeErrorFallback": "Die Seite konnte nicht automatisch wiederhergestellt werden. Bitte lade die Seite neu.",
+    "reloadAction": "Seite neu laden"
   },
   "language": {
     "label": "Sprache",

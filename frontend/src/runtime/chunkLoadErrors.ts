@@ -1,6 +1,7 @@
 const CHUNK_RELOAD_STORAGE_KEY = 'openFarmPlanner.lastChunkReloadAt';
 const CHUNK_RELOAD_WINDOW_MS = 60_000;
 const ROUTE_LOAD_RETRY_STORAGE_PREFIX = 'openFarmPlanner.routeLoadRetry.';
+const ROUTE_LOAD_RETRY_WINDOW_MS = 60_000;
 
 const DYNAMIC_IMPORT_ERROR_PATTERNS = [
   'failed to fetch dynamically imported module',
@@ -68,19 +69,26 @@ export function shouldAutomaticallyReloadForChunkError(now = Date.now()): boolea
   return true;
 }
 
-export function shouldAutomaticallyReloadForRouteLoadError(routeKey = getCurrentRouteKey()): boolean {
+export function shouldAutomaticallyReloadForRouteLoadError(
+  routeKey = getCurrentRouteKey(),
+  now = Date.now(),
+): boolean {
   const storage = getSessionStorage();
   if (!storage) {
     return false;
   }
 
   const storageKey = getRouteLoadRetryStorageKey(routeKey);
-  const retryCount = Number(storage.getItem(storageKey) ?? '0');
-  if (Number.isFinite(retryCount) && retryCount >= 1) {
+  const previousRetryAt = Number(storage.getItem(storageKey));
+  if (
+    Number.isFinite(previousRetryAt)
+    && previousRetryAt > 0
+    && now - previousRetryAt < ROUTE_LOAD_RETRY_WINDOW_MS
+  ) {
     return false;
   }
 
-  storage.setItem(storageKey, String(retryCount + 1));
+  storage.setItem(storageKey, String(now));
   return true;
 }
 
@@ -104,4 +112,24 @@ export function reloadOnceForDynamicImportError(error: unknown): boolean {
 
   reloadPage();
   return true;
+}
+
+/**
+ * Drops the guards that stop the app from reloading itself in a loop, so an
+ * explicit user-triggered retry is never swallowed by a previous automatic
+ * attempt.
+ */
+export function resetDynamicImportRecovery(routeKey = getCurrentRouteKey()): void {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.removeItem(CHUNK_RELOAD_STORAGE_KEY);
+  storage.removeItem(getRouteLoadRetryStorageKey(routeKey));
+}
+
+export function reloadForManualRecovery(routeKey = getCurrentRouteKey()): void {
+  resetDynamicImportRecovery(routeKey);
+  reloadPage();
 }
