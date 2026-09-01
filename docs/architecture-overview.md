@@ -53,7 +53,7 @@ docs/                  # This documentation
   demand, and history/versioning lives here. Models live in the
   `backend/farm/models/` package (one module per domain: `base.py`,
   `projects.py`, `structure.py`, `cultures.py`, `planning.py`, `notes.py`,
-  `history.py`, all re-exported from `models/__init__.py`); views and
+  `history.py`, `feedback.py`, all re-exported from `models/__init__.py`); views and
   serializers are organized into matching domain packages inside the app:
   - `farm/common/` — shared API plumbing: `ProjectScopedMixin`/
     `ProjectRevisionMixin` (`mixins.py`), shared serializer fields
@@ -67,6 +67,13 @@ docs/                  # This documentation
     and the public culture library endpoints.
   - `farm/planning/` — planting plans, tasks, and the yield calendar.
   - `farm/notes/` — media uploads and note image attachments.
+  - `farm/feedback/` — the in-app feedback endpoint (`POST /api/feedback/`):
+    it stores one `Feedback` row and emails it to `SUPPORT_CONTACT_EMAIL`
+    with an `[Feedback] <category> – <project>` subject. When the user allowed
+    contact, the account email becomes the mail's `reply_to`; without that
+    consent no email address is attached to the feedback at all. A failed
+    delivery is reported as `email_delivered: false` and never loses the
+    stored row.
 - **`accounts`** owns the Django `User` lifecycle: registration/activation,
   password reset, per-user project settings (`UserProjectSettings`:
   default/last project), account deletion with a grace period, self-service

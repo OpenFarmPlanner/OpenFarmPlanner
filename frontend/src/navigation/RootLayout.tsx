@@ -45,6 +45,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import { ProjectMenu } from './ProjectMenu';
 import { GlobalMenu } from './GlobalMenu';
+import { hasSeenFeedbackBadge, markFeedbackBadgeSeen } from './feedbackBadgeStorage';
+import { FeedbackDialog } from '../components/feedback/FeedbackDialog';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotifications } from '../notifications/useNotifications';
 import { NOTIFICATION_HISTORY_ROUTE } from '../notifications/notificationDisplay';
@@ -224,6 +226,8 @@ function RootLayout() {
     return () => { cancelled = true; };
   }, [activeProjectId]);
   const [globalMenuAnchor, setGlobalMenuAnchor] = useState<null | HTMLElement>(null);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackBadgeDismissed, setFeedbackBadgeDismissed] = useState(false);
   const [projectMenuAnchor, setProjectMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileProjectSwitcherOpen, setMobileProjectSwitcherOpen] = useState(false);
@@ -413,6 +417,17 @@ function RootLayout() {
   }, []);
   const openGlobalHelp = (): void => {
     setGlobalHelpOpen(true);
+  };
+  // The badge is a one-time marker: opening the dialog once hides it for good
+  // for this account, independent of any time window.
+  const feedbackBadgeSeen = useMemo(
+    () => feedbackBadgeDismissed || hasSeenFeedbackBadge(user?.id ?? null),
+    [feedbackBadgeDismissed, user?.id],
+  );
+  const openFeedbackDialog = (): void => {
+    markFeedbackBadgeSeen(user?.id ?? null);
+    setFeedbackBadgeDismissed(true);
+    setFeedbackDialogOpen(true);
   };
   const closeGlobalHelp = (): void => {
     setGlobalHelpOpen(false);
@@ -1515,6 +1530,8 @@ function RootLayout() {
             onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
             onOpenShortcuts={handleOpenShortcuts}
             onOpenHelp={openGlobalHelp}
+            onOpenFeedback={openFeedbackDialog}
+            showFeedbackNewBadge={!feedbackBadgeSeen}
             canLeaveDemoProject={canLeaveDemoProject}
             isGuestDemoSession={isGuestDemoSession}
             onLeaveDemoProject={handleLeaveDemoProject}
@@ -1823,6 +1840,8 @@ function RootLayout() {
                 onOpenAccountSettings={() => navigateFromGlobalMenu('/app/account-settings')}
                 onOpenShortcuts={handleOpenShortcuts}
                 onOpenHelp={openGlobalHelp}
+                onOpenFeedback={openFeedbackDialog}
+                showFeedbackNewBadge={!feedbackBadgeSeen}
                 onOpenPageHelp={openCurrentPageHelp}
                 pageHelpAvailable={Boolean(topbarHelpConfig)}
                 canLeaveDemoProject={canLeaveDemoProject}
@@ -2127,6 +2146,13 @@ function RootLayout() {
       ) : null}
 
       <HelpDialog open={globalHelpOpen} onClose={closeGlobalHelp} />
+      <FeedbackDialog
+        open={feedbackDialogOpen}
+        projectName={activeMembership?.project_name ?? ''}
+        route={`${location.pathname}${location.search}`}
+        userEmail={user?.email ?? ''}
+        onClose={() => setFeedbackDialogOpen(false)}
+      />
       <MobileProjectSwitcherDialog
         open={mobileProjectSwitcherOpen}
         onClose={handleCloseMobileProjectSwitcher}

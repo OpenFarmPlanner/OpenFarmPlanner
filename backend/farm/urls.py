@@ -47,6 +47,7 @@ from .notes.views import (
     NoteAttachmentListCreateView,
 )
 from .common.views import VersionView
+from .feedback.views import FeedbackView
 from .projects.views import (
     AcceptPendingProjectInvitationView,
     AcceptProjectInvitationByTokenView,
@@ -78,6 +79,7 @@ router.register(r'api-tokens', ProjectApiTokenViewSet, basename='api-tokens')
 
 urlpatterns = [
     path('version/', VersionView.as_view(), name='api-version'),
+    path('feedback/', FeedbackView.as_view(), name='feedback'),
     # Agent API: OpenAPI description plus the two-step culture import.
     # Registered before the router so the fixed `preview/` segment is not
     # swallowed by the draft-id route.

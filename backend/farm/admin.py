@@ -19,6 +19,7 @@ from .models import (
     BedLayout,
     Culture,
     EntityRevision,
+    Feedback,
     Field,
     FieldLayout,
     Location,
@@ -344,3 +345,25 @@ class AgentLoginTokenAdmin(admin.ModelAdmin):
                 level=messages.SUCCESS,
             )
         return super().response_add(request, obj, post_url_continue)
+
+
+@admin.register(Feedback)
+class FeedbackAdmin(admin.ModelAdmin):
+    """Read-oriented admin view over the in-app feedback history."""
+
+    list_display = ['created_at', 'category', 'project_name', 'user', 'contact_consent']
+    list_filter = ['category', 'contact_consent']
+    search_fields = ['message', 'project_name', 'user__email', 'contact_email']
+    readonly_fields = [
+        'category',
+        'message',
+        'user',
+        'project',
+        'project_name',
+        'route',
+        'browser_info',
+        'contact_consent',
+        'contact_email',
+        'created_at',
+        'updated_at',
+    ]

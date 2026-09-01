@@ -1,0 +1,30 @@
+{
+  "dialog": {
+    "title": "Feedback geben",
+    "subtitle": "Danke, dass du OpenFarmPlanner mitgestaltest.",
+    "categoryLabel": "Kategorie (optional)",
+    "categoryAriaLabel": "Kategorie des Feedbacks",
+    "categories": {
+      "bug": "Fehler",
+      "idea": "Idee",
+      "question": "Frage",
+      "other": "Sonstiges"
+    },
+    "messageLabel": "Nachricht",
+    "messagePlaceholder": "Was möchtest du uns mitteilen?",
+    "messageRequiredTooltip": "Bitte gib eine Nachricht ein",
+    "context": "Wird automatisch mitgeschickt: Projekt „{{project}}“, Ansicht „{{route}}“, Browser-Infos.",
+    "contextNoProject": "kein Projekt",
+    "contactConsent": "Kontaktaufnahme bei Rückfragen erlauben",
+    "contactConsentHint": "Auch gerne für ein persönliches Gespräch – wir freuen uns über Austausch mit aktiven Betrieben.",
+    "contactEmail": "{{email}} (aus deinem Konto)",
+    "cancel": "Abbrechen",
+    "submit": "Absenden",
+    "error": "Dein Feedback konnte nicht gesendet werden. Bitte versuche es noch einmal."
+  },
+  "success": {
+    "title": "Danke für dein Feedback!",
+    "text": "Deine Nachricht ist angekommen. Wenn du eine Rückmeldung erlaubt hast, melden wir uns direkt bei dir.",
+    "close": "Schließen"
+  }
+}

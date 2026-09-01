@@ -5,12 +5,28 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ACTION_MENU_ICON_PROPS, ACTION_MENU_ITEM_ICON_SX, MENU_SECTION_LABEL_SX } from './topbarMenuStyles';
 import { LanguageMenuItems } from '../i18n/LanguageSwitcher';
 import { AppTooltip } from '../components/AppTooltip';
 import type { ReactNode } from 'react';
+import type { SxProps, Theme } from '@mui/material/styles';
+
+// Small rounded pill marking a menu entry as new.
+const NEW_BADGE_SX: SxProps<Theme> = {
+  ml: 1,
+  px: 0.75,
+  py: 0.125,
+  borderRadius: 5,
+  bgcolor: 'primary.light',
+  color: 'primary.contrastText',
+  fontSize: '0.625rem',
+  fontWeight: 600,
+  lineHeight: 1.6,
+  letterSpacing: '0.04em',
+};
 
 interface GlobalMenuProps {
   anchorEl: HTMLElement | null;
@@ -26,6 +42,12 @@ interface GlobalMenuProps {
   onOpenAccountSettings: () => void;
   onOpenShortcuts: () => void;
   onOpenHelp: () => void;
+  onOpenFeedback: () => void;
+  /**
+   * Highlights the feedback entry as new until it has been opened once — the
+   * owner persists that per user, so the badge never comes back afterwards.
+   */
+  showFeedbackNewBadge?: boolean;
   /**
    * Page-specific help (the "?" icon content) — only wired up for the mobile
    * layout, where that icon is removed from the topbar in favor of this menu
@@ -63,6 +85,8 @@ export function GlobalMenu(props: GlobalMenuProps) {
     onOpenAccountSettings,
     onOpenShortcuts,
     onOpenHelp,
+    onOpenFeedback,
+    showFeedbackNewBadge,
     onOpenPageHelp,
     pageHelpAvailable,
     pageHelpUnavailableReason,
@@ -76,6 +100,16 @@ export function GlobalMenu(props: GlobalMenuProps) {
 
   const wrap = (fn: () => void): () => void => () => { onClose(); fn(); };
   const wrapAsync = (fn: () => Promise<void>): () => void => () => { onClose(); void fn(); };
+
+  const feedbackItem = (key: string) => (
+    <MenuItem key={key} onClick={wrap(onOpenFeedback)}>
+      <ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><ChatBubbleOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>
+      {t('globalMenu.feedback')}
+      {showFeedbackNewBadge ? (
+        <Box component="span" sx={NEW_BADGE_SX}>{t('globalMenu.feedbackNewBadge')}</Box>
+      ) : null}
+    </MenuItem>
+  );
 
   const pageHelpMenuItem = onOpenPageHelp ? (
     <MenuItem
@@ -113,6 +147,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <MenuItem key="mobile-app-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
     pageHelpItem,
     <MenuItem key="mobile-app-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
+    feedbackItem('mobile-app-feedback'),
     <MenuItem key="mobile-app-account-settings" onClick={wrap(onOpenAccountSettings)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><SettingsOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('accountSettings')}</MenuItem>,
     <Divider key="mobile-divider-app-language" />,
     <MenuItem key="mobile-section-language" disabled sx={MENU_SECTION_LABEL_SX}>{t('language.label')}</MenuItem>,
@@ -133,6 +168,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     <Divider key="desktop-divider-language-end" />,
     <MenuItem key="desktop-shortcuts" onClick={wrap(onOpenShortcuts)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><KeyboardOutlinedIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.shortcuts')}</MenuItem>,
     <MenuItem key="desktop-help" onClick={wrap(onOpenHelp)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><HelpOutlineIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('globalMenu.appHelp')}</MenuItem>,
+    feedbackItem('desktop-feedback'),
     canLeaveDemoProject ? <MenuItem key="desktop-leave-demo" onClick={wrapAsync(onLeaveDemoProject)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><ExitToAppIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.leaveDemo')}</MenuItem> : null,
     !isGuestDemoSession ? <MenuItem key="desktop-logout" onClick={wrapAsync(onLogout)}><ListItemIcon sx={ACTION_MENU_ITEM_ICON_SX}><LogoutIcon {...ACTION_MENU_ICON_PROPS} /></ListItemIcon>{t('commandPalette.commands.logout')} {userLabel}</MenuItem> : null,
   ];
