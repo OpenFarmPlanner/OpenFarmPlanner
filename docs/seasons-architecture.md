@@ -18,10 +18,12 @@ that predate this feature.
   `deleted_at` — same convention as `Culture` (`ActiveSeasonManager` hides
   deleted rows from `objects`, `all_objects` doesn't). A season's `label`
   property is the custom label if set, otherwise `computed_label`: a
-  four-digit year when the period runs exactly Jan 1–Dec 31 of one calendar
-  year, otherwise a hemisphere-agnostic `"YY/YY"` span. The frontend mirrors
-  this exact rule in `frontend/src/seasons/formatSeasonDate.ts`'s
-  `computeSeasonLabel` for previews computed before a season exists server-side.
+  four-digit year when start and end fall in the same calendar year (including
+  a partial-year transition season such as Sep 1–Dec 31), otherwise a
+  hemisphere-agnostic `"YY/YY"` span. The rule follows the season's actual
+  range, not the project's pattern. The frontend mirrors this exact rule in
+  `frontend/src/seasons/formatSeasonDate.ts`'s `computeSeasonLabel` for
+  previews computed before a season exists server-side.
 - **`PlantingPlan.season`** — nullable `ForeignKey(Season, on_delete=CASCADE)`,
   mirroring the `culture`/`bed` FK pattern (nullable + CASCADE, but the actual
   delete path is the soft-delete above, so the DB-level CASCADE never fires —
@@ -305,7 +307,10 @@ decides once, at the point the concrete season is actually created.
      computed client-side via `seasons/seasonPeriodMath.ts` (a tested mirror of
      the backend math, so option 3 needs no round-trip per keystroke).
   Options 2 and 3 create a season with individual, non-12-month dates; every
-  regular season created afterwards follows the pattern again.
+  regular season created afterwards follows the pattern again. The suggested
+  name comes from `computed_label` on the resulting range, so a
+  within-one-year transition season is proposed as e.g. "2026", not "26/26"
+  (still editable via "Umbenennen").
 
 ## Known simplifications
 

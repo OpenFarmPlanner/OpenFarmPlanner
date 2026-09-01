@@ -33,6 +33,12 @@ class SeasonLabelTest(ProjectApiTestCase):
         )
         self.assertEqual(season.label, '25/26')
 
+    def test_partial_year_within_one_calendar_year_uses_four_digit_label(self):
+        season = Season.objects.create(
+            project=self.project, start_date=date(2026, 9, 1), end_date=date(2026, 12, 31),
+        )
+        self.assertEqual(season.label, '2026')
+
     def test_custom_label_overrides_computed(self):
         season = Season.objects.create(
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),

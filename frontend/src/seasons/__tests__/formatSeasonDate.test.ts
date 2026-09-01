@@ -10,8 +10,13 @@ describe('computeSeasonLabel', () => {
     expect(computeSeasonLabel('2025-09-01', '2026-08-31')).toBe('25/26');
   });
 
-  it('is hemisphere-agnostic: any non-calendar-year range gets the split label', () => {
+  it('is hemisphere-agnostic: a range crossing the year boundary gets the split label', () => {
     expect(computeSeasonLabel('2026-07-01', '2027-06-30')).toBe('26/27');
+  });
+
+  it('returns the four-digit year for a partial-year season within one calendar year', () => {
+    expect(computeSeasonLabel('2026-09-01', '2026-12-31')).toBe('2026');
+    expect(computeSeasonLabel('2026-04-15', '2026-08-31')).toBe('2026');
   });
 });
 

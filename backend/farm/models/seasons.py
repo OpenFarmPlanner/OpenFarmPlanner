@@ -62,20 +62,14 @@ class Season(TimestampedModel):
 
     @property
     def computed_label(self) -> str:
-        """Return the label computed from the season's date range.
+        """Return the label computed from the season's actual date range.
 
-        A four-digit year (e.g. "2026") when the season runs exactly from
-        Jan 1 to Dec 31 of the same year; otherwise a "YY/YY" span (e.g.
-        "25/26"), hemisphere-agnostic.
+        A four-digit year (e.g. "2026") when start and end fall in the same
+        calendar year — including a partial-year transition season such as
+        Sep 1–Dec 31; otherwise a hemisphere-agnostic "YY/YY" span (e.g.
+        "25/26"). The rule follows the range, not the project's season pattern.
         """
-        is_calendar_year = (
-            self.start_date.month == 1
-            and self.start_date.day == 1
-            and self.end_date.month == 12
-            and self.end_date.day == 31
-            and self.start_date.year == self.end_date.year
-        )
-        if is_calendar_year:
+        if self.start_date.year == self.end_date.year:
             return str(self.start_date.year)
         return f"{self.start_date.year % 100:02d}/{self.end_date.year % 100:02d}"
 
