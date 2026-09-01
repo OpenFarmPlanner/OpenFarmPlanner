@@ -268,9 +268,10 @@ season exists as a row to read `label` off of.
 
 ## Known simplifications
 
-- The "due season available" badge on the closed switcher pill is a plain
-  MUI `Badge` dot with a tooltip; there is no separate compact popover
-  distinct from the full dropdown menu.
+- There is no "due season available" indicator on the closed switcher pill.
+  The `/seasons/due-suggestion/` result only surfaces inside the open dropdown
+  menu (the "Saison … anlegen" call-to-action); there is no separate compact
+  popover distinct from the full dropdown menu.
 - There is no dedicated `assertNumQueries` regression test for
   `/api/seasons/` beyond the one in `test_api_query_counts.py`; the
   `planting_plan_count` annotation is page-wide, not per-row, so it does not
