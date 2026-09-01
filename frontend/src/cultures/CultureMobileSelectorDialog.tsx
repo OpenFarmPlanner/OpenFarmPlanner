@@ -18,6 +18,11 @@ import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } f
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from './CropHierarchyExpandToggle';
+import {
+  MOBILE_ROW_MIN_HEIGHT,
+  MOBILE_TOUCH_TARGET_SIZE,
+  mobileCropChevronButtonSx,
+} from './cropHierarchyRowSx';
 import { HighlightedText } from '../components/HighlightedText';
 import { useSearchExpandedGroups } from './useSearchExpandedGroups';
 
@@ -148,7 +153,12 @@ export function CultureMobileSelectorDialog({
                   event.stopPropagation();
                   toggleExpand(node.id);
                 }}
-                sx={{ borderRadius: 1.25, mb: 0.375, pl: `calc(${0.75 + depth * 0.85}rem)` }}
+                sx={{
+                  borderRadius: 1.25,
+                  mb: 0.375,
+                  pl: `calc(${0.75 + depth * 0.85}rem)`,
+                  minHeight: MOBILE_ROW_MIN_HEIGHT,
+                }}
               >
                 <CropHierarchyExpandToggle
                   hasChildren={hasChildren}
@@ -156,6 +166,8 @@ export function CultureMobileSelectorDialog({
                   onToggle={() => toggleExpand(node.id)}
                   expandLabel={t('hierarchy.expandCrop')}
                   collapseLabel={t('hierarchy.collapseCrop')}
+                  sx={mobileCropChevronButtonSx}
+                  placeholderWidth={MOBILE_TOUCH_TARGET_SIZE}
                 />
                 <ListItemText
                   primary={highlightQuery

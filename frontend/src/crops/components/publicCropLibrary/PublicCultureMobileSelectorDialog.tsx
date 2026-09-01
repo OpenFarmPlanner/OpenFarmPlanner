@@ -21,6 +21,11 @@ import { buildCropHierarchy, getFirstVarietyItem, type CropHierarchyItemKind } f
 import { flattenTreeRows } from '../../../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../../../components/hierarchy/hooks/useExpandedState';
 import { CropHierarchyExpandToggle } from '../../../cultures/CropHierarchyExpandToggle';
+import {
+  MOBILE_ROW_MIN_HEIGHT,
+  MOBILE_TOUCH_TARGET_SIZE,
+  mobileCropChevronButtonSx,
+} from '../../../cultures/cropHierarchyRowSx';
 import { HighlightedText } from '../../../components/HighlightedText';
 import { useOverlayHistory } from '../../../hooks/useOverlayHistory';
 import { getPublicCultureTitle } from '../../publicCultureDisplay';
@@ -196,6 +201,7 @@ export function PublicCultureMobileSelectorDialog({
                     ml: `calc(${depth * 1.75}rem)`,
                     pl: 0.75,
                     py: 0.25,
+                    minHeight: MOBILE_ROW_MIN_HEIGHT,
                   }}
                 >
                   <CropHierarchyExpandToggle
@@ -204,6 +210,8 @@ export function PublicCultureMobileSelectorDialog({
                     onToggle={() => toggleExpand(node.id)}
                     expandLabel={t('hierarchy.expandCrop')}
                     collapseLabel={t('hierarchy.collapseCrop')}
+                    sx={mobileCropChevronButtonSx}
+                    placeholderWidth={MOBILE_TOUCH_TARGET_SIZE}
                   />
                   <ListItemText
                     primary={node.kind === 'species'
@@ -226,7 +234,9 @@ export function PublicCultureMobileSelectorDialog({
         )}
       </DialogContent>
       <DialogActions sx={{ px: 1.5, py: 1 }}>
-        <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <Button onClick={onClose} sx={{ minHeight: MOBILE_TOUCH_TARGET_SIZE }}>
+          {t('common:actions.cancel')}
+        </Button>
       </DialogActions>
     </Dialog>
   );
