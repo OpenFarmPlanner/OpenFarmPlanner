@@ -86,7 +86,10 @@ normal REST use.
 No Redis installation is needed. With `CHANNEL_REDIS_URL` unset, Channels uses
 its in-memory layer. This supports a single application process and automated
 tests only. Run the backend through an ASGI-capable server when manually
-testing sockets; Daphne is included as an application dependency. Vite proxies
+testing sockets; Daphne is included as an application dependency. In local
+development the frontend targets port `8000` for WebSockets by default, using
+the current browser hostname so LAN testing keeps working. Set
+`VITE_WS_BASE_URL` when the backend listens somewhere else. Vite also proxies
 `/ws` with WebSocket upgrades as well as proxying `/api`.
 
 ## Redis-backed channel layer

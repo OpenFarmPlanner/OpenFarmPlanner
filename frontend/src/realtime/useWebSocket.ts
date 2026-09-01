@@ -37,6 +37,7 @@ export function buildWebSocketUrl(
   location: Pick<Location, 'protocol' | 'host'> = window.location,
   basePath = import.meta.env.BASE_URL,
   websocketBaseUrl = import.meta.env.VITE_WS_BASE_URL,
+  isDevelopment = import.meta.env.DEV,
 ): string {
   const relativePath = path.replace(/^\//, '');
   const overrideBaseUrl = normalizeWebSocketBaseUrl(websocketBaseUrl);
@@ -44,6 +45,11 @@ export function buildWebSocketUrl(
     return `${overrideBaseUrl}${relativePath}`;
   }
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  if (isDevelopment) {
+    const backendUrl = new URL(`${location.protocol}//${location.host}`);
+    backendUrl.port = '8000';
+    return `${protocol}//${backendUrl.host}${normalizeBasePath(basePath)}${relativePath}`;
+  }
   return `${protocol}//${location.host}${normalizeBasePath(basePath)}${relativePath}`;
 }
 
