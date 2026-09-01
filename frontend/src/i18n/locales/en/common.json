@@ -177,8 +177,9 @@
     "demoCreateError": "Demo project could not be created. Please try again."
   },
   "runtime": {
-    "applicationUpdatedFallback": "The application could not be updated automatically. Please try again later.",
-    "routeErrorFallback": "The page could not be restored automatically. Please try again later."
+    "applicationUpdatedFallback": "The application could not be updated automatically. Please reload the page.",
+    "routeErrorFallback": "The page could not be restored automatically. Please reload the page.",
+    "reloadAction": "Reload page"
   },
   "language": {
     "label": "Language",

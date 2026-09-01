@@ -1,0 +1,67 @@
+import { StrictMode } from 'react';
+import { render, screen } from '@testing-library/react';
+import { RouterProvider, createMemoryRouter } from 'react-router';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import RouteErrorBoundary from '../components/runtime/RouteErrorBoundary';
+
+const reloadPage = vi.hoisted(() => vi.fn());
+
+vi.mock('../runtime/chunkLoadErrors', async () => {
+  const actual = await vi.importActual<typeof import('../runtime/chunkLoadErrors')>(
+    '../runtime/chunkLoadErrors',
+  );
+  return { ...actual, reloadPage };
+});
+
+function renderBoundary(error: unknown) {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/app/crop-library',
+        loader: () => {
+          throw error;
+        },
+        element: null,
+        errorElement: <RouteErrorBoundary />,
+      },
+    ],
+    { initialEntries: ['/app/crop-library'] },
+  );
+
+  return render(
+    <StrictMode>
+      <RouterProvider router={router} />
+    </StrictMode>,
+  );
+}
+
+describe('RouteErrorBoundary', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    reloadPage.mockClear();
+  });
+
+  it('reloads once when a lazy route chunk fails to load', async () => {
+    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crops/pages/PublicCropLibraryPage.tsx'));
+
+    await vi.waitFor(() => expect(reloadPage).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('button', { name: 'Seite neu laden' })).not.toBeInTheDocument();
+  });
+
+  it('offers a manual reload once the automatic retry is used up', async () => {
+    sessionStorage.setItem('openFarmPlanner.routeLoadRetry./app/crop-library', String(Date.now()));
+
+    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crops/pages/PublicCropLibraryPage.tsx'));
+
+    expect(await screen.findByRole('button', { name: 'Seite neu laden' })).toBeInTheDocument();
+    expect(screen.getByText('Die Anwendung konnte nicht automatisch aktualisiert werden. Bitte lade die Seite neu.')).toBeInTheDocument();
+    expect(reloadPage).not.toHaveBeenCalled();
+  });
+
+  it('shows the route fallback without reloading for unrelated route errors', async () => {
+    renderBoundary(new Error('Boom'));
+
+    expect(await screen.findByText('Die Seite konnte nicht automatisch wiederhergestellt werden. Bitte lade die Seite neu.')).toBeInTheDocument();
+    expect(reloadPage).not.toHaveBeenCalled();
+  });
+});

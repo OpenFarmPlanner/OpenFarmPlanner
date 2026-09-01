@@ -324,8 +324,13 @@ test.describe('planting plans tab navigation with hidden columns', () => {
     await expect.poll(() => focusedField(page)).toBe('plants_count');
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
 
-    await row.locator('[data-field="cultivation_type"]').focus();
-    await expect.poll(() => focusedField(page)).toBe('cultivation_type');
+    // The grid can re-assert focus on the just-edited plants cell for a tick
+    // after the Tab above, so keep re-focusing until the cultivation-type cell
+    // actually holds focus before driving the next Tab.
+    await expect(async () => {
+      await row.locator('[data-field="cultivation_type"]').focus();
+      expect(await focusedField(page)).toBe('cultivation_type');
+    }).toPass({ timeout: 5_000 });
 
     await page.keyboard.press('Tab');
     await expect.poll(() => focusedField(page)).toBe('bed');

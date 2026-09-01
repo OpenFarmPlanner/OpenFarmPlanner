@@ -43,10 +43,15 @@ export const contextMenuIndicatorHostSx: SystemStyleObject<Theme> = {
  * `hoverSelector` is the CSS selector (relative to the row) that reveals
  * the overlay — e.g. `.MuiDataGrid-row:hover &` for DataGrid-based rows, or
  * `tr:hover &` for a plain MUI `<TableRow>`. `focusWithinSelector` is an
- * optional extra reveal condition (e.g. `tr:focus-within &`) for keyboard
- * users on plain tables that don't already have DataGrid's own cell-focus
- * handling — it only toggles opacity/pointer-events, skipping the
- * background/gradient touch-up `hoverSelector` gets.
+ * optional extra reveal condition for keyboard users on plain tables that
+ * don't already have DataGrid's own cell-focus handling — it only toggles
+ * opacity/pointer-events, skipping the background/gradient touch-up
+ * `hoverSelector` gets. Prefer `tr:has(:focus-visible) &` over
+ * `tr:focus-within &` when the row contains a link or other control that
+ * takes focus on a plain mouse click: `:focus-within` would latch the
+ * overlay open until the user clicks elsewhere (e.g. after clicking an
+ * external homepage link), while `:focus-visible` still reveals it for
+ * keyboard navigation.
  *
  * Like `contextMenuIndicatorHostSx`, this stays hidden at all times on
  * touch devices — a long press opens the same context menu directly, so

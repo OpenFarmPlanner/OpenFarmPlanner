@@ -29,6 +29,19 @@ describe('contextMenuActionsOverlaySx', () => {
     expect(sx['@media (pointer: coarse)']).toBeUndefined();
   });
 
+  it('supports a :has(:focus-visible) reveal selector for rows containing a link', () => {
+    // Regression guard (Suppliers homepage links): a plain `tr:focus-within &`
+    // selector keeps the edit/delete overlay latched open after a mouse click
+    // moves focus into an in-row link, until the user clicks elsewhere.
+    // Callers whose row holds such a control pass `tr:has(:focus-visible) &`
+    // instead, so the overlay still reveals for keyboard navigation only.
+    const focusVisibleSelector = 'tr:has(:focus-visible) &';
+    const sx = contextMenuActionsOverlaySx('tr:hover &', focusVisibleSelector) as Record<string, unknown>;
+    const hoverMedia = sx['@media (hover: hover)'] as Record<string, unknown>;
+    expect(hoverMedia[focusVisibleSelector]).toMatchObject({ opacity: 1, pointerEvents: 'auto' });
+    expect(Object.keys(sx)).not.toContain(focusVisibleSelector);
+  });
+
   it('does not reveal from a tap-triggered focus on a touch device (only true hover-capable devices)', () => {
     // Regression guard: every row here also sets tabIndex, so a plain tap
     // on a touchscreen still satisfies bare `:focus-within` — without

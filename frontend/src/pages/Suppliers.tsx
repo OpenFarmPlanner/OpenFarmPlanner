@@ -595,7 +595,7 @@ export default function Suppliers() {
                         {shouldShowInlineSupplierActions ? (
                           <Box
                             className="supplier-row-actions"
-                            sx={contextMenuActionsOverlaySx('tr:hover &', 'tr:focus-within &')}
+                            sx={contextMenuActionsOverlaySx('tr:hover &', 'tr:has(:focus-visible) &')}
                           >
                             <IconButton
                               size="small"
