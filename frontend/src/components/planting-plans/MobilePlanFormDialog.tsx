@@ -173,6 +173,7 @@ export function MobilePlanFormDialog({
               helperText={plantingDateHelperText}
               sx={compactFieldSx}
               slotProps={{
+                htmlInput: { inputMode: "numeric" },
                 inputLabel: { shrink: true },
                 input: {
                   endAdornment: (

@@ -87,7 +87,7 @@ export function TimingSection({ formData, errors, onChange, t, getFieldTooltipPr
               onChange={e => onChange('growth_duration_days', e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
               error={Boolean(errors.growth_duration_days)}
               helperText={errors.growth_duration_days}
-              slotProps={{ htmlInput: { min: 1, step: 1 } }}
+              slotProps={{ htmlInput: { min: 1, step: 1, inputMode: 'numeric' } }}
             />
           </DropdownAwareTooltip>
           <DropdownAwareTooltip title={harvestDurationVariety?.tooltipTitle ?? t('form.harvestDurationDaysHelp')} arrow>
@@ -100,7 +100,7 @@ export function TimingSection({ formData, errors, onChange, t, getFieldTooltipPr
               onChange={e => onChange('harvest_duration_days', e.target.value === '' ? 0 : parseInt(e.target.value, 10))}
               error={Boolean(errors.harvest_duration_days)}
               helperText={errors.harvest_duration_days}
-              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              slotProps={{ htmlInput: { min: 0, step: 1, inputMode: 'numeric' } }}
             />
           </DropdownAwareTooltip>
           <DropdownAwareTooltip
@@ -124,7 +124,7 @@ export function TimingSection({ formData, errors, onChange, t, getFieldTooltipPr
                     ? t('form.propagationDurationDaysTooLong')
                     : undefined)
               }
-              slotProps={{ htmlInput: { min: 0, step: 1 } }}
+              slotProps={{ htmlInput: { min: 0, step: 1, inputMode: 'numeric' } }}
             />
           </DropdownAwareTooltip>
         </Box>

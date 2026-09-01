@@ -46,6 +46,10 @@ describe("MobilePlanFormDialog", () => {
     const user = userEvent.setup();
     renderDialog();
 
+    expect(screen.getByRole("textbox", { name: "Pflanzdatum" })).toHaveAttribute("inputmode", "numeric");
+    expect(screen.getByRole("textbox", { name: "Fläche (m²)" })).toHaveAttribute("inputmode", "decimal");
+    expect(screen.getByRole("textbox", { name: "Pflanzen (≈)" })).toHaveAttribute("inputmode", "numeric");
+
     const pickerInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     const showPicker = vi.fn();
     pickerInput.showPicker = showPicker;

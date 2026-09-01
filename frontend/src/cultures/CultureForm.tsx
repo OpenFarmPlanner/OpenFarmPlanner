@@ -1575,6 +1575,7 @@ export function CultureForm({
                                 value={pkg.size_value}
                                 onChange={(event) => updatePackageRow(supplierIndex, packageIndex, { size_value: Number(event.target.value) || 0 })}
                                 sx={compactFieldSx}
+                                slotProps={{ htmlInput: { inputMode: pkg.size_unit === 'seeds' ? 'numeric' : 'decimal' } }}
                               />
                               <Select
                                 value={pkg.size_unit}

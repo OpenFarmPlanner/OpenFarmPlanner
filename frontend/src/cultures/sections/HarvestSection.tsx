@@ -55,7 +55,7 @@ export function HarvestSection({ formData, errors, onChange, t, getFieldTooltipP
             onChange={e => onChange('expected_yield', e.target.value ? parseFloat(e.target.value) : undefined)}
             error={Boolean(errors.expected_yield)}
             helperText={errors.expected_yield}
-            slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+            slotProps={{ htmlInput: { min: 0, step: 0.01, inputMode: 'decimal' } }}
           />
         </VarietyFieldTooltip>
       </Box>

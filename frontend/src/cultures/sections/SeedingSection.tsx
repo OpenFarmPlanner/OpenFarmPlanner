@@ -121,7 +121,7 @@ function SeedRateBlock({
             onChange={(e) => onChange(safetyField, e.target.value ? parseFloat(e.target.value) : null)}
             error={Boolean(errors[safetyField])}
             helperText={errors[safetyField]}
-            slotProps={{ htmlInput: { min: 0, max: 100, step: 1 } }}
+            slotProps={{ htmlInput: { min: 0, max: 100, step: 1, inputMode: 'decimal' } }}
           />
         </DropdownAwareTooltip>
       </Box>
@@ -200,6 +200,7 @@ export function SeedingSection({
             onChange={(event) => handleThousandKernelWeightChange(event.target.value)}
             error={Boolean(errors.thousand_kernel_weight_g)}
             helperText={errors.thousand_kernel_weight_g}
+            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
           />
         </DropdownAwareTooltip>
       </Box>

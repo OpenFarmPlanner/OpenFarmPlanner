@@ -37,7 +37,7 @@ export function SpacingSection({ formData, errors, onChange, t, getFieldTooltipP
             onChange={e => onChange('distance_within_row_cm', e.target.value ? parseInt(e.target.value) : undefined)}
             error={Boolean(errors.distance_within_row_cm)}
             helperText={errors.distance_within_row_cm}
-            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+            slotProps={{ htmlInput: { min: 0, step: 1, inputMode: 'numeric' } }}
           />
         </VarietyFieldTooltip>
         <VarietyFieldTooltip tooltipTitle={rowSpacingVariety?.tooltipTitle}>
@@ -50,7 +50,7 @@ export function SpacingSection({ formData, errors, onChange, t, getFieldTooltipP
             onChange={e => onChange('row_spacing_cm', e.target.value ? parseInt(e.target.value) : undefined)}
             error={Boolean(errors.row_spacing_cm)}
             helperText={errors.row_spacing_cm}
-            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+            slotProps={{ htmlInput: { min: 0, step: 1, inputMode: 'numeric' } }}
           />
         </VarietyFieldTooltip>
         <VarietyFieldTooltip tooltipTitle={sowingDepthVariety?.tooltipTitle}>
@@ -63,7 +63,7 @@ export function SpacingSection({ formData, errors, onChange, t, getFieldTooltipP
             onChange={e => onChange('sowing_depth_cm', e.target.value ? parseFloat(e.target.value) : undefined)}
             error={Boolean(errors.sowing_depth_cm)}
             helperText={errors.sowing_depth_cm}
-            slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+            slotProps={{ htmlInput: { min: 0, step: 0.1, inputMode: 'decimal' } }}
           />
         </VarietyFieldTooltip>
       </Box>

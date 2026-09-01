@@ -363,7 +363,7 @@ export function BasicInfoSection({
             label={t('form.rotationBreakYears')}
             value={formData.rotation_break_years ?? ''}
             onChange={e => onChange('rotation_break_years', e.target.value === '' ? null : parseInt(e.target.value, 10))}
-            slotProps={{ htmlInput: { min: 0 } }}
+            slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' } }}
           />
         </VarietyFieldTooltip>
       </Box>
