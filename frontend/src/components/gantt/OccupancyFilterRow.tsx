@@ -3,16 +3,14 @@ import {
   Box,
   Checkbox,
   FormControlLabel,
-  InputAdornment,
   MenuItem,
-  TextField,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 
 import { useTranslation } from '../../i18n';
 import type { Location } from '../../api/api';
 import type { OccupancyHierarchyNode } from '../../pages/ganttChartUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
+import { GanttSearchField } from './GanttSearchField';
 
 interface OccupancyFilterRowProps {
   searchText: string;
@@ -59,21 +57,11 @@ export function OccupancyFilterRow({
         alignItems: 'center',
       }}
     >
-      <TextField
-        size="small"
+      <GanttSearchField
         placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
         value={searchText}
-        onChange={(event) => onSearchTextChange(event.target.value)}
+        onValueChange={onSearchTextChange}
         inputRef={searchInputRef}
-        slotProps={{
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
         sx={{ minWidth: 240, flex: '1 1 240px' }}
       />
       <Select
