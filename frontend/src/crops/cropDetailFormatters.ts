@@ -6,6 +6,8 @@
 import type { Crop } from '../api/types';
 
 export const CROP_FILTERS_STORAGE_KEY = 'cropsDetailFiltersV1';
+/** Pre-"Crop" spelling, still present in a tab opened before the rename. */
+export const LEGACY_CROP_FILTERS_STORAGE_KEY = 'culturesDetailFiltersV1';
 
 export interface PersistedCropFilters {
   searchQuery: string;

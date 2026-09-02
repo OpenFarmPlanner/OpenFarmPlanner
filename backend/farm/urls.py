@@ -1,5 +1,5 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import DefaultRouter, SimpleRouter
 from .agent_api.views import (
     AgentContextView,
     AgentOpenApiSchemaView,
@@ -77,6 +77,19 @@ router.register(r'tasks', TaskViewSet)
 router.register(r'projects', ProjectViewSet, basename='projects')
 router.register(r'api-tokens', ProjectApiTokenViewSet, basename='api-tokens')
 
+# Deprecated pre-"Crop" spellings of the renamed endpoints, kept so clients that
+# predate the rename keep working: a browser still running the old JS bundle
+# across a deploy, and external agents whose integrations we do not control.
+# A `SimpleRouter` (no API-root view) keeps them out of the browsable API index
+# so only the current names are discoverable. Remove once those clients are
+# gone; nothing in this repo calls them.
+legacy_router = SimpleRouter()
+legacy_router.register(r'cultures', CropViewSet, basename='legacy-cultures')
+legacy_router.register(
+    r'culture-supplier-data', CropSupplierDataViewSet, basename='legacy-culture-supplier-data'
+)
+legacy_router.register(r'public-cultures', PublicCropViewSet, basename='legacy-public-cultures')
+
 urlpatterns = [
     path('version/', VersionView.as_view(), name='api-version'),
     path('feedback/', FeedbackView.as_view(), name='feedback'),
@@ -88,6 +101,12 @@ urlpatterns = [
     path('crop-imports/preview/', CropImportPreviewView.as_view(), name='crop-import-preview'),
     path('crop-imports/<uuid:draft_id>/', CropImportDraftView.as_view(), name='crop-import-draft'),
     path('crop-imports/<uuid:draft_id>/apply/', CropImportApplyView.as_view(), name='crop-import-apply'),
+    # Deprecated aliases (see `legacy_router`). An import draft created before
+    # the rename is still applicable after it — migration 0100 rewrites the
+    # stored preview payload — so the path that applies it has to survive too.
+    path('culture-imports/preview/', CropImportPreviewView.as_view(), name='legacy-crop-import-preview'),
+    path('culture-imports/<uuid:draft_id>/', CropImportDraftView.as_view(), name='legacy-crop-import-draft'),
+    path('culture-imports/<uuid:draft_id>/apply/', CropImportApplyView.as_view(), name='legacy-crop-import-apply'),
     path('history/project/', ProjectHistoryListView.as_view(), name='project-history-list'),
     path('history/project/restore/', ProjectHistoryRestoreView.as_view(), name='project-history-restore'),
     path('history/batch/<int:batch_id>/revert/', BatchOperationRevertView.as_view(), name='batch-operation-revert'),
@@ -115,4 +134,5 @@ urlpatterns = [
     path('project-invitations/<str:token>/accept/', AcceptProjectInvitationByTokenView.as_view(), name='project-invitations-token-accept'),
     path('project-invitations/<str:token>/', PublicProjectInvitationView.as_view(), name='project-invitations-public'),
     path('', include(router.urls)),
+    path('', include(legacy_router.urls)),
 ]

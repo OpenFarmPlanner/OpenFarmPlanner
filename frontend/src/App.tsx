@@ -250,6 +250,15 @@ function createAppRouter(basename: string) {
                 { path: 'locations', element: withLazyFallback(<Locations />) },
                 { path: 'fields-beds', element: withLazyFallback(<FieldsBedsPage />) },
                 { path: 'crops', element: withLazyFallback(<Crops />) },
+                // Deprecated pre-"Crop" route. Bookmarks and pasted links to
+                // it are out in the wild; without this they would fall through
+                // to the catch-all and land on the dashboard. The query string
+                // carries the selection, so it has to survive the redirect.
+                {
+                  path: 'cultures',
+                  loader: ({ request }) =>
+                    redirect(`/app/crops${new URL(request.url).search}`),
+                },
                 { path: 'crop-library', element: withLazyFallback(<PublicCropLibraryPage />) },
                 { path: 'public-library-moderation', element: withLazyFallback(<PublicLibraryModerationPage />) },
                 { path: 'anbauplaene', element: withLazyFallback(<PlantingPlans />) },

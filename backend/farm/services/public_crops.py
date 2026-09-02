@@ -209,6 +209,26 @@ class PublicCropIdentityConflictError(Exception):
         self.code = 'public_crop_variety_conflict'
 
 
+class UnsupportedPublicCropFieldsError(Exception):
+    """Raised when an edit payload carries fields that are not publicly editable.
+
+    A dedicated type rather than a bare ``ValueError`` so the view can answer
+    with exactly the rejected field names instead of echoing the message of
+    whatever ``ValueError`` happened to surface — including one raised deep
+    inside a library, whose text is not ours to expose.
+    """
+
+    def __init__(self, fields: list[str]) -> None:
+        super().__init__(f"Unsupported public crop fields: {', '.join(fields)}")
+        self.fields = fields
+        self.code = 'unsupported_public_crop_fields'
+
+    @property
+    def detail(self) -> str:
+        """User-facing message, built only from the rejected field names."""
+        return f"Unsupported public crop fields: {', '.join(self.fields)}"
+
+
 class PublicCropRevisionNotFoundError(Exception):
     """Raised when a requested public crop version snapshot is missing."""
 
@@ -345,7 +365,7 @@ def update_public_crop_directly(
     _validate_public_crop_edit_user(user)
     unknown_fields = sorted(set(data) - set(PUBLIC_CROP_EDITABLE_FIELDS))
     if unknown_fields:
-        raise ValueError(f"Unsupported public crop fields: {', '.join(unknown_fields)}")
+        raise UnsupportedPublicCropFieldsError(unknown_fields)
 
     with transaction.atomic():
         locked = PublicCrop.objects.select_for_update().get(pk=public_crop.pk)

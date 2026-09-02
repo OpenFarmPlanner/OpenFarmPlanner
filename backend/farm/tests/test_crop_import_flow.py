@@ -423,3 +423,54 @@ class OrderDataImportTests(CropImportFlowTestCase):
         self.assertIsNone(crop.seed_rate_direct_value)
         self.assertIsNone(crop.row_spacing_m)
         self.assertEqual(crop.seed_packages.count(), 0)
+
+
+class LegacyCultureImportPathTests(CropImportFlowTestCase):
+    """The pre-"Crop" agent-import paths must survive the rename.
+
+    Migration 0100 rewrites the stored preview payload of drafts created before
+    the rename so they stay applicable — which is only worth anything if the
+    path that applies them still resolves. External agent integrations also
+    keep posting the old spelling until they are updated.
+    """
+
+    def test_legacy_preview_and_apply_complete_a_full_import(self):
+        preview = self.client.post(
+            '/api/culture-imports/preview/',
+            {'items': [{'name': 'Brokkoli', 'variety': 'Calabrese'}], 'source_label': 'legacy'},
+            format='json',
+        )
+        self.assertEqual(preview.status_code, 200)
+        draft = preview.json()
+
+        applied = self.client.post(
+            f'/api/culture-imports/{draft["draft_id"]}/apply/',
+            {'confirm': True, 'checksum': draft['checksum'], 'acknowledge_warnings': True},
+            format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200)
+        self.assertTrue(
+            Crop.objects.filter(project=self.project, name='Brokkoli', variety='Calabrese').exists()
+        )
+
+    def test_a_draft_created_on_the_new_path_applies_through_the_legacy_one(self):
+        """The mixed case a deploy actually produces, in both directions."""
+        draft = self.preview({'name': 'Karotte', 'variety': 'Nantes'}).json()
+
+        applied = self.client.post(
+            f'/api/culture-imports/{draft["draft_id"]}/apply/',
+            {'confirm': True, 'checksum': draft['checksum'], 'acknowledge_warnings': True},
+            format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200)
+        self.assertTrue(Crop.objects.filter(project=self.project, name='Karotte').exists())
+
+    def test_legacy_draft_detail_path_resolves(self):
+        draft = self.preview({'name': 'Rote Bete'}).json()
+
+        response = self.client.get(f'/api/culture-imports/{draft["draft_id"]}/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['draft_id'], draft['draft_id'])

@@ -674,6 +674,29 @@ German UI text (`"Kultur"`, `"Kulturbibliothek"`) is untouched, as required:
 the rename covers i18n *keys* and interpolation placeholders only, never a
 translated string.
 
+### Deprecated aliases kept for the transition
+
+A deploy restarts the backend but does not reload open browser tabs, and
+external agent integrations are not ours to update, so every renamed public
+name keeps a deprecated alias:
+
+| Alias | Serves | Remove when |
+|---|---|---|
+| `/api/cultures/`, `/api/public-cultures/`, `/api/culture-supplier-data/` (`legacy_router` in `farm/urls.py`) | Browsers still on the pre-rename bundle | No pre-rename bundle can still be open |
+| `/api/culture-imports/…` | External agents, plus drafts created before the rename — migration 0100 keeps their stored preview applicable, which only helps if the apply path still resolves | Agent integrations are updated |
+| `ws/public-cultures/<id>/discussions/` (`config/routing.py`) | Open discussion sockets from a pre-rename bundle | As above |
+| Route `/app/cultures` → `/app/crops`, query `?cultureId=` → `?cropId=` (`App.tsx`, `compat/legacyCropNames.ts`) | Bookmarks and pasted deep links | Judged not worth keeping |
+| Storage keys `selectedCultureId`, `selectedPublicCultureId`, `culturesDetailFiltersV1` (`compat/legacyCropNames.ts`) | A returning user's selected crop and saved filters; read-through, so each browser migrates once | Long enough that returning users have all migrated |
+
+The legacy API routes live on a `SimpleRouter`, so they stay out of the
+browsable API index and only the current names are discoverable.
+
+**One thing did change meaning rather than move:** `/api/crops/` used to be
+this app's read-only library surface and now serves project-owned crops. A
+client that predates the rename gets a 200 with different data instead of a
+404. Live exposure is nil — `cropsApi` had no callers outside its own test —
+but it is the one rename in this set that a stale client cannot detect.
+
 ## 5. Deliberately NOT done (and why)
 
 | Not done | Why | Future path |

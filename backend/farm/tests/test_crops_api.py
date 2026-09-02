@@ -1223,3 +1223,69 @@ class CropInheritanceApiTest(ProjectApiTestCase):
         self.assertEqual(len(inherited_rows), 6)
         for item in inherited_rows:
             self.assertEqual(item['effective_values']['harvest_duration_days'], 21)
+
+
+class LegacyCultureEndpointAliasTest(ProjectApiTestCase):
+    """The pre-"Crop" paths must keep working after the rename.
+
+    A deploy restarts the backend while browsers keep the JS bundle they
+    already loaded, and external agent integrations are not ours to update, so
+    both keep calling the old spellings until they are replaced.
+    """
+
+    def test_legacy_crop_list_and_detail_serve_the_same_rows(self):
+        crop = Crop.objects.create(name='Legacy Kale', project=self.project)
+
+        list_response = self.client.get('/openfarmplanner/api/cultures/')
+        detail_response = self.client.get(f'/openfarmplanner/api/cultures/{crop.id}/')
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['name'], 'Legacy Kale')
+        self.assertIn(crop.id, [row['id'] for row in list_response.data['results']])
+
+    def test_legacy_crop_path_still_writes(self):
+        response = self.client.post(
+            '/openfarmplanner/api/cultures/',
+            {
+                'name': 'Written Through Legacy Path',
+                'growth_duration_days': 8,
+                'harvest_duration_days': 3,
+                'harvest_method': 'per_plant',
+                'project': self.project.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Crop.objects.filter(name='Written Through Legacy Path').exists())
+
+    def test_legacy_crop_detail_routes_expose_custom_actions(self):
+        crop = Crop.objects.create(name='Legacy History', project=self.project)
+
+        response = self.client.get(f'/openfarmplanner/api/cultures/{crop.id}/history/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_legacy_supplier_data_and_public_crop_paths_resolve(self):
+        public_crop = PublicCrop.objects.create(
+            name='Legacy Public', variety='Alpha', status=PublicCrop.STATUS_PUBLISHED
+        )
+
+        supplier_data_response = self.client.get('/openfarmplanner/api/culture-supplier-data/')
+        public_list_response = self.client.get('/openfarmplanner/api/public-cultures/')
+        public_detail_response = self.client.get(
+            f'/openfarmplanner/api/public-cultures/{public_crop.id}/'
+        )
+
+        self.assertEqual(supplier_data_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(public_list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(public_detail_response.status_code, status.HTTP_200_OK)
+
+    def test_legacy_paths_stay_out_of_the_browsable_api_index(self):
+        """Only the current names should be discoverable."""
+        response = self.client.get('/openfarmplanner/api/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('crops', response.data)
+        self.assertNotIn('cultures', response.data)

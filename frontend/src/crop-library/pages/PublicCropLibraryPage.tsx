@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type UIEvent } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import axios from 'axios';
+import { hasCropIdParam, readCropIdParam } from '../../compat/legacyCropNames';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -143,10 +144,10 @@ export default function PublicCropLibraryPage() {
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const selectedCropParam = searchParams.get('cropId');
+  const selectedCropParam = readCropIdParam(searchParams);
   const selectedCropIdFromUrl = parsePublicCropId(selectedCropParam);
   const selectedTopicIdFromUrl = parsePublicCropId(searchParams.get('discussionId'));
-  const hasExplicitLibraryState = searchParams.has('cropId') || searchParams.has('tab') || searchParams.has('discussionId');
+  const hasExplicitLibraryState = hasCropIdParam(searchParams) || searchParams.has('tab') || searchParams.has('discussionId');
   const storedViewState = hasExplicitLibraryState ? null : getStoredPublicCropLibraryViewState();
   const activeTab = getPublicCropTabIndex(searchParams.get('tab'), selectedTopicIdFromUrl);
   const selectedTopicId = activeTab === PUBLIC_CROP_TAB_INDEX_BY_PARAM.discussion ? selectedTopicIdFromUrl : null;

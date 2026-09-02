@@ -606,6 +606,30 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { level: 1, name: title })).toBeInTheDocument();
   });
 
+  it('redirects the deprecated /app/cultures route to /app/crops', async () => {
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/cultures');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByRole('heading', { level: 1, name: 'Kulturen' });
+    expect(window.location.pathname).toBe('/app/crops');
+  });
+
+  it('keeps the selection when redirecting a bookmarked /app/cultures?cultureId= link', async () => {
+    authState.user = createAuthenticatedUser();
+    authState.activeProjectId = 1;
+    window.history.pushState({}, '', '/app/cultures?cultureId=1&tab=details');
+
+    render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
+
+    await screen.findByRole('heading', { level: 1, name: 'Kulturen' });
+    expect(window.location.pathname).toBe('/app/crops');
+    expect(window.location.search).toContain('cultureId=1');
+    expect(window.location.search).toContain('tab=details');
+  });
+
   it('does not duplicate the project settings page title inside the page content', async () => {
     authState.user = createAuthenticatedUser();
     authState.activeProjectId = 1;

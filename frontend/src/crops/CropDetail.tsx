@@ -100,12 +100,14 @@ interface CropDetailProps {
 
 import {
   CROP_FILTERS_STORAGE_KEY,
+  LEGACY_CROP_FILTERS_STORAGE_KEY,
   formatDistance,
   formatNumber,
   formatPackageSizes,
   getSowingMonths,
   type PersistedCropFilters,
 } from './cropDetailFormatters';
+import { readWithLegacyKey, removeWithLegacyKey } from '../compat/legacyCropNames';
 
 
 export function CropDetail({
@@ -171,7 +173,11 @@ export function CropDetail({
 
   // Initialize filters from sessionStorage
   const initializeFilters = (): PersistedCropFilters => {
-    const raw = window.sessionStorage.getItem(CROP_FILTERS_STORAGE_KEY);
+    const raw = readWithLegacyKey(
+      window.sessionStorage,
+      CROP_FILTERS_STORAGE_KEY,
+      LEGACY_CROP_FILTERS_STORAGE_KEY,
+    );
     if (!raw) {
       return {
         searchQuery: '',
@@ -201,7 +207,11 @@ export function CropDetail({
         selectedSowingMonths: Array.isArray(parsed.selectedSowingMonths) ? parsed.selectedSowingMonths : [],
       };
     } catch {
-      window.sessionStorage.removeItem(CROP_FILTERS_STORAGE_KEY);
+      removeWithLegacyKey(
+        window.sessionStorage,
+        CROP_FILTERS_STORAGE_KEY,
+        LEGACY_CROP_FILTERS_STORAGE_KEY,
+      );
       return {
         searchQuery: '',
         selectedFamilyFilter: '',

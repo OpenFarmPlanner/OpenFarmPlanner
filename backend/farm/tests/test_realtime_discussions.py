@@ -94,14 +94,42 @@ class DiscussionWebSocketTests(TransactionTestCase):
         self.assertFalse(connected)
         self.assertIn(close_code, {4401, 4403})
 
+    def test_legacy_culture_path_still_connects_and_delivers(self) -> None:
+        """A browser running the pre-rename bundle keeps its live discussion.
+
+        A deploy restarts the ASGI process but does not reload open tabs, so
+        the old spelling has to stay routable until those clients reconnect.
+        """
+        async_to_sync(self._assert_legacy_path_delivers)()
+
+    async def _assert_legacy_path_delivers(self) -> None:
+        communicator = self._communicator(
+            self.first_crop.id, authenticated=True, path_segment='public-cultures'
+        )
+        self.assertTrue((await communicator.connect())[0])
+
+        topic = await sync_to_async(PublicCropDiscussionTopic.objects.create)(
+            public_crop=self.first_crop,
+            title='Delivered over the legacy path',
+            created_by=self.user,
+        )
+
+        event = await communicator.receive_json_from()
+        self.assertEqual(event, {
+            'type': 'discussion.updated',
+            'public_crop_id': self.first_crop.id,
+            'discussion_id': topic.id,
+        })
+        await communicator.disconnect()
+
     def _communicator(
-        self, crop_id: int, *, authenticated: bool
+        self, crop_id: int, *, authenticated: bool, path_segment: str = 'public-crops'
     ) -> WebsocketCommunicator:
         headers = [(b'host', b'localhost'), (b'origin', b'http://localhost')]
         if authenticated:
             headers.append(self.cookie_header)
         return WebsocketCommunicator(
             application,
-            f'/ws/public-crops/{crop_id}/discussions/',
+            f'/ws/{path_segment}/{crop_id}/discussions/',
             headers=headers,
         )

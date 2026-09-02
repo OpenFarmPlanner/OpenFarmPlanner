@@ -1,4 +1,11 @@
+import { readWithLegacyKey, removeWithLegacyKey } from '../compat/legacyCropNames';
+
 export const SELECTED_CROP_STORAGE_KEY = 'selectedCropId';
+/** Pre-"Crop" spelling, still present for users who last visited before the rename. */
+export const LEGACY_SELECTED_CROP_STORAGE_KEY = 'selectedCultureId';
+
+export const clearStoredCropId = (): void =>
+  removeWithLegacyKey(localStorage, SELECTED_CROP_STORAGE_KEY, LEGACY_SELECTED_CROP_STORAGE_KEY);
 
 export type ImportPreviewResult = {
   index: number;
@@ -33,7 +40,9 @@ export const parseCropId = (value: string | null): number | undefined => {
   return Number.isFinite(parsedId) ? parsedId : undefined;
 };
 
-export const getStoredCropId = (): number | undefined => parseCropId(localStorage.getItem(SELECTED_CROP_STORAGE_KEY));
+export const getStoredCropId = (): number | undefined => parseCropId(
+  readWithLegacyKey(localStorage, SELECTED_CROP_STORAGE_KEY, LEGACY_SELECTED_CROP_STORAGE_KEY),
+);
 
 export const buildImportSuccessMessage = (
   createdCount: number,

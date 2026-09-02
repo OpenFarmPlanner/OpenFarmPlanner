@@ -9,10 +9,13 @@ import {
   getCultivationTypeLabel,
   getPublicCropTitle,
 } from '../../publicCropDisplay';
+import { readWithLegacyKey } from '../../../compat/legacyCropNames';
 
 export type PublicCropTab = 'details' | 'versions' | 'discussion';
 
 export const SELECTED_PUBLIC_CROP_STORAGE_KEY = 'selectedPublicCropId';
+/** Pre-"Crop" spelling, still present for users who last visited before the rename. */
+export const LEGACY_SELECTED_PUBLIC_CROP_STORAGE_KEY = 'selectedPublicCultureId';
 export const PUBLIC_CROP_LIBRARY_VIEW_STATE_STORAGE_KEY = 'publicCropLibraryViewState';
 export const MAX_VISIBLE_REPLY_DEPTH = 3;
 export const PUBLIC_CROP_TAB_BY_INDEX: PublicCropTab[] = ['details', 'versions', 'discussion'];
@@ -54,7 +57,11 @@ export function getPublicCropTabIndex(tabParam: string | null, discussionId: num
 }
 
 export function getStoredPublicCropId(): number | null {
-  return parsePublicCropId(window.localStorage.getItem(SELECTED_PUBLIC_CROP_STORAGE_KEY));
+  return parsePublicCropId(readWithLegacyKey(
+    window.localStorage,
+    SELECTED_PUBLIC_CROP_STORAGE_KEY,
+    LEGACY_SELECTED_PUBLIC_CROP_STORAGE_KEY,
+  ));
 }
 
 export function isPublicCropTab(value: unknown): value is PublicCropTab {

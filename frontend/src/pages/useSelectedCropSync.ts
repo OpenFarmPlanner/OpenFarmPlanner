@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { readCropIdParam } from '../compat/legacyCropNames';
 import {
   SELECTED_CROP_STORAGE_KEY,
+  clearStoredCropId,
   getStoredCropId,
   parseCropId,
 } from './cropsPageUtils';
@@ -31,7 +33,7 @@ export function useSelectedCropSync(): UseSelectedCropSyncResult {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const selectedCropParam = searchParams.get('cropId');
+  const selectedCropParam = readCropIdParam(searchParams);
   const selectedCropIdFromQuery = parseCropId(selectedCropParam);
 
   const selectionSyncSourceRef = useRef<SelectionSyncSource>(null);
@@ -119,7 +121,7 @@ export function useSelectedCropSync(): UseSelectedCropSyncResult {
     const isExternalUrlChange = !isFirstSync && selectionSyncSourceRef.current !== 'internal';
 
     if (selectedCropId === undefined) {
-      localStorage.removeItem(SELECTED_CROP_STORAGE_KEY);
+      clearStoredCropId();
 
       if (selectionSyncSourceRef.current === 'query') {
         selectionSyncSourceRef.current = null;

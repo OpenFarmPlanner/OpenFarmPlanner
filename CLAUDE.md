@@ -27,6 +27,20 @@
   change. If the scope is ambiguous, ask rather than assume.
 - Do not fold unrelated refactors into a feature or fix. If you notice a large
   unrelated cleanup, flag it separately.
+- Exception: fix what the change itself surfaces or breaks, in the same change.
+  This is not "unrelated" work even when the underlying issue predates the
+  change:
+  - A scanner or review-bot finding reported against code the change touched or
+    moved (e.g. a CodeQL alert that appears only because a file was renamed).
+    Fix it and say in the commit that it predates the change; if the fix would
+    be large or needs a design decision, that is when to flag it separately.
+  - Backwards-compatibility shims for anything the change renames or moves that
+    clients outside the repo already depend on: API paths and query parameters,
+    WebSocket routes, persisted enum values, browser-storage keys, and frontend
+    routes reachable from a bookmark. A deploy restarts the backend but does not
+    reload open tabs, and external agent integrations are not ours to update, so
+    the old spelling has to keep working. Mark each shim deprecated and say what
+    has to be gone before it can be removed.
 
 ## Workflow: Before Making a Non-Trivial Change
 

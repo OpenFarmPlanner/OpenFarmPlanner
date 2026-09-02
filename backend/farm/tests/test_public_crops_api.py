@@ -2851,3 +2851,66 @@ class PublicCropPendingSpeciesApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data['public_crop_species_pending'])
+
+
+class UnsupportedPublicCropFieldsErrorTest(DRFAPITestCase):
+    """The unsupported-fields rejection must name only the rejected fields.
+
+    It used to be a bare ``ValueError`` echoed back with ``str(error)``, which
+    meant any unrelated ``ValueError`` raised further down — including one from
+    a library, whose text is not ours to expose — would have been returned to
+    the caller verbatim (CodeQL: information exposure through an exception).
+    """
+
+    def test_rejected_field_names_are_reported(self):
+        from farm.services.public_crops import UnsupportedPublicCropFieldsError
+
+        error = UnsupportedPublicCropFieldsError(['bogus_field', 'other_field'])
+
+        self.assertEqual(error.code, 'unsupported_public_crop_fields')
+        self.assertEqual(error.fields, ['bogus_field', 'other_field'])
+        self.assertEqual(error.detail, 'Unsupported public crop fields: bogus_field, other_field')
+
+    def test_the_service_raises_the_dedicated_error_not_a_bare_value_error(self):
+        from farm.services.public_crops import (
+            UnsupportedPublicCropFieldsError,
+            update_public_crop_directly,
+        )
+
+        public_crop = PublicCrop.objects.create(
+            name='Guarded', variety='Alpha', status=PublicCrop.STATUS_PUBLISHED
+        )
+        user = User.objects.create_user(
+            username='editor-guard', email='editor-guard@example.com', password='pw', is_active=True
+        )
+
+        with self.assertRaises(UnsupportedPublicCropFieldsError) as caught:
+            update_public_crop_directly(
+                public_crop=public_crop, user=user, data={'not_editable': 'x'}
+            )
+
+        self.assertEqual(caught.exception.fields, ['not_editable'])
+
+    def test_an_unrelated_value_error_is_no_longer_echoed_to_the_caller(self):
+        """The whole point of the narrowing: a foreign ValueError must not leak."""
+        from unittest.mock import patch
+
+        public_crop = PublicCrop.objects.create(
+            name='Leaky', variety='Beta', status=PublicCrop.STATUS_PUBLISHED
+        )
+        user = User.objects.create_user(
+            username='editor-leak', email='editor-leak@example.com', password='pw', is_active=True
+        )
+        self.client.force_authenticate(user=user)
+
+        secret = 'invalid literal for int() with base 10: /srv/internal/secret/path'
+        with patch(
+            'farm.crops.views.public.update_public_crop_directly',
+            side_effect=ValueError(secret),
+        ):
+            with self.assertRaises(ValueError):
+                self.client.patch(
+                    f'/openfarmplanner/api/public-crops/{public_crop.id}/',
+                    {'notes': 'x'},
+                    format='json',
+                )

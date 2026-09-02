@@ -31,6 +31,7 @@ from farm.services.public_crops import (
     PublicCropPermissionError,
     PublicCropRevisionNotFoundError,
     PublicCropStatusTransitionError,
+    UnsupportedPublicCropFieldsError,
     hard_delete_public_crop,
     import_public_crop_into_project,
     reinstate_removed_public_crop,
@@ -228,8 +229,8 @@ class PublicCropViewSet(viewsets.ModelViewSet):
                 'code': error.code,
                 'conflicting_public_crop_id': error.conflicting_public_crop.id,
             }, status=status.HTTP_409_CONFLICT)
-        except ValueError as error:
-            return Response({'detail': str(error), 'code': 'unsupported_public_crop_fields'}, status=status.HTTP_400_BAD_REQUEST)
+        except UnsupportedPublicCropFieldsError as error:
+            return Response({'detail': error.detail, 'code': error.code}, status=status.HTTP_400_BAD_REQUEST)
         return Response(PublicCropSerializer(updated, context=self.get_serializer_context()).data)
 
     def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
