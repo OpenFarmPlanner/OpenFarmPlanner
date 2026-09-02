@@ -44,7 +44,7 @@ apply.
 | `created_at` | Ordering key (newest first). |
 
 Routes are resolved on the frontend, not stored: the backend has no business
-knowing what `/app/crop-library?cultureId=…` means.
+knowing what `/app/crop-library?cropId=…` means.
 
 ## API
 
@@ -70,7 +70,7 @@ All three producers today live in `crops.services`:
   that is not a review outcome, so the call sites stay unconditional. Links to
   the proposer's own published variety under that species when one exists —
   that variety is what the decision actually affects — and falls back to the
-  species itself otherwise (`target_type` `public_culture` / `crop_species`).
+  species itself otherwise (`target_type` `public_crop` / `crop_species`).
 - `notify_moderators_of_species_proposal(species)`, called from
   `CropSpeciesViewSet.create()`. Tells every *public-library moderator*
   (`crops.permissions.public_library_moderator_users()`) that a new proposal

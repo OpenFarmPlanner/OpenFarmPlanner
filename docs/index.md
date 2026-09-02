@@ -40,10 +40,10 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
   Google/Microsoft setup steps.
 - **[External Tool API Tokens](./agent-api.md)** — project-bound API tokens for
   external tools, scripts, and coding agents: the security model, the available
-  permissions, the culture validation and plausibility rules, and the two-step
+  permissions, the crop validation and plausibility rules, and the two-step
   preview/apply import flow.
 - **[Crop Library Architecture](./crop-library-architecture.md)** — the
-  project-owned `Culture` vs. shared `PublicCulture` split, and the `crops`
+  project-owned `Crop` vs. shared `PublicCrop` split, and the `crops`
   Django app that prepares (but doesn't yet expose) a public Crop Library.
 - **[In-App Notifications](./notifications.md)** — the generic
   `Notification` model and topbar bell: why the stored text is English while
@@ -64,7 +64,7 @@ For rules AI agents must follow when changing code, see [`CLAUDE.md`](../CLAUDE.
   required seed amounts and package suggestions are computed, with worked
   examples.
 - **[Versioning and History](./versioning-and-history.md)** — the
-  `EntityRevision` audit trail and how culture/project restore works.
+  `EntityRevision` audit trail and how crop/project restore works.
 - **[Large-Dataset Rendering](./large-dataset-rendering.md)** — pagination,
   bulk-read limits, and scroll-driven windowing for large projects.
 - **[Seasons](./seasons-architecture.md)** — the project-scoped `Season` and
@@ -83,12 +83,12 @@ these as green field.
 
 | Planned feature | Current state in the code |
 |---|---|
-| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Culture.crop_family` (`help_text`: "Crop family for rotation planning"), `Culture.nutrient_demand`, and `Culture.rotation_break_years` (recommended years before growing the same crop family again). All three are plain informational fields today, grouped under a "Fruchtfolge-Eigenschaften"/"Crop Rotation Properties" section on the culture detail page: no rotation model, no history-of-use per field, no validation, no UI beyond that display/edit. |
+| **Fruchtfolge / crop rotation** — rotation planning and rotation rules at Parzelle (`Field`) level | Nothing. The only related data is `Crop.crop_family` (`help_text`: "Crop family for rotation planning"), `Crop.nutrient_demand`, and `Crop.rotation_break_years` (recommended years before growing the same crop family again). All three are plain informational fields today, grouped under a "Fruchtfolge-Eigenschaften"/"Crop Rotation Properties" section on the crop detail page: no rotation model, no history-of-use per field, no validation, no UI beyond that display/edit. |
 
 One consequence worth stating explicitly, because it is easy to mis-assume:
 
 - **`crop_family` being present is not rotation support.** It is a label on a
-  culture; nothing reads it to check or suggest a rotation.
+  crop; nothing reads it to check or suggest a rotation.
 
 Seasons were in this table until they were implemented — see
 [seasons-architecture.md](./seasons-architecture.md) now instead.

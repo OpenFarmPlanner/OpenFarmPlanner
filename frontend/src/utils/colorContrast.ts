@@ -130,10 +130,10 @@ const LIGHTNESS_STEP = 0.05;
 const MIN_GROWTH_LIGHTNESS = 0.22;
 
 /**
- * Darkens a culture's base hex color for the Gantt chart's growth-phase bar
+ * Darkens a crop's base hex color for the Gantt chart's growth-phase bar
  * so it reads as noticeably more saturated/darker than the harvest-phase
  * bar (which keeps the lighter, unmodified tone). The hue/saturation are
- * preserved so the culture stays recognizable; only lightness drops.
+ * preserved so the crop stays recognizable; only lightness drops.
  *
  * Lightness is reduced by a fixed step, but never below MIN_GROWTH_LIGHTNESS
  * and never below the base color's own lightness (so an already-dark base
@@ -168,7 +168,7 @@ export function darkenForGrowthPhase(baseColor: string): string {
 
 /**
  * Returns paired Gantt colors for a planting plan's growth and harvest phases,
- * with the original culture color centered between them. Both colors are
+ * with the original crop color centered between them. Both colors are
  * derived in HSL space so the lightness offset stays consistent instead of
  * depending on alpha blending against the timeline background.
  */

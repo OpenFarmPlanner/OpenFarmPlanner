@@ -17,7 +17,7 @@ from .models import (
     AgentLoginToken,
     Bed,
     BedLayout,
-    Culture,
+    Crop,
     EntityRevision,
     Feedback,
     Field,
@@ -173,12 +173,12 @@ class FieldLayoutAdmin(admin.ModelAdmin):
     search_fields = ['field__name', 'location__name', 'project__name', 'project__slug']
 
 
-@admin.register(Culture)
-class CultureAdmin(admin.ModelAdmin):
-    """Admin interface configuration for Culture model.
+@admin.register(Crop)
+class CropAdmin(admin.ModelAdmin):
+    """Admin interface configuration for Crop model.
     
     Provides a customized admin interface with search and display
-    capabilities for crop cultures.
+    capabilities for crops.
     
     Attributes:
         list_display: Fields to display in the list view
@@ -221,9 +221,9 @@ class EntityRevisionAdmin(admin.ModelAdmin):
 class SeedPackageAdmin(admin.ModelAdmin):
     """Admin interface configuration for SeedPackage model."""
 
-    list_display = ['culture', 'size_value', 'size_unit', 'project', 'updated_at']
+    list_display = ['crop', 'size_value', 'size_unit', 'project', 'updated_at']
     list_filter = ['project', 'size_unit']
-    search_fields = ['culture__name', 'culture__variety', 'project__name', 'project__slug']
+    search_fields = ['crop__name', 'crop__variety', 'project__name', 'project__slug']
 
 
 @admin.register(PlantingPlan)
@@ -241,9 +241,9 @@ class PlantingPlanAdmin(admin.ModelAdmin):
         date_hierarchy: Field to use for date-based navigation
         readonly_fields: Fields that cannot be edited in the admin
     """
-    list_display = ['culture', 'bed', 'project', 'planting_date', 'harvest_date', 'quantity', 'created_at']
-    list_filter = ['project', 'culture', 'bed__field__location']
-    search_fields = ['culture__name', 'bed__name', 'project__name', 'project__slug']
+    list_display = ['crop', 'bed', 'project', 'planting_date', 'harvest_date', 'quantity', 'created_at']
+    list_filter = ['project', 'crop', 'bed__field__location']
+    search_fields = ['crop__name', 'bed__name', 'project__name', 'project__slug']
     date_hierarchy = 'planting_date'
     readonly_fields = ['harvest_date']
 
@@ -273,7 +273,7 @@ class NoteAttachmentAdmin(admin.ModelAdmin):
 
     list_display = ['id', 'planting_plan', 'project', 'created_at']
     list_filter = ['project']
-    search_fields = ['caption', 'planting_plan__culture__name', 'planting_plan__bed__name', 'project__name', 'project__slug']
+    search_fields = ['caption', 'planting_plan__crop__name', 'planting_plan__bed__name', 'project__name', 'project__slug']
 
 
 @admin.register(AgentLoginToken)

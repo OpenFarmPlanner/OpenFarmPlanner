@@ -18,7 +18,7 @@ vi.mock('../api/httpClient', () => ({
 
 import api, {
   bedAPI,
-  cultureAPI,
+  cropAPI,
   fieldAPI,
   locationAPI,
   plantingPlanAPI,
@@ -93,26 +93,26 @@ describe('API Client', () => {
     expect(getMock).toHaveBeenNthCalledWith(2, '/planting-plans/?page=2&page_size=1000');
   });
 
-  it('calls all culture endpoints with expected URLs and payloads', () => {
-    const cultureData = { name: 'Karotte' };
+  it('calls all crop endpoints with expected URLs and payloads', () => {
+    const cropData = { name: 'Karotte' };
     const importPreviewData = [{ name: 'Tomate' }];
     const importApplyData = { items: importPreviewData, confirm_updates: true };
 
-    cultureAPI.list();
-    cultureAPI.get(7);
-    cultureAPI.create(cultureData as never);
-    cultureAPI.update(7, cultureData as never);
-    cultureAPI.delete(7);
-    cultureAPI.importPreview(importPreviewData);
-    cultureAPI.importApply(importApplyData);
+    cropAPI.list();
+    cropAPI.get(7);
+    cropAPI.create(cropData as never);
+    cropAPI.update(7, cropData as never);
+    cropAPI.delete(7);
+    cropAPI.importPreview(importPreviewData);
+    cropAPI.importApply(importApplyData);
 
-    expect(getMock).toHaveBeenCalledWith('/cultures/');
-    expect(getMock).toHaveBeenCalledWith('/cultures/7/');
-    expect(postMock).toHaveBeenCalledWith('/cultures/', cultureData);
-    expect(putMock).toHaveBeenCalledWith('/cultures/7/', cultureData);
-    expect(deleteMock).toHaveBeenCalledWith('/cultures/7/');
-    expect(postMock).toHaveBeenCalledWith('/cultures/import/preview/', importPreviewData);
-    expect(postMock).toHaveBeenCalledWith('/cultures/import/apply/', importApplyData);
+    expect(getMock).toHaveBeenCalledWith('/crops/');
+    expect(getMock).toHaveBeenCalledWith('/crops/7/');
+    expect(postMock).toHaveBeenCalledWith('/crops/', cropData);
+    expect(putMock).toHaveBeenCalledWith('/crops/7/', cropData);
+    expect(deleteMock).toHaveBeenCalledWith('/crops/7/');
+    expect(postMock).toHaveBeenCalledWith('/crops/import/preview/', importPreviewData);
+    expect(postMock).toHaveBeenCalledWith('/crops/import/apply/', importApplyData);
   });
 
   it('calls supplier endpoints and handles optional query params', () => {
@@ -221,12 +221,12 @@ describe('API Client', () => {
 
     expect(getMock).toHaveBeenCalledWith('/seed-demand/', { params: {} });
     expect(getMock).toHaveBeenCalledWith('/seed-demand/', { params: { supplier_selection: '3:11' } });
-    expect(postMock).toHaveBeenCalledWith('/seed-demand/', { culture_id: 3, supplier_id: 11 });
-    expect(postMock).toHaveBeenCalledWith('/seed-demand/', { culture_id: 3, supplier_id: null });
+    expect(postMock).toHaveBeenCalledWith('/seed-demand/', { crop_id: 3, supplier_id: 11 });
+    expect(postMock).toHaveBeenCalledWith('/seed-demand/', { crop_id: 3, supplier_id: null });
   });
 
   it('exports grouped default API object', () => {
-    expect(api.cultures).toBe(cultureAPI);
+    expect(api.crops).toBe(cropAPI);
     expect(api.suppliers).toBe(supplierAPI);
     expect(api.beds).toBe(bedAPI);
     expect(api.plantingPlans).toBe(plantingPlanAPI);

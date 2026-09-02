@@ -18,7 +18,7 @@ describe('shouldDisableNavItem', () => {
 
 describe('MAIN_NAV_ITEMS', () => {
   it('marks every current main navigation destination as project-dependent', () => {
-    // All of fields-beds/cultures/planting-plans/gantt-chart/yield-overview/
+    // All of fields-beds/crops/planting-plans/gantt-chart/yield-overview/
     // seed-demand/suppliers only render real content with an active project
     // (each page falls back to ProjectRequiredState otherwise). If a future
     // route works without a project, flip its `requiresProject` explicitly

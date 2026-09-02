@@ -16,12 +16,12 @@ describe("PlantingPlans mobile create helpers", () => {
 
   it("filters draft rows from mobile card rendering", () => {
     const rows = [
-      { id: 1, isNew: false, culture: 1, bed: 1, planting_date: "2026-04-01" },
-      { id: -1, isNew: true, culture: 0, bed: 0, planting_date: "" },
+      { id: 1, isNew: false, crop: 1, bed: 1, planting_date: "2026-04-01" },
+      { id: -1, isNew: true, crop: 0, bed: 0, planting_date: "" },
     ] as Array<{
       id: number;
       isNew: boolean;
-      culture: number;
+      crop: number;
       bed: number;
       planting_date: string;
     }>;

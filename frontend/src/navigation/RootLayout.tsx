@@ -51,8 +51,8 @@ import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotifications } from '../notifications/useNotifications';
 import { NOTIFICATION_HISTORY_ROUTE } from '../notifications/notificationDisplay';
 import { useNotificationMenuItems } from '../notifications/useNotificationMenuItems';
-import { cultureAPI, projectAPI } from '../api/api';
-import type { CultureHistoryEntry } from '../api/types';
+import { cropAPI, projectAPI } from '../api/api';
+import type { CropHistoryEntry } from '../api/types';
 import { MobileProjectSwitcherDialog } from './MobileProjectSwitcherDialog';
 import { RestoreVersionDialog } from './RestoreVersionDialog';
 import { ProjectHistoryDialog } from './ProjectHistoryDialog';
@@ -68,7 +68,7 @@ import {
   getStandardActionButtonSx,
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
-import { getHistoryEntryTitle } from '../pages/culturesHistoryUtils';
+import { getHistoryEntryTitle } from '../pages/cropsHistoryUtils';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 import { createDemoProjectAndSwitch } from '../projects/demoProjectFlow';
 import { OPEN_CREATE_PROJECT_EVENT } from '../projects/projectCreationFlow';
@@ -150,8 +150,8 @@ function RootLayout() {
   const { t, i18n } = useTranslation('navigation');
   const { t: tNotifications } = useTranslation('notifications');
   useGlobalOverlayKeyboardScroll();
-  const tCultures = useMemo(
-    () => i18n.getFixedT(i18n.resolvedLanguage ?? i18n.language ?? 'de', 'cultures'),
+  const tCrops = useMemo(
+    () => i18n.getFixedT(i18n.resolvedLanguage ?? i18n.language ?? 'de', 'crops'),
     [i18n],
   );
   const tCommon = useMemo(
@@ -240,7 +240,7 @@ function RootLayout() {
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [topbarContextActions, setTopbarContextActions] = useState<TopbarContextAction[]>([]);
   const [topbarTitleActions, setTopbarTitleActions] = useState<TopbarContextAction[]>([]);
-  const [cultureActionsMenuAnchor, setCultureActionsMenuAnchor] = useState<null | HTMLElement>(null);
+  const [cropActionsMenuAnchor, setCropActionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [mobileActionsOverflowAnchor, setMobileActionsOverflowAnchor] = useState<null | HTMLElement>(null);
   const [topbarPrimaryActionMenuAnchor, setTopbarPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [publicLibraryModerationMenuAnchor, setPublicLibraryModerationMenuAnchor] = useState<null | HTMLElement>(null);
@@ -335,8 +335,8 @@ function RootLayout() {
 
   const [projectHistoryOpen, setProjectHistoryOpen] = useState(false);
   const [globalHelpOpen, setGlobalHelpOpen] = useState(false);
-  const [historyItems, setHistoryItems] = useState<CultureHistoryEntry[]>([]);
-  const [pendingRestoreEntry, setPendingRestoreEntry] = useState<CultureHistoryEntry | null>(null);
+  const [historyItems, setHistoryItems] = useState<CropHistoryEntry[]>([]);
+  const [pendingRestoreEntry, setPendingRestoreEntry] = useState<CropHistoryEntry | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -366,7 +366,7 @@ function RootLayout() {
     handleGlobalMenuClose();
     setHistoryLoading(true);
     try {
-      const response = await cultureAPI.projectHistory();
+      const response = await cropAPI.projectHistory();
       setHistoryItems(response.data);
       setProjectHistoryOpen(true);
     } catch (error) {
@@ -379,7 +379,7 @@ function RootLayout() {
 
   const handleRestoreProjectVersion = async (historyId: number) => {
     try {
-      await cultureAPI.projectRestore(historyId);
+      await cropAPI.projectRestore(historyId);
       showSnackbar('Version wiederhergestellt. Die vorherige Version wurde automatisch gespeichert.', 'success');
       setProjectHistoryOpen(false);
       setPendingRestoreEntry(null);
@@ -393,7 +393,7 @@ function RootLayout() {
 
   const handleRevertBatch = async (batchId: number) => {
     try {
-      await cultureAPI.revertBatch(batchId);
+      await cropAPI.revertBatch(batchId);
       showSnackbar('Version wiederhergestellt.', 'success');
       setProjectHistoryOpen(false);
       setPendingRestoreEntry(null);
@@ -551,12 +551,12 @@ function RootLayout() {
     handleGlobalMenuClose();
     navigate(path);
   };
-  const handleCultureActionsMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setCultureActionsMenuAnchor(event.currentTarget);
+  const handleCropActionsMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setCropActionsMenuAnchor(event.currentTarget);
   };
 
-  const handleCultureActionsMenuClose = () => {
-    setCultureActionsMenuAnchor(null);
+  const handleCropActionsMenuClose = () => {
+    setCropActionsMenuAnchor(null);
   };
   const handleMobileActionsOverflowOpen = (event: React.MouseEvent<HTMLElement>) => {
     setMobileActionsOverflowAnchor(event.currentTarget);
@@ -564,20 +564,20 @@ function RootLayout() {
   const handleMobileActionsOverflowClose = () => {
     setMobileActionsOverflowAnchor(null);
   };
-  const isCulturesPage = location.pathname.startsWith('/app/cultures');
+  const isCropsPage = location.pathname.startsWith('/app/crops');
   const isFieldsBedsPage = location.pathname.startsWith('/app/fields-beds');
   const isCalendarPage = location.pathname.startsWith('/app/gantt-chart');
   const isPublicCropLibraryPage = location.pathname.startsWith('/app/crop-library');
-  const cultureLibraryAction = useMemo(
-    () => topbarContextActions.find((action) => action.id === 'cultures-open-library'),
+  const cropLibraryAction = useMemo(
+    () => topbarContextActions.find((action) => action.id === 'crops-open-library'),
     [topbarContextActions],
   );
   const publicLibraryModerationAction = useMemo(
     () => topbarContextActions.find((action) => action.id === 'public-crop-library-moderation'),
     [topbarContextActions],
   );
-  const cultureImportExportActions = useMemo(
-    () => topbarContextActions.filter((action) => action.id !== 'cultures-open-library'),
+  const cropImportExportActions = useMemo(
+    () => topbarContextActions.filter((action) => action.id !== 'crops-open-library'),
     [topbarContextActions],
   );
   // The fields-beds topbar has exactly one non-hidden "add" action at a
@@ -597,7 +597,7 @@ function RootLayout() {
     [topbarTitleActions],
   );
   const genericTopbarContextActions = useMemo(
-    () => (isCulturesPage
+    () => (isCropsPage
       ? []
       : topbarContextActions.filter((action) => (
         action.id !== 'fields-global-add-field'
@@ -609,7 +609,7 @@ function RootLayout() {
         && action.id !== 'public-crop-library-moderation'
         && action.id !== 'public-crop-library-remove'
       ))),
-    [isCulturesPage, topbarContextActions],
+    [isCropsPage, topbarContextActions],
   );
   const topbarModeControls = useMemo(
     () => genericTopbarContextActions.filter((action) => (
@@ -624,7 +624,7 @@ function RootLayout() {
     () => genericTopbarContextActions.filter((action) => !topbarModeControls.some((modeAction) => modeAction.id === action.id)),
     [genericTopbarContextActions, topbarModeControls],
   );
-  const showCultureImportExportButton = isCulturesPage;
+  const showCropImportExportButton = isCropsPage;
   const mobileTopbarViewActions = useMemo(
     () => topbarModeControls.filter((action) => !action.hidden),
     [topbarModeControls],
@@ -652,13 +652,13 @@ function RootLayout() {
     () => (
       !isFieldsBedsPage
       && !isCalendarPage
-      && !isCulturesPage
+      && !isCropsPage
       && !isPublicCropLibraryPage
       && (
         hasVisibleMobileContextActions
       )
     ),
-    [hasVisibleMobileContextActions, isCalendarPage, isCulturesPage, isFieldsBedsPage, isPublicCropLibraryPage],
+    [hasVisibleMobileContextActions, isCalendarPage, isCropsPage, isFieldsBedsPage, isPublicCropLibraryPage],
   );
   const handleCreateProject = async (): Promise<void> => {
     if (!newProjectName.trim()) {
@@ -845,8 +845,8 @@ function RootLayout() {
         ? { pageKey: 'graphical' as const, label: t('pageHelp.areas') }
         : { pageKey: 'areas' as const, label: t('pageHelp.areas') };
     }
-    if (location.pathname.startsWith('/app/cultures')) return { pageKey: 'cultures' as const, label: t('pageHelp.cultures') };
-    if (location.pathname.startsWith('/app/crop-library') || location.pathname.startsWith('/app/crops')) return { pageKey: 'cropLibrary' as const, label: t('pageHelp.cropLibrary') };
+    if (location.pathname.startsWith('/app/crops')) return { pageKey: 'crops' as const, label: t('pageHelp.crops') };
+    if (location.pathname.startsWith('/app/crop-library')) return { pageKey: 'cropLibrary' as const, label: t('pageHelp.cropLibrary') };
     if (location.pathname.startsWith('/app/anbauplaene') || location.pathname.startsWith('/app/planting-plans')) return { pageKey: 'plantingPlans' as const, label: t('pageHelp.plantingPlans') };
     if (location.pathname.startsWith('/app/gantt-chart')) return { pageKey: 'calendar' as const, label: t('pageHelp.calendar') };
     if (location.pathname.startsWith('/app/yield-overview')) return { pageKey: 'yieldOverview' as const, label: t('pageHelp.yieldOverview') };
@@ -1175,52 +1175,52 @@ function RootLayout() {
           {!isCompactTopbar ? (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', flex: 1, position: 'relative', zIndex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minWidth: 0, flex: 1, justifyContent: 'flex-end', pr: 0.5 }}>
-          {isCulturesPage ? (
+          {isCropsPage ? (
             <>
-              {showCultureImportExportButton || isMobile ? (
+              {showCropImportExportButton || isMobile ? (
                 <Button
                   size="small"
                   variant="outlined"
-                  aria-label={t('cultureActions.openImportExport')}
-                  aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu' : undefined}
+                  aria-label={t('cropActions.openImportExport')}
+                  aria-controls={cropActionsMenuAnchor ? 'crop-actions-menu' : undefined}
                   aria-haspopup="true"
-                  aria-expanded={Boolean(cultureActionsMenuAnchor)}
-                  onClick={handleCultureActionsMenuOpen}
+                  aria-expanded={Boolean(cropActionsMenuAnchor)}
+                  onClick={handleCropActionsMenuOpen}
                   startIcon={<ImportExportIcon fontSize="small" />}
                   endIcon={!isPhone ? <KeyboardArrowDownIcon fontSize="small" /> : undefined}
                   sx={{ textTransform: 'none', whiteSpace: 'nowrap', minWidth: isPhone ? 36 : 'auto', px: isPhone ? 0.75 : 1.25, flexShrink: 0 }}
                 >
-                  {isPhone ? null : t('cultureActions.importExport')}
+                  {isPhone ? null : t('cropActions.importExport')}
                 </Button>
               ) : null}
               <Menu
-                id="culture-actions-menu"
-                anchorEl={cultureActionsMenuAnchor}
-                open={Boolean(cultureActionsMenuAnchor)}
-                onClose={handleCultureActionsMenuClose}
+                id="crop-actions-menu"
+                anchorEl={cropActionsMenuAnchor}
+                open={Boolean(cropActionsMenuAnchor)}
+                onClose={handleCropActionsMenuClose}
               >
-                {cultureLibraryAction ? (
+                {cropLibraryAction ? (
                   <MenuItem
-                    aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
+                    aria-label={cropLibraryAction.ariaLabel ?? cropLibraryAction.label}
                     onClick={() => {
-                      cultureLibraryAction.onClick();
-                      handleCultureActionsMenuClose();
+                      cropLibraryAction.onClick();
+                      handleCropActionsMenuClose();
                     }}
-                    disabled={cultureLibraryAction.disabled}
+                    disabled={cropLibraryAction.disabled}
                   >
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
                     </ListItemIcon>
-                    <ListItemText primary={cultureLibraryAction.label} />
+                    <ListItemText primary={cropLibraryAction.label} />
                   </MenuItem>
                 ) : null}
-                {cultureImportExportActions.map((action) => (
+                {cropImportExportActions.map((action) => (
                   <MenuItem
                     key={action.id}
                     aria-label={action.ariaLabel ?? action.label}
                     onClick={() => {
                       action.onClick();
-                      handleCultureActionsMenuClose();
+                      handleCropActionsMenuClose();
                     }}
                     disabled={action.disabled}
                   >
@@ -1541,18 +1541,18 @@ function RootLayout() {
             </Box>
           </Box>
           ) : (
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: isCulturesPage ? 0.25 : TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
-              {isCulturesPage ? (
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: isCropsPage ? 0.25 : TOPBAR_ACTION_GROUP_GAP, flexShrink: 0 }}>
+              {isCropsPage ? (
                 <>
-                  {showCultureImportExportButton ? (
-                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                  {showCropImportExportButton ? (
+                    <AppTooltip title={t('cropActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
                         size="small"
-                        aria-label={t('cultureActions.openImportExport')}
-                        aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu-mobile' : undefined}
+                        aria-label={t('cropActions.openImportExport')}
+                        aria-controls={cropActionsMenuAnchor ? 'crop-actions-menu-mobile' : undefined}
                         aria-haspopup="true"
-                        aria-expanded={Boolean(cultureActionsMenuAnchor)}
-                        onClick={handleCultureActionsMenuOpen}
+                        aria-expanded={Boolean(cropActionsMenuAnchor)}
+                        onClick={handleCropActionsMenuOpen}
                         sx={{
                           width: COMPACT_TOPBAR_TOGGLE_SIZE,
                           height: COMPACT_TOPBAR_TOGGLE_SIZE,
@@ -1567,33 +1567,33 @@ function RootLayout() {
                     </AppTooltip>
                   ) : null}
                   <Menu
-                    id="culture-actions-menu-mobile"
-                    anchorEl={cultureActionsMenuAnchor}
-                    open={Boolean(cultureActionsMenuAnchor)}
-                    onClose={handleCultureActionsMenuClose}
+                    id="crop-actions-menu-mobile"
+                    anchorEl={cropActionsMenuAnchor}
+                    open={Boolean(cropActionsMenuAnchor)}
+                    onClose={handleCropActionsMenuClose}
                   >
-                    {cultureLibraryAction ? (
+                    {cropLibraryAction ? (
                       <MenuItem
-                        aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
+                        aria-label={cropLibraryAction.ariaLabel ?? cropLibraryAction.label}
                         onClick={() => {
-                          cultureLibraryAction.onClick();
-                          handleCultureActionsMenuClose();
+                          cropLibraryAction.onClick();
+                          handleCropActionsMenuClose();
                         }}
-                        disabled={cultureLibraryAction.disabled}
+                        disabled={cropLibraryAction.disabled}
                       >
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
                         </ListItemIcon>
-                        <ListItemText primary={cultureLibraryAction.label} />
+                        <ListItemText primary={cropLibraryAction.label} />
                       </MenuItem>
                     ) : null}
-                    {cultureImportExportActions.map((action) => (
+                    {cropImportExportActions.map((action) => (
                       <MenuItem
                         key={`mobile-primary-${action.id}`}
                         aria-label={action.ariaLabel ?? action.label}
                         onClick={() => {
                           action.onClick();
-                          handleCultureActionsMenuClose();
+                          handleCropActionsMenuClose();
                         }}
                         disabled={action.disabled}
                       >
@@ -1865,16 +1865,16 @@ function RootLayout() {
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: TOPBAR_ACTION_GROUP_GAP, minHeight: COMPACT_TOPBAR_TOGGLE_SIZE, flexWrap: 'wrap', whiteSpace: 'normal', width: '100%' }}>
-              {isCulturesPage ? (
+              {isCropsPage ? (
                 <>
-                  {showCultureImportExportButton || isMobile ? (
-                    <AppTooltip title={t('cultureActions.openImportExport')} enterTouchDelay={0}>
+                  {showCropImportExportButton || isMobile ? (
+                    <AppTooltip title={t('cropActions.openImportExport')} enterTouchDelay={0}>
                       <IconButton
-                        aria-label={t('cultureActions.openImportExport')}
-                        aria-controls={cultureActionsMenuAnchor ? 'culture-actions-menu-mobile' : undefined}
+                        aria-label={t('cropActions.openImportExport')}
+                        aria-controls={cropActionsMenuAnchor ? 'crop-actions-menu-mobile' : undefined}
                         aria-haspopup="true"
-                        aria-expanded={Boolean(cultureActionsMenuAnchor)}
-                        onClick={handleCultureActionsMenuOpen}
+                        aria-expanded={Boolean(cropActionsMenuAnchor)}
+                        onClick={handleCropActionsMenuOpen}
                         sx={{ color: 'text.primary', width: COMPACT_TOPBAR_TOGGLE_SIZE, height: COMPACT_TOPBAR_TOGGLE_SIZE }}
                       >
                         <ImportExportIcon />
@@ -1882,33 +1882,33 @@ function RootLayout() {
                     </AppTooltip>
                   ) : null}
                   <Menu
-                    id="culture-actions-menu-mobile"
-                    anchorEl={cultureActionsMenuAnchor}
-                    open={Boolean(cultureActionsMenuAnchor)}
-                    onClose={handleCultureActionsMenuClose}
+                    id="crop-actions-menu-mobile"
+                    anchorEl={cropActionsMenuAnchor}
+                    open={Boolean(cropActionsMenuAnchor)}
+                    onClose={handleCropActionsMenuClose}
                   >
-                    {cultureLibraryAction ? (
+                    {cropLibraryAction ? (
                       <MenuItem
-                        aria-label={cultureLibraryAction.ariaLabel ?? cultureLibraryAction.label}
+                        aria-label={cropLibraryAction.ariaLabel ?? cropLibraryAction.label}
                         onClick={() => {
-                          cultureLibraryAction.onClick();
-                          handleCultureActionsMenuClose();
+                          cropLibraryAction.onClick();
+                          handleCropActionsMenuClose();
                         }}
-                        disabled={cultureLibraryAction.disabled}
+                        disabled={cropLibraryAction.disabled}
                       >
                         <ListItemIcon sx={{ minWidth: 32 }}>
                           <NavEmojiIcon emoji={CROP_LIBRARY_EMOJI} sx={{ fontSize: 18, width: 18, height: 18 }} />
                         </ListItemIcon>
-                        <ListItemText primary={cultureLibraryAction.label} />
+                        <ListItemText primary={cropLibraryAction.label} />
                       </MenuItem>
                     ) : null}
-                    {cultureImportExportActions.map((action) => (
+                    {cropImportExportActions.map((action) => (
                       <MenuItem
                         key={`mobile-${action.id}`}
                         aria-label={action.ariaLabel ?? action.label}
                         onClick={() => {
                           action.onClick();
-                          handleCultureActionsMenuClose();
+                          handleCropActionsMenuClose();
                         }}
                         disabled={action.disabled}
                       >
@@ -2126,7 +2126,7 @@ function RootLayout() {
         onRestore={(entry) => setPendingRestoreEntry(entry)}
         onRevertBatch={(entry) => setPendingRestoreEntry(entry)}
         t={t}
-        tCultures={tCultures}
+        tCrops={tCrops}
       />
 
       {seasonSetupStatus?.needs_setup && !seasonSetupDismissed && !isProjectIndependentRoute(location.pathname) ? (
@@ -2165,9 +2165,9 @@ function RootLayout() {
       />
       <RestoreVersionDialog
         entry={pendingRestoreEntry}
-        getEntryTitle={(entry) => getHistoryEntryTitle(entry, tCultures)}
+        getEntryTitle={(entry) => getHistoryEntryTitle(entry, tCrops)}
         formatTimestamp={formatHistoryTimestamp}
-        tCultures={tCultures}
+        tCrops={tCrops}
         onClose={() => setPendingRestoreEntry(null)}
         onConfirm={(historyId) => void handleRestoreProjectVersion(historyId)}
         onConfirmRevertBatch={(batchId) => void handleRevertBatch(batchId)}

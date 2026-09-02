@@ -64,7 +64,7 @@ interface PendingSupplierDeletion {
 
 /**
  * Fallback restore payload for a supplier that was deleted without any
- * remaining culture references — the delete endpoint returns the authoritative
+ * remaining crop references — the delete endpoint returns the authoritative
  * payload, this only covers a response without one.
  */
 function buildSupplierRestorePayload(supplier: Supplier): SupplierDeleteUndoPayload | undefined {
@@ -79,8 +79,8 @@ function buildSupplierRestorePayload(supplier: Supplier): SupplierDeleteUndoPayl
       slug: supplier.slug ?? '',
       allowed_domains: supplier.allowed_domains ?? [],
     },
-    culture_ids: [],
-    seed_demand_culture_ids: [],
+    crop_ids: [],
+    seed_demand_crop_ids: [],
     supplier_data: [],
   };
 }
@@ -322,13 +322,13 @@ export default function Suppliers() {
     }
   }, [loadSuppliers, pendingSupplierDeletions, restorePendingSupplierDeletion, showDeleteError, suppliers, t]);
 
-  const openAffectedCultures = useCallback((): void => {
+  const openAffectedCrops = useCallback((): void => {
     if (!deleteUsageDialog) {
       return;
     }
     const supplierId = deleteUsageDialog.supplier.id;
     setDeleteUsageDialog(null);
-    navigate(typeof supplierId === 'number' ? `/app/cultures?supplierId=${supplierId}` : '/app/cultures');
+    navigate(typeof supplierId === 'number' ? `/app/crops?supplierId=${supplierId}` : '/app/crops');
   }, [deleteUsageDialog, navigate]);
 
   const unlinkAndDeleteSupplier = useCallback(async (): Promise<void> => {
@@ -348,8 +348,8 @@ export default function Suppliers() {
         supplier,
         suppliersBeforeDelete: suppliers,
         visible: true,
-        message: t('messages.deletedWithUnlinkedCultures', {
-          count: response.data.affected_culture_count,
+        message: t('messages.deletedWithUnlinkedCrops', {
+          count: response.data.affected_crop_count,
         }),
         undoPayload: response.data.undo_payload,
       };
@@ -683,7 +683,7 @@ export default function Suppliers() {
         dialog={deleteUsageDialog}
         unlinkDeletingSupplierId={unlinkDeletingSupplierId}
         onClose={() => setDeleteUsageDialog(null)}
-        onOpenAffectedCultures={openAffectedCultures}
+        onOpenAffectedCrops={openAffectedCrops}
         onUnlinkAndDelete={() => void unlinkAndDeleteSupplier()}
       />
 

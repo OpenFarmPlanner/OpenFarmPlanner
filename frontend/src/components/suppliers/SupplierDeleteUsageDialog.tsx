@@ -23,13 +23,13 @@ interface SupplierDeleteUsageDialogProps {
   /** The supplier id currently being unlink-deleted (disables the button). */
   unlinkDeletingSupplierId: number | null;
   onClose: () => void;
-  onOpenAffectedCultures: () => void;
+  onOpenAffectedCrops: () => void;
   onUnlinkAndDelete: () => void;
 }
 
 /**
  * Presentational dialog shown before deleting a supplier that is still
- * referenced by cultures: lists the usages and offers unlink-and-delete.
+ * referenced by crops: lists the usages and offers unlink-and-delete.
  * State and the delete/navigation handlers live in Suppliers.tsx; this
  * component only renders.
  */
@@ -37,7 +37,7 @@ export function SupplierDeleteUsageDialog({
   dialog,
   unlinkDeletingSupplierId,
   onClose,
-  onOpenAffectedCultures,
+  onOpenAffectedCrops,
   onUnlinkAndDelete,
 }: SupplierDeleteUsageDialogProps) {
   const { t } = useTranslation(['suppliers', 'common']);
@@ -53,7 +53,7 @@ export function SupplierDeleteUsageDialog({
       <DialogContent sx={{ pt: 1 }}>
         <Typography color="text.secondary" sx={{ mb: 2 }}>
           {dialog
-            ? t('deleteUsageDialog.summary', { count: dialog.usage.total_culture_count })
+            ? t('deleteUsageDialog.summary', { count: dialog.usage.total_crop_count })
             : ''}
         </Typography>
         {dialog ? (
@@ -70,22 +70,22 @@ export function SupplierDeleteUsageDialog({
               {dialog.supplier.name}
             </Typography>
             <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary' }}>
-              {dialog.usage.culture_count > 0 ? (
+              {dialog.usage.crop_count > 0 ? (
                 <Typography component="li" variant="body2">
-                  {t('deleteUsageDialog.cultureUsage', { count: dialog.usage.culture_count })}
+                  {t('deleteUsageDialog.cropUsage', { count: dialog.usage.crop_count })}
                 </Typography>
               ) : null}
-              {dialog.usage.supplier_data_culture_count > 0 ? (
+              {dialog.usage.supplier_data_crop_count > 0 ? (
                 <Typography component="li" variant="body2">
                   {t('deleteUsageDialog.supplierDataUsage', {
-                    cultureCount: dialog.usage.supplier_data_culture_count,
+                    cropCount: dialog.usage.supplier_data_crop_count,
                     rowCount: dialog.usage.supplier_data_count,
                   })}
                 </Typography>
               ) : null}
-              {dialog.usage.seed_demand_culture_count > 0 ? (
+              {dialog.usage.seed_demand_crop_count > 0 ? (
                 <Typography component="li" variant="body2">
-                  {t('deleteUsageDialog.seedDemandUsage', { count: dialog.usage.seed_demand_culture_count })}
+                  {t('deleteUsageDialog.seedDemandUsage', { count: dialog.usage.seed_demand_crop_count })}
                 </Typography>
               ) : null}
             </Box>
@@ -93,13 +93,13 @@ export function SupplierDeleteUsageDialog({
               {t('deleteUsageDialog.unlinkExplanation')}
             </Typography>
             <Button
-              onClick={onOpenAffectedCultures}
+              onClick={onOpenAffectedCrops}
               variant="text"
               size="small"
               endIcon={<ArrowForwardIcon />}
               sx={{ mt: 1, px: 0 }}
             >
-              {t('deleteUsageDialog.openAffectedCultures')}
+              {t('deleteUsageDialog.openAffectedCrops')}
             </Button>
           </Box>
         ) : null}

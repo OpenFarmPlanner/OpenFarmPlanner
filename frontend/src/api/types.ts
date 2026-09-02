@@ -1,6 +1,6 @@
 export interface SeedPackage {
   id?: number;
-  culture?: number;
+  crop?: number;
   size_value: number;
   size_unit: 'g' | 'seeds';
   evidence_text?: string;
@@ -20,12 +20,12 @@ export interface Supplier {
 
 export interface SupplierDeleteUsage {
   can_delete: boolean;
-  culture_count: number;
-  seed_demand_culture_count: number;
-  supplier_data_culture_count: number;
+  crop_count: number;
+  seed_demand_crop_count: number;
+  supplier_data_crop_count: number;
   supplier_data_count: number;
-  total_culture_count: number;
-  culture_ids: number[];
+  total_crop_count: number;
+  crop_ids: number[];
 }
 
 export interface SupplierDeleteUndoPayload {
@@ -36,11 +36,11 @@ export interface SupplierDeleteUndoPayload {
     slug: string;
     allowed_domains: string[];
   };
-  culture_ids: number[];
-  seed_demand_culture_ids: number[];
+  crop_ids: number[];
+  seed_demand_crop_ids: number[];
   supplier_data: Array<{
     id: number;
-    culture_id: number;
+    crop_id: number;
     supplier_name: string;
     supplier_url: string;
     supplier_product_name: string;
@@ -55,7 +55,7 @@ export interface SupplierDeleteUndoPayload {
 }
 
 export interface SupplierUnlinkDeleteResponse {
-  affected_culture_count: number;
+  affected_crop_count: number;
   undo_payload: SupplierDeleteUndoPayload;
 }
 
@@ -65,7 +65,7 @@ export interface SupplierDeleteResponse {
 
 export interface SupplierRestoreUnlinkedDeleteResponse {
   supplier: Supplier;
-  restored_culture_count: number;
+  restored_crop_count: number;
   restored_supplier_data_count: number;
 }
 
@@ -99,14 +99,14 @@ export interface SeedRequirementEntry {
 
 export type SeedRequirements = Partial<Record<CultivationType, SeedRequirementEntry>>;
 
-export interface Culture {
-  /** Explicitly seed empty general-culture fields when creating this variety. */
-  copy_values_to_culture?: boolean;
-  source_public_culture?: number | null;
+export interface Crop {
+  /** Explicitly seed empty general-crop fields when creating this variety. */
+  copy_values_to_crop?: boolean;
+  source_public_crop?: number | null;
   source_public_version?: number | null;
   origin_type?: 'manual' | 'imported';
-  owned_public_culture_id?: number | null;
-  owned_public_culture_role?: PublicCultureOwnershipRole | null;
+  owned_public_crop_id?: number | null;
+  owned_public_crop_role?: PublicCropOwnershipRole | null;
   is_modified_from_source?: boolean;
   /** True when the linked library entry has a newer version the user has not decided on yet. */
   public_update_available?: boolean;
@@ -114,7 +114,7 @@ export interface Culture {
   public_update_rejected?: boolean;
   /** Why pushing this copy into the public library is blocked, or null when it is allowed. */
   public_publish_blocked_reason?: PublicPublishBlockedReason | null;
-  /** True while this culture's own library entry sits under a crop species no moderator reviewed yet. */
+  /** True while this crop's own library entry sits under a crop species no moderator reviewed yet. */
   public_crop_species_pending?: boolean;
   crop_species?: number | null;
   thousand_kernel_weight_g?: number;
@@ -135,9 +135,9 @@ export interface Culture {
   id?: number;
   name: string;
   /** Species name in the request language, after the fallback chain. */
-  culture_display_name?: string | null;
-  /** Language `culture_display_name` actually came from; '' when no translation exists. */
-  culture_display_language_code?: string | null;
+  crop_display_name?: string | null;
+  /** Language `crop_display_name` actually came from; '' when no translation exists. */
+  crop_display_language_code?: string | null;
   /** Every stored linked species name, keyed by language code. */
   crop_species_translations?: Record<string, string>;
   variety?: string;
@@ -145,8 +145,8 @@ export interface Culture {
   supplier?: Supplier | null;
   selected_seed_demand_supplier?: number | null;
   supplier_product_url?: string | null;
-  supplier_data?: CultureSupplierData[];
-  supplier_data_input?: CultureSupplierDataInput[];
+  supplier_data?: CropSupplierData[];
+  supplier_data_input?: CropSupplierDataInput[];
   image_file?: MediaFileRef | null;
   image_file_id?: number | null;
   notes?: string;
@@ -183,19 +183,19 @@ export interface Culture {
    * `inherited_fields`. All three are absent/empty when there is nothing to
    * inherit from — a general Kultur, or a free-text Sorte without a species.
    */
-  general_culture?: number | null;
-  inherited_fields?: CultureInheritableField[];
-  effective_values?: Partial<Culture>;
+  general_crop?: number | null;
+  inherited_fields?: CropInheritableField[];
+  effective_values?: Partial<Crop>;
 
   created_at?: string;
   updated_at?: string;
 }
 
 /**
- * Culture fields a Sorte inherits from its general Kultur. Mirrors
- * `CULTURE_INHERITABLE_FIELDS` in backend/farm/services/culture_inheritance.py.
+ * Crop fields a Sorte inherits from its general Kultur. Mirrors
+ * `CROP_INHERITABLE_FIELDS` in backend/farm/services/crop_inheritance.py.
  */
-export type CultureInheritableField =
+export type CropInheritableField =
   | 'crop_family'
   | 'nutrient_demand'
   | 'rotation_break_years'
@@ -220,9 +220,9 @@ export type CultureInheritableField =
   | 'seed_rate_pre_cultivation_value'
   | 'seed_rate_pre_cultivation_unit';
 
-export interface CultureSupplierData {
+export interface CropSupplierData {
   id?: number;
-  culture?: number;
+  crop?: number;
   project?: number;
   supplier?: Supplier | null;
   supplier_id?: number | null;
@@ -238,7 +238,7 @@ export interface CultureSupplierData {
   source_url?: string;
 }
 
-export interface CultureSupplierDataInput {
+export interface CropSupplierDataInput {
   id?: number;
   supplier_id?: number | null;
   supplier_name_input?: string;
@@ -256,10 +256,10 @@ export interface CultureSupplierDataInput {
 
 
 
-export interface PublicCulture {
+export interface PublicCrop {
   id: number;
   status: 'draft' | 'published' | 'withdrawn' | 'removed';
-  removal_reason?: PublicCultureRemovalReason | '';
+  removal_reason?: PublicCropRemovalReason | '';
   name: string;
   variety?: string;
   notes?: string;
@@ -318,57 +318,57 @@ export interface PublicCulture {
   created_at?: string;
   updated_at?: string;
   created_by_label?: string;
-  source_project_culture?: number | null;
+  source_project_crop?: number | null;
   source_project?: number | null;
   /** Set when the active project already imported this entry; null otherwise. */
-  project_import_status?: PublicCultureProjectImportStatus | null;
-  /** Number of project cultures (across all projects) currently linked to this entry. */
-  imported_cultures_count?: number;
+  project_import_status?: PublicCropProjectImportStatus | null;
+  /** Number of project crops (across all projects) currently linked to this entry. */
+  imported_crops_count?: number;
 }
 
-export interface PublicCultureUpdateFieldChange {
+export interface PublicCropUpdateFieldChange {
   field: string;
   local_value: unknown;
   public_value: unknown;
 }
 
 /**
- * Preview of the pending library update for one imported project culture.
+ * Preview of the pending library update for one imported project crop.
  * `available: false` means the copy is already on the library's current
  * version (or is not linked to a published entry at all).
  */
-export interface CulturePublicUpdate {
+export interface CropPublicUpdate {
   available: boolean;
-  public_culture_id?: number;
-  public_culture_name?: string;
+  public_crop_id?: number;
+  public_crop_name?: string;
   public_version?: number;
   local_version?: number | null;
   has_local_changes?: boolean;
   /** True when this exact public version was already declined by the user. */
   is_rejected?: boolean;
-  changes?: PublicCultureUpdateFieldChange[];
+  changes?: PublicCropUpdateFieldChange[];
 }
 
-export interface PublicCultureProjectImportStatus {
-  culture_id: number;
-  culture_name: string;
+export interface PublicCropProjectImportStatus {
+  crop_id: number;
+  crop_name: string;
   is_modified_from_source: boolean;
 }
 
-export interface PublicCultureTranslations {
+export interface PublicCropTranslations {
   original_language_code: string;
   translations: Record<string, string>;
   crop_species_translations?: Record<string, string>;
 }
 
-export type PublicCultureChangeProposalStatus = 'pending' | 'approved' | 'rejected';
+export type PublicCropChangeProposalStatus = 'pending' | 'approved' | 'rejected';
 
-export interface PublicCultureChangeProposal {
+export interface PublicCropChangeProposal {
   id: number;
-  public_culture: number;
+  public_crop: number;
   summary: string;
-  proposed_data: Partial<PublicCulture>;
-  status: PublicCultureChangeProposalStatus;
+  proposed_data: Partial<PublicCrop>;
+  status: PublicCropChangeProposalStatus;
   proposed_by_label?: string;
   reviewed_by_label?: string;
   review_note?: string;
@@ -377,25 +377,25 @@ export interface PublicCultureChangeProposal {
   updated_at?: string;
 }
 
-export interface PublicCultureRevisionChange {
+export interface PublicCropRevisionChange {
   field: string;
   old_value: unknown;
   new_value: unknown;
 }
 
-export interface PublicCultureRevision {
+export interface PublicCropRevision {
   id: number;
-  public_culture: number;
+  public_crop: number;
   version: number;
   action: 'created' | 'updated' | 'restored';
-  snapshot: Partial<PublicCulture>;
-  changed_fields: PublicCultureRevisionChange[];
+  snapshot: Partial<PublicCrop>;
+  changed_fields: PublicCropRevisionChange[];
   restored_from_version?: number | null;
   created_by_label?: string;
   created_at?: string;
 }
 
-export interface PublicCultureDiscussionComment {
+export interface PublicCropDiscussionComment {
   id: number;
   topic: number;
   parent?: number | null;
@@ -411,9 +411,9 @@ export interface PublicCultureDiscussionComment {
   can_delete?: boolean;
 }
 
-export interface PublicCultureDiscussionTopic {
+export interface PublicCropDiscussionTopic {
   id: number;
-  public_culture: number;
+  public_crop: number;
   title: string;
   created_by_label?: string;
   created_at?: string;
@@ -426,19 +426,19 @@ export interface PublicCultureDiscussionTopic {
 
 /**
  * How the current user relates to the public-library entry linked to a project
- * culture. Contributors remove their own entry without a reason, moderators
+ * crop. Contributors remove their own entry without a reason, moderators
  * remove somebody else's entry and must pick a moderation reason.
  */
-export type PublicCultureOwnershipRole = 'contributor' | 'moderator';
+export type PublicCropOwnershipRole = 'contributor' | 'moderator';
 
 /**
- * Why a linked project culture may not be pushed into the public library:
+ * Why a linked project crop may not be pushed into the public library:
  * an undecided library update, a version the user declined, or a copy that is
  * aligned with the library and carries no local edits worth contributing.
  */
 export type PublicPublishBlockedReason = 'update_pending' | 'update_rejected' | 'no_local_changes';
 
-export type PublicCultureRemovalReason =
+export type PublicCropRemovalReason =
   | 'accidental_publication'
   | 'test_data'
   | 'duplicate'
@@ -449,7 +449,7 @@ export type PublicCultureRemovalReason =
   | 'species_rejected'
   | 'other';
 
-export interface PublicCultureDuplicateCandidate {
+export interface PublicCropDuplicateCandidate {
   id: number;
   name: string;
   variety?: string;
@@ -460,53 +460,53 @@ export interface PublicCultureDuplicateCandidate {
 }
 
 export interface GeneralCropNotice {
-  public_culture_id: number;
+  public_crop_id: number;
   updated_at: string;
   is_stale: boolean;
   is_incomplete: boolean;
 }
 
-export interface CultureDuplicateCheckResponse {
+export interface CropDuplicateCheckResponse {
   exists: boolean;
   name_exists?: boolean;
 }
 
-export interface CultureDeletePreview {
-  culture_ids: number[];
+export interface CropDeletePreview {
+  crop_ids: number[];
   varieties: Array<{ id: number; name: string }>;
   variety_count: number;
   planning_data_count: number;
-  deletes_general_culture: boolean;
+  deletes_general_crop: boolean;
   group_without_general: boolean;
 }
 
-export interface PublicCultureMatchResponse {
+export interface PublicCropMatchResponse {
   exists: boolean;
-  culture: Pick<PublicCulture, 'id' | 'name' | 'variety'> | null;
+  crop: Pick<PublicCrop, 'id' | 'name' | 'variety'> | null;
 }
 
-export interface PublishPublicCultureDuplicateError {
-  code: 'duplicate_public_culture';
+export interface PublishPublicCropDuplicateError {
+  code: 'duplicate_public_crop';
   detail: string;
-  duplicates: PublicCultureDuplicateCandidate[];
+  duplicates: PublicCropDuplicateCandidate[];
   normalized_identity?: {
     name: string;
     variety: string;
   };
 }
 
-export type ImportPublicCultureOperation = 'created' | 'unchanged' | 'updated';
+export type ImportPublicCropOperation = 'created' | 'unchanged' | 'updated';
 
-export interface ImportPublicCultureResponse {
-  culture: Culture;
-  operation: ImportPublicCultureOperation;
+export interface ImportPublicCropResponse {
+  crop: Crop;
+  operation: ImportPublicCropOperation;
 }
 
-export interface ImportPublicCultureConfirmationRequiredError {
+export interface ImportPublicCropConfirmationRequiredError {
   code: 'import_requires_confirmation';
   detail: string;
-  existing_culture_id: number;
-  existing_culture_name: string;
+  existing_crop_id: number;
+  existing_crop_name: string;
   /** Whether the library entry's variety name differs from the local copy's current variety. */
   variety_changed?: boolean;
   existing_variety?: string;
@@ -560,27 +560,27 @@ export interface PublicLibraryModeratorRequestMine {
   request: PublicLibraryModeratorRequest | null;
 }
 
-export interface PublishPublicCulturePreview {
+export interface PublishPublicCropPreview {
   crop_species: Pick<CropSpecies, 'id' | 'name'> | null;
   original_language_code: string;
   available_language_codes: string[];
   missing_required_fields: Array<{ field: string; label_key: string }>;
-  duplicates: PublicCultureDuplicateCandidate[];
+  duplicates: PublicCropDuplicateCandidate[];
   can_publish: boolean;
   general_crop_notice: GeneralCropNotice | null;
 }
 
-export interface PublishPublicCultureResponse {
+export interface PublishPublicCropResponse {
   operation: 'created' | 'updated';
-  public_culture: PublicCulture;
-  duplicates: PublicCultureDuplicateCandidate[];
+  public_crop: PublicCrop;
+  duplicates: PublicCropDuplicateCandidate[];
 }
 
 export interface SeedDemand {
-  culture_id: number;
-  culture_name: string;
-  culture_display_name?: string | null;
-  culture_display_language_code?: string | null;
+  crop_id: number;
+  crop_name: string;
+  crop_display_name?: string | null;
+  crop_display_language_code?: string | null;
   variety?: string | null;
   supplier?: string | null;
   selected_supplier_id?: number | null;
@@ -693,17 +693,17 @@ export interface LocationLayoutsResponse {
 export interface PlantingPlan {
   id?: number;
   // Optional until the plan is fully filled in — a plan can be saved as a
-  // draft as long as at least one of culture/bed is chosen.
-  culture: number | null;
+  // draft as long as at least one of crop/bed is chosen.
+  crop: number | null;
   cultivation_type?: CultivationType | '';
-  culture_name?: string | null;
-  culture_display_name?: string | null;
-  culture_display_language_code?: string | null;
-  culture_variety?: string | null;
-  culture_display_color?: string | null;
-  culture_propagation_duration_days?: number | null;
-  culture_cultivation_type?: CultivationType | '' | null;
-  culture_cultivation_types?: CultivationType[] | null;
+  crop_name?: string | null;
+  crop_display_name?: string | null;
+  crop_display_language_code?: string | null;
+  crop_variety?: string | null;
+  crop_display_color?: string | null;
+  crop_propagation_duration_days?: number | null;
+  crop_cultivation_type?: CultivationType | '' | null;
+  crop_cultivation_types?: CultivationType[] | null;
   bed: number | null;
   bed_name?: string | null;
   season?: number | null;
@@ -801,7 +801,7 @@ export interface SeasonCreationOptions {
 export interface SeasonPeriodEditPlantingConflict {
   id: number | string;
   label: string;
-  culture: string;
+  crop: string;
   planting_date: string;
 }
 
@@ -864,11 +864,11 @@ export interface RemainingAreaResponse {
   end_date: string;
 }
 
-export interface YieldCalendarCulture {
-  culture_id: number;
-  culture_name: string;
-  culture_display_name?: string | null;
-  culture_display_language_code?: string | null;
+export interface YieldCalendarCrop {
+  crop_id: number;
+  crop_name: string;
+  crop_display_name?: string | null;
+  crop_display_language_code?: string | null;
   color: string;
   yield: number;
 }
@@ -877,7 +877,7 @@ export interface YieldCalendarWeek {
   iso_week: string;
   week_start: string;
   week_end: string;
-  cultures: YieldCalendarCulture[];
+  crops: YieldCalendarCrop[];
 }
 
 export interface PaginatedResponse<T> {
@@ -908,9 +908,9 @@ export interface MediaFileRef {
   uploaded_at?: string;
 }
 
-export interface CultureHistoryEntry {
+export interface CropHistoryEntry {
   history_id: number;
-  culture_id?: number;
+  crop_id?: number;
   history_date: string;
   history_type: string;
   history_user: string | null;
@@ -920,16 +920,16 @@ export interface CultureHistoryEntry {
   action?: string;
   actor_label?: string | null;
   is_current_version?: boolean;
-  changes?: CultureHistoryChange[];
+  changes?: CropHistoryChange[];
   /** Project history only: this entry groups a cascading action's revisions. */
   is_batch?: boolean;
   batch_id?: number;
   batch_operation_type?: string;
   batch_context?: Record<string, unknown>;
-  children?: CultureHistoryEntry[];
+  children?: CropHistoryEntry[];
 }
 
-export interface CultureHistoryChange {
+export interface CropHistoryChange {
   field: string;
   old_value: unknown;
   new_value: unknown;
@@ -939,7 +939,7 @@ export interface CultureHistoryChange {
  * Scope of a project-bound API token.
  *
  * `read` permits safe requests only; `write` additionally permits creating and
- * updating project data; `delete` also permits culture soft-delete and restore.
+ * updating project data; `delete` also permits crop soft-delete and restore.
  * No scope can reach administrative endpoints — see docs/agent-api.md.
  */
 export type ApiTokenScope = 'read' | 'write' | 'delete';
@@ -989,9 +989,9 @@ export type NotificationType =
   | 'crop_species_proposal_rejected'
   | 'crop_species_proposal_submitted'
   | 'moderator_request_submitted'
-  | 'public_culture_removed';
+  | 'public_crop_removed';
 
-export type NotificationTargetType = 'public_culture' | 'crop_species' | 'public_library_moderation' | '';
+export type NotificationTargetType = 'public_crop' | 'crop_species' | 'public_library_moderation' | '';
 
 export interface AppNotification {
   id: number;

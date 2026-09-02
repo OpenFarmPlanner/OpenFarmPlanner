@@ -12,7 +12,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 
 from crops.models import CropSpecies, CropSpeciesTranslation
 from crops.services import find_exact_crop_match, find_species_by_common_name, list_published_crops
-from farm.models import PublicCulture, PublicCultureTranslation
+from farm.models import PublicCrop, PublicCropTranslation
 
 User = get_user_model()
 
@@ -268,10 +268,10 @@ class CropSearchTest(DRFAPITestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.species = create_tomato_species()
-        self.crop = PublicCulture.objects.create(
+        self.crop = PublicCrop.objects.create(
             name='Tomate',
             variety='Moneymaker',
-            status=PublicCulture.STATUS_PUBLISHED,
+            status=PublicCrop.STATUS_PUBLISHED,
             crop_species=self.species,
             original_language_code='de',
             version=1,
@@ -297,29 +297,29 @@ class CropSearchTest(DRFAPITestCase):
 
         self.assertEqual(len([item for item in results if item.id == self.crop.id]), 1)
 
-    def test_public_culture_endpoint_searches_across_languages_too(self):
-        response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': 'Tomato'})
+    def test_public_crop_endpoint_searches_across_languages_too(self):
+        response = self.client.get('/openfarmplanner/api/public-crops/', {'q': 'Tomato'})
         results = response.data['results'] if isinstance(response.data, dict) else response.data
 
         self.assertIn(self.crop.id, [item['id'] for item in results])
 
-    def test_public_culture_endpoint_uses_fuzzy_species_terms(self):
+    def test_public_crop_endpoint_uses_fuzzy_species_terms(self):
         for query in ('Tomaten', 'Paradeiser'):
             with self.subTest(query=query):
-                response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': query})
+                response = self.client.get('/openfarmplanner/api/public-crops/', {'q': query})
                 results = (
                     response.data['results'] if isinstance(response.data, dict) else response.data
                 )
 
                 self.assertIn(self.crop.id, [item['id'] for item in results])
 
-    def test_public_culture_endpoint_searches_regional_names(self):
+    def test_public_crop_endpoint_searches_regional_names(self):
         translation = self.species.translations.get(language_code='de')
         translation.regional_names = {'austria': 'Paradeiser'}
         translation.synonyms = ['Paradeis']
         translation.save()
 
-        response = self.client.get('/openfarmplanner/api/public-cultures/', {'q': 'Paradeiser'})
+        response = self.client.get('/openfarmplanner/api/public-crops/', {'q': 'Paradeiser'})
         results = response.data['results'] if isinstance(response.data, dict) else response.data
         payload = next(item for item in results if item['id'] == self.crop.id)
 
@@ -346,7 +346,7 @@ class CropSearchTest(DRFAPITestCase):
         """
         def search_query_count() -> int:
             with CaptureQueriesContext(connection) as captured:
-                response = self.client.get('/openfarmplanner/api/crops/', {'q': 'Tomato'})
+                response = self.client.get('/openfarmplanner/api/crop-library/', {'q': 'Tomato'})
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
             return len(captured)
 
@@ -356,10 +356,10 @@ class CropSearchTest(DRFAPITestCase):
         baseline = search_query_count()
 
         for index in range(14):
-            PublicCulture.objects.create(
+            PublicCrop.objects.create(
                 name='Tomate',
                 variety=f'Sorte {index}',
-                status=PublicCulture.STATUS_PUBLISHED,
+                status=PublicCrop.STATUS_PUBLISHED,
                 crop_species=self.species,
                 original_language_code='de',
                 version=1,
@@ -377,22 +377,22 @@ class CropApiLocalizationTest(DRFAPITestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.species = create_tomato_species()
-        self.crop = PublicCulture.objects.create(
+        self.crop = PublicCrop.objects.create(
             name='Tomate',
             variety='Moneymaker',
             notes='Robuste Freilandsorte.',
-            status=PublicCulture.STATUS_PUBLISHED,
+            status=PublicCrop.STATUS_PUBLISHED,
             crop_species=self.species,
             original_language_code='de',
             version=1,
             created_by=self.user,
         )
-        PublicCultureTranslation.objects.create(
-            public_culture=self.crop, language_code='de', description='Robuste Freilandsorte.',
+        PublicCropTranslation.objects.create(
+            public_crop=self.crop, language_code='de', description='Robuste Freilandsorte.',
         )
 
     def _get_crop(self, **params):
-        response = self.client.get(f'/openfarmplanner/api/public-cultures/{self.crop.id}/', params)
+        response = self.client.get(f'/openfarmplanner/api/public-crops/{self.crop.id}/', params)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         return response.data
 
@@ -419,7 +419,7 @@ class CropApiLocalizationTest(DRFAPITestCase):
 
     def test_endpoints_agree_on_the_resolved_language(self):
         detail = self._get_crop(language='en')
-        response = self.client.get('/openfarmplanner/api/crops/', {'language': 'en'})
+        response = self.client.get('/openfarmplanner/api/crop-library/', {'language': 'en'})
         results = response.data['results'] if isinstance(response.data, dict) else response.data
         listed = next(item for item in results if item['id'] == self.crop.id)
 
@@ -427,12 +427,12 @@ class CropApiLocalizationTest(DRFAPITestCase):
         self.assertEqual(detail['description'], listed['description'])
 
     def test_translations_endpoint_returns_every_language(self):
-        PublicCultureTranslation.objects.create(
-            public_culture=self.crop, language_code='en', description='Robust outdoor variety.',
+        PublicCropTranslation.objects.create(
+            public_crop=self.crop, language_code='en', description='Robust outdoor variety.',
         )
 
         response = self.client.get(
-            f'/openfarmplanner/api/public-cultures/{self.crop.id}/translations/',
+            f'/openfarmplanner/api/public-crops/{self.crop.id}/translations/',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -443,7 +443,7 @@ class CropApiLocalizationTest(DRFAPITestCase):
 
     def test_translations_endpoint_upserts_a_language_without_touching_the_others(self):
         response = self.client.put(
-            f'/openfarmplanner/api/public-cultures/{self.crop.id}/translations/',
+            f'/openfarmplanner/api/public-crops/{self.crop.id}/translations/',
             {'translations': {'en': 'Robust outdoor variety.'}},
             format='json',
         )
@@ -456,7 +456,7 @@ class CropApiLocalizationTest(DRFAPITestCase):
 
     def test_translations_endpoint_rejects_an_unsupported_language(self):
         response = self.client.put(
-            f'/openfarmplanner/api/public-cultures/{self.crop.id}/translations/',
+            f'/openfarmplanner/api/public-crops/{self.crop.id}/translations/',
             {'translations': {'fr': 'Variété robuste.'}},
             format='json',
         )
@@ -464,25 +464,25 @@ class CropApiLocalizationTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_at_least_one_language_version_must_remain(self):
-        from farm.services.public_cultures import (
-            PublicCultureStatusTransitionError,
-            replace_public_culture_translations,
+        from farm.services.public_crops import (
+            PublicCropStatusTransitionError,
+            replace_public_crop_translations,
         )
 
-        with self.assertRaises(PublicCultureStatusTransitionError):
-            replace_public_culture_translations(
-                public_culture=self.crop, user=self.user, descriptions={'de': ''},
+        with self.assertRaises(PublicCropStatusTransitionError):
+            replace_public_crop_translations(
+                public_crop=self.crop, user=self.user, descriptions={'de': ''},
             )
 
         self.assertTrue(
-            PublicCultureTranslation.objects.filter(
-                public_culture=self.crop, language_code='de',
+            PublicCropTranslation.objects.filter(
+                public_crop=self.crop, language_code='de',
             ).exists(),
         )
 
     def test_translations_endpoint_reports_the_last_language_as_a_client_error(self):
         response = self.client.put(
-            f'/openfarmplanner/api/public-cultures/{self.crop.id}/translations/',
+            f'/openfarmplanner/api/public-crops/{self.crop.id}/translations/',
             {'translations': {'de': ''}},
             format='json',
         )
@@ -490,8 +490,8 @@ class CropApiLocalizationTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['code'], 'translation_required')
         self.assertTrue(
-            PublicCultureTranslation.objects.filter(
-                public_culture=self.crop, language_code='de',
+            PublicCropTranslation.objects.filter(
+                public_crop=self.crop, language_code='de',
             ).exists(),
         )
 
@@ -502,10 +502,10 @@ class CrossLanguageMatchingTest(DRFAPITestCase):
             username='match-user', email='match@example.com', password='testpass', is_active=True,
         )
         self.species = create_tomato_species()
-        self.crop = PublicCulture.objects.create(
+        self.crop = PublicCrop.objects.create(
             name='Tomate',
             variety='Moneymaker',
-            status=PublicCulture.STATUS_PUBLISHED,
+            status=PublicCrop.STATUS_PUBLISHED,
             crop_species=self.species,
             original_language_code='de',
             version=1,

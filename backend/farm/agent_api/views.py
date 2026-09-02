@@ -1,4 +1,4 @@
-"""Endpoints for API-token self-service and the two-step culture import.
+"""Endpoints for API-token self-service and the two-step crop import.
 
 Token management is intentionally *not* on the agent allowlist: none of these
 token views declare ``api_token_actions``, so an API token cannot mint, list,
@@ -17,14 +17,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectScopedMixin
-from farm.models import CultureImportDraft, Project, ProjectApiToken
-from farm.services.culture_import import analyze_import_payload
-from farm.services.culture_import.apply import ImportExecutionError, apply_import_draft
+from farm.models import CropImportDraft, Project, ProjectApiToken
+from farm.services.crop_import import analyze_import_payload
+from farm.services.crop_import.apply import ImportExecutionError, apply_import_draft
 
 from .permissions import get_request_api_token
 from .serializers import (
-    CultureImportApplyRequestSerializer,
-    CultureImportPreviewRequestSerializer,
+    CropImportApplyRequestSerializer,
+    CropImportPreviewRequestSerializer,
     ProjectApiTokenCreateSerializer,
     ProjectApiTokenSerializer,
 )
@@ -85,20 +85,20 @@ class ProjectApiTokenViewSet(viewsets.ViewSet):
         return Response(ProjectApiTokenSerializer(token).data, status=status.HTTP_200_OK)
 
 
-class CultureImportPreviewView(ProjectScopedMixin, APIView):
-    """Validate a culture import and store the reviewable draft. Writes no culture data."""
+class CropImportPreviewView(ProjectScopedMixin, APIView):
+    """Validate a crop import and store the reviewable draft. Writes no crop data."""
 
     api_token_actions = {'post'}
 
     def post(self, request):
         """Analyze the payload and return the preview plus a draft id."""
-        serializer = CultureImportPreviewRequestSerializer(data=request.data)
+        serializer = CropImportPreviewRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         items = serializer.validated_data['items']
 
         preview = analyze_import_payload(items, project=request.active_project)
-        checksum = CultureImportDraft.compute_checksum(preview)
-        draft = CultureImportDraft.objects.create(
+        checksum = CropImportDraft.compute_checksum(preview)
+        draft = CropImportDraft.objects.create(
             project=request.active_project,
             created_by=request.user,
             source_label=serializer.validated_data.get('source_label', ''),
@@ -106,12 +106,12 @@ class CultureImportPreviewView(ProjectScopedMixin, APIView):
             preview=preview,
             has_errors=preview['has_errors'],
             has_warnings=preview['has_warnings'],
-            expires_at=timezone.now() + timedelta(seconds=CultureImportDraft.DEFAULT_TTL_SECONDS),
+            expires_at=timezone.now() + timedelta(seconds=CropImportDraft.DEFAULT_TTL_SECONDS),
         )
         return Response(_draft_payload(draft), status=status.HTTP_200_OK)
 
 
-class CultureImportDraftView(ProjectScopedMixin, APIView):
+class CropImportDraftView(ProjectScopedMixin, APIView):
     """Retrieve a stored import draft so a preview can be reviewed again."""
 
     api_token_actions = {'get'}
@@ -119,26 +119,26 @@ class CultureImportDraftView(ProjectScopedMixin, APIView):
     def get(self, request, draft_id):
         """Return the stored draft for the active project."""
         draft = get_object_or_404(
-            CultureImportDraft,
+            CropImportDraft,
             pk=draft_id,
             project=request.active_project,
         )
         return Response(_draft_payload(draft))
 
 
-class CultureImportApplyView(ProjectScopedMixin, APIView):
+class CropImportApplyView(ProjectScopedMixin, APIView):
     """Execute a previously previewed and explicitly confirmed import."""
 
     api_token_actions = {'post'}
 
     def post(self, request, draft_id):
         """Apply the draft transactionally after verifying the confirmation."""
-        serializer = CultureImportApplyRequestSerializer(data=request.data)
+        serializer = CropImportApplyRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
         draft = get_object_or_404(
-            CultureImportDraft,
+            CropImportDraft,
             pk=draft_id,
             project=request.active_project,
         )
@@ -184,7 +184,7 @@ class AgentContextView(APIView):
         )
 
 
-def _draft_payload(draft: CultureImportDraft) -> dict:
+def _draft_payload(draft: CropImportDraft) -> dict:
     """Build the API representation of an import draft."""
     return {
         'draft_id': str(draft.id),
@@ -196,7 +196,7 @@ def _draft_payload(draft: CultureImportDraft) -> dict:
         'applied_at': draft.applied_at,
         'has_errors': draft.has_errors,
         'has_warnings': draft.has_warnings,
-        'requires_confirmation': draft.status == CultureImportDraft.STATUS_PENDING,
+        'requires_confirmation': draft.status == CropImportDraft.STATUS_PENDING,
         'summary': draft.preview.get('summary', {}),
         'items': draft.preview.get('items', []),
         'result': draft.result or None,

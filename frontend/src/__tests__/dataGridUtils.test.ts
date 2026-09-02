@@ -98,7 +98,7 @@ describe('data-grid markdown utilities', () => {
 // getSortedRowIds/orderRowsByStableIds back EditableDataGrid's stable client-side
 // row order (see DataGrid.tsx's stableRowOrder/refreshStableRowOrder), which is
 // what keeps every EditableDataGrid-based table (Anbaupläne/PlantingPlans,
-// Cultures, ...) from jumping a row to a new sorted position as a side effect of
+// Crops, ...) from jumping a row to a new sorted position as a side effect of
 // saving it — the order snapshot is only refreshed on load, an explicit sort
 // change, or a filter change, never as a reaction to row data changing.
 describe('stable row order (EditableDataGrid)', () => {

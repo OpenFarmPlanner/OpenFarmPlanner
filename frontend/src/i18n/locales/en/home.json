@@ -85,7 +85,7 @@
         "description": "The yield overview groups planned harvest quantities by period and crop, making peaks and distribution visible early.",
         "alt": "Yield overview with expected harvest quantities by calendar week and crop"
       },
-      "cultures": {
+      "crops": {
         "tab": "Crops",
         "title": "Maintain crops centrally",
         "description": "Varieties, cultivation methods, spacing, expected yield, and seed data live in one place and feed the plan.",

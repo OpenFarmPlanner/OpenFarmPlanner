@@ -42,7 +42,7 @@ describe('RouteErrorBoundary', () => {
   });
 
   it('reloads once when a lazy route chunk fails to load', async () => {
-    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crops/pages/PublicCropLibraryPage.tsx'));
+    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crop-library/pages/PublicCropLibraryPage.tsx'));
 
     await vi.waitFor(() => expect(reloadPage).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('button', { name: 'Seite neu laden' })).not.toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('RouteErrorBoundary', () => {
   it('offers a manual reload once the automatic retry is used up, without an interim blank state', async () => {
     sessionStorage.setItem('openFarmPlanner.routeLoadRetry./app/crop-library', String(Date.now()));
 
-    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crops/pages/PublicCropLibraryPage.tsx'));
+    renderBoundary(new TypeError('Failed to fetch dynamically imported module: /src/crop-library/pages/PublicCropLibraryPage.tsx'));
 
     // The boundary seeds `isReloading` from a read-only peek, so the very first
     // committed render already shows the fallback instead of a blank screen.

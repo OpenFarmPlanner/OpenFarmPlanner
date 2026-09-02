@@ -57,8 +57,8 @@
     "createField": "Add plot",
     "createBed": "Add bed",
     "openAreas": "Open growing areas",
-    "openCultureLibrary": "Open crop library",
-    "createCulture": "Add crop",
+    "openCropLibrary": "Open crop library",
+    "createCrop": "Add crop",
     "createPlan": "Add planting plan"
   },
   "notes": {
@@ -131,7 +131,7 @@
   "errors": {
     "generic": "An unexpected error occurred. Please try again.",
     "sessionExpired": "Your session has expired. Please sign in again.",
-    "noPublicCultures": "No public crops were found.",
+    "noPublicCrops": "No public crops were found.",
     "bedNotFound": "The bed was not found.",
     "fileTooLarge": "The file is too large (maximum 10 MB).",
     "invalidImage": "The uploaded file is not a valid image.",
@@ -140,7 +140,7 @@
     "supplierSpecificTkgUnsupported": "Supplier-specific thousand-kernel weight is no longer supported.",
     "supplierProjectMismatch": "The supplier does not belong to the active project.",
     "selectedSupplierProjectMismatch": "The selected seed supplier does not belong to the active project.",
-    "cultureProjectMismatch": "The culture does not belong to the active project."
+    "cropProjectMismatch": "The culture does not belong to the active project."
   },
   "validation": {
     "required": "This field is required.",
@@ -148,7 +148,7 @@
     "minLength": "At least {{count}} characters required.",
     "invalidNumberExample": "Please enter a valid number, e.g. 3.9",
     "areaInputPositive": "The value must be greater than 0.",
-    "areaInputPlantsCultureRequired": "Select a crop to calculate the area from the plant count.",
+    "areaInputPlantsCropRequired": "Select a crop to calculate the area from the plant count.",
     "areaInputPlantsSpacingMissing": "This crop is missing valid plant spacing. The area cannot be calculated from the plant count.",
     "bedAreaExceeded": "The area entered exceeds the maximum area available on this bed.",
     "availableArea": "Remaining area available"
@@ -196,7 +196,7 @@
     "harvest_end_date": "Harvest end",
     "quantity": "Plants",
     "cultivation_type": "Cultivation type",
-    "culture": "Crop",
+    "crop": "Crop",
     "bed": "Bed",
     "field": "Plot",
     "location": "Location",

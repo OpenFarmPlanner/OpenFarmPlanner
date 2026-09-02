@@ -21,20 +21,20 @@
   "restoreDeleteError": "Failed to restore supplier.",
   "messages": {
     "deleted": "Supplier deleted.",
-    "deletedWithUnlinkedCultures_one": "Supplier deleted. The supplier link was removed from {{count}} culture.",
-    "deletedWithUnlinkedCultures_other": "Supplier deleted. The supplier link was removed from {{count}} cultures."
+    "deletedWithUnlinkedCrops_one": "Supplier deleted. The supplier link was removed from {{count}} culture.",
+    "deletedWithUnlinkedCrops_other": "Supplier deleted. The supplier link was removed from {{count}} cultures."
   },
   "deleteUsageDialog": {
     "title": "Supplier is still in use",
     "summary_one": "This supplier is still used by {{count}} culture.",
     "summary_other": "This supplier is still used by {{count}} cultures.",
-    "cultureUsage_one": "{{count}} culture uses this supplier directly.",
-    "cultureUsage_other": "{{count}} cultures use this supplier directly.",
-    "supplierDataUsage": "{{cultureCount}} cultures have seed or supplier data with {{rowCount}} entries.",
+    "cropUsage_one": "{{count}} culture uses this supplier directly.",
+    "cropUsage_other": "{{count}} cultures use this supplier directly.",
+    "supplierDataUsage": "{{cropCount}} cultures have seed or supplier data with {{rowCount}} entries.",
     "seedDemandUsage_one": "{{count}} culture uses this supplier in seed demand planning.",
     "seedDemandUsage_other": "{{count}} cultures use this supplier in seed demand planning.",
     "unlinkExplanation": "Cultures are not deleted. Only their supplier relationship is removed before the supplier is deleted.",
-    "openAffectedCultures": "Go to affected cultures",
+    "openAffectedCrops": "Go to affected cultures",
     "unlinkAndDelete": "Delete supplier"
   },
   "invalidDomain": "Invalid domain: {{domain}}. Domains must be valid hostnames without a scheme or path (e.g. example.com).",

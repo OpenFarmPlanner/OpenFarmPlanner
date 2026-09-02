@@ -19,7 +19,7 @@ from farm.models import (
     MediaFile,
     NoteAttachment,
     PlantingPlan,
-    culture_media_upload_path,
+    crop_media_upload_path,
 )
 from farm.project_context import get_active_project_or_400
 
@@ -62,7 +62,7 @@ class MediaFileUploadView(APIView):
         except ImageProcessingError:
             return Response({'file': ['Unsupported file type. Only image uploads are allowed.']}, status=status.HTTP_400_BAD_REQUEST)
 
-        rel_path = culture_media_upload_path(None, f'image.{extension}')
+        rel_path = crop_media_upload_path(None, f'image.{extension}')
         saved_path = default_storage.save(rel_path, upload)
         media = MediaFile.objects.create(storage_path=saved_path)
         record_entity_revision(

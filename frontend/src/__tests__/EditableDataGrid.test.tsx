@@ -936,7 +936,7 @@ describe('EditableDataGrid', () => {
     });
     const createSpy = vi.spyOn(props.api, 'create');
     const plantingPlanColumns: GridColDef[] = [
-      { field: 'culture', headerName: 'Kultur', editable: true },
+      { field: 'crop', headerName: 'Kultur', editable: true },
       { field: 'planting_date', headerName: 'Pflanzdatum', editable: true },
       { field: 'bed', headerName: 'Beet', editable: true },
     ];
@@ -948,7 +948,7 @@ describe('EditableDataGrid', () => {
         createNewRow={() => ({
           id: -1,
           isNew: true,
-          culture: 1,
+          crop: 1,
           planting_date: '',
           bed: '',
         } as TestGridRow)}
@@ -956,12 +956,12 @@ describe('EditableDataGrid', () => {
       />,
     );
 
-    await screen.findByRole('button', { name: 'Zelle 1-culture' });
+    await screen.findByRole('button', { name: 'Zelle 1-crop' });
     fireEvent.click(await screen.findByLabelText('Neu'));
-    const cultureCell = await screen.findByRole('button', { name: 'Zelle -1-culture' });
-    fireEvent.click(cultureCell);
+    const cropCell = await screen.findByRole('button', { name: 'Zelle -1-crop' });
+    fireEvent.click(cropCell);
 
-    fireEvent.keyDown(cultureCell, { key: 'Tab' });
+    fireEvent.keyDown(cropCell, { key: 'Tab' });
 
     await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('-1-planting_date'));
     expect(screen.queryByText(/Folgende Pflichtfelder müssen ausgefüllt werden/)).not.toBeInTheDocument();
@@ -972,7 +972,7 @@ describe('EditableDataGrid', () => {
       shiftKey: true,
     });
 
-    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('-1-culture'));
+    await waitFor(() => expect(screen.getByTestId('focused-cell')).toHaveTextContent('-1-crop'));
     expect(screen.queryByText(/Folgende Pflichtfelder müssen ausgefüllt werden/)).not.toBeInTheDocument();
     expect(createSpy).not.toHaveBeenCalled();
   });
@@ -1015,7 +1015,7 @@ describe('EditableDataGrid', () => {
     // never arriving at "Pflanzen".
     const props = baseProps(() => null);
     const plantingPlanColumns: GridColDef[] = [
-      { field: 'culture', headerName: 'Kultur', editable: true },
+      { field: 'crop', headerName: 'Kultur', editable: true },
       { field: 'planting_date', headerName: 'Pflanzdatum', editable: true },
       { field: 'harvest_date', headerName: 'Erntebeginn', editable: false },
       { field: 'harvest_end_date', headerName: 'Ernteende', editable: false },
@@ -1275,7 +1275,7 @@ describe('EditableDataGrid', () => {
     });
     const createSpy = vi.spyOn(props.api, 'create');
     const plantingPlanColumns: GridColDef[] = [
-      { field: 'culture', headerName: 'Kultur', editable: true },
+      { field: 'crop', headerName: 'Kultur', editable: true },
       { field: 'planting_date', headerName: 'Pflanzdatum', editable: true },
       { field: 'bed', headerName: 'Beet', editable: true },
     ];
@@ -1287,7 +1287,7 @@ describe('EditableDataGrid', () => {
         createNewRow={() => ({
           id: -1,
           isNew: true,
-          culture: 1,
+          crop: 1,
           planting_date: '',
           bed: '',
         } as TestGridRow)}
@@ -1295,7 +1295,7 @@ describe('EditableDataGrid', () => {
       />,
     );
 
-    await screen.findByRole('button', { name: 'Zelle 1-culture' });
+    await screen.findByRole('button', { name: 'Zelle 1-crop' });
     fireEvent.click(await screen.findByLabelText('Neu'));
     const saveDraftButton = await screen.findByRole('button', { name: 'Blur speichern -1' });
     fireEvent.click(saveDraftButton);

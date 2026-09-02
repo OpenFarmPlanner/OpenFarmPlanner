@@ -34,7 +34,7 @@ async function createPlantingPlanFixtures(
   const location = await api<{ id: number }>('/locations/', { name: 'Scrollhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Scrollfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Scrollbeet', field: field.id, area_sqm: 10_000 });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Scrollkultur',
     variety: 'Sorte A',
     propagation_duration_days: 21,
@@ -51,7 +51,7 @@ async function createPlantingPlanFixtures(
       const day = String((index % 28) + 1).padStart(2, '0');
       return api('/planting-plans/', {
         bed: bed.id,
-        culture: culture.id,
+        crop: crop.id,
         season: season.id,
         cultivation_type: 'pre_cultivation',
         planting_date: `2026-04-${day}`,

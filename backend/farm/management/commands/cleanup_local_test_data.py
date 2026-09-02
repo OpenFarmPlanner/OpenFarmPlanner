@@ -32,7 +32,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f'{prefix} {plan.project_count} projects, {plan.user_count} users, '
                 f'{plan.guest_demo_session_count} guest demo sessions, and '
-                f'{plan.public_culture_count} E2E public cultures.'
+                f'{plan.public_crop_count} E2E public crops.'
             )
         )
         if not options['confirm']:

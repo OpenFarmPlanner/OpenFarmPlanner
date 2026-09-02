@@ -10,7 +10,7 @@ const t = ((key: string) => key) as unknown as TFunction;
 
 const makeCallbacks = (): GanttContextMenuCallbacks => ({
   openPlantingPlanFromTask: vi.fn(),
-  openCultureFromTask: vi.fn(),
+  openCropFromTask: vi.fn(),
   openAreasPage: vi.fn(),
   copyTaskSummary: vi.fn(),
   deletePlantingPlanFromTask: vi.fn(),
@@ -45,13 +45,13 @@ describe('buildGanttContextMenuActions - task target', () => {
     expect(actions.find((a) => a.id === 'delete')?.group).toBe('danger');
   });
 
-  it('adds open-culture only when the task has a culture name', () => {
-    const withCulture = buildGanttContextMenuActions(
-      { type: 'task', task: task({ cultureName: 'Tomate' }), group: group() },
+  it('adds open-crop only when the task has a crop name', () => {
+    const withCrop = buildGanttContextMenuActions(
+      { type: 'task', task: task({ cropName: 'Tomate' }), group: group() },
       makeCallbacks(),
       t,
     );
-    expect(withCulture.map((a) => a.id)).toContain('open-culture');
+    expect(withCrop.map((a) => a.id)).toContain('open-crop');
   });
 
   it('adds bed/field/location navigation when the group carries those ids', () => {
@@ -68,12 +68,12 @@ describe('buildGanttContextMenuActions - task target', () => {
   it('delegates onClick to the matching callback', () => {
     const callbacks = makeCallbacks();
     const actions = buildGanttContextMenuActions(
-      { type: 'task', task: task({ cultureName: 'Tomate' }), group: group() },
+      { type: 'task', task: task({ cropName: 'Tomate' }), group: group() },
       callbacks,
       t,
     );
-    actions.find((a) => a.id === 'open-culture')?.onClick();
-    expect(callbacks.openCultureFromTask).toHaveBeenCalledTimes(1);
+    actions.find((a) => a.id === 'open-crop')?.onClick();
+    expect(callbacks.openCropFromTask).toHaveBeenCalledTimes(1);
     actions.find((a) => a.id === 'edit')?.onClick();
     expect(callbacks.openPlantingPlanFromTask).toHaveBeenCalledWith(expect.anything(), { edit: true });
   });

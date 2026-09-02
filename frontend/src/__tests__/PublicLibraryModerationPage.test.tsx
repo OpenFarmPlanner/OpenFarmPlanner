@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import PublicLibraryModerationPage from '../crops/pages/PublicLibraryModerationPage';
+import PublicLibraryModerationPage from '../crop-library/pages/PublicLibraryModerationPage';
 
 const authUser = vi.hoisted(() => ({
   is_public_library_moderator: true,
@@ -16,8 +16,8 @@ const apiMocks = vi.hoisted(() => ({
   moderatorRequestList: vi.fn(),
   moderatorRequestApprove: vi.fn(),
   moderatorRequestReject: vi.fn(),
-  publicCultureList: vi.fn(),
-  publicCultureRestore: vi.fn(),
+  publicCropList: vi.fn(),
+  publicCropRestore: vi.fn(),
 }));
 
 vi.mock('../auth/useAuth', () => ({
@@ -35,9 +35,9 @@ vi.mock('../api/api', () => ({
     approve: apiMocks.moderatorRequestApprove,
     reject: apiMocks.moderatorRequestReject,
   },
-  publicCultureAPI: {
-    list: apiMocks.publicCultureList,
-    restore: apiMocks.publicCultureRestore,
+  publicCropAPI: {
+    list: apiMocks.publicCropList,
+    restore: apiMocks.publicCropRestore,
   },
 }));
 
@@ -79,8 +79,8 @@ describe('PublicLibraryModerationPage', () => {
     });
     apiMocks.moderatorRequestApprove.mockResolvedValue({ data: { id: 3, status: 'approved' } });
     apiMocks.moderatorRequestReject.mockResolvedValue({ data: { id: 3, status: 'rejected' } });
-    apiMocks.publicCultureList.mockResolvedValue({ data: { results: [] } });
-    apiMocks.publicCultureRestore.mockResolvedValue({ data: { id: 9, status: 'published' } });
+    apiMocks.publicCropList.mockResolvedValue({ data: { results: [] } });
+    apiMocks.publicCropRestore.mockResolvedValue({ data: { id: 9, status: 'published' } });
   });
 
   it('reviews crop species proposals and admin moderator requests', async () => {
@@ -145,9 +145,9 @@ describe('PublicLibraryModerationPage', () => {
     ]));
   });
 
-  it('lists removed public cultures and restores one', async () => {
+  it('lists removed public crops and restores one', async () => {
     const user = userEvent.setup();
-    apiMocks.publicCultureList.mockResolvedValue({
+    apiMocks.publicCropList.mockResolvedValue({
       data: {
         results: [
           {
@@ -164,16 +164,16 @@ describe('PublicLibraryModerationPage', () => {
     render(<PublicLibraryModerationPage />);
 
     expect(await screen.findByText('Entfernte Kulturen')).toBeInTheDocument();
-    expect(apiMocks.publicCultureList).toHaveBeenCalledWith({ status: 'removed' });
+    expect(apiMocks.publicCropList).toHaveBeenCalledWith({ status: 'removed' });
     expect(screen.getByText('Tomate · Roma')).toBeInTheDocument();
     expect(screen.getByText('Duplikat')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Wiederherstellen' }));
 
-    await waitFor(() => expect(apiMocks.publicCultureRestore).toHaveBeenCalledWith(9));
+    await waitFor(() => expect(apiMocks.publicCropRestore).toHaveBeenCalledWith(9));
   });
 
-  it('shows an empty state when there are no removed public cultures', async () => {
+  it('shows an empty state when there are no removed public crops', async () => {
     render(<PublicLibraryModerationPage />);
 
     expect(await screen.findByText('Entfernte Kulturen')).toBeInTheDocument();

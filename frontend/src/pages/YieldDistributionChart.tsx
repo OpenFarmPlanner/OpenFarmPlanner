@@ -17,7 +17,7 @@ import { useFocusRegion } from "../focus/useFocusManager";
 import { useTranslation } from "../i18n";
 import { YieldChartSegment } from "./YieldChartSegment";
 import { useYieldChartData } from "./useYieldChartData";
-import { getCultureDisplayName } from "../cultures/cultureDisplay";
+import { getCropDisplayName } from "../crops/cropDisplay";
 import {
   formatCompactYield,
   getYieldAxisLabelStep,
@@ -25,32 +25,32 @@ import {
 } from "./yieldOverviewUtils";
 
 interface YieldContextMenuPayload {
-  cultureId: number;
-  cultureName: string;
+  cropId: number;
+  cropName: string;
   periodLabel: string;
   yieldValue: number;
 }
 
-const DEFAULT_LEGEND_CULTURE_LIMIT = 15;
+const DEFAULT_LEGEND_CROP_LIMIT = 15;
 
 interface YieldDistributionChartProps {
   weeklyYield: YieldCalendarWeek[];
-  selectedCultureId: string;
+  selectedCropId: string;
   period: ChartPeriod;
   activeSeason: Season | null;
 }
 
 export function YieldDistributionChart({
   weeklyYield,
-  selectedCultureId,
+  selectedCropId,
   period,
   activeSeason,
 }: YieldDistributionChartProps) {
   const { t, i18n } = useTranslation(["yieldOverview", "common"]);
   const navigate = useNavigate();
-  const { chartData, chartCultures, maxTotalYield, yearBoundary } = useYieldChartData(
+  const { chartData, chartCrops, maxTotalYield, yearBoundary } = useYieldChartData(
     weeklyYield,
-    selectedCultureId,
+    selectedCropId,
     period,
     i18n.resolvedLanguage ?? i18n.language,
   );
@@ -77,12 +77,12 @@ export function YieldDistributionChart({
   // so hover has to be tracked explicitly here to keep the tooltip always
   // controlled by a real boolean, letting the keyboard (Space) toggle work.
   const [hoveredSegmentKey, setHoveredSegmentKey] = useState<string | null>(null);
-  const [highlightedCultureId, setHighlightedCultureId] = useState<number | null>(null);
+  const [highlightedCropId, setHighlightedCropId] = useState<number | null>(null);
   const handleHoverEnd = useCallback((key: string) => {
     setHoveredSegmentKey((current) => (current === key ? null : current));
   }, []);
-  const toggleHighlightedCulture = useCallback((cultureId: number) => {
-    setHighlightedCultureId((current) => (current === cultureId ? null : cultureId));
+  const toggleHighlightedCrop = useCallback((cropId: number) => {
+    setHighlightedCropId((current) => (current === cropId ? null : cropId));
   }, []);
   const registerSegmentElement = useCallback((key: string, element: HTMLElement | null) => {
     if (element) segmentElementsRef.current.set(key, element);
@@ -115,12 +115,12 @@ export function YieldDistributionChart({
     openContextMenuState(payload, point.clientX + 2, point.clientY - 6);
   }, [openContextMenuState]);
 
-  const openCulture = useCallback((cultureId: number) => {
-    navigate(`/app/cultures?cultureId=${cultureId}`);
+  const openCrop = useCallback((cropId: number) => {
+    navigate(`/app/crops?cropId=${cropId}`);
   }, [navigate]);
 
   const copySegmentSummary = useCallback((payload: YieldContextMenuPayload) => {
-    const summary = `${payload.cultureName} · ${payload.periodLabel} · ${payload.yieldValue.toFixed(2)} kg`;
+    const summary = `${payload.cropName} · ${payload.periodLabel} · ${payload.yieldValue.toFixed(2)} kg`;
     copyTextToClipboardSilently(summary);
   }, []);
 
@@ -128,17 +128,17 @@ export function YieldDistributionChart({
   // implementation described in docs/keyboard-architecture.md. Only one
   // segment is ever part of the tab order (roving tabindex); arrow keys move
   // that "current" segment across periods (left/right) and, within a
-  // period's stacked bar, across cultures (up/down).
-  const getSegmentKey = useCallback((columnId: string, cultureId: number) => `${columnId}-${cultureId}`, []);
+  // period's stacked bar, across crops (up/down).
+  const getSegmentKey = useCallback((columnId: string, cropId: number) => `${columnId}-${cropId}`, []);
 
   const defaultSegmentKey = useMemo(() => {
     const firstColumn = chartData[0];
-    const firstCulture = firstColumn?.cultures[0];
-    return firstColumn && firstCulture ? getSegmentKey(firstColumn.id, firstCulture.culture_id) : null;
+    const firstCrop = firstColumn?.crops[0];
+    return firstColumn && firstCrop ? getSegmentKey(firstColumn.id, firstCrop.crop_id) : null;
   }, [chartData, getSegmentKey]);
 
   const allSegmentKeys = useMemo(
-    () => new Set(chartData.flatMap((column) => column.cultures.map((culture) => getSegmentKey(column.id, culture.culture_id)))),
+    () => new Set(chartData.flatMap((column) => column.crops.map((crop) => getSegmentKey(column.id, crop.crop_id)))),
     [chartData, getSegmentKey],
   );
 
@@ -153,8 +153,8 @@ export function YieldDistributionChart({
   const handleSegmentKeyDown = useCallback((
     event: React.KeyboardEvent,
     columnIndex: number,
-    cultureIndex: number,
-    payload: { cultureId: number; cultureName: string; periodLabel: string; yieldValue: number },
+    cropIndex: number,
+    payload: { cropId: number; cropName: string; periodLabel: string; yieldValue: number },
   ) => {
     const column = chartData[columnIndex];
     if (!column) return;
@@ -163,30 +163,30 @@ export function YieldDistributionChart({
       const nextColumn = chartData[columnIndex + (event.key === "ArrowLeft" ? -1 : 1)];
       if (!nextColumn) return;
       event.preventDefault();
-      const nextCulture = nextColumn.cultures[Math.min(cultureIndex, nextColumn.cultures.length - 1)];
-      if (nextCulture) focusSegment(getSegmentKey(nextColumn.id, nextCulture.culture_id));
+      const nextCrop = nextColumn.crops[Math.min(cropIndex, nextColumn.crops.length - 1)];
+      if (nextCrop) focusSegment(getSegmentKey(nextColumn.id, nextCrop.crop_id));
       return;
     }
 
     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
       // The stack renders column-reverse (first array entry at the bottom),
       // so moving "up" means the next array index.
-      const nextCulture = column.cultures[cultureIndex + (event.key === "ArrowUp" ? 1 : -1)];
-      if (!nextCulture) return;
+      const nextCrop = column.crops[cropIndex + (event.key === "ArrowUp" ? 1 : -1)];
+      if (!nextCrop) return;
       event.preventDefault();
-      focusSegment(getSegmentKey(column.id, nextCulture.culture_id));
+      focusSegment(getSegmentKey(column.id, nextCrop.crop_id));
       return;
     }
 
     if (event.key === "Enter") {
       event.preventDefault();
-      openCulture(payload.cultureId);
+      openCrop(payload.cropId);
       return;
     }
 
     if (event.key === " " || event.key === "Spacebar") {
       event.preventDefault();
-      const key = getSegmentKey(column.id, payload.cultureId);
+      const key = getSegmentKey(column.id, payload.cropId);
       setKeyboardTooltipKey((current) => (current === key ? null : key));
       return;
     }
@@ -196,7 +196,7 @@ export function YieldDistributionChart({
       const rect = event.currentTarget.getBoundingClientRect();
       openContextMenuState(payload, rect.left + 2, rect.bottom - 6);
     }
-  }, [chartData, focusSegment, getSegmentKey, openContextMenuState, openCulture]);
+  }, [chartData, focusSegment, getSegmentKey, openContextMenuState, openCrop]);
 
   // Only one segment can be pressed at a time, so a single long-press timer
   // (keyed by the currently pressed segment's payload) covers every bar.
@@ -273,11 +273,11 @@ export function YieldDistributionChart({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Cultures are pre-sorted by visible yield (see useYieldChartData), so the
+  // Crops are pre-sorted by visible yield (see useYieldChartData), so the
   // collapsed legend still shows the most relevant entries instead of hiding
-  // every culture behind a count button.
-  const legendCultureCount = chartCultures.length;
-  const legendExpansionResetKey = `${legendCultureCount}:${period}:${selectedCultureId}`;
+  // every crop behind a count button.
+  const legendCropCount = chartCrops.length;
+  const legendExpansionResetKey = `${legendCropCount}:${period}:${selectedCropId}`;
   const [legendExpansionState, setLegendExpansionState] = useState({
     resetKey: legendExpansionResetKey,
     expanded: false,
@@ -298,20 +298,20 @@ export function YieldDistributionChart({
       };
     });
   }, [legendExpansionResetKey]);
-  const chartCultureIds = useMemo(() => new Set(chartCultures.map((culture) => culture.id)), [chartCultures]);
-  const activeHighlightedCultureId = highlightedCultureId !== null && chartCultureIds.has(highlightedCultureId)
-    ? highlightedCultureId
+  const chartCropIds = useMemo(() => new Set(chartCrops.map((crop) => crop.id)), [chartCrops]);
+  const activeHighlightedCropId = highlightedCropId !== null && chartCropIds.has(highlightedCropId)
+    ? highlightedCropId
     : null;
-  const isLegendExpandable = legendCultureCount > DEFAULT_LEGEND_CULTURE_LIMIT;
-  const visibleLegendCultures = useMemo(
+  const isLegendExpandable = legendCropCount > DEFAULT_LEGEND_CROP_LIMIT;
+  const visibleLegendCrops = useMemo(
     () => (
       isLegendExpanded || !isLegendExpandable
-        ? chartCultures
-        : chartCultures.slice(0, DEFAULT_LEGEND_CULTURE_LIMIT)
+        ? chartCrops
+        : chartCrops.slice(0, DEFAULT_LEGEND_CROP_LIMIT)
     ),
-    [chartCultures, isLegendExpanded, isLegendExpandable],
+    [chartCrops, isLegendExpanded, isLegendExpandable],
   );
-  const hiddenLegendCultureCount = legendCultureCount - DEFAULT_LEGEND_CULTURE_LIMIT;
+  const hiddenLegendCropCount = legendCropCount - DEFAULT_LEGEND_CROP_LIMIT;
 
   return (
     <>
@@ -337,21 +337,21 @@ export function YieldDistributionChart({
               gap: 1,
             }}
           >
-            {visibleLegendCultures.map((culture) => {
-              const isHighlighted = activeHighlightedCultureId === culture.id;
-              const isDimmed = activeHighlightedCultureId !== null && !isHighlighted;
+            {visibleLegendCrops.map((crop) => {
+              const isHighlighted = activeHighlightedCropId === crop.id;
+              const isDimmed = activeHighlightedCropId !== null && !isHighlighted;
               const formattedYield = formatCompactYield(
-                culture.totalYield,
+                crop.totalYield,
                 i18n.resolvedLanguage ?? i18n.language,
               );
               return (
                 <Box
-                  key={culture.id}
+                  key={crop.id}
                   component="button"
                   type="button"
-                  aria-label={`${culture.name} ${formattedYield} kg`}
+                  aria-label={`${crop.name} ${formattedYield} kg`}
                   aria-pressed={isHighlighted}
-                  onClick={() => toggleHighlightedCulture(culture.id)}
+                  onClick={() => toggleHighlightedCrop(crop.id)}
                   sx={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -383,12 +383,12 @@ export function YieldDistributionChart({
                       width: 12,
                       height: 12,
                       borderRadius: "2px",
-                      backgroundColor: culture.color,
+                      backgroundColor: crop.color,
                       flex: "0 0 auto",
                     }}
                   />
                   <Typography variant="body2" component="span" sx={{ lineHeight: 1.3 }}>
-                    {culture.name}
+                    {crop.name}
                   </Typography>
                   <Typography
                     variant="caption"
@@ -408,8 +408,8 @@ export function YieldDistributionChart({
               sx={{ textTransform: "none", mt: 1 }}
             >
               {isLegendExpanded
-                ? t("legend.collapse", { count: DEFAULT_LEGEND_CULTURE_LIMIT })
-                : t("legend.showMore", { count: hiddenLegendCultureCount })}
+                ? t("legend.collapse", { count: DEFAULT_LEGEND_CROP_LIMIT })
+                : t("legend.showMore", { count: hiddenLegendCropCount })}
             </Button>
           ) : null}
         </Box>
@@ -487,26 +487,26 @@ export function YieldDistributionChart({
                       justifyContent: "flex-start",
                     }}
                   >
-                    {column.cultures.map((culture, cultureIndex) => {
+                    {column.crops.map((crop, cropIndex) => {
                       const periodLabel = `${column.primaryLabel} ${column.secondaryLabel}`;
-                      const segmentKey = getSegmentKey(column.id, culture.culture_id);
+                      const segmentKey = getSegmentKey(column.id, crop.crop_id);
                       return (
                         <YieldChartSegment
                           key={segmentKey}
                           segmentKey={segmentKey}
                           columnIndex={columnIndex}
-                          cultureIndex={cultureIndex}
-                          cultureId={culture.culture_id}
-                          cultureName={getCultureDisplayName(culture)}
-                          color={culture.color}
-                          yieldValue={culture.yield}
+                          cropIndex={cropIndex}
+                          cropId={crop.crop_id}
+                          cropName={getCropDisplayName(crop)}
+                          color={crop.color}
+                          yieldValue={crop.yield}
                           periodLabel={periodLabel}
-                          heightPercent={maxTotalYield > 0 ? (culture.yield / maxTotalYield) * 100 : 0}
+                          heightPercent={maxTotalYield > 0 ? (crop.yield / maxTotalYield) * 100 : 0}
                           isTabbable={segmentKey === activeSegmentKey}
                           isHovered={hoveredSegmentKey === segmentKey}
                           isKeyboardTooltipOpen={keyboardTooltipKey === segmentKey}
                           isPressed={pressedSegmentKey === segmentKey && isLongPressing}
-                          isDimmed={activeHighlightedCultureId !== null && activeHighlightedCultureId !== culture.culture_id}
+                          isDimmed={activeHighlightedCropId !== null && activeHighlightedCropId !== crop.crop_id}
                           tooltipPeriodLabel={tooltipPeriodLabel}
                           tooltipYieldLabel={tooltipYieldLabel}
                           actionsLabel={actionsLabel}
@@ -601,10 +601,10 @@ export function YieldDistributionChart({
           if (!contextMenuState) return;
           const { key: payload } = contextMenuState;
           closeContextMenu();
-          openCulture(payload.cultureId);
+          openCrop(payload.cropId);
         }}
       >
-        {t("contextMenu.openCulture")}
+        {t("contextMenu.openCrop")}
       </MenuItem>
       <Divider role="separator" />
       <MenuItem

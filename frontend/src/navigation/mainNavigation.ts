@@ -14,8 +14,8 @@ export interface MainNavigationItem {
 
 export const MAIN_NAV_ITEMS: MainNavigationItem[] = [
   { to: '/app/fields-beds', labelKey: 'fieldsAndBeds', keywords: ['anbauflächen', 'felder', 'beete'], requiresProject: true },
-  { to: '/app/cultures', labelKey: 'cultures', keywords: ['kulturen', 'kultur'], requiresProject: true },
-  { to: '/app/crop-library', labelKey: 'cropLibrary', activeAliases: ['/app/crops'], keywords: ['kulturbibliothek', 'öffentliche kulturen', 'crop library'], requiresProject: true },
+  { to: '/app/crops', labelKey: 'crops', keywords: ['kulturen', 'kultur'], requiresProject: true },
+  { to: '/app/crop-library', labelKey: 'cropLibrary', keywords: ['kulturbibliothek', 'öffentliche kulturen', 'crop library'], requiresProject: true },
   { to: '/app/planting-plans', labelKey: 'plantingPlans', activeAliases: ['/app/anbauplaene'], keywords: ['anbaupläne', 'pläne', 'planung'], requiresProject: true },
   { to: '/app/gantt-chart', labelKey: 'ganttChart', keywords: ['anbaukalender', 'kalender', 'gantt'], requiresProject: true },
   { to: '/app/yield-overview', labelKey: 'yieldOverview', keywords: ['ertragsübersicht', 'ertrag', 'ernte'], requiresProject: true },

@@ -5,7 +5,7 @@ import { useOverlayHistory } from '../hooks/useOverlayHistory';
 
 describe('useOverlayHistory', () => {
   beforeEach(() => {
-    window.history.replaceState({ page: 'cultures' }, '', '/app/cultures');
+    window.history.replaceState({ page: 'crops' }, '', '/app/crops');
   });
 
   it('pushes a transient entry while the overlay is open', () => {
@@ -16,7 +16,7 @@ describe('useOverlayHistory', () => {
     }));
 
     expect(window.history.state).toMatchObject({
-      page: 'cultures',
+      page: 'crops',
       testOverlay: expect.any(String),
     });
   });

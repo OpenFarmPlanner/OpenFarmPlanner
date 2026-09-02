@@ -55,8 +55,8 @@ beforeEach(() => {
       results: [
         {
           id: 10,
-          culture: 1,
-          culture_name: "Kohl",
+          crop: 1,
+          crop_name: "Kohl",
           bed: 3,
           planting_date: "2026-03-01",
         },
@@ -84,10 +84,10 @@ describe("YieldOverviewPage", () => {
         {
           iso_week: "2026-W13",
           week_start: "2026-03-23",
-          cultures: [
+          crops: [
             {
-              culture_id: 1,
-              culture_name: "Kohl",
+              crop_id: 1,
+              crop_name: "Kohl",
               yield: 0.7,
               color: "#16a34a",
             },
@@ -96,10 +96,10 @@ describe("YieldOverviewPage", () => {
         {
           iso_week: "2026-W15",
           week_start: "2026-04-06",
-          cultures: [
+          crops: [
             {
-              culture_id: 1,
-              culture_name: "Kohl",
+              crop_id: 1,
+              crop_name: "Kohl",
               yield: 0.9,
               color: "#16a34a",
             },
@@ -164,14 +164,14 @@ describe("YieldOverviewPage", () => {
     expect(screen.getByText("Apr")).toHaveStyle({ visibility: "visible" });
   });
 
-  it("offers a context menu on a yield segment to open the culture or copy its summary", async () => {
+  it("offers a context menu on a yield segment to open the crop or copy its summary", async () => {
     mocks.yieldList.mockResolvedValue({
       data: [
         {
           iso_week: "2026-W13",
           week_start: "2026-03-23",
-          cultures: [
-            { culture_id: 1, culture_name: "Kohl", yield: 0.7, color: "#16a34a" },
+          crops: [
+            { crop_id: 1, crop_name: "Kohl", yield: 0.7, color: "#16a34a" },
           ],
         },
       ],
@@ -190,25 +190,25 @@ describe("YieldOverviewPage", () => {
 
     expect(await screen.findByRole("menuitem", { name: "Kultur öffnen" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "Kultur öffnen" }));
-    expect(mocks.navigate).toHaveBeenCalledWith("/app/cultures?cultureId=1");
+    expect(mocks.navigate).toHaveBeenCalledWith("/app/crops?cropId=1");
 
     fireEvent.contextMenu(segment);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Zeile kopieren" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Kohl · W13 Mär · 0.70 kg"));
   });
 
-  it("uses localized culture display names in the chart and culture filter", async () => {
+  it("uses localized crop display names in the chart and crop filter", async () => {
     mocks.yieldList.mockResolvedValue({
       data: [
         {
           iso_week: "2026-W13",
           week_start: "2026-03-23",
-          cultures: [
+          crops: [
             {
-              culture_id: 1,
-              culture_name: "Ackerbohne",
-              culture_display_name: "Broad bean",
-              culture_display_language_code: "en",
+              crop_id: 1,
+              crop_name: "Ackerbohne",
+              crop_display_name: "Broad bean",
+              crop_display_language_code: "en",
               yield: 0.7,
               color: "#16a34a",
             },
@@ -236,17 +236,17 @@ describe("YieldOverviewPage", () => {
           {
             iso_week: "2026-W13",
             week_start: "2026-03-23",
-            cultures: [
-              { culture_id: 1, culture_name: "Kohl", yield: 0.7, color: "#16a34a" },
-              { culture_id: 2, culture_name: "Karotte", yield: 0.5, color: "#f97316" },
+            crops: [
+              { crop_id: 1, crop_name: "Kohl", yield: 0.7, color: "#16a34a" },
+              { crop_id: 2, crop_name: "Karotte", yield: 0.5, color: "#f97316" },
             ],
           },
           {
             iso_week: "2026-W14",
             week_start: "2026-03-30",
-            cultures: [
-              { culture_id: 1, culture_name: "Kohl", yield: 0.9, color: "#16a34a" },
-              { culture_id: 2, culture_name: "Karotte", yield: 0.4, color: "#f97316" },
+            crops: [
+              { crop_id: 1, crop_name: "Kohl", yield: 0.9, color: "#16a34a" },
+              { crop_id: 2, crop_name: "Karotte", yield: 0.4, color: "#f97316" },
             ],
           },
         ],
@@ -270,7 +270,7 @@ describe("YieldOverviewPage", () => {
       expect(week13Kohl).toHaveFocus();
     });
 
-    it("moves focus between stacked cultures within a period with ArrowUp/ArrowDown", async () => {
+    it("moves focus between stacked crops within a period with ArrowUp/ArrowDown", async () => {
       render(
         <FocusManagerProvider><MemoryRouter>
           <YieldOverviewPage />
@@ -287,7 +287,7 @@ describe("YieldOverviewPage", () => {
       expect(week13Kohl).toHaveFocus();
     });
 
-    it("opens the culture with Enter", async () => {
+    it("opens the crop with Enter", async () => {
       render(
         <FocusManagerProvider><MemoryRouter>
           <YieldOverviewPage />
@@ -297,7 +297,7 @@ describe("YieldOverviewPage", () => {
       const week13Karotte = await screen.findByTestId("yield-bar-2026-W13-2");
       fireEvent.keyDown(week13Karotte, { key: "Enter" });
 
-      expect(mocks.navigate).toHaveBeenCalledWith("/app/cultures?cultureId=2");
+      expect(mocks.navigate).toHaveBeenCalledWith("/app/crops?cropId=2");
     });
 
     it("toggles the tooltip open with Space", async () => {
@@ -338,8 +338,8 @@ describe("YieldOverviewPage", () => {
           {
             iso_week: "2026-W13",
             week_start: "2026-03-23",
-            cultures: [
-              { culture_id: 1, culture_name: "Kohl", yield: 0.7, color: "#16a34a" },
+            crops: [
+              { crop_id: 1, crop_name: "Kohl", yield: 0.7, color: "#16a34a" },
             ],
           },
         ],
@@ -471,19 +471,19 @@ describe("YieldOverviewPage", () => {
   });
 
   describe("legend", () => {
-    const buildWeek = (id: number, cultures: { culture_id: number; culture_name: string; yield: number }[]) => ({
+    const buildWeek = (id: number, crops: { crop_id: number; crop_name: string; yield: number }[]) => ({
       iso_week: `2026-W${String(id).padStart(2, "0")}`,
       week_start: `2026-03-${String(id).padStart(2, "0")}`,
-      cultures: cultures.map((culture) => ({ ...culture, color: "#16a34a" })),
+      crops: crops.map((crop) => ({ ...crop, color: "#16a34a" })),
     });
 
     it("orders the legend by total visible yield (descending), not alphabetically", async () => {
       mocks.yieldList.mockResolvedValue({
         data: [
           buildWeek(2, [
-            { culture_id: 1, culture_name: "Aprikose", yield: 0.5 },
-            { culture_id: 2, culture_name: "Zucchini", yield: 5 },
-            { culture_id: 3, culture_name: "Möhre", yield: 2 },
+            { crop_id: 1, crop_name: "Aprikose", yield: 0.5 },
+            { crop_id: 2, crop_name: "Zucchini", yield: 5 },
+            { crop_id: 3, crop_name: "Möhre", yield: 2 },
           ]),
         ],
       });
@@ -501,13 +501,13 @@ describe("YieldOverviewPage", () => {
       expect(screen.getByRole("button", { name: "Aprikose 0,5 kg" })).toBeInTheDocument();
     });
 
-    it("shows the full legend without a toggle for 12 or fewer cultures", async () => {
-      const cultures = Array.from({ length: 12 }, (_, index) => ({
-        culture_id: index + 1,
-        culture_name: `Kultur ${index + 1}`,
+    it("shows the full legend without a toggle for 12 or fewer crops", async () => {
+      const crops = Array.from({ length: 12 }, (_, index) => ({
+        crop_id: index + 1,
+        crop_name: `Kultur ${index + 1}`,
         yield: 12 - index,
       }));
-      mocks.yieldList.mockResolvedValue({ data: [buildWeek(2, cultures)] });
+      mocks.yieldList.mockResolvedValue({ data: [buildWeek(2, crops)] });
 
       render(
         <FocusManagerProvider><MemoryRouter>
@@ -521,13 +521,13 @@ describe("YieldOverviewPage", () => {
       expect(screen.queryByRole("button", { name: /Mehr anzeigen|Kulturen anzeigen|Weitere/ })).not.toBeInTheDocument();
     });
 
-    it("shows the top 15 legend entries and can expand or collapse the remaining cultures", async () => {
-      const cultures = Array.from({ length: 17 }, (_, index) => ({
-        culture_id: index + 1,
-        culture_name: `Kultur ${index + 1}`,
+    it("shows the top 15 legend entries and can expand or collapse the remaining crops", async () => {
+      const crops = Array.from({ length: 17 }, (_, index) => ({
+        crop_id: index + 1,
+        crop_name: `Kultur ${index + 1}`,
         yield: 17 - index,
       }));
-      mocks.yieldList.mockResolvedValue({ data: [buildWeek(2, cultures)] });
+      mocks.yieldList.mockResolvedValue({ data: [buildWeek(2, crops)] });
 
       render(
         <FocusManagerProvider><MemoryRouter>
@@ -552,12 +552,12 @@ describe("YieldOverviewPage", () => {
       expect(screen.queryByText("Kultur 16")).not.toBeInTheDocument();
     });
 
-    it("highlights a clicked legend culture and dims other chart segments", async () => {
+    it("highlights a clicked legend crop and dims other chart segments", async () => {
       mocks.yieldList.mockResolvedValue({
         data: [
           buildWeek(13, [
-            { culture_id: 1, culture_name: "Kohl", yield: 5 },
-            { culture_id: 2, culture_name: "Karotte", yield: 2 },
+            { crop_id: 1, crop_name: "Kohl", yield: 5 },
+            { crop_id: 2, crop_name: "Karotte", yield: 2 },
           ]),
         ],
       });
@@ -592,12 +592,12 @@ describe("YieldOverviewPage", () => {
         {
           iso_week: "2025-W52",
           week_start: "2025-12-22",
-          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+          crops: [{ crop_id: 1, crop_name: "Kohl", yield: 1, color: "#16a34a" }],
         },
         {
           iso_week: "2026-W02",
           week_start: "2026-01-05",
-          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+          crops: [{ crop_id: 1, crop_name: "Kohl", yield: 1, color: "#16a34a" }],
         },
       ],
     });
@@ -623,7 +623,7 @@ describe("YieldOverviewPage", () => {
         {
           iso_week: "2026-W02",
           week_start: "2026-01-05",
-          cultures: [{ culture_id: 1, culture_name: "Kohl", yield: 1, color: "#16a34a" }],
+          crops: [{ crop_id: 1, crop_name: "Kohl", yield: 1, color: "#16a34a" }],
         },
       ],
     });

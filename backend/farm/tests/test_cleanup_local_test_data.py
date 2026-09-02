@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.models import GuestDemoSession
-from farm.models import Project, ProjectMembership, PublicCulture
+from farm.models import Project, ProjectMembership, PublicCrop
 from farm.services.demo_project import DEMO_PROJECT_DESCRIPTION, DEMO_PROJECT_SLUG, DEMO_USER_EMAIL
 from farm.services.hint_test_project import HINT_TEST_PROJECT_SLUG, HINT_TEST_USER_EMAIL
 
@@ -40,14 +40,14 @@ class CleanupLocalTestDataCommandTests(TestCase):
         output = StringIO()
         call_command('cleanup_local_test_data', '--confirm', stdout=output)
 
-        self.assertIn('Deleted 3 projects, 6 users, 1 guest demo sessions, and 1 E2E public cultures.', output.getvalue())
+        self.assertIn('Deleted 3 projects, 6 users, 1 guest demo sessions, and 1 E2E public crops.', output.getvalue())
         self.assertTrue(Project.objects.filter(id=regular_project.id).exists())
         self.assertTrue(User.objects.filter(id=regular_user.id).exists())
         self.assertFalse(Project.objects.filter(name__startswith='E2E Project ').exists())
         self.assertFalse(Project.objects.filter(slug__in=[DEMO_PROJECT_SLUG, HINT_TEST_PROJECT_SLUG, 'guest-demo-cleanup']).exists())
         self.assertFalse(User.objects.filter(email__iendswith='@e2e.local').exists())
         self.assertFalse(User.objects.filter(email__in=[DEMO_USER_EMAIL, HINT_TEST_USER_EMAIL, 'demo-cleanup@example.invalid']).exists())
-        self.assertFalse(PublicCulture.objects.exists())
+        self.assertFalse(PublicCrop.objects.exists())
         self.assertFalse(GuestDemoSession.objects.exists())
 
     def test_confirm_deletes_all_guest_demo_sessions_despite_cascading_deletes(self) -> None:
@@ -78,10 +78,10 @@ class CleanupLocalTestDataCommandTests(TestCase):
             for role in ('admin', 'invitee', 'outsider')
         ]
         ProjectMembership.objects.create(user=users[0], project=project, role=ProjectMembership.ROLE_ADMIN)
-        PublicCulture.objects.create(
+        PublicCrop.objects.create(
             created_by=users[0],
             source_project=project,
-            name='E2E Test Culture',
+            name='E2E Test Crop',
             variety='E2E Kollaboration Cleanup',
         )
         return project, users

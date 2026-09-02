@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCropHierarchy,
-  findSpeciesCulture,
-  withGroupGeneralCultures,
-  withGroupSiblingCultures,
-} from '../cultures/cropHierarchy';
-import type { Culture } from '../api/types';
+  findSpeciesCrop,
+  withGroupGeneralCrops,
+  withGroupSiblingCrops,
+} from '../crops/cropHierarchy';
+import type { Crop } from '../api/types';
 
 describe('buildCropHierarchy', () => {
   it('groups general crop entries and varieties under the same species', () => {
-    const cultures: Culture[] = [
+    const crops: Crop[] = [
       { id: 1, name: 'Tomato', crop_species: 10, variety: '', growth_duration_days: 70 },
       { id: 2, name: 'Tomato', crop_species: 10, variety: 'Roma QA' },
       { id: 3, name: 'Tomato', crop_species: 10, variety: 'Moneymaker' },
       { id: 4, name: 'Carrot', crop_species: 20, variety: 'Nantaise' },
     ];
 
-    const rows = buildCropHierarchy(cultures);
+    const rows = buildCropHierarchy(crops);
 
     expect(rows.map((row) => [row.kind, row.label, row.parentId])).toEqual([
       ['species', 'Tomato', null],
@@ -25,88 +25,88 @@ describe('buildCropHierarchy', () => {
       ['species', 'Carrot', null],
       ['variety', 'Nantaise', 'species:species:20'],
     ]);
-    expect(rows.find((row) => row.label === 'Tomato')?.culture?.id).toBe(1);
+    expect(rows.find((row) => row.label === 'Tomato')?.crop?.id).toBe(1);
 
     // Carrot has no dedicated general (variety-less) entry — its species row
     // must not fall back to displaying/selecting Carrot's only variety as if
-    // it were also the general entry (that would show culture id 4 twice:
+    // it were also the general entry (that would show crop id 4 twice:
     // once as the species node, once as its own variety row).
     const carrotSpeciesRow = rows.find((row) => row.kind === 'species' && row.label === 'Carrot');
     expect(carrotSpeciesRow?.hasGeneralEntry).toBe(false);
-    expect(carrotSpeciesRow?.culture).toBeNull();
+    expect(carrotSpeciesRow?.crop).toBeNull();
     const carrotVarietyRows = rows.filter((row) => row.kind === 'variety' && row.speciesKey === carrotSpeciesRow?.speciesKey);
     expect(carrotVarietyRows).toHaveLength(1);
-    expect(carrotVarietyRows[0]?.culture?.id).toBe(4);
+    expect(carrotVarietyRows[0]?.crop?.id).toBe(4);
   });
 
   it('finds the general crop record for a variety', () => {
-    const general: Culture = { id: 1, name: 'Tomato', crop_species: 10, variety: '', growth_duration_days: 70 };
-    const variety: Culture = { id: 2, name: 'Tomato', crop_species: 10, variety: 'Roma QA' };
+    const general: Crop = { id: 1, name: 'Tomato', crop_species: 10, variety: '', growth_duration_days: 70 };
+    const variety: Crop = { id: 2, name: 'Tomato', crop_species: 10, variety: 'Roma QA' };
 
-    expect(findSpeciesCulture(variety, [variety, general])).toBe(general);
+    expect(findSpeciesCrop(variety, [variety, general])).toBe(general);
   });
 });
 
-describe('withGroupGeneralCultures', () => {
-  const general: Culture = { id: 1, name: 'Pfefferoni', crop_species: 10, variety: '', growth_duration_days: 60 };
-  const variety: Culture = { id: 2, name: 'Pfefferoni', crop_species: 10, variety: 'Milder Spiral' };
-  const otherCrop: Culture = { id: 3, name: 'Carrot', crop_species: 20, variety: 'Nantaise' };
-  const allCultures = [general, variety, otherCrop];
+describe('withGroupGeneralCrops', () => {
+  const general: Crop = { id: 1, name: 'Pfefferoni', crop_species: 10, variety: '', growth_duration_days: 60 };
+  const variety: Crop = { id: 2, name: 'Pfefferoni', crop_species: 10, variety: 'Milder Spiral' };
+  const otherCrop: Crop = { id: 3, name: 'Carrot', crop_species: 20, variety: 'Nantaise' };
+  const allCrops = [general, variety, otherCrop];
 
   it('keeps the Kultur of a group whose variety matched the search', () => {
     // Searching for "spir" only matches the Sorte, but its Kultur has to stay
     // in the list or the tree row for it has no data of its own to show.
-    const result = withGroupGeneralCultures([variety], allCultures);
+    const result = withGroupGeneralCrops([variety], allCrops);
 
     expect(result).toContain(variety);
     expect(result).toContain(general);
     const rows = buildCropHierarchy(result);
     const speciesRow = rows.find((row) => row.kind === 'species');
-    expect(speciesRow?.culture).toBe(general);
+    expect(speciesRow?.crop).toBe(general);
     expect(speciesRow?.hasGeneralEntry).toBe(true);
   });
 
   it('does not pull in Kulturen of groups that had no match at all', () => {
-    const result = withGroupGeneralCultures([variety], allCultures);
+    const result = withGroupGeneralCrops([variety], allCrops);
 
     expect(result).not.toContain(otherCrop);
   });
 
   it('leaves a match list that already has its Kultur untouched', () => {
-    const result = withGroupGeneralCultures([general, variety], allCultures);
+    const result = withGroupGeneralCrops([general, variety], allCrops);
 
     expect(result).toEqual([general, variety]);
   });
 
   it('adds nothing when nothing matched, so the empty state still shows', () => {
-    expect(withGroupGeneralCultures([], allCultures)).toEqual([]);
+    expect(withGroupGeneralCrops([], allCrops)).toEqual([]);
   });
 
-  it('groups free-text cultures without a species by name', () => {
-    const freeGeneral: Culture = { id: 4, name: 'Tomate', variety: '' };
-    const freeVariety: Culture = { id: 5, name: 'Tomate', variety: 'Matina' };
+  it('groups free-text crops without a species by name', () => {
+    const freeGeneral: Crop = { id: 4, name: 'Tomate', variety: '' };
+    const freeVariety: Crop = { id: 5, name: 'Tomate', variety: 'Matina' };
 
-    const result = withGroupGeneralCultures([freeVariety], [freeGeneral, freeVariety]);
+    const result = withGroupGeneralCrops([freeVariety], [freeGeneral, freeVariety]);
 
     expect(result).toContain(freeGeneral);
   });
 });
 
-describe('withGroupSiblingCultures', () => {
-  const general: Culture = { id: 1, name: 'Karotte', crop_species: 10, variety: '' };
-  const nantaise: Culture = { id: 2, name: 'Karotte', crop_species: 10, variety: 'Nantaise' };
-  const rodelika: Culture = { id: 3, name: 'Karotte', crop_species: 10, variety: 'Rodelika' };
-  const otherCrop: Culture = { id: 4, name: 'Zwiebel', crop_species: 20, variety: '' };
-  const allCultures = [general, nantaise, rodelika, otherCrop];
+describe('withGroupSiblingCrops', () => {
+  const general: Crop = { id: 1, name: 'Karotte', crop_species: 10, variety: '' };
+  const nantaise: Crop = { id: 2, name: 'Karotte', crop_species: 10, variety: 'Nantaise' };
+  const rodelika: Crop = { id: 3, name: 'Karotte', crop_species: 10, variety: 'Rodelika' };
+  const otherCrop: Crop = { id: 4, name: 'Zwiebel', crop_species: 20, variety: '' };
+  const allCrops = [general, nantaise, rodelika, otherCrop];
 
   it('shows every Sorte of a group one of its Sorten matched', () => {
-    const result = withGroupSiblingCultures([rodelika], allCultures);
+    const result = withGroupSiblingCrops([rodelika], allCrops);
 
     expect(result).toEqual([general, nantaise, rodelika]);
   });
 
   it('leaves groups without a match out', () => {
-    const result = withGroupSiblingCultures([general], allCultures);
+    const result = withGroupSiblingCrops([general], allCrops);
 
     expect(result).not.toContain(otherCrop);
   });
@@ -114,12 +114,12 @@ describe('withGroupSiblingCultures', () => {
   it('never widens past the set it is given', () => {
     // The other filters already dropped `nantaise`, so a hit on its group must
     // not bring it back.
-    const result = withGroupSiblingCultures([rodelika], [general, rodelika, otherCrop]);
+    const result = withGroupSiblingCrops([rodelika], [general, rodelika, otherCrop]);
 
     expect(result).toEqual([general, rodelika]);
   });
 
   it('returns nothing for an empty match list', () => {
-    expect(withGroupSiblingCultures([], allCultures)).toEqual([]);
+    expect(withGroupSiblingCrops([], allCrops)).toEqual([]);
   });
 });

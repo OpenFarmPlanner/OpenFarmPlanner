@@ -7,9 +7,9 @@ from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from config.asgi import application
 from farm.models import (
-    PublicCulture,
-    PublicCultureDiscussionComment,
-    PublicCultureDiscussionTopic,
+    PublicCrop,
+    PublicCropDiscussionComment,
+    PublicCropDiscussionTopic,
 )
 from farm.realtime.channel_layers import IdleTolerantRedisChannelLayer
 
@@ -31,11 +31,11 @@ class DiscussionWebSocketTests(TransactionTestCase):
         self.user = get_user_model().objects.create_user(
             username='realtime-user', password='test-password'
         )
-        self.first_culture = PublicCulture.objects.create(
-            name='Tomato', status=PublicCulture.STATUS_PUBLISHED, created_by=self.user
+        self.first_crop = PublicCrop.objects.create(
+            name='Tomato', status=PublicCrop.STATUS_PUBLISHED, created_by=self.user
         )
-        self.second_culture = PublicCulture.objects.create(
-            name='Bean', status=PublicCulture.STATUS_PUBLISHED, created_by=self.user
+        self.second_crop = PublicCrop.objects.create(
+            name='Bean', status=PublicCrop.STATUS_PUBLISHED, created_by=self.user
         )
         client = Client()
         client.force_login(self.user)
@@ -47,34 +47,34 @@ class DiscussionWebSocketTests(TransactionTestCase):
         async_to_sync(self._assert_isolated_delivery)()
 
     async def _assert_isolated_delivery(self) -> None:
-        first = self._communicator(self.first_culture.id, authenticated=True)
-        second = self._communicator(self.second_culture.id, authenticated=True)
+        first = self._communicator(self.first_crop.id, authenticated=True)
+        second = self._communicator(self.second_crop.id, authenticated=True)
         self.assertTrue((await first.connect())[0])
         self.assertTrue((await second.connect())[0])
 
-        unrelated_topic = await sync_to_async(PublicCultureDiscussionTopic.objects.create)(
-            public_culture=self.second_culture,
+        unrelated_topic = await sync_to_async(PublicCropDiscussionTopic.objects.create)(
+            public_crop=self.second_crop,
             title='Unrelated',
             created_by=self.user,
         )
-        await sync_to_async(PublicCultureDiscussionComment.objects.create)(
+        await sync_to_async(PublicCropDiscussionComment.objects.create)(
             topic=unrelated_topic, body='Not for the first subscriber', created_by=self.user
         )
         self.assertTrue(await first.receive_nothing(timeout=0.1))
         unrelated_event = await second.receive_json_from()
-        self.assertEqual(unrelated_event['public_culture_id'], self.second_culture.id)
+        self.assertEqual(unrelated_event['public_crop_id'], self.second_crop.id)
         # Topic creation and its first comment are distinct committed changes.
         await second.receive_json_from()
 
-        topic = await sync_to_async(PublicCultureDiscussionTopic.objects.create)(
-            public_culture=self.first_culture,
+        topic = await sync_to_async(PublicCropDiscussionTopic.objects.create)(
+            public_crop=self.first_crop,
             title='Expected',
             created_by=self.user,
         )
         event = await first.receive_json_from()
         self.assertEqual(event, {
             'type': 'discussion.updated',
-            'public_culture_id': self.first_culture.id,
+            'public_crop_id': self.first_crop.id,
             'discussion_id': topic.id,
         })
         self.assertTrue(await second.receive_nothing(timeout=0.1))
@@ -82,26 +82,54 @@ class DiscussionWebSocketTests(TransactionTestCase):
         await second.disconnect()
 
     def test_unauthenticated_connection_is_rejected(self) -> None:
-        async_to_sync(self._assert_rejected)(self.first_culture.id, False)
+        async_to_sync(self._assert_rejected)(self.first_crop.id, False)
 
     def test_unpublished_resource_is_rejected(self) -> None:
-        hidden = PublicCulture.objects.create(name='Hidden', status='removed')
+        hidden = PublicCrop.objects.create(name='Hidden', status='removed')
         async_to_sync(self._assert_rejected)(hidden.id, True)
 
-    async def _assert_rejected(self, culture_id: int, authenticated: bool) -> None:
-        communicator = self._communicator(culture_id, authenticated=authenticated)
+    async def _assert_rejected(self, crop_id: int, authenticated: bool) -> None:
+        communicator = self._communicator(crop_id, authenticated=authenticated)
         connected, close_code = await communicator.connect()
         self.assertFalse(connected)
         self.assertIn(close_code, {4401, 4403})
 
+    def test_legacy_culture_path_still_connects_and_delivers(self) -> None:
+        """A browser running the pre-rename bundle keeps its live discussion.
+
+        A deploy restarts the ASGI process but does not reload open tabs, so
+        the old spelling has to stay routable until those clients reconnect.
+        """
+        async_to_sync(self._assert_legacy_path_delivers)()
+
+    async def _assert_legacy_path_delivers(self) -> None:
+        communicator = self._communicator(
+            self.first_crop.id, authenticated=True, path_segment='public-cultures'
+        )
+        self.assertTrue((await communicator.connect())[0])
+
+        topic = await sync_to_async(PublicCropDiscussionTopic.objects.create)(
+            public_crop=self.first_crop,
+            title='Delivered over the legacy path',
+            created_by=self.user,
+        )
+
+        event = await communicator.receive_json_from()
+        self.assertEqual(event, {
+            'type': 'discussion.updated',
+            'public_crop_id': self.first_crop.id,
+            'discussion_id': topic.id,
+        })
+        await communicator.disconnect()
+
     def _communicator(
-        self, culture_id: int, *, authenticated: bool
+        self, crop_id: int, *, authenticated: bool, path_segment: str = 'public-crops'
     ) -> WebsocketCommunicator:
         headers = [(b'host', b'localhost'), (b'origin', b'http://localhost')]
         if authenticated:
             headers.append(self.cookie_header)
         return WebsocketCommunicator(
             application,
-            f'/ws/public-cultures/{culture_id}/discussions/',
+            f'/ws/{path_segment}/{crop_id}/discussions/',
             headers=headers,
         )

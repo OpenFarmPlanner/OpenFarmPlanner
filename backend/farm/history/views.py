@@ -1,4 +1,4 @@
-"""API endpoints for project-wide and culture history listing and restore."""
+"""API endpoints for project-wide and crop history listing and restore."""
 
 from datetime import timedelta
 
@@ -9,13 +9,13 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from farm.models import BatchOperation, Culture, EntityRevision
+from farm.models import BatchOperation, Crop, EntityRevision
 from farm.project_context import get_active_project_or_400, require_project_admin
-from farm.cultures.serializers import CultureSerializer
+from farm.crops.serializers import CropSerializer
 
 from .records import _build_entity_revision_changes, _current_actor_label, record_entity_revision
 from .restore import BatchRevertError, _restore_project_state_at, revert_batch_operation
-from .serializers import CultureHistoryEntrySerializer, CultureRestoreSerializer
+from .serializers import CropHistoryEntrySerializer, CropRestoreSerializer
 
 
 class ProjectHistoryListView(APIView):
@@ -75,9 +75,9 @@ class ProjectHistoryListView(APIView):
             group['children'].append(revision_payload(row))
 
         for group in groups_by_batch.values():
-            group['children'] = CultureHistoryEntrySerializer(group['children'], many=True).data
+            group['children'] = CropHistoryEntrySerializer(group['children'], many=True).data
 
-        return Response(CultureHistoryEntrySerializer(payload, many=True).data)
+        return Response(CropHistoryEntrySerializer(payload, many=True).data)
 
 
 class ProjectHistoryRestoreView(APIView):
@@ -86,7 +86,7 @@ class ProjectHistoryRestoreView(APIView):
     def post(self, request):
         active_project = get_active_project_or_400(request)
         require_project_admin(request.user, active_project.id, request=request)
-        serializer = CultureRestoreSerializer(data=request.data)
+        serializer = CropRestoreSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         revision_id = serializer.validated_data['history_id']
 
@@ -127,26 +127,26 @@ class BatchOperationRevertView(APIView):
 
 
 class GlobalHistoryListView(APIView):
-    """List recent history entries across all cultures."""
+    """List recent history entries across all crops."""
 
     def get(self, request):
         active_project = get_active_project_or_400(request)
         since = timezone.now() - timedelta(days=30)
         rows = list(
             EntityRevision.objects
-            .filter(project=active_project, entity_type='culture', created_at__gte=since)
+            .filter(project=active_project, entity_type='crop', created_at__gte=since)
             .order_by('-created_at')
         )
         current_revision_id = rows[0].id if rows else None
         payload = [
             {
                 'history_id': row.id,
-                'culture_id': row.object_id,
+                'crop_id': row.object_id,
                 'history_date': row.created_at,
                 'history_type': 'snapshot',
                 'history_user': row.user_name or None,
-                'summary': f"Culture #{row.object_id}: " + (', '.join(row.changed_fields[:5]) if row.changed_fields else 'snapshot'),
-                'object_type': 'culture',
+                'summary': f"Crop #{row.object_id}: " + (', '.join(row.changed_fields[:5]) if row.changed_fields else 'snapshot'),
+                'object_type': 'crop',
                 'object_display_name': row.display_name or None,
                 'action': row.action,
                 'actor_label': row.user_name or None,
@@ -162,33 +162,33 @@ class GlobalHistoryListView(APIView):
             }
             for index, row in enumerate(rows)
         ]
-        return Response(CultureHistoryEntrySerializer(payload, many=True).data)
+        return Response(CropHistoryEntrySerializer(payload, many=True).data)
 
 
 class GlobalHistoryRestoreView(APIView):
-    """Restore a culture from a global history entry (supports soft-deleted cultures)."""
+    """Restore a crop from a global history entry (supports soft-deleted crops)."""
 
     def post(self, request):
         active_project = get_active_project_or_400(request)
         require_project_admin(request.user, active_project.id, request=request)
-        serializer = CultureRestoreSerializer(data=request.data)
+        serializer = CropRestoreSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         revision_id = serializer.validated_data['history_id']
 
         revision = get_object_or_404(
-            EntityRevision.objects.filter(project=active_project, entity_type='culture'),
+            EntityRevision.objects.filter(project=active_project, entity_type='crop'),
             id=revision_id,
         )
-        culture = get_object_or_404(Culture.all_objects.filter(project=active_project), pk=revision.object_id)
+        crop = get_object_or_404(Crop.all_objects.filter(project=active_project), pk=revision.object_id)
         snapshot = revision.snapshot
-        allowed_fields = {f.name for f in Culture._meta.fields if f.name not in {'id', 'created_at', 'updated_at'}}
+        allowed_fields = {f.name for f in Crop._meta.fields if f.name not in {'id', 'created_at', 'updated_at'}}
 
         with transaction.atomic():
             for key, value in snapshot.items():
                 if key in allowed_fields:
-                    setattr(culture, key, value)
-            culture.deleted_at = None
-            culture._history_action = EntityRevision.ACTION_RESTORED
-            culture.save()
+                    setattr(crop, key, value)
+            crop.deleted_at = None
+            crop._history_action = EntityRevision.ACTION_RESTORED
+            crop.save()
 
-        return Response(CultureSerializer(culture).data, status=status.HTTP_200_OK)
+        return Response(CropSerializer(crop).data, status=status.HTTP_200_OK)

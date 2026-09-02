@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import URLValidator
 from django.db import IntegrityError, transaction
 
-from farm.models import Culture, CultureSupplierData, Supplier
+from farm.models import Crop, CropSupplierData, Supplier
 from farm.utils import normalize_supplier_name
 
 
@@ -37,62 +37,62 @@ class SupplierRestoreFailedError(Exception):
 
 
 def build_delete_usage(supplier: Supplier) -> dict[str, int | bool | list[int]]:
-    """Summarize which cultures/rows still reference the supplier."""
-    supplier_culture_ids = set(
-        Culture.objects.filter(
+    """Summarize which crops/rows still reference the supplier."""
+    supplier_crop_ids = set(
+        Crop.objects.filter(
             project=supplier.project,
             deleted_at__isnull=True,
             supplier=supplier,
         ).values_list('id', flat=True)
     )
-    seed_demand_culture_ids = set(
-        Culture.objects.filter(
+    seed_demand_crop_ids = set(
+        Crop.objects.filter(
             project=supplier.project,
             deleted_at__isnull=True,
             selected_seed_demand_supplier=supplier,
         ).values_list('id', flat=True)
     )
-    supplier_data_culture_ids = set(
-        CultureSupplierData.objects.filter(
+    supplier_data_crop_ids = set(
+        CropSupplierData.objects.filter(
             project=supplier.project,
             supplier=supplier,
-            culture__deleted_at__isnull=True,
-        ).values_list('culture_id', flat=True)
+            crop__deleted_at__isnull=True,
+        ).values_list('crop_id', flat=True)
     )
-    supplier_data_rows = CultureSupplierData.objects.filter(
+    supplier_data_rows = CropSupplierData.objects.filter(
         project=supplier.project,
         supplier=supplier,
-        culture__deleted_at__isnull=True,
+        crop__deleted_at__isnull=True,
     ).count()
-    total_culture_ids = supplier_culture_ids | seed_demand_culture_ids | supplier_data_culture_ids
+    total_crop_ids = supplier_crop_ids | seed_demand_crop_ids | supplier_data_crop_ids
 
     return {
-        'can_delete': len(total_culture_ids) == 0 and supplier_data_rows == 0,
-        'culture_count': len(supplier_culture_ids),
-        'seed_demand_culture_count': len(seed_demand_culture_ids),
-        'supplier_data_culture_count': len(supplier_data_culture_ids),
+        'can_delete': len(total_crop_ids) == 0 and supplier_data_rows == 0,
+        'crop_count': len(supplier_crop_ids),
+        'seed_demand_crop_count': len(seed_demand_crop_ids),
+        'supplier_data_crop_count': len(supplier_data_crop_ids),
         'supplier_data_count': supplier_data_rows,
-        'total_culture_count': len(total_culture_ids),
-        'culture_ids': sorted(total_culture_ids),
+        'total_crop_count': len(total_crop_ids),
+        'crop_ids': sorted(total_crop_ids),
     }
 
 
 def build_delete_undo_payload(supplier: Supplier) -> dict[str, object]:
     """Capture everything needed to undo an unlink-and-delete of the supplier."""
-    supplier_cultures = list(
-        Culture.all_objects.filter(project=supplier.project, supplier=supplier).values_list('id', flat=True)
+    supplier_crops = list(
+        Crop.all_objects.filter(project=supplier.project, supplier=supplier).values_list('id', flat=True)
     )
-    seed_demand_cultures = list(
-        Culture.all_objects.filter(
+    seed_demand_crops = list(
+        Crop.all_objects.filter(
             project=supplier.project,
             selected_seed_demand_supplier=supplier,
         ).values_list('id', flat=True)
     )
     supplier_data_rows = []
-    for row in CultureSupplierData.objects.filter(project=supplier.project, supplier=supplier):
+    for row in CropSupplierData.objects.filter(project=supplier.project, supplier=supplier):
         supplier_data_rows.append({
             'id': row.id,
-            'culture_id': row.culture_id,
+            'crop_id': row.crop_id,
             'supplier_name': row.supplier_name,
             'supplier_url': row.supplier_url,
             'supplier_product_name': row.supplier_product_name,
@@ -117,26 +117,26 @@ def build_delete_undo_payload(supplier: Supplier) -> dict[str, object]:
             'slug': supplier.slug,
             'allowed_domains': supplier.allowed_domains,
         },
-        'culture_ids': supplier_cultures,
-        'seed_demand_culture_ids': seed_demand_cultures,
+        'crop_ids': supplier_crops,
+        'seed_demand_crop_ids': seed_demand_crops,
         'supplier_data': supplier_data_rows,
     }
 
 
 def unlink_supplier_references(supplier: Supplier) -> None:
-    """Detach all culture references to the supplier and drop its data rows."""
-    Culture.all_objects.filter(project=supplier.project, supplier=supplier).update(supplier=None)
-    Culture.all_objects.filter(
+    """Detach all crop references to the supplier and drop its data rows."""
+    Crop.all_objects.filter(project=supplier.project, supplier=supplier).update(supplier=None)
+    Crop.all_objects.filter(
         project=supplier.project,
         selected_seed_demand_supplier=supplier,
     ).update(selected_seed_demand_supplier=None)
-    CultureSupplierData.objects.filter(project=supplier.project, supplier=supplier).delete()
+    CropSupplierData.objects.filter(project=supplier.project, supplier=supplier).delete()
 
 
 @dataclass
 class SupplierRestoreResult:
     supplier: Supplier
-    restored_culture_count: int
+    restored_crop_count: int
     restored_supplier_data_count: int
 
 
@@ -162,9 +162,9 @@ def restore_unlinked_supplier(
     if Supplier.objects.filter(project=project, pk=supplier_id).exists():
         raise SupplierRestoreConflictError()
 
-    culture_ids = [item for item in payload.get('culture_ids', []) if isinstance(item, int)]
-    seed_demand_culture_ids = [
-        item for item in payload.get('seed_demand_culture_ids', []) if isinstance(item, int)
+    crop_ids = [item for item in payload.get('crop_ids', []) if isinstance(item, int)]
+    seed_demand_crop_ids = [
+        item for item in payload.get('seed_demand_crop_ids', []) if isinstance(item, int)
     ]
     supplier_data_rows = payload.get('supplier_data', [])
     if not isinstance(supplier_data_rows, list):
@@ -180,10 +180,10 @@ def restore_unlinked_supplier(
                 slug=str(supplier_payload.get('slug') or ''),
                 allowed_domains=supplier_payload.get('allowed_domains') or [],
             )
-            Culture.all_objects.filter(project=project, id__in=culture_ids).update(supplier=supplier)
-            Culture.all_objects.filter(
+            Crop.all_objects.filter(project=project, id__in=crop_ids).update(supplier=supplier)
+            Crop.all_objects.filter(
                 project=project,
-                id__in=seed_demand_culture_ids,
+                id__in=seed_demand_crop_ids,
             ).update(selected_seed_demand_supplier=supplier)
 
             restored_supplier_data_count = 0
@@ -197,23 +197,23 @@ def restore_unlinked_supplier(
 
     return SupplierRestoreResult(
         supplier=supplier,
-        restored_culture_count=len(set(culture_ids) | set(seed_demand_culture_ids)),
+        restored_crop_count=len(set(crop_ids) | set(seed_demand_crop_ids)),
         restored_supplier_data_count=restored_supplier_data_count,
     )
 
 
 def _restore_supplier_data_row(project, supplier: Supplier, row_payload: object) -> bool:
-    """Recreate one CultureSupplierData row from the undo payload; skip invalid rows."""
+    """Recreate one CropSupplierData row from the undo payload; skip invalid rows."""
     if not isinstance(row_payload, dict):
         return False
-    culture_id = row_payload.get('culture_id')
-    if not isinstance(culture_id, int):
+    crop_id = row_payload.get('crop_id')
+    if not isinstance(crop_id, int):
         return False
-    if not Culture.all_objects.filter(project=project, pk=culture_id).exists():
+    if not Crop.all_objects.filter(project=project, pk=crop_id).exists():
         return False
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         id=row_payload.get('id') if isinstance(row_payload.get('id'), int) else None,
-        culture_id=culture_id,
+        crop_id=crop_id,
         supplier=supplier,
         project=project,
         supplier_name=str(row_payload.get('supplier_name') or ''),

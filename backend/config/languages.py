@@ -7,7 +7,7 @@ Three separate concerns use these helpers and must not be confused:
    so two people can view the same project in different languages.
 2. **Public crop-library content** — language-dependent editorial text on
    language-independent records (``crops.CropSpeciesTranslation``,
-   ``farm.PublicCultureTranslation``).
+   ``farm.PublicCropTranslation``).
 3. **User project content** — project/location/bed names, private notes,
    supplier names, variety names. Never translated, never duplicated per
    language; stored and shown exactly as typed.

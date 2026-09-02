@@ -14,7 +14,7 @@ export interface GanttContextMenuAction {
 
 export interface GanttContextMenuCallbacks {
   openPlantingPlanFromTask: (task: GanttTask, options?: { edit?: boolean }) => void;
-  openCultureFromTask: (task: GanttTask) => void;
+  openCropFromTask: (task: GanttTask) => void;
   openAreasPage: (highlight?: { type: "location" | "field" | "bed"; id: number }) => void;
   copyTaskSummary: (task: GanttTask, group: GanttTaskGroup) => void;
   deletePlantingPlanFromTask: (task: GanttTask) => void | Promise<void>;
@@ -33,7 +33,7 @@ export function buildGanttContextMenuActions(
 ): GanttContextMenuAction[] {
   const {
     openPlantingPlanFromTask,
-    openCultureFromTask,
+    openCropFromTask,
     openAreasPage,
     copyTaskSummary,
     deletePlantingPlanFromTask,
@@ -45,8 +45,8 @@ export function buildGanttContextMenuActions(
     const actions: GanttContextMenuAction[] = [
       { id: "open-plan", label: t("ganttChart:contextMenu.openPlan"), group: "navigate", onClick: () => openPlantingPlanFromTask(task) },
     ];
-    if (task.cultureName) {
-      actions.push({ id: "open-culture", label: t("ganttChart:contextMenu.openCulture"), group: "navigate", onClick: () => openCultureFromTask(task) });
+    if (task.cropName) {
+      actions.push({ id: "open-crop", label: t("ganttChart:contextMenu.openCrop"), group: "navigate", onClick: () => openCropFromTask(task) });
     }
     if (group.bedId) {
       const bedId = group.bedId;

@@ -57,8 +57,8 @@
     "createField": "Parzelle hinzufügen",
     "createBed": "Beet hinzufügen",
     "openAreas": "Anbauflächen öffnen",
-    "openCultureLibrary": "Kulturbibliothek öffnen",
-    "createCulture": "Kultur hinzufügen",
+    "openCropLibrary": "Kulturbibliothek öffnen",
+    "createCrop": "Kultur hinzufügen",
     "createPlan": "Anbauplan hinzufügen"
   },
   "notes": {
@@ -131,7 +131,7 @@
   "errors": {
     "generic": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
     "sessionExpired": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
-    "noPublicCultures": "Es wurden keine öffentlichen Kulturen gefunden.",
+    "noPublicCrops": "Es wurden keine öffentlichen Kulturen gefunden.",
     "bedNotFound": "Das Beet wurde nicht gefunden.",
     "fileTooLarge": "Die Datei ist zu groß (maximal 10 MB).",
     "invalidImage": "Die hochgeladene Datei ist kein gültiges Bild.",
@@ -140,7 +140,7 @@
     "supplierSpecificTkgUnsupported": "Lieferantenspezifische Tausendkorngewichte werden nicht mehr unterstützt.",
     "supplierProjectMismatch": "Der Lieferant gehört nicht zum aktiven Projekt.",
     "selectedSupplierProjectMismatch": "Der ausgewählte Saatgutlieferant gehört nicht zum aktiven Projekt.",
-    "cultureProjectMismatch": "Die Kultur gehört nicht zum aktiven Projekt."
+    "cropProjectMismatch": "Die Kultur gehört nicht zum aktiven Projekt."
   },
   "validation": {
     "required": "Dieses Feld ist erforderlich.",
@@ -148,7 +148,7 @@
     "minLength": "Mindestens {{count}} Zeichen erforderlich.",
     "invalidNumberExample": "Bitte gib einen gültigen Zahlenwert ein, z. B. 3,9",
     "areaInputPositive": "Der Wert muss größer als 0 sein.",
-    "areaInputPlantsCultureRequired": "Bitte wähle eine Kultur aus, um die Fläche aus der Pflanzenanzahl zu berechnen.",
+    "areaInputPlantsCropRequired": "Bitte wähle eine Kultur aus, um die Fläche aus der Pflanzenanzahl zu berechnen.",
     "areaInputPlantsSpacingMissing": "Für diese Kultur fehlen gültige Pflanzabstände. Die Fläche kann nicht aus der Pflanzenanzahl berechnet werden.",
     "bedAreaExceeded": "Die eingetragene Fläche überschreitet die maximal verfügbare Fläche dieses Beets.",
     "availableArea": "Verfügbare Restfläche"
@@ -196,7 +196,7 @@
     "harvest_end_date": "Ernteende",
     "quantity": "Pflanzen",
     "cultivation_type": "Anbauart",
-    "culture": "Kultur",
+    "crop": "Kultur",
     "bed": "Beet",
     "field": "Parzelle",
     "location": "Standort",

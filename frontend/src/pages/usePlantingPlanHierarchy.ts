@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  cultureAPI,
+  cropAPI,
   locationAPI,
   fieldAPI,
   bedAPI,
-  type Culture,
+  type Crop,
   type Bed,
 } from '../api/api';
 import type { Field, Location, CultivationType } from '../api/types';
 import {
-  getAllowedCultivationTypesForCulture,
+  getAllowedCultivationTypesForCrop,
 } from './plantingPlansUtils';
 import {
   toNumericValue,
@@ -22,7 +22,7 @@ import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { collectHierarchyAvailability } from '../components/planting-plans/areaHierarchySelection';
 import type { SearchableSelectOption } from '../components/data-grid';
 import { useTranslation } from '../i18n';
-import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+import { formatCropDisplayName } from '../crops/cropDisplay';
 
 export interface CultivationTypeSelectOption {
   value: CultivationType;
@@ -31,7 +31,7 @@ export interface CultivationTypeSelectOption {
 
 // Stable identities so consumers' memos do not see new arrays on every
 // render while no project is selected.
-const EMPTY_CULTURES: Culture[] = [];
+const EMPTY_CROPS: Crop[] = [];
 const EMPTY_LOCATIONS: Location[] = [];
 const EMPTY_FIELDS: Field[] = [];
 const EMPTY_BEDS: Bed[] = [];
@@ -41,7 +41,7 @@ const CULTIVATION_TYPE_OPTIONS = [
   { value: 'pre_cultivation', labelKey: 'plantingPlans:cultivationTypes.preCultivation' },
 ] as const;
 
-const CULTURE_COLUMN_MAX_WIDTH = 280;
+const CROP_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
 const DATE_COLUMN_WIDTH = 142;
 
@@ -56,7 +56,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
   const { i18n } = useTranslation();
   const numberLocale = resolveLocaleFromLanguage(i18n.language);
 
-  const [loadedCultures, setCultures] = useState<Culture[]>([]);
+  const [loadedCrops, setCrops] = useState<Crop[]>([]);
   const [loadedLocations, setLocations] = useState<Location[]>([]);
   const [loadedFields, setFields] = useState<Field[]>([]);
   const [loadedBeds, setBeds] = useState<Bed[]>([]);
@@ -65,7 +65,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
   // Without a project nothing is fetched, so the hook reports an empty,
   // settled result. Derived during render rather than pushed into state from
   // the effect below, which is what react-hooks/set-state-in-effect flags.
-  const cultures = shouldShowProjectRequiredState ? EMPTY_CULTURES : loadedCultures;
+  const crops = shouldShowProjectRequiredState ? EMPTY_CROPS : loadedCrops;
   const locations = shouldShowProjectRequiredState ? EMPTY_LOCATIONS : loadedLocations;
   const fields = shouldShowProjectRequiredState ? EMPTY_FIELDS : loadedFields;
   const beds = shouldShowProjectRequiredState ? EMPTY_BEDS : loadedBeds;
@@ -78,13 +78,13 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
     const fetchData = async (): Promise<void> => {
       setIsHierarchyLoading(true);
       try {
-        const [culturesResponse, locationsResponse, fieldsResponse, bedsResponse] = await Promise.all([
-          cultureAPI.listAll(),
+        const [cropsResponse, locationsResponse, fieldsResponse, bedsResponse] = await Promise.all([
+          cropAPI.listAll(),
           locationAPI.listAll(),
           fieldAPI.listAll(),
           bedAPI.listAll(),
         ]);
-        setCultures(culturesResponse.results);
+        setCrops(cropsResponse.results);
         setLocations(locationsResponse.results);
         setFields(fieldsResponse.results);
         setBeds(
@@ -102,15 +102,15 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
     fetchData();
   }, [shouldShowProjectRequiredState]);
 
-  const cultureOptions: SearchableSelectOption[] = useMemo(
+  const cropOptions: SearchableSelectOption[] = useMemo(
     () =>
-      cultures
+      crops
         .filter((c) => c.id !== undefined)
         .map((c) => ({
           value: c.id!,
-          label: formatCultureDisplayName(c),
+          label: formatCropDisplayName(c),
         })),
-    [cultures],
+    [crops],
   );
 
   const locationById = useMemo(
@@ -172,18 +172,18 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
     [t],
   );
 
-  const cultivationTypeOptionsByCultureId = useMemo(() => {
-    const optionsByCultureId = new Map<number, CultivationTypeSelectOption[]>();
-    cultures.forEach((culture) => {
-      if (culture.id === undefined) return;
-      const allowedTypes = getAllowedCultivationTypesForCulture(culture);
-      optionsByCultureId.set(
-        culture.id,
+  const cultivationTypeOptionsByCropId = useMemo(() => {
+    const optionsByCropId = new Map<number, CultivationTypeSelectOption[]>();
+    crops.forEach((crop) => {
+      if (crop.id === undefined) return;
+      const allowedTypes = getAllowedCultivationTypesForCrop(crop);
+      optionsByCropId.set(
+        crop.id,
         cultivationTypeOptions.filter((option) => allowedTypes.includes(option.value as CultivationType)),
       );
     });
-    return optionsByCultureId;
-  }, [cultivationTypeOptions, cultures]);
+    return optionsByCropId;
+  }, [cultivationTypeOptions, crops]);
 
   const hasMultipleLocationsWithBeds = useMemo(() => {
     const fieldByIdLocal = new Map(
@@ -215,18 +215,18 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
 
   const getCultivationTypeOptionsForRow = useMemo(
     () =>
-      (row: { culture: number | null }): CultivationTypeSelectOption[] =>
-        typeof row.culture === 'number'
-          ? cultivationTypeOptionsByCultureId.get(row.culture) ?? cultivationTypeOptions
+      (row: { crop: number | null }): CultivationTypeSelectOption[] =>
+        typeof row.crop === 'number'
+          ? cultivationTypeOptionsByCropId.get(row.crop) ?? cultivationTypeOptions
           : cultivationTypeOptions,
-    [cultivationTypeOptions, cultivationTypeOptionsByCultureId],
+    [cultivationTypeOptions, cultivationTypeOptionsByCropId],
   );
 
   const dynamicWidths = useMemo(() => {
-    const cultureWidth = estimateColumnWidth(
-      [t('plantingPlans:columns.culture'), ...cultureOptions.map((option) => option.label)],
+    const cropWidth = estimateColumnWidth(
+      [t('plantingPlans:columns.crop'), ...cropOptions.map((option) => option.label)],
       170,
-      CULTURE_COLUMN_MAX_WIDTH,
+      CROP_COLUMN_MAX_WIDTH,
     );
     const hierarchyColumnValues = [
       t('plantingPlans:columns.bed'),
@@ -238,7 +238,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
       hasMultipleLocationsWithBeds ? 380 : BED_COLUMN_MAX_WIDTH,
     );
     return {
-      culture: cultureWidth,
+      crop: cropWidth,
       bed: bedWidth,
       cultivationType: estimateColumnWidth(
         [t('plantingPlans:columns.cultivationType'), ...cultivationTypeOptions.map((option) => option.label)],
@@ -261,16 +261,16 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
       plants: estimateColumnWidth([t('plantingPlans:columns.plantsCount'), '≈ 9999'], 96, 122),
       notes: 220,
     };
-  }, [bedOptions, beds, cultivationTypeOptions, cultureOptions, hasMultipleLocationsWithBeds, numberLocale, t]);
+  }, [bedOptions, beds, cultivationTypeOptions, cropOptions, hasMultipleLocationsWithBeds, numberLocale, t]);
 
   return {
-    cultures,
+    crops,
     locations,
     fields,
     beds,
     isHierarchyLoading,
     numberLocale,
-    cultureOptions,
+    cropOptions,
     locationById,
     fieldById,
     bedById,
@@ -278,7 +278,7 @@ export function usePlantingPlanHierarchy(shouldShowProjectRequiredState: boolean
     bedOptions,
     bedLabelById,
     cultivationTypeOptions,
-    cultivationTypeOptionsByCultureId,
+    cultivationTypeOptionsByCropId,
     hasMultipleLocationsWithBeds,
     fieldBedColumnLabel,
     areaColumnLabel,

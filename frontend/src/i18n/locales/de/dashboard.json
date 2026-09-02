@@ -20,7 +20,7 @@
     "intro": "OpenFarmPlanner unterstützt dich bei der strukturierten Planung von Flächen, Kulturen und Anbauzyklen. Beginne mit deiner ersten Parzelle.",
     "field": "Parzelle hinzufügen",
     "bed": "Beet hinzufügen",
-    "culture": "Kultur hinzufügen",
+    "crop": "Kultur hinzufügen",
     "plan": "Anbauplan hinzufügen"
   }
 }

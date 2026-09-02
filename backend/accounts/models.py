@@ -156,10 +156,10 @@ class PublicProfile(models.Model):
     Distinct from ``User.first_name`` (the private, project-scoped
     registration name — see ``AccountProfileSerializer``): this name is
     shown to *all* users, including anonymous visitors, as the author of
-    published public content (e.g. the public culture library). It is
+    published public content (e.g. the public crop library). It is
     never set from the username or the private display name — it must be
     entered explicitly. Publications by a user without a public display
-    name are attributed anonymously (see ``PublicCulture.created_by_label``).
+    name are attributed anonymously (see ``PublicCrop.created_by_label``).
     """
 
     user = models.OneToOneField(

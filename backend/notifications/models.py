@@ -1,6 +1,6 @@
 """In-app notifications addressed to a single user.
 
-Deliberately generic: the app knows nothing about crop species, cultures, or
+Deliberately generic: the app knows nothing about crop species, crops, or
 any other domain. Producers hand in a ``notification_type``, a ``context``
 payload, and an optional target reference; consumers decide what to render and
 where to navigate. Adding a notification kind is a choices entry plus a
@@ -23,20 +23,20 @@ class Notification(models.Model):
     TYPE_CROP_SPECIES_PROPOSAL_REJECTED = 'crop_species_proposal_rejected'
     TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED = 'crop_species_proposal_submitted'
     TYPE_MODERATOR_REQUEST_SUBMITTED = 'moderator_request_submitted'
-    TYPE_PUBLIC_CULTURE_REMOVED = 'public_culture_removed'
+    TYPE_PUBLIC_CROP_REMOVED = 'public_crop_removed'
     TYPE_CHOICES = [
         (TYPE_CROP_SPECIES_PROPOSAL_ACCEPTED, 'Crop species proposal accepted'),
         (TYPE_CROP_SPECIES_PROPOSAL_REJECTED, 'Crop species proposal rejected'),
         (TYPE_CROP_SPECIES_PROPOSAL_SUBMITTED, 'Crop species proposal submitted'),
         (TYPE_MODERATOR_REQUEST_SUBMITTED, 'Moderator request submitted'),
-        (TYPE_PUBLIC_CULTURE_REMOVED, 'Public culture removed'),
+        (TYPE_PUBLIC_CROP_REMOVED, 'Public crop removed'),
     ]
 
-    TARGET_PUBLIC_CULTURE = 'public_culture'
+    TARGET_PUBLIC_CROP = 'public_crop'
     TARGET_CROP_SPECIES = 'crop_species'
     TARGET_PUBLIC_LIBRARY_MODERATION = 'public_library_moderation'
     TARGET_TYPE_CHOICES = [
-        (TARGET_PUBLIC_CULTURE, 'Public culture'),
+        (TARGET_PUBLIC_CROP, 'Public crop'),
         (TARGET_CROP_SPECIES, 'Crop species'),
         (TARGET_PUBLIC_LIBRARY_MODERATION, 'Public library moderation queue'),
     ]

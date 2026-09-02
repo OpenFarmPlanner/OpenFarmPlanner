@@ -54,7 +54,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
     const location = await api<{ id: number }>('/locations/', { name: 'Testhof' });
     const field = await api<{ id: number }>('/fields/', { name: 'Testfeld', location: location.id });
     const bed = await api<{ id: number }>('/beds/', { name: 'Testbeet', field: field.id, area_sqm: 5 });
-    const culture = await api<{ id: number }>('/cultures/', {
+    const crop = await api<{ id: number }>('/crops/', {
       name: 'Testkultur',
       variety: 'Sorte A',
       growth_duration_days: 30,
@@ -66,7 +66,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
     });
     const plan = await api<{ id: number }>('/planting-plans/', {
       bed: bed.id,
-      culture: culture.id,
+      crop: crop.id,
       season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: '2026-04-01',
@@ -113,7 +113,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1, { timeout: 5_000 });
 
     // --- Mobile context menu links: the selected plan opens expanded, and
-    // related culture/area links still land on the intended target. ---
+    // related crop/area links still land on the intended target. ---
     await page.setViewportSize({ width: 390, height: 844 });
     const openMobileTaskMenu = async (): Promise<void> => {
       await page.goto('/app/gantt-chart');
@@ -131,7 +131,7 @@ test.describe('gantt calendar context-menu smoke test', () => {
 
     await openMobileTaskMenu();
     await page.getByRole('menuitem', { name: 'Kultur öffnen' }).click();
-    await expect(page).toHaveURL(new RegExp(`/app/cultures\\?cultureId=${culture.id}`), { timeout: 10_000 });
+    await expect(page).toHaveURL(new RegExp(`/app/crops\\?cropId=${crop.id}`), { timeout: 10_000 });
     await expect(page.getByText('Testkultur', { exact: true })).toBeVisible({ timeout: 10_000 });
 
     await openMobileTaskMenu();

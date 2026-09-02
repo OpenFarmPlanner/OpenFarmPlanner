@@ -1,4 +1,4 @@
-"""Serializers for API-token self-service and culture-import drafts."""
+"""Serializers for API-token self-service and crop-import drafts."""
 
 from __future__ import annotations
 
@@ -83,7 +83,7 @@ class ProjectApiTokenCreateSerializer(serializers.Serializer):
         return value
 
 
-class CultureImportPreviewRequestSerializer(serializers.Serializer):
+class CropImportPreviewRequestSerializer(serializers.Serializer):
     """Input for the preview step."""
 
     items = serializers.ListField(child=serializers.JSONField(), allow_empty=False)
@@ -92,7 +92,7 @@ class CultureImportPreviewRequestSerializer(serializers.Serializer):
     )
 
 
-class CultureImportApplyRequestSerializer(serializers.Serializer):
+class CropImportApplyRequestSerializer(serializers.Serializer):
     """Input for the apply step.
 
     ``checksum`` binds the confirmation to a specific preview, and ``confirm``

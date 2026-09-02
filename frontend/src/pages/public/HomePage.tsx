@@ -31,10 +31,10 @@ const PRODUCT_TOUR_ITEMS = [
     },
   },
   {
-    key: 'cultures',
+    key: 'crops',
     images: {
-      de: publicAssetUrl('/landing/screenshots/demo-cultures.webp'),
-      en: publicAssetUrl('/landing/screenshots/demo-cultures-en.webp'),
+      de: publicAssetUrl('/landing/screenshots/demo-crops.webp'),
+      en: publicAssetUrl('/landing/screenshots/demo-crops-en.webp'),
     },
   },
   {

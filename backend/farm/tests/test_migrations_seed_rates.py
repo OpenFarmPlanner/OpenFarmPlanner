@@ -14,10 +14,10 @@ class TestMethodSpecificSeedRateMigration:
         old_apps = self.executor.loader.project_state([self.migrate_from]).apps
 
         project_model = old_apps.get_model('farm', 'Project')
-        culture_model = old_apps.get_model('farm', 'Culture')
+        crop_model = old_apps.get_model('farm', 'Culture')
         project = project_model.objects.create(name='Migration', slug='migration-seed-rate')
 
-        culture_model.objects.create(
+        crop_model.objects.create(
             name='Carrot',
             name_normalized='carrot',
             variety='Nantaise',
@@ -40,12 +40,12 @@ class TestMethodSpecificSeedRateMigration:
 
     def test_migration_copies_legacy_seed_rate_to_both_methods(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps
-        culture_model = apps.get_model('farm', 'Culture')
+        crop_model = apps.get_model('farm', 'Culture')
 
-        culture = culture_model.objects.get(name='Carrot')
-        assert culture.seed_rate_direct_value == 8
-        assert culture.seed_rate_direct_unit == 'g_per_m2'
-        assert culture.seed_rate_pre_cultivation_value == 8
-        assert culture.seed_rate_pre_cultivation_unit == 'g_per_m2'
-        assert culture.sowing_calculation_safety_percent_direct == 12
-        assert culture.sowing_calculation_safety_percent_pre_cultivation == 12
+        crop = crop_model.objects.get(name='Carrot')
+        assert crop.seed_rate_direct_value == 8
+        assert crop.seed_rate_direct_unit == 'g_per_m2'
+        assert crop.seed_rate_pre_cultivation_value == 8
+        assert crop.seed_rate_pre_cultivation_unit == 'g_per_m2'
+        assert crop.sowing_calculation_safety_percent_direct == 12
+        assert crop.sowing_calculation_safety_percent_pre_cultivation == 12

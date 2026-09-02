@@ -19,7 +19,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { bedAPI, cultureAPI, fieldAPI, locationAPI, plantingPlanAPI, seedDemandAPI } from '../api/api';
+import { bedAPI, cropAPI, fieldAPI, locationAPI, plantingPlanAPI, seedDemandAPI } from '../api/api';
 import type { SeedDemand } from '../api/types';
 import { useTranslation } from '../i18n';
 import { ContextMenuActionItem } from '../components/contextMenu/ContextMenuActionItem';
@@ -51,7 +51,7 @@ import {
   formatRequiredSeedAmount,
   formatUnit,
 } from './seedDemandFormat';
-import { formatCultureDisplayName } from '../cultures/cultureDisplay';
+import { formatCropDisplayName } from '../crops/cropDisplay';
 
 // Stable identity so the memos downstream do not see a new array on every
 // render while no project is selected.
@@ -59,15 +59,15 @@ const EMPTY_SEED_DEMAND_ROWS: SeedDemand[] = [];
 
 export default function SeedDemandPage() {
   useCommandContextTag('seedDemand');
-  const { t } = useTranslation(['cultures', 'common']);
+  const { t } = useTranslation(['crops', 'common']);
   const navigate = useNavigate();
   const { shouldShowProjectRequiredState, missingProjectReason } = useProjectRequirement();
   const [loadedRows, setRows] = useState<SeedDemand[]>([]);
   const [isFetching, setIsLoading] = useState(true);
   const [fetchError, setError] = useState<string | null>(null);
-  const [cultureCount, setCultureCount] = useState(0);
+  const [cropCount, setCropCount] = useState(0);
   const [planCount, setPlanCount] = useState(0);
-  const [hasCulturesWithSeedData, setHasCulturesWithSeedData] = useState(false);
+  const [hasCropsWithSeedData, setHasCropsWithSeedData] = useState(false);
   const [locationCount, setLocationCount] = useState(0);
   const [loadedFieldCount, setFieldCount] = useState(0);
   const [bedCount, setBedCount] = useState(0);
@@ -82,8 +82,8 @@ export default function SeedDemandPage() {
   const fieldCount = shouldShowProjectRequiredState ? 0 : loadedFieldCount;
 
   const hasPlans = planCount > 0;
-  const hasSeedData = hasCulturesWithSeedData;
-  const canCalculateSeedDemand = locationCount > 0 && fieldCount > 0 && bedCount > 0 && cultureCount > 0 && hasPlans && hasSeedData;
+  const hasSeedData = hasCropsWithSeedData;
+  const canCalculateSeedDemand = locationCount > 0 && fieldCount > 0 && bedCount > 0 && cropCount > 0 && hasPlans && hasSeedData;
   const {
     showContextMenuHint,
     closeContextMenuHint,
@@ -101,7 +101,7 @@ export default function SeedDemandPage() {
   const firstMissingSetupStep = getFirstMissingProjectSetupStep({
     hasFields: fieldCount > 0,
     hasBeds: bedCount > 0,
-    hasCultures: cultureCount > 0,
+    hasCrops: cropCount > 0,
     hasPlans,
   });
   const missingRequirement = useMemo(() => {
@@ -119,10 +119,10 @@ export default function SeedDemandPage() {
         actions: getTranslatedProjectSetupActions(firstMissingSetupStep, t),
       };
     }
-    if (firstMissingSetupStep === 'cultures') {
+    if (firstMissingSetupStep === 'crops') {
       return {
-        title: t('seedDemand.progressive.cultures.title'),
-        description: t('seedDemand.progressive.cultures.description'),
+        title: t('seedDemand.progressive.crops.title'),
+        description: t('seedDemand.progressive.crops.description'),
         actions: getTranslatedProjectSetupActions(firstMissingSetupStep, t),
       };
     }
@@ -144,7 +144,7 @@ export default function SeedDemandPage() {
             </Typography>
           </>
         ),
-        actions: [{ label: t('seedDemand.progressive.seedData.action'), to: '/app/cultures' }],
+        actions: [{ label: t('seedDemand.progressive.seedData.action'), to: '/app/crops' }],
       };
     }
     return null;
@@ -156,23 +156,23 @@ export default function SeedDemandPage() {
     try {
       const response = await seedDemandAPI.list();
       setRows(response.data.results ?? []);
-      const [culturesResponse, plansResponse, locationsResponse, fieldsResponse, bedsResponse] = await Promise.all([
-        cultureAPI.list(),
+      const [cropsResponse, plansResponse, locationsResponse, fieldsResponse, bedsResponse] = await Promise.all([
+        cropAPI.list(),
         plantingPlanAPI.list(),
         locationAPI.list(),
         fieldAPI.list(),
         bedAPI.list(),
       ]);
-      const cultures = culturesResponse.data.results;
-      setCultureCount(cultures.length);
+      const crops = cropsResponse.data.results;
+      setCropCount(crops.length);
       setPlanCount(plansResponse.data.results.length);
       setLocationCount(locationsResponse.data.results.length);
       setFieldCount(fieldsResponse.data.results.length);
       setBedCount(bedsResponse.data.results.length);
-      setHasCulturesWithSeedData(cultures.some((culture) => (
-        culture.seed_rate_value !== null
-        || culture.seed_rate_direct_value !== null
-        || culture.seed_rate_pre_cultivation_value !== null
+      setHasCropsWithSeedData(crops.some((crop) => (
+        crop.seed_rate_value !== null
+        || crop.seed_rate_direct_value !== null
+        || crop.seed_rate_pre_cultivation_value !== null
       )));
     } catch {
       setError(t('seedDemand.loadError'));
@@ -181,11 +181,11 @@ export default function SeedDemandPage() {
     }
   };
 
-  const handleSupplierChange = async (cultureId: number, supplierId: number | null) => {
+  const handleSupplierChange = async (cropId: number, supplierId: number | null) => {
     setIsLoading(true);
     setError(null);
     try {
-      await seedDemandAPI.saveSupplierSelection(cultureId, supplierId);
+      await seedDemandAPI.saveSupplierSelection(cropId, supplierId);
       await loadRows();
     } catch {
       setError(t('seedDemand.saveError'));
@@ -193,8 +193,8 @@ export default function SeedDemandPage() {
     }
   };
 
-  const getCultureLabel = useCallback((row: SeedDemand): string => (
-    formatCultureDisplayName(row)
+  const getCropLabel = useCallback((row: SeedDemand): string => (
+    formatCropDisplayName(row)
   ), []);
 
   const getSupplierLabel = useCallback((row: SeedDemand): string => {
@@ -266,7 +266,7 @@ export default function SeedDemandPage() {
   }, [t]);
 
   const renderPackageCell = useCallback((row: SeedDemand) => {
-    const editHref = `/app/cultures?cultureId=${row.culture_id}&action=edit`;
+    const editHref = `/app/crops?cropId=${row.crop_id}&action=edit`;
     const state = getPackageCellState(row);
     const tooltip = getPackageBlockerTooltip(row, t);
 
@@ -319,15 +319,15 @@ export default function SeedDemandPage() {
   }, [t]);
 
   const getRowClipboardValues = useCallback((row: SeedDemand): string[] => [
-    getCultureLabel(row),
+    getCropLabel(row),
     getSupplierLabel(row),
     getRequiredAmountLabel(row),
     getPackageLabel(row),
-  ], [getCultureLabel, getPackageLabel, getRequiredAmountLabel, getSupplierLabel]);
+  ], [getCropLabel, getPackageLabel, getRequiredAmountLabel, getSupplierLabel]);
 
   const getTableClipboardRows = useCallback((): string[][] => [
     [
-      t('seedDemand.columns.culture'),
+      t('seedDemand.columns.crop'),
       t('seedDemand.columns.supplier'),
       t('seedDemand.columns.requiredAmount'),
       t('seedDemand.columns.packages'),
@@ -337,7 +337,7 @@ export default function SeedDemandPage() {
 
   const isSeedDemandContextMenuTarget = useCallback((target: EventTarget | null): boolean => (
     shouldOpenCustomContextMenu(target) &&
-    closestContextMenuElement(target, 'tr[data-seed-demand-culture-id]') !== null
+    closestContextMenuElement(target, 'tr[data-seed-demand-crop-id]') !== null
   ), []);
   const {
     state: contextMenuState,
@@ -379,7 +379,7 @@ export default function SeedDemandPage() {
 
   // Suppresses the trailing click after a long press fired, so it doesn't
   // also run whatever tap behavior the row's interactive contents have
-  // (culture link, supplier select) right on top of the context menu the
+  // (crop link, supplier select) right on top of the context menu the
   // long press just opened.
   const handleRowTouchEnd = useCallback((event: TouchEvent<HTMLTableRowElement>): void => {
     rowLongPressTimer.endTouch(event);
@@ -413,31 +413,31 @@ export default function SeedDemandPage() {
     openContextMenuState(row, rect.right - 8, rect.top + 12, event.currentTarget);
   }, [markContextMenuHintUsed, openContextMenuState]);
 
-  const openCulture = useCallback((row: SeedDemand): void => {
-    navigate(`/app/cultures?cultureId=${row.culture_id}`);
+  const openCrop = useCallback((row: SeedDemand): void => {
+    navigate(`/app/crops?cropId=${row.crop_id}`);
   }, [navigate]);
 
-  const editCulture = useCallback((row: SeedDemand): void => {
-    navigate(`/app/cultures?cultureId=${row.culture_id}&action=edit`);
+  const editCrop = useCallback((row: SeedDemand): void => {
+    navigate(`/app/crops?cropId=${row.crop_id}&action=edit`);
   }, [navigate]);
 
-  const handleContextMenuOpenCulture = useCallback((): void => {
+  const handleContextMenuOpenCrop = useCallback((): void => {
     if (!contextMenuState) {
       return;
     }
     const { key: row } = contextMenuState;
     closeContextMenu();
-    openCulture(row);
-  }, [closeContextMenu, contextMenuState, openCulture]);
+    openCrop(row);
+  }, [closeContextMenu, contextMenuState, openCrop]);
 
-  const handleContextMenuEditCulture = useCallback((): void => {
+  const handleContextMenuEditCrop = useCallback((): void => {
     if (!contextMenuState) {
       return;
     }
     const { key: row } = contextMenuState;
     closeContextMenu();
-    editCulture(row);
-  }, [closeContextMenu, contextMenuState, editCulture]);
+    editCrop(row);
+  }, [closeContextMenu, contextMenuState, editCrop]);
 
   useEffect(() => {
     if (shouldShowProjectRequiredState) {
@@ -499,7 +499,7 @@ export default function SeedDemandPage() {
             >
             <TableHead>
               <TableRow>
-                <TableCell>{t('seedDemand.columns.culture')}</TableCell>
+                <TableCell>{t('seedDemand.columns.crop')}</TableCell>
                 <TableCell>{t('seedDemand.columns.supplier')}</TableCell>
                 <TableCell align="right" sx={{ width: 240, maxWidth: 240 }}>
                   {t('seedDemand.columns.requiredAmount')}
@@ -521,8 +521,8 @@ export default function SeedDemandPage() {
 
                 return (
                   <TableRow
-                    key={row.culture_id}
-                    data-seed-demand-culture-id={row.culture_id}
+                    key={row.crop_id}
+                    data-seed-demand-crop-id={row.crop_id}
                     hover
                     tabIndex={0}
                     onContextMenu={(event) => openContextMenu(event, row)}
@@ -556,8 +556,8 @@ export default function SeedDemandPage() {
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          <Link component={RouterLink} to={`/app/cultures?cultureId=${row.culture_id}`} underline="hover">
-                            {getCultureLabel(row)}
+                          <Link component={RouterLink} to={`/app/crops?cropId=${row.crop_id}`} underline="hover">
+                            {getCropLabel(row)}
                           </Link>
                         </Box>
                         <Box
@@ -584,7 +584,7 @@ export default function SeedDemandPage() {
                               onChange={(event) => {
                                 const selectedValue = String(event.target.value ?? '');
                                 void handleSupplierChange(
-                                  row.culture_id,
+                                  row.crop_id,
                                   selectedValue ? Number(selectedValue) : null,
                                 );
                               }}
@@ -619,8 +619,8 @@ export default function SeedDemandPage() {
                           <Typography variant="body2" color="text.secondary">
                             {t('seedDemand.noSupplierAvailable')}
                           </Typography>
-                          <Link component={RouterLink} to={`/app/cultures?cultureId=${row.culture_id}&action=edit`} underline="hover" variant="caption">
-                            {t('seedDemand.editCultureAction')}
+                          <Link component={RouterLink} to={`/app/crops?cropId=${row.crop_id}&action=edit`} underline="hover" variant="caption">
+                            {t('seedDemand.editCropAction')}
                           </Link>
                         </Box>
                       )}
@@ -666,14 +666,14 @@ export default function SeedDemandPage() {
         mouseY={contextMenuState?.mouseY}
       >
         <ContextMenuActionItem
-          label={t('seedDemand.contextMenu.openCulture')}
+          label={t('seedDemand.contextMenu.openCrop')}
           icon={<OpenInNewIcon fontSize="small" />}
-          onClick={handleContextMenuOpenCulture}
+          onClick={handleContextMenuOpenCrop}
         />
         <ContextMenuActionItem
-          label={t('seedDemand.contextMenu.editCulture')}
+          label={t('seedDemand.contextMenu.editCrop')}
           icon={<EditIcon fontSize="small" />}
-          onClick={handleContextMenuEditCulture}
+          onClick={handleContextMenuEditCrop}
         />
         <TableCopyMenuItems
           rowValues={contextMenuState ? getRowClipboardValues(contextMenuState.key) : null}

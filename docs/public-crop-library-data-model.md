@@ -14,25 +14,25 @@ yet.**
 ### Already implemented from this plan
 
 - `CropSpecies` as the language-independent identity, optional private
-  `Culture.crop_species`, `PublicCulture.crop_species`, and
-  `PublicCulture.original_language_code`;
+  `Crop.crop_species`, `PublicCrop.crop_species`, and
+  `PublicCrop.original_language_code`;
 - the Publishing Wizard as the quality gate at the publishing boundary
   (Variant B from section 6, minus the `CropVariety` half);
 - the non-destructive public-library lifecycle (`draft`, `published`,
-  `withdrawn`, `removed`) with `PublicCultureStatusEvent`;
+  `withdrawn`, `removed`) with `PublicCropStatusEvent`;
 - the collaborative layer, though **not in the reviewed-proposal form this
   plan originally assumed**:
   editing a public entry is a direct, immediately-published wiki-style edit
-  recorded as an immutable `PublicCultureRevision`, with threaded
-  `PublicCultureDiscussionTopic`/`…Comment` discussions alongside it. The
-  reviewed-proposal workflow (`PublicCultureChangeProposal`) is legacy: rows
+  recorded as an immutable `PublicCropRevision`, with threaded
+  `PublicCropDiscussionTopic`/`…Comment` discussions alongside it. The
+  reviewed-proposal workflow (`PublicCropChangeProposal`) is legacy: rows
   and endpoints remain, no UI creates or reviews them.
 
 ### Still future work from this plan
 
 The separate `CropVariety` entity (varieties remain fields on
-`PublicCulture`), the `CropTranslation` table (public descriptions are stored
-as `PublicCultureTranslation` against `PublicCulture`, not against a canonical
+`PublicCrop`), the `CropTranslation` table (public descriptions are stored
+as `PublicCropTranslation` against `PublicCrop`, not against a canonical
 variety), attribute inheritance from species to variety (section 2.3), the
 phased migration of section 7, and the controlled retirement of the legacy
 single-language columns (phase 5).
@@ -42,7 +42,7 @@ English, in the reduced shape just described — see [`i18n.md`](./i18n.md) for
 the shipped behaviour:
 
 - `CropSpeciesTranslation` (species + language → common name, in
-  `crops.models`) and `PublicCultureTranslation` (entry + language → public
+  `crops.models`) and `PublicCropTranslation` (entry + language → public
   description, in `farm.models`), each unique per language;
 - the fallback resolver of section 5, with the resolved language returned by
   the API so the UI can label content shown in another language;
@@ -52,7 +52,7 @@ the shipped behaviour:
   translations.
 
 Still future work from this plan: the separate `CropVariety` entity (varieties
-remain fields on `PublicCulture`), attribute inheritance from species to
+remain fields on `PublicCrop`), attribute inheritance from species to
 variety (section 2.3), and the controlled retirement of the legacy
 single-language columns (phase 5).
 
@@ -66,7 +66,7 @@ chain remain future work.
 
 ## 1. Scope and current-state analysis
 
-This plan evolves the existing shared `PublicCulture` library into a
+This plan evolves the existing shared `PublicCrop` library into a
 language-independent, international crop library without forcing private
 project data into the same lifecycle. It complements
 [`crop-library-architecture.md`](./crop-library-architecture.md): the earlier
@@ -78,10 +78,10 @@ specifies the future data model behind that library.
 Today the project has two independent record types plus the first official
 species identity table:
 
-- `Culture` is a project-owned record. It combines a user-entered crop name,
+- `Crop` is a project-owned record. It combines a user-entered crop name,
   variety, growing defaults, project supplier data, packages, display choices,
   and public-library import provenance.
-- `PublicCulture` is a shared record. It currently copies the same name,
+- `PublicCrop` is a shared record. It currently copies the same name,
   variety, free text, growing, and seed fields into one language-specific row.
   New publications also store `crop_species` and `original_language_code`.
   Public discovery and import only expose `status='published'`; contributor
@@ -91,23 +91,23 @@ species identity table:
   normalized `variety` (and supplier text in the bridge where relevant). Legacy
   public rows without `crop_species` remain readable.
 - `CropSpecies` is the official species list. It is nullable on private
-  cultures so project work stays flexible, but it is required by the
+  crops so project work stays flexible, but it is required by the
   publishing quality gate.
-- `PublicCultureDiscussionTopic`/`PublicCultureDiscussionComment` and
-  `PublicCultureRevision` are additive collaboration records on
-  `PublicCulture`: threaded discussion plus an immutable version history for
+- `PublicCropDiscussionTopic`/`PublicCropDiscussionComment` and
+  `PublicCropRevision` are additive collaboration records on
+  `PublicCrop`: threaded discussion plus an immutable version history for
   direct edits, neither of which mutates imported project copies.
-  `PublicCultureChangeProposal` is the legacy reviewed-edit table from an
+  `PublicCropChangeProposal` is the legacy reviewed-edit table from an
   earlier iteration; it is retained for audit only.
 
-`CultureSupplierData` and `SeedPackage` are project-owned child records.
-`PlantingPlan` intentionally points to the private `Culture` snapshot, not to
+`CropSupplierData` and `SeedPackage` are project-owned child records.
+`PlantingPlan` intentionally points to the private `Crop` snapshot, not to
 public data. This protects completed planning from later library edits.
 
 ### Consequences
 
 The model has the right high-level ownership split, but its public identity,
-localized content, and defaults are conflated in `PublicCulture`. The target
+localized content, and defaults are conflated in `PublicCrop`. The target
 must therefore introduce a stable species identity and translation rows rather
 than treating a translated display name as an identifier.
 
@@ -187,11 +187,11 @@ free-text field is introduced.
 ### 2.3 Defaults and simple overrides
 
 `CropSpecies` owns the species baseline. `CropVariety` stores nullable
-overrides. `Culture`, the project-owned planning record, stores nullable
+overrides. `Crop`, the project-owned planning record, stores nullable
 overrides. The effective value is simply:
 
 ```text
-Culture project value ?? CropVariety value ?? CropSpecies value
+Crop project value ?? CropVariety value ?? CropSpecies value
 ```
 
 where `NULL` means “inherit the next higher default.” There is no dynamic
@@ -201,8 +201,8 @@ values for a known list of fields. Persisted planting-plan harvest dates stay
 snapshots: recalculation only happens through an explicit existing planning
 operation, never merely because a library default changed.
 
-The hierarchy only applies when a private `Culture` is linked to an official
-`CropVariety`. A free-text private culture with no link remains valid and uses
+The hierarchy only applies when a private `Crop` is linked to an official
+`CropVariety`. A free-text private crop with no link remains valid and uses
 only its own values.
 
 ## 3. Entity relationships
@@ -216,12 +216,12 @@ erDiagram
     CropSpecies ||--o{ CropSpeciesTranslation : "localized names / synonyms"
     CropSpecies ||--o{ CropVariety : "has canonical varieties"
     CropVariety ||--o{ CropTranslation : "localized public content"
-    CropSpecies o|--o{ Culture : "optional private species link"
-    CropVariety o|--o{ Culture : "optional private variety link"
-    Project ||--o{ Culture : "owns"
-    Culture ||--o{ PlantingPlan : "used by"
-    Culture ||--o{ CultureSupplierData : "project supplier facts"
-    Culture ||--o{ SeedPackage : "project package observations"
+    CropSpecies o|--o{ Crop : "optional private species link"
+    CropVariety o|--o{ Crop : "optional private variety link"
+    Project ||--o{ Crop : "owns"
+    Crop ||--o{ PlantingPlan : "used by"
+    Crop ||--o{ CropSupplierData : "project supplier facts"
+    Crop ||--o{ SeedPackage : "project package observations"
 
     CropSpecies {
         bigint id PK "stable, language-independent identity"
@@ -268,7 +268,7 @@ erDiagram
         text cultivation_notes
         text notes
     }
-    Culture {
+    Crop {
         bigint id PK
         bigint project_id FK
         bigint crop_species_id FK "nullable"
@@ -283,8 +283,8 @@ erDiagram
 
 ## 4. Attribute placement
 
-The following classification covers every current `Culture` and
-`PublicCulture` field, plus their crop-adjacent child records. “Default” in
+The following classification covers every current `Crop` and
+`PublicCrop` field, plus their crop-adjacent child records. “Default” in
 Groups A/B describes the target public-library data, not mandatory values.
 
 ### Group A — species only
@@ -301,8 +301,8 @@ Groups A/B describes the target public-library data, not mandatory values.
 ### Group B — inheritable defaults
 
 The following fields must be nullable on `CropSpecies`, `CropVariety`, and
-private `Culture` where they exist today. A variety value is a refinement of
-the species baseline; a private culture value is a project-specific override.
+private `Crop` where they exist today. A variety value is a refinement of
+the species baseline; a private crop value is a project-specific override.
 
 | Attributes | Target treatment | Reason |
 |---|---|---|
@@ -329,10 +329,10 @@ the species baseline; a private culture value is a project-specific override.
 
 | Current attribute/record | Target treatment | Reason |
 |---|---|---|
-| `Culture.project`, soft deletion, history, origin/source version, modified flag | remain on `Culture` | Tenant lifecycle and import provenance are not public-library concerns. |
-| `Culture.name`, `variety`, normalized fields | retain as `private_name`, `private_variety` during transition; may remain denormalized labels | Needed for free text, historical snapshots, and low-risk gradual migration. When linked, display normally comes from the resolved public translations but private labels are not overwritten. |
-| `notes` on `Culture` | remains project-local | Farm observations must not become public text or translations. |
-| `seed_supplier`, `supplier`, `selected_seed_demand_supplier`, `supplier_product_url`, `CultureSupplierData` | remain project-owned | Supplier availability, prices, germination, product URLs, and selection are local/commercial facts. A future public supplier-offering model requires its own provenance and update policy. |
+| `Crop.project`, soft deletion, history, origin/source version, modified flag | remain on `Crop` | Tenant lifecycle and import provenance are not public-library concerns. |
+| `Crop.name`, `variety`, normalized fields | retain as `private_name`, `private_variety` during transition; may remain denormalized labels | Needed for free text, historical snapshots, and low-risk gradual migration. When linked, display normally comes from the resolved public translations but private labels are not overwritten. |
+| `notes` on `Crop` | remains project-local | Farm observations must not become public text or translations. |
+| `seed_supplier`, `supplier`, `selected_seed_demand_supplier`, `supplier_product_url`, `CropSupplierData` | remain project-owned | Supplier availability, prices, germination, product URLs, and selection are local/commercial facts. A future public supplier-offering model requires its own provenance and update policy. |
 | `SeedPackage` / public `seed_packages` JSON | retain project package observations; do not copy to canonical variety | Package sizes and availability vary by supplier, market, and time. |
 | `image_file` | remains project-owned until rights/provenance are designed | A public image needs separate licensing, attribution, moderation, and localized alt text. |
 | `display_color` | remains project-owned | Calendar color is UI preference. |
@@ -392,14 +392,14 @@ reversible or additive until the final cleanup phase.
    and controlled category/family values.
 3. Define editorial ownership, moderation statuses, source attribution, and
    the meaning/unit of `expected_yield` and `seeding_requirement`.
-4. Produce a dry-run mapping report from existing `PublicCulture` and private
-   `Culture` rows: exact normalized pairs, ambiguous names, blank varieties,
+4. Produce a dry-run mapping report from existing `PublicCrop` and private
+   `Crop` rows: exact normalized pairs, ambiguous names, blank varieties,
    spelling variants, and supplier-only differences. Do not mutate data.
 
 ### Phase 1 — additive public schema
 
 Create new tables (initially in the `crops` app through a carefully planned
-Django state/database migration, keeping existing `farm_publicculture`
+Django state/database migration, keeping existing `farm_publiccrop`
 untouched):
 
 - `CropSpecies`;
@@ -407,14 +407,14 @@ untouched):
 - `CropVariety`;
 - `CropTranslation`.
 
-Add nullable `crop_species` and `crop_variety` foreign keys to `Culture`.
+Add nullable `crop_species` and `crop_variety` foreign keys to `Crop`.
 Add nullable provenance links from `CropVariety`/`CropTranslation` to legacy
-`PublicCulture` only if needed for audit and idempotent backfill; otherwise
+`PublicCrop` only if needed for audit and idempotent backfill; otherwise
 record legacy IDs in an import ledger. Add indexes for species status,
 translation lookup, and `(crop_species, normalized_variety)`.
 
-Existing tables that remain unchanged in this phase: `Culture`,
-`PublicCulture`, `CultureSupplierData`, `SeedPackage`, `PlantingPlan`,
+Existing tables that remain unchanged in this phase: `Crop`,
+`PublicCrop`, `CropSupplierData`, `SeedPackage`, `PlantingPlan`,
 `Supplier`, and history tables. Existing APIs/UI continue to use them.
 
 ### Phase 2 — seed and backfill the public library
@@ -432,22 +432,22 @@ Existing tables that remain unchanged in this phase: `Culture`,
 4. Copy public free text into the relevant translation. Copy inherited numeric
    fields first to the variety; promote a value to the species only after
    editorial review confirms it is a species baseline.
-5. Preserve legacy `PublicCulture` rows and their provenance/version data.
+5. Preserve legacy `PublicCrop` rows and their provenance/version data.
    Record mapping, conflicts, and merge decisions in an import ledger; do not
    delete duplicate legacy rows.
 
 The old `name + variety` and supplier-sensitive duplicate detector stays in
 place for the legacy publish path until the new public write path is live.
 
-### Phase 3 — link private cultures without rewriting them
+### Phase 3 — link private crops without rewriting them
 
-For each `Culture`, populate nullable links only where the mapping is
+For each `Crop`, populate nullable links only where the mapping is
 unambiguous. Keep all existing private fields exactly as stored. Do not merge
-cultures across projects, discard supplier distinctions, or alter planting
-plans. Unmapped cultures remain valid free text.
+crops across projects, discard supplier distinctions, or alter planting
+plans. Unmapped crops remain valid free text.
 
 At this stage a resolver may offer effective defaults only for newly linked
-cultures. Existing non-null project values continue to win, so behavior is
+crops. Existing non-null project values continue to win, so behavior is
 stable. `NULL` project values can begin inheriting only behind an explicit,
 tested compatibility decision, because some current nulls may mean “unknown”
 rather than “use a library recommendation.”
@@ -464,7 +464,7 @@ endpoints read-only or compatibility-only until clients are migrated.
 
 After usage telemetry, reconciliation, and a published deprecation window:
 
-- stop creating new `PublicCulture` records;
+- stop creating new `PublicCrop` records;
 - migrate public-library read traffic to the new tables;
 - remove legacy duplicate logic only after all public writes use canonical
   identity; and
@@ -513,5 +513,5 @@ After usage telemetry, reconciliation, and a published deprecation window:
 5. Add private nullable links and the tested effective-value resolver.
 6. Release the read-only multilingual API and Variant B autocomplete.
 7. Move publication to the canonical write path and enforce duplicate rules.
-8. Deprecate `PublicCulture` only after verified client migration and a
+8. Deprecate `PublicCrop` only after verified client migration and a
    production reconciliation period.

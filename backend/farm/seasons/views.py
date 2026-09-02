@@ -141,7 +141,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
 
     def _delete_planting_plans_with_season(self, season: Season, batch: BatchOperation) -> None:
         plans = list(
-            PlantingPlan.objects.filter(season=season).select_related('culture', 'bed')
+            PlantingPlan.objects.filter(season=season).select_related('crop', 'bed')
         )
         for plan in plans:
             self.record_revision(
@@ -228,7 +228,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
             row_data['project_id'] = season.project_id
             row_data['season_id'] = season.pk
-            # A FK target (bed/culture/user) may have been hard-deleted since
+            # A FK target (bed/crop/user) may have been hard-deleted since
             # the snapshot — null the nullable ones rather than 500 on insert,
             # matching the other restore paths.
             for field in PlantingPlan._meta.concrete_fields:
@@ -254,7 +254,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         for plan in (
             PlantingPlan.objects
             .filter(pk__in=recreated_plan_ids)
-            .select_related('culture', 'bed')
+            .select_related('crop', 'bed')
         ):
             self.record_revision(
                 plan, EntityRevision.ACTION_RESTORED,
@@ -341,7 +341,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 for plan in (
                     PlantingPlan.objects
                     .filter(pk__in=[plan.pk for plan in created_plans])
-                    .select_related('culture', 'bed')
+                    .select_related('crop', 'bed')
                 ):
                     self.record_revision(
                         plan, EntityRevision.ACTION_CREATED, batch_operation=batch,
@@ -545,7 +545,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 for plan in (
                     PlantingPlan.objects
                     .filter(pk__in=created_ids)
-                    .select_related('culture', 'bed')
+                    .select_related('crop', 'bed')
                 ):
                     self.record_revision(plan, EntityRevision.ACTION_CREATED, batch_operation=batch)
 

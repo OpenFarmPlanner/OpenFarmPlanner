@@ -20,7 +20,7 @@ scoped group, and a typed invalidation.
 The endpoint is:
 
 ```text
-/<URL_PREFIX>/ws/public-cultures/<public_culture_id>/discussions/
+/<URL_PREFIX>/ws/public-crops/<public_crop_id>/discussions/
 ```
 
 User notifications use:
@@ -38,7 +38,7 @@ Discussion changes produce:
 ```json
 {
   "type": "discussion.updated",
-  "public_culture_id": 123,
+  "public_crop_id": 123,
   "discussion_id": 456
 }
 ```

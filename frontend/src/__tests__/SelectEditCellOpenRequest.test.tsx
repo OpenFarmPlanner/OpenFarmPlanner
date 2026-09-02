@@ -20,7 +20,7 @@ const createEditCellParams = (
   overrides: Partial<GridRenderEditCellParams> = {},
 ): GridRenderEditCellParams => ({
   id: 1,
-  field: 'culture',
+  field: 'crop',
   value: 1,
   hasFocus: true,
   api: { setEditCellValue: vi.fn() },
@@ -49,7 +49,7 @@ function renderWithSelectOpenRequest(
 }
 
 function SelectCloseProbe() {
-  const notifyMenuClose = useSelectEditCellOpenRequest(1, 'culture', () => {});
+  const notifyMenuClose = useSelectEditCellOpenRequest(1, 'crop', () => {});
 
   return (
     <button type="button" onClick={(event) => notifyMenuClose(event)}>
@@ -119,14 +119,14 @@ describe('select edit cell open requests', () => {
   it('notifies the grid when a select edit menu closes', () => {
     const onMenuClose = vi.fn();
     renderWithSelectOpenRequest(
-      buildSelectEditCellKey(1, 'culture'),
+      buildSelectEditCellKey(1, 'crop'),
       <SelectCloseProbe />,
       onMenuClose,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'close' }));
 
-    expect(onMenuClose).toHaveBeenCalledWith(1, 'culture', expect.anything());
+    expect(onMenuClose).toHaveBeenCalledWith(1, 'crop', expect.anything());
   });
 
   it('keeps option/listbox closes internal to the select menu', () => {

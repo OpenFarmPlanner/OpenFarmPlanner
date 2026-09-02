@@ -11,7 +11,7 @@ describe('useUndoRedo', () => {
 
     act(() => {
       result.current.pushCommand({
-        entityType: 'culture',
+        entityType: 'crop',
         entityId: 1,
         fieldPath: 'name',
         oldValue: 'A',

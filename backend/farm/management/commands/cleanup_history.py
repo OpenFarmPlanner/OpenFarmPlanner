@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Max
 from django.utils import timezone
 
-from farm.models import BatchOperation, CultureRevision, EntityRevision, ProjectRevision
+from farm.models import BatchOperation, CropRevision, EntityRevision, ProjectRevision
 
 
 class Command(BaseCommand):
@@ -12,7 +12,7 @@ class Command(BaseCommand):
         'Delete history entries older than 30 days. For EntityRevision, the latest '
         'revision per (project, entity_type, object_id) is kept indefinitely so '
         'point-in-time project restore stays correct for entities that were never '
-        'touched again after creation; CultureRevision/ProjectRevision are legacy '
+        'touched again after creation; CropRevision/ProjectRevision are legacy '
         'tables with a flat cutoff, draining until empty.'
     )
 
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             .delete()
         )
 
-        deleted_culture, _ = CultureRevision.objects.filter(created_at__lt=cutoff).delete()
+        deleted_crop, _ = CropRevision.objects.filter(created_at__lt=cutoff).delete()
         deleted_project, _ = ProjectRevision.objects.filter(created_at__lt=cutoff).delete()
 
         # Drop batch operations whose revisions have all been pruned (or NULLed
@@ -45,7 +45,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f'Deleted {deleted_entity} entity, {deleted_culture} legacy culture, '
+                f'Deleted {deleted_entity} entity, {deleted_crop} legacy crop, '
                 f'{deleted_project} legacy project historical records and '
                 f'{deleted_batches} empty batch operations.'
             )

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSpreadsheetFile, parseSpreadsheetRows, type SpreadsheetRows } from '../cultures/spreadsheetFile';
+import { buildSpreadsheetFile, parseSpreadsheetRows, type SpreadsheetRows } from '../crops/spreadsheetFile';
 
 const rows: SpreadsheetRows = [
   ['Name', 'Sorte', 'Wachstumszeit', 'Mehrjährig'],

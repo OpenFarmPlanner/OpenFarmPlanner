@@ -1,6 +1,6 @@
 """Machine-readable description of the endpoints reachable with an API token.
 
-The culture schema is generated from :mod:`farm.services.culture_import.field_specs`
+The crop schema is generated from :mod:`farm.services.crop_import.field_specs`
 rather than written by hand, so the units, enums, and bounds an agent reads here
 are literally the ones the validator enforces. When a bound changes, the
 document changes with it.
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from farm.services.culture_import.field_specs import (
-    CULTURE_FIELD_SPECS,
+from farm.services.crop_import.field_specs import (
+    CROP_FIELD_SPECS,
     KIND_BOOLEAN,
     KIND_COLOR,
     KIND_ENUM,
@@ -96,25 +96,25 @@ def _field_description(spec: FieldSpec) -> str:
     return ' '.join(parts)
 
 
-def build_culture_import_item_schema() -> dict[str, Any]:
-    """Return the JSON Schema for one row of a culture-import payload."""
+def build_crop_import_item_schema() -> dict[str, Any]:
+    """Return the JSON Schema for one row of a crop-import payload."""
     return {
         'type': 'object',
-        'title': 'CultureImportItem',
+        'title': 'CropImportItem',
         'description': (
-            'One culture in an import payload. Send only fields the source '
+            'One crop in an import payload. Send only fields the source '
             'actually contains — a missing field is left untouched, whereas a '
             'guessed field silently corrupts the record. Unknown keys are '
             'reported under ignored_fields and never mapped onto another field.'
         ),
         'required': ['name'],
         'additionalProperties': True,
-        'properties': {spec.name: _field_schema(spec) for spec in CULTURE_FIELD_SPECS},
+        'properties': {spec.name: _field_schema(spec) for spec in CROP_FIELD_SPECS},
     }
 
 
 def _seed_requirements_schema() -> dict[str, Any]:
-    """Return the preferred seed-rate schema for culture create/update."""
+    """Return the preferred seed-rate schema for crop create/update."""
     entry_schema = {
         'type': 'object',
         'required': ['value', 'unit'],
@@ -173,16 +173,16 @@ def _seed_requirements_schema() -> dict[str, Any]:
     }
 
 
-def build_culture_write_item_schema() -> dict[str, Any]:
-    """Return the JSON Schema for direct culture create/update payloads."""
-    properties = {spec.name: _field_schema(spec) for spec in CULTURE_FIELD_SPECS}
+def build_crop_write_item_schema() -> dict[str, Any]:
+    """Return the JSON Schema for direct crop create/update payloads."""
+    properties = {spec.name: _field_schema(spec) for spec in CROP_FIELD_SPECS}
     properties['variety']['type'] = ['string', 'null']
     properties['seed_requirements'] = _seed_requirements_schema()
     return {
         'type': 'object',
-        'title': 'CultureWriteItem',
+        'title': 'CropWriteItem',
         'description': (
-            'Culture create/update payload. For seed rates, prefer seed_requirements: '
+            'Crop create/update payload. For seed rates, prefer seed_requirements: '
             'it states the cultivation method and unit in one object. The older '
             'seed_rate_* fields remain accepted for compatibility.'
         ),
@@ -192,16 +192,16 @@ def build_culture_write_item_schema() -> dict[str, Any]:
     }
 
 
-def _culture_write_request_body(*, required: bool) -> dict[str, Any]:
-    """Return the request body schema for culture create/update endpoints."""
+def _crop_write_request_body(*, required: bool) -> dict[str, Any]:
+    """Return the request body schema for crop create/update endpoints."""
     return {
         'required': required,
         'content': {
             'application/json': {
-                'schema': {'$ref': '#/components/schemas/CultureWriteItem'},
+                'schema': {'$ref': '#/components/schemas/CropWriteItem'},
                 'examples': {
-                    'generalCulture': {
-                        'summary': 'Species-level general culture data',
+                    'generalCrop': {
+                        'summary': 'Species-level general crop data',
                         'value': {
                             'name': 'Tomate',
                             'variety': '',
@@ -248,7 +248,7 @@ def _preview_field_schema() -> dict[str, Any]:
     """Return the schema of one row/field entry in an import preview."""
     return {
         'type': 'object',
-        'title': 'CultureImportPreviewField',
+        'title': 'CropImportPreviewField',
         'properties': {
             'field': {'type': 'string', 'description': 'Canonical API field name.'},
             'source_key': {'type': 'string', 'description': 'Key as it appeared in the payload.'},
@@ -268,7 +268,7 @@ def _preview_field_schema() -> dict[str, Any]:
                     'not stored. invalid: rejected.'
                 ),
             },
-            'current_value': {'description': 'Currently stored value when a culture matched.'},
+            'current_value': {'description': 'Currently stored value when a crop matched.'},
             'changes_existing': {'type': 'boolean'},
             'warnings': {'type': 'array', 'items': {'$ref': '#/components/schemas/Issue'}},
             'errors': {'type': 'array', 'items': {'$ref': '#/components/schemas/Issue'}},
@@ -280,7 +280,7 @@ def _preview_item_schema() -> dict[str, Any]:
     """Return the schema of one analyzed row in an import preview."""
     return {
         'type': 'object',
-        'title': 'CultureImportPreviewItem',
+        'title': 'CropImportPreviewItem',
         'properties': {
             'index': {'type': 'integer'},
             'action': {
@@ -288,7 +288,7 @@ def _preview_item_schema() -> dict[str, Any]:
                 'enum': ['create', 'update', 'skip', 'blocked'],
                 'description': (
                     'What applying the draft would do. "skip" means the stored '
-                    'culture already matches; "blocked" rows prevent the whole '
+                    'crop already matches; "blocked" rows prevent the whole '
                     'draft from being applied.'
                 ),
             },
@@ -301,15 +301,15 @@ def _preview_item_schema() -> dict[str, Any]:
                     'supplier_name': {'type': 'string'},
                 },
             },
-            'matched_culture_id': {'type': ['integer', 'null']},
+            'matched_crop_id': {'type': ['integer', 'null']},
             'matched_by': {'type': ['string', 'null']},
             'fields': {
                 'type': 'array',
-                'items': {'$ref': '#/components/schemas/CultureImportPreviewField'},
+                'items': {'$ref': '#/components/schemas/CropImportPreviewField'},
             },
             'ignored_fields': {
                 'type': 'array',
-                'description': 'Payload keys that are not part of the culture schema.',
+                'description': 'Payload keys that are not part of the crop schema.',
                 'items': {'type': 'object'},
             },
             'warnings': {'type': 'array', 'items': {'$ref': '#/components/schemas/Issue'}},
@@ -322,7 +322,7 @@ def _draft_schema() -> dict[str, Any]:
     """Return the schema of a stored import draft."""
     return {
         'type': 'object',
-        'title': 'CultureImportDraft',
+        'title': 'CropImportDraft',
         'properties': {
             'draft_id': {'type': 'string', 'format': 'uuid'},
             'checksum': {
@@ -340,25 +340,25 @@ def _draft_schema() -> dict[str, Any]:
             'summary': {'type': 'object'},
             'items': {
                 'type': 'array',
-                'items': {'$ref': '#/components/schemas/CultureImportPreviewItem'},
+                'items': {'$ref': '#/components/schemas/CropImportPreviewItem'},
             },
             'result': {'type': ['object', 'null']},
         },
     }
 
 
-def _culture_paths() -> dict[str, Any]:
-    """Return the path items for culture CRUD reachable with an API token."""
+def _crop_paths() -> dict[str, Any]:
+    """Return the path items for crop CRUD reachable with an API token."""
     project_note = (
         'The project is taken from the API token; X-Project-Id is optional and, '
         'if sent, must match the bound project.'
     )
     return {
-        '/cultures/': {
+        '/crops/': {
             'get': {
-                'summary': 'List cultures of the bound project',
+                'summary': 'List crops of the bound project',
                 'description': f'Requires scope `read`. {project_note}',
-                'tags': ['cultures'],
+                'tags': ['crops'],
                 'parameters': [
                     {'name': 'page', 'in': 'query', 'schema': {'type': 'integer', 'minimum': 1}},
                     {
@@ -367,74 +367,74 @@ def _culture_paths() -> dict[str, Any]:
                         'schema': {'type': 'integer', 'minimum': 1},
                     },
                 ],
-                'responses': {'200': {'description': 'Paginated culture list.'}},
+                'responses': {'200': {'description': 'Paginated crop list.'}},
             },
             'post': {
-                'summary': 'Create a culture',
+                'summary': 'Create a crop',
                 'description': (
                     'Requires scope `write`. Distances use the centimetre field '
                     'spellings (row_spacing_cm, …) on this endpoint; the import '
                     'endpoints additionally accept the metre spellings. '
                     f'{project_note}'
                 ),
-                'tags': ['cultures'],
-                'requestBody': _culture_write_request_body(required=True),
-                'responses': {'201': {'description': 'Created culture.'}},
+                'tags': ['crops'],
+                'requestBody': _crop_write_request_body(required=True),
+                'responses': {'201': {'description': 'Created crop.'}},
             },
         },
-        '/cultures/{id}/': {
+        '/crops/{id}/': {
             'parameters': [
                 {'name': 'id', 'in': 'path', 'required': True, 'schema': {'type': 'integer'}},
             ],
             'get': {
-                'summary': 'Retrieve one culture of the bound project',
+                'summary': 'Retrieve one crop of the bound project',
                 'description': (
                     'Requires scope `read`. Ids outside the bound project return '
                     '404, never another project\'s data.'
                 ),
-                'tags': ['cultures'],
+                'tags': ['crops'],
                 'responses': {
-                    '200': {'description': 'Culture.'},
+                    '200': {'description': 'Crop.'},
                     '404': {'description': 'Not found.'},
                 },
             },
             'patch': {
-                'summary': 'Partially update one culture',
+                'summary': 'Partially update one crop',
                 'description': 'Requires scope `write`.',
-                'tags': ['cultures'],
-                'requestBody': _culture_write_request_body(required=False),
-                'responses': {'200': {'description': 'Updated culture.'}},
+                'tags': ['crops'],
+                'requestBody': _crop_write_request_body(required=False),
+                'responses': {'200': {'description': 'Updated crop.'}},
             },
             'put': {
-                'summary': 'Replace one culture',
+                'summary': 'Replace one crop',
                 'description': 'Requires scope `write`.',
-                'tags': ['cultures'],
-                'requestBody': _culture_write_request_body(required=True),
-                'responses': {'200': {'description': 'Updated culture.'}},
+                'tags': ['crops'],
+                'requestBody': _crop_write_request_body(required=True),
+                'responses': {'200': {'description': 'Updated crop.'}},
             },
             'delete': {
-                'summary': 'Soft-delete one culture',
+                'summary': 'Soft-delete one crop',
                 'description': (
-                    'Requires scope `delete`. This marks the culture as deleted '
+                    'Requires scope `delete`. This marks the crop as deleted '
                     'inside the bound project; it does not hard-delete history.'
                 ),
-                'tags': ['cultures'],
+                'tags': ['crops'],
                 'responses': {
-                    '204': {'description': 'Culture soft-deleted.'},
+                    '204': {'description': 'Crop soft-deleted.'},
                     '404': {'description': 'Not found.'},
                 },
             },
         },
-        '/cultures/{id}/undelete/': {
+        '/crops/{id}/undelete/': {
             'parameters': [
                 {'name': 'id', 'in': 'path', 'required': True, 'schema': {'type': 'integer'}},
             ],
             'post': {
-                'summary': 'Restore a soft-deleted culture',
+                'summary': 'Restore a soft-deleted crop',
                 'description': 'Requires scope `delete`.',
-                'tags': ['cultures'],
+                'tags': ['crops'],
                 'responses': {
-                    '200': {'description': 'Restored culture.'},
+                    '200': {'description': 'Restored crop.'},
                     '404': {'description': 'Not found.'},
                 },
             },
@@ -443,17 +443,17 @@ def _culture_paths() -> dict[str, Any]:
 
 
 def _import_paths() -> dict[str, Any]:
-    """Return the path items for the two-step culture import."""
+    """Return the path items for the two-step crop import."""
     return {
-        '/culture-imports/preview/': {
+        '/crop-imports/preview/': {
             'post': {
-                'summary': 'Validate a culture import without writing anything',
+                'summary': 'Validate a crop import without writing anything',
                 'description': (
-                    'Requires scope `write` (it creates a draft, but no culture '
+                    'Requires scope `write` (it creates a draft, but no crop '
                     'data). Returns a per-row, per-field analysis plus a draft id '
                     'and checksum to confirm in the apply step.'
                 ),
-                'tags': ['culture-imports'],
+                'tags': ['crop-imports'],
                 'requestBody': {
                     'required': True,
                     'content': {
@@ -465,7 +465,7 @@ def _import_paths() -> dict[str, Any]:
                                     'items': {
                                         'type': 'array',
                                         'minItems': 1,
-                                        'items': {'$ref': '#/components/schemas/CultureImportItem'},
+                                        'items': {'$ref': '#/components/schemas/CropImportItem'},
                                     },
                                     'source_label': {'type': 'string', 'maxLength': 200},
                                 },
@@ -478,14 +478,14 @@ def _import_paths() -> dict[str, Any]:
                         'description': 'Import draft with the full preview.',
                         'content': {
                             'application/json': {
-                                'schema': {'$ref': '#/components/schemas/CultureImportDraft'}
+                                'schema': {'$ref': '#/components/schemas/CropImportDraft'}
                             }
                         },
                     }
                 },
             }
         },
-        '/culture-imports/{draft_id}/': {
+        '/crop-imports/{draft_id}/': {
             'parameters': [
                 {
                     'name': 'draft_id',
@@ -497,20 +497,20 @@ def _import_paths() -> dict[str, Any]:
             'get': {
                 'summary': 'Re-read a stored import draft',
                 'description': 'Requires scope `read`.',
-                'tags': ['culture-imports'],
+                'tags': ['crop-imports'],
                 'responses': {
                     '200': {
                         'description': 'The stored draft.',
                         'content': {
                             'application/json': {
-                                'schema': {'$ref': '#/components/schemas/CultureImportDraft'}
+                                'schema': {'$ref': '#/components/schemas/CropImportDraft'}
                             }
                         },
                     }
                 },
             },
         },
-        '/culture-imports/{draft_id}/apply/': {
+        '/crop-imports/{draft_id}/apply/': {
             'parameters': [
                 {
                     'name': 'draft_id',
@@ -528,7 +528,7 @@ def _import_paths() -> dict[str, Any]:
                     'already-applied draft returns the original result instead of '
                     'importing twice.'
                 ),
-                'tags': ['culture-imports'],
+                'tags': ['crop-imports'],
                 'requestBody': {
                     'required': True,
                     'content': {
@@ -572,7 +572,7 @@ def _read_only_collection_paths() -> dict[str, Any]:
     collections = {
         '/suppliers/': 'Seed suppliers of the bound project.',
         '/seed-packages/': 'Seed package sizes of the bound project.',
-        '/culture-supplier-data/': 'Supplier-specific seed data of the bound project.',
+        '/crop-supplier-data/': 'Supplier-specific seed data of the bound project.',
         '/locations/': 'Locations of the bound project.',
         '/fields/': 'Fields of the bound project.',
         '/beds/': 'Beds of the bound project.',
@@ -629,7 +629,7 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
     """
     paths: dict[str, Any] = {}
     paths.update(_agent_context_path())
-    paths.update(_culture_paths())
+    paths.update(_crop_paths())
     paths.update(_import_paths())
     paths.update(_read_only_collection_paths())
 
@@ -644,7 +644,7 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
                 'permanently bound to one project; the server derives the project '
                 'from the token, so no header or parameter can widen its reach. '
                 'Tokens carry `read` (safe methods only), `write` (create and '
-                'update), or `delete` (write plus culture soft-delete and restore) '
+                'update), or `delete` (write plus crop soft-delete and restore) '
                 'scope. Administrative endpoints — project members, invitations, '
                 'account settings, Django admin — are unavailable to tokens.\n\n'
                 'Distances are stored in SI metres. Field names state their unit '
@@ -693,11 +693,11 @@ def build_openapi_document(*, server_url: str = '/api') -> dict[str, Any]:
                     },
                     'required': ['project_id', 'project_name', 'token_scope'],
                 },
-                'CultureImportItem': build_culture_import_item_schema(),
-                'CultureWriteItem': build_culture_write_item_schema(),
-                'CultureImportPreviewField': _preview_field_schema(),
-                'CultureImportPreviewItem': _preview_item_schema(),
-                'CultureImportDraft': _draft_schema(),
+                'CropImportItem': build_crop_import_item_schema(),
+                'CropWriteItem': build_crop_write_item_schema(),
+                'CropImportPreviewField': _preview_field_schema(),
+                'CropImportPreviewItem': _preview_item_schema(),
+                'CropImportDraft': _draft_schema(),
             },
         },
         'paths': paths,

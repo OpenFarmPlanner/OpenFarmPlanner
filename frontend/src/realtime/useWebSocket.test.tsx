@@ -48,11 +48,11 @@ describe('useWebSocket', () => {
 
   it('builds secure, base-path-aware endpoints', () => {
     expect(buildWebSocketUrl(
-      '/ws/public-cultures/1/discussions/',
+      '/ws/public-crops/1/discussions/',
       { protocol: 'https:', host: 'example.test' },
       '/openfarmplanner/',
       undefined,
-    )).toBe('wss://example.test/openfarmplanner/ws/public-cultures/1/discussions/');
+    )).toBe('wss://example.test/openfarmplanner/ws/public-crops/1/discussions/');
   });
 
   it('stays on the page origin so the Vite dev proxy handles local development', () => {

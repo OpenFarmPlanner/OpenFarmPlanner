@@ -40,7 +40,7 @@ async function resolveSeasonId(page: Page, projectId: number, containedDate: str
 
 async function createAutocompleteFixture(
   page: Page,
-): Promise<{ planId: number; targetCultureName: string }> {
+): Promise<{ planId: number; targetCropName: string }> {
   const activeProjectId = await page.evaluate(() => window.localStorage.getItem('activeProjectId'));
   const projectId = Number(activeProjectId);
   const csrfToken = await page.evaluate(() =>
@@ -63,14 +63,14 @@ async function createAutocompleteFixture(
   const location = await api<{ id: number }>('/locations/', { name: 'Tastaturhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Tabfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Autocomplete-Beet', field: field.id, area_sqm: 12 });
-  const initialCulture = await api<{ id: number }>('/cultures/', {
+  const initialCrop = await api<{ id: number }>('/crops/', {
     name: 'Bohne',
     variety: 'Start',
     cultivation_type: 'direct_sowing',
     cultivation_types: ['direct_sowing'],
     plants_per_m2: 6,
   });
-  await api<{ id: number }>('/cultures/', {
+  await api<{ id: number }>('/crops/', {
     name: 'Zucchini',
     variety: 'Enter',
     cultivation_type: 'direct_sowing',
@@ -80,14 +80,14 @@ async function createAutocompleteFixture(
 
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
-    culture: initialCulture.id,
+    crop: initialCrop.id,
     season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
     area_usage_sqm: 2,
   });
 
-  return { planId: plan.id, targetCultureName: 'Zucchini (Enter)' };
+  return { planId: plan.id, targetCropName: 'Zucchini (Enter)' };
 }
 
 async function createCultivationTypeFixture(page: Page): Promise<{ planId: number }> {
@@ -113,7 +113,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
   const location = await api<{ id: number }>('/locations/', { name: 'Anbauart-Enter-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Anbauart-Enter-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Anbauart-Enter-Beet', field: field.id, area_sqm: 12 });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Gurke',
     variety: 'Enter',
     cultivation_type: 'direct_sowing',
@@ -122,7 +122,7 @@ async function createCultivationTypeFixture(page: Page): Promise<{ planId: numbe
   });
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
-    culture: culture.id,
+    crop: crop.id,
     season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
@@ -155,7 +155,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Tab-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Tab-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Tab-Beet', field: field.id, area_sqm: 12 });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Abstandslos',
     variety: 'Tab',
     cultivation_type: 'direct_sowing',
@@ -163,7 +163,7 @@ async function createMissingSpacingFixture(page: Page): Promise<{ planId: number
   });
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
-    culture: culture.id,
+    crop: crop.id,
     season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
@@ -196,7 +196,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
   const location = await api<{ id: number }>('/locations/', { name: 'Pflanzen-Limit-Hof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Pflanzen-Limit-Feld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Pflanzen-Limit-Beet', field: field.id, area_sqm: 7 });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Limit-Salat',
     variety: 'Pflanzen',
     cultivation_type: 'direct_sowing',
@@ -206,7 +206,7 @@ async function createPlantsAreaLimitFixture(page: Page): Promise<{ planId: numbe
   });
   const plan = await api<{ id: number }>('/planting-plans/', {
     bed: bed.id,
-    culture: culture.id,
+    crop: crop.id,
     season: seasonId,
     cultivation_type: 'direct_sowing',
     planting_date: '2026-05-01',
@@ -256,28 +256,28 @@ test.describe('planting plans tab navigation with hidden columns', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('Enter commits the highlighted searchable culture option before grid navigation handles the key', async ({ page }) => {
+  test('Enter commits the highlighted searchable crop option before grid navigation handles the key', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    const { planId, targetCultureName } = await createAutocompleteFixture(page);
+    const { planId, targetCropName } = await createAutocompleteFixture(page);
 
     await page.goto('/app/planting-plans');
     await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
     const firstRow = page.locator(`[role="row"][data-id="${planId}"]`);
-    const cultureCell = firstRow.locator('[data-field="culture"]');
-    await expect(cultureCell).toBeVisible();
+    const cropCell = firstRow.locator('[data-field="crop"]');
+    await expect(cropCell).toBeVisible();
 
-    await cultureCell.dblclick();
+    await cropCell.dblclick();
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
-    const editor = page.locator('.MuiDataGrid-row--editing [data-field="culture"] input[role="combobox"]');
+    const editor = page.locator('.MuiDataGrid-row--editing [data-field="crop"] input[role="combobox"]');
     await expect(editor).toBeFocused();
 
     await editor.fill('Zucchini');
-    await expect(page.getByRole('option', { name: targetCultureName })).toBeVisible();
+    await expect(page.getByRole('option', { name: targetCropName })).toBeVisible();
     await page.keyboard.press('ArrowDown');
-    const highlightedCultureName = (await page.locator('[role="option"].Mui-focused').innerText()).trim();
+    const highlightedCropName = (await page.locator('[role="option"].Mui-focused').innerText()).trim();
     await page.keyboard.press('Enter');
 
-    await expect(editor).toHaveValue(highlightedCultureName);
+    await expect(editor).toHaveValue(highlightedCropName);
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
 
     await page.keyboard.press('Tab');

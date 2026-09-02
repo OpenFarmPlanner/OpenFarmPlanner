@@ -27,6 +27,20 @@
   change. If the scope is ambiguous, ask rather than assume.
 - Do not fold unrelated refactors into a feature or fix. If you notice a large
   unrelated cleanup, flag it separately.
+- Exception: fix what the change itself surfaces or breaks, in the same change.
+  This is not "unrelated" work even when the underlying issue predates the
+  change:
+  - A scanner or review-bot finding reported against code the change touched or
+    moved (e.g. a CodeQL alert that appears only because a file was renamed).
+    Fix it and say in the commit that it predates the change; if the fix would
+    be large or needs a design decision, that is when to flag it separately.
+  - Backwards-compatibility shims for anything the change renames or moves that
+    clients outside the repo already depend on: API paths and query parameters,
+    WebSocket routes, persisted enum values, browser-storage keys, and frontend
+    routes reachable from a bookmark. A deploy restarts the backend but does not
+    reload open tabs, and external agent integrations are not ours to update, so
+    the old spelling has to keep working. Mark each shim deprecated and say what
+    has to be gone before it can be removed.
 
 ## Workflow: Before Making a Non-Trivial Change
 
@@ -124,7 +138,7 @@ existing screenshot test happens to fail.
 - Do not update CLAUDE.md for small implementation details.
 
 ## Project Structure
-- `backend/` contains the Django backend. The main apps are `accounts/` and `farm/` (whose views/serializers are organized into domain packages: `common/`, `history/`, `projects/`, `structure/`, `cultures/`, `planning/`, `notes/`, `feedback/`, plus `services/` for business logic), with project settings in `config/`, app-local tests under each app, backend helper scripts in `backend/scripts/`, and generated media under `backend/media/`.
+- `backend/` contains the Django backend. The main apps are `accounts/` and `farm/` (whose views/serializers are organized into domain packages: `common/`, `history/`, `projects/`, `structure/`, `crops/`, `planning/`, `notes/`, `feedback/`, plus `services/` for business logic), with project settings in `config/`, app-local tests under each app, backend helper scripts in `backend/scripts/`, and generated media under `backend/media/`.
 - `frontend/` contains the React + TypeScript app. Application code lives in `frontend/src/`, with pages, components, hooks, API clients, i18n resources, and frontend tests following the existing folder layout. Playwright end-to-end tests live in `frontend/e2e/`.
 - `tests/` contains repository-level Python tests that are not tied to a single Django app.
 - `scripts/` contains repository-level helper and maintenance scripts.

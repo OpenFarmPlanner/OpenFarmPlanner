@@ -9,7 +9,7 @@ from django.db.models import Q, QuerySet
 
 from accounts.guest_demo import delete_guest_demo_session
 from accounts.models import GuestDemoSession
-from farm.models import Project, PublicCulture
+from farm.models import Project, PublicCrop
 from farm.services.demo_project import DEMO_PROJECT_DESCRIPTIONS, DEMO_PROJECT_SLUG, DEMO_USER_EMAIL
 from farm.services.hint_test_project import (
     HINT_TEST_MEMBER_EMAIL,
@@ -28,7 +28,7 @@ LOCAL_FIXTURE_PROJECT_SLUGS = frozenset({
     DEMO_PROJECT_SLUG,
     HINT_TEST_PROJECT_SLUG,
 })
-E2E_PUBLIC_CULTURE_VARIETY_PREFIXES = ('E2E Kollaboration ', 'Visual Empty ')
+E2E_PUBLIC_CROP_VARIETY_PREFIXES = ('E2E Kollaboration ', 'Visual Empty ')
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class LocalTestDataCleanupPlan:
     project_count: int
     user_count: int
     guest_demo_session_count: int
-    public_culture_count: int
+    public_crop_count: int
 
 
 def assert_local_cleanup_allowed() -> None:
@@ -53,7 +53,7 @@ def build_local_test_data_cleanup_plan() -> LocalTestDataCleanupPlan:
         project_count=_local_test_projects().count(),
         user_count=_local_test_users().count(),
         guest_demo_session_count=GuestDemoSession.objects.count(),
-        public_culture_count=_local_e2e_public_cultures().count(),
+        public_crop_count=_local_e2e_public_crops().count(),
     )
 
 
@@ -61,7 +61,7 @@ def cleanup_local_test_data() -> LocalTestDataCleanupPlan:
     """Delete known local E2E/demo fixture data and return the planned counts."""
     plan = build_local_test_data_cleanup_plan()
     with transaction.atomic():
-        _local_e2e_public_cultures().delete()
+        _local_e2e_public_crops().delete()
         # Materialized up front: delete_guest_demo_session() cascades through
         # `user`/`project` (both OneToOneField(on_delete=CASCADE)), which deletes
         # the very GuestDemoSession row an open .iterator() cursor would still be
@@ -91,15 +91,15 @@ def _local_test_users() -> QuerySet:
     ).distinct()
 
 
-def _local_e2e_public_cultures() -> QuerySet[PublicCulture]:
-    return PublicCulture.objects.filter(
+def _local_e2e_public_crops() -> QuerySet[PublicCrop]:
+    return PublicCrop.objects.filter(
         Q(source_project__memberships__user__email__iendswith='@e2e.local')
-        | Q(source_project_culture__project__memberships__user__email__iendswith='@e2e.local')
+        | Q(source_project_crop__project__memberships__user__email__iendswith='@e2e.local')
         | (
             Q(created_by__email__iendswith='@e2e.local')
             & (
-                Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[0])
-                | Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[1])
+                Q(variety__startswith=E2E_PUBLIC_CROP_VARIETY_PREFIXES[0])
+                | Q(variety__startswith=E2E_PUBLIC_CROP_VARIETY_PREFIXES[1])
             )
         )
     ).distinct()

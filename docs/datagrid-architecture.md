@@ -137,7 +137,7 @@ saves are superseded by newer drafts, so the latest draft always wins.
 
 Who uses this today: `useAutosaveDraft` is consumed only from
 `components/data-grid/DataGrid.tsx` (`EditableDataGrid`), whose current sole
-page user is `PlantingPlans.tsx`. `CultureForm.tsx` and `Locations.tsx` moved
+page user is `PlantingPlans.tsx`. `CropForm.tsx` and `Locations.tsx` moved
 to explicit dialog Save/Cancel forms, and `FieldsBedsHierarchy.tsx` renders a
 raw `<DataGrid>` — none of them get this behavior. The hooks remain the right
 building blocks if a *form* needs blur-based autosave again.
@@ -212,7 +212,7 @@ edit stop: `handlers.ts`'s `handleRowEditStop` only sets
 means "cancel" while every other exit reason falls through to
 `processRowUpdate` and saves. Save failures keep the row editable with its
 inline errors intact. For planting plans specifically, incomplete rows may be
-saved as drafts as long as either a culture or a bed is selected.
+saved as drafts as long as either a crop or a bed is selected.
 
 ## Custom edit cells
 
@@ -236,7 +236,7 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   `parseGermanDateText`/`formatDateAsGerman` helpers that `DateEditCell`
   imports.
 - **`SearchableSelectEditCell`** wraps an MUI Autocomplete for single-select
-  columns with large option lists (cultures, suppliers) that a plain
+  columns with large option lists (crops, suppliers) that a plain
   `singleSelect` dropdown wouldn't make browsable; `columns.tsx` also
   exposes a `createSingleSelectColumn` builder (plain dropdown) for
   short option lists — pick whichever builder matches the option-list size,
@@ -429,7 +429,7 @@ Where this lives:
 | Entity | Delete | Undo |
 | --- | --- | --- |
 | Anbaupläne (`useDataGridDelete.ts`, `deleteUndoOptions`) | `api.delete` | `api.create(mapToApiData(row))` + reload |
-| Kulturen (`pages/useCultureDelete.ts`) | `cultureAPI.delete` (soft delete) | `cultureAPI.undelete` |
+| Kulturen (`pages/useCropDelete.ts`) | `cropAPI.delete` (soft delete) | `cropAPI.undelete` |
 | Standorte/Parzellen/Beete (`hooks/useHierarchyDelete.ts`) | `locationAPI`/`fieldAPI`/`bedAPI.delete` | recreate location → field → bed, remapping parent ids |
 | Lieferanten (`pages/Suppliers.tsx`) | `supplierAPI.delete` (409 when still referenced) | `supplierAPI.restoreUnlinkedDelete` with the payload the delete/unlink response returned |
 | Projekte (`projects/projectDeletionFeedback.ts`) | `projectAPI.delete` (soft delete) | `projectAPI.restore` |
@@ -596,10 +596,10 @@ drive-by change.
 
 ## Row history / versioning — not a grid feature
 
-Culture version history (backed by the generic `EntityRevision` model, see
+Crop version history (backed by the generic `EntityRevision` model, see
 [versioning-and-history.md](./versioning-and-history.md)) is shown in a
-**standalone MUI `Dialog`** on `Cultures.tsx`, populated via
-`cultureAPI.history(...)`. It does not surface inside any grid cell,
+**standalone MUI `Dialog`** on `Crops.tsx`, populated via
+`cropAPI.history(...)`. It does not surface inside any grid cell,
 row-action menu, or notes drawer — if you're asked to "show history in the
 grid," that's new work, not exposing something that already half-exists.
 

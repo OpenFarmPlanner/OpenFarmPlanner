@@ -3,15 +3,15 @@
  * without needing to await i18next initialization.
  *
  * These are the same namespace files i18n/config.ts loads at runtime, so
- * `translations.navigation.cultures` always reflects the copy users actually see.
+ * `translations.navigation.crops` always reflects the copy users actually see.
  */
 
-import cultures from '../i18n/locales/de/cultures.json';
+import crops from '../i18n/locales/de/crops.json';
 import navigation from '../i18n/locales/de/navigation.json';
 
 const translations = {
   navigation,
-  cultures,
+  crops,
 };
 
 export default translations;

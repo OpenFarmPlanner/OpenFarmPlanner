@@ -2,7 +2,7 @@ import type { ShortcutKeyBinding } from '../hooks/useKeyboardShortcuts';
 
 export type CommandContextTag =
   | 'global'
-  | 'cultures'
+  | 'crops'
   | 'publicCropLibrary'
   | 'locations'
   | 'areas'

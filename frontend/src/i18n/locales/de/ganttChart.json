@@ -35,7 +35,7 @@
     "render": "Die Kalenderansicht konnte nicht geladen werden."
   },
   "tooltip": {
-    "culture": "Kultur",
+    "crop": "Kultur",
     "plantingDate": "Pflanzdatum",
     "harvestDate": "Erntedatum",
     "firstHarvest": "Erste Ernte",
@@ -128,7 +128,7 @@
       "missing": "Parzelle fehlt",
       "done": "Parzelle vorhanden"
     },
-    "culture": {
+    "crop": {
       "label": "Kultur",
       "missing": "Kultur fehlt",
       "done": "Kultur vorhanden"
@@ -148,7 +148,7 @@
     "requirementsTitle": "Noch keine Anbauplanung möglich",
     "requirementsDescription": "Öffne die Anbauflächen und füge dort eine Parzelle beim passenden Standort hinzu. Danach kannst du Beete, Kulturen und Anbaupläne erfassen.",
     "states": {
-      "cultures": {
+      "crops": {
         "title": "Noch keine Kulturen vorhanden",
         "description": "Lege jetzt deine erste Kultur an oder importiere eine Kultur aus der Kulturbibliothek. Danach kannst du Anbaupläne erstellen."
       },
@@ -158,7 +158,7 @@
       }
     },
     "actions": {
-      "createCulture": "Kultur hinzufügen",
+      "createCrop": "Kultur hinzufügen",
       "createField": "Parzelle hinzufügen",
       "createAreas": "Zu Anbauflächen",
       "createPlan": "Anbauplan hinzufügen"
@@ -190,7 +190,7 @@
   },
   "contextMenu": {
     "openPlan": "Anbauplan öffnen",
-    "openCulture": "Kultur öffnen",
+    "openCrop": "Kultur öffnen",
     "openBed": "Beet öffnen",
     "openField": "Parzelle öffnen",
     "openLocation": "Standort öffnen",

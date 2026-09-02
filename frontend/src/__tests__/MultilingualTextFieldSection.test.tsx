@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MultilingualTextFieldSection } from '../crops/components/MultilingualTextFieldSection';
+import { MultilingualTextFieldSection } from '../crop-library/components/MultilingualTextFieldSection';
 
 describe('MultilingualTextFieldSection', () => {
   it('edits the original-language text and shows the original language', async () => {

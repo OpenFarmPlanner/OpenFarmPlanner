@@ -288,7 +288,7 @@ describe('useKeyboardNavigation', () => {
   });
 
   it('uses nested app routes to determine the active navigation item', () => {
-    window.history.pushState({}, '', '/app/cultures/42');
+    window.history.pushState({}, '', '/app/crops/42');
     render(<TestComponent />);
 
     window.dispatchEvent(

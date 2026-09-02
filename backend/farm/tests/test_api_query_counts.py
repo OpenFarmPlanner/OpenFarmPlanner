@@ -18,12 +18,12 @@ from datetime import date
 from crops.models import CropSpecies, CropSpeciesTranslation
 from farm.models import (
     Bed,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     Field,
     Location,
     PlantingPlan,
-    PublicCulture,
+    PublicCrop,
     Season,
     SeedPackage,
     Supplier,
@@ -41,15 +41,15 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
 
     def setUp(self):
         super().setUp()
-        # ProjectApiTestCase already provides one location/field/bed/culture/
+        # ProjectApiTestCase already provides one location/field/bed/crop/
         # supplier; top the project up to ROW_COUNT of each and give every row
         # the related records its serializer touches.
         self.locations = [self.location]
         self.fields = [self.field]
         self.beds = [self.bed]
-        self.cultures = [self.culture]
+        self.crops = [self.crop]
         self.suppliers = [self.supplier]
-        self.public_cultures = []
+        self.public_crops = []
         self.seasons = []
 
         for index in range(ROW_COUNT):
@@ -83,43 +83,43 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
                 species=species, language_code='en', common_name=f'Species {index}',
             )
 
-            culture = self.cultures[index] if index == 0 else Culture.objects.create(
-                name=f'Culture {index}', variety='Sorte', project=self.project,
+            crop = self.crops[index] if index == 0 else Crop.objects.create(
+                name=f'Crop {index}', variety='Sorte', project=self.project,
                 growth_duration_days=30, harvest_duration_days=5,
             )
             if index > 0:
-                self.cultures.append(culture)
-            culture.crop_species = species
-            culture.supplier = self.suppliers[index]
-            culture.save(update_fields=['crop_species', 'supplier'])
+                self.crops.append(crop)
+            crop.crop_species = species
+            crop.supplier = self.suppliers[index]
+            crop.save(update_fields=['crop_species', 'supplier'])
 
-            CultureSupplierData.objects.create(
-                culture=culture, supplier=self.suppliers[index], project=self.project,
+            CropSupplierData.objects.create(
+                crop=crop, supplier=self.suppliers[index], project=self.project,
             )
             SeedPackage.objects.create(
-                culture=culture, size_value=10, size_unit='g', project=self.project,
+                crop=crop, size_value=10, size_unit='g', project=self.project,
             )
             season = Season.objects.create(
                 project=self.project, start_date=date(2020 + index, 1, 1), end_date=date(2020 + index, 12, 31),
             )
             self.seasons.append(season)
             plan = PlantingPlan.objects.create(
-                culture=culture, bed=self.beds[index], planting_date=date(2026, 4, 1),
+                crop=crop, bed=self.beds[index], planting_date=date(2026, 4, 1),
                 area_usage_sqm=5, project=self.project, season=season,
                 created_by=self.user, updated_by=self.user,
             )
             Task.objects.create(title=f'Task {index}', planting_plan=plan, project=self.project)
 
-            public_culture = PublicCulture.objects.create(
-                name=f'Public culture {index}', variety='Sorte',
-                status=PublicCulture.STATUS_PUBLISHED, crop_species=species, created_by=self.user,
+            public_crop = PublicCrop.objects.create(
+                name=f'Public crop {index}', variety='Sorte',
+                status=PublicCrop.STATUS_PUBLISHED, crop_species=species, created_by=self.user,
             )
-            self.public_cultures.append(public_culture)
+            self.public_crops.append(public_crop)
             # An imported copy so the serializer's `project_import_status`
             # has something to resolve for every public row.
-            Culture.objects.create(
-                name=f'Imported culture {index}', variety='Sorte', project=self.project,
-                source_public_culture=public_culture,
+            Crop.objects.create(
+                name=f'Imported crop {index}', variety='Sorte', project=self.project,
+                source_public_crop=public_crop,
             )
 
     def assert_list_query_count(
@@ -149,41 +149,41 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
     def test_suppliers_list_query_count(self):
         self.assert_list_query_count('/openfarmplanner/api/suppliers/', 5)
 
-    def test_cultures_list_query_count(self):
+    def test_crops_list_query_count(self):
         """The heaviest project list: supplier rows, seed packages, species
-        translations, the owned-public-culture lookup, that entry's species
+        translations, the owned-public-crop lookup, that entry's species
         status, the same user's species-level public entry and the general
         Kultur a Sorte inherits from are all per-row data that the viewset
         resolves for the whole page."""
-        # Each culture created above also has an imported sibling row, so the
-        # project holds twice ROW_COUNT cultures.
+        # Each crop created above also has an imported sibling row, so the
+        # project holds twice ROW_COUNT crops.
         self.assert_list_query_count(
-            '/openfarmplanner/api/cultures/', 12, expected_rows=ROW_COUNT * 2,
+            '/openfarmplanner/api/crops/', 12, expected_rows=ROW_COUNT * 2,
         )
 
-    def test_culture_supplier_data_list_query_count(self):
+    def test_crop_supplier_data_list_query_count(self):
         """Rows embed a full nested `SupplierSerializer`."""
-        self.assert_list_query_count('/openfarmplanner/api/culture-supplier-data/', 5)
+        self.assert_list_query_count('/openfarmplanner/api/crop-supplier-data/', 5)
 
     def test_seed_packages_list_query_count(self):
         self.assert_list_query_count('/openfarmplanner/api/seed-packages/', 5)
 
     def test_planting_plans_list_query_count(self):
-        """Culture, species translations, bed and both audit users per row, plus
+        """Crop, species translations, bed and both audit users per row, plus
         one page-wide lookup of the general Kulturen the plans' Sorten inherit
         their timing from."""
         self.assert_list_query_count('/openfarmplanner/api/planting-plans/', 7)
 
     def test_tasks_list_query_count(self):
         """`planting_plan_name` renders `PlantingPlan.__str__`, which reads the
-        plan's culture and bed."""
+        plan's crop and bed."""
         self.assert_list_query_count('/openfarmplanner/api/tasks/', 5)
 
-    def test_public_cultures_list_query_count(self):
+    def test_public_crops_list_query_count(self):
         """Species translations, description translations, the species status
         behind `crop_species_status` and the active project's imported copies
         are all resolved for the whole page rather than per row."""
-        self.assert_list_query_count('/openfarmplanner/api/public-cultures/', 8)
+        self.assert_list_query_count('/openfarmplanner/api/public-crops/', 8)
 
     def test_projects_list_query_count(self):
         self.assert_list_query_count('/openfarmplanner/api/projects/', 4, expected_rows=1)
@@ -204,7 +204,7 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
             )
             for day in (1, 8, 15):
                 PlantingPlan.objects.create(
-                    culture=self.culture, bed=self.bed, project=self.project,
+                    crop=self.crop, bed=self.bed, project=self.project,
                     season=season, planting_date=date(2030 + index, 4, day),
                 )
             self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')

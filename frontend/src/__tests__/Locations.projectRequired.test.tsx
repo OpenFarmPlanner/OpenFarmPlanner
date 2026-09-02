@@ -8,7 +8,7 @@ const apiMocks = vi.hoisted(() => ({
   fieldList: vi.fn(),
   bedList: vi.fn(),
   planList: vi.fn(),
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
 }));
 
 const projectRequirementState = vi.hoisted(() => ({
@@ -44,9 +44,9 @@ vi.mock("../api/api", async () => {
       ...actual.plantingPlanAPI,
       list: apiMocks.planList,
     },
-    cultureAPI: {
-      ...actual.cultureAPI,
-      list: apiMocks.cultureList,
+    cropAPI: {
+      ...actual.cropAPI,
+      list: apiMocks.cropList,
     },
   };
 });
@@ -60,7 +60,7 @@ describe("Locations project requirement state", () => {
     apiMocks.fieldList.mockResolvedValue({ data: { results: [] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [] } });
     apiMocks.planList.mockResolvedValue({ data: { results: [] } });
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [] } });
   });
 
   it("shows friendly info instead of an error when the user has no project", async () => {

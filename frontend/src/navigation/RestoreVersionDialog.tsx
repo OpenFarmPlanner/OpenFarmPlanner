@@ -8,17 +8,17 @@ import {
   Typography,
 } from '@mui/material';
 
-import type { CultureHistoryEntry } from '../api/types';
-import { getBatchSummary, isBatchGroupEntry } from '../pages/culturesHistoryUtils';
+import type { CropHistoryEntry } from '../api/types';
+import { getBatchSummary, isBatchGroupEntry } from '../pages/cropsHistoryUtils';
 import type { TFunction } from 'i18next';
 
 interface RestoreVersionDialogProps {
   /** The dialog is open while this is non-null. */
-  entry: CultureHistoryEntry | null;
+  entry: CropHistoryEntry | null;
   /** Fallback title when the entry has no display name (page supplies i18n). */
-  getEntryTitle: (entry: CultureHistoryEntry) => string;
+  getEntryTitle: (entry: CropHistoryEntry) => string;
   formatTimestamp: (value: string) => string;
-  tCultures: TFunction<'cultures'>;
+  tCrops: TFunction<'crops'>;
   onClose: () => void;
   onConfirm: (historyId: number) => void;
   onConfirmRevertBatch: (batchId: number) => void;
@@ -34,7 +34,7 @@ export function RestoreVersionDialog({
   entry,
   getEntryTitle,
   formatTimestamp,
-  tCultures,
+  tCrops,
   onClose,
   onConfirm,
   onConfirmRevertBatch,
@@ -54,7 +54,7 @@ export function RestoreVersionDialog({
           <Box sx={{ mb: 1.5 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {isBatch
-                ? getBatchSummary(entry, tCultures)
+                ? getBatchSummary(entry, tCrops)
                 : (entry.object_display_name?.trim() || getEntryTitle(entry))}
             </Typography>
             <Typography variant="caption" color="text.secondary">

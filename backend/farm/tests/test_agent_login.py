@@ -36,7 +36,7 @@ class AgentLoginTests(TestCase):
         response = self.client.get(f'/openfarmplanner/agent-login/{raw_token}/')
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, 'https://app.example.test/openfarmplanner/app/cultures')
+        self.assertEqual(response.url, 'https://app.example.test/openfarmplanner/app/crops')
 
         token_obj = AgentLoginToken.objects.get(project=self.project)
         self.assertIsNotNone(token_obj.used_at)
@@ -137,7 +137,7 @@ class AgentLoginTests(TestCase):
 
         self.assertEqual(first_response.status_code, 302)
         self.assertEqual(second_response.status_code, 400)
-        self.assertEqual(first_response.url, 'https://app.example.test/openfarmplanner/app/cultures')
+        self.assertEqual(first_response.url, 'https://app.example.test/openfarmplanner/app/crops')
         self.assertIn('Token already used.', second_response.content.decode())
 
     def test_agent_session_reports_member_role_in_projects_bootstrap(self) -> None:

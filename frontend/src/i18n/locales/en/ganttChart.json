@@ -35,7 +35,7 @@
     "render": "The calendar view could not be loaded."
   },
   "tooltip": {
-    "culture": "Culture",
+    "crop": "Culture",
     "plantingDate": "Planting date",
     "harvestDate": "Harvest date",
     "firstHarvest": "First harvest",
@@ -128,7 +128,7 @@
       "missing": "Field missing",
       "done": "Field available"
     },
-    "culture": {
+    "crop": {
       "label": "Culture",
       "missing": "Culture missing",
       "done": "Culture available"
@@ -148,7 +148,7 @@
     "requirementsTitle": "No crop planning possible yet",
     "requirementsDescription": "Open Fields & Beds and add a field to the appropriate location there. Afterwards you can record beds, cultures, and planting plans.",
     "states": {
-      "cultures": {
+      "crops": {
         "title": "No cultures yet",
         "description": "Create your first culture now or import one from the culture library. Afterwards you can create planting plans."
       },
@@ -158,7 +158,7 @@
       }
     },
     "actions": {
-      "createCulture": "Add culture",
+      "createCrop": "Add culture",
       "createField": "Add field",
       "createAreas": "Go to Fields & Beds",
       "createPlan": "Add planting plan"
@@ -190,7 +190,7 @@
   },
   "contextMenu": {
     "openPlan": "Open planting plan",
-    "openCulture": "Open culture",
+    "openCrop": "Open culture",
     "openBed": "Open bed",
     "openField": "Open field",
     "openLocation": "Open location",

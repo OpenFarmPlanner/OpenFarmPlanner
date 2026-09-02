@@ -113,7 +113,7 @@ describe('planting plan raw input edit cells', () => {
         {...baseEditParams}
         field="plants_count"
         value={0}
-        cultures={[]}
+        crops={[]}
         onLastEditedFieldChange={vi.fn()}
       />,
     );
@@ -152,7 +152,7 @@ describe('planting plan raw input edit cells', () => {
         {...baseEditParams}
         field="plants_count"
         value=""
-        cultures={[]}
+        crops={[]}
         placeholder="Anzahl eingeben"
         onLastEditedFieldChange={vi.fn()}
       />,

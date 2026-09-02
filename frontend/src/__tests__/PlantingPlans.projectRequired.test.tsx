@@ -5,7 +5,7 @@ import PlantingPlans from "../pages/PlantingPlans";
 import type { RootLayoutOutletContext } from "../navigation/topbarTypes";
 
 const apiMocks = vi.hoisted(() => ({
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
@@ -39,10 +39,10 @@ vi.mock("../api/api", async () => {
   const actual = await vi.importActual<typeof import("../api/api")>("../api/api");
   return {
     ...actual,
-    cultureAPI: {
-      ...actual.cultureAPI,
-      list: apiMocks.cultureList,
-      listAll: async () => (await apiMocks.cultureList()).data,
+    cropAPI: {
+      ...actual.cropAPI,
+      list: apiMocks.cropList,
+      listAll: async () => (await apiMocks.cropList()).data,
     },
     locationAPI: {
       ...actual.locationAPI,
@@ -72,7 +72,7 @@ describe("PlantingPlans project requirement state", () => {
     vi.clearAllMocks();
     projectRequirementState.shouldShowProjectRequiredState = false;
     projectRequirementState.missingProjectReason = null;
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [] } });
     apiMocks.locationList.mockResolvedValue({ data: { results: [] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [] } });
@@ -119,7 +119,7 @@ describe("PlantingPlans project requirement state", () => {
 
     expect(await screen.findByText("Du hast noch kein Projekt.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Erstes Projekt anlegen" })).toBeInTheDocument();
-    expect(apiMocks.cultureList).not.toHaveBeenCalled();
+    expect(apiMocks.cropList).not.toHaveBeenCalled();
     expect(apiMocks.bedList).not.toHaveBeenCalled();
   });
 
@@ -158,7 +158,7 @@ describe("PlantingPlans project requirement state", () => {
     expect(screen.queryByRole("link", { name: "Zu Anbauflächen" })).not.toBeInTheDocument();
   });
 
-  it("shows the culture library as the primary action when cultures are missing", async () => {
+  it("shows the crop library as the primary action when crops are missing", async () => {
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: "Nord", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: "Beet A", field: 2 }] } });
@@ -170,19 +170,19 @@ describe("PlantingPlans project requirement state", () => {
     );
 
     const libraryLink = await screen.findByRole("link", { name: "Kulturbibliothek öffnen" });
-    const createCultureLink = screen.getByRole("link", { name: "Kultur hinzufügen" });
+    const createCropLink = screen.getByRole("link", { name: "Kultur hinzufügen" });
 
-    expect(libraryLink).toHaveAttribute("href", "/app/cultures?library=true");
+    expect(libraryLink).toHaveAttribute("href", "/app/crops?library=true");
     expect(libraryLink.className).toContain("MuiButton-contained");
-    expect(createCultureLink).toHaveAttribute("href", "/app/cultures?create=true");
-    expect(createCultureLink.className).toContain("MuiButton-outlined");
+    expect(createCropLink).toHaveAttribute("href", "/app/crops?create=true");
+    expect(createCropLink.className).toContain("MuiButton-outlined");
   });
 
   it("uses the create handler from the no-plans empty state", async () => {
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: "Nord", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: "Beet A", field: 2 }] } });
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
 
     const { container } = render(
       <MemoryRouter initialEntries={["/app/anbauplaene"]}>
@@ -206,7 +206,7 @@ describe("PlantingPlans project requirement state", () => {
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: "Nord", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: "Beet A", field: 2 }] } });
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [{ id: 4, name: "Tomate" }] } });
     const requestSeasonCreation = vi.fn();
 
     const { container } = renderWithOutletContext({ requestSeasonCreation });

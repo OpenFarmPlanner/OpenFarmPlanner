@@ -75,7 +75,7 @@ async function createAreaDialogFixture(
     field: field.id,
     area_sqm: 18.8,
   });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Salat',
     variety: 'Dialog',
     propagation_duration_days: 21,
@@ -86,7 +86,7 @@ async function createAreaDialogFixture(
   for (let index = 0; index < (options.planCount ?? 1); index += 1) {
     await api<{ id: number }>('/planting-plans/', {
       bed: bed.id,
-      culture: culture.id,
+      crop: crop.id,
       season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: `2026-04-${String(10 + index).padStart(2, '0')}`,
@@ -281,7 +281,7 @@ test.describe('planting plans area assignment dialog', () => {
     await page.goto('/app/planting-plans');
     await expect(page.getByRole('heading', { name: 'Anbaupläne' })).toBeVisible();
     const firstRow = page.locator('[role="row"][data-id]').first();
-    await firstRow.locator('[data-field="culture"]').dblclick();
+    await firstRow.locator('[data-field="crop"]').dblclick();
     await expect(page.locator('.MuiDataGrid-row--editing')).toHaveCount(1);
 
     await firstRow.locator('[data-field="cultivation_type"]').focus();

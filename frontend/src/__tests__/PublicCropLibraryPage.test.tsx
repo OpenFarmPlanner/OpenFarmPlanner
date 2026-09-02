@@ -3,15 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { Fragment, useState } from 'react';
 import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import PublicCropLibraryPage from '../crops/pages/PublicCropLibraryPage';
-import type { PublicCulture, PublicCultureDiscussionComment, PublicCultureDiscussionTopic } from '../api/types';
+import PublicCropLibraryPage from '../crop-library/pages/PublicCropLibraryPage';
+import type { PublicCrop, PublicCropDiscussionComment, PublicCropDiscussionTopic } from '../api/types';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 import i18n from '../i18n/config';
 import { GLOBAL_SNACKBAR_EVENT, type GlobalSnackbarDetail } from '../utils/globalSnackbar';
 import type { TopbarContextAction } from '../navigation/topbarTypes';
 
-const publicCultureApiMocks = vi.hoisted(() => ({
+const publicCropApiMocks = vi.hoisted(() => ({
   list: vi.fn(),
   get: vi.fn(),
   discussionTopics: vi.fn(),
@@ -82,27 +82,27 @@ vi.mock('../api/api', async () => {
   const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
   return {
     ...actual,
-    publicCultureAPI: {
-      ...actual.publicCultureAPI,
-      list: publicCultureApiMocks.list,
-      listAll: publicCultureApiMocks.list,
-      get: publicCultureApiMocks.get,
-      discussionTopics: publicCultureApiMocks.discussionTopics,
-      discussionComments: publicCultureApiMocks.discussionComments,
-      createDiscussionTopic: publicCultureApiMocks.createDiscussionTopic,
-      createDiscussionComment: publicCultureApiMocks.createDiscussionComment,
-      updateDiscussionComment: publicCultureApiMocks.updateDiscussionComment,
-      deleteDiscussionComment: publicCultureApiMocks.deleteDiscussionComment,
-      versions: publicCultureApiMocks.versions,
-      importToProject: publicCultureApiMocks.importToProject,
-      update: publicCultureApiMocks.update,
-      updateTranslations: publicCultureApiMocks.updateTranslations,
-      remove: publicCultureApiMocks.remove,
+    publicCropAPI: {
+      ...actual.publicCropAPI,
+      list: publicCropApiMocks.list,
+      listAll: publicCropApiMocks.list,
+      get: publicCropApiMocks.get,
+      discussionTopics: publicCropApiMocks.discussionTopics,
+      discussionComments: publicCropApiMocks.discussionComments,
+      createDiscussionTopic: publicCropApiMocks.createDiscussionTopic,
+      createDiscussionComment: publicCropApiMocks.createDiscussionComment,
+      updateDiscussionComment: publicCropApiMocks.updateDiscussionComment,
+      deleteDiscussionComment: publicCropApiMocks.deleteDiscussionComment,
+      versions: publicCropApiMocks.versions,
+      importToProject: publicCropApiMocks.importToProject,
+      update: publicCropApiMocks.update,
+      updateTranslations: publicCropApiMocks.updateTranslations,
+      remove: publicCropApiMocks.remove,
     },
   };
 });
 
-const publicCultures: PublicCulture[] = [
+const publicCrops: PublicCrop[] = [
   {
     id: 1,
     status: 'published',
@@ -123,7 +123,7 @@ const publicCultures: PublicCulture[] = [
     published_at: '2026-07-23T10:00:00Z',
     created_at: '2026-07-20T08:00:00Z',
     updated_at: '2026-07-27T12:00:00Z',
-    imported_cultures_count: 3,
+    imported_crops_count: 3,
   },
   {
     id: 2,
@@ -282,41 +282,41 @@ describe('PublicCropLibraryPage', () => {
     authMocks.user.is_superuser = false;
     mockDesktopViewport();
     window.localStorage.clear();
-    window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cultureId=1');
-    publicCultureApiMocks.list.mockResolvedValue(paginated(publicCultures));
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.versions.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.update.mockResolvedValue({
+    window.history.replaceState({ page: 'crop-library-test' }, '', '/app/crop-library?cropId=1');
+    publicCropApiMocks.list.mockResolvedValue(paginated(publicCrops));
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [] });
+    publicCropApiMocks.versions.mockResolvedValue({ data: [] });
+    publicCropApiMocks.update.mockResolvedValue({
       data: {
-        ...publicCultures[0],
+        ...publicCrops[0],
         growth_duration_days: 48,
         display_color: '#123456',
         version: 2,
       },
     });
-    publicCultureApiMocks.updateTranslations.mockResolvedValue({
+    publicCropApiMocks.updateTranslations.mockResolvedValue({
       data: {
         original_language_code: 'de',
         translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
       },
     });
-    publicCultureApiMocks.get.mockResolvedValue({
+    publicCropApiMocks.get.mockResolvedValue({
       data: {
-        ...publicCultures[0],
+        ...publicCrops[0],
         description: 'A robust variety.',
         description_language_code: 'en',
         translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
         version: 2,
       },
     });
-    publicCultureApiMocks.remove.mockResolvedValue({
-      data: { ...publicCultures[0], status: 'removed' },
+    publicCropApiMocks.remove.mockResolvedValue({
+      data: { ...publicCrops[0], status: 'removed' },
     });
   });
 
   it('hides the global moderation action completely for users without moderation rights', async () => {
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
@@ -330,10 +330,10 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
 
-  it('lets a moderator remove a public culture after selecting a reason', async () => {
+  it('lets a moderator remove a public crop after selecting a reason', async () => {
     const user = userEvent.setup();
     authMocks.user.is_public_library_moderator = true;
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
@@ -357,7 +357,7 @@ describe('PublicCropLibraryPage', () => {
     await user.click(confirmButton);
 
     await waitFor(() => {
-      expect(publicCultureApiMocks.remove).toHaveBeenCalledWith(1, 'duplicate');
+      expect(publicCropApiMocks.remove).toHaveBeenCalledWith(1, 'duplicate');
     });
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Aus Bibliothek entfernen?' })).not.toBeInTheDocument();
@@ -367,7 +367,7 @@ describe('PublicCropLibraryPage', () => {
   it('opens the global moderation interface from the public crop library header for moderators', async () => {
     const user = userEvent.setup();
     authMocks.user.is_public_library_moderator = true;
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const cropDetailHeader = screen.getByTestId('public-crop-detail-header');
@@ -384,9 +384,9 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('heading', { name: 'Moderation' })).toBeInTheDocument();
   });
 
-  it('does not show the empty state while public cultures are still loading', () => {
-    const deferredList = createDeferred<ReturnType<typeof paginated<PublicCulture>>>();
-    publicCultureApiMocks.list.mockReturnValue(deferredList.promise);
+  it('does not show the empty state while public crops are still loading', () => {
+    const deferredList = createDeferred<ReturnType<typeof paginated<PublicCrop>>>();
+    publicCropApiMocks.list.mockReturnValue(deferredList.promise);
 
     renderPage();
 
@@ -395,8 +395,8 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('heading', { name: 'Die Kulturbibliothek wächst mit der Community' })).not.toBeInTheDocument();
   });
 
-  it('shows loaded public cultures without flashing an empty state first', async () => {
-    window.localStorage.setItem('selectedPublicCultureId', '1');
+  it('shows loaded public crops without flashing an empty state first', async () => {
+    window.localStorage.setItem('selectedPublicCropId', '1');
     renderPage();
 
     expect(screen.queryByText('Keine öffentlichen Kulturen gefunden.')).not.toBeInTheDocument();
@@ -406,7 +406,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('uses the project seed layout without package sizes in public crop details', async () => {
-    publicCultureApiMocks.list.mockResolvedValue(paginated([
+    publicCropApiMocks.list.mockResolvedValue(paginated([
       {
         id: 10,
         status: 'published',
@@ -430,7 +430,7 @@ describe('PublicCropLibraryPage', () => {
       },
     ]));
 
-    renderPage(['/app/crop-library?cultureId=10']);
+    renderPage(['/app/crop-library?cropId=10']);
 
     await screen.findByRole('heading', { level: 2, name: 'Möhre' });
     expect(screen.getByText('Saatgutmenge nach Anbauart')).toBeInTheDocument();
@@ -456,7 +456,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('marks public variety values as from the crop or own values', async () => {
-    publicCultureApiMocks.list.mockResolvedValue(paginated([
+    publicCropApiMocks.list.mockResolvedValue(paginated([
       {
         id: 20,
         status: 'published',
@@ -501,7 +501,7 @@ describe('PublicCropLibraryPage', () => {
       },
     ]));
 
-    renderPage(['/app/crop-library?cultureId=21']);
+    renderPage(['/app/crop-library?cropId=21']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
@@ -517,7 +517,7 @@ describe('PublicCropLibraryPage', () => {
 
   it('shows the shared varieties overview on public crop species details', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.list.mockResolvedValue(paginated([
+    publicCropApiMocks.list.mockResolvedValue(paginated([
       {
         id: 20,
         status: 'published',
@@ -566,7 +566,7 @@ describe('PublicCropLibraryPage', () => {
       },
     ]));
 
-    renderPage(['/app/crop-library?cultureId=20']);
+    renderPage(['/app/crop-library?cropId=20']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     expect(screen.getByRole('heading', { name: 'Sorten' })).toBeInTheDocument();
@@ -579,17 +579,17 @@ describe('PublicCropLibraryPage', () => {
     await user.click(within(table).getByText('Cherry'));
 
     expect(await screen.findByText('65 Tage')).toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=22');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=22');
   });
 
-  it('uses the selected public culture title as the mobile selector trigger', async () => {
+  it('uses the selected public crop title as the mobile selector trigger', async () => {
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
 
     expect(within(titleTrigger).getByText('Tomate')).toBeInTheDocument();
-    expect(within(titleTrigger).getByTestId('culture-title-selector-chevron')).toBeInTheDocument();
+    expect(within(titleTrigger).getByTestId('crop-title-selector-chevron')).toBeInTheDocument();
     expect(screen.getAllByText('Roma').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'In Projekt importieren' })).toBeInTheDocument();
@@ -598,10 +598,10 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).not.toBeInTheDocument();
   });
 
-  it('opens the mobile public culture selector from the title', async () => {
+  it('opens the mobile public crop selector from the title', async () => {
     const user = userEvent.setup();
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
 
@@ -609,21 +609,21 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByRole('textbox', { name: 'Öffentliche Kulturen durchsuchen' })).toBeInTheDocument();
   });
 
-  it('opens the mobile public culture selector from the chevron', async () => {
+  it('opens the mobile public crop selector from the chevron', async () => {
     const user = userEvent.setup();
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
-    await user.click(within(titleTrigger).getByTestId('culture-title-selector-chevron'));
+    await user.click(within(titleTrigger).getByTestId('crop-title-selector-chevron'));
 
     expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
   });
 
-  it('keeps the selected public culture when the mobile selector is cancelled', async () => {
+  it('keeps the selected public crop when the mobile selector is cancelled', async () => {
     const user = userEvent.setup();
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
     await user.click(screen.getByRole('button', { name: 'Abbrechen' }));
@@ -632,13 +632,13 @@ describe('PublicCropLibraryPage', () => {
       expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
     });
     expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Tomate')).toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1');
   });
 
-  it('closes the mobile public culture selector on browser back without leaving the library', async () => {
+  it('closes the mobile public crop selector on browser back without leaving the library', async () => {
     const user = userEvent.setup();
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
     expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
@@ -649,14 +649,14 @@ describe('PublicCropLibraryPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
-      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1');
     });
   });
 
-  it('selects another public culture from the mobile selector and updates the URL', async () => {
+  it('selects another public crop from the mobile selector and updates the URL', async () => {
     const user = userEvent.setup();
     mockMobileViewport();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await user.click(await screen.findByRole('button', { name: 'Kultur auswählen' }));
     const salatRow = within(screen.getByRole('option', { name: 'Salat' }));
@@ -668,35 +668,35 @@ describe('PublicCropLibraryPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('listbox', { name: 'Kulturbibliothek' })).not.toBeInTheDocument();
-      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2');
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=2');
     });
     expect(within(screen.getByRole('button', { name: 'Kultur auswählen' })).getByText('Salat')).toBeInTheDocument();
     expect(screen.getAllByText('Maikönig').length).toBeGreaterThan(0);
   });
 
-  it('keeps long mobile public culture titles truncated with the chevron visible', async () => {
-    const longTitleCulture: PublicCulture = {
-      ...publicCultures[0],
+  it('keeps long mobile public crop titles truncated with the chevron visible', async () => {
+    const longTitleCrop: PublicCrop = {
+      ...publicCrops[0],
       id: 3,
       name: 'Sehr lange Tomatenkultur mit vielen beschreibenden Namensbestandteilen',
       variety: 'Roma Spezial',
     };
-    publicCultureApiMocks.list.mockResolvedValue(paginated([longTitleCulture]));
+    publicCropApiMocks.list.mockResolvedValue(paginated([longTitleCrop]));
     mockMobileViewport();
 
-    renderPage(['/app/crop-library?cultureId=3']);
+    renderPage(['/app/crop-library?cropId=3']);
 
     const titleTrigger = await screen.findByRole('button', { name: 'Kultur auswählen' });
-    expect(within(titleTrigger).getByTestId('culture-title-selector-label')).toHaveStyle({
+    expect(within(titleTrigger).getByTestId('crop-title-selector-label')).toHaveStyle({
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
     });
-    expect(within(titleTrigger).getByTestId('culture-title-selector-chevron')).toBeInTheDocument();
+    expect(within(titleTrigger).getByTestId('crop-title-selector-chevron')).toBeInTheDocument();
   });
 
   it('keeps the public library desktop master-detail selector unchanged', async () => {
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tomate' })).toBeInTheDocument();
     expect(screen.getByRole('listbox', { name: 'Kulturbibliothek' })).toBeInTheDocument();
@@ -704,8 +704,8 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('button', { name: 'Kultur auswählen' })).not.toBeInTheDocument();
   });
 
-  it('shows a compact, single-surface empty state before any culture is selected', async () => {
-    publicCultureApiMocks.list.mockResolvedValue(paginated([]));
+  it('shows a compact, single-surface empty state before any crop is selected', async () => {
+    publicCropApiMocks.list.mockResolvedValue(paginated([]));
     renderPage();
 
     await screen.findByText('Keine öffentlichen Kulturen gefunden.');
@@ -726,7 +726,7 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('shows the public library load error without rendering an empty state', async () => {
-    publicCultureApiMocks.list.mockRejectedValue(new Error('Network error'));
+    publicCropApiMocks.list.mockRejectedValue(new Error('Network error'));
     renderPage();
 
     expect(await screen.findAllByText('Die Kulturbibliothek konnte nicht geladen werden.')).toHaveLength(3);
@@ -748,10 +748,10 @@ describe('PublicCropLibraryPage', () => {
 
   it('shows discussion topics as an interactive activity-sorted overview', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [
+    const topics: PublicCropDiscussionTopic[] = [
       {
         id: 11,
-        public_culture: 1,
+        public_crop: 1,
         title: 'TKG ok?',
         created_by_label: 'Martin Public',
         created_at: '2026-07-27T10:00:00Z',
@@ -763,7 +763,7 @@ describe('PublicCropLibraryPage', () => {
       },
       {
         id: 10,
-        public_culture: 1,
+        public_crop: 1,
         title: 'Allgemeine Diskussion',
         created_by_label: 'Martin Public',
         created_at: '2026-07-27T09:00:00Z',
@@ -772,8 +772,8 @@ describe('PublicCropLibraryPage', () => {
         last_comment_preview: 'Da stimmt was nicht',
       },
     ];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [] });
 
     const { container } = renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -791,14 +791,14 @@ describe('PublicCropLibraryPage', () => {
     topicRow.focus();
     await user.keyboard('{Enter}');
 
-    await waitFor(() => expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 11));
+    await waitFor(() => expect(publicCropApiMocks.discussionComments).toHaveBeenCalledWith(1, 11));
   });
 
   it('stores opened discussion threads in URL history so browser back and forward return between overview and thread', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Allgemeine Diskussion',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
@@ -806,7 +806,7 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-27T12:00:00Z',
       last_comment_preview: 'Start',
     }];
-    const comments: PublicCultureDiscussionComment[] = [{
+    const comments: PublicCropDiscussionComment[] = [{
       id: 1,
       topic: 10,
       parent: null,
@@ -818,33 +818,33 @@ describe('PublicCropLibraryPage', () => {
       is_edited: false,
       can_edit: true,
     }];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: comments });
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
 
     await user.click(await screen.findByText('Allgemeine Diskussion'));
     await screen.findByText('Start im Thread');
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion&discussionId=10');
 
     await user.click(screen.getByRole('button', { name: 'Browser zurück' }));
     expect(await screen.findByText('Allgemeine Diskussion')).toBeInTheDocument();
     expect(screen.queryByText('Start im Thread')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
 
     await user.click(screen.getByRole('button', { name: 'Browser vorwärts' }));
     expect(await screen.findByText('Start im Thread')).toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion&discussionId=10');
   });
 
   it('keeps the discussion overview unchanged when clicking the already selected discussions tab', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Übersicht bleibt offen',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
@@ -852,7 +852,7 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion']);
     expect(await screen.findByText('Übersicht bleibt offen')).toBeInTheDocument();
     const routeBeforeClick = screen.getByLabelText('current route').textContent;
 
@@ -860,21 +860,21 @@ describe('PublicCropLibraryPage', () => {
 
     expect(screen.getByText('Übersicht bleibt offen')).toBeInTheDocument();
     expect(screen.getByLabelText('current route')).toHaveTextContent(routeBeforeClick ?? '');
-    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalled();
+    expect(publicCropApiMocks.discussionComments).not.toHaveBeenCalled();
   });
 
   it('opens the discussion overview when clicking the discussions tab from an open thread', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Thread im Tab',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [{
       id: 1,
       topic: 10,
       parent: null,
@@ -887,25 +887,25 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=10']);
     expect(await screen.findByText('Kommentar im Thread')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
 
     expect(await screen.findByText('Thread im Tab')).toBeInTheDocument();
     expect(screen.queryByText('Kommentar im Thread')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
 
     await user.click(screen.getByRole('button', { name: 'Browser zurück' }));
     expect(await screen.findByText('Kommentar im Thread')).toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion&discussionId=10');
   });
 
   it('restores the selected discussion thread when returning through main navigation', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Gespeicherter Thread',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
@@ -913,7 +913,7 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-27T12:00:00Z',
       last_comment_preview: 'Wird wieder geöffnet',
     }];
-    const comments: PublicCultureDiscussionComment[] = [{
+    const comments: PublicCropDiscussionComment[] = [{
       id: 1,
       topic: 10,
       parent: null,
@@ -925,8 +925,8 @@ describe('PublicCropLibraryPage', () => {
       is_edited: false,
       can_edit: true,
     }];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: comments });
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -941,30 +941,30 @@ describe('PublicCropLibraryPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Gespeicherter Thread' })).toBeInTheDocument();
     expect(await screen.findByText('Wiederhergestellter Kommentar')).toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion&discussionId=10');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion&discussionId=10');
   });
 
   it('keeps explicit crop library URLs authoritative over saved view state', async () => {
     window.localStorage.setItem('publicCropLibraryViewState', JSON.stringify({
-      cultureId: 1,
+      cropId: 1,
       tab: 'discussion',
       discussionId: 10,
       query: '',
       listScrollTop: 0,
     }));
 
-    renderPage(['/app/crop-library?cultureId=2']);
+    renderPage(['/app/crop-library?cropId=2']);
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Salat' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2');
-    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=2');
+    expect(publicCropApiMocks.discussionComments).not.toHaveBeenCalled();
   });
 
   it('falls back to the discussion overview when a saved discussion thread no longer exists', async () => {
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Weiterhin sichtbarer Thread',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
@@ -972,7 +972,7 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
     window.localStorage.setItem('publicCropLibraryViewState', JSON.stringify({
-      cultureId: 1,
+      cropId: 1,
       tab: 'discussion',
       discussionId: 999,
       query: '',
@@ -983,24 +983,24 @@ describe('PublicCropLibraryPage', () => {
 
     expect(await screen.findByText('Weiterhin sichtbarer Thread')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
     });
-    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
+    expect(publicCropApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
   });
 
   it('restores the public crop list scroll position after returning through main navigation', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Thread mit Scrollposition',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-27T12:00:00Z',
     }];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [{
       id: 1,
       topic: 10,
       parent: null,
@@ -1015,8 +1015,8 @@ describe('PublicCropLibraryPage', () => {
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
-    const cultureList = screen.getByRole('listbox', { name: 'Kulturbibliothek' });
-    fireEvent.scroll(cultureList, { target: { scrollTop: 48 } });
+    const cropList = screen.getByRole('listbox', { name: 'Kulturbibliothek' });
+    fireEvent.scroll(cropList, { target: { scrollTop: 48 } });
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
     await user.click(await screen.findByText('Thread mit Scrollposition'));
     await screen.findByText('Kommentar mit Scrollposition');
@@ -1032,17 +1032,17 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('opens a discussion thread directly from the URL after reload', async () => {
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Direkt verlinkter Thread',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-27T12:00:00Z',
     }];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [{
       id: 1,
       topic: 10,
       parent: null,
@@ -1055,25 +1055,25 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=10']);
 
     expect(await screen.findByRole('heading', { name: 'Direkt verlinkter Thread' })).toBeInTheDocument();
     expect(await screen.findByText('Direktlink-Kommentar')).toBeInTheDocument();
-    expect(publicCultureApiMocks.discussionComments).toHaveBeenCalledWith(1, 10);
+    expect(publicCropApiMocks.discussionComments).toHaveBeenCalledWith(1, 10);
   });
 
   it('uses the same deterministic discussion overview target for the internal back action', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Direkt verlinkter Thread',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [{
       id: 1,
       topic: 10,
       parent: null,
@@ -1086,28 +1086,28 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=10']);
     await screen.findByText('Direktlink-Kommentar');
 
     await user.click(screen.getByRole('button', { name: 'Alle Diskussionen' }));
 
     expect(await screen.findByText('Direkt verlinkter Thread')).toBeInTheDocument();
     expect(screen.queryByText('Direktlink-Kommentar')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
   });
 
-  it('removes incompatible discussion IDs when switching culture or tab', async () => {
+  it('removes incompatible discussion IDs when switching crop or tab', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Thread der Tomate',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [{
       id: 1,
       topic: 10,
       parent: null,
@@ -1120,11 +1120,11 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=10']);
     await screen.findByText('Tomaten-Kommentar');
 
     await user.click(screen.getByRole('tab', { name: 'Details' }));
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1');
     expect(screen.queryByText('Tomaten-Kommentar')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Diskussionen' }));
@@ -1137,14 +1137,14 @@ describe('PublicCropLibraryPage', () => {
     }
     await user.click(screen.getByRole('option', { name: /Salat \(Maikönig\)/ }));
 
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=2&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=2&tab=discussion');
     expect(screen.getByLabelText('current route')).not.toHaveTextContent('discussionId=');
   });
 
   it('falls back to the discussion overview for an unknown discussion ID', async () => {
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [{
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Bekannter Thread',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
@@ -1152,13 +1152,13 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-27T12:00:00Z',
     }] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=999']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=999']);
 
     expect(await screen.findByText('Bekannter Thread')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+      expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
     });
-    expect(publicCultureApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
+    expect(publicCropApiMocks.discussionComments).not.toHaveBeenCalledWith(1, 999);
   });
 
   // DELIBERATELY NOT RETRIED while the flake is being identified.
@@ -1179,9 +1179,9 @@ describe('PublicCropLibraryPage', () => {
   // captured and the cause is understood, fix it and delete this note.
   it('creates a new discussion inline and opens it after saving', async () => {
     const user = userEvent.setup();
-    const createdTopic: PublicCultureDiscussionTopic = {
+    const createdTopic: PublicCropDiscussionTopic = {
       id: 20,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Neue Frage',
       created_by_label: 'Martin Public',
       created_at: '2026-07-28T10:00:00Z',
@@ -1192,7 +1192,7 @@ describe('PublicCropLibraryPage', () => {
       // matching the overview instead of the opened discussion.
       last_comment_preview: 'Vorschau des Kommentars',
     };
-    const createdComment: PublicCultureDiscussionComment = {
+    const createdComment: PublicCropDiscussionComment = {
       id: 21,
       topic: 20,
       parent: null,
@@ -1204,18 +1204,18 @@ describe('PublicCropLibraryPage', () => {
       is_edited: false,
       can_edit: true,
     };
-    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    publicCropApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
     // The default covers every call after the first: the topic reload races
     // with the `discussionId` navigation that follows it, so under load the
     // page can refetch the topics once more. With only two queued `Once`
     // values that extra call resolved `undefined` and blew up the reload,
     // leaving the heading below to time out instead of failing loudly.
-    publicCultureApiMocks.discussionTopics
+    publicCropApiMocks.discussionTopics
       .mockResolvedValue({ data: [createdTopic] })
       .mockResolvedValueOnce({ data: [] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
-    renderPage(['/app/crop-library?cultureId=1&tab=discussion']);
+    renderPage(['/app/crop-library?cropId=1&tab=discussion']);
     await user.click(await screen.findByRole('button', { name: 'Neue Diskussion' }));
 
     expect(screen.queryByRole('button', { name: 'Neue Diskussion' })).not.toBeInTheDocument();
@@ -1226,12 +1226,12 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(submitButton).toBeEnabled());
     await user.click(submitButton);
 
-    await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
+    await waitFor(() => expect(publicCropApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
       title: 'Neue Frage',
       body: 'Was ist hier gemeint?',
       revision: undefined,
     }));
-    await waitFor(() => expect(publicCultureApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(publicCropApiMocks.discussionTopics).toHaveBeenCalledTimes(2));
     // Opening the created discussion needs two things to converge: the `topics`
     // state from the reload fetch, and the `discussionId` URL param that
     // selects it (set via a router navigation in the same handler). This
@@ -1253,9 +1253,9 @@ describe('PublicCropLibraryPage', () => {
 
   it('keeps a created discussion open when the reloaded topic list does not contain it yet', async () => {
     const user = userEvent.setup();
-    const createdTopic: PublicCultureDiscussionTopic = {
+    const createdTopic: PublicCropDiscussionTopic = {
       id: 20,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Neue Frage',
       created_by_label: 'Martin Public',
       created_at: '2026-07-28T10:00:00Z',
@@ -1263,7 +1263,7 @@ describe('PublicCropLibraryPage', () => {
       last_activity_at: '2026-07-28T10:00:00Z',
       last_comment_preview: 'Vorschau des Kommentars',
     };
-    const createdComment: PublicCultureDiscussionComment = {
+    const createdComment: PublicCropDiscussionComment = {
       id: 21,
       topic: 20,
       parent: null,
@@ -1275,14 +1275,14 @@ describe('PublicCropLibraryPage', () => {
       is_edited: false,
       can_edit: true,
     };
-    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
+    publicCropApiMocks.createDiscussionTopic.mockResolvedValue({ data: createdTopic });
     // The reload never returns the new topic - the case this guards against is
     // a list response that lags behind the create (ordering, pagination, or a
     // replica that has not caught up). Without the created-topic merge the
     // "unknown discussion ID" guard deselects the discussion the user just
     // created and the detail pane is stuck on a spinner.
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [createdComment] });
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1315,10 +1315,10 @@ describe('PublicCropLibraryPage', () => {
 
   it('keeps the selected version reference when starting a discussion from the version history', async () => {
     const user = userEvent.setup();
-    publicCultureApiMocks.versions.mockResolvedValue({
+    publicCropApiMocks.versions.mockResolvedValue({
       data: [{
         id: 99,
-        public_culture: 1,
+        public_crop: 1,
         version: 4,
         action: 'updated',
         snapshot: {},
@@ -1327,10 +1327,10 @@ describe('PublicCropLibraryPage', () => {
         created_at: '2026-07-28T10:00:00Z',
       }],
     });
-    publicCultureApiMocks.createDiscussionTopic.mockResolvedValue({
+    publicCropApiMocks.createDiscussionTopic.mockResolvedValue({
       data: {
         id: 30,
-        public_culture: 1,
+        public_crop: 1,
         title: 'TKG ok?',
         created_by_label: 'Martin Public',
         created_at: '2026-07-28T10:00:00Z',
@@ -1341,8 +1341,8 @@ describe('PublicCropLibraryPage', () => {
         last_comment_preview: 'Quelle?',
       },
     });
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: [] });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: [] });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: [] });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: [] });
 
     renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1357,7 +1357,7 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(submitButton).toBeEnabled());
     await user.click(submitButton);
 
-    await waitFor(() => expect(publicCultureApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
+    await waitFor(() => expect(publicCropApiMocks.createDiscussionTopic).toHaveBeenCalledWith(1, {
       title: 'TKG ok?',
       body: 'Quelle?',
       revision: 99,
@@ -1366,16 +1366,16 @@ describe('PublicCropLibraryPage', () => {
 
   it('renders a real parent-child reply tree and keeps reply focus local', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Allgemeine Diskussion',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 4,
       last_activity_at: '2026-07-28T10:00:00Z',
     }];
-    const initialComments: PublicCultureDiscussionComment[] = [
+    const initialComments: PublicCropDiscussionComment[] = [
       {
         id: 1,
         topic: 10,
@@ -1461,7 +1461,7 @@ describe('PublicCropLibraryPage', () => {
         can_edit: true,
       },
     ];
-    const createdReply: PublicCultureDiscussionComment = {
+    const createdReply: PublicCropDiscussionComment = {
       id: 8,
       topic: 10,
       parent: 2,
@@ -1474,11 +1474,11 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
     };
 
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments
       .mockResolvedValueOnce({ data: initialComments })
       .mockResolvedValueOnce({ data: [...initialComments, createdReply] });
-    publicCultureApiMocks.createDiscussionComment.mockResolvedValue({ data: createdReply });
+    publicCropApiMocks.createDiscussionComment.mockResolvedValue({ data: createdReply });
 
     const { container } = renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1515,7 +1515,7 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(replySubmitButton).toBeEnabled());
     await user.click(replySubmitButton);
 
-    await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neue Antwort auf nein', 2));
+    await waitFor(() => expect(publicCropApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neue Antwort auf nein', 2));
     await screen.findByText('Neue Antwort auf nein');
     const updatedThreadText = container.textContent ?? '';
     expect(updatedThreadText.indexOf('ja')).toBeLessThan(updatedThreadText.indexOf('Neue Antwort auf nein'));
@@ -1525,16 +1525,16 @@ describe('PublicCropLibraryPage', () => {
 
   it('creates a root-level contribution from the general comment field', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Allgemeine Diskussion',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 0,
       last_activity_at: null,
     }];
-    const createdRootComment: PublicCultureDiscussionComment = {
+    const createdRootComment: PublicCropDiscussionComment = {
       id: 50,
       topic: 10,
       parent: null,
@@ -1546,11 +1546,11 @@ describe('PublicCropLibraryPage', () => {
       is_edited: false,
       can_edit: true,
     };
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [createdRootComment] });
-    publicCultureApiMocks.createDiscussionComment.mockResolvedValue({ data: createdRootComment });
+    publicCropApiMocks.createDiscussionComment.mockResolvedValue({ data: createdRootComment });
 
     const { container } = renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1561,23 +1561,23 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(submitButton).toBeEnabled());
     await user.click(submitButton);
 
-    await waitFor(() => expect(publicCultureApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neuer Root-Beitrag', undefined));
+    await waitFor(() => expect(publicCropApiMocks.createDiscussionComment).toHaveBeenCalledWith(1, 10, 'Neuer Root-Beitrag', undefined));
     await screen.findByText('Neuer Root-Beitrag');
     expect(container.querySelector('[data-comment-id="50"]')).toHaveAttribute('data-logical-depth', '0');
   }, 30000);
 
   it('keeps deleted posts in the reply tree with a neutral placeholder', async () => {
     const user = userEvent.setup();
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Allgemeine Diskussion',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 2,
       last_activity_at: '2026-07-28T10:00:00Z',
     }];
-    const comments: PublicCultureDiscussionComment[] = [
+    const comments: PublicCropDiscussionComment[] = [
       {
         id: 1,
         topic: 10,
@@ -1620,8 +1620,8 @@ describe('PublicCropLibraryPage', () => {
         can_delete: false,
       },
     ];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: comments });
 
     const { container } = renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1640,16 +1640,16 @@ describe('PublicCropLibraryPage', () => {
     const user = userEvent.setup();
     const snackbarSpy = vi.fn<(event: Event) => void>();
     window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
-    const topics: PublicCultureDiscussionTopic[] = [{
+    const topics: PublicCropDiscussionTopic[] = [{
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Root mit Antwort',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 2,
       last_activity_at: '2026-07-28T10:00:00Z',
     }];
-    const comments: PublicCultureDiscussionComment[] = [
+    const comments: PublicCropDiscussionComment[] = [
       {
         id: 1,
         topic: 10,
@@ -1678,8 +1678,8 @@ describe('PublicCropLibraryPage', () => {
         can_delete: true,
       },
     ];
-    publicCultureApiMocks.discussionTopics.mockResolvedValue({ data: topics });
-    publicCultureApiMocks.discussionComments.mockResolvedValue({ data: comments });
+    publicCropApiMocks.discussionTopics.mockResolvedValue({ data: topics });
+    publicCropApiMocks.discussionComments.mockResolvedValue({ data: comments });
 
     const { container } = renderPage();
     await user.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
@@ -1691,7 +1691,7 @@ describe('PublicCropLibraryPage', () => {
     await user.click(within(rootElement as HTMLElement).getByRole('button', { name: 'Weitere Aktionen' }));
     await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
 
-    expect(publicCultureApiMocks.deleteDiscussionComment).not.toHaveBeenCalled();
+    expect(publicCropApiMocks.deleteDiscussionComment).not.toHaveBeenCalled();
     expect(snackbarSpy).toHaveBeenCalled();
     const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
     expect(event.detail.message).toBe('Der Eröffnungsbeitrag kann nicht gelöscht werden, solange sichtbare Antworten vorhanden sind.');
@@ -1700,16 +1700,16 @@ describe('PublicCropLibraryPage', () => {
 
   it('returns to the discussion overview when deleting the last visible post hides the topic', async () => {
     const user = userEvent.setup();
-    const topic: PublicCultureDiscussionTopic = {
+    const topic: PublicCropDiscussionTopic = {
       id: 10,
-      public_culture: 1,
+      public_crop: 1,
       title: 'Nur Root',
       created_by_label: 'Martin Public',
       created_at: '2026-07-27T10:00:00Z',
       comment_count: 1,
       last_activity_at: '2026-07-28T10:00:00Z',
     };
-    const rootComment: PublicCultureDiscussionComment = {
+    const rootComment: PublicCropDiscussionComment = {
       id: 1,
       topic: 10,
       parent: null,
@@ -1722,15 +1722,15 @@ describe('PublicCropLibraryPage', () => {
       can_edit: true,
       can_delete: true,
     };
-    publicCultureApiMocks.discussionTopics
+    publicCropApiMocks.discussionTopics
       .mockResolvedValueOnce({ data: [topic] })
       .mockResolvedValueOnce({ data: [] });
-    publicCultureApiMocks.discussionComments
+    publicCropApiMocks.discussionComments
       .mockResolvedValueOnce({ data: [rootComment] })
       .mockResolvedValueOnce({ data: [{ ...rootComment, body: '', deleted_at: '2026-07-28T10:00:00Z', deletion_kind: 'author', can_edit: false, can_delete: false }] });
-    publicCultureApiMocks.deleteDiscussionComment.mockResolvedValue({ data: undefined });
+    publicCropApiMocks.deleteDiscussionComment.mockResolvedValue({ data: undefined });
 
-    const { container } = renderPage(['/app/crop-library?cultureId=1&tab=discussion&discussionId=10']);
+    const { container } = renderPage(['/app/crop-library?cropId=1&tab=discussion&discussionId=10']);
     await screen.findByText('Letzter sichtbarer Beitrag');
 
     const rootElement = container.querySelector('[data-comment-id="1"]');
@@ -1738,13 +1738,13 @@ describe('PublicCropLibraryPage', () => {
     await user.click(within(rootElement as HTMLElement).getByRole('button', { name: 'Weitere Aktionen' }));
     await user.click(screen.getByRole('menuitem', { name: 'Löschen' }));
 
-    await waitFor(() => expect(publicCultureApiMocks.deleteDiscussionComment).toHaveBeenCalledWith(1, 1));
+    await waitFor(() => expect(publicCropApiMocks.deleteDiscussionComment).toHaveBeenCalledWith(1, 1));
     await screen.findByText('Noch keine Diskussionen');
-    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cultureId=1&tab=discussion');
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/app/crop-library?cropId=1&tab=discussion');
     expect(screen.getByLabelText('current route')).not.toHaveTextContent('discussionId=');
   });
 
-  it('shows only provenance metadata in the public culture detail section', async () => {
+  it('shows only provenance metadata in the public crop detail section', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
 
@@ -1764,7 +1764,7 @@ describe('PublicCropLibraryPage', () => {
     expect(metadata.queryByText('Status')).not.toBeInTheDocument();
   });
 
-  it('uses the shared culture list keyboard navigation on the full public library page', async () => {
+  it('uses the shared crop list keyboard navigation on the full public library page', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -1805,7 +1805,7 @@ describe('PublicCropLibraryPage', () => {
     });
   });
 
-  it('keeps list focus after clicking a public culture so arrow keys choose the next culture', async () => {
+  it('keeps list focus after clicking a public crop so arrow keys choose the next crop', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -1829,9 +1829,9 @@ describe('PublicCropLibraryPage', () => {
     });
   });
 
-  it('focuses the selected public culture from the URL so arrow keys do not scroll the page', async () => {
+  it('focuses the selected public crop from the URL so arrow keys do not scroll the page', async () => {
     const user = userEvent.setup();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
@@ -1851,10 +1851,10 @@ describe('PublicCropLibraryPage', () => {
     });
   });
 
-  it('filters the public culture list locally while keeping focus in the search field', async () => {
+  it('filters the public crop list locally while keeping focus in the search field', async () => {
     const user = userEvent.setup();
 
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'Tomate (Roma)' })).toHaveFocus();
@@ -1867,11 +1867,11 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('option', { name: 'Tomate (Roma)' })).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Salat' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Salat (Maikönig)' })).toBeInTheDocument();
-    expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(1);
+    expect(publicCropApiMocks.list).toHaveBeenCalledTimes(1);
     expect(searchInput).toHaveFocus();
   });
 
-  it('shows public culture primary actions as labeled buttons', async () => {
+  it('shows public crop primary actions as labeled buttons', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
 
@@ -1881,13 +1881,13 @@ describe('PublicCropLibraryPage', () => {
   });
 
   it('opens source links in the notes section in a new tab', async () => {
-    publicCultureApiMocks.list.mockResolvedValue(paginated([
+    publicCropApiMocks.list.mockResolvedValue(paginated([
       {
-        ...publicCultures[0],
+        ...publicCrops[0],
         description: 'Robuste Sorte.\n\n## Quellen\n\n- [ReinSaat - Roma](https://www.reinsaat.at/roma)',
         translations: { de: 'Robuste Sorte.\n\n## Quellen\n\n- [ReinSaat - Roma](https://www.reinsaat.at/roma)' },
       },
-      ...publicCultures.slice(1),
+      ...publicCrops.slice(1),
     ]));
     renderPage();
     await userEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
@@ -1899,7 +1899,7 @@ describe('PublicCropLibraryPage', () => {
     expect(sourceLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
+  it('edits public crops with the shared crop form and public-library save shortcut', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -1932,22 +1932,22 @@ describe('PublicCropLibraryPage', () => {
       key: 's',
     });
 
-    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
-    expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
+    await waitFor(() => expect(publicCropApiMocks.update).toHaveBeenCalledTimes(1));
+    expect(publicCropApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
       variety: 'Roma VF',
       notes: 'Aktualisierte Notizen.',
       display_color: '#123456',
       row_spacing_m: null,
     }));
-    expect(publicCultureApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
+    expect(publicCropApiMocks.update.mock.calls[0][1]).not.toHaveProperty('name');
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
 
   it('adds a missing English notes translation inline from the Notes section', async () => {
     await i18n.changeLanguage('en');
     const user = userEvent.setup();
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     expect(screen.getAllByText('Only available in German').length).toBeGreaterThan(0);
@@ -1964,20 +1964,20 @@ describe('PublicCropLibraryPage', () => {
     fireEvent.change(englishNotesInput, { target: { value: 'A robust variety.' } });
     await user.click(within(editDialog).getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
+    await waitFor(() => expect(publicCropApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
       base_version: 1,
       notes: 'Robuste Sorte.',
     })));
-    await waitFor(() => expect(publicCultureApiMocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
-    await waitFor(() => expect(publicCultureApiMocks.get).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(publicCropApiMocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
+    await waitFor(() => expect(publicCropApiMocks.get).toHaveBeenCalledWith(1));
   }, 30000);
 
-  it('keeps the saved public culture details while the search field filters locally', async () => {
+  it('keeps the saved public crop details while the search field filters locally', async () => {
     const user = userEvent.setup();
-    const pendingUpdate = createDeferred<{ data: PublicCulture }>();
-    publicCultureApiMocks.update.mockReturnValueOnce(pendingUpdate.promise);
+    const pendingUpdate = createDeferred<{ data: PublicCrop }>();
+    publicCropApiMocks.update.mockReturnValueOnce(pendingUpdate.promise);
 
-    renderPage(['/app/crop-library?cultureId=1']);
+    renderPage(['/app/crop-library?cropId=1']);
 
     await screen.findByRole('heading', { level: 2, name: 'Tomate' });
     const searchInput = screen.getByLabelText('Öffentliche Kulturen durchsuchen');
@@ -1986,18 +1986,18 @@ describe('PublicCropLibraryPage', () => {
 
     fireEvent.change(within(editDialog).getByLabelText('Wachstumszeit (Tage)'), { target: { value: '48' } });
     await user.click(within(editDialog).getByRole('button', { name: 'Speichern' }));
-    await waitFor(() => expect(publicCultureApiMocks.update).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(publicCropApiMocks.update).toHaveBeenCalledTimes(1));
 
     fireEvent.change(searchInput, { target: { value: 'Roma' } });
     const searchForm = searchInput.closest('form');
     expect(searchForm).not.toBeNull();
     fireEvent.submit(searchForm as HTMLFormElement);
-    expect(publicCultureApiMocks.list).toHaveBeenCalledTimes(1);
+    expect(publicCropApiMocks.list).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       pendingUpdate.resolve({
         data: {
-          ...publicCultures[0],
+          ...publicCrops[0],
           growth_duration_days: 48,
           display_color: '#123456',
           version: 2,
@@ -2017,18 +2017,18 @@ describe('PublicCropLibraryPage', () => {
       await user.click(within(cropDetailHeader).getByRole('button', { name: 'In Projekt importieren' }));
     }
 
-    it('imports a culture for the first time', async () => {
+    it('imports a crop for the first time', async () => {
       const user = userEvent.setup();
       const snackbarSpy = vi.fn<(event: Event) => void>();
       window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
-      publicCultureApiMocks.importToProject.mockResolvedValue({
-        data: { culture: { id: 99 }, operation: 'created' },
+      publicCropApiMocks.importToProject.mockResolvedValue({
+        data: { crop: { id: 99 }, operation: 'created' },
       });
       renderPage();
 
       await importViaButton(user);
 
-      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
+      await waitFor(() => expect(publicCropApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
       await waitFor(() => expect(snackbarSpy).toHaveBeenCalled());
       const event = snackbarSpy.mock.calls[0]?.[0] as CustomEvent<GlobalSnackbarDetail>;
       expect(event.detail.message).toBe('„Tomate (Roma)“ wurde in dieses Projekt importiert.');
@@ -2036,12 +2036,12 @@ describe('PublicCropLibraryPage', () => {
       window.removeEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
     });
 
-    it('shows a non-blocking info toast when re-importing an unchanged culture', async () => {
+    it('shows a non-blocking info toast when re-importing an unchanged crop', async () => {
       const user = userEvent.setup();
       const snackbarSpy = vi.fn<(event: Event) => void>();
       window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
-      publicCultureApiMocks.importToProject.mockResolvedValue({
-        data: { culture: { id: 42 }, operation: 'unchanged' },
+      publicCropApiMocks.importToProject.mockResolvedValue({
+        data: { crop: { id: 42 }, operation: 'unchanged' },
       });
       renderPage();
 
@@ -2058,8 +2058,8 @@ describe('PublicCropLibraryPage', () => {
       const user = userEvent.setup();
       const snackbarSpy = vi.fn<(event: Event) => void>();
       window.addEventListener(GLOBAL_SNACKBAR_EVENT, snackbarSpy);
-      publicCultureApiMocks.importToProject.mockResolvedValue({
-        data: { culture: { id: 42 }, operation: 'updated' },
+      publicCropApiMocks.importToProject.mockResolvedValue({
+        data: { crop: { id: 42 }, operation: 'updated' },
       });
       renderPage();
 
@@ -2080,13 +2080,13 @@ describe('PublicCropLibraryPage', () => {
           status: 409,
           data: {
             code: 'import_requires_confirmation',
-            detail: 'This public culture was already imported and has local changes.',
-            existing_culture_id: 42,
-            existing_culture_name: 'Tomate (Roma)',
+            detail: 'This public crop was already imported and has local changes.',
+            existing_crop_id: 42,
+            existing_crop_name: 'Tomate (Roma)',
           },
         },
       };
-      publicCultureApiMocks.importToProject.mockRejectedValue(conflictError);
+      publicCropApiMocks.importToProject.mockRejectedValue(conflictError);
       renderPage();
 
       await importViaButton(user);
@@ -2097,7 +2097,7 @@ describe('PublicCropLibraryPage', () => {
       await user.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
-      expect(publicCultureApiMocks.importToProject).toHaveBeenCalledTimes(1);
+      expect(publicCropApiMocks.importToProject).toHaveBeenCalledTimes(1);
     });
 
     it('resolves the conflict dialog with "Aktualisieren" by re-importing with mode=update', async () => {
@@ -2110,22 +2110,22 @@ describe('PublicCropLibraryPage', () => {
           status: 409,
           data: {
             code: 'import_requires_confirmation',
-            detail: 'This public culture was already imported and has local changes.',
-            existing_culture_id: 42,
-            existing_culture_name: 'Tomate (Roma)',
+            detail: 'This public crop was already imported and has local changes.',
+            existing_crop_id: 42,
+            existing_crop_name: 'Tomate (Roma)',
           },
         },
       };
-      publicCultureApiMocks.importToProject
+      publicCropApiMocks.importToProject
         .mockRejectedValueOnce(conflictError)
-        .mockResolvedValueOnce({ data: { culture: { id: 42 }, operation: 'updated' } });
+        .mockResolvedValueOnce({ data: { crop: { id: 42 }, operation: 'updated' } });
       renderPage();
 
       await importViaButton(user);
       const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
       await user.click(within(dialog).getByRole('button', { name: 'Aktualisieren' }));
 
-      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'update'));
+      await waitFor(() => expect(publicCropApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'update'));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
       const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
       expect(event.detail.message).toBe('„Tomate (Roma)“ wurde aktualisiert (lokale Änderungen wurden überschrieben).');
@@ -2142,22 +2142,22 @@ describe('PublicCropLibraryPage', () => {
           status: 409,
           data: {
             code: 'import_requires_confirmation',
-            detail: 'This public culture was already imported and has local changes.',
-            existing_culture_id: 42,
-            existing_culture_name: 'Tomate (Roma)',
+            detail: 'This public crop was already imported and has local changes.',
+            existing_crop_id: 42,
+            existing_crop_name: 'Tomate (Roma)',
           },
         },
       };
-      publicCultureApiMocks.importToProject
+      publicCropApiMocks.importToProject
         .mockRejectedValueOnce(conflictError)
-        .mockResolvedValueOnce({ data: { culture: { id: 100 }, operation: 'created' } });
+        .mockResolvedValueOnce({ data: { crop: { id: 100 }, operation: 'created' } });
       renderPage();
 
       await importViaButton(user);
       const dialog = await screen.findByRole('dialog', { name: 'Bereits importiert' });
       await user.click(within(dialog).getByRole('button', { name: 'Als neue Kultur importieren' }));
 
-      await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'new'));
+      await waitFor(() => expect(publicCropApiMocks.importToProject).toHaveBeenNthCalledWith(2, 1, 'new'));
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Bereits importiert' })).not.toBeInTheDocument());
       const event = snackbarSpy.mock.calls.at(-1)?.[0] as CustomEvent<GlobalSnackbarDetail>;
       expect(event.detail.message).toBe('„Tomate (Roma)“ wurde als neue Kultur importiert.');
@@ -2165,8 +2165,8 @@ describe('PublicCropLibraryPage', () => {
     });
   });
 
-  it('supports the same keyboard shortcuts as the project culture list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
-    publicCultureApiMocks.importToProject.mockResolvedValue({ data: { culture: {}, operation: 'created' } });
+  it('supports the same keyboard shortcuts as the project crop list (Alt+E, Alt+I, Alt+Shift+arrows)', async () => {
+    publicCropApiMocks.importToProject.mockResolvedValue({ data: { crop: {}, operation: 'created' } });
     const user = userEvent.setup();
     renderPage();
 
@@ -2186,7 +2186,7 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
 
     await user.keyboard('{Alt>}i{/Alt}');
-    await waitFor(() => expect(publicCultureApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
+    await waitFor(() => expect(publicCropApiMocks.importToProject).toHaveBeenCalledWith(1, undefined));
   }, 30000);
 
   describe('species groups without a general entry are not greyed out', () => {
@@ -2210,8 +2210,8 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('expands the group and selects the first variety when clicking a multi-variety species row with no general entry', async () => {
-      publicCultureApiMocks.list.mockResolvedValue(paginated([
-        ...publicCultures,
+      publicCropApiMocks.list.mockResolvedValue(paginated([
+        ...publicCrops,
         {
           id: 3,
           status: 'published',
@@ -2250,13 +2250,13 @@ describe('PublicCropLibraryPage', () => {
   });
 
   describe('import button reflects project_import_status', () => {
-    it('shows "Im Projekt aktualisieren" for a culture already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
-      publicCultureApiMocks.list.mockResolvedValue(paginated([
+    it('shows "Im Projekt aktualisieren" for a crop already imported into the active project, and "In Projekt importieren" for one that is not', async () => {
+      publicCropApiMocks.list.mockResolvedValue(paginated([
         {
-          ...publicCultures[0],
-          project_import_status: { culture_id: 5, culture_name: 'Tomate (Roma)', is_modified_from_source: false },
+          ...publicCrops[0],
+          project_import_status: { crop_id: 5, crop_name: 'Tomate (Roma)', is_modified_from_source: false },
         },
-        publicCultures[1],
+        publicCrops[1],
       ]));
       const user = userEvent.setup();
       renderPage();
@@ -2275,9 +2275,9 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('switches the button to "Im Projekt aktualisieren" right after a first-time import succeeds', async () => {
-      publicCultureApiMocks.importToProject.mockResolvedValue({
+      publicCropApiMocks.importToProject.mockResolvedValue({
         data: {
-          culture: { id: 99, name: 'Tomate', variety: 'Roma', culture_display_name: 'Tomate (Roma)', is_modified_from_source: false },
+          crop: { id: 99, name: 'Tomate', variety: 'Roma', crop_display_name: 'Tomate (Roma)', is_modified_from_source: false },
           operation: 'created',
         },
       });
@@ -2292,13 +2292,13 @@ describe('PublicCropLibraryPage', () => {
     });
   });
   describe('crop species awaiting moderation', () => {
-    const pendingCultures = [
-      { ...publicCultures[0], crop_species_status: 'proposed' as const },
-      publicCultures[1],
+    const pendingCrops = [
+      { ...publicCrops[0], crop_species_status: 'proposed' as const },
+      publicCrops[1],
     ];
 
     it('marks the entry as pending and blocks import while the species is unreviewed', async () => {
-      publicCultureApiMocks.list.mockResolvedValue(paginated(pendingCultures));
+      publicCropApiMocks.list.mockResolvedValue(paginated(pendingCrops));
       const user = userEvent.setup();
       renderPage();
 
@@ -2310,7 +2310,7 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('blocks starting a discussion and explains why', async () => {
-      publicCultureApiMocks.list.mockResolvedValue(paginated(pendingCultures));
+      publicCropApiMocks.list.mockResolvedValue(paginated(pendingCrops));
       const user = userEvent.setup();
       renderPage();
 
@@ -2322,7 +2322,7 @@ describe('PublicCropLibraryPage', () => {
     });
 
     it('leaves everything enabled for a species that was already reviewed', async () => {
-      publicCultureApiMocks.list.mockResolvedValue(paginated(publicCultures));
+      publicCropApiMocks.list.mockResolvedValue(paginated(publicCrops));
       const user = userEvent.setup();
       renderPage();
 

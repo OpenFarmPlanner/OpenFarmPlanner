@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 from crops.models import CropSpecies, CropSpeciesTranslation
 from farm.models import (
     Bed,
-    Culture,
+    Crop,
     Field,
     Location,
     PlantingPlan,
@@ -21,7 +21,7 @@ User = get_user_model()
 
 
 @pytest.mark.django_db
-def test_planting_plan_list_includes_culture_propagation_metadata():
+def test_planting_plan_list_includes_crop_propagation_metadata():
     user = User.objects.create_user(
         username='calendar-user',
         email='calendar@example.com',
@@ -34,7 +34,7 @@ def test_planting_plan_list_includes_culture_propagation_metadata():
     location = Location.objects.create(name='Hof', project=project)
     field = Field.objects.create(name='Nordfeld', location=location, project=project)
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
-    culture = Culture.objects.create(
+    crop = Crop.objects.create(
         name='Salat',
         variety='Bijella',
         propagation_duration_days=25,
@@ -46,7 +46,7 @@ def test_planting_plan_list_includes_culture_propagation_metadata():
         project=project,
     )
     PlantingPlan.objects.create(
-        culture=culture,
+        crop=crop,
         bed=bed,
         planting_date=date(2026, 5, 10),
         project=project,
@@ -60,18 +60,18 @@ def test_planting_plan_list_includes_culture_propagation_metadata():
 
     assert response.status_code == 200
     row = response.json()['results'][0]
-    assert row['culture_name'] == 'Salat'
-    assert row['culture_display_name'] == 'Salat'
-    assert row['culture_display_language_code'] == ''
-    assert row['culture_variety'] == 'Bijella'
-    assert row['culture_display_color'] == '#00aa44'
-    assert row['culture_propagation_duration_days'] == 25
-    assert row['culture_cultivation_type'] == 'pre_cultivation'
-    assert row['culture_cultivation_types'] == ['pre_cultivation', 'direct_sowing']
+    assert row['crop_name'] == 'Salat'
+    assert row['crop_display_name'] == 'Salat'
+    assert row['crop_display_language_code'] == ''
+    assert row['crop_variety'] == 'Bijella'
+    assert row['crop_display_color'] == '#00aa44'
+    assert row['crop_propagation_duration_days'] == 25
+    assert row['crop_cultivation_type'] == 'pre_cultivation'
+    assert row['crop_cultivation_types'] == ['pre_cultivation', 'direct_sowing']
 
 
 @pytest.mark.django_db
-def test_planting_plan_list_localizes_linked_culture_species_name():
+def test_planting_plan_list_localizes_linked_crop_species_name():
     user = User.objects.create_user(
         username='localized-plan-user',
         email='localized-plan@example.com',
@@ -95,14 +95,14 @@ def test_planting_plan_list_localizes_linked_culture_species_name():
     location = Location.objects.create(name='Hof', project=project)
     field = Field.objects.create(name='Nordfeld', location=location, project=project)
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
-    culture = Culture.objects.create(
+    crop = Crop.objects.create(
         name='Karotte',
         variety='Nantaise 2',
         crop_species=species,
         project=project,
     )
     PlantingPlan.objects.create(
-        culture=culture,
+        crop=crop,
         bed=bed,
         planting_date=date(2026, 3, 12),
         project=project,
@@ -116,14 +116,14 @@ def test_planting_plan_list_localizes_linked_culture_species_name():
 
     assert response.status_code == 200
     row = response.json()['results'][0]
-    assert row['culture_name'] == 'Karotte'
-    assert row['culture_display_name'] == 'Carrot'
-    assert row['culture_display_language_code'] == 'en'
-    assert row['culture_variety'] == 'Nantaise 2'
+    assert row['crop_name'] == 'Karotte'
+    assert row['crop_display_name'] == 'Carrot'
+    assert row['crop_display_language_code'] == 'en'
+    assert row['crop_variety'] == 'Nantaise 2'
 
 
 @pytest.mark.django_db
-def test_planting_plan_list_localizes_legacy_demo_culture_names():
+def test_planting_plan_list_localizes_legacy_demo_crop_names():
     user = User.objects.create_user(
         username='legacy-demo-plan-user',
         email='legacy-demo-plan@example.com',
@@ -146,9 +146,9 @@ def test_planting_plan_list_localizes_legacy_demo_culture_names():
     location = Location.objects.create(name='Hof', project=project)
     field = Field.objects.create(name='Nordfeld', location=location, project=project)
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
-    culture = Culture.objects.create(name='Rote Bete', variety='Robuschka', project=project)
+    crop = Crop.objects.create(name='Rote Bete', variety='Robuschka', project=project)
     PlantingPlan.objects.create(
-        culture=culture,
+        crop=crop,
         bed=bed,
         planting_date=date(2026, 3, 12),
         project=project,
@@ -162,9 +162,9 @@ def test_planting_plan_list_localizes_legacy_demo_culture_names():
 
     assert response.status_code == 200
     row = response.json()['results'][0]
-    assert row['culture_name'] == 'Rote Bete'
-    assert row['culture_display_name'] == 'Beetroot'
-    assert row['culture_display_language_code'] == 'en'
+    assert row['crop_name'] == 'Rote Bete'
+    assert row['crop_display_name'] == 'Beetroot'
+    assert row['crop_display_language_code'] == 'en'
 
 
 @pytest.mark.django_db
@@ -182,32 +182,32 @@ def test_planting_plan_list_serializes_uncomputable_harvest_dates_as_null():
     field = Field.objects.create(name='Nordfeld', location=location, project=project)
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
     planting_date = date(2026, 4, 1)
-    complete_culture = Culture.objects.create(
+    complete_crop = Crop.objects.create(
         name='Complete',
         growth_duration_days=30,
         harvest_duration_days=7,
         project=project,
     )
-    missing_culture = Culture.objects.create(name='Missing', project=project)
-    partial_culture = Culture.objects.create(
+    missing_crop = Crop.objects.create(name='Missing', project=project)
+    partial_crop = Crop.objects.create(
         name='Partial',
         growth_duration_days=20,
         project=project,
     )
     complete_plan = PlantingPlan.objects.create(
-        culture=complete_culture,
+        crop=complete_crop,
         bed=bed,
         planting_date=planting_date,
         project=project,
     )
     missing_plan = PlantingPlan.objects.create(
-        culture=missing_culture,
+        crop=missing_crop,
         bed=bed,
         planting_date=planting_date,
         project=project,
     )
     partial_plan = PlantingPlan.objects.create(
-        culture=partial_culture,
+        crop=partial_crop,
         bed=bed,
         planting_date=planting_date,
         project=project,
@@ -238,8 +238,8 @@ def test_planting_plan_list_serializes_uncomputable_harvest_dates_as_null():
 
 
 @pytest.mark.django_db
-def test_planting_plan_can_be_saved_as_draft_with_only_culture():
-    """A planting plan can be created with just a culture selected — the user
+def test_planting_plan_can_be_saved_as_draft_with_only_crop():
+    """A planting plan can be created with just a crop selected — the user
     should be able to leave bed/planting_date/cultivation_type for later
     without losing what they've already entered. Downstream endpoints
     (calendar, seed demand, yield calendar) must tolerate such a record."""
@@ -252,7 +252,7 @@ def test_planting_plan_can_be_saved_as_draft_with_only_culture():
     project = Project.objects.create(name='Draft Project', slug='draft-project')
     ProjectMembership.objects.create(user=user, project=project, role='admin')
 
-    culture = Culture.objects.create(
+    crop = Crop.objects.create(
         name='Mais',
         variety='Rot',
         propagation_duration_days=21,
@@ -272,7 +272,7 @@ def test_planting_plan_can_be_saved_as_draft_with_only_culture():
 
     create_response = client.post(
         '/openfarmplanner/api/planting-plans/',
-        data={'culture': culture.id},
+        data={'crop': crop.id},
     )
     assert create_response.status_code == 201, create_response.content
     body = create_response.json()
@@ -298,9 +298,9 @@ def test_planting_plan_can_be_saved_as_draft_with_only_culture():
 
 @pytest.mark.django_db
 def test_planting_plan_can_be_saved_as_draft_with_only_bed():
-    """The reverse of the culture-only draft: a bed can be chosen before a
-    culture, and the record must still serialize/str() without crashing on
-    the now-absent culture."""
+    """The reverse of the crop-only draft: a bed can be chosen before a
+    crop, and the record must still serialize/str() without crashing on
+    the now-absent crop."""
     user = User.objects.create_user(
         username='draft-bed-user',
         email='draft-bed@example.com',
@@ -328,8 +328,8 @@ def test_planting_plan_can_be_saved_as_draft_with_only_bed():
     )
     assert create_response.status_code == 201, create_response.content
     body = create_response.json()
-    assert body['culture'] is None
-    assert body['culture_name'] is None
+    assert body['crop'] is None
+    assert body['crop_name'] is None
     assert body['bed'] == bed.id
 
     plan = PlantingPlan.objects.get(pk=body['id'])
@@ -343,9 +343,9 @@ def test_planting_plan_can_be_saved_as_draft_with_only_bed():
 
 
 @pytest.mark.django_db
-def test_planting_plan_without_culture_or_bed_is_rejected():
+def test_planting_plan_without_crop_or_bed_is_rejected():
     """The backend keeps a minimal integrity floor even though the frontend
-    also blocks this: at least one of culture/bed is required."""
+    also blocks this: at least one of crop/bed is required."""
     user = User.objects.create_user(
         username='draft-empty-user',
         email='draft-empty@example.com',
@@ -363,8 +363,8 @@ def test_planting_plan_without_culture_or_bed_is_rejected():
     assert create_response.status_code == 400, create_response.content
 
 
-def _season_boundary_fixture(slug: str) -> tuple[APIClient, Project, Culture, Season]:
-    """A project with a non-calendar-aligned season and one culture."""
+def _season_boundary_fixture(slug: str) -> tuple[APIClient, Project, Crop, Season]:
+    """A project with a non-calendar-aligned season and one crop."""
     user = User.objects.create_user(
         username=f'{slug}-user',
         email=f'{slug}@example.com',
@@ -373,7 +373,7 @@ def _season_boundary_fixture(slug: str) -> tuple[APIClient, Project, Culture, Se
     )
     project = Project.objects.create(name=f'{slug} Project', slug=f'{slug}-project')
     ProjectMembership.objects.create(user=user, project=project, role='admin')
-    culture = Culture.objects.create(name='Mais', variety='', project=project)
+    crop = Crop.objects.create(name='Mais', variety='', project=project)
     season = Season.objects.create(
         project=project,
         start_date=date(2025, 9, 1),
@@ -383,16 +383,16 @@ def _season_boundary_fixture(slug: str) -> tuple[APIClient, Project, Culture, Se
     client.force_authenticate(user=user)
     client.defaults['HTTP_X_PROJECT_ID'] = str(project.id)
     client.defaults['HTTP_X_SEASON_ID'] = str(season.id)
-    return client, project, culture, season
+    return client, project, crop, season
 
 
 @pytest.mark.django_db
 def test_planting_plan_create_rejects_planting_date_outside_active_season():
-    client, _project, culture, _season = _season_boundary_fixture('season-create-oob')
+    client, _project, crop, _season = _season_boundary_fixture('season-create-oob')
 
     response = client.post(
         '/openfarmplanner/api/planting-plans/',
-        data={'culture': culture.id, 'planting_date': '2025-03-15'},
+        data={'crop': crop.id, 'planting_date': '2025-03-15'},
     )
 
     assert response.status_code == 400, response.content
@@ -402,11 +402,11 @@ def test_planting_plan_create_rejects_planting_date_outside_active_season():
 
 @pytest.mark.django_db
 def test_planting_plan_create_accepts_planting_date_inside_active_season():
-    client, _project, culture, season = _season_boundary_fixture('season-create-ok')
+    client, _project, crop, season = _season_boundary_fixture('season-create-ok')
 
     response = client.post(
         '/openfarmplanner/api/planting-plans/',
-        data={'culture': culture.id, 'planting_date': '2025-10-01'},
+        data={'crop': crop.id, 'planting_date': '2025-10-01'},
     )
 
     assert response.status_code == 201, response.content
@@ -416,9 +416,9 @@ def test_planting_plan_create_accepts_planting_date_inside_active_season():
 
 @pytest.mark.django_db
 def test_planting_plan_update_rejects_moving_planting_date_outside_season():
-    client, project, culture, season = _season_boundary_fixture('season-update-oob')
+    client, project, crop, season = _season_boundary_fixture('season-update-oob')
     plan = PlantingPlan.objects.create(
-        culture=culture, project=project, season=season, planting_date=date(2025, 10, 1),
+        crop=crop, project=project, season=season, planting_date=date(2025, 10, 1),
     )
 
     response = client.patch(
@@ -431,7 +431,7 @@ def test_planting_plan_update_rejects_moving_planting_date_outside_season():
     assert plan.planting_date == date(2025, 10, 1)
 
 
-def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Culture, Bed]:
+def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Crop, Bed]:
     """A project with a general Kultur, a Sorte that overrides nothing, and a bed."""
     user = User.objects.create_user(
         username=f'{slug}-user',
@@ -447,7 +447,7 @@ def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Culture, Bed]:
     bed = Bed.objects.create(name='Beet A', field=field, project=project)
 
     species = CropSpecies.objects.create(name=f'Species {slug}')
-    Culture.objects.create(
+    Crop.objects.create(
         name='Karotte',
         variety='',
         crop_species=species,
@@ -460,7 +460,7 @@ def _inheritance_fixture(slug: str) -> tuple[APIClient, Project, Culture, Bed]:
         cultivation_types=['pre_cultivation'],
         project=project,
     )
-    sorte = Culture.objects.create(
+    sorte = Crop.objects.create(
         name='Karotte',
         variety='Nantaise',
         crop_species=species,
@@ -479,7 +479,7 @@ def test_plan_for_a_sorte_uses_the_general_kultur_timing():
     client, project, sorte, bed = _inheritance_fixture('inherit-timing')
 
     plan = PlantingPlan.objects.create(
-        culture=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
+        crop=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
     )
 
     assert plan.harvest_date == date(2026, 4, 1) + timedelta(days=70)
@@ -490,7 +490,7 @@ def test_plan_for_a_sorte_uses_the_general_kultur_timing():
 def test_plan_list_serves_inherited_timing_and_cultivation_metadata():
     client, project, sorte, bed = _inheritance_fixture('inherit-serializer')
     PlantingPlan.objects.create(
-        culture=sorte, bed=bed, planting_date=date(2026, 4, 1),
+        crop=sorte, bed=bed, planting_date=date(2026, 4, 1),
         area_usage_sqm=10, project=project,
     )
 
@@ -500,9 +500,9 @@ def test_plan_list_serves_inherited_timing_and_cultivation_metadata():
 
     assert row['harvest_date'] == '2026-06-10'
     assert row['harvest_end_date'] == '2026-07-01'
-    assert row['culture_propagation_duration_days'] == 14
-    assert row['culture_cultivation_type'] == 'pre_cultivation'
-    assert row['culture_cultivation_types'] == ['pre_cultivation']
+    assert row['crop_propagation_duration_days'] == 14
+    assert row['crop_cultivation_type'] == 'pre_cultivation'
+    assert row['crop_cultivation_types'] == ['pre_cultivation']
     # 25 cm row spacing x 5 cm within the row -> 10000/125 = 80 plants/m², over 10 m².
     assert row['plants_count'] == 800
 
@@ -511,7 +511,7 @@ def test_plan_list_serves_inherited_timing_and_cultivation_metadata():
 def test_plan_list_derives_missing_stored_harvest_dates_from_inherited_timing():
     client, project, sorte, bed = _inheritance_fixture('inherit-derived-snapshot')
     plan = PlantingPlan.objects.create(
-        culture=sorte,
+        crop=sorte,
         bed=bed,
         planting_date=date(2026, 4, 1),
         project=project,
@@ -529,11 +529,11 @@ def test_plan_list_derives_missing_stored_harvest_dates_from_inherited_timing():
 @pytest.mark.django_db
 def test_plan_list_keeps_harvest_dates_null_when_effective_timing_is_missing():
     client, project, sorte, bed = _inheritance_fixture('inherit-missing-effective')
-    general = Culture.objects.get(project=project, crop_species=sorte.crop_species, variety='')
+    general = Crop.objects.get(project=project, crop_species=sorte.crop_species, variety='')
     general.harvest_duration_days = None
     general.save(update_fields=['harvest_duration_days'])
     plan = PlantingPlan.objects.create(
-        culture=sorte,
+        crop=sorte,
         bed=bed,
         planting_date=date(2026, 4, 1),
         project=project,
@@ -552,7 +552,7 @@ def test_plan_list_keeps_harvest_dates_null_when_effective_timing_is_missing():
 def test_plan_list_preserves_stored_harvest_dates_over_derived_values():
     client, project, sorte, bed = _inheritance_fixture('inherit-stored-wins')
     plan = PlantingPlan.objects.create(
-        culture=sorte,
+        crop=sorte,
         bed=bed,
         planting_date=date(2026, 4, 1),
         project=project,
@@ -577,7 +577,7 @@ def test_an_own_sorte_value_still_wins_over_the_general_kultur():
     sorte.save(update_fields=['harvest_duration_days'])
 
     plan = PlantingPlan.objects.create(
-        culture=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
+        crop=sorte, bed=bed, planting_date=date(2026, 4, 1), project=project,
     )
 
     assert plan.harvest_end_date == plan.harvest_date + timedelta(days=3)
@@ -587,15 +587,15 @@ def test_an_own_sorte_value_still_wins_over_the_general_kultur():
 def test_stored_harvest_dates_stay_a_snapshot_until_the_plan_is_saved_again():
     """Making a value resolvable must not silently rewrite existing plans."""
     client, project, sorte, bed = _inheritance_fixture('inherit-snapshot')
-    free_text = Culture.objects.create(
+    free_text = Crop.objects.create(
         name='Freitext', variety='Sorte', project=project,
     )
     plan = PlantingPlan.objects.create(
-        culture=free_text, bed=bed, planting_date=date(2026, 4, 1), project=project,
+        crop=free_text, bed=bed, planting_date=date(2026, 4, 1), project=project,
     )
     assert plan.harvest_date is None
 
-    plan.culture = sorte
+    plan.crop = sorte
     plan.save()
     plan.refresh_from_db()
     assert plan.harvest_date == date(2026, 4, 1) + timedelta(days=70)

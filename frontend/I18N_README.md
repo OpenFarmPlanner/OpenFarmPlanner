@@ -13,7 +13,7 @@ This file only covers the day-to-day frontend mechanics.
 import { useTranslation } from '../i18n';
 
 function MyComponent() {
-  const { t } = useTranslation('cultures');
+  const { t } = useTranslation('crops');
   return <h1>{t('title')}</h1>;
 }
 ```

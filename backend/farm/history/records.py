@@ -9,8 +9,8 @@ from farm.models import (
     BatchOperation,
     Bed,
     BedLayout,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     EntityRevision,
     Field,
     FieldLayout,
@@ -23,7 +23,7 @@ from farm.models import (
     SeedPackage,
     Supplier,
     Task,
-    format_culture_display_name,
+    format_crop_display_name,
 )
 
 # Entity types that participate in per-entity revision history and whole-project
@@ -35,7 +35,7 @@ _RESTORABLE_ENTITY_TYPES: list[tuple[type, str]] = [
     (BedLayout, 'bed_layout'),
     (FieldLayout, 'field_layout'),
     (Supplier, 'supplier'),
-    (Culture, 'culture'),
+    (Crop, 'crop'),
     (Season, 'season'),
     (PlantingPlan, 'planting_plan'),
     (Task, 'task'),
@@ -47,7 +47,7 @@ _RESTORABLE_ENTITY_TYPES: list[tuple[type, str]] = [
 _ENTITY_TYPE_LABELS: dict[type, str] = {model: label for model, label in _RESTORABLE_ENTITY_TYPES} | {
     MediaFile: 'media_file',
     SeedPackage: 'seed_package',
-    CultureSupplierData: 'culture_supplier_data',
+    CropSupplierData: 'crop_supplier_data',
 }
 
 
@@ -87,14 +87,14 @@ def _diff_changed_fields(previous: dict[str, Any], current: dict[str, Any]) -> l
 
 
 def _entity_display_name(instance) -> str:
-    if isinstance(instance, Culture):
-        return format_culture_display_name(instance.name, instance.variety) or ''
+    if isinstance(instance, Crop):
+        return format_crop_display_name(instance.name, instance.variety) or ''
     if isinstance(instance, PlantingPlan):
-        culture_label = format_culture_display_name(instance.culture.name, instance.culture.variety) if instance.culture_id else None
+        crop_label = format_crop_display_name(instance.crop.name, instance.crop.variety) if instance.crop_id else None
         bed_label = instance.bed.name if instance.bed_id else None
-        return ' / '.join(part for part in (culture_label, bed_label) if part)
-    if isinstance(instance, (CultureSupplierData, SeedPackage)):
-        return format_culture_display_name(instance.culture.name, instance.culture.variety) if instance.culture_id else ''
+        return ' / '.join(part for part in (crop_label, bed_label) if part)
+    if isinstance(instance, (CropSupplierData, SeedPackage)):
+        return format_crop_display_name(instance.crop.name, instance.crop.variety) if instance.crop_id else ''
     if isinstance(instance, Task):
         return instance.title or ''
     if isinstance(instance, Season):

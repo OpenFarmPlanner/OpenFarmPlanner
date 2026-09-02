@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 
 from farm.models import (
     Bed,
-    Culture,
+    Crop,
     Field,
     Location,
     NoteAttachment,
@@ -40,7 +40,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         response = self.client.post(
             '/openfarmplanner/api/planting-plans/',
             {
-                'culture': self.culture.id,
+                'crop': self.crop.id,
                 'bed': other_bed.id,
                 'planting_date': date(2026, 3, 1).isoformat(),
                 'area_usage_sqm': 1.0,
@@ -53,7 +53,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
 
     def test_planting_plan_create(self):
         data = {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'quantity': 50
@@ -65,7 +65,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
     def test_planting_plan_area_validation_success(self):
         """Test API allows a single planting plan within bed capacity."""
         data = {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 15.0
@@ -77,7 +77,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
     def test_planting_plan_area_validation_non_overlapping_plans_allowed(self):
         """Test API allows non-overlapping plans even when their total sum is above bed capacity."""
         response1 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 20.0,
@@ -85,7 +85,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
         response2 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-04-01',
             'area_usage_sqm': 20.0,
@@ -102,7 +102,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         )
 
         response1 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 15.0,
@@ -110,7 +110,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
         response2 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': other_bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 20.0,
@@ -120,7 +120,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
     def test_planting_plan_area_validation_update_excludes_current_plan(self):
         """Test API update does not count current plan twice."""
         create_response = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 10.0,
@@ -139,7 +139,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
     def test_planting_plan_area_validation_update_partial_rejects_overlap_excess(self):
         """Test partial update allows the new area usage to be saved."""
         plan_one_response = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 12.0,
@@ -147,7 +147,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         self.assertEqual(plan_one_response.status_code, status.HTTP_201_CREATED)
 
         plan_two_response = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-03',
             'area_usage_sqm': 4.0,
@@ -165,7 +165,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
     def test_planting_plan_area_validation_boundary_equal_bed_area_allowed(self):
         """Test API allows overlapping plans whose summed area equals bed capacity."""
         response1 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_usage_sqm': 12.0,
@@ -173,7 +173,7 @@ class PlantingPlanApiTest(ProjectApiTestCase):
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
         response2 = self.client.post('/openfarmplanner/api/planting-plans/', {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-03',
             'area_usage_sqm': 8.0,
@@ -206,8 +206,8 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
             project=self.project,
         )
 
-        # Create culture with spacing data
-        self.culture_with_spacing = Culture.objects.create(
+        # Create crop with spacing data
+        self.crop_with_spacing = Crop.objects.create(
             name="Tomato",
             growth_duration_days=60,
             harvest_duration_days=30,
@@ -216,8 +216,8 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
             project=self.project,
         )
 
-        # Create culture without spacing data
-        self.culture_no_spacing = Culture.objects.create(
+        # Create crop without spacing data
+        self.crop_no_spacing = Crop.objects.create(
             name="Cucumber",
             growth_duration_days=50,
             harvest_duration_days=20,
@@ -237,16 +237,16 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         """Test that plants_per_m2 is calculated correctly."""
         # 10000 / (50 * 40) = 10000 / 2000 = 5.0
         expected = 5.0
-        self.assertAlmostEqual(float(self.culture_with_spacing.plants_per_m2), expected, places=2)
+        self.assertAlmostEqual(float(self.crop_with_spacing.plants_per_m2), expected, places=2)
     
     def test_plants_per_m2_returns_none_when_spacing_missing(self):
         """Test that plants_per_m2 returns None when spacing is missing."""
-        self.assertIsNone(self.culture_no_spacing.plants_per_m2)
+        self.assertIsNone(self.crop_no_spacing.plants_per_m2)
     
     def test_area_input_m2_creates_planting_plan(self):
         """Test creating planting plan with M2 input."""
         data = {
-            'culture': self.culture_with_spacing.id,
+            'crop': self.crop_with_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '2.50',
@@ -262,7 +262,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         """Test creating planting plan with PLANTS input converts to m²."""
         # 10 plants / 5 plants_per_m2 = 2.0 m²
         data = {
-            'culture': self.culture_with_spacing.id,
+            'crop': self.crop_with_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '10',
@@ -275,13 +275,13 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         # 10 / 5 = 2.0
         self.assertAlmostEqual(float(response.data['area_usage_sqm']), 2.0, places=2)
     
-    def test_area_input_plants_fails_when_culture_missing(self):
-        """Test that PLANTS input fails when culture is not provided.
+    def test_area_input_plants_fails_when_crop_missing(self):
+        """Test that PLANTS input fails when crop is not provided.
 
-        Culture itself is optional (a plan can be saved as a draft with
+        Crop itself is optional (a plan can be saved as a draft with
         only a bed chosen), so this now surfaces as an area_input_unit
-        error — plant-count input specifically needs a culture to convert
-        via — rather than a missing-culture field error."""
+        error — plant-count input specifically needs a crop to convert
+        via — rather than a missing-crop field error."""
         data = {
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
@@ -295,9 +295,9 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         self.assertIn('area_input_unit', response.data)
     
     def test_area_input_plants_fails_when_spacing_missing(self):
-        """Test that PLANTS input fails when culture spacing is missing."""
+        """Test that PLANTS input fails when crop spacing is missing."""
         data = {
-            'culture': self.culture_no_spacing.id,
+            'crop': self.crop_no_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '10',
@@ -312,7 +312,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
     def test_area_input_value_must_be_positive(self):
         """Test that area_input_value must be greater than 0."""
         data = {
-            'culture': self.culture_with_spacing.id,
+            'crop': self.crop_with_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '0',
@@ -327,7 +327,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
     def test_area_input_unit_required_when_value_provided(self):
         """Test that area_input_unit is required when area_input_value is provided."""
         data = {
-            'culture': self.culture_with_spacing.id,
+            'crop': self.crop_with_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '2.50'
@@ -343,7 +343,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         """Test updating existing planting plan with PLANTS input."""
         # Create initial plan
         plan = PlantingPlan.objects.create(
-            culture=self.culture_with_spacing,
+            crop=self.crop_with_spacing,
             bed=self.bed,
             planting_date=date(2024, 3, 1),
             area_usage_sqm=1.0,
@@ -353,7 +353,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
 
         # Update with PLANTS input: 15 plants / 5 plants_per_m2 = 3.0 m²
         data = {
-            'culture': self.culture_with_spacing.id,
+            'crop': self.crop_with_spacing.id,
             'bed': self.bed.id,
             'planting_date': '2024-03-01',
             'area_input_value': '15',
@@ -368,7 +368,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
     def test_area_input_m2_put_update_does_not_return_server_error(self):
         """Test full PUT update with M2 input does not crash and updates area."""
         plan = PlantingPlan.objects.create(
-            culture=self.culture_with_spacing,
+            crop=self.crop_with_spacing,
             bed=self.bed,
             planting_date=date(2024, 1, 1),
             area_usage_sqm=1.0,
@@ -380,7 +380,7 @@ class PlantingPlanAreaInputTest(DRFAPITestCase):
         response = self.client.put(
             f'/openfarmplanner/api/planting-plans/{plan.id}/',
             {
-                'culture': self.culture_with_spacing.id,
+                'crop': self.crop_with_spacing.id,
                 'bed': self.bed.id,
                 'planting_date': '2024-01-01',
                 'quantity': None,
@@ -409,7 +409,7 @@ class PlantingPlanRemainingAreaApiTest(DRFAPITestCase):
         self.field = Field.objects.create(name='Remaining Field', location=self.location, project=self.project)
         self.bed = Bed.objects.create(name='Remaining Bed', field=self.field, area_sqm=20, project=self.project)
         self.other_bed = Bed.objects.create(name='Other Bed', field=self.field, area_sqm=15, project=self.project)
-        self.culture = Culture.objects.create(
+        self.crop = Crop.objects.create(
             name='Lettuce',
             growth_duration_days=30,
             harvest_duration_days=10,
@@ -417,21 +417,21 @@ class PlantingPlanRemainingAreaApiTest(DRFAPITestCase):
         )
 
         self.plan_one = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=date(2024, 3, 1),
             area_usage_sqm=6,
             project=self.project,
         )
         self.plan_two = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=date(2024, 3, 15),
             area_usage_sqm=4,
             project=self.project,
         )
         PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.other_bed,
             planting_date=date(2024, 3, 10),
             area_usage_sqm=8,
@@ -529,14 +529,14 @@ class PlantingPlanAttachmentCountApiTest(DRFAPITestCase):
         self.location = Location.objects.create(name="Plan Location", project=self.project)
         self.field = Field.objects.create(name="Plan Field", location=self.location, project=self.project)
         self.bed = Bed.objects.create(name="Plan Bed", field=self.field, project=self.project)
-        self.culture = Culture.objects.create(name="Plan Culture", growth_duration_days=7, harvest_duration_days=2, project=self.project)
+        self.crop = Crop.objects.create(name="Plan Crop", growth_duration_days=7, harvest_duration_days=2, project=self.project)
 
         self.plan_without_attachments = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, planting_date=date(2024, 3, 1), notes='No attachments',
+            crop=self.crop, bed=self.bed, planting_date=date(2024, 3, 1), notes='No attachments',
             project=self.project,
         )
         self.plan_with_attachments = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, planting_date=date(2024, 3, 2), notes='With attachments',
+            crop=self.crop, bed=self.bed, planting_date=date(2024, 3, 2), notes='With attachments',
             project=self.project,
         )
 
@@ -570,7 +570,7 @@ class PlantingPlanAttachmentCountApiTest(DRFAPITestCase):
     def test_planting_plan_list_query_count_stays_stable(self):
         # 6 queries: 1 SAVEPOINT + 1 project membership lookup + 1 COUNT (pagination)
         # + 1 SELECT with annotation + 1 general-Kultur index for the whole page
-        # (see PlantingPlanSerializer._general_culture_index) + 1 RELEASE SAVEPOINT
+        # (see PlantingPlanSerializer._general_crop_index) + 1 RELEASE SAVEPOINT
         # (ATOMIC_REQUESTS wraps each request in its own transaction, nested as a
         # savepoint under the test's outer transaction).
         with self.assertNumQueries(6):

@@ -123,7 +123,7 @@ export function GlobalMenu(props: GlobalMenuProps) {
     </MenuItem>
   ) : null;
   // A disabled MenuItem fires no pointer events, so the "why" tooltip needs a
-  // wrapper element to hang off — same pattern as CultureHeaderActionsMenu's
+  // wrapper element to hang off — same pattern as CropHeaderActionsMenu's
   // disabled publish item.
   const pageHelpItem = onOpenPageHelp && !pageHelpAvailable ? (
     <AppTooltip key="mobile-app-page-help-tooltip" title={pageHelpUnavailableReason ?? t('globalMenu.pageHelpUnavailable')}>

@@ -135,8 +135,8 @@ export function SeasonPeriodEditDialog({ open, season, onClose, onConfirm }: Sea
                   <ListItem key={item.id} disableGutters sx={{ py: 0 }}>
                     <ListItemText
                       primary={t('navigation:seasonSwitcher.periodEditDialog.plantingConflictItem', {
-                        culture: item.culture
-                          || t('navigation:seasonSwitcher.periodEditDialog.unknownCulture'),
+                        crop: item.crop
+                          || t('navigation:seasonSwitcher.periodEditDialog.unknownCrop'),
                         date: formatSeasonDate(item.planting_date, locale),
                       })}
                     />

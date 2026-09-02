@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePlantingPlanHierarchy } from '../pages/usePlantingPlanHierarchy';
 
 const apiMocks = vi.hoisted(() => ({
-  cultureListAll: vi.fn(),
+  cropListAll: vi.fn(),
   locationListAll: vi.fn(),
   fieldListAll: vi.fn(),
   bedListAll: vi.fn(),
@@ -13,9 +13,9 @@ vi.mock('../api/api', async () => {
   const actual = await vi.importActual<typeof import('../api/api')>('../api/api');
   return {
     ...actual,
-    cultureAPI: {
-      ...actual.cultureAPI,
-      listAll: apiMocks.cultureListAll,
+    cropAPI: {
+      ...actual.cropAPI,
+      listAll: apiMocks.cropListAll,
     },
     locationAPI: {
       ...actual.locationAPI,
@@ -35,12 +35,12 @@ vi.mock('../api/api', async () => {
 describe('usePlantingPlanHierarchy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMocks.cultureListAll.mockResolvedValue({
+    apiMocks.cropListAll.mockResolvedValue({
       results: [
         {
           id: 1,
           name: 'Ackerbohne',
-          culture_display_name: 'Broad bean',
+          crop_display_name: 'Broad bean',
           variety: 'Hangdown',
         },
       ],
@@ -50,12 +50,12 @@ describe('usePlantingPlanHierarchy', () => {
     apiMocks.bedListAll.mockResolvedValue({ results: [] });
   });
 
-  it('uses localized crop labels for planting-plan culture options', async () => {
+  it('uses localized crop labels for planting-plan crop options', async () => {
     const { result } = renderHook(() => usePlantingPlanHierarchy(false));
 
     await waitFor(() => expect(result.current.isHierarchyLoading).toBe(false));
 
-    expect(result.current.cultureOptions).toEqual([
+    expect(result.current.cropOptions).toEqual([
       { value: 1, label: 'Broad bean (Hangdown)' },
     ]);
   });

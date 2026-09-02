@@ -15,7 +15,7 @@ from farm.models import PlantingPlan, Project, Season, SeasonPattern
 # season. Excludes the primary key, timestamps, audit fields, and the
 # project/season FKs themselves (set explicitly by the caller).
 PLANTING_PLAN_COPY_FIELDS = (
-    'culture_id',
+    'crop_id',
     'bed_id',
     'cultivation_type',
     'planting_date',

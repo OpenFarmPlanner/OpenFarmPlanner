@@ -72,14 +72,14 @@ class SeasonSerializer(serializers.ModelSerializer):
             {
                 'id': plan.pk,
                 'label': str(plan),
-                'culture': plan.culture.name if plan.culture_id else '',
+                'crop': plan.crop.name if plan.crop_id else '',
                 'planting_date': plan.planting_date.isoformat(),
             }
             for plan in (
                 PlantingPlan.objects
                 .filter(season=self.instance)
                 .exclude(planting_date__isnull=True)
-                .select_related('culture')
+                .select_related('crop')
                 .order_by('planting_date', 'pk')
             )
             if not start_date <= plan.planting_date <= end_date
@@ -112,7 +112,7 @@ class SeasonSerializer(serializers.ModelSerializer):
         plans = (
             PlantingPlan.objects
             .filter(project=project, season__isnull=True)
-            .select_related('culture', 'bed')
+            .select_related('crop', 'bed')
             .order_by('planting_date', 'pk')
         )
         for plan in plans:

@@ -18,13 +18,13 @@ from config.frontend_urls import build_public_frontend_url
 
 from accounts.consent import record_acceptance
 from accounts.models import DocumentConsent
-from farm.models import Project, ProjectInvitation, ProjectMembership, PublicCulture
+from farm.models import Project, ProjectInvitation, ProjectMembership, PublicCrop
 from farm.services.demo_project import get_demo_project_name, populate_demo_project, resolve_demo_language
 
 User = get_user_model()
 E2E_PASSWORD = 'Pass12345!'
 TEST_EMAIL_DOMAIN = 'e2e.local'
-E2E_PUBLIC_CULTURE_VARIETY_PREFIXES = ('E2E Kollaboration ', 'Visual Empty ')
+E2E_PUBLIC_CROP_VARIETY_PREFIXES = ('E2E Kollaboration ', 'Visual Empty ')
 
 
 def _e2e_token() -> str:
@@ -58,16 +58,19 @@ def _scenario_user_emails(scenario: str) -> list[str]:
     ]
 
 
-def _delete_legacy_public_culture_versions(public_culture_ids: list[int]) -> None:
-    if not public_culture_ids:
+def _delete_legacy_public_crop_versions(public_crop_ids: list[int]) -> None:
+    # The table and column names stay spelled "culture": this is a dropped
+    # legacy table that no model owns any more, so the Culture -> Crop rename
+    # never reached it.
+    if not public_crop_ids:
         return
     if 'farm_publiccultureversion' not in connection.introspection.table_names():
         return
     with connection.cursor() as cursor:
-        placeholders = ', '.join(['%s'] * len(public_culture_ids))
+        placeholders = ', '.join(['%s'] * len(public_crop_ids))
         cursor.execute(
             f'DELETE FROM farm_publiccultureversion WHERE public_culture_id IN ({placeholders})',
-            public_culture_ids,
+            public_crop_ids,
         )
 
 
@@ -96,19 +99,19 @@ class E2EInvitationFixtureView(APIView):
 
     def _reset(self, scenario: str) -> None:
         scenario_emails = _scenario_user_emails(scenario)
-        public_culture_ids = list(PublicCulture.objects.filter(
+        public_crop_ids = list(PublicCrop.objects.filter(
             Q(source_project__slug=scenario)
-            | Q(source_project_culture__project__slug=scenario)
+            | Q(source_project_crop__project__slug=scenario)
             | (
                 Q(created_by__email__in=scenario_emails)
                 & (
-                    Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[0])
-                    | Q(variety__startswith=E2E_PUBLIC_CULTURE_VARIETY_PREFIXES[1])
+                    Q(variety__startswith=E2E_PUBLIC_CROP_VARIETY_PREFIXES[0])
+                    | Q(variety__startswith=E2E_PUBLIC_CROP_VARIETY_PREFIXES[1])
                 )
             )
         ).values_list('id', flat=True))
-        _delete_legacy_public_culture_versions(public_culture_ids)
-        PublicCulture.objects.filter(id__in=public_culture_ids).delete()
+        _delete_legacy_public_crop_versions(public_crop_ids)
+        PublicCrop.objects.filter(id__in=public_crop_ids).delete()
         ProjectMembership.objects.filter(project__slug=scenario).delete()
         ProjectInvitation.objects.filter(project__slug=scenario).delete()
         Project.objects.filter(slug=scenario).delete()

@@ -5,8 +5,8 @@ import {
   getVarietyOwnValueSource,
   isEmptyCropValue,
   stripValuesMatchingBaseline,
-} from '../cultures/varietyValueSource';
-import type { Culture } from '../api/types';
+} from '../crops/varietyValueSource';
+import type { Crop } from '../api/types';
 
 describe('isEmptyCropValue', () => {
   it('treats null, undefined, empty string and empty arrays as empty', () => {
@@ -47,7 +47,7 @@ describe('areCropValuesEqual', () => {
 });
 
 describe('getVarietyOwnValueSource', () => {
-  const speciesCulture: Partial<Culture> = {
+  const speciesCrop: Partial<Crop> = {
     id: 1,
     name: 'Karotte',
     variety: '',
@@ -55,35 +55,35 @@ describe('getVarietyOwnValueSource', () => {
     nutrient_demand: 'medium',
   };
 
-  it('returns null when the culture has no variety', () => {
-    const culture: Partial<Culture> = { name: 'Karotte', variety: '', row_spacing_cm: 40 };
-    expect(getVarietyOwnValueSource(culture, speciesCulture, 'row_spacing_cm')).toBeNull();
+  it('returns null when the crop has no variety', () => {
+    const crop: Partial<Crop> = { name: 'Karotte', variety: '', row_spacing_cm: 40 };
+    expect(getVarietyOwnValueSource(crop, speciesCrop, 'row_spacing_cm')).toBeNull();
   });
 
-  it('returns null when there is no species culture to compare against', () => {
-    const culture: Partial<Culture> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
-    expect(getVarietyOwnValueSource(culture, null, 'row_spacing_cm')).toBeNull();
+  it('returns null when there is no species crop to compare against', () => {
+    const crop: Partial<Crop> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
+    expect(getVarietyOwnValueSource(crop, null, 'row_spacing_cm')).toBeNull();
   });
 
   it('returns null when the variety value is empty (falls back to the crop value)', () => {
-    const culture: Partial<Culture> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: undefined };
-    expect(getVarietyOwnValueSource(culture, speciesCulture, 'row_spacing_cm')).toBeNull();
+    const crop: Partial<Crop> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: undefined };
+    expect(getVarietyOwnValueSource(crop, speciesCrop, 'row_spacing_cm')).toBeNull();
   });
 
   it('returns null when the variety value matches the crop value', () => {
-    const culture: Partial<Culture> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 30 };
-    expect(getVarietyOwnValueSource(culture, speciesCulture, 'row_spacing_cm')).toBeNull();
+    const crop: Partial<Crop> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 30 };
+    expect(getVarietyOwnValueSource(crop, speciesCrop, 'row_spacing_cm')).toBeNull();
   });
 
   it('returns "ownValue" when the variety overrides the crop value', () => {
-    const culture: Partial<Culture> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
-    expect(getVarietyOwnValueSource(culture, speciesCulture, 'row_spacing_cm')).toBe('ownValue');
+    const crop: Partial<Crop> = { name: 'Karotte', variety: 'Nantaise', row_spacing_cm: 40 };
+    expect(getVarietyOwnValueSource(crop, speciesCrop, 'row_spacing_cm')).toBe('ownValue');
   });
 });
 
 describe('buildVarietyInheritanceBaseline', () => {
   it('copies only inheritable fields the crop actually has a value for', () => {
-    const cropCulture: Culture = {
+    const cropCrop: Crop = {
       id: 1,
       name: 'Karotte',
       variety: '',
@@ -93,7 +93,7 @@ describe('buildVarietyInheritanceBaseline', () => {
       display_color: '#ff0000',
     };
 
-    const baseline = buildVarietyInheritanceBaseline(cropCulture);
+    const baseline = buildVarietyInheritanceBaseline(cropCrop);
 
     expect(baseline).toEqual({ row_spacing_cm: 30, crop_family: 'Doldenblütler' });
     // Identity/free-text/per-variety fields are never copied, even though set.
@@ -104,8 +104,8 @@ describe('buildVarietyInheritanceBaseline', () => {
   });
 
   it('omits fields the crop itself leaves empty', () => {
-    const cropCulture: Culture = { id: 1, name: 'Karotte', variety: '' };
-    expect(buildVarietyInheritanceBaseline(cropCulture)).toEqual({});
+    const cropCrop: Crop = { id: 1, name: 'Karotte', variety: '' };
+    expect(buildVarietyInheritanceBaseline(cropCrop)).toEqual({});
   });
 });
 

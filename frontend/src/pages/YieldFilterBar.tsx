@@ -13,24 +13,24 @@ import {
 import { TypeaheadSelect as Select } from "../components/inputs/TypeaheadSelect";
 import { useTranslation } from "../i18n";
 import {
-  ALL_CULTURES,
+  ALL_CROPS,
   type ChartPeriod,
-  type YieldCultureMeta,
+  type YieldCropMeta,
 } from "./yieldOverviewUtils";
 
 interface YieldFilterBarProps {
-  cultures: YieldCultureMeta[];
-  selectedCultureId: string;
+  crops: YieldCropMeta[];
+  selectedCropId: string;
   period: ChartPeriod;
-  onCultureChange: (cultureId: string) => void;
+  onCropChange: (cropId: string) => void;
   onPeriodChange: (period: ChartPeriod) => void;
 }
 
 export function YieldFilterBar({
-  cultures,
-  selectedCultureId,
+  crops,
+  selectedCropId,
   period,
-  onCultureChange,
+  onCropChange,
   onPeriodChange,
 }: YieldFilterBarProps) {
   const { t } = useTranslation("yieldOverview");
@@ -44,24 +44,24 @@ export function YieldFilterBar({
     >
       <Stack spacing={0.5} sx={{ minWidth: { sm: 220 } }}>
         <Typography
-          id="yield-culture-filter-label"
+          id="yield-crop-filter-label"
           variant="caption"
           color="text.secondary"
           sx={{ lineHeight: 1 }}
         >
-          {t("filters.culture")}
+          {t("filters.crop")}
         </Typography>
         <FormControl size="small" fullWidth>
           <Select
             fullWidth
-            labelId="yield-culture-filter-label"
-            value={selectedCultureId}
-            onChange={(event) => onCultureChange(String(event.target.value))}
+            labelId="yield-crop-filter-label"
+            value={selectedCropId}
+            onChange={(event) => onCropChange(String(event.target.value))}
           >
-            <MenuItem value={ALL_CULTURES}>{t("filters.allCultures")}</MenuItem>
-            {cultures.map((culture) => (
-              <MenuItem key={culture.id} value={String(culture.id)}>
-                {culture.name}
+            <MenuItem value={ALL_CROPS}>{t("filters.allCrops")}</MenuItem>
+            {crops.map((crop) => (
+              <MenuItem key={crop.id} value={String(crop.id)}>
+                {crop.name}
               </MenuItem>
             ))}
           </Select>

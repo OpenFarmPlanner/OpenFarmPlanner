@@ -60,8 +60,8 @@ implementations).
   field (`isTypingInEditableElement`), unless a spec opts in.
 - **Global commands** (`commands/commands.ts`, `commands/CommandProvider.tsx`)
   are registered by scope (`useRegisterCommands('scope-name', specs)`) and
-  gated by `contextTags` (`'cultures' | 'calendar' | 'plans' | ...`), which a
-  page activates for as long as it's mounted (`useCommandContextTag('cultures')`).
+  gated by `contextTags` (`'crops' | 'calendar' | 'plans' | ...`), which a
+  page activates for as long as it's mounted (`useCommandContextTag('crops')`).
   This is *page-level* scoping — "this shortcut only applies on this page."
 - **Region shortcuts** (`frontend/src/focus/useRegionShortcuts.ts`) are the
   new, finer-grained layer: single-key shortcuts (`N`, `E`, `D`, `L`, `G`, …)
@@ -70,8 +70,8 @@ implementations).
   matching logic):
 
   ```tsx
-  useRegionShortcuts('cultures-table', [
-    { key: 'n', label: 'Neu anlegen', action: createCulture },
+  useRegionShortcuts('crops-table', [
+    { key: 'n', label: 'Neu anlegen', action: createCrop },
     { key: 'e', label: 'Bearbeiten', action: editSelected },
   ]);
   ```
@@ -100,7 +100,7 @@ implementations).
   also the more universally recognized "jump to search" key (GitHub, etc.).
 - **`?`, Ctrl+B (sidebar toggle)** used to be raw `window.addEventListener('keydown', ...)`
   listeners in the root layout (now `navigation/RootLayout.tsx`), duplicated a second time for `?` in
-  `pages/Cultures.tsx` (which meant pressing `?` on the project Crop Library page could
+  `pages/Crops.tsx` (which meant pressing `?` on the project Crop Library page could
   open two different dialogs at once). Both are now regular commands
   registered through the same system as everything else — one listener,
   one source of truth.
@@ -118,11 +118,11 @@ built but never wired to anything) showing:
 4. All commands active for the current page (grouped by context tag, same
    list the command palette searches).
 5. A compact all-pages reference for page-specific shortcuts, so users can
-   discover e.g. the Cultures page shortcuts even while they opened help from
+   discover e.g. the Crops page shortcuts even while they opened help from
    account settings or another page without local commands.
 
 This replaced three separate, drifting implementations (a static, hand
-maintained list in `App.tsx`, a near-duplicate in `pages/Cultures.tsx`, and
+maintained list in `App.tsx`, a near-duplicate in `pages/Crops.tsx`, and
 dead code in `CommandProvider.tsx` that built the right data but was never
 opened) with one dynamic one that can't go stale relative to what's actually
 registered.
@@ -161,8 +161,8 @@ layout) and to DataGrid (which already has its own cell-navigation code) is
 future work — the reference implementation and this write-up are meant to
 make that a mechanical port rather than a fresh design exercise each time.
 
-Culture master-detail lists use the same local-widget approach through
-`cultures/useCultureListKeyboardNavigation.ts`: the visible list rows are a
+Crop master-detail lists use the same local-widget approach through
+`crops/useCropListKeyboardNavigation.ts`: the visible list rows are a
 `listbox`/`option` set with roving tabindex, ArrowUp/ArrowDown/Home/End move
 selection within the currently rendered rows, the selected row scrolls into
 view, and focus stays in the list. The hook is shared by the project
@@ -215,7 +215,7 @@ again. Arrow keys, Enter, and Escape stay entirely with MUI.
 
 **Modal dialogs must not add a second focus trap.** MUI's `Dialog` already
 contains Tab, `aria-hidden`s the page behind it, and restores focus to the
-element that opened it. `AreaAssignmentDialog` and `CultureForm` used to run
+element that opened it. `AreaAssignmentDialog` and `CropForm` used to run
 their own `document`-level Tab traps on top of that; both had to opt out while a
 dropdown was open — precisely the gap focus escaped through — and both fought
 MUI's restore with `requestAnimationFrame(() => …focus())` calls. They are gone;

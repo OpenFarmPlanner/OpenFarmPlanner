@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 
 from farm.models import (
     Bed,
-    Culture,
+    Crop,
     Field,
     Location,
     PlantingPlan,
@@ -90,14 +90,14 @@ class NoteAttachmentApiTest(DRFAPITestCase):
         self.location = Location.objects.create(name="Attachment Location", project=self.project)
         self.field = Field.objects.create(name="Attachment Field", location=self.location, project=self.project)
         self.bed = Bed.objects.create(name="Attachment Bed", field=self.field, project=self.project)
-        self.culture = Culture.objects.create(
-            name="Attachment Culture",
+        self.crop = Crop.objects.create(
+            name="Attachment Crop",
             growth_duration_days=7,
             harvest_duration_days=2,
             project=self.project,
         )
         self.plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=date(2024, 3, 1),
             project=self.project,

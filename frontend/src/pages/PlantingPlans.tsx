@@ -37,7 +37,7 @@ import {
   toNumericValue,
   formatAreaM2,
   buildBedDisplayLabel,
-  getAllowedCultivationTypesForCulture,
+  getAllowedCultivationTypesForCrop,
   isEmptyNewPlantingPlanRow,
 } from "./plantingPlansUtils";
 import { usePlantingPlanHierarchy } from "./usePlantingPlanHierarchy";
@@ -96,8 +96,8 @@ import {
 } from "./requirementFlow";
 import { AreaAssignmentDialog } from "../components/planting-plans/AreaAssignmentDialog";
 import EmptyStateCard from "../components/project/EmptyStateCard";
-import { formatCultureDisplayName } from "../cultures/cultureDisplay";
-import { getEffectiveCultureValue } from "../cultures/varietyValueSource";
+import { formatCropDisplayName } from "../crops/cropDisplay";
+import { getEffectiveCropValue } from "../crops/varietyValueSource";
 
 import { useAreaValidationDialog, type AreaValidationDialogState } from "./useAreaValidationDialog";
 import { AreaValidationDialog } from "../components/planting-plans/AreaValidationDialog";
@@ -126,7 +126,7 @@ const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
  * Row data type for Data Grid
  */
 
-const CULTURE_COLUMN_MAX_WIDTH = 280;
+const CROP_COLUMN_MAX_WIDTH = 280;
 const BED_COLUMN_MAX_WIDTH = 220;
 /** Columns whose editor is a dialog the cell opens on a single click. */
 const PLANTING_PLAN_DIALOG_EDIT_FIELDS = ["bed"];
@@ -171,13 +171,13 @@ function PlantingPlans() {
   const location = useLocation();
   const navigate = useNavigate();
   const {
-    cultures,
+    crops,
     locations,
     fields,
     beds,
     isHierarchyLoading,
     numberLocale,
-    cultureOptions,
+    cropOptions,
     locationById,
     fieldById,
     bedById,
@@ -370,18 +370,18 @@ function PlantingPlans() {
   );
 
   /**
-   * Check for cultureId or bedId parameter in URL and set as initial values
+   * Check for cropId or bedId parameter in URL and set as initial values
    */
   const [initialSelection] = useState(() => {
-    const cultureIdParam = searchParams.get("cultureId");
+    const cropIdParam = searchParams.get("cropId");
     const bedIdParam = searchParams.get("bedId");
-    let cultureId: number | null = null;
+    let cropId: number | null = null;
     let bedId: number | null = null;
 
-    if (cultureIdParam) {
-      const parsedCultureId = parseInt(cultureIdParam, 10);
-      if (!isNaN(parsedCultureId)) {
-        cultureId = parsedCultureId;
+    if (cropIdParam) {
+      const parsedCropId = parseInt(cropIdParam, 10);
+      if (!isNaN(parsedCropId)) {
+        cropId = parsedCropId;
       }
     }
 
@@ -392,7 +392,7 @@ function PlantingPlans() {
       }
     }
 
-    return { cultureId, bedId };
+    return { cropId, bedId };
   });
 
   useEffect(() => {
@@ -403,8 +403,8 @@ function PlantingPlans() {
     const newParams = new URLSearchParams(searchParams);
     let hasChanges = false;
 
-    if (initialSelection.cultureId !== null) {
-      newParams.delete("cultureId");
+    if (initialSelection.cropId !== null) {
+      newParams.delete("cropId");
       hasChanges = true;
     }
 
@@ -422,7 +422,7 @@ function PlantingPlans() {
 
   /**
    * Define columns for the Data Grid with inline editing
-   * Recalculates when cultures or beds change to update dropdown options
+   * Recalculates when crops or beds change to update dropdown options
    */
   const commands = useMemo<CommandSpec[]>(
     () => [
@@ -470,11 +470,11 @@ function PlantingPlans() {
   ) => {
     const row = params.row as PlantingPlanRow;
     const value = params.field === "harvest_end_date" ? row.harvest_end_date : row.harvest_date;
-    const culture = cultures.find((item) => item.id === row.culture);
+    const crop = crops.find((item) => item.id === row.crop);
     // Effective values: a Sorte that inherits its timing from the general
     // Kultur has complete timing, so it must not be reported as missing.
-    const hasGrowthDuration = typeof getEffectiveCultureValue(culture, "growth_duration_days") === "number";
-    const hasHarvestDuration = typeof getEffectiveCultureValue(culture, "harvest_duration_days") === "number";
+    const hasGrowthDuration = typeof getEffectiveCropValue(crop, "growth_duration_days") === "number";
+    const hasHarvestDuration = typeof getEffectiveCropValue(crop, "harvest_duration_days") === "number";
     let missingDurationTooltip = t("plantingPlans:tooltips.missingGrowthDuration");
     if (params.field === "harvest_end_date") {
       if (!hasGrowthDuration && !hasHarvestDuration) {
@@ -493,35 +493,35 @@ function PlantingPlans() {
     }
 
     return <Box component="span">{formatDateForDisplay(value)}</Box>;
-  }, [cultures, formatDateForDisplay, t]);
+  }, [crops, formatDateForDisplay, t]);
 
   const columns: GridColDef[] = useMemo(
     () => [
       {
         ...createSearchableSelectColumn<PlantingPlanRow>({
-          field: "culture",
-          headerName: t("plantingPlans:columns.culture"),
+          field: "crop",
+          headerName: t("plantingPlans:columns.crop"),
           flex: 0,
-          minWidth: dynamicWidths.culture,
-          maxWidth: CULTURE_COLUMN_MAX_WIDTH,
+          minWidth: dynamicWidths.crop,
+          maxWidth: CROP_COLUMN_MAX_WIDTH,
           truncateCellText: true,
-          options: cultureOptions,
-          placeholder: t("plantingPlans:placeholders.selectCulture"),
+          options: cropOptions,
+          placeholder: t("plantingPlans:placeholders.selectCrop"),
         }),
         valueSetter: (value, row) => {
           const nextRow = row as PlantingPlanRow;
           const numericValue =
             typeof value === "number" ? value : Number(value);
-          const selectedCulture = cultures.find(
-            (culture) => culture.id === numericValue,
+          const selectedCrop = crops.find(
+            (crop) => crop.id === numericValue,
           );
           const availableTypes =
-            getAllowedCultivationTypesForCulture(selectedCulture);
+            getAllowedCultivationTypesForCrop(selectedCrop);
           const currentCultivationType = normalizeCultivationType(nextRow.cultivation_type);
 
           return {
             ...nextRow,
-            culture: numericValue,
+            crop: numericValue,
             cultivation_type: currentCultivationType && availableTypes.includes(currentCultivationType)
               ? currentCultivationType
               : "",
@@ -568,11 +568,11 @@ function PlantingPlans() {
         },
         valueSetter: (value, row) => {
           const nextRow = row as PlantingPlanRow;
-          const selectedCulture = cultures.find(
-            (culture) => culture.id === nextRow.culture,
+          const selectedCrop = crops.find(
+            (crop) => crop.id === nextRow.crop,
           );
           const allowedTypes =
-            getAllowedCultivationTypesForCulture(selectedCulture);
+            getAllowedCultivationTypesForCrop(selectedCrop);
           const nextType = normalizeCultivationType(value);
 
           return {
@@ -773,7 +773,7 @@ function PlantingPlans() {
         renderEditCell: (params) => (
           <PlantsCountEditCell
             {...params}
-            cultures={cultures}
+            crops={crops}
             placeholder={t("plantingPlans:placeholders.plantsCount")}
             onLastEditedFieldChange={() => {
               lastEditedFieldRef.current = "plants_count";
@@ -809,8 +809,8 @@ function PlantingPlans() {
       locations,
       cultivationTypeOptions,
       getCultivationTypeOptionsForRow,
-      cultureOptions,
-      cultures,
+      cropOptions,
+      crops,
       dynamicWidths,
       getBedLabelForRow,
       renderCalculatedHarvestDateCell,
@@ -823,29 +823,29 @@ function PlantingPlans() {
     ],
   );
 
-  const getCultureLabel = (row: PlantingPlanRow): string => {
-    const linkedCulture = cultures.find((culture) => culture.id === row.culture);
-    const cultureLabel = formatCultureDisplayName({
-      name: linkedCulture?.name,
-      culture_name: row.culture_name,
-      culture_display_name: row.culture_display_name ?? linkedCulture?.culture_display_name,
-      variety: linkedCulture?.variety,
-      culture_variety: row.culture_variety,
+  const getCropLabel = (row: PlantingPlanRow): string => {
+    const linkedCrop = crops.find((crop) => crop.id === row.crop);
+    const cropLabel = formatCropDisplayName({
+      name: linkedCrop?.name,
+      crop_name: row.crop_name,
+      crop_display_name: row.crop_display_name ?? linkedCrop?.crop_display_name,
+      variety: linkedCrop?.variety,
+      crop_variety: row.crop_variety,
     });
-    if (cultureLabel) {
-      return cultureLabel;
+    if (cropLabel) {
+      return cropLabel;
     }
-    const fallback = cultureOptions.find((option) => option.value === row.culture);
+    const fallback = cropOptions.find((option) => option.value === row.crop);
     return fallback?.label ?? "—";
   };
 
-  const getPlantsPerSqmForCulture = (cultureId: string): number | null => {
-    const numericCultureId = Number(cultureId);
-    const culture = cultures.find((item) => item.id === numericCultureId);
-    if (!culture || !culture.plants_per_m2 || culture.plants_per_m2 <= 0) {
+  const getPlantsPerSqmForCrop = (cropId: string): number | null => {
+    const numericCropId = Number(cropId);
+    const crop = crops.find((item) => item.id === numericCropId);
+    if (!crop || !crop.plants_per_m2 || crop.plants_per_m2 <= 0) {
       return null;
     }
-    return culture.plants_per_m2;
+    return crop.plants_per_m2;
   };
 
   const getDisplayArea = (row: PlantingPlanRow): string => {
@@ -854,7 +854,7 @@ function PlantingPlans() {
       return formatAreaM2(explicitArea, numberLocale);
     }
     if (typeof row.plants_count === "number") {
-      const plantsPerSqm = getPlantsPerSqmForCulture(String(row.culture));
+      const plantsPerSqm = getPlantsPerSqmForCrop(String(row.crop));
       if (plantsPerSqm) {
         return formatAreaM2(row.plants_count / plantsPerSqm, numberLocale);
       }
@@ -875,9 +875,9 @@ function PlantingPlans() {
 
   const clipboardColumns = useMemo(() => [
     {
-      field: "culture",
-      headerName: t("plantingPlans:columns.culture"),
-      getValue: getCultureLabel,
+      field: "crop",
+      headerName: t("plantingPlans:columns.crop"),
+      getValue: getCropLabel,
     },
     {
       field: "cultivation_type",
@@ -922,7 +922,7 @@ function PlantingPlans() {
   ], [
     areaColumnLabel,
     getBedLabelForRow,
-    getCultureLabel,
+    getCropLabel,
     getCultivationTypeLabel,
     getDisplayArea,
     getPlantsCountLabel,
@@ -980,7 +980,7 @@ function PlantingPlans() {
   };
 
   const openMobileCreateDialog = useCallback((
-    prefill?: { cultureId?: number | null; bedId?: number | null },
+    prefill?: { cropId?: number | null; bedId?: number | null },
   ): void => {
     setMobileCreateError("");
     setMobileEditId(null);
@@ -1005,18 +1005,18 @@ function PlantingPlans() {
     if (!isMobile || mobilePrefillHandledRef.current) {
       return;
     }
-    if (initialSelection.cultureId === null && initialSelection.bedId === null) {
+    if (initialSelection.cropId === null && initialSelection.bedId === null) {
       return;
     }
     if (initialSelection.bedId !== null && beds.length === 0) {
       return;
     }
     openMobileCreateDialog({
-      cultureId: initialSelection.cultureId,
+      cropId: initialSelection.cropId,
       bedId: initialSelection.bedId,
     });
     mobilePrefillHandledRef.current = true;
-  }, [isMobile, initialSelection.cultureId, initialSelection.bedId, beds.length, openMobileCreateDialog]);
+  }, [isMobile, initialSelection.cropId, initialSelection.bedId, beds.length, openMobileCreateDialog]);
 
   const openMobileNotesDialog = (row: PlantingPlanRow): void => {
     setMobileNotesTarget(row);
@@ -1078,7 +1078,7 @@ function PlantingPlans() {
     if (typeof row.plants_count !== "number") {
       return null;
     }
-    const plantsPerSqm = getPlantsPerSqmForCulture(String(row.culture ?? ""));
+    const plantsPerSqm = getPlantsPerSqmForCrop(String(row.crop ?? ""));
     if (!plantsPerSqm) {
       return null;
     }
@@ -1088,7 +1088,7 @@ function PlantingPlans() {
   const getRequestedAreaForValidation = (row: PlantingPlanRow): number | null => {
     if (lastEditedFieldRef.current === "plants_count") {
       const plantsCount = toAreaNumericValue(row.plants_count, numberLocale);
-      const plantsPerSqm = getPlantsPerSqmForCulture(String(row.culture ?? ""));
+      const plantsPerSqm = getPlantsPerSqmForCrop(String(row.crop ?? ""));
       if (plantsCount !== null && plantsPerSqm) {
         return Number((plantsCount / plantsPerSqm).toFixed(2));
       }
@@ -1159,15 +1159,15 @@ function PlantingPlans() {
   };
 
   const buildAreaAndPlantsDraft = (
-    row: Pick<PlantingPlanRow, "culture" | "plants_count"> | undefined,
+    row: Pick<PlantingPlanRow, "crop" | "plants_count"> | undefined,
     nextArea: number,
-    fallbackCultureId?: number,
+    fallbackCropId?: number,
     fallbackPlantsCount?: number | null,
   ): Pick<PlantingPlanRow, "area_m2" | "plants_count"> => {
     const normalizedArea = Number(nextArea.toFixed(2));
-    const cultureId = row?.culture ?? fallbackCultureId;
-    const culture = cultures.find((item) => item.id === cultureId);
-    const plantsPerSqm = culture?.plants_per_m2;
+    const cropId = row?.crop ?? fallbackCropId;
+    const crop = crops.find((item) => item.id === cropId);
+    const plantsPerSqm = crop?.plants_per_m2;
     return {
       area_m2: normalizedArea,
       plants_count: plantsPerSqm && plantsPerSqm > 0 ? Math.round(normalizedArea * plantsPerSqm) : row?.plants_count ?? fallbackPlantsCount,
@@ -1188,7 +1188,7 @@ function PlantingPlans() {
   const commitAreaValidationDialogValue = async (dialog: AreaValidationDialogState): Promise<void> => {
     const nextArea = dialog.mode === "bedLimit" ? dialog.bedArea : dialog.availableArea;
     const row = mobileRows.find((item) => item.id === dialog.rowId);
-    const draftValues = buildAreaAndPlantsDraft(row, nextArea, dialog.cultureId, dialog.plantsCount);
+    const draftValues = buildAreaAndPlantsDraft(row, nextArea, dialog.cropId, dialog.plantsCount);
 
     lastEditedFieldRef.current = "area_m2";
     areaValidationDialogRef.current = null;
@@ -1208,10 +1208,10 @@ function PlantingPlans() {
   };
 
   const validateMobileForm = (): boolean => {
-    if (!mobileCreateForm.culture || !mobileCreateForm.bed || !mobileCreateForm.planting_date) {
+    if (!mobileCreateForm.crop || !mobileCreateForm.bed || !mobileCreateForm.planting_date) {
       setMobileCreateError(t("plantingPlans:validation.requiredFields", {
         fields: [
-          t("plantingPlans:columns.culture"),
+          t("plantingPlans:columns.crop"),
           t("plantingPlans:columns.bed"),
           t("plantingPlans:columns.plantingDate"),
         ].join(", "),
@@ -1282,7 +1282,7 @@ function PlantingPlans() {
 
     try {
       await plantingPlanAPI.create({
-        culture: Number(mobileCreateForm.culture),
+        crop: Number(mobileCreateForm.crop),
         bed: Number(mobileCreateForm.bed),
         planting_date: plantingDateIso,
         cultivation_type: mobileCreateForm.cultivation_type,
@@ -1303,7 +1303,7 @@ function PlantingPlans() {
     setMobileCreateError("");
     setMobileEditId(row.id);
     setMobileCreateForm({
-      culture: String(row.culture ?? ""),
+      crop: String(row.crop ?? ""),
       bed: String(row.bed ?? ""),
       cultivation_type: (row.cultivation_type as CultivationType) || "",
       planting_date: formatDateAsGerman(row.planting_date),
@@ -1331,7 +1331,7 @@ function PlantingPlans() {
 
   // Consumes a `?planId=<id>` deep link (e.g. "Anbauplan öffnen"/"bearbeiten"
   // or a double-click from the Gantt calendar's context menu): opens the
-  // existing plan row/card instead of the `bedId`/`cultureId` path above,
+  // existing plan row/card instead of the `bedId`/`cropId` path above,
   // which always prefills a brand-new draft row. An additional `edit=true`
   // also opens it in edit mode straight away.
   useEffect(() => {
@@ -1380,7 +1380,7 @@ function PlantingPlans() {
     setMobileCreateError("");
     setMobileEditId(null);
     setMobileCreateForm({
-      culture: String(row.culture ?? ""),
+      crop: String(row.crop ?? ""),
       bed: String(row.bed ?? ""),
       cultivation_type: (row.cultivation_type as CultivationType) || "",
       planting_date: formatDateAsGerman(row.planting_date),
@@ -1425,7 +1425,7 @@ function PlantingPlans() {
 
     try {
       await plantingPlanAPI.update(mobileEditId, {
-        culture: Number(mobileCreateForm.culture),
+        crop: Number(mobileCreateForm.crop),
         bed: Number(mobileCreateForm.bed),
         planting_date: updateDateIso,
         cultivation_type: mobileCreateForm.cultivation_type,
@@ -1441,13 +1441,13 @@ function PlantingPlans() {
     }
   };
   const hasFields = fields.length > 0;
-  const hasCultures = cultures.length > 0;
+  const hasCrops = crops.length > 0;
   const hasBeds = beds.length > 0;
   const hasPlans = mobileRows.length > 0;
   const firstMissingRequirement = getFirstMissingCultivationPlanRequirement({
     hasFields,
     hasBeds,
-    hasCultures,
+    hasCrops,
   });
   const canCreatePlan = firstMissingRequirement === null && !isMissingActiveSeason;
   const shouldShowNoSeasonState = isMissingActiveSeason;
@@ -1569,14 +1569,14 @@ function PlantingPlans() {
               items={getVisibleMobileRows(mobileRows)}
               expandedIds={expandedCardIds}
               onToggleExpanded={toggleCardExpanded}
-              renderPrimary={(item) => getCultureLabel(item)}
+              renderPrimary={(item) => getCropLabel(item)}
               renderSecondary={(item) => `${formatDateForDisplay(item.planting_date)} · ${getBedLabelForRow(item)}`}
               renderHeaderAction={(item) => (
                 <AppTooltip title={t("common:actions.actions")}>
                   <IconButton
                     size="small"
                     aria-label={t("plantingPlans:mobile.actionsAria", {
-                      plan: getCultureLabel(item),
+                      plan: getCropLabel(item),
                     })}
                     aria-controls={mobileActionMenuAnchor ? "planting-plan-mobile-actions-menu" : undefined}
                     aria-haspopup="menu"
@@ -1666,7 +1666,7 @@ function PlantingPlans() {
             }}
             createNewRow={() => ({
               id: -Date.now(),
-              culture: 0,
+              crop: 0,
               cultivation_type: "",
               location_id: undefined,
               field_id: undefined,
@@ -1681,10 +1681,10 @@ function PlantingPlans() {
             })}
             isNewRowEmpty={isEmptyNewPlantingPlanRow}
           initialRow={
-            !isMobile && (initialSelection.cultureId || initialSelection.bedId)
+            !isMobile && (initialSelection.cropId || initialSelection.bedId)
               ? {
-                  ...(initialSelection.cultureId
-                    ? { culture: initialSelection.cultureId }
+                  ...(initialSelection.cropId
+                    ? { crop: initialSelection.cropId }
                     : {}),
                   ...(initialSelection.bedId
                     ? { bed: initialSelection.bedId }
@@ -1699,9 +1699,9 @@ function PlantingPlans() {
             return {
               ...plan,
               id: plan.id!,
-              culture: plan.culture,
+              crop: plan.crop,
               cultivation_type: plan.cultivation_type ?? "",
-              culture_name: plan.culture_name || "",
+              crop_name: plan.crop_name || "",
               bed: plan.bed,
               bed_name: plan.bed_name || "",
               field_id: linkedBed?.field,
@@ -1723,23 +1723,23 @@ function PlantingPlans() {
             // saved as a draft, so send null rather than blocking on them.
             const plantingDate = toIsoDateString(row.planting_date);
 
-            // Ensure culture and bed are numeric IDs, not label strings
+            // Ensure crop and bed are numeric IDs, not label strings
             // DataGrid singleSelect can sometimes provide the label instead of value
-            let cultureId: number | null;
+            let cropId: number | null;
             let bedId: number | null;
 
-            if (typeof row.culture === "number" && row.culture !== 0) {
-              cultureId = row.culture;
-            } else if (row.culture && typeof row.culture !== "number") {
+            if (typeof row.crop === "number" && row.crop !== 0) {
+              cropId = row.crop;
+            } else if (row.crop && typeof row.crop !== "number") {
               // If it's a string, it's the label - should not happen but handle gracefully
               console.warn(
-                "Culture field contains non-numeric value:",
-                row.culture,
+                "Crop field contains non-numeric value:",
+                row.crop,
               );
-              cultureId = null;
+              cropId = null;
             } else {
               // Not selected yet — allowed as long as a bed is chosen instead.
-              cultureId = null;
+              cropId = null;
             }
 
             if (typeof row.bed === "number" && row.bed !== 0) {
@@ -1755,7 +1755,7 @@ function PlantingPlans() {
 
             // Prepare API data object
             const apiData: Partial<PlantingPlanRow> = {
-              culture: cultureId,
+              crop: cropId,
               bed: bedId,
               planting_date: plantingDate,
               quantity: row.quantity,
@@ -1792,12 +1792,12 @@ function PlantingPlans() {
           validateRow={(row) => {
             // A row can be saved as a draft and completed later, so nothing
             // is strictly required except enough to identify what the row
-            // is about: either a culture or a bed. Missing fields stay
+            // is about: either a crop or a bed. Missing fields stay
             // visible via getRowValidationErrors' per-cell markers below.
-            const hasCulture = Boolean(row.culture) && row.culture !== 0;
+            const hasCrop = Boolean(row.crop) && row.crop !== 0;
             const hasBed = Boolean(row.bed) && row.bed !== 0;
-            if (!hasCulture && !hasBed) {
-              return t("plantingPlans:validation.cultureOrBedRequired");
+            if (!hasCrop && !hasBed) {
+              return t("plantingPlans:validation.cropOrBedRequired");
             }
 
             return null;
@@ -1813,8 +1813,8 @@ function PlantingPlans() {
                 end: seasonBounds.endLabel,
               });
             }
-            if (!row.culture || row.culture === 0) {
-              errors.culture = t("plantingPlans:validation.cultureRequired");
+            if (!row.crop || row.crop === 0) {
+              errors.crop = t("plantingPlans:validation.cropRequired");
             }
             if (!row.bed || row.bed === 0) {
               errors.bed = t("plantingPlans:validation.bedRequired");
@@ -1857,7 +1857,7 @@ function PlantingPlans() {
                 availableArea: capacity.availableArea,
                 bedArea: capacity.bedArea,
                 occupiedArea: capacity.occupiedArea,
-                cultureId: row.culture ?? undefined,
+                cropId: row.crop ?? undefined,
                 plantsCount: row.plants_count,
                 mode: "noRemainingArea",
               });
@@ -1870,7 +1870,7 @@ function PlantingPlans() {
                 availableArea: capacity.availableArea,
                 bedArea: capacity.bedArea,
                 occupiedArea: capacity.occupiedArea,
-                cultureId: row.culture ?? undefined,
+                cropId: row.crop ?? undefined,
                 plantsCount: row.plants_count,
                 mode: "remainingLimit",
               });
@@ -1883,7 +1883,7 @@ function PlantingPlans() {
                 availableArea: capacity.availableArea,
                 bedArea: capacity.bedArea,
                 occupiedArea: capacity.occupiedArea,
-                cultureId: row.culture ?? undefined,
+                cropId: row.crop ?? undefined,
                 plantsCount: row.plants_count,
                 mode: "bedLimit",
               });
@@ -1906,7 +1906,7 @@ function PlantingPlans() {
           showDeleteAction={false}
           showFooterEditControls={false}
           showRowEditActions={false}
-          inlineRowActionField="culture"
+          inlineRowActionField="crop"
           showInlineRowActionMenu
           getRowActions={() => [
             {
@@ -1973,7 +1973,7 @@ function PlantingPlans() {
         form={mobileCreateForm}
         setForm={setMobileCreateForm}
         error={mobileCreateError}
-        cultureOptions={cultureOptions}
+        cropOptions={cropOptions}
         bedOptions={bedOptions}
         cultivationTypeOptions={cultivationTypeOptions}
         numberLocale={numberLocale}
@@ -1985,7 +1985,7 @@ function PlantingPlans() {
               })
             : undefined
         }
-        getPlantsPerSqm={getPlantsPerSqmForCulture}
+        getPlantsPerSqm={getPlantsPerSqmForCrop}
         onLinkedFieldEdited={handleMobileLinkedFieldEdited}
         onClose={closeMobileCreateDialog}
         onSubmit={() => void (mobileEditId ? handleMobileUpdate() : handleMobileCreate())}

@@ -3,7 +3,7 @@
   "dashboard": "Übersicht",
   "locations": "Standorte",
   "fieldsAndBeds": "Anbauflächen",
-  "cultures": "Kulturen",
+  "crops": "Kulturen",
   "cropLibrary": "Kulturbibliothek",
   "suppliers": "Lieferanten",
   "plantingPlans": "Anbaupläne",
@@ -64,9 +64,9 @@
       "endBeforeStart": "Das Enddatum muss nach dem Startdatum liegen.",
       "save": "Speichern",
       "error": "Der Zeitraum konnte nicht geändert werden.",
-      "unknownCulture": "Unbekannte Kultur",
+      "unknownCrop": "Unbekannte Kultur",
       "plantingConflictIntro": "Diese Anbaupläne liegen mit ihrem Pflanzdatum außerhalb des neuen Zeitraums. Passe sie zuerst an oder verschiebe sie, bevor du den Zeitraum änderst:",
-      "plantingConflictItem": "{{culture}} – Pflanzdatum {{date}}",
+      "plantingConflictItem": "{{crop}} – Pflanzdatum {{date}}",
       "overlapConflictIntro": "Der neue Zeitraum überschneidet sich mit einer anderen Saison:",
       "overlapConflictItem": "Saison {{label}}: {{period}}"
     },
@@ -205,7 +205,7 @@
     "dashboard": "Hilfe zu Übersicht",
     "locations": "Hilfe zu Standorte",
     "areas": "Hilfe zu Anbauflächen",
-    "cultures": "Hilfe zu Kulturen",
+    "crops": "Hilfe zu Kulturen",
     "cropLibrary": "Hilfe zur Kulturbibliothek",
     "plantingPlans": "Hilfe zu Anbauplänen",
     "calendar": "Hilfe zu Anbaukalender",
@@ -214,13 +214,13 @@
     "suppliers": "Hilfe zu Lieferanten",
     "openAria": "{{label}} öffnen"
   },
-  "cultureActions": {
+  "cropActions": {
     "openLibrary": "Aus Bibliothek importieren",
     "library": "Aus Bibliothek importieren",
     "libraryShort": "Importieren",
     "openImportExport": "Import/Export öffnen",
     "importExport": "Import/Export",
-    "openCultureActions": "Kultur-Aktionen öffnen",
+    "openCropActions": "Kultur-Aktionen öffnen",
     "actions": "Aktionen"
   },
   "projectTrash": {
@@ -268,7 +268,7 @@
     "currentRegionShortcutsTitle": "Aktueller Fokusbereich",
     "allPageShortcutsTitle": "Seitenspezifische Tastenkürzel",
     "allPageShortcuts": {
-      "cultures": {
+      "crops": {
         "title": "Kulturen",
         "create": "Kultur hinzufügen",
         "search": "Kultursuche fokussieren",
@@ -336,7 +336,7 @@
     "restoreVersion": "Zu dieser Version wechseln",
     "contextTitles": {
       "global": "Global",
-      "cultures": "Kulturen",
+      "crops": "Kulturen",
       "publicCropLibrary": "Kulturbibliothek",
       "locations": "Standorte",
       "areas": "Anbauflächen",

@@ -74,14 +74,14 @@ describe('useNavigationBlocker', () => {
 
     expect(
       predicate({
-        currentLocation: { pathname: '/cultures' },
-        nextLocation: { pathname: '/cultures' },
+        currentLocation: { pathname: '/crops' },
+        nextLocation: { pathname: '/crops' },
       })
     ).toBe(false);
 
     expect(
       predicate({
-        currentLocation: { pathname: '/cultures' },
+        currentLocation: { pathname: '/crops' },
         nextLocation: { pathname: '/fields-beds' },
       })
     ).toBe(true);

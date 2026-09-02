@@ -27,7 +27,7 @@ where a change belongs. For setup/commands see the root
 ```text
 backend/
   accounts/     # User account lifecycle: activation, password reset, deletion, consent
-  farm/         # The core domain app: locations/fields/beds, cultures, planting plans, seed demand, history
+  farm/         # The core domain app: locations/fields/beds, crops, planting plans, seed demand, history
   crops/        # Public Crop Library boundary: official species list, translations, moderation (see crop-library-architecture.md)
   notifications/ # Generic per-user in-app notifications (see notifications.md)
   config/       # Django settings, URL roots
@@ -38,7 +38,7 @@ frontend/
     api/               # httpClient (axios) + per-domain API modules + shared types
     auth/              # Session/auth context, CSRF handling, ProtectedRoute
     focus/, commands/  # Keyboard focus regions and the command/shortcut system
-    cultures/, crops/  # Culture domain UI vs. the (not yet public) Crop Library UI
+    crops/, crop-library/  # Project crop UI vs. the (not yet public) Crop Library UI
     notifications/     # Topbar bell (full layout) / "Mehr"-menu entries (compact) + API client
     i18n/              # Translation resources + language resolution/switcher (German, English)
     gantt-chart/       # Vendored third-party Gantt component (MIT, see its own README)
@@ -49,10 +49,10 @@ docs/                  # This documentation
 ## Backend structure
 
 - **`farm`** is the main domain app: nearly every model and viewset for
-  locations, fields, beds, cultures, suppliers, planting plans, tasks, seed
+  locations, fields, beds, crops, suppliers, planting plans, tasks, seed
   demand, and history/versioning lives here. Models live in the
   `backend/farm/models/` package (one module per domain: `base.py`,
-  `projects.py`, `structure.py`, `cultures.py`, `planning.py`, `notes.py`,
+  `projects.py`, `structure.py`, `crops.py`, `planning.py`, `notes.py`,
   `history.py`, `feedback.py`, all re-exported from `models/__init__.py`); views and
   serializers are organized into matching domain packages inside the app:
   - `farm/common/` — shared API plumbing: `ProjectScopedMixin`/
@@ -63,8 +63,8 @@ docs/                  # This documentation
   - `farm/projects/` — projects, memberships, invitations, agent login,
     and invitation email delivery (`emails.py`).
   - `farm/structure/` — locations, fields, beds, and bed/field layouts.
-  - `farm/cultures/` — cultures, suppliers, seed packages, seed demand,
-    and the public culture library endpoints.
+  - `farm/crops/` — crops, suppliers, seed packages, seed demand,
+    and the public crop library endpoints.
   - `farm/planning/` — planting plans, tasks, and the yield calendar.
   - `farm/notes/` — media uploads and note image attachments.
   - `farm/feedback/` — the in-app feedback endpoint (`POST /api/feedback/`):
@@ -86,14 +86,14 @@ docs/                  # This documentation
 - **`crops`** is the public Crop Library boundary. It owns `CropSpecies`
   (the official, language-independent species list), `CropSpeciesTranslation`,
   and `PublicLibraryModeratorRequest`, and serves three mounts:
-  `/api/crops/` (a read-only view over `farm.PublicCulture`),
+  `/api/crop-library/` (a read-only view over `farm.PublicCrop`),
   `/api/crop-species/` (species list, proposals, moderator approve/reject) and
-  `/api/public-library/moderator-requests/`. `PublicCulture` itself
+  `/api/public-library/moderator-requests/`. `PublicCrop` itself
   deliberately stays in `farm.models`. The dependency direction is meant to be
   one-way (crops must not depend on farm planning) and mostly is, with two
   documented exceptions noted in
   [crop-library-architecture.md](./crop-library-architecture.md) §3.
-  `/api/crops/` exists *alongside* the older `/api/public-cultures/` endpoint,
+  `/api/crop-library/` exists *alongside* the older `/api/public-crops/` endpoint,
   which is still the one the frontend actually uses.
 - **`notifications`** is a small, domain-agnostic app: one `Notification`
   model plus `/api/notifications/`. It knows nothing about crops or projects —
@@ -103,7 +103,7 @@ docs/                  # This documentation
 - Views follow a thin-view convention (CLAUDE.md): business logic goes into
   `backend/farm/services/*.py` (e.g. `services_area.py` for bed-area
   math, `services/seed_packages.py` for the seed-package optimizer,
-  `services/public_cultures.py` for the publish/import bridge) rather than
+  `services/public_crops.py` for the publish/import bridge) rather than
   living in view methods.
 - Physical measurements (area, spacing, seed rates) are stored in SI units
   internally (m², m, g) and converted only at API/serializer boundaries —
@@ -128,13 +128,13 @@ docs/                  # This documentation
   | `Dashboard.tsx` | `/app/dashboard` | Landing page / setup checklist |
   | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte). **Not linked in the navbar** — route and component still exist, kept for potential future use, but there is currently no in-app way to reach this page. |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
-  | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
-  | `crops/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` (alias `/app/crops`) | Full public Crop Library workspace: browse, import, discuss, edit, version history |
-  | `crops/pages/PublicLibraryModerationPage.tsx` | `/app/public-library-moderation` | Moderation queues: species proposals, moderator-access requests, removed entries |
+  | `Crops.tsx` | `/app/crops` | Manage the project crop library; Public Crop Library import/export and version history |
+  | `crop-library/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` | Full public Crop Library workspace: browse, import, discuss, edit, version history |
+  | `crop-library/pages/PublicLibraryModerationPage.tsx` | `/app/public-library-moderation` | Moderation queues: species proposals, moderator-access requests, removed entries |
   | `PlantingPlans.tsx` | `/app/anbauplaene` (alias `/app/planting-plans`) | Spreadsheet-like editable grid of planting schedules |
   | `GanttChart.tsx` | `/app/gantt-chart` | Bed-occupancy timeline / seedling calendar |
   | `YieldOverview.tsx` | `/app/yield-overview` | Aggregated harvest/yield overview |
-  | `SeedDemand.tsx` | `/app/seed-demand` | Seed quantity/package requirement per culture |
+  | `SeedDemand.tsx` | `/app/seed-demand` | Seed quantity/package requirement per crop |
   | `Suppliers.tsx` | `/app/suppliers` | Manage seed/plant suppliers |
   | `ProjectSelectionPage.tsx` | `/app/project-selection` | Pick/create/restore a project |
   | `ProjectSettingsPage.tsx` | `/app/project-settings` | Rename/delete project, manage members & invitations |
@@ -154,7 +154,7 @@ docs/                  # This documentation
 - **API layer** (`frontend/src/api/`): `httpClient.ts` is the one shared
   axios instance; a single request interceptor attaches `X-Project-Id`
   (read fresh from `localStorage` per request) and `X-CSRFToken`.
-  `api.ts` groups REST calls into per-domain objects (`cultureAPI`,
+  `api.ts` groups REST calls into per-domain objects (`cropAPI`,
   `plantingPlanAPI`, `seedDemandAPI`, ...) on top of that client.
   `auth/authApi.ts` is a **separate**, hand-rolled `fetch`-based client used
   only for auth endpoints (login/register/session), independent of the
@@ -244,13 +244,13 @@ a new one.
 - **History is snapshot-based, not event-sourced.** `EntityRevision`
   stores full JSON snapshots per mutation, not deltas to replay. See
   [versioning-and-history.md](./versioning-and-history.md).
-- **The Crop Library split already exists in the data model** (`Culture` is
-  project-owned, `PublicCulture` is shared) and has a full authenticated
+- **The Crop Library split already exists in the data model** (`Crop` is
+  project-owned, `PublicCrop` is shared) and has a full authenticated
   workspace at `/app/crop-library`, but it is **not public yet** and the
-  frontend still talks to the legacy `/api/public-cultures/` rather than
-  `/api/crops/` — see
+  frontend still talks to the legacy `/api/public-crops/` rather than
+  `/api/crop-library/` — see
   [crop-library-architecture.md](./crop-library-architecture.md) before
-  assuming `/api/public-cultures/` can be renamed or removed.
+  assuming `/api/public-crops/` can be renamed or removed.
 - **Large datasets use windowed rendering, not virtualization inside the
   vendored Gantt library** (which doesn't virtualize on its own) — see
   [large-dataset-rendering.md](./large-dataset-rendering.md).

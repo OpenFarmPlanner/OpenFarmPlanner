@@ -4,10 +4,10 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework import serializers
 
-from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, Season, Supplier
+from farm.models import Bed, Crop, Field, Location, PlantingPlan, Project, Season, Supplier
 from farm.common.serializer_fields import CentimetersField
 from farm.planning.serializers import PlantingPlanSerializer
-from farm.cultures.serializers import CultureSerializer
+from farm.crops.serializers import CropSerializer
 from farm.structure.serializers import BedSerializer, FieldSerializer, LocationSerializer
 from farm.utils.normalization import normalize_supplier_name, normalize_text
 
@@ -37,8 +37,8 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIsNone(field.to_representation(None))
         self.assertEqual(field.to_internal_value('15'), 0.15)
 
-    def test_culture_serializer_creates_supplier_from_supplier_name(self):
-        serializer = CultureSerializer(
+    def test_crop_serializer_creates_supplier_from_supplier_name(self):
+        serializer = CropSerializer(
             data={
                 'name': 'Salat',
                 'variety': 'Lollo Rosso',
@@ -51,15 +51,15 @@ class SerializerBranchCoverageTest(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         # `project` is read-only on the serializer and assigned server-side.
-        culture = serializer.save(project=self.project)
+        crop = serializer.save(project=self.project)
 
-        self.assertIsNotNone(culture.supplier)
-        self.assertEqual(culture.supplier.name_normalized, 'acme seeds')
+        self.assertIsNotNone(crop.supplier)
+        self.assertEqual(crop.supplier.name_normalized, 'acme seeds')
         self.assertEqual(Supplier.objects.count(), 1)
 
 
-    def test_culture_serializer_allows_harvest_duration_without_harvest_method(self):
-        serializer = CultureSerializer(
+    def test_crop_serializer_allows_harvest_duration_without_harvest_method(self):
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'Türkis',
@@ -72,7 +72,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_rejects_invalid_cultivation_types(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'X',
@@ -84,7 +84,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIn('cultivation_types', serializer.errors)
 
     def test_validates_seed_rate_by_cultivation_units(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'X',
@@ -100,7 +100,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIn('seed_rate_by_cultivation', serializer.errors)
 
     def test_validates_seed_rate_by_cultivation_keys_subset(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'X',
@@ -115,7 +115,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIn('seed_rate_by_cultivation', serializer.errors)
 
     def test_allows_pre_cultivation_g_per_m2_seed_rate(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'X',
@@ -131,7 +131,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_validates_only_active_cultivation_seed_fields(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Fenchel',
                 'variety': 'X',
@@ -145,7 +145,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertNotIn('seed_rate_pre_cultivation_unit', serializer.errors)
 
     def test_accepts_pre_cultivation_only_without_direct_fields(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Lauch',
                 'variety': 'X',
@@ -158,7 +158,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_accepts_agent_seed_requirements_object(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Tomate',
                 'variety': 'San Marzano',
@@ -175,17 +175,17 @@ class SerializerBranchCoverageTest(TestCase):
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        culture = serializer.save(project=self.project)
-        self.assertEqual(culture.seed_rate_pre_cultivation_value, 2)
-        self.assertEqual(culture.seed_rate_pre_cultivation_unit, 'seeds_per_plant')
-        self.assertEqual(culture.sowing_calculation_safety_percent_pre_cultivation, 15)
+        crop = serializer.save(project=self.project)
+        self.assertEqual(crop.seed_rate_pre_cultivation_value, 2)
+        self.assertEqual(crop.seed_rate_pre_cultivation_unit, 'seeds_per_plant')
+        self.assertEqual(crop.sowing_calculation_safety_percent_pre_cultivation, 15)
         self.assertEqual(
-            culture.seed_rate_by_cultivation,
+            crop.seed_rate_by_cultivation,
             {'pre_cultivation': {'value': 2.0, 'unit': 'seeds_per_plant'}},
         )
 
     def test_represents_seed_requirements_object(self):
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name='Tomate',
             variety='San Marzano',
             cultivation_types=['pre_cultivation'],
@@ -195,7 +195,7 @@ class SerializerBranchCoverageTest(TestCase):
             project=self.project,
         )
 
-        data = CultureSerializer(culture).data
+        data = CropSerializer(crop).data
 
         self.assertEqual(
             data['seed_requirements'],
@@ -209,7 +209,7 @@ class SerializerBranchCoverageTest(TestCase):
         )
 
     def test_rejects_conflicting_seed_requirements_and_flat_fields(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Tomate',
                 'variety': 'San Marzano',
@@ -227,7 +227,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIn('seed_requirements', serializer.errors)
 
     def test_allows_seed_rate_units_without_values(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Mangold',
                 'variety': 'X',
@@ -243,7 +243,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_normalizes_legacy_empty_seed_rate_unit_placeholder(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Mangold',
                 'variety': 'X',
@@ -256,7 +256,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertIsNone(serializer.validated_data['seed_rate_pre_cultivation_unit'])
 
     def test_represents_legacy_empty_seed_rate_unit_placeholder_as_null(self):
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name='Mangold',
             variety='X',
             cultivation_types=['pre_cultivation'],
@@ -264,12 +264,12 @@ class SerializerBranchCoverageTest(TestCase):
             project=self.project,
         )
 
-        data = CultureSerializer(culture).data
+        data = CropSerializer(crop).data
 
         self.assertIsNone(data['seed_rate_pre_cultivation_unit'])
 
     def test_accepts_direct_sowing_seeds_per_plant_unit(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Bohne',
                 'variety': 'X',
@@ -282,7 +282,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_accepts_direct_sowing_only(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Möhre',
                 'variety': 'X',
@@ -295,7 +295,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_accepts_both_cultivation_methods(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Sellerie',
                 'variety': 'X',
@@ -310,7 +310,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_accepts_small_method_seed_rate_values(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Karotte',
                 'variety': 'Nantaise',
@@ -324,12 +324,12 @@ class SerializerBranchCoverageTest(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         # `project` is read-only on the serializer and assigned server-side.
-        culture = serializer.save(project=self.project)
-        self.assertEqual(culture.seed_rate_direct_value, 0.014)
-        self.assertEqual(culture.seed_rate_pre_cultivation_value, 1.357)
+        crop = serializer.save(project=self.project)
+        self.assertEqual(crop.seed_rate_direct_value, 0.014)
+        self.assertEqual(crop.seed_rate_pre_cultivation_value, 1.357)
 
     def test_notes_without_quellen_section_are_allowed(self):
-        serializer = CultureSerializer(
+        serializer = CropSerializer(
             data={
                 'name': 'Kohl',
                 'variety': 'X',
@@ -351,7 +351,7 @@ class SerializerBranchCoverageTest(TestCase):
             serializer.validate({'area_input_value': Decimal('10')})
 
     def test_planting_plan_serializer_converts_plants_to_area_and_computes_count(self):
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name='Möhre',
             growth_duration_days=8,
             harvest_duration_days=3,
@@ -369,7 +369,7 @@ class SerializerBranchCoverageTest(TestCase):
         serializer = PlantingPlanSerializer()
         attrs = serializer.validate(
             {
-                'culture': culture,
+                'crop': crop,
                 'bed': self.bed,
                 'season': season,
                 'planting_date': date(2024, 4, 1),
@@ -382,7 +382,7 @@ class SerializerBranchCoverageTest(TestCase):
         self.assertGreater(attrs['area_usage_sqm'], 0)
 
         plan = PlantingPlan.objects.create(
-            culture=culture,
+            crop=crop,
             bed=self.bed,
             planting_date=date(2024, 4, 1),
             area_usage_sqm=attrs['area_usage_sqm'],
@@ -576,8 +576,8 @@ class SerializerBranchCoverageTest(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    def test_culture_serializer_does_not_require_project_field(self):
-        serializer = CultureSerializer(
+    def test_crop_serializer_does_not_require_project_field(self):
+        serializer = CropSerializer(
             data={
                 'name': 'Spinat',
                 'variety': 'Matador',

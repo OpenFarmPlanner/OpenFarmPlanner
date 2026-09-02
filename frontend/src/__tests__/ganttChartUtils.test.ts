@@ -4,7 +4,7 @@ import {
   buildFieldOccupancyTaskGroups,
   buildSeedlingTaskGroups,
   buildSeedlingTooltipDetails,
-  formatCultureDisplayLabel,
+  formatCropDisplayLabel,
   getOccupancyCalendarRange,
   getOccupancyTaskPhase,
   getSeedlingCalendarRange,
@@ -53,17 +53,17 @@ describe('getOccupancyCalendarRange', () => {
 });
 
 describe('getSeedlingCalendarRange', () => {
-  const seedlingCultures = [
+  const seedlingCrops = [
     { id: 7, name: 'Tomate', propagation_duration_days: 21, cultivation_type: 'pre_cultivation' },
   ];
 
   it('spans the earliest propagation start and the latest transplant date', () => {
     const range = getSeedlingCalendarRange(
       [
-        { id: 1, culture: 7, planting_date: '2026-05-10', cultivation_type: 'pre_cultivation' },
-        { id: 2, culture: 7, planting_date: '2026-03-01', cultivation_type: 'pre_cultivation' },
+        { id: 1, crop: 7, planting_date: '2026-05-10', cultivation_type: 'pre_cultivation' },
+        { id: 2, crop: 7, planting_date: '2026-03-01', cultivation_type: 'pre_cultivation' },
       ],
-      seedlingCultures,
+      seedlingCrops,
     );
 
     // 2026-03-01 minus 21 days of propagation.
@@ -73,8 +73,8 @@ describe('getSeedlingCalendarRange', () => {
 
   it('returns null when there are no pre-cultivation plans', () => {
     const range = getSeedlingCalendarRange(
-      [{ id: 1, culture: 7, planting_date: '2026-05-10', cultivation_type: 'direct_sowing' }],
-      seedlingCultures,
+      [{ id: 1, crop: 7, planting_date: '2026-05-10', cultivation_type: 'direct_sowing' }],
+      seedlingCrops,
     );
     expect(range).toBeNull();
   });
@@ -82,9 +82,9 @@ describe('getSeedlingCalendarRange', () => {
 
 describe('buildSeedlingTaskGroups', () => {
 
-  it('formats the visible label as culture and variety', () => {
-    expect(formatCultureDisplayLabel('Tomate', 'Resibella')).toBe('Tomate (Resibella)');
-    expect(formatCultureDisplayLabel('Tomate', '')).toBe('Tomate');
+  it('formats the visible label as crop and variety', () => {
+    expect(formatCropDisplayLabel('Tomate', 'Resibella')).toBe('Tomate (Resibella)');
+    expect(formatCropDisplayLabel('Tomate', '')).toBe('Tomate');
   });
 
   it('builds tooltip details only for available values', () => {
@@ -111,12 +111,12 @@ describe('buildSeedlingTaskGroups', () => {
     expect(reducedDetails).toEqual([{ labelKey: 'plantingPlanCount', value: '1' }]);
   });
 
-  it('builds propagation windows grouped by culture', () => {
+  it('builds propagation windows grouped by crop', () => {
     const groups = buildSeedlingTaskGroups({
       locations,
       fields,
       beds,
-      cultures: [
+      crops: [
         {
           id: 7,
           name: 'Tomate',
@@ -129,8 +129,8 @@ describe('buildSeedlingTaskGroups', () => {
       plantingPlans: [
         {
           id: 5,
-          culture: 7,
-          culture_name: 'Tomate',
+          crop: 7,
+          crop_name: 'Tomate',
           bed: 100,
           bed_name: 'Beet A',
           planting_date: '2026-05-10',
@@ -159,13 +159,13 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [
+      crops: [
         {
           id: 9,
           name: 'Tomate',
           variety: 'Berner Rose',
           crop_species: 4,
-          general_culture: 8,
+          general_crop: 8,
           inherited_fields: ['propagation_duration_days', 'cultivation_type'],
           effective_values: {
             propagation_duration_days: 21,
@@ -177,8 +177,8 @@ describe('buildSeedlingTaskGroups', () => {
       plantingPlans: [
         {
           id: 6,
-          culture: 9,
-          culture_name: 'Tomate',
+          crop: 9,
+          crop_name: 'Tomate',
           bed: 100,
           bed_name: 'Beet A',
           planting_date: '2026-05-10',
@@ -192,7 +192,7 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].endDate.toISOString()).toContain('2026-05-10');
   });
 
-  it('aggregates seedling requirements by culture, start date and transplant date independent of beds', () => {
+  it('aggregates seedling requirements by crop, start date and transplant date independent of beds', () => {
     const groups = buildSeedlingTaskGroups({
       locations: [
         { id: 1, name: 'Hof' },
@@ -206,7 +206,7 @@ describe('buildSeedlingTaskGroups', () => {
         { id: 100, name: 'Beet A', field: 10 },
         { id: 200, name: 'Beet B', field: 20 },
       ],
-      cultures: [
+      crops: [
         {
           id: 7,
           name: 'Gurke',
@@ -218,8 +218,8 @@ describe('buildSeedlingTaskGroups', () => {
       plantingPlans: [
         {
           id: 1,
-          culture: 7,
-          culture_name: 'Gurke',
+          crop: 7,
+          crop_name: 'Gurke',
           bed: 100,
           planting_date: '2026-02-20',
           cultivation_type: 'pre_cultivation',
@@ -227,8 +227,8 @@ describe('buildSeedlingTaskGroups', () => {
         },
         {
           id: 2,
-          culture: 7,
-          culture_name: 'Gurke',
+          crop: 7,
+          crop_name: 'Gurke',
           bed: 200,
           planting_date: '2026-02-20',
           cultivation_type: 'pre_cultivation',
@@ -236,8 +236,8 @@ describe('buildSeedlingTaskGroups', () => {
         },
         {
           id: 3,
-          culture: 7,
-          culture_name: 'Gurke',
+          crop: 7,
+          crop_name: 'Gurke',
           bed: 100,
           planting_date: '2026-02-27',
           cultivation_type: 'pre_cultivation',
@@ -266,21 +266,21 @@ describe('buildSeedlingTaskGroups', () => {
 
 
 
-  it('falls back to planting plan payload when the culture list is incomplete', () => {
+  it('falls back to planting plan payload when the crop list is incomplete', () => {
     const groups = buildSeedlingTaskGroups({
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 9,
-          culture: 77,
-          culture_name: 'Salat',
-          culture_variety: 'Bijella',
-          culture_display_color: '#00aa44',
-          culture_propagation_duration_days: 25,
-          culture_cultivation_types: ['pre_cultivation', 'direct_sowing'],
+          crop: 77,
+          crop_name: 'Salat',
+          crop_variety: 'Bijella',
+          crop_display_color: '#00aa44',
+          crop_propagation_duration_days: 25,
+          crop_cultivation_types: ['pre_cultivation', 'direct_sowing'],
           bed: 100,
           bed_name: 'Beet A',
           planting_date: '2026-05-10',
@@ -294,12 +294,12 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].startDate.toISOString()).toContain('2026-04-15');
   });
 
-  it('prefers localized planting plan culture names in seedling labels', () => {
+  it('prefers localized planting plan crop names in seedling labels', () => {
     const groups = buildSeedlingTaskGroups({
       locations,
       fields,
       beds,
-      cultures: [
+      crops: [
         {
           id: 77,
           name: 'Karotte',
@@ -311,10 +311,10 @@ describe('buildSeedlingTaskGroups', () => {
       plantingPlans: [
         {
           id: 9,
-          culture: 77,
-          culture_name: 'Karotte',
-          culture_display_name: 'Carrot',
-          culture_variety: 'Nantaise 2',
+          crop: 77,
+          crop_name: 'Karotte',
+          crop_display_name: 'Carrot',
+          crop_variety: 'Nantaise 2',
           bed: 100,
           planting_date: '2026-05-10',
           cultivation_type: 'pre_cultivation',
@@ -325,7 +325,7 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe('Carrot (Nantaise 2)');
     expect(groups[0].tasks[0].name).toBe('Carrot (Nantaise 2)');
-    expect(groups[0].tasks[0].cultureName).toBe('Carrot');
+    expect(groups[0].tasks[0].cropName).toBe('Carrot');
   });
 
   it('ignores direct sowings and incomplete propagation data', () => {
@@ -333,7 +333,7 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [
+      crops: [
         {
           id: 7,
           name: 'Möhre',
@@ -350,16 +350,16 @@ describe('buildSeedlingTaskGroups', () => {
       plantingPlans: [
         {
           id: 1,
-          culture: 7,
-          culture_name: 'Möhre',
+          crop: 7,
+          crop_name: 'Möhre',
           bed: 100,
           planting_date: '2026-04-01',
           cultivation_type: 'direct_sowing',
         },
         {
           id: 2,
-          culture: 8,
-          culture_name: 'Salat',
+          crop: 8,
+          crop_name: 'Salat',
           bed: 100,
           planting_date: '2026-04-20',
           cultivation_type: 'direct_sowing',
@@ -375,13 +375,13 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 21,
-          culture: 42,
-          culture_name: 'Salat',
-          culture_variety: 'Bijella',
+          crop: 42,
+          crop_name: 'Salat',
+          crop_variety: 'Bijella',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -395,19 +395,19 @@ describe('buildSeedlingTaskGroups', () => {
     expect(groups[0].tasks[0].name).toBe('Salat (Bijella)');
   });
 
-  it('prefers localized planting plan culture names in occupancy labels', () => {
+  it('prefers localized planting plan crop names in occupancy labels', () => {
     const groups = buildFieldOccupancyTaskGroups({
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 21,
-          culture: 42,
-          culture_name: 'Karotte',
-          culture_display_name: 'Carrot',
-          culture_variety: 'Nantaise 2',
+          crop: 42,
+          crop_name: 'Karotte',
+          crop_display_name: 'Carrot',
+          crop_variety: 'Nantaise 2',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -418,7 +418,7 @@ describe('buildSeedlingTaskGroups', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].tasks[0].name).toBe('Carrot (Nantaise 2)');
-    expect(groups[0].tasks[0].cultureName).toBe('Carrot');
+    expect(groups[0].tasks[0].cropName).toBe('Carrot');
     expect(groups[0].tasks[1].name).toBe('Carrot (Nantaise 2) (Ernte)');
   });
 
@@ -427,12 +427,12 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 23,
-          culture: 13,
-          culture_name: 'Kohl',
+          crop: 13,
+          crop_name: 'Kohl',
           bed: 100,
           planting_date: '2026-03-10',
           harvest_date: '2026-04-20',
@@ -461,12 +461,12 @@ describe('buildSeedlingTaskGroups', () => {
         { id: 100, name: 'Beet A', field: 10 },
         { id: 200, name: 'Beet B', field: 20 },
       ],
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 24,
-          culture: 7,
-          culture_name: 'Salat',
+          crop: 7,
+          crop_name: 'Salat',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -474,8 +474,8 @@ describe('buildSeedlingTaskGroups', () => {
         },
         {
           id: 25,
-          culture: 8,
-          culture_name: 'Tomate',
+          crop: 8,
+          crop_name: 'Tomate',
           bed: 200,
           planting_date: '2026-05-01',
           harvest_date: '2026-07-01',
@@ -498,13 +498,13 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 22,
-          culture: 42,
-          culture_name: 'Salat',
-          culture_variety: 'Bijella',
+          crop: 42,
+          crop_name: 'Salat',
+          crop_variety: 'Bijella',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -524,11 +524,11 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [{
         id: 23,
-        culture: 42,
-        culture_name: 'Salat',
+        crop: 42,
+        crop_name: 'Salat',
         bed: 100,
         planting_date: '2026-03-01',
         harvest_date: '2026-04-15',
@@ -548,12 +548,12 @@ describe('buildSeedlingTaskGroups', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 26,
-          culture: 42,
-          culture_name: 'Salat',
+          crop: 42,
+          crop_name: 'Salat',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -594,7 +594,7 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [],
     });
 
@@ -611,7 +611,7 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [],
     });
 
@@ -626,7 +626,7 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: multiLocationLocations,
       fields: multiLocationFields,
       beds: multiLocationBeds,
-      cultures: [],
+      crops: [],
       plantingPlans: [],
     });
 
@@ -644,12 +644,12 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: multiLocationLocations,
       fields: multiLocationFields,
       beds: multiLocationBeds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 1,
-          culture: 1,
-          culture_name: 'Salat',
+          crop: 1,
+          crop_name: 'Salat',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -657,8 +657,8 @@ describe('buildFieldOccupancyHierarchy', () => {
         },
         {
           id: 2,
-          culture: 2,
-          culture_name: 'Kohl',
+          crop: 2,
+          crop_name: 'Kohl',
           bed: 101,
           planting_date: '2026-03-05',
           harvest_date: '2026-04-20',
@@ -685,13 +685,13 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 21,
-          culture: 42,
-          culture_name: 'Salat',
-          culture_variety: 'Bijella',
+          crop: 42,
+          crop_name: 'Salat',
+          crop_variety: 'Bijella',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -706,19 +706,19 @@ describe('buildFieldOccupancyHierarchy', () => {
     expect(bedNode?.tasks[1].name).toBe('Salat (Bijella) (Ernte)');
   });
 
-  it('prefers localized planting plan culture names in hierarchy task labels', () => {
+  it('prefers localized planting plan crop names in hierarchy task labels', () => {
     const nodes = buildFieldOccupancyHierarchy({
       locations,
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [
         {
           id: 21,
-          culture: 42,
-          culture_name: 'Karotte',
-          culture_display_name: 'Carrot',
-          culture_variety: 'Nantaise 2',
+          crop: 42,
+          crop_name: 'Karotte',
+          crop_display_name: 'Carrot',
+          crop_variety: 'Nantaise 2',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',
@@ -737,7 +737,7 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations: [],
       fields,
       beds,
-      cultures: [],
+      crops: [],
       plantingPlans: [],
     });
 
@@ -750,7 +750,7 @@ describe('buildFieldOccupancyHierarchy', () => {
       locations,
       fields,
       beds,
-      cultures: [
+      crops: [
         {
           id: 42,
           name: 'Kohlrabi',
@@ -760,8 +760,8 @@ describe('buildFieldOccupancyHierarchy', () => {
       plantingPlans: [
         {
           id: 30,
-          culture: 42,
-          culture_name: 'Kohlrabi',
+          crop: 42,
+          crop_name: 'Kohlrabi',
           bed: 100,
           planting_date: '2026-03-01',
           harvest_date: '2026-04-15',

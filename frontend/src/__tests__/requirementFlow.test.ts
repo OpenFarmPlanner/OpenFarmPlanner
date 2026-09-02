@@ -12,7 +12,7 @@ describe('getFirstMissingCultivationPlanRequirement', () => {
     expect(getFirstMissingCultivationPlanRequirement({
       hasFields: true,
       hasBeds: false,
-      hasCultures: true,
+      hasCrops: true,
     })).toBe('beds');
   });
 
@@ -20,7 +20,7 @@ describe('getFirstMissingCultivationPlanRequirement', () => {
     expect(getFirstMissingCultivationPlanRequirement({
       hasFields: true,
       hasBeds: true,
-      hasCultures: true,
+      hasCrops: true,
     })).toBeNull();
   });
 });
@@ -30,7 +30,7 @@ describe('project setup actions', () => {
     expect(getFirstMissingProjectSetupStep({
       hasFields: false,
       hasBeds: false,
-      hasCultures: false,
+      hasCrops: false,
       hasPlans: false,
     })).toBe('fields');
   });
@@ -49,28 +49,28 @@ describe('project setup actions', () => {
     });
   });
 
-  it('orders culture setup actions with the library first', () => {
-    expect(getProjectSetupActions('cultures')).toEqual([
+  it('orders crop setup actions with the library first', () => {
+    expect(getProjectSetupActions('crops')).toEqual([
       {
-        labelKey: 'common:setupActions.openCultureLibrary',
-        to: '/app/cultures?library=true',
+        labelKey: 'common:setupActions.openCropLibrary',
+        to: '/app/crops?library=true',
       },
       {
-        labelKey: 'common:setupActions.createCulture',
-        to: '/app/cultures?create=true',
+        labelKey: 'common:setupActions.createCrop',
+        to: '/app/crops?create=true',
       },
     ]);
   });
 
   it('translates setup actions while preserving routes', () => {
-    expect(getTranslatedProjectSetupActions('cultures', (key) => `translated:${key}`)).toEqual([
+    expect(getTranslatedProjectSetupActions('crops', (key) => `translated:${key}`)).toEqual([
       {
-        label: 'translated:common:setupActions.openCultureLibrary',
-        to: '/app/cultures?library=true',
+        label: 'translated:common:setupActions.openCropLibrary',
+        to: '/app/crops?library=true',
       },
       {
-        label: 'translated:common:setupActions.createCulture',
-        to: '/app/cultures?create=true',
+        label: 'translated:common:setupActions.createCrop',
+        to: '/app/crops?create=true',
       },
     ]);
   });

@@ -18,7 +18,7 @@ export const VIEWPORTS = [
 export const MAIN_ROUTES = [
   { key: 'dashboard', path: '/app/dashboard', ready: /Übersicht|Dashboard/i },
   { key: 'anbauflaechen', path: '/app/fields-beds', ready: /Anbauflächen|Parzellen|Beete/i },
-  { key: 'kulturen', path: '/app/cultures', ready: /Kulturbibliothek/i },
+  { key: 'kulturen', path: '/app/crops', ready: /Kulturbibliothek/i },
   { key: 'anbauplaene', path: '/app/anbauplaene', ready: /Anbaupläne|Anbauplan/i },
   { key: 'anbaukalender', path: '/app/gantt-chart', ready: /Anbaukalender|Kalender/i },
   { key: 'ertragsuebersicht', path: '/app/yield-overview', ready: /Ertragsübersicht|Ertragsverteilung|Ertragsprognose/i },

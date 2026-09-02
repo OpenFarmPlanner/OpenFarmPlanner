@@ -5,10 +5,10 @@ import SeedDemandPage from '../pages/SeedDemand';
 import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 
-const { listMock, saveSelectionMock, cultureListMock, planListMock, locationListMock, fieldListMock, bedListMock } = vi.hoisted(() => ({
+const { listMock, saveSelectionMock, cropListMock, planListMock, locationListMock, fieldListMock, bedListMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   saveSelectionMock: vi.fn(),
-  cultureListMock: vi.fn(),
+  cropListMock: vi.fn(),
   planListMock: vi.fn(),
   locationListMock: vi.fn(),
   fieldListMock: vi.fn(),
@@ -27,8 +27,8 @@ vi.mock('../api/api', async () => {
       list: listMock,
       saveSupplierSelection: saveSelectionMock,
     },
-    cultureAPI: {
-      list: cultureListMock,
+    cropAPI: {
+      list: cropListMock,
     },
     plantingPlanAPI: {
       list: planListMock,
@@ -76,8 +76,8 @@ describe('SeedDemandPage', () => {
     window.localStorage.clear();
     projectRequirementState.shouldShowProjectRequiredState = false;
     projectRequirementState.missingProjectReason = null;
-    saveSelectionMock.mockResolvedValue({ data: { culture_id: 1, selected_supplier_id: 10 } });
-    cultureListMock.mockResolvedValue({
+    saveSelectionMock.mockResolvedValue({ data: { crop_id: 1, selected_supplier_id: 10 } });
+    cropListMock.mockResolvedValue({
       data: { results: [{ id: 1, name: 'Basis', seed_rate_value: 1, seed_rate_direct_value: null, seed_rate_pre_cultivation_value: null }] },
     });
     planListMock.mockResolvedValue({ data: { results: [{ id: 1 }] } });
@@ -103,7 +103,7 @@ describe('SeedDemandPage', () => {
     await waitFor(() => {
       expect(screen.getByText('seedDemand.progressive.fields.title')).toBeInTheDocument();
     });
-    expect(screen.queryByText('seedDemand.columns.culture')).not.toBeInTheDocument();
+    expect(screen.queryByText('seedDemand.columns.crop')).not.toBeInTheDocument();
     expect(screen.queryByText('Keine Einträge vorhanden')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'common:setupActions.createField' })).toHaveAttribute(
       'href',
@@ -135,9 +135,9 @@ describe('SeedDemandPage', () => {
     expect(screen.queryByRole('link', { name: 'common:setupActions.createBed' })).not.toBeInTheDocument();
   });
 
-  it('shows culture-step requirement when locations and beds exist but cultures are missing', async () => {
+  it('shows crop-step requirement when locations and beds exist but crops are missing', async () => {
     listMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
-    cultureListMock.mockResolvedValue({ data: { results: [] } });
+    cropListMock.mockResolvedValue({ data: { results: [] } });
     planListMock.mockResolvedValue({ data: { results: [] } });
 
     render(
@@ -149,21 +149,21 @@ describe('SeedDemandPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('seedDemand.progressive.cultures.title')).toBeInTheDocument();
+      expect(screen.getByText('seedDemand.progressive.crops.title')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'common:setupActions.openCultureLibrary' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'common:setupActions.openCropLibrary' })).toHaveAttribute(
       'href',
-      '/app/cultures?library=true',
+      '/app/crops?library=true',
     );
-    expect(screen.getByRole('link', { name: 'common:setupActions.createCulture' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'common:setupActions.createCrop' })).toHaveAttribute(
       'href',
-      '/app/cultures?create=true',
+      '/app/crops?create=true',
     );
   });
 
-  it('shows plan-step requirement when cultures exist but plans are missing', async () => {
+  it('shows plan-step requirement when crops exist but plans are missing', async () => {
     listMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
-    cultureListMock.mockResolvedValue({
+    cropListMock.mockResolvedValue({
       data: { results: [{ id: 1, name: 'Karotte', seed_rate_value: 2, seed_rate_direct_value: null, seed_rate_pre_cultivation_value: null }] },
     });
     planListMock.mockResolvedValue({ data: { results: [] } });
@@ -184,7 +184,7 @@ describe('SeedDemandPage', () => {
 
   it('shows no-results empty state when requirements are fulfilled but no rows are calculated', async () => {
     listMock.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } });
-    cultureListMock.mockResolvedValue({
+    cropListMock.mockResolvedValue({
       data: { results: [{ id: 1, name: 'Karotte', seed_rate_value: 2, seed_rate_direct_value: null, seed_rate_pre_cultivation_value: null }] },
     });
     planListMock.mockResolvedValue({ data: { results: [{ id: 1 }] } });
@@ -198,7 +198,7 @@ describe('SeedDemandPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('seedDemand.columns.culture')).toBeInTheDocument();
+      expect(screen.getByText('seedDemand.columns.crop')).toBeInTheDocument();
     });
     expect(screen.getByText('seedDemand.emptyStates.noResultsTitle')).toBeInTheDocument();
     expect(screen.getByText('seedDemand.emptyStates.noResultsDescription')).toBeInTheDocument();
@@ -240,7 +240,7 @@ describe('SeedDemandPage', () => {
     });
   });
 
-  it('shows culture with variety in parentheses', async () => {
+  it('shows crop with variety in parentheses', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 1,
@@ -248,8 +248,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -283,7 +283,7 @@ describe('SeedDemandPage', () => {
 
     expect(screen.getByRole('link', { name: 'Bohne (Canadian Wonder)' })).toHaveAttribute(
       'href',
-      '/app/cultures?cultureId=1'
+      '/app/crops?cropId=1'
     );
 
     expect(screen.getByText('25 seedDemand.unitGrams × 8')).toBeInTheDocument();
@@ -291,7 +291,7 @@ describe('SeedDemandPage', () => {
     expect(screen.queryByText(/over:/i)).not.toBeInTheDocument();
   });
 
-  it('uses the localized culture display name when the API provides one', async () => {
+  it('uses the localized crop display name when the API provides one', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 1,
@@ -299,10 +299,10 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Ackerbohne',
-            culture_display_name: 'Broad bean',
-            culture_display_language_code: 'en',
+            crop_id: 1,
+            crop_name: 'Ackerbohne',
+            crop_display_name: 'Broad bean',
+            crop_display_language_code: 'en',
             variety: 'Hangdown',
             supplier: 'Open Seeds',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Open Seeds' }],
@@ -342,8 +342,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -371,15 +371,15 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
-    const row = cultureLink.closest('tr');
+    const cropLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const row = cropLink.closest('tr');
     expect(row).not.toBeNull();
 
     const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     const stopPropagationSpy = vi.spyOn(contextMenuEvent, 'stopPropagation');
     fireEvent(row as HTMLTableRowElement, contextMenuEvent);
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCrop' })).toBeInTheDocument();
     expect(contextMenuEvent.defaultPrevented).toBe(true);
     expect(stopPropagationSpy).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('menuitem', { name: 'common:actions.copyRow' }));
@@ -399,8 +399,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -423,7 +423,7 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const cropLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
     const actionsButton = screen.getByRole('button', { name: 'common:actions.actions' });
     // The right-click lands on the icon's inner <path>, an SVGElement, not the
     // <button> (HTMLElement) itself - this is what a real right-click on a
@@ -434,11 +434,11 @@ describe('SeedDemandPage', () => {
     const contextMenuEvent = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     fireEvent(iconPath as Element, contextMenuEvent);
 
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCrop' })).toBeInTheDocument();
     // The native browser context menu must not appear alongside the app's own.
     expect(contextMenuEvent.defaultPrevented).toBe(true);
-    expect(cultureLink).toBeInTheDocument();
+    expect(cropLink).toBeInTheDocument();
   });
 
   it('opens the app context menu from a touch long-press on the row, and suppresses the trailing click', async () => {
@@ -449,8 +449,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -473,8 +473,8 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
-    const row = cultureLink.closest('tr') as HTMLTableRowElement;
+    const cropLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const row = cropLink.closest('tr') as HTMLTableRowElement;
 
     let touchEndEvent: TouchEvent;
     vi.useFakeTimers();
@@ -492,7 +492,7 @@ describe('SeedDemandPage', () => {
       vi.useRealTimers();
     }
 
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
     expect(touchEndEvent!.defaultPrevented).toBe(true);
   });
 
@@ -504,8 +504,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -528,8 +528,8 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
-    const row = cultureLink.closest('tr') as HTMLTableRowElement;
+    const cropLink = await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
+    const row = cropLink.closest('tr') as HTMLTableRowElement;
 
     vi.useFakeTimers();
     try {
@@ -542,7 +542,7 @@ describe('SeedDemandPage', () => {
       vi.useRealTimers();
     }
 
-    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).not.toBeInTheDocument();
   });
 
   it('still opens the icon normally on left-click after the context-menu fix (unchanged behavior)', async () => {
@@ -553,8 +553,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -580,7 +580,7 @@ describe('SeedDemandPage', () => {
     await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
     fireEvent.click(screen.getByRole('button', { name: 'common:actions.actions' }));
 
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
   });
 
   it('leaves the native browser context menu untouched outside the table', async () => {
@@ -591,8 +591,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -621,7 +621,7 @@ describe('SeedDemandPage', () => {
     fireEvent(document.body, contextMenuEvent);
 
     expect(contextMenuEvent.defaultPrevented).toBe(false);
-    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).not.toBeInTheDocument();
   });
 
   it('opens row actions from the inline actions menu', async () => {
@@ -632,8 +632,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 1,
-            culture_name: 'Bohne',
+            crop_id: 1,
+            crop_name: 'Bohne',
             variety: 'Canadian Wonder',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -659,8 +659,8 @@ describe('SeedDemandPage', () => {
     await screen.findByRole('link', { name: 'Bohne (Canadian Wonder)' });
     fireEvent.click(screen.getByRole('button', { name: 'common:actions.actions' }));
 
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCulture' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCulture' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCrop' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'common:actions.copyRow' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'common:actions.copyTable' })).toBeInTheDocument();
   });
@@ -678,8 +678,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 2,
-            culture_name: 'Salat',
+            crop_id: 2,
+            crop_name: 'Salat',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
             selected_supplier_id: 10,
@@ -701,8 +701,8 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Salat' });
-    const row = cultureLink.closest('tr');
+    const cropLink = await screen.findByRole('link', { name: 'Salat' });
+    const row = cropLink.closest('tr');
     expect(row).not.toBeNull();
 
     fireEvent.contextMenu(row as HTMLTableRowElement);
@@ -711,7 +711,7 @@ describe('SeedDemandPage', () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
         [
-          'seedDemand.columns.culture\tseedDemand.columns.supplier\tseedDemand.columns.requiredAmount\tseedDemand.columns.packages',
+          'seedDemand.columns.crop\tseedDemand.columns.supplier\tseedDemand.columns.requiredAmount\tseedDemand.columns.packages',
           'Salat\tReinsaat\t0,25 seedDemand.unitGrams\tseedDemand.noPackagesAvailable',
         ].join('\n'),
       );
@@ -726,8 +726,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 2,
-            culture_name: 'Salat',
+            crop_id: 2,
+            crop_name: 'Salat',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
             selected_supplier_id: 10,
@@ -767,8 +767,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 2,
-            culture_name: 'Kresse',
+            crop_id: 2,
+            crop_name: 'Kresse',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
             selected_supplier_id: 10,
@@ -797,11 +797,11 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Kresse' });
+    const cropLink = await screen.findByRole('link', { name: 'Kresse' });
     expect(screen.getByText('Nicht berechenbar (TKG fehlt)')).toBeInTheDocument();
     expect(screen.queryByText(/2.000,00 seedDemand.unitSeeds/)).not.toBeInTheDocument();
 
-    const row = cultureLink.closest('tr');
+    const row = cropLink.closest('tr');
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as HTMLTableRowElement);
     fireEvent.click(screen.getByRole('menuitem', { name: 'common:actions.copyRow' }));
@@ -821,8 +821,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 5,
-            culture_name: 'Spinat',
+            crop_id: 5,
+            crop_name: 'Spinat',
             supplier: 'Only Supplier',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Only Supplier' }],
             selected_supplier_id: 10,
@@ -860,8 +860,8 @@ describe('SeedDemandPage', () => {
           previous: null,
           results: [
             {
-              culture_id: 3,
-              culture_name: 'Karotte',
+              crop_id: 3,
+              crop_name: 'Karotte',
               supplier: 'Reinsaat',
               selected_supplier_id: 10,
               supplier_options: [
@@ -889,8 +889,8 @@ describe('SeedDemandPage', () => {
           previous: null,
           results: [
             {
-              culture_id: 3,
-              culture_name: 'Karotte',
+              crop_id: 3,
+              crop_name: 'Karotte',
               supplier: 'Bingenheimer',
               selected_supplier_id: 11,
               supplier_options: [
@@ -941,8 +941,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 4,
-            culture_name: 'Mangold',
+            crop_id: 4,
+            crop_name: 'Mangold',
             supplier: '',
             selected_supplier_id: null,
             supplier_options: [],
@@ -966,12 +966,12 @@ describe('SeedDemandPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('seedDemand.noSupplierAvailable')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'seedDemand.editCultureAction' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'seedDemand.editCropAction' })).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('link', { name: 'seedDemand.editCultureAction' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'seedDemand.editCropAction' })).toHaveAttribute(
       'href',
-      '/app/cultures?cultureId=4&action=edit',
+      '/app/crops?cropId=4&action=edit',
     );
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
@@ -984,8 +984,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 5,
-            culture_name: 'Spinat',
+            crop_id: 5,
+            crop_name: 'Spinat',
             supplier: '',
             selected_supplier_id: null,
             supplier_options: [{ supplier_id: 22, supplier_name: 'Reinsaat' }],
@@ -1027,8 +1027,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 6,
-            culture_name: 'Rote Bete',
+            crop_id: 6,
+            crop_name: 'Rote Bete',
             supplier: '',
             selected_supplier_id: null,
             supplier_options: [
@@ -1061,7 +1061,7 @@ describe('SeedDemandPage', () => {
     expect(screen.getByRole('option', { name: 'seedDemand.selectSupplier' })).toBeInTheDocument();
   });
 
-  it('renders exactly one row per culture in seed demand table', async () => {
+  it('renders exactly one row per crop in seed demand table', async () => {
     listMock.mockResolvedValue({
       data: {
         count: 2,
@@ -1069,8 +1069,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 10,
-            culture_name: 'Karotte',
+            crop_id: 10,
+            crop_name: 'Karotte',
             supplier_options: [{ supplier_id: 1, supplier_name: 'Supplier A' }],
             selected_supplier_id: 1,
             required_amount_value: 20,
@@ -1080,8 +1080,8 @@ describe('SeedDemandPage', () => {
             warning: null,
           },
           {
-            culture_id: 11,
-            culture_name: 'Salat',
+            crop_id: 11,
+            crop_name: 'Salat',
             supplier_options: [{ supplier_id: 2, supplier_name: 'Supplier B' }],
             selected_supplier_id: 2,
             required_amount_value: 10,
@@ -1118,8 +1118,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 7,
-            culture_name: 'Mangold',
+            crop_id: 7,
+            crop_name: 'Mangold',
             supplier: '',
             selected_supplier_id: null,
             supplier_options: [],
@@ -1165,8 +1165,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 8,
-            culture_name: 'Radieschen',
+            crop_id: 8,
+            crop_name: 'Radieschen',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
             selected_supplier_id: 10,
@@ -1194,7 +1194,7 @@ describe('SeedDemandPage', () => {
     });
     expect(screen.getByRole('link', { name: /seedDemand.noPackagesAvailable/ })).toHaveAttribute(
       'href',
-      '/app/cultures?cultureId=8&action=edit',
+      '/app/crops?cropId=8&action=edit',
     );
   });
 
@@ -1206,8 +1206,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 9,
-            culture_name: 'Pastinake',
+            crop_id: 9,
+            crop_name: 'Pastinake',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
             selected_supplier_id: 10,
@@ -1244,8 +1244,8 @@ describe('SeedDemandPage', () => {
         previous: null,
         results: [
           {
-            culture_id: 10,
-            culture_name: 'Mais',
+            crop_id: 10,
+            crop_name: 'Mais',
             variety: 'rot',
             supplier: 'Reinsaat',
             supplier_options: [{ supplier_id: 10, supplier_name: 'Reinsaat' }],
@@ -1272,8 +1272,8 @@ describe('SeedDemandPage', () => {
       </MemoryRouter>
     );
 
-    const cultureLink = await screen.findByRole('link', { name: 'Mais (rot)' });
-    const row = cultureLink.closest('tr');
+    const cropLink = await screen.findByRole('link', { name: 'Mais (rot)' });
+    const row = cropLink.closest('tr');
     expect(row).not.toBeNull();
     const cells = Array.from((row as HTMLTableRowElement).querySelectorAll('td'));
     expect(cells.at(-2)?.textContent).toBe('Nicht berechenbar (Beetfläche fehlt)');

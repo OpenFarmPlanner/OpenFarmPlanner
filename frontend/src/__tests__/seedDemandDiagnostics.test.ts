@@ -32,8 +32,8 @@ const t: SeedDemandTranslator = (key, options = {}) => Object.entries(options).r
 );
 
 const row = (overrides: Partial<SeedDemand>): SeedDemand => ({
-  culture_id: 1,
-  culture_name: 'Test',
+  crop_id: 1,
+  crop_name: 'Test',
   total_grams: null,
   required_amount_value: null,
   required_amount_unit: 'g',

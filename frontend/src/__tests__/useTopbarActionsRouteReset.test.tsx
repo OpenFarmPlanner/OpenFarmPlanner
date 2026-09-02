@@ -6,7 +6,7 @@ import { useTopbarContextActions } from '../hooks/useTopbarContextActions';
 import type { TopbarContextAction } from '../navigation/topbarTypes';
 
 /**
- * Regression test for a bug where the culture import toolbar button (and
+ * Regression test for a bug where the crop import toolbar button (and
  * any other page-registered topbar action) vanished after navigating away
  * from a page and back.
  *
@@ -40,14 +40,14 @@ function Layout({ pathname }: { pathname: string }) {
   return (
     <>
       <div data-testid="actions">{actions.map((action) => action.label).join(',')}</div>
-      {pathname === '/cultures' ? <Page setTopbarContextActions={setActions} /> : <OtherPage />}
+      {pathname === '/crops' ? <Page setTopbarContextActions={setActions} /> : <OtherPage />}
     </>
   );
 }
 
 describe('useTopbarActionsRouteReset', () => {
   it('keeps a page-registered action visible when the page remounts in the same commit as the route change', () => {
-    const { rerender } = render(<Layout pathname="/cultures" />);
+    const { rerender } = render(<Layout pathname="/crops" />);
     expect(screen.getByTestId('actions')).toHaveTextContent('Aus Bibliothek importieren');
 
     rerender(<Layout pathname="/other" />);
@@ -56,7 +56,7 @@ describe('useTopbarActionsRouteReset', () => {
     // Same-commit remount: React swaps OtherPage for Page in one render pass,
     // exactly like a route change where the target page's lazy chunk is
     // already cached and mounts synchronously with the route transition.
-    rerender(<Layout pathname="/cultures" />);
+    rerender(<Layout pathname="/crops" />);
     expect(screen.getByTestId('actions')).toHaveTextContent('Aus Bibliothek importieren');
   });
 });

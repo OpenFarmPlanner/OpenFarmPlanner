@@ -1,6 +1,6 @@
 /**
  * Generic parent-child tree flattening, independent of any domain
- * (locations/fields/beds, cultures, etc.). Used to turn a flat list of
+ * (locations/fields/beds, crops, etc.). Used to turn a flat list of
  * {id, parentId} nodes into an ordered, depth-annotated list of visible
  * rows, respecting expand/collapse state and an optional visibility
  * filter (e.g. from search) that keeps ancestors of a match visible.

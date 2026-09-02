@@ -477,12 +477,12 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockResolvedValue({
       data: {
         can_delete: true,
-        culture_count: 0,
-        seed_demand_culture_count: 0,
-        supplier_data_culture_count: 0,
+        crop_count: 0,
+        seed_demand_crop_count: 0,
+        supplier_data_crop_count: 0,
         supplier_data_count: 0,
-        total_culture_count: 0,
-        culture_ids: [],
+        total_crop_count: 0,
+        crop_ids: [],
       },
     });
     mocks.delete.mockResolvedValue({ data: { undo_payload: undefined } });
@@ -518,8 +518,8 @@ describe('Suppliers page empty and table states', () => {
         slug: 'reinsaat',
         allowed_domains: ['example.com'],
       },
-      culture_ids: [],
-      seed_demand_culture_ids: [],
+      crop_ids: [],
+      seed_demand_crop_ids: [],
       supplier_data: [],
     };
     mocks.list.mockResolvedValue({
@@ -530,19 +530,19 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockResolvedValue({
       data: {
         can_delete: true,
-        culture_count: 0,
-        seed_demand_culture_count: 0,
-        supplier_data_culture_count: 0,
+        crop_count: 0,
+        seed_demand_crop_count: 0,
+        supplier_data_crop_count: 0,
         supplier_data_count: 0,
-        total_culture_count: 0,
-        culture_ids: [],
+        total_crop_count: 0,
+        crop_ids: [],
       },
     });
     mocks.delete.mockResolvedValue({ data: { undo_payload: serverUndoPayload } });
     mocks.restoreUnlinkedDelete.mockResolvedValue({
       data: {
         supplier: { id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', allowed_domains: [] },
-        restored_culture_count: 0,
+        restored_crop_count: 0,
         restored_supplier_data_count: 0,
       },
     });
@@ -571,12 +571,12 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockResolvedValue({
       data: {
         can_delete: true,
-        culture_count: 0,
-        seed_demand_culture_count: 0,
-        supplier_data_culture_count: 0,
+        crop_count: 0,
+        seed_demand_crop_count: 0,
+        supplier_data_crop_count: 0,
         supplier_data_count: 0,
-        total_culture_count: 0,
-        culture_ids: [],
+        total_crop_count: 0,
+        crop_ids: [],
       },
     });
     mocks.delete.mockRejectedValue(new Error('network down'));
@@ -598,7 +598,7 @@ describe('Suppliers page empty and table states', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('blocks supplier deletion when existing cultures still use it', async () => {
+  it('blocks supplier deletion when existing crops still use it', async () => {
     mocks.list.mockResolvedValue({
       data: {
         results: [{ id: 1, name: 'Reinsaat', homepage_url: 'https://example.com' }],
@@ -607,12 +607,12 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockResolvedValue({
       data: {
         can_delete: false,
-        culture_count: 12,
-        seed_demand_culture_count: 2,
-        supplier_data_culture_count: 5,
+        crop_count: 12,
+        seed_demand_crop_count: 2,
+        supplier_data_crop_count: 5,
         supplier_data_count: 7,
-        total_culture_count: 12,
-        culture_ids: [1, 2, 3],
+        total_crop_count: 12,
+        crop_ids: [1, 2, 3],
       },
     });
 
@@ -641,7 +641,7 @@ describe('Suppliers page empty and table states', () => {
     expect(screen.getAllByText('Reinsaat').length).toBeGreaterThan(0);
   });
 
-  it('unlinks a used supplier from cultures, deletes it, and offers undo', async () => {
+  it('unlinks a used supplier from crops, deletes it, and offers undo', async () => {
     const undoPayload = {
       supplier: {
         id: 1,
@@ -650,8 +650,8 @@ describe('Suppliers page empty and table states', () => {
         slug: 'reinsaat',
         allowed_domains: ['example.com'],
       },
-      culture_ids: [1, 2],
-      seed_demand_culture_ids: [2],
+      crop_ids: [1, 2],
+      seed_demand_crop_ids: [2],
       supplier_data: [],
     };
     mocks.list.mockResolvedValue({
@@ -662,24 +662,24 @@ describe('Suppliers page empty and table states', () => {
     mocks.deleteUsage.mockResolvedValue({
       data: {
         can_delete: false,
-        culture_count: 2,
-        seed_demand_culture_count: 1,
-        supplier_data_culture_count: 0,
+        crop_count: 2,
+        seed_demand_crop_count: 1,
+        supplier_data_crop_count: 0,
         supplier_data_count: 0,
-        total_culture_count: 2,
-        culture_ids: [1, 2],
+        total_crop_count: 2,
+        crop_ids: [1, 2],
       },
     });
     mocks.unlinkAndDelete.mockResolvedValue({
       data: {
-        affected_culture_count: 2,
+        affected_crop_count: 2,
         undo_payload: undoPayload,
       },
     });
     mocks.restoreUnlinkedDelete.mockResolvedValue({
       data: {
         supplier: { id: 1, name: 'Reinsaat', homepage_url: 'https://example.com', allowed_domains: [] },
-        restored_culture_count: 2,
+        restored_crop_count: 2,
         restored_supplier_data_count: 0,
       },
     });

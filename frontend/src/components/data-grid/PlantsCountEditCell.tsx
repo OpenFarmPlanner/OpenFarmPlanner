@@ -8,12 +8,12 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
-import type { Culture } from '../../api/types';
+import type { Crop } from '../../api/types';
 import { useEditCellNavigation } from './EditCellNavigationContext';
 import { useEditCellAutoFocus } from './useEditCellAutoFocus';
 
 export interface PlantsCountEditCellProps extends GridRenderEditCellParams {
-  cultures: Culture[];
+  crops: Crop[];
   onLastEditedFieldChange: (field: 'plants_count') => void;
   placeholder?: string;
 }

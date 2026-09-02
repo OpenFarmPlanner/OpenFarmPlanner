@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   fieldList: vi.fn(),
   bedList: vi.fn(),
   planList: vi.fn(),
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   planUpdate: vi.fn(),
   planDelete: vi.fn(),
   ganttProps: vi.fn(),
@@ -156,8 +156,8 @@ vi.mock('../api/api', async () => {
       update: mocks.planUpdate,
       delete: mocks.planDelete,
     },
-    cultureAPI: {
-      listAll: async () => (await mocks.cultureList()).data,
+    cropAPI: {
+      listAll: async () => (await mocks.cropList()).data,
     },
   };
 });
@@ -451,7 +451,7 @@ describe('GanttChartPage', () => {
 
   it('shows field-specific guidance when no locations exist', async () => {
     mocks.planList.mockResolvedValue({ data: { results: [] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [] } });
     mocks.bedList.mockResolvedValue({ data: { results: [] } });
     mocks.locationList.mockResolvedValue({ data: { results: [] } });
@@ -480,9 +480,9 @@ describe('GanttChartPage', () => {
     expect(screen.queryByTestId('mock-gantt')).not.toBeInTheDocument();
   });
 
-  it('shows plan guidance without a redundant missing-plan badge when areas and cultures exist', async () => {
+  it('shows plan guidance without a redundant missing-plan badge when areas and crops exist', async () => {
     mocks.planList.mockResolvedValue({ data: { results: [] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -499,9 +499,9 @@ describe('GanttChartPage', () => {
     expect(screen.queryByText('Öffne die Anbauflächen und füge dort eine Parzelle beim passenden Standort hinzu. Danach kannst du Beete, Kulturen und Anbaupläne erfassen.')).not.toBeInTheDocument();
   });
 
-  it('shows culture-specific guidance when land hierarchy exists but no cultures exist', async () => {
+  it('shows crop-specific guidance when land hierarchy exists but no crops exist', async () => {
     mocks.planList.mockResolvedValue({ data: { results: [] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [] } });
     mocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hofstelle' }] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [{ id: 10, name: 'Nordfeld', location: 1 }] } });
     mocks.bedList.mockResolvedValue({ data: { results: [{ id: 20, name: 'Beet 1', field: 10 }] } });
@@ -546,8 +546,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -555,7 +555,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -604,8 +604,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -613,7 +613,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -631,8 +631,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 11,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2025-04-01',
             harvest_date: '2025-05-01',
@@ -640,7 +640,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -657,8 +657,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-01-10',
             harvest_date: '2026-12-20',
@@ -666,7 +666,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -695,15 +695,15 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             planting_date: '2026-04-20',
             harvest_date: '2026-05-20',
           },
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({
+    mocks.cropList.mockResolvedValue({
       data: {
         results: [{
           id: 5,
@@ -739,8 +739,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-20',
             harvest_date: '2026-05-20',
@@ -748,7 +748,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -774,8 +774,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -783,7 +783,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -812,8 +812,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -821,7 +821,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
     window.localStorage.setItem(GANTT_STATE_STORAGE_KEY, JSON.stringify({
       leftColumnWidth: 360,
     }));
@@ -918,15 +918,15 @@ describe('GanttChartPage', () => {
           results: [
             {
               id: 10,
-              culture: 5,
-              culture_name: 'Salat',
+              crop: 5,
+              crop_name: 'Salat',
               planting_date: '2026-04-20',
               harvest_date: '2026-05-20',
             },
           ],
         },
       });
-      mocks.cultureList.mockResolvedValue({
+      mocks.cropList.mockResolvedValue({
         data: {
           results: [{
             id: 5,
@@ -957,15 +957,15 @@ describe('GanttChartPage', () => {
       data: {
         results: [{
           id: 10,
-          culture: 5,
-          culture_name: 'Salat',
+          crop: 5,
+          crop_name: 'Salat',
           bed: 3,
           planting_date: '2026-04-01',
           harvest_date: '2026-05-01',
         }],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     renderWithAuth();
 
@@ -979,14 +979,14 @@ describe('GanttChartPage', () => {
   it('persists timeline view mode changes and keeps them during data updates', async () => {
     const initialPlan = {
       id: 10,
-      culture: 5,
-      culture_name: 'Salat',
+      crop: 5,
+      crop_name: 'Salat',
       bed: 3,
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',
     };
     mocks.planList.mockResolvedValue({ data: { results: [initialPlan] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
     mocks.planUpdate.mockResolvedValue({
       data: {
         ...initialPlan,
@@ -1017,8 +1017,8 @@ describe('GanttChartPage', () => {
   it('refreshes calendar data on focus without resetting the timeline view mode', async () => {
     const initialPlan = {
       id: 10,
-      culture: 5,
-      culture_name: 'Salat',
+      crop: 5,
+      crop_name: 'Salat',
       bed: 3,
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',
@@ -1032,7 +1032,7 @@ describe('GanttChartPage', () => {
     mocks.planList
       .mockResolvedValueOnce({ data: { results: [initialPlan] } })
       .mockResolvedValue({ data: { results: [refreshedPlan] } });
-    mocks.cultureList.mockResolvedValue({
+    mocks.cropList.mockResolvedValue({
       data: {
         results: [{
           id: 5,
@@ -1077,15 +1077,15 @@ describe('GanttChartPage', () => {
       data: {
         results: Array.from({ length: rowCount }, (_, index) => ({
           id: index + 1,
-          culture: 5,
-          culture_name: 'Salat',
+          crop: 5,
+          crop_name: 'Salat',
           bed: index + 1,
           planting_date: '2026-04-01',
           harvest_date: '2026-05-01',
         })),
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -1142,8 +1142,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 11,
-            culture: 6,
-            culture_name: 'Tomate',
+            crop: 6,
+            crop_name: 'Tomate',
             bed: 3,
             planting_date: '2026-05-10',
             cultivation_type: 'pre_cultivation',
@@ -1153,7 +1153,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({
+    mocks.cropList.mockResolvedValue({
       data: {
         results: [
           {
@@ -1197,22 +1197,22 @@ describe('GanttChartPage', () => {
     });
   });
 
-  it('filters the seedling view by culture name using its own search field, without any hierarchy filters', async () => {
+  it('filters the seedling view by crop name using its own search field, without any hierarchy filters', async () => {
     mocks.planList.mockResolvedValue({
       data: {
         results: [
           {
             id: 11,
-            culture: 6,
-            culture_name: 'Tomate',
+            crop: 6,
+            crop_name: 'Tomate',
             bed: 3,
             planting_date: '2026-05-10',
             cultivation_type: 'pre_cultivation',
           },
           {
             id: 12,
-            culture: 7,
-            culture_name: 'Karotte',
+            crop: 7,
+            crop_name: 'Karotte',
             bed: 4,
             planting_date: '2026-05-15',
             cultivation_type: 'pre_cultivation',
@@ -1220,7 +1220,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({
+    mocks.cropList.mockResolvedValue({
       data: {
         results: [
           { id: 6, name: 'Tomate', propagation_duration_days: 21, cultivation_type: 'pre_cultivation' },
@@ -1263,8 +1263,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -1272,7 +1272,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -1296,8 +1296,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -1305,7 +1305,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -1341,8 +1341,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -1350,7 +1350,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -1405,8 +1405,8 @@ describe('GanttChartPage', () => {
         results: [
           {
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
@@ -1414,7 +1414,7 @@ describe('GanttChartPage', () => {
         ],
       },
     });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
 
     render(
       <MemoryRouter>
@@ -1434,8 +1434,8 @@ describe('GanttChartPage', () => {
   it('shows backend validation errors and reloads plans after failed task update', async () => {
     const initialPlan = {
       id: 10,
-      culture: 5,
-      culture_name: 'Salat',
+      crop: 5,
+      crop_name: 'Salat',
       bed: 3,
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',
@@ -1447,7 +1447,7 @@ describe('GanttChartPage', () => {
     mocks.planList
       .mockResolvedValueOnce({ data: { results: [initialPlan] } })
       .mockResolvedValueOnce({ data: { results: [reloadedPlan] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
     mocks.planUpdate.mockRejectedValue({
       isAxiosError: true,
       response: {
@@ -1479,14 +1479,14 @@ describe('GanttChartPage', () => {
   it('keeps successful task updates working', async () => {
     const initialPlan = {
       id: 10,
-      culture: 5,
-      culture_name: 'Salat',
+      crop: 5,
+      crop_name: 'Salat',
       bed: 3,
       planting_date: '2026-04-01',
       harvest_date: '2026-05-01',
     };
     mocks.planList.mockResolvedValue({ data: { results: [initialPlan] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
     mocks.planUpdate.mockResolvedValue({
       data: {
         ...initialPlan,
@@ -1539,16 +1539,16 @@ describe('GanttChartPage', () => {
           results: [
             {
               id: 1,
-              culture: 1,
-              culture_name: 'Karotte',
+              crop: 1,
+              crop_name: 'Karotte',
               bed: 100,
               planting_date: '2026-03-01',
               harvest_date: '2026-05-01',
             },
             {
               id: 2,
-              culture: 2,
-              culture_name: 'Tomate',
+              crop: 2,
+              crop_name: 'Tomate',
               bed: 200,
               planting_date: '2026-04-01',
               harvest_date: '2026-07-01',
@@ -1556,7 +1556,7 @@ describe('GanttChartPage', () => {
           ],
         },
       });
-      mocks.cultureList.mockResolvedValue({
+      mocks.cropList.mockResolvedValue({
         data: { results: [{ id: 1, name: 'Karotte' }, { id: 2, name: 'Tomate' }] },
       });
     };
@@ -1869,15 +1869,15 @@ describe('GanttChartPage', () => {
         data: {
           results: [{
             id: 10,
-            culture: 5,
-            culture_name: 'Salat',
+            crop: 5,
+            crop_name: 'Salat',
             bed: 3,
             planting_date: '2026-04-01',
             harvest_date: '2026-05-01',
           }],
         },
       });
-      mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
+      mocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: 'Salat' }] } });
     };
 
     it('double-clicking a task bar navigates to and opens its existing planting plan', async () => {
@@ -1890,7 +1890,7 @@ describe('GanttChartPage', () => {
       expect(mocks.navigate).toHaveBeenCalledWith('/app/planting-plans?planId=10');
     });
 
-    it('a task context menu offers plan/culture/bed navigation plus edit, copy, and delete', async () => {
+    it('a task context menu offers plan/crop/bed navigation plus edit, copy, and delete', async () => {
       setUpSinglePlanFixture();
       renderWithAuth();
 

@@ -56,7 +56,7 @@ describe('SeasonPeriodEditDialog', () => {
         data: {
           code: ['season_period_edit_conflict'],
           planting_plan_conflicts: [
-            { id: '7', label: 'Tomate in Beet A - 2026-02-10', culture: 'Tomate', planting_date: '2026-02-10' },
+            { id: '7', label: 'Tomate in Beet A - 2026-02-10', crop: 'Tomate', planting_date: '2026-02-10' },
           ],
           overlap_conflicts: [],
         },

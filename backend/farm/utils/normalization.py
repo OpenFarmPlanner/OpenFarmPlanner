@@ -1,6 +1,6 @@
 """Text normalization utilities for deduplication and matching.
 
-This module provides functions to normalize text values (culture names, varieties,
+This module provides functions to normalize text values (crop names, varieties,
 supplier names) for consistent matching and deduplication in the database.
 """
 
