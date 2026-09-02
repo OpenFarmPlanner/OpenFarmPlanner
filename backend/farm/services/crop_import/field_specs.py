@@ -206,7 +206,9 @@ CROP_FIELD_SPECS: tuple[FieldSpec, ...] = (
         ),
         example='Brokkoli',
         max_length=200,
-        input_aliases={'name': None, 'crop_name': None},
+        # `culture_name` stays accepted: the Culture -> Crop rename must not
+        # silently reject payloads existing agent integrations already send.
+        input_aliases={'name': None, 'crop_name': None, 'culture_name': None},
     ),
     FieldSpec(
         name='variety',
