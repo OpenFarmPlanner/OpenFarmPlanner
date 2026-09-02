@@ -169,6 +169,21 @@ describe('culture form UI sections', () => {
     expect(screen.getByText('Bitte wählen')).toBeInTheDocument();
   });
 
+  it('hides the seed safety margin field when showSeedSafetyMargin is false (public library form)', () => {
+    render(
+      <SeedingSection
+        formData={{ cultivation_types: ['direct_sowing'], seed_rate_direct_value: 5 }}
+        errors={{}}
+        onChange={vi.fn()}
+        t={t}
+        showSeedSafetyMargin={false}
+      />
+    );
+
+    expect(screen.queryByLabelText('Sicherheitszuschlag für Saatgut (%)')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Menge')).toBeInTheDocument();
+  });
+
   it('renders an empty seed unit placeholder without a synthetic option', () => {
     const onChange = vi.fn();
 

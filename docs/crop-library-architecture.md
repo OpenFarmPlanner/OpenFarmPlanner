@@ -69,7 +69,10 @@ The public Crop Library follows an open-data model:
   variants) is the concrete case: it depends on the farm's germination
   expectations, seeding technique and risk appetite, not on the crop, so
   publishing leaves it in the project culture and importing never overwrites
-  it. See "Private project data that remains private" in
+  it. The shared `CultureForm`/`SeedingSection` and `CultureSeedDetails` hide
+  the field entirely in the public-library variant (`showSeedSafetyMargin`),
+  and keep it for project cultures. See "Private project data that remains
+  private" in
   [`public-crop-library-data-model.md`](public-crop-library-data-model.md).
 - Public entries can be edited directly by logged-in users. Each edit is
   immediately published as the current public version and records an immutable

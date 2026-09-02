@@ -1414,6 +1414,7 @@ export function CultureForm({
               t={t}
               getFieldTooltipProps={getFieldTooltipProps}
               seedRateUnitConstraints={seedRateUnitConstraints}
+              showSeedSafetyMargin={isProjectForm}
             />
             <ColorSection formData={formData} errors={errors} onChange={handleChange} t={t} defaultColor={DEFAULT_DISPLAY_COLOR} />
             {isProjectForm ? (
