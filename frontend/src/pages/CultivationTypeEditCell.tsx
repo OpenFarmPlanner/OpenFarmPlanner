@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useCallback, useState } from "react";
 import { Box, MenuItem, TextField } from "@mui/material";
 import type { GridRenderEditCellParams } from "@mui/x-data-grid";
 import { useClosedSelectTypeahead } from "../components/inputs/selectTypeahead";
 import { useSelectEditCellOpenRequest } from "../components/data-grid/SelectEditCellContext";
+import { useSelectMenuEnterCommit } from "../components/data-grid/useSelectMenuEnterCommit";
 import { normalizeCultivationType } from "./plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "./usePlantingPlanHierarchy";
 
@@ -44,84 +45,15 @@ export const CultivationTypeEditCell = memo(function CultivationTypeEditCell({
     value: selectedValue,
     onSelect: handleTypeaheadSelect,
   });
-  const handleMenuKeyDown = useCallback((event: ReactKeyboardEvent<HTMLUListElement>): void => {
-    if (
-      event.key !== 'Enter'
-      || event.altKey
-      || event.ctrlKey
-      || event.metaKey
-    ) {
-      return;
-    }
-
-    const selectedElement = event.currentTarget.querySelector<HTMLElement>(
-      '[role="option"].Mui-focusVisible, [role="option"].Mui-selected, [role="option"][aria-selected="true"]',
-    );
-    const nextValue = selectedElement?.getAttribute('data-value');
-    const nextOption = nextValue
-      ? options.find((option) => option.value === nextValue)
-      : undefined;
-    if (!nextOption) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent.stopImmediatePropagation?.();
-    void api.setEditCellValue({
-      id,
-      field,
-      value: nextOption.value,
-    });
-    setOpen(false);
-    notifyMenuClose(event);
-  }, [api, field, id, notifyMenuClose, options]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const handleDocumentKeyDownCapture = (event: globalThis.KeyboardEvent): void => {
-      if (
-        event.key !== 'Enter'
-        || event.altKey
-        || event.ctrlKey
-        || event.metaKey
-      ) {
-        return;
-      }
-
-      const activeElement = document.activeElement;
-      const selectedElement = (
-        activeElement instanceof HTMLElement
-          ? activeElement.closest<HTMLElement>('[role="option"]')
-          : null
-      ) ?? document.querySelector<HTMLElement>(
-          '[role="listbox"] [role="option"].Mui-focusVisible, [role="listbox"] [role="option"].Mui-selected, [role="listbox"] [role="option"][aria-selected="true"]',
-        );
-      const nextValue = selectedElement?.getAttribute('data-value');
-      const nextOption = nextValue
-        ? options.find((option) => option.value === nextValue)
-        : undefined;
-      if (!nextOption) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void api.setEditCellValue({
-        id,
-        field,
-        value: nextOption.value,
-      });
-      setOpen(false);
-      notifyMenuClose(event);
-    };
-
-    document.addEventListener('keydown', handleDocumentKeyDownCapture, true);
-    return () => document.removeEventListener('keydown', handleDocumentKeyDownCapture, true);
-  }, [api, field, id, notifyMenuClose, open, options]);
+  const handleMenuKeyDown = useSelectMenuEnterCommit({
+    open,
+    options,
+    api,
+    id,
+    field,
+    setOpen,
+    notifyMenuClose,
+  });
 
   return (
     <TextField
