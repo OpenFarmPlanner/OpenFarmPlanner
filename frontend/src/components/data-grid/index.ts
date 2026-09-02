@@ -36,7 +36,7 @@ export { PlantsCountEditCell } from './PlantsCountEditCell';
 export type { PlantsCountEditCellProps } from './PlantsCountEditCell';
 export { DateEditCell } from './DateEditCell';
 export { toIsoDateString, toGridDateValue } from './dateEditCellUtils';
-export { parseGermanDateText, formatDateAsGerman } from './GermanDateEditCell';
+export { parseGermanDateText, formatDateAsGerman } from './dateEditCellUtils';
 export { SearchableSelectEditCell } from './SearchableSelectEditCell';
 export type { SearchableSelectOption, SearchableSelectEditCellProps } from './SearchableSelectEditCell';
 export { createSearchableSelectColumn, createSingleSelectColumn } from './columns';
