@@ -20,6 +20,7 @@ import { useTranslation } from '../../i18n';
 import { formatDateAsGerman, parseGermanDateText } from './GermanDateEditCell';
 import { toIsoDateString } from './dateEditCellUtils';
 import { useEditCellNavigation } from './EditCellNavigationContext';
+import { useEditCellTabNavigation } from './useEditCellTabNavigation';
 
 type DateSegment = 'day' | 'month' | 'year';
 
@@ -99,43 +100,7 @@ function DateEditCellComponent(params: GridRenderEditCellParams & DateEditCellBo
     ? text
     : formatDateAsGerman(params.value as Date | string | null);
 
-  useEffect(() => {
-    const input = inputRef.current;
-    if (!input || !editCellNavigation) {
-      return undefined;
-    }
-
-    const handleNativeTabKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-        event.stopPropagation();
-        return;
-      }
-
-      if (event.key !== 'Tab') {
-        return;
-      }
-
-      editCellNavigation({
-        id: params.id,
-        field: params.field,
-        event: {
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          key: event.key,
-          metaKey: event.metaKey,
-          nativeEvent: event,
-          preventDefault: () => event.preventDefault(),
-          shiftKey: event.shiftKey,
-          stopPropagation: () => event.stopPropagation(),
-        },
-      });
-    };
-
-    input.addEventListener('keydown', handleNativeTabKeyDown, { capture: true });
-    return () => {
-      input.removeEventListener('keydown', handleNativeTabKeyDown, { capture: true });
-    };
-  }, [editCellNavigation, params.field, params.id]);
+  useEditCellTabNavigation(inputRef, editCellNavigation, params.id, params.field);
 
   const focusSegment = useCallback((segment: DateSegment): void => {
     const input = inputRef.current;
