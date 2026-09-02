@@ -250,7 +250,7 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         months = [(2025, m) for m in (9, 10, 11, 12)] + [(2026, m) for m in range(1, 9)]
         for year, month in months:
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project,
+                crop=self.crop, bed=self.bed, project=self.project,
                 season=last_season, planting_date=date(year, month, 15),
             )
 
@@ -281,7 +281,7 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         )
         for planting_date in (date(2025, 10, 15), date(2025, 11, 15), date(2026, 3, 15)):
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project,
+                crop=self.crop, bed=self.bed, project=self.project,
                 season=last_season, planting_date=planting_date,
             )
 
@@ -325,7 +325,7 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         )
         for planting_date in (date(2025, 10, 15), date(2025, 12, 20), date(2026, 3, 1)):
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project,
+                crop=self.crop, bed=self.bed, project=self.project,
                 season=last_season, planting_date=planting_date,
             )
 
@@ -354,7 +354,7 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         # that a short Sep-Dec transition season could never hold.
         for planting_date in (date(2025, 10, 15), date(2026, 3, 1), date(2026, 6, 20)):
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project,
+                crop=self.crop, bed=self.bed, project=self.project,
                 season=last_season, planting_date=planting_date,
             )
 
@@ -377,10 +377,10 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
         target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source, planting_date=date(2026, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, season=source, planting_date=date(2026, 4, 1),
         )
         existing_target_plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=target, planting_date=date(2027, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, season=target, planting_date=date(2027, 4, 1),
         )
 
         created_plans, skipped_count = copy_planting_plans(source_season=source, target_season=target)
@@ -395,7 +395,7 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         source = Season.objects.create(project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31))
         target = Season.objects.create(project=self.project, start_date=date(2027, 9, 1), end_date=date(2028, 8, 31))
         original = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            crop=self.crop, bed=self.bed, project=self.project, season=source,
             planting_date=date(2026, 4, 1),
         )
 
@@ -410,7 +410,7 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         source = Season.objects.create(project=self.project, start_date=date(2024, 1, 1), end_date=date(2024, 12, 31))
         target = Season.objects.create(project=self.project, start_date=date(2025, 1, 1), end_date=date(2025, 12, 31))
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source, planting_date=date(2024, 2, 29),
+            crop=self.crop, bed=self.bed, project=self.project, season=source, planting_date=date(2024, 2, 29),
         )
 
         copy_planting_plans(source_season=source, target_season=target)
@@ -425,11 +425,11 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 4, 30),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            crop=self.crop, bed=self.bed, project=self.project, season=source,
             planting_date=date(2025, 3, 1),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            crop=self.crop, bed=self.bed, project=self.project, season=source,
             planting_date=date(2025, 9, 1),
         )
 
@@ -450,11 +450,11 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
             project=self.project, start_date=date(2028, 1, 1), end_date=date(2028, 12, 31),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            crop=self.crop, bed=self.bed, project=self.project, season=source,
             planting_date=date(2026, 10, 15),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            crop=self.crop, bed=self.bed, project=self.project, season=source,
             planting_date=date(2027, 3, 20),
         )
 
@@ -487,7 +487,7 @@ class SeasonApiTest(ProjectApiTestCase):
 
     def test_create_rejects_unassigned_plan_outside_period(self):
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project,
+            crop=self.crop, bed=self.bed, project=self.project,
             planting_date=date(2026, 12, 15),
         )
         PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2027, 1, 20))
@@ -506,7 +506,7 @@ class SeasonApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 4, 1),
         )
         rename = self.client.patch(
@@ -532,7 +532,7 @@ class SeasonApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 4, 1),
         )
         task_id = Task.objects.create(
@@ -559,7 +559,7 @@ class SeasonApiTest(ProjectApiTestCase):
         })
         season_id = create.data['id']
         plan_id = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project,
+            crop=self.crop, bed=self.bed, project=self.project,
             season_id=season_id, planting_date=date(2026, 4, 1),
         ).pk
         batch = BatchOperation.objects.get(project=self.project, operation_type='season_create')
@@ -592,7 +592,7 @@ class SeasonApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan_id = PlantingPlan.objects.create(
-            culture=self.culture, bed=bed, project=self.project, season=season,
+            crop=self.crop, bed=bed, project=self.project, season=season,
             planting_date=date(2026, 4, 1),
         ).pk
         self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
@@ -610,7 +610,7 @@ class SeasonApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan_id = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 4, 1),
         ).pk
         self.client.delete(f'/openfarmplanner/api/seasons/{season.pk}/')
@@ -630,7 +630,7 @@ class SeasonApiTest(ProjectApiTestCase):
         )
         plan_ids = [
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                crop=self.crop, bed=self.bed, project=self.project, season=season,
                 planting_date=date(2026, 4, day),
             ).pk
             for day in (1, 8, 15)
@@ -662,7 +662,7 @@ class SeasonApiTest(ProjectApiTestCase):
         )
         for day in (1, 8, 15):
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project, season=season,
+                crop=self.crop, bed=self.bed, project=self.project, season=season,
                 planting_date=date(2026, 4, day),
             )
 
@@ -699,7 +699,7 @@ class SeasonApiTest(ProjectApiTestCase):
         target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
         for day in (1, 8):
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project, season=source,
+                crop=self.crop, bed=self.bed, project=self.project, season=source,
                 planting_date=date(2026, 4, day),
             )
 
@@ -722,7 +722,7 @@ class SeasonApiTest(ProjectApiTestCase):
         season_id = create.data['id']
         plan_ids = [
             PlantingPlan.objects.create(
-                culture=self.culture, bed=self.bed, project=self.project,
+                crop=self.crop, bed=self.bed, project=self.project,
                 season_id=season_id, planting_date=date(2026, 4, day),
             ).pk
             for day in (1, 8)
@@ -771,11 +771,11 @@ class SeasonApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         kept = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 4, 1),
         )
         removed = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 5, 1),
         )
         self.client.delete(f'/openfarmplanner/api/planting-plans/{removed.pk}/')
@@ -792,7 +792,7 @@ class SeasonApiTest(ProjectApiTestCase):
         source = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
         target = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=source, planting_date=date(2026, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, season=source, planting_date=date(2026, 4, 1),
         )
 
         response = self.client.post(f'/openfarmplanner/api/seasons/{target.pk}/copy-from/', {
@@ -840,10 +840,10 @@ class SeasonApiTest(ProjectApiTestCase):
         season_a = Season.objects.create(project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31))
         season_b = Season.objects.create(project=self.project, start_date=date(2027, 1, 1), end_date=date(2027, 12, 31))
         plan_a = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season_a, planting_date=date(2026, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, season=season_a, planting_date=date(2026, 4, 1),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season_b, planting_date=date(2027, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, season=season_b, planting_date=date(2027, 4, 1),
         )
 
         response = self.client.get('/openfarmplanner/api/planting-plans/', HTTP_X_SEASON_ID=str(season_a.pk))
@@ -864,7 +864,7 @@ class SeasonPeriodEditApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 5, 1),
         )
 
@@ -879,7 +879,7 @@ class SeasonPeriodEditApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 2, 10),
         )
 
@@ -898,7 +898,7 @@ class SeasonPeriodEditApiTest(ProjectApiTestCase):
             project=self.project, start_date=date(2026, 1, 1), end_date=date(2026, 12, 31),
         )
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, season=season,
+            crop=self.crop, bed=self.bed, project=self.project, season=season,
             planting_date=date(2026, 11, 1),
         )
         PlantingPlan.objects.filter(pk=plan.pk).update(harvest_end_date=date(2027, 3, 1))
@@ -927,7 +927,7 @@ class SeasonPeriodEditApiTest(ProjectApiTestCase):
 class SeasonSetupApiTest(ProjectApiTestCase):
     def test_status_reports_unassigned_plans(self):
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1),
         )
         response = self.client.get('/openfarmplanner/api/season-setup/status/')
         self.assertEqual(response.status_code, 200)
@@ -936,7 +936,7 @@ class SeasonSetupApiTest(ProjectApiTestCase):
 
     def test_apply_assigns_existing_plans_without_touching_data(self):
         plan = PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1), notes='keep me',
+            crop=self.crop, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1), notes='keep me',
         )
         response = self.client.post('/openfarmplanner/api/season-setup/apply/', {
             'start_day': 1, 'start_month': 1,
@@ -955,10 +955,10 @@ class SeasonSetupApiTest(ProjectApiTestCase):
         their own history, not whatever period contains "today" when a user
         happens to run the setup — see docs/seasons-architecture.md."""
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2023, 3, 1),
+            crop=self.crop, bed=self.bed, project=self.project, planting_date=date(2023, 3, 1),
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2023, 9, 1),
+            crop=self.crop, bed=self.bed, project=self.project, planting_date=date(2023, 9, 1),
         )
 
         status_response = self.client.get('/openfarmplanner/api/season-setup/status/')
@@ -977,7 +977,7 @@ class SeasonSetupApiTest(ProjectApiTestCase):
         """The dialog recomputes its preview as the user changes day/month,
         before saving — the status endpoint must support that override."""
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1),
+            crop=self.crop, bed=self.bed, project=self.project, planting_date=date(2026, 4, 1),
         )
         default_response = self.client.get('/openfarmplanner/api/season-setup/status/')
         self.assertEqual(default_response.data['computed_start_date'], '2026-01-01')
@@ -1049,7 +1049,7 @@ class SeededProjectSeasonTest(ProjectApiTestCase):
             project=self.project, defaults={'start_day': 1, 'start_month': 9},
         )
         PlantingPlan.objects.create(
-            culture=self.culture, bed=self.bed, project=self.project,
+            crop=self.crop, bed=self.bed, project=self.project,
             planting_date=date(2026, 4, 1),
         )
 
@@ -1070,7 +1070,7 @@ class PlantingPlanSeasonCreateGuardTest(ProjectApiTestCase):
 
     def _create_plan(self, planting_date='2026-04-01', **headers):
         payload = {
-            'culture': self.culture.id,
+            'crop': self.crop.id,
             'bed': self.bed.id,
             'cultivation_type': 'pre_cultivation',
             'area_usage_sqm': '2.0',

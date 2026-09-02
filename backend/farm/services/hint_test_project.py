@@ -14,8 +14,8 @@ from accounts.models import DocumentConsent, UserProjectSettings
 from farm.models import (
     Bed,
     BedLayout,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     Field,
     FieldLayout,
     Location,
@@ -137,9 +137,9 @@ def populate_hint_test_project(project: Project, *, owner: Any | None = None) ->
         suppliers = _create_suppliers(project)
         locations, fields, beds = _create_area_hierarchy(project)
         _create_layouts(project, locations, fields, beds)
-        cultures = _create_cultures(project, suppliers)
-        _create_supplier_data(project, cultures, suppliers)
-        _create_planting_plans(project, cultures, beds, owner)
+        crops = _create_crops(project, suppliers)
+        _create_supplier_data(project, crops, suppliers)
+        _create_planting_plans(project, crops, beds, owner)
         assign_unassigned_planting_plans(project, owner=owner)
         _create_invitation(project, owner)
 
@@ -318,7 +318,7 @@ def _create_layouts(
     )
 
 
-def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[str, Culture]:
+def _create_crops(project: Project, suppliers: dict[str, Supplier]) -> dict[str, Crop]:
     base_kwargs = {
         'growth_duration_days': 45,
         'harvest_duration_days': 14,
@@ -330,7 +330,7 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         'cultivation_types': ['direct_sowing'],
         'sowing_calculation_safety_percent_direct': 0,
     }
-    culture_specs: dict[str, dict[str, Any]] = {
+    crop_specs: dict[str, dict[str, Any]] = {
         'complete': {
             **base_kwargs,
             'name': 'Saatgutmenge – vollständig berechenbar',
@@ -494,7 +494,7 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
             **base_kwargs,
             'name': 'Bibliothek – importiert und geändert',
             'variety': 'Version 1',
-            'origin_type': Culture.ORIGIN_IMPORTED,
+            'origin_type': Crop.ORIGIN_IMPORTED,
             'is_modified_from_source': True,
             'source_public_version': 1,
             'seed_rate_direct_value': 3,
@@ -505,14 +505,14 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier]) -> dict[s
         },
     }
     return {
-        key: Culture.objects.create(project=project, **spec)
-        for key, spec in culture_specs.items()
+        key: Crop.objects.create(project=project, **spec)
+        for key, spec in crop_specs.items()
     }
 
 
 def _create_supplier_data(
     project: Project,
-    cultures: dict[str, Culture],
+    crops: dict[str, Crop],
     suppliers: dict[str, Supplier],
 ) -> None:
     standard_packages = [
@@ -535,69 +535,69 @@ def _create_supplier_data(
         'missing_spacing',
         'imported_modified',
     ):
-        CultureSupplierData.objects.create(
+        CropSupplierData.objects.create(
             project=project,
-            culture=cultures[key],
+            crop=crops[key],
             supplier=suppliers['complete'],
-            supplier_product_name=cultures[key].name,
+            supplier_product_name=crops[key].name,
             supplier_product_url='https://hint-complete.example/product',
             packaging_sizes=standard_packages,
             germination_rate=90,
         )
 
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['missing_tkg'],
+        crop=crops['missing_tkg'],
         supplier=suppliers['complete'],
-        supplier_product_name=cultures['missing_tkg'].name,
+        supplier_product_name=crops['missing_tkg'].name,
         supplier_product_url='https://hint-complete.example/tkg-fehlt',
         packaging_sizes=standard_packages,
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['choose_supplier'],
+        crop=crops['choose_supplier'],
         supplier=suppliers['complete'],
         supplier_product_name='Option A',
         supplier_product_url='https://hint-complete.example/option-a',
         packaging_sizes=standard_packages,
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['choose_supplier'],
+        crop=crops['choose_supplier'],
         supplier=suppliers['secondary'],
         supplier_product_name='Option B',
         supplier_product_url='https://hint-tkg.example/option-b',
         packaging_sizes=[{'size_value': 50, 'size_unit': SEED_PACKAGE_UNIT_GRAMS}],
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['supplier_tkg_override'],
+        crop=crops['supplier_tkg_override'],
         supplier=suppliers['secondary'],
-        supplier_product_name=cultures['supplier_tkg_override'].name,
+        supplier_product_name=crops['supplier_tkg_override'].name,
         supplier_product_url='https://hint-tkg.example/override',
         packaging_sizes=standard_packages,
         thousand_kernel_weight_g=Decimal('2.00'),
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['germination_rate'],
+        crop=crops['germination_rate'],
         supplier=suppliers['complete'],
-        supplier_product_name=cultures['germination_rate'].name,
+        supplier_product_name=crops['germination_rate'].name,
         supplier_product_url='https://hint-complete.example/germination',
         packaging_sizes=standard_packages,
         germination_rate=50,
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['missing_yield'],
+        crop=crops['missing_yield'],
         supplier=suppliers['empty_order'],
         supplier_product_name='Absichtlich ohne Verpackungsgrößen',
         supplier_product_url='https://hint-no-order.example/missing-yield',
         packaging_sizes=[],
     )
-    CultureSupplierData.objects.create(
+    CropSupplierData.objects.create(
         project=project,
-        culture=cultures['supplier_tkg_override'],
+        crop=crops['supplier_tkg_override'],
         supplier=suppliers['complete'],
         supplier_product_name='Seed package option',
         supplier_product_url='https://hint-complete.example/seeds',
@@ -608,7 +608,7 @@ def _create_supplier_data(
 
 def _create_planting_plans(
     project: Project,
-    cultures: dict[str, Culture],
+    crops: dict[str, Crop],
     beds: dict[str, Bed],
     owner: Any | None,
 ) -> None:
@@ -646,23 +646,23 @@ def _create_planting_plans(
         ('complete_timing', 'conflict', date(2026, 6, 1), Decimal('0.8'), 40, 'direct_sowing'),
         ('germination_rate', 'conflict', date(2026, 6, 8), Decimal('0.8'), 40, 'direct_sowing'),
     ]
-    for culture_key, bed_key, planting_date, area, quantity, cultivation_type in plan_specs:
+    for crop_key, bed_key, planting_date, area, quantity, cultivation_type in plan_specs:
         PlantingPlan.objects.create(
             project=project,
-            culture=cultures[culture_key],
+            crop=crops[crop_key],
             bed=beds[bed_key],
             cultivation_type=cultivation_type,
             planting_date=planting_date,
             area_usage_sqm=area,
             quantity=quantity,
-            notes=f'Testfall für {cultures[culture_key].name}',
+            notes=f'Testfall für {crops[crop_key].name}',
             created_by=owner,
             updated_by=owner,
         )
 
     PlantingPlan.objects.create(
         project=project,
-        culture=None,
+        crop=None,
         bed=beds['complete'],
         cultivation_type='',
         planting_date=None,

@@ -15,7 +15,7 @@ that predate this feature.
   when the target month is shorter, e.g. Feb 30 → Feb 28/29).
 - **`Season`** — project-scoped (`project` FK), `start_date`/`end_date`,
   optional `custom_label` (set via "Umbenennen"), and soft-deleted via
-  `deleted_at` — same convention as `Culture` (`ActiveSeasonManager` hides
+  `deleted_at` — same convention as `Crop` (`ActiveSeasonManager` hides
   deleted rows from `objects`, `all_objects` doesn't). A season's `label`
   property is the custom label if set, otherwise `computed_label`: a
   four-digit year when start and end fall in the same calendar year (including
@@ -25,11 +25,11 @@ that predate this feature.
   `frontend/src/seasons/formatSeasonDate.ts`'s `computeSeasonLabel` for
   previews computed before a season exists server-side.
 - **`PlantingPlan.season`** — nullable `ForeignKey(Season, on_delete=CASCADE)`,
-  mirroring the `culture`/`bed` FK pattern (nullable + CASCADE, but the actual
+  mirroring the `crop`/`bed` FK pattern (nullable + CASCADE, but the actual
   delete path is the soft-delete above, so the DB-level CASCADE never fires —
   see the application-level cascade below). Nullable specifically so
   pre-existing projects keep working until the first-run setup (below) assigns
-  a season. Culture library and bed/field structure stay season-independent,
+  a season. Crop library and bed/field structure stay season-independent,
   per the feature's original scope.
 
 ## Deleting a season
@@ -392,7 +392,7 @@ range-derived view pick up the new dates.
   range by construction (it shifts per plan and skips a plan whose month the
   target never covers), so it does not rely on the editor to pull plans back.
   This boundary applies to `planting_date` only — harvest dates are still free
-  (they are derived from culture timing and legitimately fall after a season's
+  (they are derived from crop timing and legitimately fall after a season's
   end).
 - A season's `computed_label` is not guaranteed unique within a project:
   changing the season pattern repeatedly can produce two different date

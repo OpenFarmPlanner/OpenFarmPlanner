@@ -124,7 +124,7 @@ existing screenshot test happens to fail.
 - Do not update CLAUDE.md for small implementation details.
 
 ## Project Structure
-- `backend/` contains the Django backend. The main apps are `accounts/` and `farm/` (whose views/serializers are organized into domain packages: `common/`, `history/`, `projects/`, `structure/`, `cultures/`, `planning/`, `notes/`, `feedback/`, plus `services/` for business logic), with project settings in `config/`, app-local tests under each app, backend helper scripts in `backend/scripts/`, and generated media under `backend/media/`.
+- `backend/` contains the Django backend. The main apps are `accounts/` and `farm/` (whose views/serializers are organized into domain packages: `common/`, `history/`, `projects/`, `structure/`, `crops/`, `planning/`, `notes/`, `feedback/`, plus `services/` for business logic), with project settings in `config/`, app-local tests under each app, backend helper scripts in `backend/scripts/`, and generated media under `backend/media/`.
 - `frontend/` contains the React + TypeScript app. Application code lives in `frontend/src/`, with pages, components, hooks, API clients, i18n resources, and frontend tests following the existing folder layout. Playwright end-to-end tests live in `frontend/e2e/`.
 - `tests/` contains repository-level Python tests that are not tied to a single Django app.
 - `scripts/` contains repository-level helper and maintenance scripts.

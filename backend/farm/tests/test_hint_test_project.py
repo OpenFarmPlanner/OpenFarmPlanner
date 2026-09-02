@@ -8,8 +8,8 @@ from accounts.consent import CURRENT_VERSIONS, REQUIRED_DOCUMENTS, get_pending_c
 from accounts.models import UserProjectSettings
 from farm.models import (
     Bed,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     Location,
     PlantingPlan,
     Project,
@@ -61,10 +61,10 @@ class HintTestProjectServiceTests(TestCase):
         self.assertEqual(get_pending_consent_documents(result.member_user), [])
         self.assertEqual(Location.objects.filter(project=result.project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=result.project).count(), 3)
-        self.assertEqual(Culture.objects.filter(project=result.project).count(), 16)
+        self.assertEqual(Crop.objects.filter(project=result.project).count(), 16)
         self.assertEqual(PlantingPlan.objects.filter(project=result.project).count(), 19)
         self.assertEqual(Supplier.objects.filter(project=result.project).count(), 3)
-        self.assertEqual(CultureSupplierData.objects.filter(project=result.project).count(), 17)
+        self.assertEqual(CropSupplierData.objects.filter(project=result.project).count(), 17)
         self.assertTrue(
             ProjectInvitation.objects.filter(
                 project=result.project,
@@ -85,7 +85,7 @@ class HintTestProjectServiceTests(TestCase):
             Location.objects.filter(project=first.project, name='Temporary hint row').exists()
         )
         self.assertEqual(Location.objects.filter(project=first.project).count(), 2)
-        self.assertEqual(Culture.objects.filter(project=first.project).count(), 16)
+        self.assertEqual(Crop.objects.filter(project=first.project).count(), 16)
         self.assertEqual(PlantingPlan.objects.filter(project=first.project).count(), 19)
         for document in REQUIRED_DOCUMENTS:
             self.assertEqual(
@@ -107,10 +107,10 @@ class HintTestProjectServiceTests(TestCase):
         result = create_or_reset_hint_test_project()
 
         rows = {
-            row['culture_name']: row
+            row['crop_name']: row
             for row in build_seed_demand_rows(
                 project=result.project,
-                selected_supplier_by_culture={},
+                selected_supplier_by_crop={},
                 language_code='de',
             )
         }
@@ -165,15 +165,15 @@ class HintTestProjectServiceTests(TestCase):
 
         no_timing = PlantingPlan.objects.get(
             project=result.project,
-            culture__name='Kultur – keine Zeitangaben',
+            crop__name='Kultur – keine Zeitangaben',
         )
         partial_timing = PlantingPlan.objects.get(
             project=result.project,
-            culture__name='Kultur – nur Wachstumszeit',
+            crop__name='Kultur – nur Wachstumszeit',
         )
         complete_timing = PlantingPlan.objects.filter(
             project=result.project,
-            culture__name='Kultur – vollständige Zeitangaben',
+            crop__name='Kultur – vollständige Zeitangaben',
         ).order_by('planting_date').first()
 
         self.assertIsNone(no_timing.harvest_date)
@@ -187,29 +187,29 @@ class HintTestProjectServiceTests(TestCase):
     def test_hint_test_project_spacing_and_import_states_are_seeded(self) -> None:
         result = create_or_reset_hint_test_project()
 
-        missing_spacing = Culture.objects.get(
+        missing_spacing = Crop.objects.get(
             project=result.project,
             name='Kultur – Pflanzabstände fehlen',
         )
-        imported_modified = Culture.objects.get(
+        imported_modified = Crop.objects.get(
             project=result.project,
             name='Bibliothek – importiert und geändert',
         )
 
         self.assertIsNone(missing_spacing.plants_per_m2)
-        self.assertEqual(imported_modified.origin_type, Culture.ORIGIN_IMPORTED)
+        self.assertEqual(imported_modified.origin_type, Crop.ORIGIN_IMPORTED)
         self.assertTrue(imported_modified.is_modified_from_source)
         self.assertEqual(imported_modified.source_public_version, 1)
 
     def test_hint_test_project_does_not_reset_existing_demo_project(self) -> None:
         demo = create_or_reset_demo_project()
-        demo_culture_count = Culture.objects.filter(project=demo.project).count()
+        demo_crop_count = Crop.objects.filter(project=demo.project).count()
 
         create_or_reset_hint_test_project()
 
         demo.project.refresh_from_db()
         self.assertEqual(demo.project.slug, DEMO_PROJECT_SLUG)
-        self.assertEqual(Culture.objects.filter(project=demo.project).count(), demo_culture_count)
+        self.assertEqual(Crop.objects.filter(project=demo.project).count(), demo_crop_count)
 
     def test_management_command_creates_requested_hint_test_project(self) -> None:
         call_command(

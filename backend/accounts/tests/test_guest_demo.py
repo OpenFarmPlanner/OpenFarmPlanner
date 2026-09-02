@@ -17,7 +17,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from accounts.guest_demo import create_guest_demo_session
 from accounts.models import GuestDemoSession
 from accounts.views import GuestDemoStartView, LoginView
-from farm.models import Culture, Project, ProjectInvitation
+from farm.models import Crop, Project, ProjectInvitation
 from farm.services.demo_project import DEMO_PROJECT_NAME_EN
 
 User = get_user_model()
@@ -76,7 +76,7 @@ class GuestDemoApiTests(TestCase):
         self.assertTrue(response.data['memberships'][0]['is_demo_project'])
         project = Project.objects.get(id=response.data['resolved_project_id'])
         self.assertEqual(project.name, 'Solawi Sonnenacker')
-        self.assertGreater(Culture.objects.filter(project=project).count(), 0)
+        self.assertGreater(Crop.objects.filter(project=project).count(), 0)
         self.assertEqual(response.data['pending_consents'], [])
 
     def test_start_uses_request_language_for_demo_content(self) -> None:
@@ -90,8 +90,8 @@ class GuestDemoApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         project = Project.objects.get(id=response.data['resolved_project_id'])
         self.assertEqual(project.name, DEMO_PROJECT_NAME_EN)
-        self.assertTrue(Culture.objects.filter(project=project, name='Carrot').exists())
-        self.assertFalse(Culture.objects.filter(project=project, name='Karotte').exists())
+        self.assertTrue(Crop.objects.filter(project=project, name='Carrot').exists())
+        self.assertFalse(Crop.objects.filter(project=project, name='Karotte').exists())
         self.assertEqual(response.data['memberships'][0]['project_name'], DEMO_PROJECT_NAME_EN)
         self.assertTrue(response.data['memberships'][0]['is_demo_project'])
         self.assertEqual(response.data['ui_language'], 'en')

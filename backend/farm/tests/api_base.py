@@ -3,13 +3,13 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase as DRFAPITestCase
 
-from farm.models import Bed, Culture, Field, Location, Project, ProjectMembership, Supplier
+from farm.models import Bed, Crop, Field, Location, Project, ProjectMembership, Supplier
 
 User = get_user_model()
 
 
 class ProjectApiTestCase(DRFAPITestCase):
-    """Authenticated project with one location/field/bed/culture/supplier."""
+    """Authenticated project with one location/field/bed/crop/supplier."""
 
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', email='test@example.com', password='testpass', is_active=True)
@@ -25,8 +25,8 @@ class ProjectApiTestCase(DRFAPITestCase):
             area_sqm=20.0,  # Total area: 20 sqm
             project=self.project,
         )
-        self.culture = Culture.objects.create(
-            name="API Test Culture",
+        self.crop = Crop.objects.create(
+            name="API Test Crop",
             growth_duration_days=7,
             harvest_duration_days=2,
             project=self.project,

@@ -41,9 +41,9 @@ Scope: `frontend/src`
 | `Alt+Shift+N` | New row/item in hierarchy/plans | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx` |
 | `Alt+E` | Edit selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Cultures.tsx` |
 | `Alt+Shift+D` | Delete selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Cultures.tsx` |
-| `Alt+P` | Create planting plan from culture context | UI in `pages/Cultures.tsx` |
-| `Alt+J` / `Alt+Shift+J` / `Alt+I` | Export current/all cultures; import JSON | `pages/Cultures.tsx` |
-| `Alt+U` / `Alt+R` / `Alt+A` | AI complete / re-research / complete all cultures | `pages/Cultures.tsx` |
+| `Alt+P` | Create planting plan from crop context | UI in `pages/Cultures.tsx` |
+| `Alt+J` / `Alt+Shift+J` / `Alt+I` | Export current/all crops; import JSON | `pages/Cultures.tsx` |
+| `Alt+U` / `Alt+R` / `Alt+A` | AI complete / re-research / complete all crops | `pages/Cultures.tsx` |
 | `Ctrl+Enter` / `Cmd+Enter` | Save notes drawer | `components/data-grid/NotesDrawer.tsx` |
 | `Ctrl+S` / `Cmd+S` | Save grid row while editing | `components/data-grid/DataGrid.tsx` |
 | `Esc` | Close dialogs / cancel edit in many places | `CommandPalette.tsx`, `App.tsx`, `pages/Cultures.tsx`, several dialogs/components |
@@ -59,7 +59,7 @@ Scope: `frontend/src`
 
 ### Inconsistencies found
 1. **Main-page navigation uses `Ctrl+Shift+ArrowLeft/Right`**, while most other app shortcuts are Alt-based.
-2. Some shortcuts are only shown in UI labels but not always uniformly wired through command specs (especially in `Cultures`).
+2. Some shortcuts are only shown in UI labels but not always uniformly wired through command specs (especially in `Crops`).
 3. Mixed semantic direction: app navigation is now vertical sidebar, but current next/previous uses horizontal arrows.
 
 ---

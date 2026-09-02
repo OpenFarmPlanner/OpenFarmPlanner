@@ -95,7 +95,7 @@ def agent_login_consume_view(request, token: str):  # noqa: ANN001
     request.session['agent_project_id'] = link.project_id
     request.session.modified = True
 
-    return redirect(build_public_frontend_url('/app/cultures'))
+    return redirect(build_public_frontend_url('/app/crops'))
 
 
 def _apply_invitation_project_settings(*, user, project: Project) -> dict[str, int | str]:

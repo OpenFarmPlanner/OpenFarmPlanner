@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase as DRFAPITestCase
 from farm.models import (
     Bed,
     BedLayout,
-    Culture,
+    Crop,
     Field,
     FieldLayout,
     Location,
@@ -52,15 +52,15 @@ class TenantScopeApiTest(ProjectApiTestCase):
         self.bed.refresh_from_db()
         self.assertEqual(self.bed.project_id, self.project.id)
 
-    def test_update_cannot_move_culture_to_foreign_project(self):
+    def test_update_cannot_move_crop_to_foreign_project(self):
         foreign_project = Project.objects.create(name='Foreign4', slug='foreign-scope-proj-4')
         self.client.patch(
-            f'/openfarmplanner/api/cultures/{self.culture.id}/',
+            f'/openfarmplanner/api/crops/{self.crop.id}/',
             {'project': foreign_project.id},
             format='json',
         )
-        self.culture.refresh_from_db()
-        self.assertEqual(self.culture.project_id, self.project.id)
+        self.crop.refresh_from_db()
+        self.assertEqual(self.crop.project_id, self.project.id)
 
 
 class StructureApiTest(ProjectApiTestCase):
@@ -261,7 +261,7 @@ class StructureApiTest(ProjectApiTestCase):
         self.assertIn('area_sqm', response.data)
 
 
-class CultureLayoutApiTest(DRFAPITestCase):
+class CropLayoutApiTest(DRFAPITestCase):
     """Tests for the bed/field layout endpoint on locations."""
 
     def setUp(self):
@@ -271,7 +271,7 @@ class CultureLayoutApiTest(DRFAPITestCase):
         self.client.force_authenticate(user=self.user)
         self.client.defaults['HTTP_X_PROJECT_ID'] = str(self.project.id)
         self.supplier = Supplier.objects.create(name='Default Supplier', homepage_url='https://supplier.example', project=self.project)
-        self.culture = Culture.objects.create(name='Tomate', variety='Roma', supplier=self.supplier, supplier_product_url='https://supplier.example/tomate', project=self.project)
+        self.crop = Crop.objects.create(name='Tomate', variety='Roma', supplier=self.supplier, supplier_product_url='https://supplier.example/tomate', project=self.project)
 
     def test_layouts_get_and_put(self):
         location = Location.objects.create(name='Layout test location', project=self.project)

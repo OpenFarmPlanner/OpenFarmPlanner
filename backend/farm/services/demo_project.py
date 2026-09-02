@@ -18,8 +18,8 @@ from farm.models import (
     BatchOperation,
     Bed,
     BedLayout,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     EntityRevision,
     Field,
     FieldLayout,
@@ -27,7 +27,7 @@ from farm.models import (
     PlantingPlan,
     Project,
     ProjectMembership,
-    PublicCulture,
+    PublicCrop,
     Season,
     SeedPackage,
     Supplier,
@@ -93,7 +93,7 @@ DEMO_TEXT = {
             'zucchini': 'Zucchini',
             'reserve': 'Gr\u00fcnd\u00fcngung Reserve',
         },
-        'cultures': {
+        'crops': {
             'karotte': ('Karotte', 'Nantaise 2', 'Doldenbl\u00fctler'),
             'salat': ('Salat', 'Lollo Bionda', 'Korbbl\u00fctler'),
             'tomate': ('Tomate', 'Ruthje', 'Nachtschattengew\u00e4chse'),
@@ -134,7 +134,7 @@ DEMO_TEXT = {
             'zucchini': 'Zucchini',
             'reserve': 'Green Manure Reserve',
         },
-        'cultures': {
+        'crops': {
             'karotte': ('Carrot', 'Nantaise 2', 'Carrot family'),
             'salat': ('Lettuce', 'Lollo Bionda', 'Daisy family'),
             'tomate': ('Tomato', 'Ruthje', 'Nightshade family'),
@@ -162,7 +162,7 @@ class DemoProjectResult:
 
 
 @dataclass(frozen=True)
-class CultureSpec:
+class CropSpec:
     key: str
     name: str
     variety: str
@@ -196,7 +196,7 @@ class CultureSpec:
 
 @dataclass(frozen=True)
 class PlanSpec:
-    culture_key: str
+    crop_key: str
     bed_key: str
     cultivation_type: str
     planting_date: date
@@ -214,9 +214,9 @@ def reset_project_demo_data(project: Project) -> None:
     Bed.objects.filter(project=project).delete()
     Field.objects.filter(project=project).delete()
     Location.objects.filter(project=project).delete()
-    CultureSupplierData.objects.filter(project=project).delete()
+    CropSupplierData.objects.filter(project=project).delete()
     SeedPackage.objects.filter(project=project).delete()
-    Culture.all_objects.filter(project=project).delete()
+    Crop.all_objects.filter(project=project).delete()
     Supplier.objects.filter(project=project).delete()
     # These hard deletes record no ACTION_DELETED revisions, so any surviving
     # history would still describe the wiped rows as "active" and make a later
@@ -231,18 +231,18 @@ def is_demo_project_description(description: str | None) -> bool:
     return (description or '') in DEMO_PROJECT_DESCRIPTIONS
 
 
-def find_demo_culture_species(name: str | None) -> CropSpecies | None:
+def find_demo_crop_species(name: str | None) -> CropSpecies | None:
     """Resolve a demo crop name through all language variants in the template."""
     species = find_species_by_common_name(name)
     if species is not None:
         return species
 
     for text in DEMO_TEXT.values():
-        for culture_key, culture_text in text['cultures'].items():
-            if culture_text[0] != name:
+        for crop_key, crop_text in text['crops'].items():
+            if crop_text[0] != name:
                 continue
             for fallback_text in DEMO_TEXT.values():
-                species = find_species_by_common_name(fallback_text['cultures'][culture_key][0])
+                species = find_species_by_common_name(fallback_text['crops'][crop_key][0])
                 if species is not None:
                     return species
     return None
@@ -298,8 +298,8 @@ def populate_demo_project(project: Project, *, owner: Any | None = None, languag
         suppliers = _create_suppliers(project)
         locations, fields, beds = _create_area_hierarchy(project, language_code=language)
         _create_layouts(project, fields, beds)
-        cultures = _create_cultures(project, suppliers, language_code=language)
-        _create_planting_plans(project, cultures, beds, owner, language_code=language)
+        crops = _create_crops(project, suppliers, language_code=language)
+        _create_planting_plans(project, crops, beds, owner, language_code=language)
         assign_unassigned_planting_plans(project, owner=owner)
 
 
@@ -307,47 +307,47 @@ def populate_public_demo_library_from_project(project: Project, *, owner: Any | 
     """Create public-library demo rows from the local demo project without supplier data."""
     language = resolve_demo_language(language_code)
     with transaction.atomic():
-        PublicCulture.objects.filter(source_project=project).delete()
-        for culture in Culture.objects.filter(project=project).order_by('name', 'variety'):
+        PublicCrop.objects.filter(source_project=project).delete()
+        for crop in Crop.objects.filter(project=project).order_by('name', 'variety'):
             seed_rate_by_cultivation: dict[str, dict[str, float | str]] = {}
-            if culture.seed_rate_direct_value is not None and culture.seed_rate_direct_unit:
+            if crop.seed_rate_direct_value is not None and crop.seed_rate_direct_unit:
                 seed_rate_by_cultivation['direct_sowing'] = {
-                    'value': culture.seed_rate_direct_value,
-                    'unit': culture.seed_rate_direct_unit,
+                    'value': crop.seed_rate_direct_value,
+                    'unit': crop.seed_rate_direct_unit,
                 }
-            if culture.seed_rate_pre_cultivation_value is not None and culture.seed_rate_pre_cultivation_unit:
+            if crop.seed_rate_pre_cultivation_value is not None and crop.seed_rate_pre_cultivation_unit:
                 seed_rate_by_cultivation['pre_cultivation'] = {
-                    'value': culture.seed_rate_pre_cultivation_value,
-                    'unit': culture.seed_rate_pre_cultivation_unit,
+                    'value': crop.seed_rate_pre_cultivation_value,
+                    'unit': crop.seed_rate_pre_cultivation_unit,
                 }
 
-            PublicCulture.objects.create(
-                status=PublicCulture.STATUS_PUBLISHED,
+            PublicCrop.objects.create(
+                status=PublicCrop.STATUS_PUBLISHED,
                 created_by=owner if owner and getattr(owner, 'pk', None) else None,
-                name=culture.name,
-                variety=culture.variety or '',
-                notes=culture.notes or '',
-                crop_species=culture.crop_species,
+                name=crop.name,
+                variety=crop.variety or '',
+                notes=crop.notes or '',
+                crop_species=crop.crop_species,
                 original_language_code=language,
-                source_project_culture=culture,
+                source_project_crop=crop,
                 source_project=project,
-                crop_family=culture.crop_family,
-                nutrient_demand=culture.nutrient_demand,
-                cultivation_types=culture.cultivation_types or [],
-                cultivation_type=culture.cultivation_type,
-                growth_duration_days=culture.growth_duration_days,
-                harvest_duration_days=culture.harvest_duration_days,
-                propagation_duration_days=culture.propagation_duration_days,
-                harvest_method=culture.harvest_method,
-                expected_yield=culture.expected_yield,
-                distance_within_row_m=culture.distance_within_row_m,
-                row_spacing_m=culture.row_spacing_m,
-                sowing_depth_m=culture.sowing_depth_m,
+                crop_family=crop.crop_family,
+                nutrient_demand=crop.nutrient_demand,
+                cultivation_types=crop.cultivation_types or [],
+                cultivation_type=crop.cultivation_type,
+                growth_duration_days=crop.growth_duration_days,
+                harvest_duration_days=crop.harvest_duration_days,
+                propagation_duration_days=crop.propagation_duration_days,
+                harvest_method=crop.harvest_method,
+                expected_yield=crop.expected_yield,
+                distance_within_row_m=crop.distance_within_row_m,
+                row_spacing_m=crop.row_spacing_m,
+                sowing_depth_m=crop.sowing_depth_m,
                 seed_rate_by_cultivation=seed_rate_by_cultivation or None,
-                thousand_kernel_weight_g=culture.thousand_kernel_weight_g,
-                seeding_requirement=culture.seeding_requirement,
-                seeding_requirement_type=culture.seeding_requirement_type,
-                display_color=culture.display_color,
+                thousand_kernel_weight_g=crop.thousand_kernel_weight_g,
+                seeding_requirement=crop.seeding_requirement,
+                seeding_requirement_type=crop.seeding_requirement_type,
+                display_color=crop.display_color,
                 seed_packages=[],
             )
 
@@ -615,19 +615,19 @@ def _create_layouts(
         )
 
 
-def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, language_code: str) -> dict[str, Culture]:
-    culture_text = DEMO_TEXT[language_code]['cultures']
-    culture_specs = [
-        CultureSpec(
+def _create_crops(project: Project, suppliers: dict[str, Supplier], *, language_code: str) -> dict[str, Crop]:
+    crop_text = DEMO_TEXT[language_code]['crops']
+    crop_specs = [
+        CropSpec(
             key='tomate-art',
-            name=culture_text['tomate'][0],
+            name=crop_text['tomate'][0],
             variety='',
             color='#b91c1c',
             cultivation_types=['pre_cultivation'],
             growth_days=78,
             harvest_days=56,
             propagation_days=45,
-            crop_family=culture_text['tomate'][2],
+            crop_family=crop_text['tomate'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.50,
@@ -640,9 +640,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('3.10'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='tomate',
-            name=culture_text['tomate'][0],
+            name=crop_text['tomate'][0],
             variety='Roma',
             color='#dc2626',
             cultivation_types=[],
@@ -660,9 +660,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 25, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
             germination_rate=85,
         ),
-        CultureSpec(
+        CropSpec(
             key='tomate-moneymaker',
-            name=culture_text['tomate'][0],
+            name=crop_text['tomate'][0],
             variety='Moneymaker',
             color='#ef4444',
             cultivation_types=[],
@@ -680,9 +680,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 20, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
             germination_rate=86,
         ),
-        CultureSpec(
+        CropSpec(
             key='tomate-san-marzano',
-            name=culture_text['tomate'][0],
+            name=crop_text['tomate'][0],
             variety='San Marzano',
             color='#991b1b',
             cultivation_types=[],
@@ -700,16 +700,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 25, 'size_unit': 'seeds'}, {'size_value': 250, 'size_unit': 'seeds'}],
             germination_rate=84,
         ),
-        CultureSpec(
+        CropSpec(
             key='karotte-art',
-            name=culture_text['karotte'][0],
+            name=crop_text['karotte'][0],
             variety='',
             color='#ea580c',
             cultivation_types=['direct_sowing'],
             growth_days=100,
             harvest_days=28,
             propagation_days=None,
-            crop_family=culture_text['karotte'][2],
+            crop_family=crop_text['karotte'][2],
             nutrient_demand='medium',
             row_spacing_m=0.25,
             distance_within_row_m=0.04,
@@ -722,10 +722,10 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('1.20'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='karotte',
-            name=culture_text['karotte'][0],
-            variety=culture_text['karotte'][1],
+            name=crop_text['karotte'][0],
+            variety=crop_text['karotte'][1],
             color='#f97316',
             cultivation_types=[],
             growth_days=95,
@@ -742,9 +742,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}, {'size_value': 25, 'size_unit': 'g'}],
             germination_rate=82,
         ),
-        CultureSpec(
+        CropSpec(
             key='karotte-rodelika',
-            name=culture_text['karotte'][0],
+            name=crop_text['karotte'][0],
             variety='Rodelika',
             color='#fb923c',
             cultivation_types=[],
@@ -765,16 +765,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 10, 'size_unit': 'g'}, {'size_value': 50, 'size_unit': 'g'}],
             germination_rate=80,
         ),
-        CultureSpec(
+        CropSpec(
             key='salat-art',
-            name=culture_text['salat'][0],
+            name=crop_text['salat'][0],
             variety='',
             color='#4d7c0f',
             cultivation_types=['pre_cultivation'],
             growth_days=44,
             harvest_days=10,
             propagation_days=24,
-            crop_family=culture_text['salat'][2],
+            crop_family=crop_text['salat'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.30,
@@ -787,10 +787,10 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=None,
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='salat',
-            name=culture_text['salat'][0],
-            variety=culture_text['salat'][1],
+            name=crop_text['salat'][0],
+            variety=crop_text['salat'][1],
             color='#65a30d',
             cultivation_types=[],
             growth_days=42,
@@ -807,9 +807,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 250, 'size_unit': 'seeds'}, {'size_value': 1000, 'size_unit': 'seeds'}],
             germination_rate=88,
         ),
-        CultureSpec(
+        CropSpec(
             key='salat-maikoenig',
-            name=culture_text['salat'][0],
+            name=crop_text['salat'][0],
             variety='Maikönig' if language_code == 'de' else 'May King',
             color='#84cc16',
             cultivation_types=['direct_sowing'],
@@ -830,16 +830,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}],
             germination_rate=84,
         ),
-        CultureSpec(
+        CropSpec(
             key='gurke-art',
-            name=culture_text['gurke'][0],
+            name=crop_text['gurke'][0],
             variety='',
             color='#15803d',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
             growth_days=58,
             harvest_days=45,
             propagation_days=28,
-            crop_family=culture_text['gurke'][2],
+            crop_family=crop_text['gurke'][2],
             nutrient_demand='high',
             row_spacing_m=0.80,
             distance_within_row_m=0.40,
@@ -855,9 +855,9 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('28.00'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='gurke',
-            name=culture_text['gurke'][0],
+            name=crop_text['gurke'][0],
             variety='Arola',
             color='#16a34a',
             cultivation_types=['pre_cultivation'],
@@ -875,16 +875,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 20, 'size_unit': 'seeds'}, {'size_value': 100, 'size_unit': 'seeds'}],
             germination_rate=86,
         ),
-        CultureSpec(
+        CropSpec(
             key='mangold-art',
-            name=culture_text['mangold'][0],
+            name=crop_text['mangold'][0],
             variety='',
             color='#5b21b6',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
             growth_days=60,
             harvest_days=75,
             propagation_days=32,
-            crop_family=culture_text['mangold'][2],
+            crop_family=crop_text['mangold'][2],
             nutrient_demand='medium',
             row_spacing_m=0.35,
             distance_within_row_m=0.30,
@@ -900,16 +900,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('14.00'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='mangold',
-            name=culture_text['mangold'][0],
-            variety=culture_text['mangold'][1],
+            name=crop_text['mangold'][0],
+            variety=crop_text['mangold'][1],
             color='#7c3aed',
             cultivation_types=['pre_cultivation', 'direct_sowing'],
             growth_days=58,
             harvest_days=70,
             propagation_days=30,
-            crop_family=culture_text['mangold'][2],
+            crop_family=crop_text['mangold'][2],
             nutrient_demand='medium',
             row_spacing_m=0.35,
             distance_within_row_m=0.30,
@@ -926,16 +926,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 5, 'size_unit': 'g'}, {'size_value': 25, 'size_unit': 'g'}],
             germination_rate=80,
         ),
-        CultureSpec(
+        CropSpec(
             key='rote-bete-art',
-            name=culture_text['rote-bete'][0],
+            name=crop_text['rote-bete'][0],
             variety='',
             color='#9f1239',
             cultivation_types=['direct_sowing'],
             growth_days=90,
             harvest_days=40,
             propagation_days=None,
-            crop_family=culture_text['rote-bete'][2],
+            crop_family=crop_text['rote-bete'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.08,
@@ -948,16 +948,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('12.50'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='rote-bete',
-            name=culture_text['rote-bete'][0],
-            variety=culture_text['rote-bete'][1],
+            name=crop_text['rote-bete'][0],
+            variety=crop_text['rote-bete'][1],
             color='#be123c',
             cultivation_types=['direct_sowing'],
             growth_days=85,
             harvest_days=35,
             propagation_days=None,
-            crop_family=culture_text['rote-bete'][2],
+            crop_family=crop_text['rote-bete'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.08,
@@ -971,16 +971,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 10, 'size_unit': 'g'}, {'size_value': 50, 'size_unit': 'g'}],
             germination_rate=84,
         ),
-        CultureSpec(
+        CropSpec(
             key='kohlrabi-art',
-            name=culture_text['kohlrabi'][0],
+            name=crop_text['kohlrabi'][0],
             variety='',
             color='#1d4ed8',
             cultivation_types=['pre_cultivation'],
             growth_days=52,
             harvest_days=16,
             propagation_days=30,
-            crop_family=culture_text['kohlrabi'][2],
+            crop_family=crop_text['kohlrabi'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.25,
@@ -993,16 +993,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('4.00'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='kohlrabi',
-            name=culture_text['kohlrabi'][0],
-            variety=culture_text['kohlrabi'][1],
+            name=crop_text['kohlrabi'][0],
+            variety=crop_text['kohlrabi'][1],
             color='#2563eb',
             cultivation_types=['pre_cultivation'],
             growth_days=48,
             harvest_days=14,
             propagation_days=28,
-            crop_family=culture_text['kohlrabi'][2],
+            crop_family=crop_text['kohlrabi'][2],
             nutrient_demand='medium',
             row_spacing_m=0.30,
             distance_within_row_m=0.25,
@@ -1016,16 +1016,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             packaging_sizes=[{'size_value': 250, 'size_unit': 'seeds'}, {'size_value': 1000, 'size_unit': 'seeds'}],
             germination_rate=90,
         ),
-        CultureSpec(
+        CropSpec(
             key='zucchini-art',
-            name=culture_text['zucchini'][0],
+            name=crop_text['zucchini'][0],
             variety='',
             color='#115e59',
             cultivation_types=['pre_cultivation'],
             growth_days=48,
             harvest_days=75,
             propagation_days=26,
-            crop_family=culture_text['zucchini'][2],
+            crop_family=crop_text['zucchini'][2],
             nutrient_demand='high',
             row_spacing_m=1.20,
             distance_within_row_m=0.80,
@@ -1038,16 +1038,16 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             tkg=Decimal('115.00'),
             is_species=True,
         ),
-        CultureSpec(
+        CropSpec(
             key='zucchini',
-            name=culture_text['zucchini'][0],
-            variety=culture_text['zucchini'][1],
+            name=crop_text['zucchini'][0],
+            variety=crop_text['zucchini'][1],
             color='#0f766e',
             cultivation_types=['pre_cultivation'],
             growth_days=45,
             harvest_days=70,
             propagation_days=24,
-            crop_family=culture_text['zucchini'][2],
+            crop_family=crop_text['zucchini'][2],
             nutrient_demand='high',
             row_spacing_m=1.20,
             distance_within_row_m=0.80,
@@ -1063,13 +1063,13 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
         ),
     ]
 
-    cultures: dict[str, Culture] = {}
-    for spec in culture_specs:
+    crops: dict[str, Crop] = {}
+    for spec in crop_specs:
         supplier = None if spec.is_species else suppliers[spec.supplier_key]
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name=spec.name,
             variety=spec.variety,
-            crop_species=find_demo_culture_species(spec.name),
+            crop_species=find_demo_crop_species(spec.name),
             crop_family=spec.crop_family,
             nutrient_demand=spec.nutrient_demand,
             cultivation_types=spec.cultivation_types,
@@ -1100,8 +1100,8 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             project=project,
         )
         if supplier is not None:
-            CultureSupplierData.objects.create(
-                culture=culture,
+            CropSupplierData.objects.create(
+                crop=crop,
                 supplier=supplier,
                 supplier_name=supplier.name,
                 packaging_sizes=spec.packaging_sizes or [],
@@ -1111,19 +1111,19 @@ def _create_cultures(project: Project, suppliers: dict[str, Supplier], *, langua
             )
             for package in spec.packaging_sizes or []:
                 SeedPackage.objects.create(
-                    culture=culture,
+                    crop=crop,
                     project=project,
                     size_value=Decimal(str(package['size_value'])),
                     size_unit=str(package['size_unit']),
                 )
-        cultures[spec.key] = culture
+        crops[spec.key] = crop
 
-    return cultures
+    return crops
 
 
 def _create_planting_plans(
     project: Project,
-    cultures: dict[str, Culture],
+    crops: dict[str, Crop],
     beds: dict[str, Bed],
     owner: Any | None,
     *,
@@ -1160,7 +1160,7 @@ def _create_planting_plans(
             created_by=owner if owner and getattr(owner, 'pk', None) else None,
         )
         PlantingPlan.objects.create(
-            culture=cultures[spec.culture_key],
+            crop=crops[spec.crop_key],
             bed=beds[spec.bed_key],
             cultivation_type=spec.cultivation_type,
             planting_date=spec.planting_date,

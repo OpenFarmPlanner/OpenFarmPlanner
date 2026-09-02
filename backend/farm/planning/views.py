@@ -61,7 +61,7 @@ def _parse_remaining_area_params(query_params) -> tuple[dict | None, str | None]
 
 
 class YieldCalendarListView(generics.GenericAPIView):
-    """Return expected yield distribution aggregated by ISO week and culture."""
+    """Return expected yield distribution aggregated by ISO week and crop."""
 
     def get(self, request):
         active_project = get_active_project_or_400(request)
@@ -95,7 +95,7 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
     
     Provides list, create, retrieve, update, and delete operations
     for planting plans. The harvest_date is automatically calculated
-    on creation and update based on the culture's growth_duration_days.
+    on creation and update based on the crop's growth_duration_days.
     
     Attributes:
         queryset: All PlantingPlan objects ordered by planting_date (descending)
@@ -108,8 +108,8 @@ class PlantingPlanViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mod
     api_token_actions = {'list', 'retrieve'}
     queryset = (
         PlantingPlan.objects
-        .select_related('culture', 'culture__crop_species', 'culture__project', 'bed', 'created_by', 'updated_by')
-        .prefetch_related('culture__crop_species__translations')
+        .select_related('crop', 'crop__crop_species', 'crop__project', 'bed', 'created_by', 'updated_by')
+        .prefetch_related('crop__crop_species__translations')
         .annotate(note_attachment_count=Count('attachments'))
         .order_by('-planting_date')
     )
@@ -209,7 +209,7 @@ class TaskViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSe
     # resolve references, but changing them stays session-only in this
     # version (see farm/agent_api/permissions.py).
     api_token_actions = {'list', 'retrieve'}
-    queryset = Task.objects.select_related('planting_plan', 'planting_plan__culture', 'planting_plan__bed').all()
+    queryset = Task.objects.select_related('planting_plan', 'planting_plan__crop', 'planting_plan__bed').all()
     serializer_class = TaskSerializer
 
     def perform_create(self, serializer):

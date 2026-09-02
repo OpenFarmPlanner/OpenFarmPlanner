@@ -1,6 +1,6 @@
 # Versioning and History (`EntityRevision`)
 
-OpenFarmPlanner keeps an audit trail and supports restoring cultures and
+OpenFarmPlanner keeps an audit trail and supports restoring crops and
 whole projects to a past point in time. This is **snapshot-based**, not
 event-sourced: each history row is a full point-in-time copy of one
 entity's fields, not a delta to replay.
@@ -13,7 +13,7 @@ mechanism: one row per `(entity_type, object_id)` per mutation
 `snapshot` of the entity's fields at that moment plus a `changed_fields`
 list for diff display. It replaced two now-deprecated models:
 
-- `CultureRevision` — the original culture-only history table.
+- `CropRevision` — the original crop-only history table.
 - `ProjectRevision` — snapshotted the *entire project* as one JSON blob per
   mutation, which didn't scale as projects grew.
 
@@ -32,24 +32,24 @@ re-serializing everything the project contains.
 `record_entity_revision(...)` (`backend/farm/history/records.py`) is the single
 write path — it just creates an `EntityRevision` row. It's called:
 
-- **Automatically** inside `Culture.save()` on every create/update, so
-  culture history requires no explicit call from view code.
+- **Automatically** inside `Crop.save()` on every create/update, so
+  crop history requires no explicit call from view code.
 - **Explicitly** from view code for other mutation paths (soft-delete,
-  restore, project-level restore) — look for `culture._history_action = ...`
+  restore, project-level restore) — look for `crop._history_action = ...`
   assignments before `.save()` calls in the farm domain view packages; this is
   how a save is tagged as a delete/restore action rather than a plain
   update for history purposes.
 
 ## Reading history
 
-- `GlobalHistoryListView` (`GET`, culture-only) and `ProjectHistoryListView`
+- `GlobalHistoryListView` (`GET`, crop-only) and `ProjectHistoryListView`
   (`GET`, all entity types) return the last 30 days of revisions for the
   active project. `GlobalHistoryListView` additionally computes a
   human-readable diff (`_build_entity_revision_changes`) between each
   revision's snapshot and the *previous* revision for the same object,
   skipping internal/denormalized fields (`id`, timestamps, `project_id`,
   `*_normalized` fields, ...).
-- On the frontend this surfaces as the per-culture/global history **dialog**
+- On the frontend this surfaces as the per-crop/global history **dialog**
   on `Cultures.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))
   and as the project version-history dialog
@@ -93,10 +93,10 @@ of a dozen unrelated "planting plan deleted" rows.
 
 Two restore paths, both admin-only (`require_project_admin`):
 
-- **`GlobalHistoryRestoreView`** restores a *single culture* from one of its
+- **`GlobalHistoryRestoreView`** restores a *single crop* from one of its
   own past revisions: copies every allowed field from that revision's
   snapshot onto the (possibly soft-deleted — looked up via
-  `Culture.all_objects`, not the default manager) culture row, clears
+  `Crop.all_objects`, not the default manager) crop row, clears
   `deleted_at`, and saves with `_history_action = ACTION_RESTORED`.
 - **`ProjectHistoryRestoreView`** rolls the *whole project* back to the
   clicked revision's timestamp (`_restore_project_state_at`). It works purely
@@ -133,7 +133,7 @@ Two restore paths, both admin-only (`require_project_admin`):
   goes in `_RESTORABLE_ENTITY_TYPES` (`backend/farm/history/records.py`), in
   FK-dependency order, and needs something calling `record_entity_revision`
   for it — being project-scoped alone gives no history.
-- Don't write new rows to `CultureRevision`/`ProjectRevision` — they're
+- Don't write new rows to `CropRevision`/`ProjectRevision` — they're
   drain-only.
 - Remember `EntityRevision.object_id` is a plain integer, not a real FK —
   there's no DB-level referential-integrity guarantee tying a revision back
@@ -147,15 +147,15 @@ list — parents before children, because restore deletes in reverse order and
 recreates in forward order:
 
 `Location` → `Field` → `Bed` → `BedLayout` → `FieldLayout` → `Supplier` →
-`Culture` → `Season` → `PlantingPlan` → `Task` → `NoteAttachment`.
+`Crop` → `Season` → `PlantingPlan` → `Task` → `NoteAttachment`.
 
 Three more entity types get revision rows but are **not** part of
 whole-project restore (they are in `_ENTITY_TYPE_LABELS` only):
-`MediaFile`, `SeedPackage`, and `CultureSupplierData`. Read the list in the
+`MediaFile`, `SeedPackage`, and `CropSupplierData`. Read the list in the
 source before relying on it — this is the kind of thing a new model silently
 misses.
 
 Public crop-library entries have their **own**, separate version history
-(`PublicCultureRevision`, see
+(`PublicCropRevision`, see
 [crop-library-architecture.md](./crop-library-architecture.md)). They are not
 project-scoped and never take part in project restore.

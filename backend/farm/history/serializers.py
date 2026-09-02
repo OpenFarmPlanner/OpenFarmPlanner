@@ -3,9 +3,9 @@
 from rest_framework import serializers
 
 
-class CultureHistoryEntrySerializer(serializers.Serializer):
+class CropHistoryEntrySerializer(serializers.Serializer):
     history_id = serializers.IntegerField(required=False)
-    culture_id = serializers.IntegerField(required=False)
+    crop_id = serializers.IntegerField(required=False)
     history_date = serializers.DateTimeField()
     history_type = serializers.CharField()
     history_user = serializers.CharField(allow_null=True)
@@ -26,5 +26,5 @@ class CultureHistoryEntrySerializer(serializers.Serializer):
     children = serializers.ListField(child=serializers.DictField(), required=False)
 
 
-class CultureRestoreSerializer(serializers.Serializer):
+class CropRestoreSerializer(serializers.Serializer):
     history_id = serializers.IntegerField()

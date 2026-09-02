@@ -36,8 +36,10 @@ urlpatterns = [
     path(_with_prefix('api/'), include('farm.urls')),
     # Additive, forward-looking crop-library surface — see
     # docs/crop-library-architecture.md. Not yet public: same
-    # IsAuthenticated requirement as everything else.
-    path(_with_prefix('api/crops/'), include('crops.urls')),
+    # IsAuthenticated requirement as everything else. It lives on
+    # `/api/crop-library/` because `/api/crops/` now serves the project-owned
+    # `farm.Crop` rows (formerly `/api/cultures/`).
+    path(_with_prefix('api/crop-library/'), include('crops.urls')),
     path(_with_prefix('api/crop-species/'), include('crops.species_urls')),
     path(_with_prefix('api/public-library/'), include('crops.moderation_urls')),
     path(_with_prefix('api/notifications/'), include('notifications.urls')),
@@ -49,7 +51,7 @@ if getattr(settings, 'URL_PREFIX', '').strip('/') != legacy_prefix:
     urlpatterns += [
         path(f'{legacy_prefix}/api/auth/', include('accounts.urls')),
         path(f'{legacy_prefix}/api/', include('farm.urls')),
-        path(f'{legacy_prefix}/api/crops/', include('crops.urls')),
+        path(f'{legacy_prefix}/api/crop-library/', include('crops.urls')),
         path(f'{legacy_prefix}/api/crop-species/', include('crops.species_urls')),
         path(f'{legacy_prefix}/api/public-library/', include('crops.moderation_urls')),
         path(f'{legacy_prefix}/api/notifications/', include('notifications.urls')),

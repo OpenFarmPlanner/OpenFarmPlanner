@@ -6,11 +6,11 @@ from django.db import models
 from .projects import Project
 
 
-class CultureRevision(models.Model):
+class CropRevision(models.Model):
     """Deprecated: superseded by EntityRevision. Retained only so existing rows
     can drain via the cleanup_history command; no new rows are written here."""
 
-    culture = models.ForeignKey('Culture', on_delete=models.CASCADE, related_name='revisions')
+    crop = models.ForeignKey('Crop', on_delete=models.CASCADE, related_name='revisions')
     snapshot = models.JSONField()
     changed_fields = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -86,7 +86,7 @@ class EntityRevision(models.Model):
     """Per-entity snapshot recorded on every create/update/delete/restore.
 
     Replaces the old ProjectRevision (full-project JSON dump per mutation) and
-    CultureRevision (per-culture only) with one generic, per-entity-sized
+    CropRevision (per-crop only) with one generic, per-entity-sized
     record. A revision's `snapshot` holds the full field dict of the single
     entity at that point in time (not the whole project), so write cost scales
     with entity size instead of project size. Point-in-time project restore is

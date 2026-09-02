@@ -2,10 +2,10 @@
 
 How external tools (coding agents such as Codex or Claude Code, scripts, CI
 jobs, and other automations) authenticate against OpenFarmPlanner and import
-culture data safely.
+crop data safely.
 
 There is **no separate agent API**. Agents call the same endpoints the browser
-calls, backed by the same serializers, the same `Culture.clean()`, and the same
+calls, backed by the same serializers, the same `Crop.clean()`, and the same
 project scoping. What this feature adds is a second credential type for
 external, non-browser clients, a set of rules that narrow what that credential
 can reach, and a two-step import flow that refuses to guess.
@@ -18,7 +18,7 @@ can reach, and a two-step import flow that refuses to guess.
 - [Getting a token](#getting-a-token)
 - [Using a token (curl)](#using-a-token-curl)
 - [Machine-readable schema](#machine-readable-schema)
-- [Culture fields, units, and bounds](#culture-fields-units-and-bounds)
+- [Crop fields, units, and bounds](#crop-fields-units-and-bounds)
 - [Validation rules](#validation-rules)
 - [The two-step import flow](#the-two-step-import-flow)
 - [Idempotency and duplicates](#idempotency-and-duplicates)
@@ -105,28 +105,28 @@ Three scopes:
 | Scope | HTTP methods | May do |
 |---|---|---|
 | `read` | `GET`, `HEAD`, `OPTIONS` | read the bound project's data |
-| `write` | `read` + `POST`, `PUT`, `PATCH` | additionally create and update cultures, and run imports |
-| `delete` | `write` + allowlisted `DELETE` | additionally soft-delete and restore cultures |
+| `write` | `read` + `POST`, `PUT`, `PATCH` | additionally create and update crops, and run imports |
+| `delete` | `write` + allowlisted `DELETE` | additionally soft-delete and restore crops |
 
 Reachable endpoints (everything else returns 403 for tokens):
 
 | Endpoint | `read` | `write` | `delete` |
 |---|---|---|---|
-| `GET /api/cultures/`, `GET /api/cultures/{id}/` | ✅ | ✅ | ✅ |
-| `POST /api/cultures/`, `PATCH`/`PUT /api/cultures/{id}/` | ❌ | ✅ | ✅ |
-| `DELETE /api/cultures/{id}/`, `POST /api/cultures/{id}/undelete/` | ❌ | ❌ | ✅ |
-| `GET /api/cultures/duplicate-check/`, `GET /api/cultures/{id}/history/` | ✅ | ✅ | ✅ |
-| `POST /api/culture-imports/preview/` | ❌ | ✅ | ✅ |
-| `GET /api/culture-imports/{draft_id}/` | ✅ | ✅ | ✅ |
-| `POST /api/culture-imports/{draft_id}/apply/` | ❌ | ✅ | ✅ |
+| `GET /api/crops/`, `GET /api/crops/{id}/` | ✅ | ✅ | ✅ |
+| `POST /api/crops/`, `PATCH`/`PUT /api/crops/{id}/` | ❌ | ✅ | ✅ |
+| `DELETE /api/crops/{id}/`, `POST /api/crops/{id}/undelete/` | ❌ | ❌ | ✅ |
+| `GET /api/crops/duplicate-check/`, `GET /api/crops/{id}/history/` | ✅ | ✅ | ✅ |
+| `POST /api/crop-imports/preview/` | ❌ | ✅ | ✅ |
+| `GET /api/crop-imports/{draft_id}/` | ✅ | ✅ | ✅ |
+| `POST /api/crop-imports/{draft_id}/apply/` | ❌ | ✅ | ✅ |
 | `GET /api/agent/context/` | ✅ | ✅ | ✅ |
-| `GET /api/suppliers/`, `/seed-packages/`, `/culture-supplier-data/` | ✅ | ✅ | ✅ |
+| `GET /api/suppliers/`, `/seed-packages/`, `/crop-supplier-data/` | ✅ | ✅ | ✅ |
 | `GET /api/locations/`, `/fields/`, `/beds/`, `/planting-plans/`, `/tasks/` | ✅ | ✅ | ✅ |
 | `GET /api/agent/openapi.json` | ✅ | ✅ | ✅ |
 
 Explicitly **not** reachable with any token, in this version:
 
-- every `DELETE` except culture soft-delete with a `delete` token
+- every `DELETE` except crop soft-delete with a `delete` token
 - project members, invitations, project switching, project create/delete
 - account settings, `/api/auth/*`, data export, consent
 - API-token management itself — a token cannot mint another token
@@ -180,11 +180,11 @@ read -rs OFP_TOKEN && export OFP_TOKEN
 export OFP_API="https://your-openfarmplanner-host/api"
 ```
 
-Read the cultures of the bound project. No `X-Project-Id` is needed — the server
+Read the crops of the bound project. No `X-Project-Id` is needed — the server
 derives the project from the token:
 
 ```bash
-curl -sS "$OFP_API/cultures/" \
+curl -sS "$OFP_API/crops/" \
   -H "Authorization: Bearer $OFP_TOKEN"
 ```
 
@@ -212,19 +212,19 @@ The response contains only non-secret token context:
 }
 ```
 
-Update one culture (requires `write`):
+Update one crop (requires `write`):
 
 ```bash
-curl -sS -X PATCH "$OFP_API/cultures/42/" \
+curl -sS -X PATCH "$OFP_API/crops/42/" \
   -H "Authorization: Bearer $OFP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"growth_duration_days": 75}'
 ```
 
-Preview an import — this writes no culture data:
+Preview an import — this writes no crop data:
 
 ```bash
-curl -sS -X POST "$OFP_API/culture-imports/preview/" \
+curl -sS -X POST "$OFP_API/crop-imports/preview/" \
   -H "Authorization: Bearer $OFP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -240,7 +240,7 @@ The response carries `draft_id`, `checksum`, a `summary`, and the per-field
 analysis. Review it, then execute exactly that draft:
 
 ```bash
-curl -sS -X POST "$OFP_API/culture-imports/<draft_id>/apply/" \
+curl -sS -X POST "$OFP_API/crop-imports/<draft_id>/apply/" \
   -H "Authorization: Bearer $OFP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"confirm": true, "checksum": "<checksum from the preview>", "acknowledge_warnings": true}'
@@ -254,11 +254,11 @@ or scope is not, it answers `403` with a `detail` explaining which rule applied.
 
 `GET /api/agent/openapi.json` returns an OpenAPI 3.1 document covering exactly
 the endpoints listed above. It is **generated** from
-`farm/services/culture_import/field_specs.py`, the same module the validator
+`farm/services/crop_import/field_specs.py`, the same module the validator
 reads, so a documented bound and an enforced bound cannot drift apart. A test
 asserts that equivalence.
 
-Beyond standard JSON Schema, the culture schema uses five extensions:
+Beyond standard JSON Schema, the crop schema uses five extensions:
 
 | Extension | Meaning |
 |---|---|
@@ -271,7 +271,7 @@ Beyond standard JSON Schema, the culture schema uses five extensions:
 `minimum` / `maximum` / `exclusiveMinimum` carry the *hard* bounds — values
 outside them are rejected.
 
-## Culture fields, units, and bounds
+## Crop fields, units, and bounds
 
 Distances are stored in SI metres, and the canonical field names say so:
 `row_spacing_m`, `distance_within_row_m`, `sowing_depth_m`. An agent never has
@@ -296,7 +296,7 @@ itself states one (`"50 cm"` or `{"value": 50, "unit": "cm"}`).
 | `seed_rate_direct_value` | see its `_unit` | > 0 … 100000 | depends on the unit |
 | `seed_rate_pre_cultivation_value` | see its `_unit` | > 0 … 100000 | depends on the unit |
 
-For direct culture create/update, agents should prefer the `seed_requirements`
+For direct crop create/update, agents should prefer the `seed_requirements`
 object over the flat `seed_rate_*` fields:
 
 ```json
@@ -365,9 +365,9 @@ Plausible seed-rate bands, applied once the unit is known:
 | `seeds_per_plant` | 1 … 10 |
 
 Seed-rate units can also impose value-shape constraints. These rules are
-defined in `farm/services/culture_import/field_specs.py`, exposed through
+defined in `farm/services/crop_import/field_specs.py`, exposed through
 `x-unit-value-constraints` in OpenAPI, and served to the browser form at
-`GET /api/cultures/seed-rate-constraints/`. The API enforces the same rules:
+`GET /api/crops/seed-rate-constraints/`. The API enforces the same rules:
 `seeds_per_plant` requires a whole-number value, so `1.1` is rejected rather
 than rounded. Gram-based units remain decimal-capable.
 
@@ -381,11 +381,11 @@ Enums: `nutrient_demand` (`low`/`medium`/`high`), `harvest_method`
 `name` is the only required field. Everything else is optional, and an absent
 field is left untouched rather than reset.
 
-Species-level general data uses the same private `Culture` endpoint and fields
+Species-level general data uses the same private `Crop` endpoint and fields
 as variety-specific data. Send `variety` as an empty string or `null` (or omit
 it when creating the row); the API stores all three forms as an empty string.
 Duplicate detection treats the resulting `(name, empty variety)` identity like
-any other culture identity. On update, omitting `variety` leaves it unchanged.
+any other crop identity. On update, omitting `variety` leaves it unchanged.
 
 Rejected (the row becomes `blocked` and the draft cannot be applied):
 
@@ -400,18 +400,18 @@ Rejected (the row becomes `blocked` and the draft cannot be applied):
 - a fractional day count, an invalid `#RRGGBB` colour, or an over-long text
   (which is refused, not truncated).
 - a missing name.
-- two rows in one payload that resolve to the same culture.
+- two rows in one payload that resolve to the same crop.
 
 Warned about (accepted, but shown in the preview and requiring
 `acknowledge_warnings` before execution):
 
 - a value inside the hard range but outside the plausible band — an unusually
   small or large spacing, an extreme seed rate, a very long harvest window.
-- a seed rate given for a cultivation type the culture does not list.
+- a seed rate given for a cultivation type the crop does not list.
 
 Ignored and reported, never guessed:
 
-- keys that are not part of the culture schema. An order export's
+- keys that are not part of the crop schema. An order export's
   `article_no`, `package_size`, `price_eur`, or `order_quantity` land under
   `ignored_fields` with `code: "unknown_field"`. A `product_name` is never
   folded into `variety`, and a package size is never read as a seed rate.
@@ -421,17 +421,17 @@ Ignored and reported, never guessed:
 ## The two-step import flow
 
 ```
-POST /api/culture-imports/preview/      →  analysis + draft_id + checksum   (no writes)
+POST /api/crop-imports/preview/      →  analysis + draft_id + checksum   (no writes)
                     ↓ human or agent reviews the table
-POST /api/culture-imports/{id}/apply/   →  {"confirm": true, "checksum": …}  (writes)
+POST /api/crop-imports/{id}/apply/   →  {"confirm": true, "checksum": …}  (writes)
 ```
 
 **Preview** analyzes the payload against the field specs and the project's
-existing cultures, then stores the result as a `CultureImportDraft` (TTL 2
-hours). It touches no culture data at all.
+existing crops, then stores the result as a `CropImportDraft` (TTL 2
+hours). It touches no crop data at all.
 
 Per row it reports `action` (`create` / `update` / `skip` / `blocked`),
-`identity`, `matched_culture_id`, `ignored_fields`, and per field:
+`identity`, `matched_crop_id`, `ignored_fields`, and per field:
 
 | Key | Meaning |
 |---|---|
@@ -441,13 +441,13 @@ Per row it reports `action` (`create` / `update` / `skip` / `blocked`),
 | `api_value` | the normalized value that would be stored, or `null` |
 | `api_unit` | the canonical unit |
 | `confidence` | `exact` / `converted` / `needs_clarification` / `invalid` |
-| `current_value` | what is stored today, when a culture matched |
+| `current_value` | what is stored today, when a crop matched |
 | `changes_existing` | whether applying would change it |
 | `warnings`, `errors` | machine codes plus human messages |
 
 Rendered as a table, the two cases from the specification look like this:
 
-| Culture | Field | Source value | API value | Status |
+| Crop | Field | Source value | API value | Status |
 |---|---|---:|---:|---|
 | Brokkoli | `row_spacing_m` | 50 cm | 0.5 m | `converted` |
 | Karotte | `seed_rate_direct_value` | 5, no unit | – | `needs_clarification` |
@@ -462,7 +462,7 @@ the apply call — and refuses unless all of the following hold:
 | `draft_expired` | the draft is older than its TTL |
 | `draft_has_errors` | at least one row is `blocked` |
 | `warnings_not_acknowledged` | the draft has warnings and `acknowledge_warnings` was not `true` |
-| `match_disappeared` | a matched culture was deleted between preview and apply |
+| `match_disappeared` | a matched crop was deleted between preview and apply |
 | `execution_failed` | a serializer rejected a row; everything was rolled back |
 
 The checksum is what turns "the preview I reviewed" into something the server
@@ -479,13 +479,13 @@ as a whole.
 Two layers, both aligned with the existing data model.
 
 **Row identity** is the normalized `(name, variety, supplier)` trio, which is
-exactly the `unique_culture_normalized` database constraint. A row that resolves
-to an existing culture is an update, not an insert. If nothing would change, the
+exactly the `unique_crop_normalized` database constraint. A row that resolves
+to an existing crop is an update, not an insert. If nothing would change, the
 action is `skip` — so re-previewing and re-applying the same file converges
 instead of accumulating rows. Matching is project-scoped, so a row can never
-resolve to a culture in someone else's project.
+resolve to a crop in someone else's project.
 
-Note the deliberate asymmetry: a row without a supplier only matches a culture
+Note the deliberate asymmetry: a row without a supplier only matches a crop
 without a supplier. An unspecified row never overwrites a supplier-specific one.
 
 **Draft identity** covers retries. Applying an already-applied draft performs no
@@ -493,12 +493,12 @@ writes and returns the original result with `already_applied: true`, so a client
 that retries after a dropped response never doubles an import.
 
 Duplicates *within* one payload are caught at preview time: the second row
-naming the same culture is blocked with `duplicate_in_payload`.
+naming the same crop is blocked with `duplicate_in_payload`.
 
 ## Known limitations
 
-- **Deletion is culture-only.** Only `delete` tokens may soft-delete or restore
-  cultures. Suppliers, locations, fields, beds, planting plans, tasks, projects,
+- **Deletion is crop-only.** Only `delete` tokens may soft-delete or restore
+  crops. Suppliers, locations, fields, beds, planting plans, tasks, projects,
   members, invitations, and account areas still cannot be deleted or restored
   with any token. Global history restore remains session-only.
 - **Read-only supporting data.** Suppliers, locations, fields, beds, planting
@@ -506,15 +506,15 @@ naming the same culture is blocked with `duplicate_in_payload`.
   create a supplier indirectly via `supplier_name`, but there is no supplier
   write endpoint.
 - **Three coarse scopes only.** There is no separate per-field or per-resource
-  grant beyond the dedicated culture delete/restore scope.
+  grant beyond the dedicated crop delete/restore scope.
 - **One project per token.** Working across two projects means two tokens. This
   is the point, not an oversight.
 - **Drafts expire after two hours** and are not garbage-collected on a schedule;
   expired rows stay in the table until someone prunes them.
 - **`seed_requirements`, seed packages, images, and supplier rows** are not part
   of the preview/apply import schema yet. `seed_requirements` is available on
-  direct culture create/update endpoints; seed packages remain editable through
-  the browser and culture endpoints.
+  direct crop create/update endpoints; seed packages remain editable through
+  the browser and crop endpoints.
 - **`last_used_at` is coalesced** to at most one write per minute, so it is
   accurate to the minute rather than the request.
 - **No rate limiting specific to tokens.** The existing DRF throttles are scoped
@@ -525,14 +525,14 @@ naming the same culture is blocked with `duplicate_in_payload`.
 
 | Path | Contents |
 |---|---|
-| `backend/farm/models/agent_api.py` | `ProjectApiToken`, `CultureImportDraft` |
+| `backend/farm/models/agent_api.py` | `ProjectApiToken`, `CropImportDraft` |
 | `backend/farm/agent_api/authentication.py` | bearer authentication |
 | `backend/farm/agent_api/permissions.py` | scope/action rules |
 | `backend/farm/agent_api/middleware.py` | surface allowlist above DRF |
 | `backend/farm/agent_api/views.py` | token self-service, import endpoints |
 | `backend/farm/agent_api/openapi.py` | generated schema |
-| `backend/farm/services/culture_import/field_specs.py` | units, bounds, enums — single source of truth |
-| `backend/farm/services/culture_import/units.py` | value/unit parsing and conversion |
-| `backend/farm/services/culture_import/analysis.py` | preview generation |
-| `backend/farm/services/culture_import/apply.py` | transactional execution |
+| `backend/farm/services/crop_import/field_specs.py` | units, bounds, enums — single source of truth |
+| `backend/farm/services/crop_import/units.py` | value/unit parsing and conversion |
+| `backend/farm/services/crop_import/analysis.py` | preview generation |
+| `backend/farm/services/crop_import/apply.py` | transactional execution |
 | `frontend/src/pages/accountSettingsApiTokensCard.tsx` | token management UI |

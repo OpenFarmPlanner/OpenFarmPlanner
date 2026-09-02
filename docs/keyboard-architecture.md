@@ -60,7 +60,7 @@ implementations).
   field (`isTypingInEditableElement`), unless a spec opts in.
 - **Global commands** (`commands/commands.ts`, `commands/CommandProvider.tsx`)
   are registered by scope (`useRegisterCommands('scope-name', specs)`) and
-  gated by `contextTags` (`'cultures' | 'calendar' | 'plans' | ...`), which a
+  gated by `contextTags` (`'crops' | 'calendar' | 'plans' | ...`), which a
   page activates for as long as it's mounted (`useCommandContextTag('cultures')`).
   This is *page-level* scoping — "this shortcut only applies on this page."
 - **Region shortcuts** (`frontend/src/focus/useRegionShortcuts.ts`) are the
@@ -118,7 +118,7 @@ built but never wired to anything) showing:
 4. All commands active for the current page (grouped by context tag, same
    list the command palette searches).
 5. A compact all-pages reference for page-specific shortcuts, so users can
-   discover e.g. the Cultures page shortcuts even while they opened help from
+   discover e.g. the Crops page shortcuts even while they opened help from
    account settings or another page without local commands.
 
 This replaced three separate, drifting implementations (a static, hand
@@ -161,7 +161,7 @@ layout) and to DataGrid (which already has its own cell-navigation code) is
 future work — the reference implementation and this write-up are meant to
 make that a mechanical port rather than a fresh design exercise each time.
 
-Culture master-detail lists use the same local-widget approach through
+Crop master-detail lists use the same local-widget approach through
 `cultures/useCultureListKeyboardNavigation.ts`: the visible list rows are a
 `listbox`/`option` set with roving tabindex, ArrowUp/ArrowDown/Home/End move
 selection within the currently rendered rows, the selected row scrolls into

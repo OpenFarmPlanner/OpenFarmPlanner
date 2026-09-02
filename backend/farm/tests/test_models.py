@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 
 from accounts.models import PublicProfile
 from crops.models import CropSpecies
-from farm.models import Bed, Culture, Field, Location, PlantingPlan, Project, PublicCulture, Supplier, Task, is_supplier_domain
+from farm.models import Bed, Crop, Field, Location, PlantingPlan, Project, PublicCrop, Supplier, Task, is_supplier_domain
 
 User = get_user_model()
 
@@ -220,33 +220,33 @@ class BedModelTest(TestCase):
 
 
 
-class CultureModelTest(TestCase):
+class CropModelTest(TestCase):
     def setUp(self):
-        self.project = Project.objects.create(name='Culture Test Project', slug='culture-test-project')
+        self.project = Project.objects.create(name='Crop Test Project', slug='crop-test-project')
 
-    def test_culture_creation_with_variety(self):
-        culture = Culture.objects.create(
+    def test_crop_creation_with_variety(self):
+        crop = Crop.objects.create(
             name="Tomato",
             variety="Cherry",
             growth_duration_days=8,
             harvest_duration_days=4,
             project=self.project,
         )
-        self.assertEqual(str(culture), "Tomato (Cherry)")
+        self.assertEqual(str(crop), "Tomato (Cherry)")
     
-    def test_culture_creation_without_variety(self):
-        """Test creating a culture without a variety"""
-        culture = Culture.objects.create(
+    def test_crop_creation_without_variety(self):
+        """Test creating a crop without a variety"""
+        crop = Crop.objects.create(
             name="Lettuce",
             growth_duration_days=4,
             harvest_duration_days=2,
             project=self.project,
         )
-        self.assertEqual(str(culture), "Lettuce")
+        self.assertEqual(str(crop), "Lettuce")
     
-    def test_culture_with_manual_planning_fields(self):
-        """Test creating a culture with all manual planning fields"""
-        culture = Culture.objects.create(
+    def test_crop_with_manual_planning_fields(self):
+        """Test creating a crop with all manual planning fields"""
+        crop = Crop.objects.create(
             name="Broccoli",
             variety="Calabrese",
             notes="Great for winter growing",
@@ -264,55 +264,55 @@ class CultureModelTest(TestCase):
             sowing_depth_m=0.015,  # 1.5 cm = 0.015 m
             project=self.project,
         )
-        self.assertEqual(culture.name, "Broccoli")
-        self.assertEqual(culture.crop_family, "Brassicaceae")
-        self.assertEqual(culture.nutrient_demand, "high")
-        self.assertEqual(culture.rotation_break_years, 4)
-        self.assertEqual(culture.cultivation_type, "pre_cultivation")
-        self.assertEqual(culture.growth_duration_days, 10)
-        self.assertEqual(culture.harvest_duration_days, 3)
-        self.assertEqual(culture.propagation_duration_days, 4)
-        self.assertEqual(culture.harvest_method, "per_plant")
-        self.assertEqual(float(culture.expected_yield), 500.0)
-        self.assertAlmostEqual(culture.distance_within_row_m, 0.40, places=4)
-        self.assertAlmostEqual(culture.row_spacing_m, 0.60, places=4)
-        self.assertAlmostEqual(culture.sowing_depth_m, 0.015, places=4)
+        self.assertEqual(crop.name, "Broccoli")
+        self.assertEqual(crop.crop_family, "Brassicaceae")
+        self.assertEqual(crop.nutrient_demand, "high")
+        self.assertEqual(crop.rotation_break_years, 4)
+        self.assertEqual(crop.cultivation_type, "pre_cultivation")
+        self.assertEqual(crop.growth_duration_days, 10)
+        self.assertEqual(crop.harvest_duration_days, 3)
+        self.assertEqual(crop.propagation_duration_days, 4)
+        self.assertEqual(crop.harvest_method, "per_plant")
+        self.assertEqual(float(crop.expected_yield), 500.0)
+        self.assertAlmostEqual(crop.distance_within_row_m, 0.40, places=4)
+        self.assertAlmostEqual(crop.row_spacing_m, 0.60, places=4)
+        self.assertAlmostEqual(crop.sowing_depth_m, 0.015, places=4)
     
     def test_display_color_auto_generation(self):
         """Test that display color is automatically generated on creation"""
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name="Carrot",
             growth_duration_days=10,
             harvest_duration_days=3,
             project=self.project,
         )
-        self.assertIsNotNone(culture.display_color)
-        self.assertTrue(culture.display_color.startswith('#'))
-        self.assertEqual(len(culture.display_color), 7)
+        self.assertIsNotNone(crop.display_color)
+        self.assertTrue(crop.display_color.startswith('#'))
+        self.assertEqual(len(crop.display_color), 7)
     
     def test_display_color_custom_preserved(self):
         """Test that custom display color is preserved"""
         custom_color = "#FF5733"
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name="Lettuce",
             growth_duration_days=4,
             harvest_duration_days=2,
             display_color=custom_color,
             project=self.project,
         )
-        self.assertEqual(culture.display_color, custom_color)
+        self.assertEqual(crop.display_color, custom_color)
     
-    def test_display_color_distinct_for_multiple_cultures(self):
+    def test_display_color_distinct_for_multiple_crops(self):
         """Test that generated colors are distinct"""
         colors = set()
         for i in range(10):
-            culture = Culture.objects.create(
-                name=f"Culture {i}",
+            crop = Crop.objects.create(
+                name=f"Crop {i}",
                 growth_duration_days=4,
                 harvest_duration_days=2,
                 project=self.project,
             )
-            colors.add(culture.display_color)
+            colors.add(crop.display_color)
         
         # All colors should be unique
         self.assertEqual(len(colors), 10)
@@ -321,27 +321,27 @@ class CultureModelTest(TestCase):
         """Test that negative values for numeric fields are rejected"""
         from django.core.exceptions import ValidationError
         
-        culture = Culture(
+        crop = Crop(
             name="Lettuce",
             growth_duration_days=-1,
             harvest_duration_days=2
         )
         with self.assertRaises(ValidationError) as context:
-            culture.clean()
+            crop.clean()
         self.assertIn('growth_duration_days', context.exception.message_dict)
 
     def test_negative_rotation_break_years_validation(self):
         """Test that a negative rotation break in years is rejected"""
         from django.core.exceptions import ValidationError
 
-        culture = Culture(
+        crop = Crop(
             name="Lettuce",
             growth_duration_days=4,
             harvest_duration_days=2,
             rotation_break_years=-1,
         )
         with self.assertRaises(ValidationError) as context:
-            culture.clean()
+            crop.clean()
         self.assertIn('rotation_break_years', context.exception.message_dict)
 
 
@@ -350,36 +350,36 @@ class CultureModelTest(TestCase):
         from django.core.exceptions import ValidationError
         
         # Invalid color format
-        culture = Culture(
+        crop = Crop(
             name="Tomato",
             growth_duration_days=8,
             harvest_duration_days=4,
             display_color="invalid"
         )
         with self.assertRaises(ValidationError) as context:
-            culture.clean()
+            crop.clean()
         self.assertIn('display_color', context.exception.message_dict)
         
         # Valid color format
-        culture2 = Culture(
+        crop2 = Crop(
             name="Tomato",
             growth_duration_days=8,
             harvest_duration_days=4,
             harvest_method='per_sqm',
             display_color="#FF5733"
         )
-        culture2.clean()  # Should not raise
+        crop2.clean()  # Should not raise
 
 
     def test_harvest_duration_does_not_require_harvest_method(self):
-        culture = Culture(
+        crop = Crop(
             name='Kohl',
             variety='Türkis',
             growth_duration_days=90,
             harvest_duration_days=21,
         )
 
-        culture.clean()
+        crop.clean()
 
 
 
@@ -394,7 +394,7 @@ class PlantingPlanModelTest(TestCase):
             area_sqm=20.0,  # Total area: 20 sqm
             project=self.project,
         )
-        self.culture = Culture.objects.create(
+        self.crop = Crop.objects.create(
             name="Carrot",
             growth_duration_days=70,
             harvest_duration_days=3,
@@ -404,7 +404,7 @@ class PlantingPlanModelTest(TestCase):
     def test_auto_harvest_date(self):
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -417,7 +417,7 @@ class PlantingPlanModelTest(TestCase):
         """Test that harvest dates recalculate when planting_date changes"""
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -435,11 +435,11 @@ class PlantingPlanModelTest(TestCase):
         new_expected_harvest = new_planting_date + timedelta(days=70)
         self.assertEqual(plan.harvest_date, new_expected_harvest)
     
-    def test_harvest_date_recalculates_when_culture_changes(self):
-        """Test that harvest dates recalculate when culture changes"""
+    def test_harvest_date_recalculates_when_crop_changes(self):
+        """Test that harvest dates recalculate when crop changes"""
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -448,42 +448,42 @@ class PlantingPlanModelTest(TestCase):
         expected_harvest = planting_date + timedelta(days=70)
         self.assertEqual(plan.harvest_date, expected_harvest)
         
-        # Create new culture with different harvest days
-        new_culture = Culture.objects.create(
+        # Create new crop with different harvest days
+        new_crop = Crop.objects.create(
             name="Tomato",
             growth_duration_days=90,
             harvest_duration_days=2,
             project=self.project,
         )
-        plan.culture = new_culture
+        plan.crop = new_crop
         plan.save()
         
-        # Harvest date should recalculate with new culture's timing
+        # Harvest date should recalculate with new crop's timing
         new_expected_harvest = planting_date + timedelta(days=90)
         self.assertEqual(plan.harvest_date, new_expected_harvest)
 
-    def test_harvest_dates_recalculate_when_culture_timing_changes(self):
+    def test_harvest_dates_recalculate_when_crop_timing_changes(self):
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
             project=self.project,
         )
 
-        self.culture.growth_duration_days = 80
-        self.culture.harvest_duration_days = 5
-        self.culture.save(update_fields=['growth_duration_days', 'harvest_duration_days'])
+        self.crop.growth_duration_days = 80
+        self.crop.harvest_duration_days = 5
+        self.crop.save(update_fields=['growth_duration_days', 'harvest_duration_days'])
 
         plan.refresh_from_db()
         expected_harvest_start = planting_date + timedelta(days=80)
         self.assertEqual(plan.harvest_date, expected_harvest_start)
         self.assertEqual(plan.harvest_end_date, expected_harvest_start + timedelta(days=5))
 
-    def test_inheriting_sorte_harvest_dates_recalculate_when_general_culture_timing_changes(self):
+    def test_inheriting_sorte_harvest_dates_recalculate_when_general_crop_timing_changes(self):
         species = CropSpecies.objects.create(name='Parsnip')
-        general_culture = Culture.objects.create(
+        general_crop = Crop.objects.create(
             name='Parsnip',
             variety='',
             crop_species=species,
@@ -491,13 +491,13 @@ class PlantingPlanModelTest(TestCase):
             harvest_duration_days=21,
             project=self.project,
         )
-        sorte = Culture.objects.create(
+        sorte = Crop.objects.create(
             name='Parsnip',
             variety='Nantaise',
             crop_species=species,
             project=self.project,
         )
-        own_harvest_sorte = Culture.objects.create(
+        own_harvest_sorte = Crop.objects.create(
             name='Parsnip',
             variety='Nantaise Early',
             crop_species=species,
@@ -506,22 +506,22 @@ class PlantingPlanModelTest(TestCase):
         )
         planting_date = date(2024, 3, 1)
         inherited_plan = PlantingPlan.objects.create(
-            culture=sorte,
+            crop=sorte,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
             project=self.project,
         )
         own_harvest_plan = PlantingPlan.objects.create(
-            culture=own_harvest_sorte,
+            crop=own_harvest_sorte,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
             project=self.project,
         )
 
-        general_culture.harvest_duration_days = 30
-        general_culture.save(update_fields=['harvest_duration_days'])
+        general_crop.harvest_duration_days = 30
+        general_crop.save(update_fields=['harvest_duration_days'])
 
         inherited_plan.refresh_from_db()
         own_harvest_plan.refresh_from_db()
@@ -530,7 +530,7 @@ class PlantingPlanModelTest(TestCase):
     
     def test_harvest_end_date_with_growth_and_harvest_duration(self):
         """Test that harvest_end_date is calculated from growth + harvest duration."""
-        culture_with_median = Culture.objects.create(
+        crop_with_median = Crop.objects.create(
             name="Broccoli",
             growth_duration_days=65,
             harvest_duration_days=25,
@@ -538,7 +538,7 @@ class PlantingPlanModelTest(TestCase):
         )
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=culture_with_median,
+            crop=crop_with_median,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -552,10 +552,10 @@ class PlantingPlanModelTest(TestCase):
         self.assertEqual(plan.harvest_end_date, expected_harvest_end)
     
     def test_harvest_end_date_defaults_to_harvest_date(self):
-        """Test harvest_end_date calculation when both culture durations exist."""
+        """Test harvest_end_date calculation when both crop durations exist."""
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=self.culture,
+            crop=self.crop,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -564,14 +564,14 @@ class PlantingPlanModelTest(TestCase):
         
         self.assertEqual(plan.harvest_end_date, plan.harvest_date + timedelta(days=3))
 
-    def test_harvest_dates_are_null_without_culture_timing(self):
-        culture_without_timing = Culture.objects.create(
+    def test_harvest_dates_are_null_without_crop_timing(self):
+        crop_without_timing = Crop.objects.create(
             name="Unknown timing",
             project=self.project,
         )
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=culture_without_timing,
+            crop=crop_without_timing,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -583,15 +583,15 @@ class PlantingPlanModelTest(TestCase):
         self.assertIsNone(plan.harvest_end_date)
         self.assertIsNone(plan._get_active_period())
 
-    def test_partial_culture_timing_calculates_only_available_harvest_date(self):
-        culture_without_harvest_duration = Culture.objects.create(
+    def test_partial_crop_timing_calculates_only_available_harvest_date(self):
+        crop_without_harvest_duration = Crop.objects.create(
             name="Partial timing",
             growth_duration_days=30,
             project=self.project,
         )
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=culture_without_harvest_duration,
+            crop=crop_without_harvest_duration,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -603,7 +603,7 @@ class PlantingPlanModelTest(TestCase):
         self.assertIsNone(plan._get_active_period())
 
     def test_explicit_zero_durations_are_valid_harvest_periods(self):
-        culture_with_zero_timing = Culture.objects.create(
+        crop_with_zero_timing = Crop.objects.create(
             name="Zero timing",
             growth_duration_days=0,
             harvest_duration_days=0,
@@ -611,7 +611,7 @@ class PlantingPlanModelTest(TestCase):
         )
         planting_date = date(2024, 3, 1)
         plan = PlantingPlan.objects.create(
-            culture=culture_with_zero_timing,
+            crop=crop_with_zero_timing,
             bed=self.bed,
             planting_date=planting_date,
             quantity=100,
@@ -628,7 +628,7 @@ class PlantingPlanModelTest(TestCase):
         
         bed_no_dims = Bed.objects.create(name="No Dims Bed", field=self.field, project=self.project)
         plan = PlantingPlan(
-            culture=self.culture,
+            crop=self.crop,
             bed=bed_no_dims,
             planting_date=date(2024, 3, 1),
             area_usage_sqm=100.0,  # Large value, but should be allowed
@@ -655,7 +655,7 @@ class TaskModelTest(TestCase):
         self.assertEqual(task.status, "pending")
 
 
-class PublicCultureAttributionTest(TestCase):
+class PublicCropAttributionTest(TestCase):
     """created_by_label must never surface an email, username, or private name (privacy-sensitive);
     it only ever shows the user's explicitly-set public display name, or nothing (anonymous)."""
 
@@ -666,44 +666,44 @@ class PublicCultureAttributionTest(TestCase):
             first_name='Real',
             last_name='Person',
         )
-        culture = PublicCulture.objects.create(name='Lettuce', created_by=user)
+        crop = PublicCrop.objects.create(name='Lettuce', created_by=user)
 
-        self.assertEqual(culture.created_by_label, '')
+        self.assertEqual(crop.created_by_label, '')
 
     def test_label_is_the_public_display_name_when_set(self):
         user = User.objects.create_user(username='market_gardener_ab12cd34', email='real.person@example.com')
         PublicProfile.objects.create(user=user, public_display_name='Grüner Hof')
-        culture = PublicCulture.objects.create(name='Lettuce', created_by=user)
+        crop = PublicCrop.objects.create(name='Lettuce', created_by=user)
 
-        self.assertEqual(culture.created_by_label, 'Grüner Hof')
-        self.assertNotIn('@', culture.created_by_label)
+        self.assertEqual(crop.created_by_label, 'Grüner Hof')
+        self.assertNotIn('@', crop.created_by_label)
 
     def test_label_is_empty_when_no_creator_is_set(self):
-        culture = PublicCulture.objects.create(name='Carrot', created_by=None)
+        crop = PublicCrop.objects.create(name='Carrot', created_by=None)
 
-        self.assertEqual(culture.created_by_label, '')
+        self.assertEqual(crop.created_by_label, '')
 
     def test_label_is_anonymous_after_account_anonymization(self):
         """An anonymized user's public library entries fall back to anonymous
         attribution, even if a public display name had been set previously."""
         user = User.objects.create_user(username='former_user_11223344', email='deleted-user-1@deleted.local')
         PublicProfile.objects.create(user=user, public_display_name='Grüner Hof')
-        culture = PublicCulture.objects.create(name='Kale', created_by=user)
+        crop = PublicCrop.objects.create(name='Kale', created_by=user)
 
         PublicProfile.objects.filter(user=user).update(public_display_name='')
-        culture = PublicCulture.objects.get(pk=culture.pk)
+        crop = PublicCrop.objects.get(pk=crop.pk)
 
-        self.assertEqual(culture.created_by_label, '')
+        self.assertEqual(crop.created_by_label, '')
 
 
-class CultureNormalizedFieldsTest(TestCase):
-    """Tests for Culture model normalized fields."""
+class CropNormalizedFieldsTest(TestCase):
+    """Tests for Crop model normalized fields."""
     def setUp(self):
-        self.project = Project.objects.create(name='Culture Normalization Project', slug='culture-normalization-project')
+        self.project = Project.objects.create(name='Crop Normalization Project', slug='crop-normalization-project')
     
-    def test_culture_normalized_fields_populated(self):
+    def test_crop_normalized_fields_populated(self):
         """Test that normalized fields are populated on save."""
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name="  Tomato  ",
             variety="  Cherry  ",
             growth_duration_days=60,
@@ -711,12 +711,12 @@ class CultureNormalizedFieldsTest(TestCase):
             project=self.project,
         )
         
-        self.assertEqual(culture.name_normalized, "tomato")
-        self.assertEqual(culture.variety_normalized, "cherry")
+        self.assertEqual(crop.name_normalized, "tomato")
+        self.assertEqual(crop.variety_normalized, "cherry")
     
-    def test_culture_normalized_empty_variety(self):
+    def test_crop_normalized_empty_variety(self):
         """Test normalized fields with empty variety."""
-        culture = Culture.objects.create(
+        crop = Crop.objects.create(
             name="Carrot",
             variety="",
             growth_duration_days=60,
@@ -724,16 +724,16 @@ class CultureNormalizedFieldsTest(TestCase):
             project=self.project,
         )
         
-        self.assertEqual(culture.name_normalized, "carrot")
-        self.assertIsNone(culture.variety_normalized)
+        self.assertEqual(crop.name_normalized, "carrot")
+        self.assertIsNone(crop.variety_normalized)
     
-    def test_culture_unique_constraint(self):
+    def test_crop_unique_constraint(self):
         """Test unique constraint on normalized fields."""
         from django.db import IntegrityError
         
         supplier = Supplier.objects.create(name="Test Supplier", project=self.project)
         
-        Culture.objects.create(
+        Crop.objects.create(
             name="Tomato",
             variety="Cherry",
             supplier=supplier,
@@ -744,7 +744,7 @@ class CultureNormalizedFieldsTest(TestCase):
         
         # Try to create duplicate with same normalized values
         with self.assertRaises(IntegrityError):
-            Culture.objects.create(
+            Crop.objects.create(
                 name="TOMATO",  # Different case
                 variety="cherry",  # Different case
                 supplier=supplier,
@@ -753,12 +753,12 @@ class CultureNormalizedFieldsTest(TestCase):
                 project=self.project,
             )
     
-    def test_culture_unique_constraint_different_supplier(self):
-        """Test that same culture with different supplier is allowed."""
+    def test_crop_unique_constraint_different_supplier(self):
+        """Test that same crop with different supplier is allowed."""
         supplier1 = Supplier.objects.create(name="Supplier 1", project=self.project)
         supplier2 = Supplier.objects.create(name="Supplier 2", project=self.project)
         
-        culture1 = Culture.objects.create(
+        crop1 = Crop.objects.create(
             name="Tomato",
             variety="Cherry",
             supplier=supplier1,
@@ -767,7 +767,7 @@ class CultureNormalizedFieldsTest(TestCase):
             project=self.project,
         )
         
-        culture2 = Culture.objects.create(
+        crop2 = Crop.objects.create(
             name="Tomato",
             variety="Cherry",
             supplier=supplier2,
@@ -776,4 +776,4 @@ class CultureNormalizedFieldsTest(TestCase):
             project=self.project,
         )
         
-        self.assertNotEqual(culture1.id, culture2.id)
+        self.assertNotEqual(crop1.id, crop2.id)

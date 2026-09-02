@@ -1,10 +1,10 @@
 """
-Defined independently from `farm.cultures.serializers.PublicCultureSerializer` on
+Defined independently from `farm.crops.serializers.PublicCropSerializer` on
 purpose, even though the two are currently near-identical: this app must
 depend on `farm.models` only, never on farm's domain serializer/view packages
 (that would put the dependency arrow backwards — see
 docs/crop-library-architecture.md). The small duplication is the
-deliberate cost of keeping that direction correct until `PublicCulture`
+deliberate cost of keeping that direction correct until `PublicCrop`
 itself moves into this app.
 """
 from django.db.models import Q
@@ -16,8 +16,8 @@ from config.languages import (
     normalize_language_tag,
     resolve_request_language,
 )
-from farm.cultures.serializers.public import get_public_user_label
-from farm.models import PublicCulture
+from farm.crops.serializers.public import get_public_user_label
+from farm.models import PublicCrop
 
 from .models import (
     SUPPORTED_REGIONAL_NAME_KEYS,
@@ -149,7 +149,7 @@ class CropSpeciesTranslationSerializer(serializers.ModelSerializer):
 
 
 class CropSpeciesSerializer(serializers.ModelSerializer):
-    """Official species that project cultures may link to before publication.
+    """Official species that project crops may link to before publication.
 
     Exposes both shapes on purpose: ``display_name`` is the single resolved
     name the app renders, ``translations`` is the full set that editorial and
@@ -394,7 +394,7 @@ class PublicLibraryModeratorRequestSerializer(serializers.ModelSerializer):
 
 
 class CropSerializer(serializers.ModelSerializer):
-    """Read-only representation of a published crop, for the /api/crops/ surface.
+    """Read-only representation of a published crop, for the /api/crop-library/ surface.
 
     ``variety`` is served verbatim in every language — variety names are
     proper names. Only the species common name and the public description are
@@ -408,7 +408,7 @@ class CropSerializer(serializers.ModelSerializer):
     description_language_code = serializers.SerializerMethodField()
     crop_species_translations = serializers.SerializerMethodField()
     crop_species_search_names = serializers.SerializerMethodField()
-    # Mirrors `PublicCultureSerializer.crop_species_status`: `proposed` marks a
+    # Mirrors `PublicCropSerializer.crop_species_status`: `proposed` marks a
     # species that is still awaiting moderation, which the UI shows as pending.
     crop_species_status = serializers.CharField(
         source='crop_species.status',
@@ -417,7 +417,7 @@ class CropSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = PublicCulture
+        model = PublicCrop
         fields = [
             'id',
             'status',
@@ -468,34 +468,34 @@ class CropSerializer(serializers.ModelSerializer):
         default='',
     )
 
-    def get_created_by_label(self, obj: PublicCulture) -> str:
+    def get_created_by_label(self, obj: PublicCrop) -> str:
         return obj.created_by_label
 
-    def get_display_name(self, obj: PublicCulture) -> str:
+    def get_display_name(self, obj: PublicCrop) -> str:
         return obj.display_name(
             get_request_language(self.context),
             get_request_region(self.context),
         )[0]
 
-    def get_display_language_code(self, obj: PublicCulture) -> str:
+    def get_display_language_code(self, obj: PublicCrop) -> str:
         return obj.display_name(
             get_request_language(self.context),
             get_request_region(self.context),
         )[1]
 
-    def get_description(self, obj: PublicCulture) -> str:
+    def get_description(self, obj: PublicCrop) -> str:
         return obj.localized_description(get_request_language(self.context))[0]
 
-    def get_description_language_code(self, obj: PublicCulture) -> str:
+    def get_description_language_code(self, obj: PublicCrop) -> str:
         return obj.localized_description(get_request_language(self.context))[1]
 
-    def get_crop_species_translations(self, obj: PublicCulture) -> dict[str, str]:
+    def get_crop_species_translations(self, obj: PublicCrop) -> dict[str, str]:
         """All species names, so editorial screens can show every language."""
         if obj.crop_species is None:
             return {}
         return obj.crop_species.translations_by_language()
 
-    def get_crop_species_search_names(self, obj: PublicCulture) -> list[str]:
+    def get_crop_species_search_names(self, obj: PublicCrop) -> list[str]:
         if obj.crop_species is None:
             return []
         return obj.crop_species.search_names()

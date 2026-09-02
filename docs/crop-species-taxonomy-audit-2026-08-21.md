@@ -9,27 +9,27 @@ Diese ursprüngliche Analyse ist rein lesend erfolgt. Am 2026-08-24 wurde zusät
 Ausgewertet wurden zwei read-only Datenquellen:
 
 - Öffentliche Kulturbibliothek und `CropSpeciesTranslation`: lokale Entwicklungsdatenbank des App-Repos.
-- Projekt `Gelawi Zwiebelzopf`: Production-Agent-API `GET /cultures/` mit Project ID 1.
+- Projekt `Gelawi Zwiebelzopf`: Production-Agent-API `GET /crops/` mit Project ID 1.
 
-Die regulären Production-Endpunkte für `public-cultures`, `crop-species` und `projects` lieferten mit dem verfügbaren Agent-Token `403`; ein Admin-/Projekt-übergreifender Read-Zugang lag nicht vor. Die öffentliche Bibliothek ist deshalb lokal analysiert, das private Projekt `Gelawi Zwiebelzopf` dagegen über die Production-Agent-API gegengeprüft.
+Die regulären Production-Endpunkte für `public-crops`, `crop-species` und `projects` lieferten mit dem verfügbaren Agent-Token `403`; ein Admin-/Projekt-übergreifender Read-Zugang lag nicht vor. Die öffentliche Bibliothek ist deshalb lokal analysiert, das private Projekt `Gelawi Zwiebelzopf` dagegen über die Production-Agent-API gegengeprüft.
 
 Die Auswirkungsanalyse ist bewusst auf folgende Bereiche begrenzt:
 
-- Öffentliche Kulturbibliothek: `CropSpecies`, `CropSpeciesTranslation`, `PublicCulture`
-- Projekt `Gelawi Zwiebelzopf`: Production-Agent-API, 66 private Culture-Zeilen
+- Öffentliche Kulturbibliothek: `CropSpecies`, `CropSpeciesTranslation`, `PublicCrop`
+- Projekt `Gelawi Zwiebelzopf`: Production-Agent-API, 66 private Crop-Zeilen
 - Demo-Projekt: lokal nicht angelegt; statisch aus dem Demo-Template `Solawi Sonnenacker` geprüft
 
 Andere Projekte wurden nicht analysiert und nicht mitgezählt.
 
-Wichtiger Originalbefund für `Gelawi Zwiebelzopf` am 2026-08-21: In der Production-Agent-API hatten alle 66 privaten Culture-Zeilen `crop_species: null`. Für eine reine CropSpecies-FK-Migration wären im Production-Projekt deshalb direkt 0 Culture-Zeilen betroffen gewesen. Zusätzlich sind unten name-basierte Prüfkandidaten genannt, weil private Gelawi-Kulturen wie `Bohne`, `Kohl`, `Salat` usw. fachlich trotzdem von einer späteren Aufräumentscheidung profitieren können.
+Wichtiger Originalbefund für `Gelawi Zwiebelzopf` am 2026-08-21: In der Production-Agent-API hatten alle 66 privaten Crop-Zeilen `crop_species: null`. Für eine reine CropSpecies-FK-Migration wären im Production-Projekt deshalb direkt 0 Crop-Zeilen betroffen gewesen. Zusätzlich sind unten name-basierte Prüfkandidaten genannt, weil private Gelawi-Kulturen wie `Bohne`, `Kohl`, `Salat` usw. fachlich trotzdem von einer späteren Aufräumentscheidung profitieren können.
 
 ## Nachtrag: Production-Korrektur `Bohne` am 2026-08-24
 
 Nach zusätzlicher serverseitiger Prüfung auf dem Production-System wurde der konkrete öffentliche `Bohne`-Fehlmapping-Fall korrigiert:
 
-- Öffentliche `PublicCulture` ID 2 wurde von `Bohne (Canadian Wonder)` auf `Kidneybohne (Canadian Wonder)` umgestellt.
-- `PublicCulture.crop_species_id` wurde von `Bohne` (ID 6) auf `Kidneybohne` (ID 115) geändert; die öffentliche Zeile blieb `published` und wurde auf Version 2 erhöht.
-- Die zugehörige private Culture ID 72 im Projekt `Gelawi Zwiebelzopf` wurde ebenfalls auf `crop_species_id=115` gesetzt.
+- Öffentliche `PublicCrop` ID 2 wurde von `Bohne (Canadian Wonder)` auf `Kidneybohne (Canadian Wonder)` umgestellt.
+- `PublicCrop.crop_species_id` wurde von `Bohne` (ID 6) auf `Kidneybohne` (ID 115) geändert; die öffentliche Zeile blieb `published` und wurde auf Version 2 erhöht.
+- Die zugehörige private Crop ID 72 im Projekt `Gelawi Zwiebelzopf` wurde ebenfalls auf `crop_species_id=115` gesetzt.
 - Die zu grobe `CropSpecies` `Bohne` (ID 6) wurde auf `rejected` gesetzt, damit sie nicht weiter als öffentliches Mapping-Ziel verwendet wird.
 - Andere Projekte wurden dabei weiterhin nicht analysiert oder mitgezählt.
 
@@ -48,7 +48,7 @@ Auffällige fachliche Überlappungen:
 
 | Key | Deutsch | Englisch | Bewertung |
 |---|---|---|---|
-| `bean` | `Bohne` | `Bean` | Zu grob neben konkreten Bohnenarten; sollte nicht als Ziel-Species für PublicCulture-Mapping verwendet werden. |
+| `bean` | `Bohne` | `Bean` | Zu grob neben konkreten Bohnenarten; sollte nicht als Ziel-Species für PublicCrop-Mapping verwendet werden. |
 | `broad_bean` | `Ackerbohne` | `Broad bean` | Gute eigene Species für `Vicia faba`; wichtig als Trennung von Gartenbohnen. |
 | `bush_bean` | `Buschbohne` | `Bush bean` | Gute engere Species für Buschbohnen; wahrscheinlich besser als `bean`. |
 | `french_bean` | `Grüne Bohne` | `French bean` | Überschneidet sich mit Garten-/Busch-/Stangenbohne; manuelle Taxonomie-Entscheidung nötig, ob als eigene Species oder Synonym/Nutzung. |
@@ -64,11 +64,11 @@ Fazit zur Seed-Liste: Die Liste ist technisch vollständig und ohne exakte de/en
 
 ## Prüfmethode
 
-Geprüft wurden alle `CropSpecies` mit mehr als einer veröffentlichten `PublicCulture`-Zeile. Streng nach "mehr als eine nicht-leere Sorte" sind in der lokalen Datenquelle insbesondere `Bohne`, `Mangold` und `Tomate` relevant. Zusätzlich sind beim Audit auffällige Species-Daten mit aufgenommen, wenn Übersetzungen, Species-Status oder PublicCulture-Namen auf Fehlmapping hindeuten.
+Geprüft wurden alle `CropSpecies` mit mehr als einer veröffentlichten `PublicCrop`-Zeile. Streng nach "mehr als eine nicht-leere Sorte" sind in der lokalen Datenquelle insbesondere `Bohne`, `Mangold` und `Tomate` relevant. Zusätzlich sind beim Audit auffällige Species-Daten mit aufgenommen, wenn Übersetzungen, Species-Status oder PublicCrop-Namen auf Fehlmapping hindeuten.
 
 Bewertungskriterien:
 
-- Passen Sortenname, PublicCulture-Name und Beschreibung plausibel zur selben botanischen Art/Gattung?
+- Passen Sortenname, PublicCrop-Name und Beschreibung plausibel zur selben botanischen Art/Gattung?
 - Weichen Wuchsform, Aussaat-/Pflanzlogik oder Erntelogik so stark ab, dass eine gemeinsame Kulturart für Planung und Suche riskant wird?
 - Deuten `CropSpeciesTranslation`-Einträge, Synonyme oder regionale Namen auf eine ungewollte Vermischung hin?
 - Falls botanisch nicht eindeutig: als "unklar, manuelle Prüfung nötig" markieren.
@@ -91,9 +91,9 @@ Problem:
 
 Zusätzlich unterscheiden sich die vorhandenen Nutzungslogiken bereits innerhalb der Phaseolus-Gruppe: `Canadian Wonder` ist als Trocken-/Kidneybohne beschrieben, `Golden Teepee` als gelbe Wachs-/Frischbohne. Botanisch plausibel weiterhin `Phaseolus vulgaris`, aber für Erntefenster und Notes muss die Nutzung klar getrennt bleiben.
 
-Betroffene Sorten / PublicCulture-Zeilen:
+Betroffene Sorten / PublicCrop-Zeilen:
 
-| PublicCulture ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
+| PublicCrop ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
 |---:|---|---|---|
 | 116 | `Bohne` / leer | `Gartenbohne` oder `Buschbohne` (`Phaseolus vulgaris`), manuelle Prüfung nötig | Allgemeine Zeile enthält laut Beschreibung Red-Kidney-/Buschbohnen-Inhalte und wirkt eher sorten-/nutzungsnah als wirklich allgemein. |
 | 117 | `Bohne (Canadian Wonder2)` | `Gartenbohne` / `Trockenbohne` (`Phaseolus vulgaris`) | Sortenname und Beschreibung sprechen für Red-Kidney-/Trockenbohne. `Canadian Wonder2` wirkt zusätzlich wie Test-/Duplikatname. |
@@ -103,8 +103,8 @@ Impact:
 
 | Bereich | Betroffene Zeilen |
 |---|---:|
-| Öffentliche Bibliothek (`PublicCulture`) | 3 |
-| `Gelawi Zwiebelzopf` (`Culture`, direkte `crop_species`-FKs in Production) | 0 |
+| Öffentliche Bibliothek (`PublicCrop`) | 3 |
+| `Gelawi Zwiebelzopf` (`Crop`, direkte `crop_species`-FKs in Production) | 0 |
 | `Gelawi Zwiebelzopf` name-basiert zu prüfen | 3 (`Bohne`: `Canadian Wonder`, `Faraday`, `Golden Teepee`) |
 | Demo-Projekt (`Solawi Sonnenacker` Template) | 0 |
 
@@ -129,11 +129,11 @@ Translations:
 
 Problem:
 
-Die Species selbst ist botanisch plausibel für echte Tomateneinträge. Auffällig ist aber eine veröffentlichte PublicCulture-Zeile `t (test)`, die weder durch den Sortennamen noch durch Beschreibung oder Übersetzungen als Tomate belegbar ist. Das sieht nach Test-/Fehlmapping in der öffentlichen Bibliothek aus, nicht nach einer taxonomisch sinnvollen Sorte.
+Die Species selbst ist botanisch plausibel für echte Tomateneinträge. Auffällig ist aber eine veröffentlichte PublicCrop-Zeile `t (test)`, die weder durch den Sortennamen noch durch Beschreibung oder Übersetzungen als Tomate belegbar ist. Das sieht nach Test-/Fehlmapping in der öffentlichen Bibliothek aus, nicht nach einer taxonomisch sinnvollen Sorte.
 
-Betroffene Sorten / PublicCulture-Zeilen:
+Betroffene Sorten / PublicCrop-Zeilen:
 
-| PublicCulture ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
+| PublicCrop ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
 |---:|---|---|---|
 | 136 | `t (test)` unter `Tomate` | unklar, manuelle Prüfung nötig; wahrscheinlich entfernen statt neu zuordnen | Keine botanische Zuordnung möglich. Testdaten sollten nicht als Tomaten-Sorte geführt werden. |
 
@@ -146,8 +146,8 @@ Impact:
 
 | Bereich | Betroffene Zeilen |
 |---|---:|
-| Öffentliche Bibliothek (`PublicCulture`) | 1 |
-| `Gelawi Zwiebelzopf` (`Culture`, direkte `crop_species`-FKs in Production) | 0 |
+| Öffentliche Bibliothek (`PublicCrop`) | 1 |
+| `Gelawi Zwiebelzopf` (`Crop`, direkte `crop_species`-FKs in Production) | 0 |
 | `Gelawi Zwiebelzopf` name-basiert zu prüfen | 0 für `t (test)`; echte Tomatenzeilen sind vorhanden, aber nicht dieser Fehlmapping-Fall |
 | Demo-Projekt (`Solawi Sonnenacker` Template) | 0 für diesen Fehlmapping-Fall; das Template enthält Tomaten, aber keine `t (test)`-Zeile |
 
@@ -165,13 +165,13 @@ Translations:
 
 Problem:
 
-Der CropSpecies-Name `2` ist kein fachlicher Kulturartname. Die zugeordneten PublicCulture-Zeilen heißen `Ackerbohne`; das deutet fachlich auf `Vicia faba`. Eine der Sorten heißt `E2E Kollaboration 1784784227996` und wirkt wie Test-/E2E-Daten.
+Der CropSpecies-Name `2` ist kein fachlicher Kulturartname. Die zugeordneten PublicCrop-Zeilen heißen `Ackerbohne`; das deutet fachlich auf `Vicia faba`. Eine der Sorten heißt `E2E Kollaboration 1784784227996` und wirkt wie Test-/E2E-Daten.
 
 Dieser Fall ist keine "zu grobe" taxonomische Gruppierung, sondern ein beschädigter oder testbedingter Species-Eintrag in der öffentlichen Bibliothek. Wegen des Bezugs zu `Ackerbohne` ist er für die Bohnen-Trennung trotzdem relevant.
 
-Betroffene Sorten / PublicCulture-Zeilen:
+Betroffene Sorten / PublicCrop-Zeilen:
 
-| PublicCulture ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
+| PublicCrop ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
 |---:|---|---|---|
 | 145 | `Ackerbohne` / leer unter CropSpecies `2` | `Ackerbohne` (`Vicia faba`) | Name spricht klar für Ackerbohne/Saubohne. |
 | 146 | `Ackerbohne (E2E Kollaboration 1784784227996)` unter CropSpecies `2` | unklar, manuelle Prüfung nötig; wahrscheinlich Testdaten entfernen | Sortenname wirkt nicht fachlich. |
@@ -180,8 +180,8 @@ Impact:
 
 | Bereich | Betroffene Zeilen |
 |---|---:|
-| Öffentliche Bibliothek (`PublicCulture`) | 2 |
-| `Gelawi Zwiebelzopf` (`Culture`, direkte `crop_species`-FKs in Production) | 0 |
+| Öffentliche Bibliothek (`PublicCrop`) | 2 |
+| `Gelawi Zwiebelzopf` (`Crop`, direkte `crop_species`-FKs in Production) | 0 |
 | `Gelawi Zwiebelzopf` name-basiert zu prüfen | 0; keine `Ackerbohne`-Zeile in Production-Agent-API sichtbar |
 | Demo-Projekt (`Solawi Sonnenacker` Template) | 0 |
 
@@ -199,13 +199,13 @@ Translations:
 
 Problem:
 
-Unter einer abgelehnten Species `Gurke2` hängen weiterhin veröffentlichte PublicCulture-Zeilen. Die PublicCulture-Namen `Gurke` und `RS-Gu-01.25` sprechen fachlich für Gurke (`Cucumis sativus`) und damit wahrscheinlich für die existierende Species `Gurke` (ID 27), nicht für eine eigene `Gurke2`.
+Unter einer abgelehnten Species `Gurke2` hängen weiterhin veröffentlichte PublicCrop-Zeilen. Die PublicCrop-Namen `Gurke` und `RS-Gu-01.25` sprechen fachlich für Gurke (`Cucumis sativus`) und damit wahrscheinlich für die existierende Species `Gurke` (ID 27), nicht für eine eigene `Gurke2`.
 
 Das ist kein Hinweis auf botanisch zu grobe Gruppierung, aber ein starker Datenhygiene-/Moderationsfall: veröffentlichte Kulturen referenzieren eine abgelehnte oder duplizierte CropSpecies.
 
-Betroffene Sorten / PublicCulture-Zeilen:
+Betroffene Sorten / PublicCrop-Zeilen:
 
-| PublicCulture ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
+| PublicCrop ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
 |---:|---|---|---|
 | 143 | `Gurke` / leer unter `Gurke2` | `Gurke` (`Cucumis sativus`) | Wirkt wie allgemeine Gurkenzeile, aber auf abgelehnter Species. |
 | 144 | `Gurke (RS-Gu-01.25)` unter `Gurke2` | `Gurke` (`Cucumis sativus`) | Sorten-/Linienname passt zu Gurke; keine fachliche Begründung für `Gurke2` sichtbar. |
@@ -214,14 +214,14 @@ Impact:
 
 | Bereich | Betroffene Zeilen |
 |---|---:|
-| Öffentliche Bibliothek (`PublicCulture`) | 2 |
-| `Gelawi Zwiebelzopf` (`Culture`, direkte `crop_species`-FKs in Production) | 0 |
+| Öffentliche Bibliothek (`PublicCrop`) | 2 |
+| `Gelawi Zwiebelzopf` (`Crop`, direkte `crop_species`-FKs in Production) | 0 |
 | `Gelawi Zwiebelzopf` name-basiert zu prüfen | 1 (`Gurke (RS-Gu-01.25)`) |
 | Demo-Projekt (`Solawi Sonnenacker` Template) | 0 |
 
 Empfehlung:
 
-PublicCulture-Zeilen von `Gurke2` auf die reguläre CropSpecies `Gurke` prüfen. Danach sollte keine veröffentlichte PublicCulture mehr auf eine abgelehnte Species zeigen.
+PublicCrop-Zeilen von `Gurke2` auf die reguläre CropSpecies `Gurke` prüfen. Danach sollte keine veröffentlichte PublicCrop mehr auf eine abgelehnte Species zeigen.
 
 ### 5. `Karfiol` (CropSpecies ID 16)
 
@@ -234,33 +234,33 @@ Translations:
 
 Problem:
 
-Die CropSpecies selbst ist nicht zu grob: `Karfiol`/`Cauliflower` ist fachlich enger als `Kohl`. Auffällig ist jedoch, dass die PublicCulture-Zeilen als `Kohl` bzw. `Kohl (Di Sicilia violetto)` gespeichert sind. Das kann in UI, Suche oder Imports wie eine Vermischung aller Kohlarten wirken, obwohl die Species-Translation auf Blumenkohl/Karfiol verweist.
+Die CropSpecies selbst ist nicht zu grob: `Karfiol`/`Cauliflower` ist fachlich enger als `Kohl`. Auffällig ist jedoch, dass die PublicCrop-Zeilen als `Kohl` bzw. `Kohl (Di Sicilia violetto)` gespeichert sind. Das kann in UI, Suche oder Imports wie eine Vermischung aller Kohlarten wirken, obwohl die Species-Translation auf Blumenkohl/Karfiol verweist.
 
-Betroffene Sorten / PublicCulture-Zeilen:
+Betroffene Sorten / PublicCrop-Zeilen:
 
-| PublicCulture ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
+| PublicCrop ID | Aktuell | Vorgeschlagene Kulturart | Hinweis |
 |---:|---|---|---|
-| 118 | `Kohl` / leer unter `Karfiol` | `Karfiol` / `Blumenkohl` (`Brassica oleracea var. botrytis`) | PublicCulture-Name zu grob; Species wirkt korrekt. |
+| 118 | `Kohl` / leer unter `Karfiol` | `Karfiol` / `Blumenkohl` (`Brassica oleracea var. botrytis`) | PublicCrop-Name zu grob; Species wirkt korrekt. |
 | 119 | `Kohl (Di Sicilia violetto)` unter `Karfiol` | `Karfiol` / `Blumenkohl` (`Brassica oleracea var. botrytis`) | Sorte passt nach Beschreibung zu violettem Blumenkohl/Karfiol. |
 
 Impact:
 
 | Bereich | Betroffene Zeilen |
 |---|---:|
-| Öffentliche Bibliothek (`PublicCulture`) | 2 |
-| `Gelawi Zwiebelzopf` (`Culture`, direkte `crop_species`-FKs in Production) | 0 |
+| Öffentliche Bibliothek (`PublicCrop`) | 2 |
+| `Gelawi Zwiebelzopf` (`Crop`, direkte `crop_species`-FKs in Production) | 0 |
 | `Gelawi Zwiebelzopf` name-basiert zu prüfen | 9 (`Kohl` allgemein plus 8 Sortenzeilen) |
 | Demo-Projekt (`Solawi Sonnenacker` Template) | 0 |
 
 Empfehlung:
 
-Kein CropSpecies-Split nötig. PublicCulture-`name` und ggf. Notizen sollten aber nicht generisch `Kohl` sagen, wenn die Species `Karfiol` ist.
+Kein CropSpecies-Split nötig. PublicCrop-`name` und ggf. Notizen sollten aber nicht generisch `Kohl` sagen, wenn die Species `Karfiol` ist.
 
 ## Geprüfte Nicht-Kandidaten in der lokalen Datenquelle
 
-Diese CropSpecies haben mehr als eine veröffentlichte PublicCulture-Zeile, wirken aber nach Sortennamen, Übersetzungen und sichtbaren Beschreibungen nicht wie eine zu grobe botanische Gruppierung:
+Diese CropSpecies haben mehr als eine veröffentlichte PublicCrop-Zeile, wirken aber nach Sortennamen, Übersetzungen und sichtbaren Beschreibungen nicht wie eine zu grobe botanische Gruppierung:
 
-| CropSpecies ID | Name | PublicCulture-Zeilen | Bewertung |
+| CropSpecies ID | Name | PublicCrop-Zeilen | Bewertung |
 |---:|---|---:|---|
 | 27 | `Gurke` | 2 | `Gurke` und `Arola`; beide plausibel `Cucumis sativus`. |
 | 15 | `Karotte` | 2 | `Karotte` und `Nantaise 2/Milan`; beide plausibel Möhre/Karotte. |
@@ -271,8 +271,8 @@ Diese CropSpecies haben mehr als eine veröffentlichte PublicCulture-Zeile, wirk
 
 ## Offene Punkte vor einer Korrektur
 
-- Production-Read-Zugang für öffentliche `CropSpecies`/`PublicCulture` klären, damit die lokale öffentliche Analyse gegen den echten Production-Stand verifiziert werden kann.
-- Entscheiden, ob private Production-Cultures im Projekt `Gelawi Zwiebelzopf` künftig wieder `crop_species`-FKs bekommen sollen; aktuell liefert die Agent-API für alle 66 Zeilen `crop_species: null`.
+- Production-Read-Zugang für öffentliche `CropSpecies`/`PublicCrop` klären, damit die lokale öffentliche Analyse gegen den echten Production-Stand verifiziert werden kann.
+- Entscheiden, ob private Production-Crops im Projekt `Gelawi Zwiebelzopf` künftig wieder `crop_species`-FKs bekommen sollen; aktuell liefert die Agent-API für alle 66 Zeilen `crop_species: null`.
 - Entscheiden, ob `Bohne` als Species vollständig durch präzisere Species ersetzt wird oder ob `Bohne` nur als Suchsynonym auf `Gartenbohne` und `Ackerbohne` zeigen soll.
 - Test-/E2E-Fälle (`t (test)`, `E2E Kollaboration ...`, `Canadian Wonder2`, Species `2`, Species `Gurke2`) manuell prüfen, bevor fachliche Migrationen geplant werden.
-- Bei Karfiol prüfen, ob die PublicCulture-`name`-Werte korrigiert werden sollen, obwohl die CropSpecies selbst bereits spezifisch genug ist.
+- Bei Karfiol prüfen, ob die PublicCrop-`name`-Werte korrigiert werden sollen, obwohl die CropSpecies selbst bereits spezifisch genug ist.

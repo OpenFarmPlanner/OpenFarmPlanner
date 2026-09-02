@@ -101,7 +101,7 @@ class SupplierApiTest(ProjectApiTestCase):
         undo_payload = response.data['undo_payload']
         self.assertEqual(undo_payload['supplier']['id'], self.supplier.id)
         self.assertEqual(undo_payload['supplier']['name'], self.supplier.name)
-        self.assertEqual(undo_payload['culture_ids'], [])
+        self.assertEqual(undo_payload['crop_ids'], [])
         self.assertEqual(undo_payload['supplier_data'], [])
 
     def test_supplier_delete_undo_payload_restores_supplier(self):
@@ -121,9 +121,9 @@ class SupplierApiTest(ProjectApiTestCase):
         self.assertEqual(restored.homepage_url, self.supplier.homepage_url)
 
     def test_supplier_delete_rejects_supplier_still_in_use(self):
-        """A supplier referenced by a culture is kept and reported as a conflict."""
-        self.culture.supplier = self.supplier
-        self.culture.save(update_fields=['supplier'])
+        """A supplier referenced by a crop is kept and reported as a conflict."""
+        self.crop.supplier = self.supplier
+        self.crop.save(update_fields=['supplier'])
 
         response = self.client.delete(f'/openfarmplanner/api/suppliers/{self.supplier.id}/')
 

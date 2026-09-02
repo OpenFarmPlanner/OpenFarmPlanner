@@ -7,23 +7,23 @@ from django.conf import settings
 from django.db import models
 
 from .base import TimestampedModel
-from .cultures import Culture
+from .crops import Crop
 from .projects import Project
 from .seasons import Season
 from .structure import Bed
 
 
 class PlantingPlan(TimestampedModel):
-    """A planting schedule linking a culture to a bed with dates."""
-    CULTIVATION_TYPE_CHOICES = Culture.CULTIVATION_TYPE_CHOICES
+    """A planting schedule linking a crop to a bed with dates."""
+    CULTIVATION_TYPE_CHOICES = Crop.CULTIVATION_TYPE_CHOICES
 
-    culture = models.ForeignKey(
-        Culture,
+    crop = models.ForeignKey(
+        Crop,
         on_delete=models.CASCADE,
         related_name='planting_plans',
         null=True,
         blank=True,
-        help_text="Optional until the plan is fully filled in — a plan can be saved as a draft before a culture is chosen, as long as a bed is chosen instead.",
+        help_text="Optional until the plan is fully filled in — a plan can be saved as a draft before a crop is chosen, as long as a bed is chosen instead.",
     )
     bed = models.ForeignKey(
         Bed,
@@ -87,40 +87,40 @@ class PlantingPlan(TimestampedModel):
         help_text="Season this planting plan is scheduled in. Nullable only until a project's first season setup runs.",
     )
 
-    def _effective_culture_days(
+    def _effective_crop_days(
         self,
         field: str,
-        general_culture_index: dict[int, Culture] | None = None,
+        general_crop_index: dict[int, Crop] | None = None,
     ) -> int | None:
-        """A culture timing value, resolved through the Sorte -> Kultur fallback.
+        """A crop timing value, resolved through the Sorte -> Kultur fallback.
 
         Imported here rather than at module level: the resolver lives in the
         services layer and imports `farm.models`, so a top-level import would
         close the cycle.
         """
-        from farm.services.culture_inheritance import resolve_culture_field
+        from farm.services.crop_inheritance import resolve_crop_field
 
-        return resolve_culture_field(self.culture, field, general_culture_index)
+        return resolve_crop_field(self.crop, field, general_crop_index)
 
     def calculate_effective_harvest_dates(
         self,
-        general_culture_index: dict[int, Culture] | None = None,
+        general_crop_index: dict[int, Crop] | None = None,
     ) -> tuple[date | None, date | None]:
-        """Return harvest dates from planting date and effective culture timing."""
-        if not self.planting_date or not self.culture:
+        """Return harvest dates from planting date and effective crop timing."""
+        if not self.planting_date or not self.crop:
             return None, None
 
-        growth_duration_days = self._effective_culture_days(
+        growth_duration_days = self._effective_crop_days(
             'growth_duration_days',
-            general_culture_index,
+            general_crop_index,
         )
         if growth_duration_days is None:
             return None, None
 
         harvest_date = self.planting_date + timedelta(days=growth_duration_days)
-        harvest_duration_days = self._effective_culture_days(
+        harvest_duration_days = self._effective_crop_days(
             'harvest_duration_days',
-            general_culture_index,
+            general_crop_index,
         )
         if harvest_duration_days is None:
             return harvest_date, None
@@ -135,7 +135,7 @@ class PlantingPlan(TimestampedModel):
         active_start = self.planting_date
         active_end = self.harvest_end_date
 
-        if active_end is None and self.culture_id:
+        if active_end is None and self.crop_id:
             _, active_end = self.calculate_effective_harvest_dates()
 
         if active_end is None:
@@ -150,14 +150,14 @@ class PlantingPlan(TimestampedModel):
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         """Save the plan and auto-calculate harvest dates if needed."""
-        # Detect if planting_date or culture has changed.
+        # Detect if planting_date or crop has changed.
         should_recalculate = False
         
         if self.pk:
-            # Existing instance - check if planting_date or culture changed.
+            # Existing instance - check if planting_date or crop changed.
             try:
                 prev = PlantingPlan.objects.get(pk=self.pk)
-                if prev.planting_date != self.planting_date or prev.culture_id != self.culture_id:
+                if prev.planting_date != self.planting_date or prev.crop_id != self.crop_id:
                     should_recalculate = True
             except PlantingPlan.DoesNotExist:
                 # Should not happen, but treat as new instance.
@@ -166,34 +166,34 @@ class PlantingPlan(TimestampedModel):
             # New instance - always calculate.
             should_recalculate = True
         
-        if should_recalculate and self.planting_date and self.culture:
+        if should_recalculate and self.planting_date and self.crop:
             self.recalculate_harvest_dates()
         
         super().save(*args, **kwargs)
 
     def recalculate_harvest_dates(self) -> None:
-        """Calculate stored harvest dates from the culture's effective timing.
+        """Calculate stored harvest dates from the crop's effective timing.
 
         "Effective" means a Sorte without its own duration uses the one from its
-        general Kultur (see farm/services/culture_inheritance.py). The dates
+        general Kultur (see farm/services/crop_inheritance.py). The dates
         stay a snapshot taken at save time: already-stored plans are not
         recalculated just because a value became resolvable.
         """
         self.harvest_date, self.harvest_end_date = self.calculate_effective_harvest_dates()
 
     def __str__(self) -> str:
-        """Return a string combining culture, bed, and planting date."""
-        culture_label = self.culture.name if self.culture else '–'
+        """Return a string combining crop, bed, and planting date."""
+        crop_label = self.crop.name if self.crop else '–'
         bed_label = self.bed.name if self.bed else '–'
         date_label = self.planting_date or '–'
-        return f"{culture_label} in {bed_label} - {date_label}"
+        return f"{crop_label} in {bed_label} - {date_label}"
 
     class Meta:
         ordering = ['-planting_date']
         indexes = [
             models.Index(fields=['project', '-planting_date']),
             models.Index(fields=['project', 'bed', 'planting_date', 'harvest_end_date']),
-            models.Index(fields=['project', 'culture']),
+            models.Index(fields=['project', 'crop']),
             models.Index(fields=['project', 'season']),
         ]
 

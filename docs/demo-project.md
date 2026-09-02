@@ -28,7 +28,7 @@ The demo data exists in German and English. The authenticated API and guest
 demo resolve the language from the request/UI language and create new demo
 projects with matching project, location, field, bed, crop, crop-family, and
 plan-note text. Existing demo projects are user-entered project content after
-creation and are not translated in place. Demo cultures are linked to
+creation and are not translated in place. Demo crops are linked to
 `CropSpecies` when a matching species exists, so planning read views can show
 localized crop names without rewriting the stored demo records. The management
 command defaults to German for existing screenshot workflows and accepts

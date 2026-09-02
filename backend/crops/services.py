@@ -8,10 +8,10 @@ This module must never import anything project-scoped (`Project`,
 enforces ("the crop library knows nothing about projects; farm planning
 uses the crop library, never the other way round").
 
-Publishing a project's `Culture` into the library, and importing a
+Publishing a project's `Crop` into the library, and importing a
 published crop back into a project, are intentionally NOT in this module:
-those are bridge operations that need `Culture`/`Project`, and stay in
-`farm.services.public_cultures` until a future step decides how that
+those are bridge operations that need `Crop`/`Project`, and stay in
+`farm.services.public_crops` until a future step decides how that
 bridge should work once the crop library is a genuinely separate service
 (e.g. an HTTP call instead of a direct ORM write). See the architecture
 doc's "deliberately deferred" section.
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q, QuerySet
 
-from farm.models import PublicCulture
+from farm.models import PublicCrop
 from farm.utils import normalize_text
 
 if TYPE_CHECKING:
@@ -135,8 +135,8 @@ def public_species_mapping_targets(queryset: QuerySet[CropSpecies]) -> QuerySet[
     )
 
 
-def visible_public_culture_species_query() -> Q:
-    """Published public cultures stay visible unless their species was rejected."""
+def visible_public_crop_species_query() -> Q:
+    """Published public crops stay visible unless their species was rejected."""
     from .models import CropSpecies
 
     return (
@@ -150,7 +150,7 @@ def visible_public_culture_species_query() -> Q:
 
 def list_published_crops(
     *, query: str = '', name: str = '', variety: str = '',
-) -> QuerySet[PublicCulture]:
+) -> QuerySet[PublicCrop]:
     """Published crops, optionally filtered by a free-text query and/or exact-field substrings.
 
     Free-text and name search deliberately span **every** stored species
@@ -160,9 +160,9 @@ def list_published_crops(
     display name needs, so the wider search does not turn into an N+1.
     """
     queryset = (
-        PublicCulture.objects
-        .filter(status=PublicCulture.STATUS_PUBLISHED)
-        .filter(visible_public_culture_species_query())
+        PublicCrop.objects
+        .filter(status=PublicCrop.STATUS_PUBLISHED)
+        .filter(visible_public_crop_species_query())
         # `created_by__public_profile` is joined because every serialized row
         # reads `created_by_label`; without it the attribution alone costs two
         # queries per result.
@@ -187,15 +187,15 @@ def list_published_crops(
     return queryset
 
 
-def get_published_crop(pk: int) -> PublicCulture:
+def get_published_crop(pk: int) -> PublicCrop:
     """A single published crop by id.
 
-    Raises `PublicCulture.DoesNotExist` if not found or unpublished.
+    Raises `PublicCrop.DoesNotExist` if not found or unpublished.
     """
     return (
-        PublicCulture.objects
-        .filter(visible_public_culture_species_query())
-        .get(pk=pk, status=PublicCulture.STATUS_PUBLISHED)
+        PublicCrop.objects
+        .filter(visible_public_crop_species_query())
+        .get(pk=pk, status=PublicCrop.STATUS_PUBLISHED)
     )
 
 
@@ -222,7 +222,7 @@ def find_species_by_common_name(name: str | None) -> CropSpecies | None:
     return None
 
 
-def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCulture | None:
+def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCrop | None:
     """The most recently published crop matching this crop identity, if any.
 
     Identity is (species, normalized variety) whenever the name resolves to a
@@ -235,10 +235,10 @@ def find_exact_crop_match(*, name: str | None, variety: str | None) -> PublicCul
     if not normalized_name or not normalized_variety:
         return None
 
-    queryset = PublicCulture.objects.filter(
-        status=PublicCulture.STATUS_PUBLISHED,
+    queryset = PublicCrop.objects.filter(
+        status=PublicCrop.STATUS_PUBLISHED,
         variety_normalized=normalized_variety,
-    ).filter(visible_public_culture_species_query())
+    ).filter(visible_public_crop_species_query())
     species = find_species_by_common_name(name)
     if species is not None:
         queryset = queryset.filter(Q(crop_species=species) | Q(name_normalized=normalized_name))
@@ -277,7 +277,7 @@ def notify_species_proposal_reviewed(species: CropSpecies) -> None:
         return
 
     published_variety = (
-        PublicCulture.objects
+        PublicCrop.objects
         .filter(crop_species=species, created_by=species.proposed_by)
         .order_by('-published_at', '-id')
         .values_list('id', flat=True)
@@ -300,14 +300,14 @@ def notify_species_proposal_reviewed(species: CropSpecies) -> None:
         ),
         context={'name': species_label},
         target_type=(
-            Notification.TARGET_PUBLIC_CULTURE if published_variety
+            Notification.TARGET_PUBLIC_CROP if published_variety
             else Notification.TARGET_CROP_SPECIES
         ),
         target_id=published_variety or species.id,
     )
 
 
-def remove_public_cultures_for_rejected_species(
+def remove_public_crops_for_rejected_species(
     species: CropSpecies, moderator: AbstractBaseUser,
 ) -> None:
     """Withdraw every published entry left under a species a moderator just rejected.
@@ -315,17 +315,17 @@ def remove_public_cultures_for_rejected_species(
     `CropSpeciesViewSet.reject()` only flips the species' own status — nothing
     stops a variety published *while the species was still under review* from
     staying published afterwards, still carrying the rejected species' name
-    (`PublicCulture.display_name()` always defers to the linked species). Left
+    (`PublicCrop.display_name()` always defers to the linked species). Left
     alone, a rejected proposal like "Karotsdasdas" keeps showing up in the
     library forever. This closes that gap by running every affected entry
     through the same moderator-removal path as a manual "remove from library"
-    action (`farm.services.public_cultures.remove_public_culture`), so it's
+    action (`farm.services.public_crops.remove_public_crop`), so it's
     non-destructive and shows up in the moderation queue's "removed" table
     with a reason a moderator can see and reverse.
 
     Imports the removal helper locally rather than at module level: it lives
-    in `farm.services.public_cultures`, a service module (not a project-scoped
-    model or a view/serializer package), and only ever touches `PublicCulture`
+    in `farm.services.public_crops`, a service module (not a project-scoped
+    model or a view/serializer package), and only ever touches `PublicCrop`
     rows — the same model this file already reads/writes elsewhere — so it
     does not cross the "crop library knows nothing about projects" boundary
     documented at the top of this file.
@@ -337,35 +337,35 @@ def remove_public_cultures_for_rejected_species(
     else's still-under-review species proposal would otherwise never learn
     their contribution was pulled.
     """
-    from farm.services.public_cultures import remove_public_culture
+    from farm.services.public_crops import remove_public_crop
     from notifications.models import Notification
     from notifications.services import create_notification
 
-    affected = PublicCulture.objects.filter(
-        crop_species=species, status=PublicCulture.STATUS_PUBLISHED,
+    affected = PublicCrop.objects.filter(
+        crop_species=species, status=PublicCrop.STATUS_PUBLISHED,
     )
-    for public_culture in affected:
-        remove_public_culture(
-            public_culture=public_culture,
+    for public_crop in affected:
+        remove_public_crop(
+            public_crop=public_crop,
             user=moderator,
-            reason=PublicCulture.REMOVAL_REASON_SPECIES_REJECTED,
+            reason=PublicCrop.REMOVAL_REASON_SPECIES_REJECTED,
             # A moderator rejecting a species may also be the contributor of
             # one of the affected entries (they proposed and self-published
             # under it) — this is still a moderation action, not a personal
             # withdrawal, so it must always carry the real removal reason.
             force_moderator_reason=True,
         )
-        if public_culture.created_by_id and public_culture.created_by_id != species.proposed_by_id:
+        if public_crop.created_by_id and public_crop.created_by_id != species.proposed_by_id:
             create_notification(
-                recipient=public_culture.created_by,
-                notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+                recipient=public_crop.created_by,
+                notification_type=Notification.TYPE_PUBLIC_CROP_REMOVED,
                 message=(
-                    f'Your published crop "{public_culture.name}" was removed from the '
+                    f'Your published crop "{public_crop.name}" was removed from the '
                     f'public library because its crop species "{species.name}" was rejected.'
                 ),
-                context={'name': public_culture.name, 'species_name': species.name},
-                target_type=Notification.TARGET_PUBLIC_CULTURE,
-                target_id=public_culture.id,
+                context={'name': public_crop.name, 'species_name': species.name},
+                target_type=Notification.TARGET_PUBLIC_CROP,
+                target_id=public_crop.id,
             )
 
 

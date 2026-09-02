@@ -67,16 +67,16 @@ below marks the remaining step as a manual input action.
 | Fields/beds hierarchy | Missing area/dimension data | `Parzelle – Fläche fehlt`, `Beet – keine nutzbare Fläche` | Warning/info | Yes | Anbauflächen |
 | Fields/beds hierarchy | Context-menu discovery hint | Per-page local preference key | Info | Data-independent | Open Anbauflächen before using row context menu |
 | Graphical field view | Existing layout and missing layout contrast | Two fields/beds have layouts; one location intentionally has none | Info | Yes | Anbauflächen → graphical/layout mode |
-| Crop Library | Imported vs. local and modified imported state | `Bibliothek – importiert und geändert` | Info | Yes | Kulturbibliothek → select culture detail |
+| Crop Library | Imported vs. local and modified imported state | `Bibliothek – importiert und geändert` | Info | Yes | Kulturbibliothek → select crop detail |
 | Crop Library | Missing spacing prevents plant-density calculation | `Kultur – Pflanzabstände fehlen` | Warning/info | Yes | Kulturbibliothek → details or edit dialog |
-| Cultures | Duplicate supplier/culture validation | Existing suppliers and cultures provide collision targets | Error | Manual | Create duplicate supplier/culture names in the same project |
+| Crops | Duplicate supplier/crop validation | Existing suppliers and crops provide collision targets | Error | Manual | Create duplicate supplier/crop names in the same project |
 | Public library | Empty/no-result and import errors | Public library is global, not project-owned | Info/error | Manual | Open library, search for an impossible term or test import failures |
-| Planting plans | Harvest start/end not computable without culture durations | `Kultur – keine Zeitangaben` | Warning/info | Yes | Anbaupläne |
+| Planting plans | Harvest start/end not computable without crop durations | `Kultur – keine Zeitangaben` | Warning/info | Yes | Anbaupläne |
 | Planting plans | Harvest end not computable when only harvest duration is missing | `Kultur – nur Wachstumszeit` | Warning/info | Yes | Anbaupläne |
 | Planting plans | Fully computable timing reference | `Kultur – vollständige Zeitangaben` | Reference | Yes | Anbaupläne |
 | Planting plans | Draft/incomplete row behavior | `Entwurf – Kultur und Datum fehlen` | Info/warning | Yes | Anbaupläne |
 | Planting plans | Area conflict / overbooking warning context | `Beet – überbelegt` has overlapping plans | Warning | Yes | Anbaupläne, edit area/date on overlapping rows |
-| Gantt/calendar | Plans with missing timing cannot create full active spans | Timing fixture cultures above | Warning/info | Yes | Gantt / Belegungskalender |
+| Gantt/calendar | Plans with missing timing cannot create full active spans | Timing fixture crops above | Warning/info | Yes | Gantt / Belegungskalender |
 | Gantt/calendar | Empty filtered result | Any populated project, impossible filter/search | Info | Manual | Apply filters that match nothing |
 | Seed demand | Fully calculable row with package suggestion | `Saatgutmenge – vollständig berechenbar` | Reference | Yes | Saatgutbedarf |
 | Seed demand | Missing seed rate | `Saatgutmenge – Aussaatmenge fehlt` | Warning | Yes | Saatgutbedarf |
@@ -86,14 +86,14 @@ below marks the remaining step as a manual input action.
 | Seed demand | Missing TKG conversion | `Saatgutmenge – TKG fehlt` | Warning | Yes | Saatgutbedarf |
 | Seed demand | Missing supplier data | `Saatgutmenge – Lieferant fehlt` | Warning | Yes | Saatgutbedarf |
 | Seed demand | Multiple supplier choices, no persisted choice | `Saatgutmenge – Lieferant auswählen` | Info/action | Yes | Saatgutbedarf |
-| Seed demand | Supplier-specific TKG overrides culture TKG | `Saatgutmenge – Lieferanten-TKG überschreibt Kultur` | Reference | Yes | Saatgutbedarf |
+| Seed demand | Supplier-specific TKG overrides crop TKG | `Saatgutmenge – Lieferanten-TKG überschreibt Kultur` | Reference | Yes | Saatgutbedarf |
 | Seed demand | Germination rate increases demand | `Saatgutmenge – Keimrate erhöht Bedarf` | Reference | Yes | Saatgutbedarf |
-| Suppliers | Empty supplier/product-order details | `Lieferant – ohne Bestellinformationen` and related culture data | Info | Yes | Lieferanten and Saatgutbedarf |
+| Suppliers | Empty supplier/product-order details | `Lieferant – ohne Bestellinformationen` and related crop data | Info | Yes | Lieferanten and Saatgutbedarf |
 | Suppliers | Duplicate supplier/invalid URL validation | Existing suppliers provide collision targets | Error | Manual | Lieferanten → create duplicate or invalid URL |
 | Yield overview | Missing expected yield/harvest method | `Ertrag – erwarteter Ertrag fehlt` | Warning/info | Yes | Ertragsübersicht |
 | Filters/search | No matching rows | Any table with seeded rows | Info | Manual | Enter a deliberately impossible search term |
 | API/network errors | Load/save/delete failure alerts | Requires mocked failing request or backend outage | Error | Manual/test | Use frontend tests or intercept requests in browser dev tools |
-| Version history | Empty/history list and restore feedback | Culture creation creates revisions; empty history requires separate fresh object | Info | Partial | Open project history or culture history |
+| Version history | Empty/history list and restore feedback | Crop creation creates revisions; empty history requires separate fresh object | Info | Partial | Open project history or crop history |
 
 ## Backend Assertions
 
@@ -103,7 +103,7 @@ The backend test suite verifies the important fixture guarantees:
 - idempotency without duplicate rows
 - pending invitation recreation
 - seed-demand warning states
-- complete, missing, and partial culture-duration calculations
+- complete, missing, and partial crop-duration calculations
 - missing spacing / imported-modified flags
 - isolation from the normal demo project
 

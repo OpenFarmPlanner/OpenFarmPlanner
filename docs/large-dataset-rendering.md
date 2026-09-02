@@ -25,7 +25,7 @@ look like a rendering cutoff rather than an API truncation.
 
 The calendar had two compounding limits:
 
-1. Locations, fields, beds, cultures, and planting plans were loaded from only
+1. Locations, fields, beds, crops, and planting plans were loaded from only
    the first API page.
 2. `react-modern-gantt` does not virtualize rows. It performs collision
    detection several times per group and mounts every row and task item. Large

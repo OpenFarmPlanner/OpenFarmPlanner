@@ -18,8 +18,8 @@ from accounts.models import (
 from farm.models import (
     Bed,
     BedLayout,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     EntityRevision,
     Field,
     FieldLayout,
@@ -29,7 +29,7 @@ from farm.models import (
     Project,
     ProjectInvitation,
     ProjectMembership,
-    PublicCulture,
+    PublicCrop,
     SeedPackage,
     Supplier,
     Task,
@@ -59,7 +59,7 @@ def build_personal_data_export(user: User) -> dict[str, Any]:
         ),
         'projects': _build_projects_export(user=user, project_ids=project_ids),
         'public_library_contributions': _serialize_queryset(
-            PublicCulture.objects.filter(created_by=user).order_by('name', 'variety', 'id')
+            PublicCrop.objects.filter(created_by=user).order_by('name', 'variety', 'id')
         ),
     }
 
@@ -131,14 +131,14 @@ def _build_projects_export(
             'suppliers': _serialize_queryset(
                 Supplier.objects.filter(project=project).order_by('name', 'id')
             ),
-            'cultures': _serialize_queryset(
-                Culture.all_objects.filter(project=project).order_by('name', 'variety', 'id')
+            'crops': _serialize_queryset(
+                Crop.all_objects.filter(project=project).order_by('name', 'variety', 'id')
             ),
-            'culture_supplier_data': _serialize_queryset(
-                CultureSupplierData.objects.filter(project=project).order_by('culture_id', 'supplier_id', 'id')
+            'crop_supplier_data': _serialize_queryset(
+                CropSupplierData.objects.filter(project=project).order_by('crop_id', 'supplier_id', 'id')
             ),
             'seed_packages': _serialize_queryset(
-                SeedPackage.objects.filter(project=project).order_by('culture_id', 'size_unit', 'size_value', 'id')
+                SeedPackage.objects.filter(project=project).order_by('crop_id', 'size_unit', 'size_value', 'id')
             ),
             'planting_plans': _serialize_queryset(
                 PlantingPlan.objects.filter(project=project).order_by('-planting_date', 'id')

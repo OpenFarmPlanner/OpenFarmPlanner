@@ -24,7 +24,7 @@ from accounts.models import (
     PendingActivation,
     PublicProfile,
 )
-from farm.models import Culture, Location, Project, ProjectMembership, PublicCulture
+from farm.models import Crop, Location, Project, ProjectMembership, PublicCrop
 
 User = get_user_model()
 
@@ -692,13 +692,13 @@ class AuthApiTest(APITestCase):
         project = Project.objects.create(name='Export Project', slug='export-project')
         ProjectMembership.objects.create(user=self.user, project=project, role=ProjectMembership.ROLE_ADMIN)
         location = Location.objects.create(name='Export Location', project=project)
-        culture = Culture.objects.create(name='Export Kale', variety='Winter', project=project)
-        PublicCulture.objects.create(
+        crop = Crop.objects.create(name='Export Kale', variety='Winter', project=project)
+        PublicCrop.objects.create(
             name='Export Kale',
             variety='Winter',
-            status=PublicCulture.STATUS_PUBLISHED,
+            status=PublicCrop.STATUS_PUBLISHED,
             source_project=project,
-            source_project_culture=culture,
+            source_project_crop=crop,
             created_by=self.user,
         )
 
@@ -718,7 +718,7 @@ class AuthApiTest(APITestCase):
         self.assertEqual(payload['memberships'][0]['project_id'], project.id)
         self.assertEqual(payload['projects'][0]['project']['name'], 'Export Project')
         self.assertEqual(payload['projects'][0]['locations'][0]['id'], location.id)
-        self.assertEqual(payload['projects'][0]['cultures'][0]['name'], 'Export Kale')
+        self.assertEqual(payload['projects'][0]['crops'][0]['name'], 'Export Kale')
         self.assertEqual(payload['public_library_contributions'][0]['name'], 'Export Kale')
 
     def test_email_change_rejects_wrong_password(self) -> None:
@@ -845,12 +845,12 @@ class AuthApiTest(APITestCase):
         solo_project = Project.objects.create(name='Solo Project', slug='solo-project')
         ProjectMembership.objects.create(user=self.user, project=solo_project, role=ProjectMembership.ROLE_ADMIN)
         Location.objects.create(name='Solo Location', project=solo_project)
-        source_culture = Culture.objects.create(name='Kale', project=solo_project)
-        public_culture = PublicCulture.objects.create(
+        source_crop = Crop.objects.create(name='Kale', project=solo_project)
+        public_crop = PublicCrop.objects.create(
             name='Kale',
-            status=PublicCulture.STATUS_PUBLISHED,
+            status=PublicCrop.STATUS_PUBLISHED,
             source_project=solo_project,
-            source_project_culture=source_culture,
+            source_project_crop=source_crop,
             created_by=self.user,
         )
         AccountDeletionRequest.objects.create(
@@ -863,10 +863,10 @@ class AuthApiTest(APITestCase):
 
         self.assertFalse(Project.objects.filter(id=solo_project.id).exists())
         self.assertFalse(Location.objects.filter(project_id=solo_project.id).exists())
-        public_culture.refresh_from_db()
-        self.assertIsNone(public_culture.source_project)
-        self.assertIsNone(public_culture.source_project_culture)
-        self.assertEqual(public_culture.status, PublicCulture.STATUS_PUBLISHED)
+        public_crop.refresh_from_db()
+        self.assertIsNone(public_crop.source_project)
+        self.assertIsNone(public_crop.source_project_crop)
+        self.assertEqual(public_crop.status, PublicCrop.STATUS_PUBLISHED)
 
     def test_purge_deleted_accounts_keeps_projects_with_remaining_members(self) -> None:
         other_user = User.objects.create_user(

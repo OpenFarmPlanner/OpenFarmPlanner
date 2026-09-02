@@ -14,43 +14,43 @@ class TestSupplierDataBackfillMigration:
         old_apps = self.executor.loader.project_state([self.migrate_from]).apps
 
         project_model = old_apps.get_model('farm', 'Project')
-        culture_model = old_apps.get_model('farm', 'Culture')
+        crop_model = old_apps.get_model('farm', 'Culture')
         supplier_model = old_apps.get_model('farm', 'Supplier')
-        culture_supplier_data_model = old_apps.get_model('farm', 'CultureSupplierData')
+        crop_supplier_data_model = old_apps.get_model('farm', 'CultureSupplierData')
         seed_package_model = old_apps.get_model('farm', 'SeedPackage')
 
         project = project_model.objects.create(name='Migration Project', slug='migration-project')
         supplier = supplier_model.objects.create(name='Migration Supplier', homepage_url='https://supplier.example', project_id=project.id)
 
-        culture = culture_model.objects.create(
+        crop = crop_model.objects.create(
             name='Carrot',
             name_normalized='carrot',
             variety='Nantaise',
             project_id=project.id,
             thousand_kernel_weight_g=3.5,
         )
-        culture_supplier_data_model.objects.create(
-            culture_id=culture.id,
+        crop_supplier_data_model.objects.create(
+            culture_id=crop.id,
             supplier_id=supplier.id,
             project_id=project.id,
             packaging_sizes=[],
             thousand_kernel_weight_g=None,
         )
         seed_package_model.objects.create(
-            culture_id=culture.id,
+            culture_id=crop.id,
             project_id=project.id,
             size_value='25.0',
             size_unit='g',
         )
 
-        preserved = culture_model.objects.create(
+        preserved = crop_model.objects.create(
             name='Beet',
             name_normalized='beet',
             variety='Detroit',
             project_id=project.id,
             thousand_kernel_weight_g=9.5,
         )
-        culture_supplier_data_model.objects.create(
+        crop_supplier_data_model.objects.create(
             culture_id=preserved.id,
             supplier_id=supplier.id,
             project_id=project.id,
@@ -74,22 +74,22 @@ class TestSupplierDataBackfillMigration:
 
     def test_migration_copies_legacy_values_to_empty_supplier_data(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps
-        culture_model = apps.get_model('farm', 'Culture')
-        culture_supplier_data_model = apps.get_model('farm', 'CultureSupplierData')
+        crop_model = apps.get_model('farm', 'Culture')
+        crop_supplier_data_model = apps.get_model('farm', 'CultureSupplierData')
 
-        culture = culture_model.objects.get(name='Carrot')
-        supplier_data = culture_supplier_data_model.objects.get(culture_id=culture.id)
+        crop = crop_model.objects.get(name='Carrot')
+        supplier_data = crop_supplier_data_model.objects.get(culture_id=crop.id)
 
         assert supplier_data.thousand_kernel_weight_g == 3.5
         assert supplier_data.packaging_sizes == [{'size_value': 25.0, 'size_unit': 'g'}]
 
     def test_migration_does_not_overwrite_existing_supplier_specific_values(self):
         apps = self.executor.loader.project_state([self.migrate_to]).apps
-        culture_model = apps.get_model('farm', 'Culture')
-        culture_supplier_data_model = apps.get_model('farm', 'CultureSupplierData')
+        crop_model = apps.get_model('farm', 'Culture')
+        crop_supplier_data_model = apps.get_model('farm', 'CultureSupplierData')
 
-        culture = culture_model.objects.get(name='Beet')
-        supplier_data = culture_supplier_data_model.objects.get(culture_id=culture.id)
+        crop = crop_model.objects.get(name='Beet')
+        supplier_data = crop_supplier_data_model.objects.get(culture_id=crop.id)
 
         assert supplier_data.thousand_kernel_weight_g == 1.2
         assert supplier_data.packaging_sizes == [{'size_value': 10, 'size_unit': 'g'}]

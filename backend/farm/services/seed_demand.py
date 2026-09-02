@@ -1,6 +1,6 @@
 """Seed demand calculation.
 
-For every culture with at least one planting plan in a project, computes the
+For every crop with at least one planting plan in a project, computes the
 total seed requirement across all its plans (rate x area / lfm / plant count,
 plus a per-cultivation-type safety margin and an optional germination-rate
 adjustment), normalizes it to grams via thousand-kernel-weight (TKG), and
@@ -9,7 +9,7 @@ suggests a package combination from the selected supplier's packaging sizes.
 The step-by-step calculation, worked examples, and edge cases are documented
 in docs/seed-demand-calculation.md - keep that file in sync when changing
 behavior here. The HTTP layer (request parsing, serialization, the supplier
-selection POST) lives in farm.cultures.views.SeedDemandListView.
+selection POST) lives in farm.crops.views.SeedDemandListView.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
-from farm.models import Culture, CultureSupplierData, PlantingPlan, Project
+from farm.models import Crop, CropSupplierData, PlantingPlan, Project
 from farm.seed_units import (
     SEED_PACKAGE_UNIT_GRAMS,
     SEED_PACKAGE_UNIT_SEEDS,
@@ -30,7 +30,7 @@ from farm.seed_units import (
     grams_to_seeds,
     seeds_to_grams,
 )
-from farm.services.culture_display import resolve_culture_display_name
+from farm.services.crop_display import resolve_crop_display_name
 from farm.services.seed_packages import PackageOption, compute_seed_package_suggestion
 
 REQUIRED_AMOUNT_WARNING_MISSING_TKG = 'missing_tkg'
@@ -59,54 +59,54 @@ class PlanRequirementResult:
 
 
 def parse_selected_suppliers(raw_value: str | None) -> dict[int, int]:
-    """Parse the ``supplier_selection`` query param (``cultureId:supplierId,...``)."""
+    """Parse the ``supplier_selection`` query param (``cropId:supplierId,...``)."""
     selected: dict[int, int] = {}
     if not raw_value:
         return selected
     for item in raw_value.split(','):
         if ':' not in item:
             continue
-        culture_raw, supplier_raw = item.split(':', 1)
+        crop_raw, supplier_raw = item.split(':', 1)
         try:
-            culture_id = int(culture_raw.strip())
+            crop_id = int(crop_raw.strip())
             supplier_id = int(supplier_raw.strip())
         except (TypeError, ValueError):
             continue
-        if culture_id > 0 and supplier_id > 0:
-            selected[culture_id] = supplier_id
+        if crop_id > 0 and supplier_id > 0:
+            selected[crop_id] = supplier_id
     return selected
 
 
 def _cultivation_type_specific_rate(
-    culture: Culture,
+    crop: Crop,
     cultivation_type: str | None,
 ) -> tuple[Decimal | None, str | None]:
     """Rate from the explicit per-cultivation-type fields, if fully set."""
     if (
         cultivation_type == 'direct_sowing'
-        and culture.seed_rate_direct_value is not None
-        and culture.seed_rate_direct_unit
+        and crop.seed_rate_direct_value is not None
+        and crop.seed_rate_direct_unit
     ):
-        return Decimal(str(culture.seed_rate_direct_value)), culture.seed_rate_direct_unit
+        return Decimal(str(crop.seed_rate_direct_value)), crop.seed_rate_direct_unit
     if (
         cultivation_type == 'pre_cultivation'
-        and culture.seed_rate_pre_cultivation_value is not None
-        and culture.seed_rate_pre_cultivation_unit
+        and crop.seed_rate_pre_cultivation_value is not None
+        and crop.seed_rate_pre_cultivation_unit
     ):
         return (
-            Decimal(str(culture.seed_rate_pre_cultivation_value)),
-            culture.seed_rate_pre_cultivation_unit,
+            Decimal(str(crop.seed_rate_pre_cultivation_value)),
+            crop.seed_rate_pre_cultivation_unit,
         )
     return None, None
 
 
 def _rate_from_cultivation_map(
-    culture: Culture,
+    crop: Crop,
     cultivation_type: str | None,
 ) -> tuple[Decimal | None, str | None]:
     """Rate from the ``seed_rate_by_cultivation`` JSON map, if valid."""
-    if cultivation_type and isinstance(culture.seed_rate_by_cultivation, dict):
-        payload = culture.seed_rate_by_cultivation.get(cultivation_type)
+    if cultivation_type and isinstance(crop.seed_rate_by_cultivation, dict):
+        payload = crop.seed_rate_by_cultivation.get(cultivation_type)
         if isinstance(payload, dict):
             value = payload.get('value')
             unit = payload.get('unit')
@@ -116,7 +116,7 @@ def _rate_from_cultivation_map(
 
 
 def select_seed_rate(
-    culture: Culture,
+    crop: Crop,
     cultivation_type: str | None,
 ) -> tuple[Decimal | None, str | None]:
     """Pick the seed rate for a plan's cultivation type.
@@ -124,39 +124,39 @@ def select_seed_rate(
     Precedence: the cultivation-type-specific fields (direct sowing /
     pre-cultivation), then the ``seed_rate_by_cultivation`` JSON map, then the
     legacy single rate field. A plan whose cultivation type is set but not
-    among the culture's enabled ``cultivation_types`` gets no rate at all.
+    among the crop's enabled ``cultivation_types`` gets no rate at all.
     """
-    active_types = set(culture.cultivation_types or [])
+    active_types = set(crop.cultivation_types or [])
     if cultivation_type and active_types and cultivation_type not in active_types:
         return None, None
-    value, unit = _cultivation_type_specific_rate(culture, cultivation_type)
+    value, unit = _cultivation_type_specific_rate(crop, cultivation_type)
     if value is not None:
         return value, unit
-    value, unit = _rate_from_cultivation_map(culture, cultivation_type)
+    value, unit = _rate_from_cultivation_map(crop, cultivation_type)
     if value is not None:
         return value, unit
-    if culture.seed_rate_value is None or not culture.seed_rate_unit:
+    if crop.seed_rate_value is None or not crop.seed_rate_unit:
         return None, None
-    return Decimal(str(culture.seed_rate_value)), culture.seed_rate_unit
+    return Decimal(str(crop.seed_rate_value)), crop.seed_rate_unit
 
 
-def select_safety_margin_percent(culture: Culture, cultivation_type: str | None) -> Decimal:
+def select_safety_margin_percent(crop: Crop, cultivation_type: str | None) -> Decimal:
     """Pick the safety-margin percentage with the same per-cultivation-type
     precedence as :func:`select_seed_rate`."""
-    active_types = set(culture.cultivation_types or [])
+    active_types = set(crop.cultivation_types or [])
     if cultivation_type and active_types and cultivation_type not in active_types:
         return Decimal('0')
     if (
         cultivation_type == 'direct_sowing'
-        and culture.sowing_calculation_safety_percent_direct is not None
+        and crop.sowing_calculation_safety_percent_direct is not None
     ):
-        return Decimal(str(culture.sowing_calculation_safety_percent_direct))
+        return Decimal(str(crop.sowing_calculation_safety_percent_direct))
     if (
         cultivation_type == 'pre_cultivation'
-        and culture.sowing_calculation_safety_percent_pre_cultivation is not None
+        and crop.sowing_calculation_safety_percent_pre_cultivation is not None
     ):
-        return Decimal(str(culture.sowing_calculation_safety_percent_pre_cultivation))
-    return Decimal(str(culture.sowing_calculation_safety_percent or 0))
+        return Decimal(str(crop.sowing_calculation_safety_percent_pre_cultivation))
+    return Decimal(str(crop.sowing_calculation_safety_percent or 0))
 
 
 def convert_requirement_to_unit(
@@ -206,13 +206,13 @@ def get_required_amount_in_unit(
 
 
 def select_tkg(
-    culture_tkg: Decimal | None,
-    selected_supplier: CultureSupplierData | None,
+    crop_tkg: Decimal | None,
+    selected_supplier: CropSupplierData | None,
 ) -> Decimal | None:
-    """The selected supplier's TKG overrides the culture's own TKG."""
+    """The selected supplier's TKG overrides the crop's own TKG."""
     if selected_supplier and selected_supplier.thousand_kernel_weight_g:
         return Decimal(str(selected_supplier.thousand_kernel_weight_g))
-    return culture_tkg
+    return crop_tkg
 
 
 def apply_germination_rate(
@@ -284,7 +284,7 @@ def _lfm_based_requirement(
 
 def compute_plan_requirement(plan: PlantingPlan) -> PlanRequirementResult:
     """Compute one plan's raw seed requirement and stable blocker diagnostics."""
-    value, unit = select_seed_rate(plan.culture, plan.cultivation_type)
+    value, unit = select_seed_rate(plan.crop, plan.cultivation_type)
     if value is None or not unit or value <= 0:
         return PlanRequirementResult(
             value=None,
@@ -295,7 +295,7 @@ def compute_plan_requirement(plan: PlantingPlan) -> PlanRequirementResult:
 
     area = Decimal(str(plan.area_usage_sqm or 0))
     quantity = Decimal(str(plan.quantity or 0))
-    row_spacing = Decimal(str(plan.culture.row_spacing_m or 0))
+    row_spacing = Decimal(str(plan.crop.row_spacing_m or 0))
 
     if unit in {SEED_RATE_UNIT_G_PER_M2, SEED_RATE_UNIT_SEEDS_PER_M2}:
         return _m2_based_requirement(unit, value, area)
@@ -321,45 +321,45 @@ def compute_plan_requirement(plan: PlantingPlan) -> PlanRequirementResult:
     )
 
 
-def _aggregate_requirements_by_culture(
+def _aggregate_requirements_by_crop(
     project: Project, language_code: str, season_id: int | None = None,
 ) -> dict[int, dict]:
-    """Group all of a project's plans by culture and sum margin-adjusted
+    """Group all of a project's plans by crop and sum margin-adjusted
     requirements into per-unit buckets (grams and seeds separately)."""
     plans = (
         PlantingPlan.objects
-        # Draft plans without a culture chosen yet can't contribute to a
-        # per-culture seed requirement — exclude them rather than crashing.
-        .filter(project=project, culture__isnull=False)
+        # Draft plans without a crop chosen yet can't contribute to a
+        # per-crop seed requirement — exclude them rather than crashing.
+        .filter(project=project, crop__isnull=False)
         .select_related(
-            'culture',
-            'culture__crop_species',
-            'culture__supplier',
-            'culture__selected_seed_demand_supplier',
+            'crop',
+            'crop__crop_species',
+            'crop__supplier',
+            'crop__selected_seed_demand_supplier',
         )
-        .prefetch_related('culture__crop_species__translations')
-        .order_by('culture__name', 'culture__variety')
+        .prefetch_related('crop__crop_species__translations')
+        .order_by('crop__name', 'crop__variety')
     )
     if season_id is not None:
         plans = plans.filter(season_id=season_id)
     grouped: dict[int, dict] = {}
     for plan in plans:
-        culture = plan.culture
-        culture_display_name, culture_display_language_code = resolve_culture_display_name(
-            culture,
+        crop = plan.crop
+        crop_display_name, crop_display_language_code = resolve_crop_display_name(
+            crop,
             language_code,
             project.region,
         )
         entry = grouped.setdefault(
-            culture.id,
+            crop.id,
             {
-                'culture_id': culture.id,
-                'culture_name': culture.name,
-                'culture_display_name': culture_display_name,
-                'culture_display_language_code': culture_display_language_code,
-                'variety': culture.variety,
+                'crop_id': crop.id,
+                'crop_name': crop.name,
+                'crop_display_name': crop_display_name,
+                'crop_display_language_code': crop_display_language_code,
+                'variety': crop.variety,
                 'supplier': (
-                    culture.supplier.name if culture.supplier else (culture.seed_supplier or '')
+                    crop.supplier.name if crop.supplier else (crop.seed_supplier or '')
                 ),
                 'required_amount_by_unit': {
                     SEED_PACKAGE_UNIT_GRAMS: Decimal('0'),
@@ -368,14 +368,14 @@ def _aggregate_requirements_by_culture(
                 'warning': None,
                 'calculation_blockers': [],
                 'tkg': (
-                    Decimal(str(culture.thousand_kernel_weight_g))
-                    if culture.thousand_kernel_weight_g
+                    Decimal(str(crop.thousand_kernel_weight_g))
+                    if crop.thousand_kernel_weight_g
                     else None
                 ),
-                'culture': culture,
+                'crop': crop,
             },
         )
-        # A failed plan invalidates the culture total. Later plans are still
+        # A failed plan invalidates the crop total. Later plans are still
         # inspected for additional blockers, but successful values are not
         # accumulated into a misleading partial total.
         result = compute_plan_requirement(plan)
@@ -390,7 +390,7 @@ def _aggregate_requirements_by_culture(
         if entry['warning'] or result.value is None or not result.unit:
             continue
         margin_factor = Decimal('1') + (
-            select_safety_margin_percent(culture, plan.cultivation_type) / Decimal('100')
+            select_safety_margin_percent(crop, plan.cultivation_type) / Decimal('100')
         )
         entry['required_amount_by_unit'][result.unit] += result.value * margin_factor
     return grouped
@@ -398,10 +398,10 @@ def _aggregate_requirements_by_culture(
 
 def _resolve_selected_supplier(
     *,
-    culture: Culture,
-    supplier_options: list[CultureSupplierData],
+    crop: Crop,
+    supplier_options: list[CropSupplierData],
     requested_supplier_id: int | None,
-) -> CultureSupplierData | None:
+) -> CropSupplierData | None:
     """Resolve the supplier whose data drives the calculation.
 
     Precedence: explicit request (query param) > persisted
@@ -410,7 +410,7 @@ def _resolve_selected_supplier(
     """
     selected_supplier_id = requested_supplier_id
     if selected_supplier_id is None:
-        selected_supplier_id = culture.selected_seed_demand_supplier_id
+        selected_supplier_id = crop.selected_seed_demand_supplier_id
     if selected_supplier_id:
         selected = next(
             (item for item in supplier_options if item.supplier_id == selected_supplier_id),
@@ -423,7 +423,7 @@ def _resolve_selected_supplier(
     return None
 
 
-def _valid_packages(selected_supplier: CultureSupplierData | None) -> list[dict]:
+def _valid_packages(selected_supplier: CropSupplierData | None) -> list[dict]:
     packages: list[dict] = []
     for item in (selected_supplier.packaging_sizes if selected_supplier else None) or []:
         if not isinstance(item, dict):
@@ -439,39 +439,39 @@ def _valid_packages(selected_supplier: CultureSupplierData | None) -> list[dict]
     return packages
 
 
-def _supplier_options_by_culture(
+def _supplier_options_by_crop(
     project: Project,
-    culture_ids: list[int],
-) -> dict[int, list[CultureSupplierData]]:
-    """Load each culture's supplier-data rows, ordered by supplier name."""
+    crop_ids: list[int],
+) -> dict[int, list[CropSupplierData]]:
+    """Load each crop's supplier-data rows, ordered by supplier name."""
     supplier_rows = (
-        CultureSupplierData.objects
-        .filter(project=project, culture_id__in=culture_ids)
+        CropSupplierData.objects
+        .filter(project=project, crop_id__in=crop_ids)
         .select_related('supplier')
-        .order_by('culture_id', 'supplier__name')
+        .order_by('crop_id', 'supplier__name')
     )
-    suppliers_map: dict[int, list[CultureSupplierData]] = defaultdict(list)
+    suppliers_map: dict[int, list[CropSupplierData]] = defaultdict(list)
     for supplier_row in supplier_rows:
-        suppliers_map[supplier_row.culture_id].append(supplier_row)
+        suppliers_map[supplier_row.crop_id].append(supplier_row)
     return suppliers_map
 
 
 def _base_row(
     *,
     entry: dict,
-    supplier_options: list[CultureSupplierData],
-    selected_supplier: CultureSupplierData | None,
+    supplier_options: list[CropSupplierData],
+    selected_supplier: CropSupplierData | None,
     display_required_amount: Decimal | None,
     required_amount_warning: str | None,
     has_required_amount: bool,
     packages: list[dict],
 ) -> dict:
-    """Build one culture's display row without any package suggestion yet."""
+    """Build one crop's display row without any package suggestion yet."""
     row = {
-        'culture_id': entry['culture_id'],
-        'culture_name': entry['culture_name'],
-        'culture_display_name': entry['culture_display_name'],
-        'culture_display_language_code': entry['culture_display_language_code'],
+        'crop_id': entry['crop_id'],
+        'crop_name': entry['crop_name'],
+        'crop_display_name': entry['crop_display_name'],
+        'crop_display_language_code': entry['crop_display_language_code'],
         'variety': entry['variety'],
         'supplier': (
             selected_supplier.supplier.name
@@ -573,28 +573,28 @@ def _attach_package_suggestion(
 def build_seed_demand_rows(
     *,
     project: Project,
-    selected_supplier_by_culture: dict[int, int],
+    selected_supplier_by_crop: dict[int, int],
     language_code: str,
     season_id: int | None = None,
 ) -> list[dict]:
-    """Build the display-ready seed-demand rows for a project, one per culture.
+    """Build the display-ready seed-demand rows for a project, one per crop.
 
     Scoped to `season_id` when given, matching the active-season header the
     planting-plans list endpoint scopes by — see
     docs/seasons-architecture.md.
     """
-    grouped = _aggregate_requirements_by_culture(project, language_code, season_id)
-    suppliers_map = _supplier_options_by_culture(project, list(grouped.keys()))
+    grouped = _aggregate_requirements_by_crop(project, language_code, season_id)
+    suppliers_map = _supplier_options_by_crop(project, list(grouped.keys()))
 
     rows: list[dict] = []
-    for culture_id, entry in grouped.items():
+    for crop_id, entry in grouped.items():
         required_amounts_by_unit = entry['required_amount_by_unit']
         has_required_amount = any(amount > 0 for amount in required_amounts_by_unit.values())
-        supplier_options = suppliers_map.get(culture_id, [])
+        supplier_options = suppliers_map.get(crop_id, [])
         selected_supplier = _resolve_selected_supplier(
-            culture=entry['culture'],
+            crop=entry['crop'],
             supplier_options=supplier_options,
-            requested_supplier_id=selected_supplier_by_culture.get(culture_id),
+            requested_supplier_id=selected_supplier_by_crop.get(crop_id),
         )
 
         selected_tkg = select_tkg(entry['tkg'], selected_supplier)
@@ -642,5 +642,5 @@ def build_seed_demand_rows(
                 row['package_blocker'] = PACKAGE_BLOCKER_NO_MATCHING_PACKAGE_SIZES
         rows.append(row)
 
-    rows.sort(key=lambda item: (item['culture_display_name'] or item['culture_name'] or '', item['variety'] or ''))
+    rows.sort(key=lambda item: (item['crop_display_name'] or item['crop_name'] or '', item['variety'] or ''))
     return rows

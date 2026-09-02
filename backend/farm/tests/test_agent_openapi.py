@@ -5,8 +5,8 @@ from rest_framework.test import APIClient, APITestCase
 
 from farm.agent_api.openapi import build_openapi_document
 from farm.models import Project, ProjectApiToken, ProjectMembership
-from farm.services.culture_import.field_specs import (
-    CULTURE_FIELD_SPECS_BY_NAME,
+from farm.services.crop_import.field_specs import (
+    CROP_FIELD_SPECS_BY_NAME,
     SEED_RATE_UNIT_VALUES,
 )
 
@@ -18,8 +18,8 @@ class OpenApiDocumentTests(APITestCase):
 
     def setUp(self):
         self.document = build_openapi_document()
-        self.culture_schema = self.document['components']['schemas']['CultureImportItem']
-        self.culture_write_schema = self.document['components']['schemas']['CultureWriteItem']
+        self.crop_schema = self.document['components']['schemas']['CropImportItem']
+        self.crop_write_schema = self.document['components']['schemas']['CropWriteItem']
 
     def test_document_declares_bearer_security(self):
         scheme = self.document['components']['securitySchemes']['bearerAuth']
@@ -31,12 +31,12 @@ class OpenApiDocumentTests(APITestCase):
     def test_import_paths_are_documented(self):
         for path in (
             '/agent/context/',
-            '/culture-imports/preview/',
-            '/culture-imports/{draft_id}/',
-            '/culture-imports/{draft_id}/apply/',
-            '/cultures/',
-            '/cultures/{id}/',
-            '/cultures/{id}/undelete/',
+            '/crop-imports/preview/',
+            '/crop-imports/{draft_id}/',
+            '/crop-imports/{draft_id}/apply/',
+            '/crops/',
+            '/crops/{id}/',
+            '/crops/{id}/undelete/',
         ):
             self.assertIn(path, self.document['paths'])
 
@@ -54,57 +54,57 @@ class OpenApiDocumentTests(APITestCase):
         )
         self.assertIn('project context', operation['summary'])
 
-    def test_only_culture_soft_delete_is_documented_as_delete(self):
+    def test_only_crop_soft_delete_is_documented_as_delete(self):
         delete_paths = [
             path
             for path, path_item in self.document['paths'].items()
             if 'delete' in path_item
         ]
-        self.assertEqual(delete_paths, ['/cultures/{id}/'])
+        self.assertEqual(delete_paths, ['/crops/{id}/'])
         self.assertIn(
             'scope `delete`',
-            self.document['paths']['/cultures/{id}/']['delete']['description'],
+            self.document['paths']['/crops/{id}/']['delete']['description'],
         )
 
-    def test_culture_undelete_requires_delete_scope(self):
-        operation = self.document['paths']['/cultures/{id}/undelete/']['post']
+    def test_crop_undelete_requires_delete_scope(self):
+        operation = self.document['paths']['/crops/{id}/undelete/']['post']
         self.assertIn('scope `delete`', operation['description'])
 
     def test_only_the_name_field_is_required(self):
-        self.assertEqual(self.culture_schema['required'], ['name'])
+        self.assertEqual(self.crop_schema['required'], ['name'])
 
     def test_length_fields_keep_their_unit_in_the_name(self):
         for field_name in ('row_spacing_m', 'distance_within_row_m', 'sowing_depth_m'):
-            schema = self.culture_schema['properties'][field_name]
+            schema = self.crop_schema['properties'][field_name]
             self.assertEqual(schema['x-unit'], 'm')
             self.assertIn('metres', schema['description'])
 
     def test_length_fields_document_their_accepted_input_spellings(self):
-        accepted = self.culture_schema['properties']['row_spacing_m']['x-accepted-input-keys']
+        accepted = self.crop_schema['properties']['row_spacing_m']['x-accepted-input-keys']
 
         self.assertIn('row_spacing_cm', accepted)
         self.assertIn('row_spacing_mm', accepted)
 
     def test_hard_bounds_are_exposed_as_json_schema_limits(self):
-        schema = self.culture_schema['properties']['row_spacing_m']
-        spec = CULTURE_FIELD_SPECS_BY_NAME['row_spacing_m']
+        schema = self.crop_schema['properties']['row_spacing_m']
+        spec = CROP_FIELD_SPECS_BY_NAME['row_spacing_m']
 
         self.assertEqual(schema['exclusiveMinimum'], spec.hard_min)
         self.assertEqual(schema['maximum'], spec.hard_max)
 
     def test_plausible_bounds_are_exposed_separately_from_hard_bounds(self):
-        schema = self.culture_schema['properties']['row_spacing_m']
+        schema = self.crop_schema['properties']['row_spacing_m']
 
         self.assertEqual(schema['x-plausible-minimum'], 0.05)
         self.assertEqual(schema['x-plausible-maximum'], 1.5)
         self.assertLess(schema['x-plausible-maximum'], schema['maximum'])
 
     def test_seed_rate_units_list_only_the_canonical_project_vocabulary(self):
-        schema = self.culture_schema['properties']['seed_rate_direct_unit']
+        schema = self.crop_schema['properties']['seed_rate_direct_unit']
         self.assertEqual(set(schema['enum']), set(SEED_RATE_UNIT_VALUES))
 
-    def test_culture_write_schema_prefers_seed_requirements_object(self):
-        schema = self.culture_write_schema['properties']['seed_requirements']
+    def test_crop_write_schema_prefers_seed_requirements_object(self):
+        schema = self.crop_write_schema['properties']['seed_requirements']
 
         self.assertIn('Total seed demand is calculated later', schema['description'])
         self.assertEqual(
@@ -124,15 +124,15 @@ class OpenApiDocumentTests(APITestCase):
         self.assertEqual(entry['x-unit-value-constraints']['g_per_m2']['value_type'], 'number')
 
     def test_flat_seed_rate_value_fields_document_unit_value_constraints(self):
-        schema = self.culture_schema['properties']['seed_rate_pre_cultivation_value']
+        schema = self.crop_schema['properties']['seed_rate_pre_cultivation_value']
 
         self.assertEqual(
             schema['x-unit-value-constraints']['seeds_per_plant']['value_type'],
             'integer',
         )
 
-    def test_culture_create_documents_seed_requirements_example(self):
-        request_body = self.document['paths']['/cultures/']['post']['requestBody']
+    def test_crop_create_documents_seed_requirements_example(self):
+        request_body = self.document['paths']['/crops/']['post']['requestBody']
         examples = request_body['content']['application/json']['examples']
 
         tomato = examples['preCultivatedTomato']['value']
@@ -141,16 +141,16 @@ class OpenApiDocumentTests(APITestCase):
             {'value': 2, 'unit': 'seeds_per_plant'},
         )
 
-    def test_culture_create_documents_general_culture_identity(self):
-        variety_schema = self.culture_write_schema['properties']['variety']
-        request_body = self.document['paths']['/cultures/']['post']['requestBody']
+    def test_crop_create_documents_general_crop_identity(self):
+        variety_schema = self.crop_write_schema['properties']['variety']
+        request_body = self.document['paths']['/crops/']['post']['requestBody']
         examples = request_body['content']['application/json']['examples']
 
         self.assertEqual(variety_schema['type'], ['string', 'null'])
-        self.assertEqual(examples['generalCulture']['value']['variety'], '')
+        self.assertEqual(examples['generalCrop']['value']['variety'], '')
 
     def test_coupled_fields_declare_their_companion(self):
-        properties = self.culture_schema['properties']
+        properties = self.crop_schema['properties']
 
         value_field = properties['seed_rate_direct_value']
         unit_field = properties['seed_rate_direct_unit']
@@ -158,7 +158,7 @@ class OpenApiDocumentTests(APITestCase):
         self.assertEqual(unit_field['x-requires'], 'seed_rate_direct_value')
 
     def test_enum_fields_list_their_allowed_values(self):
-        properties = self.culture_schema['properties']
+        properties = self.crop_schema['properties']
 
         self.assertEqual(set(properties['nutrient_demand']['enum']), {'low', 'medium', 'high'})
         self.assertEqual(
@@ -167,15 +167,15 @@ class OpenApiDocumentTests(APITestCase):
         )
 
     def test_every_field_carries_a_description_and_an_example(self):
-        for field_name, schema in self.culture_schema['properties'].items():
+        for field_name, schema in self.crop_schema['properties'].items():
             self.assertTrue(schema['description'], f'{field_name} has no description')
             self.assertTrue(schema['examples'], f'{field_name} has no example')
 
     def test_schema_bounds_match_the_enforced_specs(self):
         # Guards the reason the document is generated rather than hand-written:
         # a bound may not be documented differently from how it is enforced.
-        for spec in CULTURE_FIELD_SPECS_BY_NAME.values():
-            schema = self.culture_schema['properties'][spec.name]
+        for spec in CROP_FIELD_SPECS_BY_NAME.values():
+            schema = self.crop_schema['properties'][spec.name]
             if spec.hard_max is not None:
                 self.assertEqual(schema['maximum'], spec.hard_max)
             if spec.hard_min is not None and not spec.exclusive_min:

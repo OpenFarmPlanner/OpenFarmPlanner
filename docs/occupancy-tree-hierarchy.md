@@ -21,7 +21,7 @@ Unlike the old function, `buildFieldOccupancyHierarchy` includes **beds without 
 An occupancy task requires a planting date and a calculable harvest start. A
 missing harvest end does not remove the plan from the calendar: the harvest
 start remains the growth task's endpoint, while no separate harvest-period bar
-is rendered. This keeps partially configured cultures visible without inventing
+is rendered. This keeps partially configured crops visible without inventing
 an end date for a missing harvest duration.
 
 `GanttChart.tsx` turns this into the rows the Gantt library actually renders:
@@ -49,9 +49,9 @@ Standort/Parzelle rows currently show a **meta-text summary** in place of bars (
 
 ## Filters and search
 
-The filter bar (`GanttChart.tsx`, occupancy mode only) has: free-text search, a Standort `<Select>`, a Parzelle `<Select>` (populated from the selected Standort's fields, disabled until one is chosen), and a "Nur belegte Beete" checkbox (defaults to checked, matching the old always-hide-empty-beds behavior). Search matches a bed's own name, its field's name, its location's name, or any of its planting plans' culture names, case-insensitively.
+The filter bar (`GanttChart.tsx`, occupancy mode only) has: free-text search, a Standort `<Select>`, a Parzelle `<Select>` (populated from the selected Standort's fields, disabled until one is chosen), and a "Nur belegte Beete" checkbox (defaults to checked, matching the old always-hide-empty-beds behavior). Search matches a bed's own name, its field's name, its location's name, or any of its planting plans' crop names, case-insensitively.
 
-The seedling/Anzucht view has its own, much simpler filter bar: free-text search only (`seedlingSearchText`, matching a task group's culture name), no Standort/Parzelle `<Select>`s and no "Nur belegte Beete" checkbox, since that view is a flat, culture-grouped list with no bed/field/location hierarchy at all. Both search fields share one `searchInputRef`/`focusSearch()` pair — only one is ever mounted at a time (gated on `calendarMode`), so the ref always points at whichever field is currently visible. `/` (the `calendar.focusSearch` command) focuses and selects whichever search field is active — the app-wide "jump to search" key, see [keyboard-architecture.md](./keyboard-architecture.md).
+The seedling/Anzucht view has its own, much simpler filter bar: free-text search only (`seedlingSearchText`, matching a task group's crop name), no Standort/Parzelle `<Select>`s and no "Nur belegte Beete" checkbox, since that view is a flat, crop-grouped list with no bed/field/location hierarchy at all. Both search fields share one `searchInputRef`/`focusSearch()` pair — only one is ever mounted at a time (gated on `calendarMode`), so the ref always points at whichever field is currently visible. `/` (the `calendar.focusSearch` command) focuses and selects whichever search field is active — the app-wide "jump to search" key, see [keyboard-architecture.md](./keyboard-architecture.md).
 
 ## Tests
 
@@ -76,7 +76,7 @@ Added on top of the tree work above, as part of a broader calendar UX pass.
 
 **OFP-specific (`GanttChart.tsx`):**
 - A single `CustomContextMenu` (same positioned-menu pattern as `FieldsBedsHierarchy.tsx`'s context menu: grouped `MenuItem`s with `Divider`s between groups) driven by `getContextMenuActions(target)`, where `target` is either `{type: 'task', task, group}` or `{type: 'group', group}`.
-- Task (bar) menu: Anbauplan öffnen, Kultur öffnen (if the task has a culture), Beet/Parzelle/Standort öffnen (if the enclosing group carries that id), then Bearbeiten / Zeile kopieren / Löschen. "Anbauplan öffnen" (and double-click) navigate to `/app/planting-plans?planId=<id>` and just scroll to/select the row; "Bearbeiten" adds `&edit=true`, which additionally opens that row in inline edit mode straight away (`openPlantingPlanFromTask(task, { edit: true })` → `DataGrid`'s `openRowById(rowId, { startEdit: true })`). "Löschen" calls `plantingPlanAPI.delete` after a native `window.confirm`; this intentionally does **not** reuse the app's `DeleteUndoSnackbar` pattern to keep this change scoped — upgrading to it is a reasonable follow-up.
+- Task (bar) menu: Anbauplan öffnen, Kultur öffnen (if the task has a crop), Beet/Parzelle/Standort öffnen (if the enclosing group carries that id), then Bearbeiten / Zeile kopieren / Löschen. "Anbauplan öffnen" (and double-click) navigate to `/app/planting-plans?planId=<id>` and just scroll to/select the row; "Bearbeiten" adds `&edit=true`, which additionally opens that row in inline edit mode straight away (`openPlantingPlanFromTask(task, { edit: true })` → `DataGrid`'s `openRowById(rowId, { startEdit: true })`). "Löschen" calls `plantingPlanAPI.delete` after a native `window.confirm`; this intentionally does **not** reuse the app's `DeleteUndoSnackbar` pattern to keep this change scoped — upgrading to it is a reasonable follow-up.
 - Group (tree row) menu, based on which id the row's `GanttTaskGroup` carries (`bedId` → Beet actions incl. "Anbauplan hinzufügen"; `fieldId` only → Parzelle actions; `locationId` only → Standort actions).
 - Double-click on a bar is a shortcut for "Anbauplan öffnen" — not edit, per the requirement that double-click should be a fast overview→detail jump, not an editing action.
 

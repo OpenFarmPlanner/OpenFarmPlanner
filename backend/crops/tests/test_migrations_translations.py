@@ -94,7 +94,7 @@ class TestCropSpeciesTranslationBackfill:
 
 
 @pytest.mark.django_db(transaction=True)
-class TestPublicCultureTranslationBackfill:
+class TestPublicCropTranslationBackfill:
     migrate_from = ('farm', '0082_add_crop_translations')
     migrate_to = ('farm', '0083_backfill_public_culture_translations')
 
@@ -103,26 +103,26 @@ class TestPublicCultureTranslationBackfill:
         self.executor.migrate([self.migrate_from])
         old_apps = self.executor.loader.project_state([self.migrate_from]).apps
 
-        public_culture_model = old_apps.get_model('farm', 'PublicCulture')
+        public_crop_model = old_apps.get_model('farm', 'PublicCulture')
 
-        public_culture_model.objects.create(
+        public_crop_model.objects.create(
             name='Tomate', variety='Moneymaker', notes='Robuste Freilandsorte.',
             name_normalized='tomate', variety_normalized='moneymaker',
             status='published', version=1, original_language_code='de',
         )
-        public_culture_model.objects.create(
+        public_crop_model.objects.create(
             name='Lettuce', variety='Bijella', notes='Crisp summer lettuce.',
             name_normalized='lettuce', variety_normalized='bijella',
             status='published', version=1, original_language_code='en',
         )
         # Published before the wizard recorded a language.
-        public_culture_model.objects.create(
+        public_crop_model.objects.create(
             name='Karotte', variety='Nantaise', notes='Süße Lagersorte.',
             name_normalized='karotte', variety_normalized='nantaise',
             status='published', version=1, original_language_code='',
         )
         # No description at all.
-        public_culture_model.objects.create(
+        public_crop_model.objects.create(
             name='Kohlrabi', variety='Lanro', notes='',
             name_normalized='kohlrabi', variety_normalized='lanro',
             status='published', version=1, original_language_code='de',

@@ -3,9 +3,9 @@ from rest_framework.routers import DefaultRouter
 from .agent_api.views import (
     AgentContextView,
     AgentOpenApiSchemaView,
-    CultureImportApplyView,
-    CultureImportDraftView,
-    CultureImportPreviewView,
+    CropImportApplyView,
+    CropImportDraftView,
+    CropImportPreviewView,
     ProjectApiTokenViewSet,
 )
 from .planning.views import (
@@ -26,10 +26,10 @@ from .structure.views import (
     FieldViewSet,
     LocationViewSet,
 )
-from .cultures.views import (
-    CultureSupplierDataViewSet,
-    CultureViewSet,
-    PublicCultureViewSet,
+from .crops.views import (
+    CropSupplierDataViewSet,
+    CropViewSet,
+    PublicCropViewSet,
     SeedDemandListView,
     SeedPackageViewSet,
     SupplierViewSet,
@@ -67,9 +67,9 @@ router.register(r'locations', LocationViewSet)
 router.register(r'suppliers', SupplierViewSet)
 router.register(r'fields', FieldViewSet)
 router.register(r'beds', BedViewSet)
-router.register(r'cultures', CultureViewSet)
-router.register(r'culture-supplier-data', CultureSupplierDataViewSet)
-router.register(r'public-cultures', PublicCultureViewSet, basename='public-cultures')
+router.register(r'crops', CropViewSet)
+router.register(r'crop-supplier-data', CropSupplierDataViewSet)
+router.register(r'public-crops', PublicCropViewSet, basename='public-crops')
 router.register(r'seed-packages', SeedPackageViewSet)
 router.register(r'planting-plans', PlantingPlanViewSet)
 router.register(r'seasons', SeasonViewSet)
@@ -80,14 +80,14 @@ router.register(r'api-tokens', ProjectApiTokenViewSet, basename='api-tokens')
 urlpatterns = [
     path('version/', VersionView.as_view(), name='api-version'),
     path('feedback/', FeedbackView.as_view(), name='feedback'),
-    # Agent API: OpenAPI description plus the two-step culture import.
+    # Agent API: OpenAPI description plus the two-step crop import.
     # Registered before the router so the fixed `preview/` segment is not
     # swallowed by the draft-id route.
     path('agent/context/', AgentContextView.as_view(), name='agent-context'),
     path('agent/openapi.json', AgentOpenApiSchemaView.as_view(), name='agent-openapi-schema'),
-    path('culture-imports/preview/', CultureImportPreviewView.as_view(), name='culture-import-preview'),
-    path('culture-imports/<uuid:draft_id>/', CultureImportDraftView.as_view(), name='culture-import-draft'),
-    path('culture-imports/<uuid:draft_id>/apply/', CultureImportApplyView.as_view(), name='culture-import-apply'),
+    path('crop-imports/preview/', CropImportPreviewView.as_view(), name='crop-import-preview'),
+    path('crop-imports/<uuid:draft_id>/', CropImportDraftView.as_view(), name='crop-import-draft'),
+    path('crop-imports/<uuid:draft_id>/apply/', CropImportApplyView.as_view(), name='crop-import-apply'),
     path('history/project/', ProjectHistoryListView.as_view(), name='project-history-list'),
     path('history/project/restore/', ProjectHistoryRestoreView.as_view(), name='project-history-restore'),
     path('history/batch/<int:batch_id>/revert/', BatchOperationRevertView.as_view(), name='batch-operation-revert'),

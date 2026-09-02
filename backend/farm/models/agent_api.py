@@ -1,4 +1,4 @@
-"""Project-bound API tokens and stored culture-import drafts for external agents.
+"""Project-bound API tokens and stored crop-import drafts for external agents.
 
 These two models back the agent API surface documented in
 ``docs/agent-api.md``:
@@ -7,8 +7,8 @@ These two models back the agent API surface documented in
   plaintext value exists only in the HTTP response that created it; the
   database stores a SHA-256 digest plus a short, non-secret prefix used to
   recognize the token in listings.
-* :class:`CultureImportDraft` — a server-side, immutable snapshot of a
-  validated culture import. Applying an import references a draft id rather
+* :class:`CropImportDraft` — a server-side, immutable snapshot of a
+  validated crop import. Applying an import references a draft id rather
   than resending the payload, which is what makes the two-step preview/apply
   flow safe against payload drift between the two calls.
 """
@@ -204,8 +204,8 @@ class ProjectApiToken(TimestampedModel):
         type(self).objects.filter(pk=self.pk).update(last_used_at=moment)
 
 
-class CultureImportDraft(models.Model):
-    """A validated, immutable culture-import proposal awaiting confirmation.
+class CropImportDraft(models.Model):
+    """A validated, immutable crop-import proposal awaiting confirmation.
 
     The draft holds the analysis produced by the preview step. Apply re-reads
     it from the database instead of trusting a resent payload, so the rows the
@@ -220,17 +220,17 @@ class CultureImportDraft(models.Model):
     ]
 
     # Drafts are short-lived by design: they pin a snapshot of project data
-    # (which cultures matched) that goes stale as the project changes.
+    # (which crops matched) that goes stale as the project changes.
     DEFAULT_TTL_SECONDS = 2 * 60 * 60
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
-        Project, on_delete=models.CASCADE, related_name='culture_import_drafts'
+        Project, on_delete=models.CASCADE, related_name='crop_import_drafts'
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='culture_import_drafts',
+        related_name='crop_import_drafts',
     )
     source_label = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
@@ -251,7 +251,7 @@ class CultureImportDraft(models.Model):
 
     def __str__(self) -> str:
         """Return a short identifier for admin and debug output."""
-        return f'CultureImportDraft {self.id} ({self.status})'
+        return f'CropImportDraft {self.id} ({self.status})'
 
     @property
     def is_expired(self) -> bool:

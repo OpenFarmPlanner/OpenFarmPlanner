@@ -11,7 +11,7 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 ## Main Features
 
 - Farm structure management (locations, fields, beds)
-- Culture management with agronomic details and history/restore support
+- Crop management with agronomic details and history/restore support
 - Planting plans, task planning, and Gantt/yield-oriented views
 - Seed demand and supplier workflows
 - Multi-project support with project switching and invitations
@@ -29,7 +29,7 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 The superuser-only Django admin includes a **Nutzungsübersicht** (engagement
 dashboard) for internal product-development decisions. It derives project
 activity from the existing `created_at` and `updated_at` timestamps on farm
-data (suppliers, cultures and supplier data, seed packages, locations, fields,
+data (suppliers, crops and supplier data, seed packages, locations, fields,
 beds and layouts, planting plans, tasks, and note attachments). It shows only
 per-project totals and recency/status buckets, plus aggregate registration and
 recent-login totals. A project's active-user count uses the existing

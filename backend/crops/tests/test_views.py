@@ -6,7 +6,7 @@ from accounts.guest_demo import create_guest_demo_session
 from accounts.models import UserProjectSettings
 from crops.models import CropSpecies, CropSpeciesTranslation, PublicLibraryModeratorRequest
 from crops.permissions import grant_public_library_moderator_access
-from farm.models import PublicCulture
+from farm.models import PublicCrop
 from notifications.models import Notification
 
 User = get_user_model()
@@ -17,11 +17,11 @@ class CropViewSetTest(DRFAPITestCase):
         self.user = User.objects.create_user(
             username='crops-user', email='crops@example.com', password='testpass', is_active=True,
         )
-        self.published = PublicCulture.objects.create(
-            name='Lettuce', variety='Bijella', status=PublicCulture.STATUS_PUBLISHED,
+        self.published = PublicCrop.objects.create(
+            name='Lettuce', variety='Bijella', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=self.user,
         )
-        self.draft = PublicCulture.objects.create(
+        self.draft = PublicCrop.objects.create(
             name='Carrot', variety='Nantes', status='draft', version=1, created_by=self.user,
         )
 
@@ -38,12 +38,12 @@ class CropViewSetTest(DRFAPITestCase):
         }
 
     def test_requires_authentication(self):
-        response = self.client.get('/openfarmplanner/api/crops/')
+        response = self.client.get('/openfarmplanner/api/crop-library/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_lists_only_published_crops(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/openfarmplanner/api/crops/')
+        response = self.client.get('/openfarmplanner/api/crop-library/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         names = [item['name'] for item in response.data['results']]
@@ -52,7 +52,7 @@ class CropViewSetTest(DRFAPITestCase):
 
     def test_filters_by_free_text_query(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/openfarmplanner/api/crops/', {'q': 'lett'})
+        response = self.client.get('/openfarmplanner/api/crop-library/', {'q': 'lett'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
@@ -60,7 +60,7 @@ class CropViewSetTest(DRFAPITestCase):
 
     def test_retrieves_a_single_published_crop(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get(f'/openfarmplanner/api/crops/{self.published.id}/')
+        response = self.client.get(f'/openfarmplanner/api/crop-library/{self.published.id}/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'Lettuce')
@@ -68,11 +68,11 @@ class CropViewSetTest(DRFAPITestCase):
         # Provenance fields are project-scoped and must not leak into the
         # crop-library-facing serializer.
         self.assertNotIn('source_project', response.data)
-        self.assertNotIn('source_project_culture', response.data)
+        self.assertNotIn('source_project_crop', response.data)
 
     def test_retrieving_an_unpublished_crop_404s(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get(f'/openfarmplanner/api/crops/{self.draft.id}/')
+        response = self.client.get(f'/openfarmplanner/api/crop-library/{self.draft.id}/')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -80,19 +80,19 @@ class CropViewSetTest(DRFAPITestCase):
         rejected_species = CropSpecies.objects.create(
             name='Rejected bean', status=CropSpecies.STATUS_REJECTED,
         )
-        rejected_crop = PublicCulture.objects.create(
-            name='Rejected bean', variety='Test', status=PublicCulture.STATUS_PUBLISHED,
+        rejected_crop = PublicCrop.objects.create(
+            name='Rejected bean', variety='Test', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=self.user, crop_species=rejected_species,
         )
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.get(f'/openfarmplanner/api/crops/{rejected_crop.id}/')
+        response = self.client.get(f'/openfarmplanner/api/crop-library/{rejected_crop.id}/')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_match_finds_an_exact_normalized_match(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/openfarmplanner/api/crops/match/', {'name': 'lettuce', 'variety': 'bijella'})
+        response = self.client.get('/openfarmplanner/api/crop-library/match/', {'name': 'lettuce', 'variety': 'bijella'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['exists'])
@@ -100,7 +100,7 @@ class CropViewSetTest(DRFAPITestCase):
 
     def test_match_reports_no_match(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/openfarmplanner/api/crops/match/', {'name': 'Kohlrabi', 'variety': 'Superschmelz'})
+        response = self.client.get('/openfarmplanner/api/crop-library/match/', {'name': 'Kohlrabi', 'variety': 'Superschmelz'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data['exists'])
@@ -108,7 +108,7 @@ class CropViewSetTest(DRFAPITestCase):
 
     def test_write_methods_are_not_allowed(self):
         self.client.force_authenticate(user=self.user)
-        response = self.client.post('/openfarmplanner/api/crops/', {'name': 'X', 'variety': 'Y'})
+        response = self.client.post('/openfarmplanner/api/crop-library/', {'name': 'X', 'variety': 'Y'})
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -303,8 +303,8 @@ class CropViewSetTest(DRFAPITestCase):
         )
         grant_public_library_moderator_access(moderator)
         proposal = CropSpecies.objects.create(name='Tree onion', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user)
-        published_variety = PublicCulture.objects.create(
-            name='Tree onion', variety='Egyptian', status=PublicCulture.STATUS_PUBLISHED,
+        published_variety = PublicCrop.objects.create(
+            name='Tree onion', variety='Egyptian', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=self.user, crop_species=proposal,
         )
         self.client.force_authenticate(user=moderator)
@@ -316,7 +316,7 @@ class CropViewSetTest(DRFAPITestCase):
         )
 
         notification = Notification.objects.get(recipient=self.user)
-        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_CULTURE)
+        self.assertEqual(notification.target_type, Notification.TARGET_PUBLIC_CROP)
         self.assertEqual(notification.target_id, published_variety.id)
 
     def test_reviewing_a_species_nobody_proposed_creates_no_notification(self):
@@ -394,12 +394,12 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(
             name='Karotsdasdas', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
         )
-        general_entry = PublicCulture.objects.create(
-            name='Karotte', variety='', status=PublicCulture.STATUS_PUBLISHED,
+        general_entry = PublicCrop.objects.create(
+            name='Karotte', variety='', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=self.user, crop_species=proposal,
         )
-        variety_entry = PublicCulture.objects.create(
-            name='Karotte', variety='Solveig', status=PublicCulture.STATUS_PUBLISHED,
+        variety_entry = PublicCrop.objects.create(
+            name='Karotte', variety='Solveig', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=self.user, crop_species=proposal,
         )
         self.client.force_authenticate(user=moderator)
@@ -410,8 +410,8 @@ class CropViewSetTest(DRFAPITestCase):
         general_entry.refresh_from_db()
         variety_entry.refresh_from_db()
         for entry in (general_entry, variety_entry):
-            self.assertEqual(entry.status, PublicCulture.STATUS_REMOVED)
-            self.assertEqual(entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
+            self.assertEqual(entry.status, PublicCrop.STATUS_REMOVED)
+            self.assertEqual(entry.removal_reason, PublicCrop.REMOVAL_REASON_SPECIES_REJECTED)
             self.assertEqual(entry.status_changed_by, moderator)
         # The species itself is unaffected beyond its own status; its name is
         # left as-is for the moderation log/history, only the entries move.
@@ -429,8 +429,8 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(
             name='Karotsdasdas 2', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
         )
-        withdrawn_entry = PublicCulture.objects.create(
-            name='Karotte', variety='Withdrawn already', status=PublicCulture.STATUS_WITHDRAWN,
+        withdrawn_entry = PublicCrop.objects.create(
+            name='Karotte', variety='Withdrawn already', status=PublicCrop.STATUS_WITHDRAWN,
             version=1, created_by=self.user, crop_species=proposal,
         )
         self.client.force_authenticate(user=moderator)
@@ -439,7 +439,7 @@ class CropViewSetTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         withdrawn_entry.refresh_from_db()
-        self.assertEqual(withdrawn_entry.status, PublicCulture.STATUS_WITHDRAWN)
+        self.assertEqual(withdrawn_entry.status, PublicCrop.STATUS_WITHDRAWN)
         self.assertEqual(withdrawn_entry.removal_reason, '')
 
     def test_rejecting_a_proposal_notifies_other_contributors_of_removed_entries(self):
@@ -461,8 +461,8 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(
             name='Karotsdasdas 3', status=CropSpecies.STATUS_PROPOSED, proposed_by=self.user,
         )
-        collaborator_entry = PublicCulture.objects.create(
-            name='Karotte', variety='Collaborator', status=PublicCulture.STATUS_PUBLISHED,
+        collaborator_entry = PublicCrop.objects.create(
+            name='Karotte', variety='Collaborator', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=collaborator, crop_species=proposal,
         )
         self.client.force_authenticate(user=moderator)
@@ -471,16 +471,16 @@ class CropViewSetTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         collaborator_entry.refresh_from_db()
-        self.assertEqual(collaborator_entry.status, PublicCulture.STATUS_REMOVED)
+        self.assertEqual(collaborator_entry.status, PublicCrop.STATUS_REMOVED)
         collaborator_notification = Notification.objects.get(
-            recipient=collaborator, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+            recipient=collaborator, notification_type=Notification.TYPE_PUBLIC_CROP_REMOVED,
         )
         self.assertEqual(collaborator_notification.target_id, collaborator_entry.id)
         # The proposer already gets the species-level notification and must
         # not also receive a redundant per-entry one.
         self.assertFalse(
             Notification.objects.filter(
-                recipient=self.user, notification_type=Notification.TYPE_PUBLIC_CULTURE_REMOVED,
+                recipient=self.user, notification_type=Notification.TYPE_PUBLIC_CROP_REMOVED,
             ).exists(),
         )
 
@@ -498,8 +498,8 @@ class CropViewSetTest(DRFAPITestCase):
         proposal = CropSpecies.objects.create(
             name='Karotsdasdas 4', status=CropSpecies.STATUS_PROPOSED, proposed_by=moderator,
         )
-        own_entry = PublicCulture.objects.create(
-            name='Karotte', variety='Self-published', status=PublicCulture.STATUS_PUBLISHED,
+        own_entry = PublicCrop.objects.create(
+            name='Karotte', variety='Self-published', status=PublicCrop.STATUS_PUBLISHED,
             version=1, created_by=moderator, crop_species=proposal,
         )
         self.client.force_authenticate(user=moderator)
@@ -508,8 +508,8 @@ class CropViewSetTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         own_entry.refresh_from_db()
-        self.assertEqual(own_entry.status, PublicCulture.STATUS_REMOVED)
-        self.assertEqual(own_entry.removal_reason, PublicCulture.REMOVAL_REASON_SPECIES_REJECTED)
+        self.assertEqual(own_entry.status, PublicCrop.STATUS_REMOVED)
+        self.assertEqual(own_entry.removal_reason, PublicCrop.REMOVAL_REASON_SPECIES_REJECTED)
 
     def test_normal_user_cannot_edit_or_delete_published_species(self):
         species = CropSpecies.objects.create(name='Purple Sprouting Broccoli', status=CropSpecies.STATUS_PUBLISHED)
@@ -656,9 +656,9 @@ class CropLibraryQueryCountTest(DRFAPITestCase):
             CropSpeciesTranslation.objects.create(
                 species=species, language_code='en', common_name=f'Species {index}',
             )
-            PublicCulture.objects.create(
+            PublicCrop.objects.create(
                 name=f'Query count crop {index}', variety='Sorte', crop_species=species,
-                status=PublicCulture.STATUS_PUBLISHED, version=1, created_by=self.user,
+                status=PublicCrop.STATUS_PUBLISHED, version=1, created_by=self.user,
             )
 
     def test_crop_species_list_query_count(self):
@@ -674,7 +674,7 @@ class CropLibraryQueryCountTest(DRFAPITestCase):
         """Published crops resolve a species name, a description and a
         contributor label per row."""
         with self.assertNumQueries(7):
-            response = self.client.get('/openfarmplanner/api/crops/')
+            response = self.client.get('/openfarmplanner/api/crop-library/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data['results']), self.ROW_COUNT)

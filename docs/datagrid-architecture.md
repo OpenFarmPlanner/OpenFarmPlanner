@@ -212,7 +212,7 @@ edit stop: `handlers.ts`'s `handleRowEditStop` only sets
 means "cancel" while every other exit reason falls through to
 `processRowUpdate` and saves. Save failures keep the row editable with its
 inline errors intact. For planting plans specifically, incomplete rows may be
-saved as drafts as long as either a culture or a bed is selected.
+saved as drafts as long as either a crop or a bed is selected.
 
 ## Custom edit cells
 
@@ -236,7 +236,7 @@ MUI's stock edit cells didn't fit a few OpenFarmPlanner-specific needs:
   `parseGermanDateText`/`formatDateAsGerman` helpers that `DateEditCell`
   imports.
 - **`SearchableSelectEditCell`** wraps an MUI Autocomplete for single-select
-  columns with large option lists (cultures, suppliers) that a plain
+  columns with large option lists (crops, suppliers) that a plain
   `singleSelect` dropdown wouldn't make browsable; `columns.tsx` also
   exposes a `createSingleSelectColumn` builder (plain dropdown) for
   short option lists — pick whichever builder matches the option-list size,
@@ -596,7 +596,7 @@ drive-by change.
 
 ## Row history / versioning — not a grid feature
 
-Culture version history (backed by the generic `EntityRevision` model, see
+Crop version history (backed by the generic `EntityRevision` model, see
 [versioning-and-history.md](./versioning-and-history.md)) is shown in a
 **standalone MUI `Dialog`** on `Cultures.tsx`, populated via
 `cultureAPI.history(...)`. It does not surface inside any grid cell,

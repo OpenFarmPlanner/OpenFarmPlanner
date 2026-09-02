@@ -17,36 +17,36 @@ def note_attachment_upload_path(instance: 'NoteAttachment', filename: str) -> st
     return f"notes/{instance.planting_plan_id}/{uuid.uuid4().hex}.{extension}"
 
 
-def culture_media_upload_path(instance: 'MediaFile', filename: str) -> str:
-    """Build unique storage path for culture files."""
+def crop_media_upload_path(instance: 'MediaFile', filename: str) -> str:
+    """Build unique storage path for crop files."""
     extension = (filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'bin')
-    return f"culture-media/{timezone.now().strftime('%Y/%m')}/{uuid.uuid4().hex}.{extension}"
+    return f"crop-media/{timezone.now().strftime('%Y/%m')}/{uuid.uuid4().hex}.{extension}"
 
 
 from .base import TimestampedModel  # noqa: E402
 from .agent_api import (  # noqa: E402
     API_TOKEN_PREFIX,
-    CultureImportDraft,
+    CropImportDraft,
     ProjectApiToken,
 )
-from .cultures import (  # noqa: E402
-    ActiveCultureManager,
-    Culture,
-    CultureSupplierData,
-    PublicCulture,
-    PublicCultureChangeProposal,
-    PublicCultureDiscussionComment,
-    PublicCultureDiscussionTopic,
-    PublicCultureRevision,
-    PublicCultureStatusEvent,
-    PublicCultureTranslation,
+from .crops import (  # noqa: E402
+    ActiveCropManager,
+    Crop,
+    CropSupplierData,
+    PublicCrop,
+    PublicCropChangeProposal,
+    PublicCropDiscussionComment,
+    PublicCropDiscussionTopic,
+    PublicCropRevision,
+    PublicCropStatusEvent,
+    PublicCropTranslation,
     SeedPackage,
     Supplier,
-    format_culture_display_name,
+    format_crop_display_name,
     is_supplier_domain,
 )
 from .feedback import Feedback  # noqa: E402
-from .history import BatchOperation, CultureRevision, EntityRevision, ProjectRevision  # noqa: E402
+from .history import BatchOperation, CropRevision, EntityRevision, ProjectRevision  # noqa: E402
 from .notes import NoteAttachment  # noqa: E402
 from .planning import PlantingPlan, Task  # noqa: E402
 from .projects import (  # noqa: E402
@@ -61,16 +61,16 @@ from .structure import Bed, BedLayout, Field, FieldLayout, Location  # noqa: E40
 
 __all__ = [
     'API_TOKEN_PREFIX',
-    'ActiveCultureManager',
+    'ActiveCropManager',
     'ActiveSeasonManager',
     'AgentLoginToken',
     'BatchOperation',
     'Bed',
     'BedLayout',
-    'Culture',
-    'CultureImportDraft',
-    'CultureRevision',
-    'CultureSupplierData',
+    'Crop',
+    'CropImportDraft',
+    'CropRevision',
+    'CropSupplierData',
     'EntityRevision',
     'Feedback',
     'Field',
@@ -84,21 +84,21 @@ __all__ = [
     'ProjectInvitation',
     'ProjectMembership',
     'ProjectRevision',
-    'PublicCulture',
-    'PublicCultureChangeProposal',
-    'PublicCultureDiscussionComment',
-    'PublicCultureDiscussionTopic',
-    'PublicCultureRevision',
-    'PublicCultureStatusEvent',
-    'PublicCultureTranslation',
+    'PublicCrop',
+    'PublicCropChangeProposal',
+    'PublicCropDiscussionComment',
+    'PublicCropDiscussionTopic',
+    'PublicCropRevision',
+    'PublicCropStatusEvent',
+    'PublicCropTranslation',
     'Season',
     'SeasonPattern',
     'SeedPackage',
     'Supplier',
     'Task',
     'TimestampedModel',
-    'culture_media_upload_path',
-    'format_culture_display_name',
+    'crop_media_upload_path',
+    'format_crop_display_name',
     'is_supplier_domain',
     'note_attachment_upload_path',
 ]

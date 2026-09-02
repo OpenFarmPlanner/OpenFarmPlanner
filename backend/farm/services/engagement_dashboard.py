@@ -10,8 +10,8 @@ from django.utils import timezone
 from farm.models import (
     Bed,
     BedLayout,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     Field,
     FieldLayout,
     Location,
@@ -26,8 +26,8 @@ from farm.models import (
 
 ENGAGEMENT_MODELS = (
     Supplier,
-    Culture,
-    CultureSupplierData,
+    Crop,
+    CropSupplierData,
     SeedPackage,
     Location,
     Field,

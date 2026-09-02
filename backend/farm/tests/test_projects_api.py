@@ -11,7 +11,7 @@ from rest_framework.test import APITestCase
 from accounts.models import UserProjectSettings
 from farm.models import (
     Bed,
-    Culture,
+    Crop,
     Field,
     Location,
     PlantingPlan,
@@ -53,19 +53,19 @@ class ProjectsApiTests(APITestCase):
         field2 = location2.fields.create(name='F2', project=self.project2)
         bed2 = field2.beds.create(name='B2', area_sqm=10, project=self.project2)
 
-        from farm.models import Culture, PlantingPlan
+        from farm.models import Crop, PlantingPlan
 
-        culture1 = Culture.objects.create(name='Karotte', expected_yield=12, project=self.project)
-        culture2 = Culture.objects.create(name='Tomate', expected_yield=99, project=self.project2)
+        crop1 = Crop.objects.create(name='Karotte', expected_yield=12, project=self.project)
+        crop2 = Crop.objects.create(name='Tomate', expected_yield=99, project=self.project2)
 
         plan1 = PlantingPlan.objects.create(
-            culture=culture1,
+            crop=crop1,
             bed=bed1,
             planting_date='2026-03-01',
             project=self.project,
         )
         plan2 = PlantingPlan.objects.create(
-            culture=culture2,
+            crop=crop2,
             bed=bed2,
             planting_date='2026-03-01',
             project=self.project2,
@@ -77,7 +77,7 @@ class ProjectsApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['cultures'][0]['culture_name'], 'Karotte')
+        self.assertEqual(response.data[0]['crops'][0]['crop_name'], 'Karotte')
 
     def test_switch_project_updates_last_project(self) -> None:
         ProjectMembership.objects.create(user=self.user, project=self.project2, role='member')
@@ -161,9 +161,9 @@ class ProjectsApiTests(APITestCase):
         self.assertFalse(Bed.objects.filter(project=self.project).exists())
 
     def test_project_history_restore_survives_stale_duplicate_snapshots(self) -> None:
-        """A culture hard-deleted without an ACTION_DELETED revision (e.g. an
+        """A crop hard-deleted without an ACTION_DELETED revision (e.g. an
         old demo reset) leaves a snapshot that still looks 'active'. Restoring
-        must not 500 on the unique-constraint collision with the live culture —
+        must not 500 on the unique-constraint collision with the live crop —
         the newest snapshot wins, the stale one is skipped."""
         from farm.history import record_entity_revision
         from farm.models import EntityRevision
@@ -172,17 +172,17 @@ class ProjectsApiTests(APITestCase):
         # A ghost general 'Tomate': created, then hard-deleted by a queryset
         # delete that records no ACTION_DELETED revision (as a demo reset does),
         # so its "created" snapshot still looks active.
-        ghost = Culture.objects.create(name='Tomate', variety='', project=self.project)
+        ghost = Crop.objects.create(name='Tomate', variety='', project=self.project)
         ghost_id = ghost.pk
-        Culture.objects.filter(pk=ghost_id).delete()
+        Crop.objects.filter(pk=ghost_id).delete()
         record_entity_revision(
-            project=self.project, entity_type='culture', object_id=ghost_id,
+            project=self.project, entity_type='crop', object_id=ghost_id,
             action=EntityRevision.ACTION_CREATED,
             snapshot={'id': ghost_id, 'name': 'Tomate', 'variety': '',
                       'name_normalized': 'tomate', 'variety_normalized': '',
                       'deleted_at': None, 'project_id': self.project.id},
         )
-        live = Culture.objects.create(name='Tomate', variety='', project=self.project)
+        live = Crop.objects.create(name='Tomate', variety='', project=self.project)
         Location.objects.create(name='anchor', project=self.project)
 
         history = self.client.get('/openfarmplanner/api/history/project/', **headers).data
@@ -193,7 +193,7 @@ class ProjectsApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        general_tomate = Culture.objects.filter(
+        general_tomate = Crop.objects.filter(
             project=self.project, name_normalized='tomate', variety_normalized__isnull=True,
         )
         self.assertEqual(general_tomate.count(), 1)
@@ -208,12 +208,12 @@ class ProjectsApiTests(APITestCase):
         location = Location.objects.create(name='Seeded L', project=self.project)
         field = location.fields.create(name='Seeded F', project=self.project)
         bed = field.beds.create(name='Seeded B', area_sqm=10, project=self.project)
-        # A tracked culture so a restore point exists and the rebuild has work.
-        culture_response = self.client.post(
-            '/openfarmplanner/api/cultures/', {'name': 'Tracked', 'variety': ''}, format='json', **headers,
+        # A tracked crop so a restore point exists and the rebuild has work.
+        crop_response = self.client.post(
+            '/openfarmplanner/api/crops/', {'name': 'Tracked', 'variety': ''}, format='json', **headers,
         )
         self.client.patch(
-            f'/openfarmplanner/api/cultures/{culture_response.data["id"]}/',
+            f'/openfarmplanner/api/crops/{crop_response.data["id"]}/',
             {'name': 'Tracked renamed'}, format='json', **headers,
         )
 
@@ -231,9 +231,9 @@ class ProjectsApiTests(APITestCase):
         self.assertTrue(Location.objects.filter(pk=location.pk).exists())
         self.assertTrue(Field.objects.filter(pk=field.pk).exists())
         self.assertTrue(Bed.objects.filter(pk=bed.pk).exists())
-        # The tracked culture was rolled back to its pre-rename snapshot.
+        # The tracked crop was rolled back to its pre-rename snapshot.
         self.assertEqual(
-            Culture.objects.get(pk=culture_response.data['id']).name, 'Tracked',
+            Crop.objects.get(pk=crop_response.data['id']).name, 'Tracked',
         )
 
     def test_create_project_without_slug_succeeds(self) -> None:
@@ -296,12 +296,12 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(settings_obj.last_project_id, project.id)
         self.assertEqual(Location.objects.filter(project=project).count(), 2)
         self.assertEqual(Bed.objects.filter(project=project).count(), 12)
-        cultures = Culture.objects.filter(project=project)
-        self.assertEqual(cultures.count(), 20)
-        self.assertEqual(cultures.filter(variety='').count(), 8)
-        self.assertEqual(cultures.exclude(variety='').count(), 12)
-        self.assertTrue(cultures.filter(name='Tomate', variety='').exists())
-        self.assertTrue(cultures.filter(name='Tomate', variety='Roma').exists())
+        crops = Crop.objects.filter(project=project)
+        self.assertEqual(crops.count(), 20)
+        self.assertEqual(crops.filter(variety='').count(), 8)
+        self.assertEqual(crops.exclude(variety='').count(), 12)
+        self.assertTrue(crops.filter(name='Tomate', variety='').exists())
+        self.assertTrue(crops.filter(name='Tomate', variety='Roma').exists())
         self.assertEqual(PlantingPlan.objects.filter(project=project).count(), 17)
 
         me_response = self.client.get('/openfarmplanner/api/auth/me/')
@@ -323,7 +323,7 @@ class ProjectsApiTests(APITestCase):
         self.assertEqual(response.data['name'], DEMO_PROJECT_NAME_EN)
         project = Project.objects.get(id=response.data['id'])
         self.assertTrue(Location.objects.filter(project=project, name='Farm Garden').exists())
-        self.assertTrue(Culture.objects.filter(project=project, name='Carrot').exists())
+        self.assertTrue(Crop.objects.filter(project=project, name='Carrot').exists())
 
         me_response = self.client.get('/openfarmplanner/api/auth/me/')
         demo_membership = next(

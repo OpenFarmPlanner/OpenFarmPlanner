@@ -4,10 +4,10 @@ Read-only crop library API. Intentionally requires authentication only
 project uses) and does no project scoping at all — a published crop
 belongs to the library, not to any one project.
 
-This mirrors `farm.cultures.views.PublicCultureViewSet` (which keeps serving
-`/api/public-cultures/` unchanged for the current frontend) rather than
+This mirrors `farm.crops.views.PublicCropViewSet` (which keeps serving
+`/api/public-crops/` unchanged for the current frontend) rather than
 replacing it, so this is purely additive: a new, forward-looking surface
-at `/api/crops/` that can later be made genuinely public (e.g. by
+at `/api/crop-library/` that can later be made genuinely public (e.g. by
 swapping the permission class) without touching anything that already
 works. See docs/crop-library-architecture.md.
 """
@@ -203,7 +203,7 @@ class CropSpeciesViewSet(viewsets.ModelViewSet):
             species.reviewed_at = timezone.now()
             species.review_note = review_note
             species.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
-            services.remove_public_cultures_for_rejected_species(species, request.user)
+            services.remove_public_crops_for_rejected_species(species, request.user)
         services.notify_species_proposal_reviewed(species)
         return Response(self.get_serializer(species).data)
 

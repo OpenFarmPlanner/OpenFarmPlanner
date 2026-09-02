@@ -13,7 +13,7 @@ from farm.agent_api.authentication import (
 )
 from farm.models import (
     API_TOKEN_PREFIX,
-    Culture,
+    Crop,
     Project,
     ProjectApiToken,
     ProjectMembership,
@@ -24,7 +24,7 @@ User = get_user_model()
 
 
 class ApiTokenTestBase(APITestCase):
-    """Two projects with separate owners and one culture each."""
+    """Two projects with separate owners and one crop each."""
 
     def setUp(self):
         self.user = User.objects.create_user(
@@ -39,10 +39,10 @@ class ApiTokenTestBase(APITestCase):
         ProjectMembership.objects.create(
             user=self.other_user, project=self.foreign_project, role='admin'
         )
-        self.culture = Culture.objects.create(
+        self.crop = Crop.objects.create(
             name='Brokkoli', variety='Calabrese', project=self.project
         )
-        self.foreign_culture = Culture.objects.create(
+        self.foreign_crop = Crop.objects.create(
             name='Foreign Crop', variety='Secret', project=self.foreign_project
         )
 
@@ -95,7 +95,7 @@ class ApiTokenStorageTests(ApiTokenTestBase):
         token, raw_token = self.issue_token()
         self.assertIsNone(token.last_used_at)
 
-        self.bearer_client(raw_token).get('/api/cultures/')
+        self.bearer_client(raw_token).get('/api/crops/')
 
         token.refresh_from_db()
         self.assertIsNotNone(token.last_used_at)
@@ -106,31 +106,31 @@ class ApiTokenLifecycleTests(ApiTokenTestBase):
 
     def test_valid_token_authenticates(self):
         _, raw_token = self.issue_token()
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 200)
 
     def test_expired_token_is_rejected(self):
         _, raw_token = self.issue_token(expires_at=timezone.now() - timedelta(minutes=1))
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 401)
 
     def test_revoked_token_is_rejected(self):
         token, raw_token = self.issue_token()
         token.revoke()
 
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 401)
 
     def test_unknown_token_is_rejected(self):
         client = self.bearer_client(f'{API_TOKEN_PREFIX}definitely-not-issued')
-        response = client.get('/api/cultures/')
+        response = client.get('/api/crops/')
         self.assertEqual(response.status_code, 401)
 
     def test_token_stops_working_when_membership_is_removed(self):
         _, raw_token = self.issue_token()
         ProjectMembership.objects.filter(user=self.user, project=self.project).delete()
 
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 401)
 
     def test_token_stops_working_when_project_is_deactivated(self):
@@ -138,7 +138,7 @@ class ApiTokenLifecycleTests(ApiTokenTestBase):
         self.project.is_active = False
         self.project.save(update_fields=['is_active'])
 
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 401)
 
     def test_revoking_twice_keeps_the_first_timestamp(self):
@@ -182,45 +182,45 @@ class ApiTokenScopeTests(ApiTokenTestBase):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
         client = self.bearer_client(raw_token)
 
-        self.assertEqual(client.get('/api/cultures/').status_code, 200)
-        self.assertEqual(client.get(f'/api/cultures/{self.culture.id}/').status_code, 200)
+        self.assertEqual(client.get('/api/crops/').status_code, 200)
+        self.assertEqual(client.get(f'/api/crops/{self.crop.id}/').status_code, 200)
 
     def test_read_token_cannot_create(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
         response = self.bearer_client(raw_token).post(
-            '/api/cultures/', {'name': 'Neu', 'variety': 'X'}, format='json'
+            '/api/crops/', {'name': 'Neu', 'variety': 'X'}, format='json'
         )
         self.assertEqual(response.status_code, 403)
-        self.assertFalse(Culture.objects.filter(name='Neu').exists())
+        self.assertFalse(Crop.objects.filter(name='Neu').exists())
 
     def test_read_token_cannot_patch(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
         response = self.bearer_client(raw_token).patch(
-            f'/api/cultures/{self.culture.id}/', {'notes': 'changed'}, format='json'
+            f'/api/crops/{self.crop.id}/', {'notes': 'changed'}, format='json'
         )
         self.assertEqual(response.status_code, 403)
-        self.culture.refresh_from_db()
-        self.assertEqual(self.culture.notes, '')
+        self.crop.refresh_from_db()
+        self.assertEqual(self.crop.notes, '')
 
     def test_write_token_can_create_and_patch(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         client = self.bearer_client(raw_token)
 
-        created = client.post('/api/cultures/', {'name': 'Neu', 'variety': 'X'}, format='json')
+        created = client.post('/api/crops/', {'name': 'Neu', 'variety': 'X'}, format='json')
         self.assertEqual(created.status_code, 201)
-        self.assertEqual(Culture.objects.get(name='Neu').project_id, self.project.id)
+        self.assertEqual(Crop.objects.get(name='Neu').project_id, self.project.id)
 
         patched = client.patch(
-            f'/api/cultures/{self.culture.id}/', {'notes': 'via token'}, format='json'
+            f'/api/crops/{self.crop.id}/', {'notes': 'via token'}, format='json'
         )
         self.assertEqual(patched.status_code, 200)
 
-    def test_write_token_can_create_and_patch_general_culture_data(self):
+    def test_write_token_can_create_and_patch_general_crop_data(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         client = self.bearer_client(raw_token)
 
         created = client.post(
-            '/api/cultures/',
+            '/api/crops/',
             {
                 'name': 'General Carrot',
                 'variety': None,
@@ -233,66 +233,66 @@ class ApiTokenScopeTests(ApiTokenTestBase):
 
         self.assertEqual(created.status_code, 201)
         self.assertEqual(created.data['variety'], '')
-        culture = Culture.objects.get(pk=created.data['id'])
-        self.assertEqual(culture.project_id, self.project.id)
+        crop = Crop.objects.get(pk=created.data['id'])
+        self.assertEqual(crop.project_id, self.project.id)
 
         patched = client.patch(
-            f'/api/cultures/{culture.id}/',
+            f'/api/crops/{crop.id}/',
             {'variety': None, 'growth_duration_days': 110, 'notes': 'Token baseline'},
             format='json',
         )
 
         self.assertEqual(patched.status_code, 200)
         self.assertEqual(patched.data['variety'], '')
-        culture.refresh_from_db()
-        self.assertEqual(culture.growth_duration_days, 110)
-        self.assertEqual(culture.notes, 'Token baseline')
+        crop.refresh_from_db()
+        self.assertEqual(crop.growth_duration_days, 110)
+        self.assertEqual(crop.notes, 'Token baseline')
 
     def test_write_token_cannot_delete(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
-        response = self.bearer_client(raw_token).delete(f'/api/cultures/{self.culture.id}/')
+        response = self.bearer_client(raw_token).delete(f'/api/crops/{self.crop.id}/')
 
         self.assertEqual(response.status_code, 403)
-        self.culture.refresh_from_db()
-        self.assertIsNone(self.culture.deleted_at)
+        self.crop.refresh_from_db()
+        self.assertIsNone(self.crop.deleted_at)
 
     def test_write_token_cannot_undelete(self):
-        self.culture.deleted_at = timezone.now()
-        self.culture.save(update_fields=['deleted_at'])
+        self.crop.deleted_at = timezone.now()
+        self.crop.save(update_fields=['deleted_at'])
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
-        response = self.bearer_client(raw_token).post(f'/api/cultures/{self.culture.id}/undelete/')
+        response = self.bearer_client(raw_token).post(f'/api/crops/{self.crop.id}/undelete/')
 
         self.assertEqual(response.status_code, 403)
-        self.culture.refresh_from_db()
-        self.assertIsNotNone(self.culture.deleted_at)
+        self.crop.refresh_from_db()
+        self.assertIsNotNone(self.crop.deleted_at)
 
-    def test_delete_token_can_soft_delete_and_undelete_cultures(self):
+    def test_delete_token_can_soft_delete_and_undelete_crops(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_DELETE)
         client = self.bearer_client(raw_token)
 
-        deleted = client.delete(f'/api/cultures/{self.culture.id}/')
+        deleted = client.delete(f'/api/crops/{self.crop.id}/')
         self.assertEqual(deleted.status_code, 204)
-        self.culture.refresh_from_db()
-        self.assertIsNotNone(self.culture.deleted_at)
+        self.crop.refresh_from_db()
+        self.assertIsNotNone(self.crop.deleted_at)
 
-        restored = client.post(f'/api/cultures/{self.culture.id}/undelete/')
+        restored = client.post(f'/api/crops/{self.crop.id}/undelete/')
         self.assertEqual(restored.status_code, 200)
-        self.culture.refresh_from_db()
-        self.assertIsNone(self.culture.deleted_at)
+        self.crop.refresh_from_db()
+        self.assertIsNone(self.crop.deleted_at)
 
     def test_delete_token_can_still_create_and_patch(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_DELETE)
         client = self.bearer_client(raw_token)
 
         created = client.post(
-            '/api/cultures/',
+            '/api/crops/',
             {'name': 'Delete Scope', 'variety': 'X'},
             format='json',
         )
         self.assertEqual(created.status_code, 201)
 
         patched = client.patch(
-            f'/api/cultures/{created.data["id"]}/', {'notes': 'via delete token'}, format='json'
+            f'/api/crops/{created.data["id"]}/', {'notes': 'via delete token'}, format='json'
         )
         self.assertEqual(patched.status_code, 200)
 
@@ -332,7 +332,7 @@ class ApiTokenHeaderCasingTests(ApiTokenTestBase):
     UNREACHABLE_PATHS = (
         '/api/auth/me/',
         '/api/auth/account/data-export/',
-        '/api/public-cultures/',
+        '/api/public-crops/',
     )
 
     SPELLINGS = ('Bearer {}', 'bearer {}', 'BEARER {}', 'BeArEr {}', 'Bearer  {}')
@@ -354,24 +354,24 @@ class ApiTokenHeaderCasingTests(ApiTokenTestBase):
             with self.subTest(spelling=spelling):
                 client = APIClient()
                 client.credentials(HTTP_AUTHORIZATION=spelling.format(raw_token))
-                self.assertEqual(client.get('/api/cultures/').status_code, 200)
+                self.assertEqual(client.get('/api/crops/').status_code, 200)
 
     def test_lowercase_spelling_cannot_write_with_a_read_token(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_READ)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f'bearer {raw_token}')
 
-        response = client.post('/api/cultures/', {'name': 'Sneaky', 'variety': 'X'}, format='json')
+        response = client.post('/api/crops/', {'name': 'Sneaky', 'variety': 'X'}, format='json')
 
         self.assertEqual(response.status_code, 403)
-        self.assertFalse(Culture.objects.filter(name='Sneaky').exists())
+        self.assertFalse(Crop.objects.filter(name='Sneaky').exists())
 
     def test_lowercase_spelling_cannot_reach_a_foreign_project(self):
         _, raw_token = self.issue_token()
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f'bearer {raw_token}')
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
         self.assertEqual(response.status_code, 403)
 
     def test_a_foreign_bearer_scheme_still_falls_through_to_session_auth(self):
@@ -441,7 +441,7 @@ class ApiTokenProjectIsolationTests(ApiTokenTestBase):
 
     def test_listing_returns_only_bound_project_data(self):
         _, raw_token = self.issue_token()
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
 
         names = {row['name'] for row in response.data['results']}
         self.assertIn('Brokkoli', names)
@@ -451,35 +451,35 @@ class ApiTokenProjectIsolationTests(ApiTokenTestBase):
         _, raw_token = self.issue_token()
         client = self.bearer_client(raw_token)
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
         self.assertEqual(response.status_code, 403)
 
     def test_matching_project_header_is_accepted(self):
         _, raw_token = self.issue_token()
         client = self.bearer_client(raw_token)
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.project.id))
         self.assertEqual(response.status_code, 200)
 
     def test_missing_project_header_is_fine_for_tokens(self):
         _, raw_token = self.issue_token()
-        response = self.bearer_client(raw_token).get('/api/cultures/')
+        response = self.bearer_client(raw_token).get('/api/crops/')
         self.assertEqual(response.status_code, 200)
 
     def test_foreign_object_id_is_not_retrievable(self):
         _, raw_token = self.issue_token()
-        response = self.bearer_client(raw_token).get(f'/api/cultures/{self.foreign_culture.id}/')
+        response = self.bearer_client(raw_token).get(f'/api/crops/{self.foreign_crop.id}/')
         self.assertEqual(response.status_code, 404)
 
     def test_foreign_object_id_is_not_writable(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         response = self.bearer_client(raw_token).patch(
-            f'/api/cultures/{self.foreign_culture.id}/', {'notes': 'hijacked'}, format='json'
+            f'/api/crops/{self.foreign_crop.id}/', {'notes': 'hijacked'}, format='json'
         )
 
         self.assertEqual(response.status_code, 404)
-        self.foreign_culture.refresh_from_db()
-        self.assertEqual(self.foreign_culture.notes, '')
+        self.foreign_crop.refresh_from_db()
+        self.assertEqual(self.foreign_crop.notes, '')
 
     def test_token_owner_membership_elsewhere_does_not_widen_the_token(self):
         # The owner joins the other project too; the token stays bound to the
@@ -490,20 +490,20 @@ class ApiTokenProjectIsolationTests(ApiTokenTestBase):
         _, raw_token = self.issue_token()
 
         response = self.bearer_client(raw_token).get(
-            '/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id)
+            '/api/crops/', HTTP_X_PROJECT_ID=str(self.foreign_project.id)
         )
         self.assertEqual(response.status_code, 403)
 
     def test_payload_project_field_is_ignored_on_create(self):
         _, raw_token = self.issue_token(scope=ProjectApiToken.SCOPE_WRITE)
         response = self.bearer_client(raw_token).post(
-            '/api/cultures/',
+            '/api/crops/',
             {'name': 'Injected', 'variety': 'Y', 'project': self.foreign_project.id},
             format='json',
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(Culture.objects.get(name='Injected').project_id, self.project.id)
+        self.assertEqual(Crop.objects.get(name='Injected').project_id, self.project.id)
 
 
 class ApiTokenCsrfTests(ApiTokenTestBase):
@@ -515,7 +515,7 @@ class ApiTokenCsrfTests(ApiTokenTestBase):
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {raw_token}')
 
         response = client.post(
-            '/api/cultures/', {'name': 'CSRF-free', 'variety': 'Z'}, format='json'
+            '/api/crops/', {'name': 'CSRF-free', 'variety': 'Z'}, format='json'
         )
         self.assertEqual(response.status_code, 201)
 
@@ -524,7 +524,7 @@ class ApiTokenCsrfTests(ApiTokenTestBase):
         self.assertTrue(client.login(username='agent-owner', password='pw'))
 
         response = client.post(
-            '/api/cultures/',
+            '/api/crops/',
             {'name': 'Session', 'variety': 'Z'},
             format='json',
             HTTP_X_PROJECT_ID=str(self.project.id),
@@ -539,7 +539,7 @@ class SessionAuthenticationRegressionTests(ApiTokenTestBase):
         client = APIClient()
         client.force_authenticate(user=self.user)
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.project.id))
         self.assertEqual(response.status_code, 200)
         self.assertIn('Brokkoli', {row['name'] for row in response.data['results']})
 
@@ -548,7 +548,7 @@ class SessionAuthenticationRegressionTests(ApiTokenTestBase):
         client.force_authenticate(user=self.user)
 
         response = client.delete(
-            f'/api/cultures/{self.culture.id}/', HTTP_X_PROJECT_ID=str(self.project.id)
+            f'/api/crops/{self.crop.id}/', HTTP_X_PROJECT_ID=str(self.project.id)
         )
         self.assertEqual(response.status_code, 204)
 
@@ -565,7 +565,7 @@ class SessionAuthenticationRegressionTests(ApiTokenTestBase):
         client = APIClient()
         client.force_authenticate(user=self.user)
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.foreign_project.id))
         self.assertEqual(response.status_code, 200)
         self.assertIn('Foreign Crop', {row['name'] for row in response.data['results']})
 
@@ -574,7 +574,7 @@ class SessionAuthenticationRegressionTests(ApiTokenTestBase):
         client.force_authenticate(user=self.user)
         client.credentials(HTTP_AUTHORIZATION='Basic irrelevant')
 
-        response = client.get('/api/cultures/', HTTP_X_PROJECT_ID=str(self.project.id))
+        response = client.get('/api/crops/', HTTP_X_PROJECT_ID=str(self.project.id))
         self.assertEqual(response.status_code, 200)
 
 
@@ -671,7 +671,7 @@ class ApiTokenManagementEndpointTests(ApiTokenTestBase):
         self.assertEqual(revoked.status_code, 200)
         self.assertEqual(revoked.data['status'], 'revoked')
 
-        self.assertEqual(self.bearer_client(raw_token).get('/api/cultures/').status_code, 401)
+        self.assertEqual(self.bearer_client(raw_token).get('/api/crops/').status_code, 401)
 
 
 class ApiTokenHeaderDetectionInvariantTests(APITestCase):
