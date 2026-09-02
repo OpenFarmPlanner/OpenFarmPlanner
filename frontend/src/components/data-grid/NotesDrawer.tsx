@@ -28,6 +28,7 @@ import type { NoteAttachment } from '../../api/types';
 import { useTranslation } from '../../i18n';
 import { ConfirmationDialog } from '../feedback/ConfirmationDialog';
 import { invalidateNoteAttachmentsCache } from './noteAttachmentsCache';
+import { markdownComponents } from './markdownComponents';
 
 export interface NotesDrawerProps {
   open: boolean;
@@ -495,7 +496,7 @@ export function NotesDrawer({ open, title, value, onChange, onSave, onClose, has
             <RichTextEditor value={value} onChange={onChange} minHeight={260} />
           ) : (
             <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1, minHeight: '300px' }}>
-              {value ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown> : <Typography color="text.secondary" sx={{ fontStyle: "italic", }} >{t('notes.empty')}</Typography>}
+              {value ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{value}</ReactMarkdown> : <Typography color="text.secondary" sx={{ fontStyle: "italic", }} >{t('notes.empty')}</Typography>}
             </Box>
           )}
         </Box>

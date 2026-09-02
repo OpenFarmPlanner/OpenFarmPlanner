@@ -1881,6 +1881,25 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.queryByRole('button', { name: 'Übersetzen' })).not.toBeInTheDocument();
   });
 
+  it('opens source links in the notes section in a new tab', async () => {
+    publicCultureApiMocks.list.mockResolvedValue(paginated([
+      {
+        ...publicCultures[0],
+        description: 'Robuste Sorte.\n\n## Quellen\n\n- [ReinSaat - Roma](https://www.reinsaat.at/roma)',
+        translations: { de: 'Robuste Sorte.\n\n## Quellen\n\n- [ReinSaat - Roma](https://www.reinsaat.at/roma)' },
+      },
+      ...publicCultures.slice(1),
+    ]));
+    renderPage();
+    await userEvent.click(await screen.findByRole('option', { name: 'Tomate' }));
+    await userEvent.click(await screen.findByRole('option', { name: /Tomate \(Roma\)/ }));
+
+    const sourceLink = await screen.findByRole('link', { name: 'ReinSaat - Roma' });
+    expect(sourceLink).toHaveAttribute('href', 'https://www.reinsaat.at/roma');
+    expect(sourceLink).toHaveAttribute('target', '_blank');
+    expect(sourceLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
   it('edits public cultures with the shared culture form and public-library save shortcut', async () => {
     const user = userEvent.setup();
     renderPage();

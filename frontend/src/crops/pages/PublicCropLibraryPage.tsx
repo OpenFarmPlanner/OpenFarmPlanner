@@ -60,6 +60,7 @@ import { useTranslation } from '../../i18n';
 import { getLanguageDisplayName, normalizeLanguageTag } from '../../i18n/languages';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
+import { markdownComponents } from '../../components/data-grid/markdownComponents';
 import { buildCropHierarchy, findSpeciesCulture, getCropSpeciesKey, type CropHierarchyItemKind } from '../../cultures/cropHierarchy';
 import { filterCultureGroupsForSearch } from '../../cultures/cultureGroupSearch';
 import { CultureForm } from '../../cultures/CultureForm';
@@ -2006,7 +2007,7 @@ export default function PublicCropLibraryPage() {
                               '& em': { color: 'text.secondary' },
                             }}
                           >
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                               {stripCitationMarkers(selectedCultureDescription.text)}
                             </ReactMarkdown>
                           </Box>
