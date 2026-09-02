@@ -20,7 +20,7 @@ describe('darkenForGrowthPhase', () => {
     expect(darkenForGrowthPhase('rgba(59, 130, 246, 0.8)')).toBe('rgba(59, 130, 246, 0.8)');
   });
 
-  it('darkens a mid-tone culture color while preserving its hue family', () => {
+  it('darkens a mid-tone crop color while preserving its hue family', () => {
     const base = '#3b82f6'; // blue
     const darkened = darkenForGrowthPhase(base);
     expect(darkened).not.toBe(base);
@@ -28,8 +28,8 @@ describe('darkenForGrowthPhase', () => {
   });
 
   it('produces a color with WCAG AA contrast (>= 4.5:1) against white text', () => {
-    const lightCultureColors = ['#93c5fd', '#fdba74', '#a5f3fc', '#fca5a5', '#fde68a'];
-    lightCultureColors.forEach((color) => {
+    const lightCropColors = ['#93c5fd', '#fdba74', '#a5f3fc', '#fca5a5', '#fde68a'];
+    lightCropColors.forEach((color) => {
       const darkened = darkenForGrowthPhase(color);
       const ratio = contrastRatio(darkened, '#ffffff');
       expect(ratio).not.toBeNull();

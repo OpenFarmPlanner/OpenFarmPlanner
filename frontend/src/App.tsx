@@ -44,9 +44,9 @@ const InvitationAcceptPage = React.lazy(() => import('./pages/InvitationAcceptPa
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Locations = React.lazy(() => import('./pages/Locations'));
 const FieldsBedsPage = React.lazy(() => import('./pages/FieldsBedsPage'));
-const Cultures = React.lazy(() => import('./pages/Cultures'));
-const PublicCropLibraryPage = React.lazy(() => import('./crops/pages/PublicCropLibraryPage'));
-const PublicLibraryModerationPage = React.lazy(() => import('./crops/pages/PublicLibraryModerationPage'));
+const Crops = React.lazy(() => import('./pages/Crops'));
+const PublicCropLibraryPage = React.lazy(() => import('./crop-library/pages/PublicCropLibraryPage'));
+const PublicLibraryModerationPage = React.lazy(() => import('./crop-library/pages/PublicLibraryModerationPage'));
 const NotificationHistoryPage = React.lazy(() => import('./notifications/pages/NotificationHistoryPage'));
 const PlantingPlans = React.lazy(() => import('./pages/PlantingPlans'));
 const GanttChart = React.lazy(() => import('./pages/GanttChart'));
@@ -249,10 +249,9 @@ function createAppRouter(basename: string) {
                 { path: 'dashboard', element: withLazyFallback(<Dashboard />) },
                 { path: 'locations', element: withLazyFallback(<Locations />) },
                 { path: 'fields-beds', element: withLazyFallback(<FieldsBedsPage />) },
-                { path: 'cultures', element: withLazyFallback(<Cultures />) },
+                { path: 'crops', element: withLazyFallback(<Crops />) },
                 { path: 'crop-library', element: withLazyFallback(<PublicCropLibraryPage />) },
                 { path: 'public-library-moderation', element: withLazyFallback(<PublicLibraryModerationPage />) },
-                { path: 'crops', element: withLazyFallback(<PublicCropLibraryPage />) },
                 { path: 'anbauplaene', element: withLazyFallback(<PlantingPlans />) },
                 { path: 'suppliers', element: withLazyFallback(<Suppliers />) },
                 { path: 'planting-plans', element: withLazyFallback(<PlantingPlans />) },

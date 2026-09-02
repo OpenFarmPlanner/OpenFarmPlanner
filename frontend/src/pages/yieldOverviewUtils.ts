@@ -2,16 +2,16 @@ import { type YieldCalendarWeek } from "../api/api";
 
 export type ChartPeriod = "week" | "month";
 
-/** Sentinel filter value representing "all cultures" in the yield overview. */
-export const ALL_CULTURES = "all";
+/** Sentinel filter value representing "all crops" in the yield overview. */
+export const ALL_CROPS = "all";
 
-export interface YieldCultureMeta {
+export interface YieldCropMeta {
   id: number;
   name: string;
   color: string;
 }
 
-export type YieldCalendarCulture = YieldCalendarWeek["cultures"][number];
+export type YieldCalendarCrop = YieldCalendarWeek["crops"][number];
 
 export function formatCompactYield(value: number, locale: string): string {
   const formatter = new Intl.NumberFormat(locale, {
@@ -44,17 +44,17 @@ export function formatIsoWeek(date: Date): string {
   return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
-/** Sums the yields of culture entries sharing the same culture id. */
-export function mergeCultureYields(
-  cultures: YieldCalendarCulture[],
-): YieldCalendarCulture[] {
-  const totals = new Map<number, YieldCalendarCulture>();
+/** Sums the yields of crop entries sharing the same crop id. */
+export function mergeCropYields(
+  crops: YieldCalendarCrop[],
+): YieldCalendarCrop[] {
+  const totals = new Map<number, YieldCalendarCrop>();
 
-  cultures.forEach((culture) => {
-    const existing = totals.get(culture.culture_id);
-    totals.set(culture.culture_id, {
-      ...culture,
-      yield: (existing?.yield ?? 0) + culture.yield,
+  crops.forEach((crop) => {
+    const existing = totals.get(crop.crop_id);
+    totals.set(crop.crop_id, {
+      ...crop,
+      yield: (existing?.yield ?? 0) + crop.yield,
     });
   });
 

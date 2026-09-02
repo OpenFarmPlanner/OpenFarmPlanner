@@ -29,7 +29,7 @@ frontend/src/i18n/
         ├── navigation.json     # Navigation menu items
         ├── home.json           # Home page content
         ├── locations.json      # Locations page
-        ├── cultures.json       # Cultures page
+        ├── crops.json       # Crops page
         ├── plantingPlans.json  # Planting Plans page
         
         ├── fields.json         # Fields page
@@ -75,7 +75,7 @@ Contains navigation menu labels:
   "home": "Start",
   "locations": "Standorte",
   "fieldsAndBeds": "Parzellen & Beete",
-  "cultures": "Kulturen",
+  "crops": "Kulturen",
   "plantingPlans": "Anbaupläne",
   
 }
@@ -145,7 +145,7 @@ function MyComponent() {
 For dynamic values, use interpolation:
 
 ```typescript
-const { t } = useTranslation('cultures');
+const { t } = useTranslation('crops');
 
 // In translation file: "lifespanValue": "{{days}} Tage"
 const text = t('fields.lifespanValue', { days: 30 });
@@ -260,11 +260,11 @@ beforeEach(() => {
 ### Conditional Text
 
 ```typescript
-const { t } = useTranslation('cultures');
+const { t } = useTranslation('crops');
 
-const label = culture.perennial === true 
+const label = crop.perennial === true 
   ? t('perennial') 
-  : culture.perennial === false 
+  : crop.perennial === false 
   ? t('annual') 
   : t('unknown');
 ```
@@ -272,7 +272,7 @@ const label = culture.perennial === true
 ### Dynamic Messages
 
 ```typescript
-const { t } = useTranslation('cultures');
+const { t } = useTranslation('crops');
 
 // Translation: "harvestWindowValue": "{{first}}–{{last}} Tage nach der Aussaat"
 const message = t('fields.harvestWindowValue', { 

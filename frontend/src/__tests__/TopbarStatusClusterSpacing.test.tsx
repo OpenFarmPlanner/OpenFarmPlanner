@@ -30,7 +30,7 @@ describe('topbar trailing status cluster spacing', () => {
   });
 
   it('keeps equal gaps between the trailing topbar controls', async () => {
-    window.history.pushState({}, '', '/app/cultures');
+    window.history.pushState({}, '', '/app/crops');
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     const projectButton = await screen.findByRole('button', { name: 'Aktives Projekt wechseln' }, { timeout: 10000 });
@@ -59,7 +59,7 @@ describe('topbar trailing status cluster spacing', () => {
   });
 
   it('leaves the compact topbar spacing untouched', async () => {
-    // Deliberately not the cultures page: its trailing group uses a
+    // Deliberately not the crops page: its trailing group uses a
     // page-specific 0.25 gap, which would hide a regression of the shared
     // action-group gap this assertion is meant to catch.
     window.history.pushState({}, '', '/app/dashboard');

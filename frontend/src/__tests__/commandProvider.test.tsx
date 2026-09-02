@@ -35,7 +35,7 @@ function RootCommandFixture(props: {
 }): React.ReactElement {
   const { openPalette, openShortcutsHelp } = useCommandContext();
   const commands = useMemo(() => createRootCommands({
-    currentPath: props.currentPath ?? '/app/cultures',
+    currentPath: props.currentPath ?? '/app/crops',
     activeProjectId: 1,
     memberships: [
       { project_id: 1, project_name: 'Demo' },
@@ -96,7 +96,7 @@ describe('CommandProvider', () => {
     localStorage.removeItem('ofp.shortcutHintSeen');
 
     function FeaturePageFixture(): React.ReactElement {
-      useCommandContextTag('cultures');
+      useCommandContextTag('crops');
       return <div>feature page</div>;
     }
 
@@ -128,7 +128,7 @@ describe('CommandProvider', () => {
   it('shows root shortcut commands but hides direct page navigation entries', () => {
     render(
       <FocusManagerProvider><CommandProvider>
-        <RootCommandFixture currentPath="/app/cultures" />
+        <RootCommandFixture currentPath="/app/crops" />
       </CommandProvider></FocusManagerProvider>,
     );
 

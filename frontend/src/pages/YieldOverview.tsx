@@ -22,11 +22,11 @@ import type { RootLayoutOutletContext } from "../navigation/topbarTypes";
 import { YieldFilterBar } from "./YieldFilterBar";
 import { YieldDistributionChart } from "./YieldDistributionChart";
 import {
-  ALL_CULTURES,
+  ALL_CROPS,
   type ChartPeriod,
-  type YieldCultureMeta,
+  type YieldCropMeta,
 } from "./yieldOverviewUtils";
-import { getCultureDisplayName } from "../cultures/cultureDisplay";
+import { getCropDisplayName } from "../crops/cropDisplay";
 
 export default function YieldOverviewPage() {
   const { t, i18n } = useTranslation("yieldOverview");
@@ -34,7 +34,7 @@ export default function YieldOverviewPage() {
     useProjectRequirement();
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
   const activeSeason = outletContext?.activeSeason ?? null;
-  const [selectedCultureId, setSelectedCultureId] = useState(ALL_CULTURES);
+  const [selectedCropId, setSelectedCropId] = useState(ALL_CROPS);
   const [period, setPeriod] = useState<ChartPeriod>("week");
   const [isFetching, setLoading] = useState(true);
   const [fetchError, setError] = useState<string | null>(null);
@@ -91,18 +91,18 @@ export default function YieldOverviewPage() {
     };
   }, [shouldShowProjectRequiredState, t]);
 
-  const cultures = useMemo(() => {
-    const cultureMap = new Map<number, YieldCultureMeta>();
+  const crops = useMemo(() => {
+    const cropMap = new Map<number, YieldCropMeta>();
     weeklyYield.forEach((week) => {
-      week.cultures.forEach((culture) => {
-        cultureMap.set(culture.culture_id, {
-          id: culture.culture_id,
-          name: getCultureDisplayName(culture),
-          color: culture.color,
+      week.crops.forEach((crop) => {
+        cropMap.set(crop.crop_id, {
+          id: crop.crop_id,
+          name: getCropDisplayName(crop),
+          color: crop.color,
         });
       });
     });
-    return [...cultureMap.values()].sort((left, right) =>
+    return [...cropMap.values()].sort((left, right) =>
       left.name.localeCompare(
         right.name,
         i18n.resolvedLanguage ?? i18n.language,
@@ -112,14 +112,14 @@ export default function YieldOverviewPage() {
 
   useEffect(() => {
     if (
-      selectedCultureId !== ALL_CULTURES &&
-      !cultures.some(
-        (culture) => String(culture.id) === selectedCultureId,
+      selectedCropId !== ALL_CROPS &&
+      !crops.some(
+        (crop) => String(crop.id) === selectedCropId,
       )
     ) {
-      setSelectedCultureId(ALL_CULTURES);
+      setSelectedCropId(ALL_CROPS);
     }
-  }, [cultures, selectedCultureId]);
+  }, [crops, selectedCropId]);
 
   if (loading) {
     return (
@@ -154,10 +154,10 @@ export default function YieldOverviewPage() {
       <PageSurface variant="fullWorkspace">
         <Stack spacing={2}>
           <YieldFilterBar
-            cultures={cultures}
-            selectedCultureId={selectedCultureId}
+            crops={crops}
+            selectedCropId={selectedCropId}
             period={period}
-            onCultureChange={setSelectedCultureId}
+            onCropChange={setSelectedCropId}
             onPeriodChange={setPeriod}
           />
 
@@ -177,7 +177,7 @@ export default function YieldOverviewPage() {
           ) : hasYieldData ? (
             <YieldDistributionChart
               weeklyYield={weeklyYield}
-              selectedCultureId={selectedCultureId}
+              selectedCropId={selectedCropId}
               period={period}
               activeSeason={activeSeason}
             />

@@ -182,7 +182,7 @@ describe('AccountSettingsPage', () => {
     expect(updatePublicDisplayName).toHaveBeenCalledWith('Martin Stipsitz');
   });
 
-  it('describes the moderator role in terms of reviewing proposals, not approving all public culture edits (BUG-M03 copy regression guard)', async () => {
+  it('describes the moderator role in terms of reviewing proposals, not approving all public crop edits (BUG-M03 copy regression guard)', async () => {
     render(<MemoryRouter><AccountSettingsPage /></MemoryRouter>);
 
     expect(await screen.findByText('Hilf dabei, Vorschläge für neue Kulturarten zu prüfen und die Kulturbibliothek konsistent zu halten.')).toBeInTheDocument();

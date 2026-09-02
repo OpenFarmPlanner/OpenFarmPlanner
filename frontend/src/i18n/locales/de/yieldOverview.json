@@ -4,15 +4,15 @@
     "load": "Ertragsübersicht konnte nicht geladen werden."
   },
   "filters": {
-    "culture": "Kultur",
-    "allCultures": "Alle Kulturen",
+    "crop": "Kultur",
+    "allCrops": "Alle Kulturen",
     "period": "Darstellung",
     "week": "Woche",
     "month": "Monat"
   },
   "chart": {
     "title": "Ertragsverteilung",
-    "tooltip": "{{period}} · {{culture}}: {{yield}} kg",
+    "tooltip": "{{period}} · {{crop}}: {{yield}} kg",
     "tooltipPeriod": "Zeitraum",
     "tooltipYield": "Ertrag",
     "yearBoundary": "Jahreswechsel: {{year1}} → {{year2}}"
@@ -24,7 +24,7 @@
     "collapse": "Auf Top {{count}} reduzieren"
   },
   "contextMenu": {
-    "openCulture": "Kultur öffnen"
+    "openCrop": "Kultur öffnen"
   },
   "empty": {
     "noPlansTitle": "Noch keine Ertragsprognose verfügbar",

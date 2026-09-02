@@ -77,7 +77,7 @@ text label only from `ACTION_LABEL_BREAKPOINT` (`lg`, 1200px) up; below that
 they stay icon-only and surface the label as a tooltip, the same way a disabled
 button explains itself. That keeps the actions pinned to the top-right of a
 detail header on tablet and small-desktop widths instead of letting a long page
-title push them onto a row of their own — the header rows in `CultureDetail`
+title push them onto a row of their own — the header rows in `CropDetail`
 and `PublicCropLibraryPage` therefore use `flexWrap: 'nowrap'` and let the
 title column shrink and wrap instead. The switch is plain responsive `sx`, not
 a measured width, so the header renders at its final size on the first paint;

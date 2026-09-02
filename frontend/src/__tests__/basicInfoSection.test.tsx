@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { BasicInfoSection } from '../cultures/sections/BasicInfoSection';
+import { BasicInfoSection } from '../crops/sections/BasicInfoSection';
 
 const t = ((key: string) => key) as never;
 

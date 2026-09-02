@@ -50,7 +50,7 @@ write path — it just creates an `EntityRevision` row. It's called:
   skipping internal/denormalized fields (`id`, timestamps, `project_id`,
   `*_normalized` fields, ...).
 - On the frontend this surfaces as the per-crop/global history **dialog**
-  on `Cultures.tsx` (see
+  on `Crops.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))
   and as the project version-history dialog
   (`frontend/src/navigation/ProjectHistoryDialog.tsx`, opened from the global

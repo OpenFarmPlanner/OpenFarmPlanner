@@ -4,8 +4,8 @@ import {
   formatDateToAPI,
   formatIsoWeek,
   getYieldAxisLabelStep,
-  mergeCultureYields,
-  type YieldCalendarCulture,
+  mergeCropYields,
+  type YieldCalendarCrop,
 } from '../pages/yieldOverviewUtils';
 
 describe('formatCompactYield', () => {
@@ -36,19 +36,19 @@ describe('formatIsoWeek', () => {
   });
 });
 
-describe('mergeCultureYields', () => {
-  it('sums yields for entries sharing a culture id', () => {
-    const cultures = [
-      { culture_id: 1, yield: 2 },
-      { culture_id: 2, yield: 5 },
-      { culture_id: 1, yield: 3 },
-    ] as unknown as YieldCalendarCulture[];
+describe('mergeCropYields', () => {
+  it('sums yields for entries sharing a crop id', () => {
+    const crops = [
+      { crop_id: 1, yield: 2 },
+      { crop_id: 2, yield: 5 },
+      { crop_id: 1, yield: 3 },
+    ] as unknown as YieldCalendarCrop[];
 
-    const merged = mergeCultureYields(cultures);
+    const merged = mergeCropYields(crops);
 
     expect(merged).toHaveLength(2);
-    expect(merged.find((entry) => entry.culture_id === 1)?.yield).toBe(5);
-    expect(merged.find((entry) => entry.culture_id === 2)?.yield).toBe(5);
+    expect(merged.find((entry) => entry.crop_id === 1)?.yield).toBe(5);
+    expect(merged.find((entry) => entry.crop_id === 2)?.yield).toBe(5);
   });
 });
 

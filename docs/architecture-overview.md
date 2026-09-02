@@ -38,7 +38,7 @@ frontend/
     api/               # httpClient (axios) + per-domain API modules + shared types
     auth/              # Session/auth context, CSRF handling, ProtectedRoute
     focus/, commands/  # Keyboard focus regions and the command/shortcut system
-    cultures/, crops/  # Project crop UI (still named `cultures/`, renamed with the frontend) vs. the (not yet public) Crop Library UI
+    crops/, crop-library/  # Project crop UI vs. the (not yet public) Crop Library UI
     notifications/     # Topbar bell (full layout) / "Mehr"-menu entries (compact) + API client
     i18n/              # Translation resources + language resolution/switcher (German, English)
     gantt-chart/       # Vendored third-party Gantt component (MIT, see its own README)
@@ -128,9 +128,9 @@ docs/                  # This documentation
   | `Dashboard.tsx` | `/app/dashboard` | Landing page / setup checklist |
   | `Locations.tsx` | `/app/locations` | Manage farm locations (Standorte). **Not linked in the navbar** — route and component still exist, kept for potential future use, but there is currently no in-app way to reach this page. |
   | `FieldsBedsPage.tsx` / `FieldsBedsHierarchy.tsx` / `GraphicalFields.tsx` | `/app/fields-beds` | Fields & beds: hierarchy (tree) view and graphical (map) view |
-  | `Cultures.tsx` | `/app/cultures` | Manage the project crop library; Public Crop Library import/export and version history |
-  | `crops/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` (alias `/app/crops`) | Full public Crop Library workspace: browse, import, discuss, edit, version history |
-  | `crops/pages/PublicLibraryModerationPage.tsx` | `/app/public-library-moderation` | Moderation queues: species proposals, moderator-access requests, removed entries |
+  | `Crops.tsx` | `/app/crops` | Manage the project crop library; Public Crop Library import/export and version history |
+  | `crop-library/pages/PublicCropLibraryPage.tsx` | `/app/crop-library` | Full public Crop Library workspace: browse, import, discuss, edit, version history |
+  | `crop-library/pages/PublicLibraryModerationPage.tsx` | `/app/public-library-moderation` | Moderation queues: species proposals, moderator-access requests, removed entries |
   | `PlantingPlans.tsx` | `/app/anbauplaene` (alias `/app/planting-plans`) | Spreadsheet-like editable grid of planting schedules |
   | `GanttChart.tsx` | `/app/gantt-chart` | Bed-occupancy timeline / seedling calendar |
   | `YieldOverview.tsx` | `/app/yield-overview` | Aggregated harvest/yield overview |
@@ -154,7 +154,7 @@ docs/                  # This documentation
 - **API layer** (`frontend/src/api/`): `httpClient.ts` is the one shared
   axios instance; a single request interceptor attaches `X-Project-Id`
   (read fresh from `localStorage` per request) and `X-CSRFToken`.
-  `api.ts` groups REST calls into per-domain objects (`cultureAPI`,
+  `api.ts` groups REST calls into per-domain objects (`cropAPI`,
   `plantingPlanAPI`, `seedDemandAPI`, ...) on top of that client.
   `auth/authApi.ts` is a **separate**, hand-rolled `fetch`-based client used
   only for auth endpoints (login/register/session), independent of the

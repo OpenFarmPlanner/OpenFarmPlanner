@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlantingPlans from "../pages/PlantingPlans";
 
 const apiMocks = vi.hoisted(() => ({
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock("../api/api", async () => {
   const actual = await vi.importActual<typeof import("../api/api")>("../api/api");
   return {
     ...actual,
-    cultureAPI: { ...actual.cultureAPI, list: apiMocks.cultureList, listAll: async () => (await apiMocks.cultureList()).data },
+    cropAPI: { ...actual.cropAPI, list: apiMocks.cropList, listAll: async () => (await apiMocks.cropList()).data },
     locationAPI: { ...actual.locationAPI, list: apiMocks.locationList, listAll: async () => (await apiMocks.locationList()).data },
     fieldAPI: { ...actual.fieldAPI, list: apiMocks.fieldList, listAll: async () => (await apiMocks.fieldList()).data },
     bedAPI: { ...actual.bedAPI, list: apiMocks.bedList, listAll: async () => (await apiMocks.bedList()).data },
@@ -57,14 +57,14 @@ vi.mock("@mui/x-data-grid", async () => {
 describe("PlantingPlans keyboard focus after cancelling a row edit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: "Salat" }] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: "Salat" }] } });
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 11, name: "Feld 1", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 101, name: "Beet 1", field: 11, area_sqm: 10 }] } });
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 10, bed: 101, culture: 5, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3,
+          id: 10, bed: 101, crop: 5, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3,
         }],
       },
     });

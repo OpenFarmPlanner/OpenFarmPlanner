@@ -1,19 +1,19 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useYieldChartData } from "../pages/useYieldChartData";
-import { ALL_CULTURES } from "../pages/yieldOverviewUtils";
+import { ALL_CROPS } from "../pages/yieldOverviewUtils";
 import type { YieldCalendarWeek } from "../api/api";
 
 const week = (isoWeek: string, weekStart: string): YieldCalendarWeek => ({
   iso_week: isoWeek,
   week_start: weekStart,
   week_end: weekStart,
-  cultures: [
+  crops: [
     {
-      culture_id: 1,
-      culture_name: "Kohl",
-      culture_display_name: "Kohl",
-      culture_display_language_code: "de",
+      crop_id: 1,
+      crop_name: "Kohl",
+      crop_display_name: "Kohl",
+      crop_display_language_code: "de",
       color: "#16a34a",
       yield: 1,
     },
@@ -24,7 +24,7 @@ describe("useYieldChartData year boundary", () => {
   it("marks the week where the calendar year changes", () => {
     const data = [week("2025-W52", "2025-12-22"), week("2026-W02", "2026-01-05")];
     const { result } = renderHook(() =>
-      useYieldChartData(data, ALL_CULTURES, "week", "de"),
+      useYieldChartData(data, ALL_CROPS, "week", "de"),
     );
 
     expect(result.current.yearBoundary).toEqual({
@@ -37,7 +37,7 @@ describe("useYieldChartData year boundary", () => {
   it("marks the month where the calendar year changes in month view", () => {
     const data = [week("2025-W52", "2025-12-22"), week("2026-W02", "2026-01-05")];
     const { result } = renderHook(() =>
-      useYieldChartData(data, ALL_CULTURES, "month", "de"),
+      useYieldChartData(data, ALL_CROPS, "month", "de"),
     );
 
     expect(result.current.yearBoundary).toEqual({
@@ -50,7 +50,7 @@ describe("useYieldChartData year boundary", () => {
   it("returns no boundary when all data is within one calendar year", () => {
     const data = [week("2026-W02", "2026-01-05"), week("2026-W05", "2026-01-26")];
     const { result } = renderHook(() =>
-      useYieldChartData(data, ALL_CULTURES, "week", "de"),
+      useYieldChartData(data, ALL_CROPS, "week", "de"),
     );
 
     expect(result.current.yearBoundary).toBeNull();

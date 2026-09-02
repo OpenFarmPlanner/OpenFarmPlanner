@@ -399,7 +399,7 @@ reversible or additive until the final cleanup phase.
 ### Phase 1 — additive public schema
 
 Create new tables (initially in the `crops` app through a carefully planned
-Django state/database migration, keeping existing `farm_publicculture`
+Django state/database migration, keeping existing `farm_publiccrop`
 untouched):
 
 - `CropSpecies`;

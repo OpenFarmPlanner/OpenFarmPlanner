@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { List } from '@mui/material';
-import { CropHierarchyRow } from '../cultures/CropHierarchyRow';
+import { CropHierarchyRow } from '../crops/CropHierarchyRow';
 
 const baseProps = {
   depth: 0,

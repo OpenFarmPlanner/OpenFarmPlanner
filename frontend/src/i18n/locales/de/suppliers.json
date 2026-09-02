@@ -21,20 +21,20 @@
   "restoreDeleteError": "Lieferant konnte nicht wiederhergestellt werden.",
   "messages": {
     "deleted": "Lieferant gelöscht.",
-    "deletedWithUnlinkedCultures_one": "Lieferant gelöscht. Bei {{count}} Kultur wurde die Lieferantenzuordnung entfernt.",
-    "deletedWithUnlinkedCultures_other": "Lieferant gelöscht. Bei {{count}} Kulturen wurde die Lieferantenzuordnung entfernt."
+    "deletedWithUnlinkedCrops_one": "Lieferant gelöscht. Bei {{count}} Kultur wurde die Lieferantenzuordnung entfernt.",
+    "deletedWithUnlinkedCrops_other": "Lieferant gelöscht. Bei {{count}} Kulturen wurde die Lieferantenzuordnung entfernt."
   },
   "deleteUsageDialog": {
     "title": "Lieferant wird noch verwendet",
     "summary_one": "Dieser Lieferant wird noch von {{count}} Kultur verwendet.",
     "summary_other": "Dieser Lieferant wird noch von {{count}} Kulturen verwendet.",
-    "cultureUsage_one": "{{count}} Kultur nutzt diesen Lieferanten direkt.",
-    "cultureUsage_other": "{{count}} Kulturen nutzen diesen Lieferanten direkt.",
-    "supplierDataUsage": "{{cultureCount}} Kulturen haben Saatgut- oder Lieferantendaten mit {{rowCount}} Einträgen.",
+    "cropUsage_one": "{{count}} Kultur nutzt diesen Lieferanten direkt.",
+    "cropUsage_other": "{{count}} Kulturen nutzen diesen Lieferanten direkt.",
+    "supplierDataUsage": "{{cropCount}} Kulturen haben Saatgut- oder Lieferantendaten mit {{rowCount}} Einträgen.",
     "seedDemandUsage_one": "{{count}} Kultur nutzt diesen Lieferanten in der Saatgutplanung.",
     "seedDemandUsage_other": "{{count}} Kulturen nutzen diesen Lieferanten in der Saatgutplanung.",
     "unlinkExplanation": "Kulturen werden nicht gelöscht. Vor dem Löschen des Lieferanten wird nur die Lieferantenzuordnung entfernt.",
-    "openAffectedCultures": "Zu betroffenen Kulturen",
+    "openAffectedCrops": "Zu betroffenen Kulturen",
     "unlinkAndDelete": "Lieferant löschen"
   },
   "invalidDomain": "Ungültige Domain: {{domain}}. Domains müssen gültige Hostnamen ohne Schema oder Pfad sein (z.B. example.com).",

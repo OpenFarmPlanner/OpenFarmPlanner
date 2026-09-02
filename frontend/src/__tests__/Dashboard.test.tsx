@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   planList: vi.fn(),
 }));
 
@@ -23,7 +23,7 @@ vi.mock('../api/api', async () => {
     locationAPI: { ...actual.locationAPI, list: mocks.locationList },
     fieldAPI: { ...actual.fieldAPI, list: mocks.fieldList },
     bedAPI: { ...actual.bedAPI, list: mocks.bedList },
-    cultureAPI: { ...actual.cultureAPI, list: mocks.cultureList },
+    cropAPI: { ...actual.cropAPI, list: mocks.cropList },
     plantingPlanAPI: { ...actual.plantingPlanAPI, list: mocks.planList },
   };
 });
@@ -38,7 +38,7 @@ describe('Dashboard', () => {
     mocks.locationList.mockResolvedValue({ data: { results: [] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [] } });
     mocks.bedList.mockResolvedValue({ data: { results: [] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [] } });
     mocks.planList.mockResolvedValue({ data: { results: [] } });
   });
 
@@ -64,7 +64,7 @@ describe('Dashboard', () => {
     expect(screen.queryByText('Starte deine Anbauplanung')).not.toBeInTheDocument();
   });
 
-  it('shows the culture library as the primary next action when cultures are missing', async () => {
+  it('shows the crop library as the primary next action when crops are missing', async () => {
     mocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: 'Nord', location: 1 }] } });
     mocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: 'Beet A', field: 2 }] } });
@@ -72,20 +72,20 @@ describe('Dashboard', () => {
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
 
     const libraryLink = await screen.findByRole('link', { name: 'Kulturbibliothek öffnen' });
-    const createCultureLink = screen.getByRole('link', { name: 'Kultur hinzufügen' });
+    const createCropLink = screen.getByRole('link', { name: 'Kultur hinzufügen' });
 
-    expect(libraryLink).toHaveAttribute('href', '/app/cultures?library=true');
+    expect(libraryLink).toHaveAttribute('href', '/app/crops?library=true');
     expect(libraryLink.className).toContain('MuiButton-contained');
-    expect(createCultureLink).toHaveAttribute('href', '/app/cultures?create=true');
-    expect(createCultureLink.className).toContain('MuiButton-outlined');
+    expect(createCropLink).toHaveAttribute('href', '/app/crops?create=true');
+    expect(createCropLink.className).toContain('MuiButton-outlined');
   });
 
   it('shows aggregated upcoming tasks and ready state when setup is complete', async () => {
     mocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: 'Nord', location: 1 }] } });
     mocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: 'Beet A', field: 2 }] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: 'Salat', growth_duration_days: 10 }] } });
-    mocks.planList.mockResolvedValue({ data: { results: [{ id: 5, culture: 4, bed: 3, planting_date: '2099-01-01', culture_name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 4, name: 'Salat', growth_duration_days: 10 }] } });
+    mocks.planList.mockResolvedValue({ data: { results: [{ id: 5, crop: 4, bed: 3, planting_date: '2099-01-01', crop_name: 'Salat' }] } });
 
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
 
@@ -102,8 +102,8 @@ describe('Dashboard', () => {
     mocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: 'Hof' }] } });
     mocks.fieldList.mockResolvedValue({ data: { results: [{ id: 2, name: 'Nord', location: 1 }] } });
     mocks.bedList.mockResolvedValue({ data: { results: [{ id: 3, name: 'Beet A', field: 2 }] } });
-    mocks.cultureList.mockResolvedValue({ data: { results: [{ id: 4, name: 'Salat' }] } });
-    mocks.planList.mockResolvedValue({ data: { results: [{ id: 5, culture: 4, bed: 3, planting_date: '2020-01-01', culture_name: 'Salat' }] } });
+    mocks.cropList.mockResolvedValue({ data: { results: [{ id: 4, name: 'Salat' }] } });
+    mocks.planList.mockResolvedValue({ data: { results: [{ id: 5, crop: 4, bed: 3, planting_date: '2020-01-01', crop_name: 'Salat' }] } });
 
     render(<MemoryRouter><Dashboard /></MemoryRouter>);
 

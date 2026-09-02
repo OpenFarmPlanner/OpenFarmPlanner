@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TimingSection } from '../cultures/sections/TimingSection';
-import type { GetVarietyFieldTooltipProps } from '../cultures/varietyFieldTooltipHelpers';
+import { TimingSection } from '../crops/sections/TimingSection';
+import type { GetVarietyFieldTooltipProps } from '../crops/varietyFieldTooltipHelpers';
 
 const translations: Record<string, string> = {
   'form.cultivationType': 'Anbauart',

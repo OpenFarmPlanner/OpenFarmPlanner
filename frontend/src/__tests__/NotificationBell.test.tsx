@@ -51,7 +51,7 @@ const notification = (overrides: Partial<AppNotification> = {}): AppNotification
   notification_type: 'crop_species_proposal_accepted',
   message: 'Your proposal for the crop species "Kürbis" was accepted.',
   context: { name: 'Kürbis' },
-  target_type: 'public_culture',
+  target_type: 'public_crop',
   target_id: 42,
   is_read: false,
   created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
@@ -112,7 +112,7 @@ describe('NotificationBell', () => {
     fireEvent.click(await screen.findByText('Dein Vorschlag für die Kulturart „Kürbis“ wurde angenommen.'));
 
     await waitFor(() => expect(notificationMarkReadMock).toHaveBeenCalledWith(1));
-    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cultureId=42');
+    expect(navigateMock).toHaveBeenCalledWith('/app/crop-library?cropId=42');
     // The unread count is gone once the only unread entry was read.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Benachrichtigungen' })).toBeInTheDocument());
   });

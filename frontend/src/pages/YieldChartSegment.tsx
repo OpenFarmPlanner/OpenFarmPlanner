@@ -10,8 +10,8 @@ import { contextMenuIndicatorHostSx } from "../components/contextMenu/contextMen
 import { AppTooltip } from '../components/AppTooltip';
 
 export interface YieldSegmentPayload {
-  cultureId: number;
-  cultureName: string;
+  cropId: number;
+  cropName: string;
   periodLabel: string;
   yieldValue: number;
 }
@@ -19,9 +19,9 @@ export interface YieldSegmentPayload {
 interface YieldChartSegmentProps {
   segmentKey: string;
   columnIndex: number;
-  cultureIndex: number;
-  cultureId: number;
-  cultureName: string;
+  cropIndex: number;
+  cropId: number;
+  cropName: string;
   color: string;
   yieldValue: number;
   periodLabel: string;
@@ -40,7 +40,7 @@ interface YieldChartSegmentProps {
   onKeyDownSegment: (
     event: ReactKeyboardEvent,
     columnIndex: number,
-    cultureIndex: number,
+    cropIndex: number,
     payload: YieldSegmentPayload,
   ) => void;
   onContextMenuOpen: (event: ReactMouseEvent | ReactTouchEvent, payload: YieldSegmentPayload) => void;
@@ -51,10 +51,10 @@ interface YieldChartSegmentProps {
 }
 
 /**
- * A single stacked-bar segment (one culture within one period's column).
+ * A single stacked-bar segment (one crop within one period's column).
  * Memoized so that hovering/focusing one segment only re-renders that
  * segment (and whichever one it's replacing) instead of every segment in
- * the chart — with many cultures/periods that's the difference between a
+ * the chart — with many crops/periods that's the difference between a
  * handful of re-renders and thousands on every mouse move. Every prop here
  * must therefore stay a primitive or a referentially stable callback (see
  * the parent's useCallback hooks) for the memo comparison to actually skip
@@ -63,9 +63,9 @@ interface YieldChartSegmentProps {
 export const YieldChartSegment = memo(function YieldChartSegment({
   segmentKey,
   columnIndex,
-  cultureIndex,
-  cultureId,
-  cultureName,
+  cropIndex,
+  cropId,
+  cropName,
   color,
   yieldValue,
   periodLabel,
@@ -88,7 +88,7 @@ export const YieldChartSegment = memo(function YieldChartSegment({
   onTouchEndSegment,
   registerElement,
 }: YieldChartSegmentProps) {
-  const payload: YieldSegmentPayload = { cultureId, cultureName, periodLabel, yieldValue };
+  const payload: YieldSegmentPayload = { cropId, cropName, periodLabel, yieldValue };
 
   return (
     <AppTooltip
@@ -116,7 +116,7 @@ export const YieldChartSegment = memo(function YieldChartSegment({
       title={
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-            {cultureName}
+            {cropName}
           </Typography>
           <Box sx={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 1, rowGap: 0.25 }}>
             <Typography variant="caption" data-yield-tooltip-label="true" sx={{ fontWeight: 600 }}>
@@ -137,9 +137,9 @@ export const YieldChartSegment = memo(function YieldChartSegment({
         data-rmg-component="yield-segment"
         role="button"
         tabIndex={isTabbable ? 0 : -1}
-        aria-label={`${cultureName}, ${periodLabel}, ${yieldValue.toFixed(2)} kg`}
+        aria-label={`${cropName}, ${periodLabel}, ${yieldValue.toFixed(2)} kg`}
         onFocus={() => onFocusSegment(segmentKey)}
-        onKeyDown={(event) => onKeyDownSegment(event, columnIndex, cultureIndex, payload)}
+        onKeyDown={(event) => onKeyDownSegment(event, columnIndex, cropIndex, payload)}
         onMouseEnter={() => onHoverStart(segmentKey)}
         onMouseLeave={() => onHoverEnd(segmentKey)}
         data-long-pressing={isPressed ? "true" : undefined}

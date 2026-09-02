@@ -79,7 +79,7 @@ describe('isPathIndexable', () => {
     for (const path of [
       '/app',
       '/app/dashboard',
-      '/app/cultures',
+      '/app/crops',
       '/demo',
       '/login',
       '/register',

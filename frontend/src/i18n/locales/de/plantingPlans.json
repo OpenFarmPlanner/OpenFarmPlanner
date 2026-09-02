@@ -1,7 +1,7 @@
 {
   "title": "Anbaupläne",
   "columns": {
-    "culture": "Kultur (Sorte)",
+    "crop": "Kultur (Sorte)",
     "location": "Standort",
     "field": "Parzelle",
     "bed": "Beet",
@@ -44,7 +44,7 @@
     "applyBedArea": "Beetfläche übernehmen"
   },
   "placeholders": {
-    "selectCulture": "Kultur wählen",
+    "selectCrop": "Kultur wählen",
     "selectCultivationType": "Anbauart wählen",
     "selectArea": "Anbaufläche wählen",
     "plantsCount": "Anzahl eingeben",
@@ -76,12 +76,12 @@
   },
   "validation": {
     "plantingDateRequired": "Pflanzdatum ist ein Pflichtfeld",
-    "cultureRequired": "Kultur ist ein Pflichtfeld",
+    "cropRequired": "Kultur ist ein Pflichtfeld",
     "bedRequired": "Beet ist ein Pflichtfeld",
     "cultivationTypeRequired": "Anbauart ist ein Pflichtfeld",
     "plantingDateOutsideSeason": "Pflanzdatum muss innerhalb der Saison liegen ({{start}} – {{end}}).",
     "requiredFields": "Folgende Pflichtfelder müssen ausgefüllt werden: {{fields}}",
-    "cultureOrBedRequired": "Kultur oder Beet ist ein Pflichtfeld",
+    "cropOrBedRequired": "Kultur oder Beet ist ein Pflichtfeld",
     "areaExceedsRemaining": "Die angegebene Fläche überschreitet die verfügbare Restfläche dieses Beets.",
     "areaExceedsBedArea": "Die angegebene Fläche überschreitet die Größe dieses Beets.",
     "bedArea": "Beetfläche",
@@ -132,7 +132,7 @@
         "title": "Du hast noch keine Beete angelegt.",
         "description": "Beete sind die Grundlage für Anbaupläne. Öffne die Anbauflächen und füge ein Beet über eine Parzelle hinzu."
       },
-      "cultures": {
+      "crops": {
         "title": "Du hast noch keine Kulturen angelegt.",
         "description": "Kulturen werden benötigt, um Anbaupläne zu erstellen."
       },
@@ -148,8 +148,8 @@
     "actions": {
       "createField": "Parzelle hinzufügen",
       "createAreas": "Zu Anbauflächen",
-      "openCultureLibrary": "Kulturbibliothek öffnen",
-      "addCulture": "Kultur hinzufügen",
+      "openCropLibrary": "Kulturbibliothek öffnen",
+      "addCrop": "Kultur hinzufügen",
       "createSeason": "Saison anlegen"
     }
   },

@@ -114,14 +114,14 @@ describe('extractApiErrorMessage', () => {
     ].join('\n'));
   });
 
-  it('maps duplicate culture-name backend errors to user-friendly localized text', () => {
+  it('maps duplicate crop-name backend errors to user-friendly localized text', () => {
     const t = createT({
       'fields.name': 'Name',
-      'validation.cultureNameUnique': 'Eine Kultur mit diesem Namen existiert bereits.',
+      'validation.cropNameUnique': 'Eine Kultur mit diesem Namen existiert bereits.',
     });
 
     const error = createAxiosError(400, {
-      name: ['A culture with this name already exists.'],
+      name: ['A crop with this name already exists.'],
     });
 
     const result = extractApiErrorMessage(error, t, fallbackMessage);
@@ -129,14 +129,14 @@ describe('extractApiErrorMessage', () => {
     expect(result).toBe('Name: Eine Kultur mit diesem Namen existiert bereits.');
   });
 
-  it('maps culture name conflict responses to the crop form hint', () => {
+  it('maps crop name conflict responses to the crop form hint', () => {
     const t = createT({
-      'form.cultureNameConflict': 'Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.',
+      'form.cropNameConflict': 'Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.',
     });
 
     const error = createAxiosError(409, {
-      code: 'culture_name_conflict',
-      detail: 'A general culture with this name already exists in this project.',
+      code: 'crop_name_conflict',
+      detail: 'A general crop with this name already exists in this project.',
     });
 
     const result = extractApiErrorMessage(error, t, fallbackMessage);
@@ -166,7 +166,7 @@ describe('extractApiErrorMessage', () => {
     });
 
     const error = createAxiosError(400, {
-      supplier_id: ['Supplier data for this culture already exists.'],
+      supplier_id: ['Supplier data for this crop already exists.'],
     });
 
     const result = extractApiErrorMessage(error, t, fallbackMessage);
@@ -248,7 +248,7 @@ describe('extractApiErrorMessage', () => {
     });
     const error = createAxiosError(400, {
       area_input_value: ['Area input value must be greater than 0.'],
-      area_input_unit: ['Culture spacing data is missing or invalid. Cannot calculate area from plant count.'],
+      area_input_unit: ['Crop spacing data is missing or invalid. Cannot calculate area from plant count.'],
     });
 
     const result = extractApiErrorMessage(error, t, fallbackMessage);

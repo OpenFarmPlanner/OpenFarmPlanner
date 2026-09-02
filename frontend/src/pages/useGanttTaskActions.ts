@@ -6,7 +6,7 @@ import { extractApiErrorMessage } from '../api/errors';
 import { confirmAction } from '../utils/confirmAction';
 import { copyTextToClipboardSilently } from '../components/data-grid';
 import {
-  formatCultureDisplayLabel,
+  formatCropDisplayLabel,
   formatGanttDate,
   type GanttTask,
   type GanttTaskGroup,
@@ -22,7 +22,7 @@ interface UseGanttTaskActionsParams {
 
 /**
  * The Gantt chart's task/group navigation and edit actions: open the plan,
- * culture, or areas page; copy a task summary; add or delete a plan. Bundled
+ * crop, or areas page; copy a task summary; add or delete a plan. Bundled
  * so both the double-click handler and the context menu can share them.
  */
 export function useGanttTaskActions({
@@ -47,10 +47,10 @@ export function useGanttTaskActions({
     openPlantingPlanFromTask(task);
   }, [openPlantingPlanFromTask]);
 
-  const openCultureFromTask = useCallback((task: GanttTask) => {
+  const openCropFromTask = useCallback((task: GanttTask) => {
     const plan = plantingPlans.find((entry) => entry.id === task.plantingPlanId);
-    if (plan?.culture) {
-      navigate(`/app/cultures?cultureId=${plan.culture}`);
+    if (plan?.crop) {
+      navigate(`/app/crops?cropId=${plan.crop}`);
     }
   }, [navigate, plantingPlans]);
 
@@ -69,7 +69,7 @@ export function useGanttTaskActions({
 
   const copyTaskSummary = useCallback((task: GanttTask, group: GanttTaskGroup) => {
     const parts = [
-      task.cultureName ? formatCultureDisplayLabel(task.cultureName, task.cultureVariety) : task.name,
+      task.cropName ? formatCropDisplayLabel(task.cropName, task.cropVariety) : task.name,
       group.name,
       `${formatGanttDate(task.startDate)} – ${formatGanttDate(task.endDate)}`,
     ].filter(Boolean);
@@ -91,7 +91,7 @@ export function useGanttTaskActions({
   return {
     openPlantingPlanFromTask,
     handleTaskDoubleClickToPlan,
-    openCultureFromTask,
+    openCropFromTask,
     addPlantingPlanForBed,
     openAreasPage,
     copyTaskSummary,

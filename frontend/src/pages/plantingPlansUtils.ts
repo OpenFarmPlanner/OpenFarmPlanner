@@ -1,4 +1,4 @@
-import type { Bed, Culture, CultivationType, Field, PlantingPlan } from '../api/types';
+import type { Bed, Crop, CultivationType, Field, PlantingPlan } from '../api/types';
 import type { EditableRow } from '../components/data-grid/types';
 import { parseLocalizedNumber } from '../utils/numberLocalization';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
@@ -52,14 +52,14 @@ export const buildBedDisplayLabel = (
   return `${combinedName} (${formatAreaM2(areaSqm, locale)})`;
 };
 
-export function getAllowedCultivationTypesForCulture(
-  culture?: Culture | null,
+export function getAllowedCultivationTypesForCrop(
+  crop?: Crop | null,
 ): CultivationType[] {
   const allowedValues = (
-    culture?.cultivation_types?.length
-      ? culture.cultivation_types
-      : culture?.cultivation_type
-        ? [culture.cultivation_type]
+    crop?.cultivation_types?.length
+      ? crop.cultivation_types
+      : crop?.cultivation_type
+        ? [crop.cultivation_type]
         : []
   ).filter(
     (value): value is CultivationType =>
@@ -112,7 +112,7 @@ export interface PlantingPlanRow extends PlantingPlan, EditableRow {
 }
 
 export interface MobileCreateFormState {
-  culture: string;
+  crop: string;
   bed: string;
   cultivation_type: CultivationType | "";
   planting_date: string;
@@ -301,7 +301,7 @@ export const resolveBedCellValue = (
 };
 
 export const createEmptyMobileCreateForm = (): MobileCreateFormState => ({
-  culture: "",
+  crop: "",
   bed: "",
   cultivation_type: "",
   planting_date: "",
@@ -331,7 +331,7 @@ const hasEnteredValue = (value: unknown): boolean => {
 };
 
 export const isEmptyNewPlantingPlanRow = (row: PlantingPlanRow): boolean =>
-  !hasPositiveId(row.culture) &&
+  !hasPositiveId(row.crop) &&
   !hasPositiveId(row.bed) &&
   !hasPositiveId(row.location_id) &&
   !hasPositiveId(row.field_id) &&
@@ -358,7 +358,7 @@ export const areRowsSemanticallyEqual = (
       previousRow.area_m2 === nextRow.area_m2 &&
       previousRow.plants_count === nextRow.plants_count &&
       previousRow.notes === nextRow.notes &&
-      previousRow.culture === nextRow.culture &&
+      previousRow.crop === nextRow.crop &&
       previousRow.cultivation_type === nextRow.cultivation_type &&
       previousRow.planting_date === nextRow.planting_date &&
       previousRow.harvest_date === nextRow.harvest_date &&
@@ -368,14 +368,14 @@ export const areRowsSemanticallyEqual = (
 };
 
 export const buildMobileCreateForm = (
-  prefill?: { cultureId?: number | null; bedId?: number | null },
+  prefill?: { cropId?: number | null; bedId?: number | null },
 ): MobileCreateFormState => {
   const baseForm = createEmptyMobileCreateForm();
 
   return {
     ...baseForm,
-    culture:
-      typeof prefill?.cultureId === "number" ? String(prefill.cultureId) : "",
+    crop:
+      typeof prefill?.cropId === "number" ? String(prefill.cropId) : "",
     bed: typeof prefill?.bedId === "number" ? String(prefill.bedId) : "",
     cultivation_type: "pre_cultivation",
   };

@@ -8,7 +8,7 @@
 export const NAV_ITEM_EMOJI: Record<string, string> = {
   '/app/dashboard': '📊',
   '/app/fields-beds': '▦',
-  '/app/cultures': '🌿',
+  '/app/crops': '🌿',
   '/app/crop-library': '🌐',
   '/app/planting-plans': '📋',
   '/app/gantt-chart': '📆',

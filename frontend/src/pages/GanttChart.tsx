@@ -1,7 +1,7 @@
 /**
  * Gantt Chart page component for visualizing bed occupation and seedling propagation.
  *
- * Displays a timeline view of planting plans grouped either by beds or by cultures.
+ * Displays a timeline view of planting plans grouped either by beds or by crops.
  * UI text is in German, while code comments remain in English.
  *
  * @returns The Gantt Chart page component
@@ -28,12 +28,12 @@ import {
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
 import {
   bedAPI,
-  cultureAPI,
+  cropAPI,
   fieldAPI,
   locationAPI,
   plantingPlanAPI,
   type Bed,
-  type Culture,
+  type Crop,
   type Field,
   type Location,
   type PlantingPlan,
@@ -189,13 +189,13 @@ function GanttChartPage() {
   const [fields, setFields] = useState<Field[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
   const [plantingPlans, setPlantingPlans] = useState<PlantingPlan[]>([]);
-  const [cultures, setCultures] = useState<Culture[]>([]);
+  const [crops, setCrops] = useState<Crop[]>([]);
 
   // Standort/Parzelle/Beet tree: filter + search state for the occupancy view
   const [occupancySearchText, setOccupancySearchText] = useState('');
 
   // Seedling (Anzucht) view: search-only, no hierarchy/location filters —
-  // it's a flat, culture-grouped list, not tied to a specific bed/field.
+  // it's a flat, crop-grouped list, not tied to a specific bed/field.
   const [seedlingSearchText, setSeedlingSearchText] = useState('');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [calendarFilterAnchorEl, setCalendarFilterAnchorEl] = useState<HTMLElement | null>(null);
@@ -268,7 +268,7 @@ function GanttChartPage() {
     fields,
     beds,
     plantingPlans,
-    cultures,
+    crops,
     activeProjectId,
   });
 
@@ -321,9 +321,9 @@ function GanttChartPage() {
   // fall back to its calendar year — the existing empty state then renders.
   const calendarDataRange = useMemo<CalendarDateRange | null>(
     () => (calendarMode === 'seedlings'
-      ? getSeedlingCalendarRange(plantingPlans, cultures)
+      ? getSeedlingCalendarRange(plantingPlans, crops)
       : getOccupancyCalendarRange(plantingPlans)),
-    [calendarMode, plantingPlans, cultures],
+    [calendarMode, plantingPlans, crops],
   );
   const startDate = useMemo(
     () => calendarDataRange?.start ?? new Date(displayYear, 0, 1),
@@ -532,19 +532,19 @@ function GanttChartPage() {
       }
       setError(null);
 
-      const [locationsRes, fieldsRes, bedsRes, plansRes, culturesRes] = await Promise.all([
+      const [locationsRes, fieldsRes, bedsRes, plansRes, cropsRes] = await Promise.all([
         locationAPI.listAll(),
         fieldAPI.listAll(),
         bedAPI.listAll(),
         plantingPlanAPI.listAll(),
-        cultureAPI.listAll(),
+        cropAPI.listAll(),
       ]);
 
       setLocations(locationsRes.results);
       setFields(fieldsRes.results);
       setBeds(bedsRes.results);
       setPlantingPlans(plansRes.results);
-      setCultures(culturesRes.results);
+      setCrops(cropsRes.results);
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(t('ganttChart:errors.load'));
@@ -563,7 +563,7 @@ function GanttChartPage() {
       setFields([]);
       setBeds([]);
       setPlantingPlans([]);
-      setCultures([]);
+      setCrops([]);
       return;
     }
 
@@ -672,7 +672,7 @@ function GanttChartPage() {
   const {
     openPlantingPlanFromTask,
     handleTaskDoubleClickToPlan,
-    openCultureFromTask,
+    openCropFromTask,
     addPlantingPlanForBed,
     openAreasPage,
     copyTaskSummary,
@@ -687,7 +687,7 @@ function GanttChartPage() {
     contextMenuActions,
   } = useGanttContextMenu({
     openPlantingPlanFromTask,
-    openCultureFromTask,
+    openCropFromTask,
     openAreasPage,
     copyTaskSummary,
     deletePlantingPlanFromTask,
@@ -874,7 +874,7 @@ function GanttChartPage() {
               node.name,
               node.fieldId !== undefined ? fieldNameById.get(node.fieldId) : undefined,
               locationNameById.get(node.locationId),
-              ...node.tasks.map((task) => task.cultureName),
+              ...node.tasks.map((task) => task.cropName),
             ]
               .filter(Boolean)
               .join(' ')
@@ -952,7 +952,7 @@ function GanttChartPage() {
       fields: [],
       beds: [],
       plantingPlans,
-      cultures,
+      crops,
     });
 
     const normalizedSearch = seedlingSearchText.trim().toLowerCase();
@@ -963,7 +963,7 @@ function GanttChartPage() {
     return allGroups.filter((group) => (
       (group.name || '').toLowerCase().includes(normalizedSearch)
     ));
-  }, [cultures, plantingPlans, seedlingSearchText]);
+  }, [crops, plantingPlans, seedlingSearchText]);
 
   const resolvedLocale = useMemo(() => {
     const language = i18n.resolvedLanguage || i18n.language || 'de';
@@ -1284,13 +1284,13 @@ function GanttChartPage() {
     [renderedTaskGroups],
   );
   const hasFields = fields.length > 0;
-  const hasCultures = cultures.length > 0;
+  const hasCrops = crops.length > 0;
   const hasBeds = beds.length > 0;
   const hasPlantingPlans = plantingPlans.length > 0;
   const firstMissingPrerequisite = getFirstMissingCultivationPlanRequirement({
     hasFields,
     hasBeds,
-    hasCultures,
+    hasCrops,
   });
   const firstMissingRequirement = firstMissingPrerequisite ?? (hasPlantingPlans ? null : 'plans');
   const hasCalendarRequirements = firstMissingRequirement === null;
@@ -1811,13 +1811,13 @@ function GanttChartPage() {
       tooltip: t('ganttChart:modeTooltips.seedlings'),
     },
   ] : []), [calendarMode, handleCalendarModeChange, hasCalendarRequirements, t]);
-  const requirementEmptyStateTitleKey = firstMissingRequirement === 'cultures'
-    ? 'ganttChart:emptyStates.states.cultures.title'
+  const requirementEmptyStateTitleKey = firstMissingRequirement === 'crops'
+    ? 'ganttChart:emptyStates.states.crops.title'
     : firstMissingRequirement === 'plans'
       ? 'ganttChart:emptyStates.states.plans.title'
       : 'ganttChart:emptyStates.requirementsTitle';
-  const requirementEmptyStateDescriptionKey = firstMissingRequirement === 'cultures'
-    ? 'ganttChart:emptyStates.states.cultures.description'
+  const requirementEmptyStateDescriptionKey = firstMissingRequirement === 'crops'
+    ? 'ganttChart:emptyStates.states.crops.description'
     : firstMissingRequirement === 'plans'
       ? 'ganttChart:emptyStates.states.plans.description'
       : 'ganttChart:emptyStates.requirementsDescription';
@@ -1954,7 +1954,7 @@ function GanttChartPage() {
                 description={t(requirementEmptyStateDescriptionKey)}
                 checklist={[
                   ...(firstMissingRequirement === 'beds' ? [{ label: t('ganttChart:requirements.bed.label'), done: false, missingLabel: t('ganttChart:requirements.bed.missing') }] : []),
-                  ...(firstMissingRequirement === 'cultures' ? [{ label: t('ganttChart:requirements.culture.label'), done: false, missingLabel: t('ganttChart:requirements.culture.missing') }] : []),
+                  ...(firstMissingRequirement === 'crops' ? [{ label: t('ganttChart:requirements.crop.label'), done: false, missingLabel: t('ganttChart:requirements.crop.missing') }] : []),
                 ]}
                 actions={requirementActions}
               />

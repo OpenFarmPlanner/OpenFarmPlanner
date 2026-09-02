@@ -131,7 +131,7 @@
         "dimensions": "Set length and width orientation for the graphical view"
       }
     },
-    "cultures": {
+    "crops": {
       "title": "Help: Crop library",
       "intro": "Manage crops and their key properties here. These data are used in planting plans, calendar, and seed demand.",
       "sections": [

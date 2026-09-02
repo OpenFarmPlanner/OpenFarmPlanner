@@ -44,7 +44,7 @@ apply.
 | `created_at` | Ordering key (newest first). |
 
 Routes are resolved on the frontend, not stored: the backend has no business
-knowing what `/app/crop-library?cultureId=…` means.
+knowing what `/app/crop-library?cropId=…` means.
 
 ## API
 

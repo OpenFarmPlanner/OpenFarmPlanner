@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlantingPlans from "../pages/PlantingPlans";
 
 const apiMocks = vi.hoisted(() => ({
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock("../api/api", async () => {
   const actual = await vi.importActual<typeof import("../api/api")>("../api/api");
   return {
     ...actual,
-    cultureAPI: { ...actual.cultureAPI, list: apiMocks.cultureList, listAll: async () => (await apiMocks.cultureList()).data },
+    cropAPI: { ...actual.cropAPI, list: apiMocks.cropList, listAll: async () => (await apiMocks.cropList()).data },
     locationAPI: { ...actual.locationAPI, list: apiMocks.locationList, listAll: async () => (await apiMocks.locationList()).data },
     fieldAPI: { ...actual.fieldAPI, list: apiMocks.fieldList, listAll: async () => (await apiMocks.fieldList()).data },
     bedAPI: { ...actual.bedAPI, list: apiMocks.bedList, listAll: async () => (await apiMocks.bedList()).data },
@@ -104,7 +104,7 @@ const renderPlantingPlans = async (): Promise<ReturnType<typeof userEvent.setup>
 describe("PlantingPlans growing-area cell keyboard editing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 5, name: "Salat" }] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [{ id: 5, name: "Salat" }] } });
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 11, name: "Feld 1", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({
@@ -118,8 +118,8 @@ describe("PlantingPlans growing-area cell keyboard editing", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [
-          { id: 10, bed: 101, culture: 5, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3 },
-          { id: 20, bed: 101, culture: 5, planting_date: "2026-04-02", harvest_date: "2026-05-02", area_usage_sqm: 3 },
+          { id: 10, bed: 101, crop: 5, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3 },
+          { id: 20, bed: 101, crop: 5, planting_date: "2026-04-02", harvest_date: "2026-05-02", area_usage_sqm: 3 },
         ],
       },
     });

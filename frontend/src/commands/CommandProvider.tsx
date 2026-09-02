@@ -24,7 +24,7 @@ import { useFocusManager } from '../focus/useFocusManager';
 
 const CONTEXT_TITLE_KEYS: Record<CommandContextTag, string> = {
   global: 'commandPalette.contextTitles.global',
-  cultures: 'commandPalette.contextTitles.cultures',
+  crops: 'commandPalette.contextTitles.crops',
   publicCropLibrary: 'commandPalette.contextTitles.publicCropLibrary',
   locations: 'commandPalette.contextTitles.locations',
   areas: 'commandPalette.contextTitles.areas',
@@ -49,18 +49,18 @@ type PageShortcutHelpGroup = {
 
 const PAGE_SHORTCUT_HELP_GROUPS: PageShortcutHelpGroup[] = [
   {
-    titleKey: 'commandPalette.allPageShortcuts.cultures.title',
+    titleKey: 'commandPalette.allPageShortcuts.crops.title',
     entries: [
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.create', shortcutHint: CREATE_SHORTCUT_HINT },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.search', shortcutHint: '/' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.edit', shortcutHint: 'Alt+E' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.delete', shortcutHint: 'Alt+Shift+D' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.exportCurrent', shortcutHint: 'Alt+J' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.exportAll', shortcutHint: 'Alt+Shift+J' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.import', shortcutHint: 'Alt+I' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.createPlan', shortcutHint: 'Alt+P' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.previous', shortcutHint: 'Alt+Shift+←' },
-      { labelKey: 'commandPalette.allPageShortcuts.cultures.next', shortcutHint: 'Alt+Shift+→' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.create', shortcutHint: CREATE_SHORTCUT_HINT },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.search', shortcutHint: '/' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.edit', shortcutHint: 'Alt+E' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.delete', shortcutHint: 'Alt+Shift+D' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.exportCurrent', shortcutHint: 'Alt+J' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.exportAll', shortcutHint: 'Alt+Shift+J' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.import', shortcutHint: 'Alt+I' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.createPlan', shortcutHint: 'Alt+P' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.previous', shortcutHint: 'Alt+Shift+←' },
+      { labelKey: 'commandPalette.allPageShortcuts.crops.next', shortcutHint: 'Alt+Shift+→' },
     ],
   },
   {

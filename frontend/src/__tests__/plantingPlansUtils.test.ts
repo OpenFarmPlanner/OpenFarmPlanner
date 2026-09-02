@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  getAllowedCultivationTypesForCulture,
+  getAllowedCultivationTypesForCrop,
   isEmptyNewPlantingPlanRow,
   type PlantingPlanRow,
 } from '../pages/plantingPlansUtils';
 
-describe('getAllowedCultivationTypesForCulture', () => {
+describe('getAllowedCultivationTypesForCrop', () => {
   it('returns only allowed values from cultivation_types', () => {
-    const options = getAllowedCultivationTypesForCulture({
+    const options = getAllowedCultivationTypesForCrop({
       cultivation_types: ['direct_sowing'],
     } as never);
 
@@ -15,15 +15,15 @@ describe('getAllowedCultivationTypesForCulture', () => {
   });
 
   it('falls back to cultivation_type if cultivation_types is missing', () => {
-    const options = getAllowedCultivationTypesForCulture({
+    const options = getAllowedCultivationTypesForCrop({
       cultivation_type: 'pre_cultivation',
     } as never);
 
     expect(options).toEqual(['pre_cultivation']);
   });
 
-  it('falls back to both options when culture does not define restrictions', () => {
-    const options = getAllowedCultivationTypesForCulture(undefined);
+  it('falls back to both options when crop does not define restrictions', () => {
+    const options = getAllowedCultivationTypesForCrop(undefined);
 
     expect(options).toEqual(['direct_sowing', 'pre_cultivation']);
   });
@@ -33,7 +33,7 @@ describe('isEmptyNewPlantingPlanRow', () => {
   const emptyRow: PlantingPlanRow = {
     id: -1,
     isNew: true,
-    culture: 0,
+    crop: 0,
     bed: 0,
     location_id: undefined,
     field_id: undefined,
@@ -50,8 +50,8 @@ describe('isEmptyNewPlantingPlanRow', () => {
     expect(isEmptyNewPlantingPlanRow(emptyRow)).toBe(true);
   });
 
-  it('treats selected culture or bed values as user input', () => {
-    expect(isEmptyNewPlantingPlanRow({ ...emptyRow, culture: 12 })).toBe(false);
+  it('treats selected crop or bed values as user input', () => {
+    expect(isEmptyNewPlantingPlanRow({ ...emptyRow, crop: 12 })).toBe(false);
     expect(isEmptyNewPlantingPlanRow({ ...emptyRow, bed: 34 })).toBe(false);
   });
 

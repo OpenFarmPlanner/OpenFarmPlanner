@@ -20,7 +20,7 @@
     "intro": "OpenFarmPlanner helps you structure the planning of areas, cultures, and growing cycles. Start with your first field.",
     "field": "Add field",
     "bed": "Add bed",
-    "culture": "Add culture",
+    "crop": "Add culture",
     "plan": "Add planting plan"
   }
 }

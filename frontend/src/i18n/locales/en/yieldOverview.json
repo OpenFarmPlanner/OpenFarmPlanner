@@ -4,15 +4,15 @@
     "load": "Yield overview could not be loaded."
   },
   "filters": {
-    "culture": "Crop",
-    "allCultures": "All crops",
+    "crop": "Crop",
+    "allCrops": "All crops",
     "period": "Display",
     "week": "Week",
     "month": "Month"
   },
   "chart": {
     "title": "Yield distribution",
-    "tooltip": "{{period}} · {{culture}}: {{yield}} kg",
+    "tooltip": "{{period}} · {{crop}}: {{yield}} kg",
     "tooltipPeriod": "Period",
     "tooltipYield": "Yield",
     "yearBoundary": "Year change: {{year1}} → {{year2}}"
@@ -24,7 +24,7 @@
     "collapse": "Reduce to top {{count}}"
   },
   "contextMenu": {
-    "openCulture": "Open crop"
+    "openCrop": "Open crop"
   },
   "empty": {
     "noPlansTitle": "No yield forecast available yet",

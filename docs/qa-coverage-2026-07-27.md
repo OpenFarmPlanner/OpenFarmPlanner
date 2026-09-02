@@ -31,7 +31,7 @@ Git commit `7c3a6b0a` on branch `fix/simplify-publishing-wizard`.
 - `cd frontend && npx playwright test e2e/public-crop-library.spec.ts`
 - Temporary local Playwright QA spec for moderator request/admin approval/
   non-admin moderator review; deleted after the run.
-- `cd frontend && npm run test -- PublicCropLibraryPage PublicCultureLibraryDialog PublicLibraryModerationPage AccountSettingsPage cropSections i18n`
+- `cd frontend && npm run test -- PublicCropLibraryPage PublicCropLibraryDialog PublicLibraryModerationPage AccountSettingsPage cropSections i18n`
 - `cd backend && pdm run python manage.py test crops.tests.test_views farm.tests.test_public_crops_api farm.tests.test_crops_api.CropApiTest.test_crop_list_query_count_does_not_scale_with_result_count --settings=config.settings_test`
 
 ## Follow-up QA — 2026-07-28
@@ -61,7 +61,7 @@ Targeted localhost discussion-flow audit on branch
 ### Verification
 
 - Temporary local Playwright multi-user discussion-flow script against
-  `http://localhost:5173/app/crop-library?cultureId=56`.
+  `http://localhost:5173/app/crop-library?cropId=56`.
 
 ## Follow-up QA — 2026-07-28 Navigation And Deletion
 
@@ -83,7 +83,7 @@ Targeted discussion navigation and deletion audit on branch
 
 - `cd frontend && npm run test -- PublicCropLibraryPage.test.tsx`
 - `cd backend && pdm run python manage.py test farm.tests.test_public_crops_api --settings=config.settings_test`
-- `jq empty frontend/src/i18n/locales/de/cultures.json frontend/src/i18n/locales/en/cultures.json`
+- `jq empty frontend/src/i18n/locales/de/crops.json frontend/src/i18n/locales/en/crops.json`
 - `cd frontend && npm run lint`
 - `cd frontend && npm run build`
 

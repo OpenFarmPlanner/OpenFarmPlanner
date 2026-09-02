@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PlantingPlans from "../pages/PlantingPlans";
 
 const apiMocks = vi.hoisted(() => ({
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
@@ -45,10 +45,10 @@ vi.mock("../api/api", async () => {
   const actual = await vi.importActual<typeof import("../api/api")>("../api/api");
   return {
     ...actual,
-    cultureAPI: {
-      ...actual.cultureAPI,
-      list: apiMocks.cultureList,
-      listAll: async () => (await apiMocks.cultureList()).data,
+    cropAPI: {
+      ...actual.cropAPI,
+      list: apiMocks.cropList,
+      listAll: async () => (await apiMocks.cropList()).data,
     },
     locationAPI: {
       ...actual.locationAPI,
@@ -114,7 +114,7 @@ describe("PlantingPlans growing-area change", () => {
       });
     }
 
-    apiMocks.cultureList.mockResolvedValue({
+    apiMocks.cropList.mockResolvedValue({
       data: { results: [{ id: 2, name: "Salat", plants_per_m2: 10 }] },
     });
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
@@ -134,7 +134,7 @@ describe("PlantingPlans growing-area change", () => {
         results: [{
           id: 9,
           bed: 101,
-          culture: 2,
+          crop: 2,
           cultivation_type: "direct_sowing",
           planting_date: "2026-04-10",
           harvest_date: "2026-05-20",
@@ -150,7 +150,7 @@ describe("PlantingPlans growing-area change", () => {
       data: {
         id: 9,
         bed: 102,
-        culture: 2,
+        crop: 2,
         cultivation_type: "direct_sowing",
         planting_date: "2026-04-10",
         harvest_date: "2026-05-20",
@@ -182,7 +182,7 @@ describe("PlantingPlans growing-area change", () => {
     const user = userEvent.setup();
     await renderPlantingPlans();
 
-    await user.dblClick(cellOf("culture")!);
+    await user.dblClick(cellOf("crop")!);
     await waitFor(() => expect(document.querySelector(".MuiDataGrid-row--editing")).toBeTruthy());
 
     await changeGrowingAreaToBedB(user);

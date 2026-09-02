@@ -28,7 +28,7 @@ const FALLBACK_LABEL_FIELDS = [
   'harvest_end_date',
   'quantity',
   'cultivation_type',
-  'culture',
+  'crop',
   'bed',
   'field',
   'location',
@@ -52,15 +52,15 @@ function translatedOrFallback(t: TFunction, key: string, fallback: string): stri
 
 const backendMessageMap: Record<string, string> = {
   'this field is required.': 'validation.required',
-  'a culture with this name already exists.': 'validation.cultureNameUnique',
-  'a culture with this name and variety already exists.': 'form.duplicateNameVariety',
+  'a crop with this name already exists.': 'validation.cropNameUnique',
+  'a crop with this name and variety already exists.': 'form.duplicateNameVariety',
   'enter a valid email address.': 'validation.invalidEmail',
-  'no public cultures found': 'errors.noPublicCultures',
+  'no public crops found': 'errors.noPublicCrops',
   'bed not found.': 'errors.bedNotFound',
   'uploaded file exceeds the 10mb size limit.': 'errors.fileTooLarge',
   'uploaded file is not a valid image.': 'errors.invalidImage',
   'supplier_data_duplicate': 'errors.supplierDataDuplicate',
-  'supplier data for this culture already exists.': 'errors.supplierDataDuplicate',
+  'supplier data for this crop already exists.': 'errors.supplierDataDuplicate',
   'supplier_data_missing_supplier': 'errors.supplierDataMissingSupplier',
   'select a supplier or remove the supplier information.': 'errors.supplierDataMissingSupplier',
   'supplier_specific_tkg_unsupported': 'errors.supplierSpecificTkgUnsupported',
@@ -69,13 +69,13 @@ const backendMessageMap: Record<string, string> = {
   'supplier does not belong to the active project.': 'errors.supplierProjectMismatch',
   'selected_supplier_project_mismatch': 'errors.selectedSupplierProjectMismatch',
   'selected supplier does not belong to the active project.': 'errors.selectedSupplierProjectMismatch',
-  'culture_project_mismatch': 'errors.cultureProjectMismatch',
-  'culture does not belong to the active project.': 'errors.cultureProjectMismatch',
+  'crop_project_mismatch': 'errors.cropProjectMismatch',
+  'crop does not belong to the active project.': 'errors.cropProjectMismatch',
   'this crop species already exists or has already been proposed.': 'library.publishWizard.speciesAlreadyExists',
   'please enter a valid numeric value, e.g. 3.9.': 'validation.invalidNumberExample',
   'area input value must be greater than 0.': 'validation.areaInputPositive',
-  'culture must be selected to input area as plant count.': 'validation.areaInputPlantsCultureRequired',
-  'culture spacing data is missing or invalid. cannot calculate area from plant count.': 'validation.areaInputPlantsSpacingMissing',
+  'crop must be selected to input area as plant count.': 'validation.areaInputPlantsCropRequired',
+  'crop spacing data is missing or invalid. cannot calculate area from plant count.': 'validation.areaInputPlantsSpacingMissing',
 };
 
 const authenticationExpiredDetails = new Set([
@@ -164,11 +164,11 @@ export function extractApiErrorMessage(
       && data
       && typeof data === 'object'
       && 'code' in data
-      && data.code === 'culture_name_conflict'
+      && data.code === 'crop_name_conflict'
     ) {
       return translatedOrFallback(
         t,
-        'form.cultureNameConflict',
+        'form.cropNameConflict',
         'Diese Kultur existiert bereits in diesem Projekt. Füge stattdessen eine neue Sorte hinzu oder wähle einen anderen Namen.',
       );
     }

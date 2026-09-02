@@ -24,7 +24,7 @@ Scope: `frontend/src`
 
 | Shortcut | Action | Location in code |
 |---|---|---|
-| `Alt+K` | Open command palette | `commands/commands.ts` (`openPalette`), `commands/CommandProvider.tsx`, shown in dialogs in `App.tsx` and `pages/Cultures.tsx` |
+| `Alt+K` | Open command palette | `commands/commands.ts` (`openPalette`), `commands/CommandProvider.tsx`, shown in dialogs in `App.tsx` and `pages/Crops.tsx` |
 | `Alt+H` | Open shortcuts/help commands dialog | `commands/commands.ts` (`openShortcuts`), `commands/CommandProvider.tsx`, shown in `App.tsx` |
 | `Ctrl+Shift+ArrowRight` | Navigate to next main page | `commands/commands.ts` (`navigation.nextPage`) → `App.tsx` (`navigateRelativePage`) |
 | `Ctrl+Shift+ArrowLeft` | Navigate to previous main page | `commands/commands.ts` (`navigation.previousPage`) → `App.tsx` (`navigateRelativePage`) |
@@ -39,14 +39,14 @@ Scope: `frontend/src`
 | `Alt+G` | Toggle Areas view (table/graphical) | `pages/FieldsBedsPage.tsx` (command + keydown listener) |
 | `Alt+E` | Calendar edit mode toggle | `pages/GanttChart.tsx` command registration |
 | `Alt+Shift+N` | New row/item in hierarchy/plans | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx` |
-| `Alt+E` | Edit selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Cultures.tsx` |
-| `Alt+Shift+D` | Delete selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Cultures.tsx` |
-| `Alt+P` | Create planting plan from crop context | UI in `pages/Cultures.tsx` |
-| `Alt+J` / `Alt+Shift+J` / `Alt+I` | Export current/all crops; import JSON | `pages/Cultures.tsx` |
-| `Alt+U` / `Alt+R` / `Alt+A` | AI complete / re-research / complete all crops | `pages/Cultures.tsx` |
+| `Alt+E` | Edit selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Crops.tsx` |
+| `Alt+Shift+D` | Delete selected item | `pages/FieldsBedsHierarchy.tsx`, `pages/PlantingPlans.tsx`, UI labels in `pages/Crops.tsx` |
+| `Alt+P` | Create planting plan from crop context | UI in `pages/Crops.tsx` |
+| `Alt+J` / `Alt+Shift+J` / `Alt+I` | Export current/all crops; import JSON | `pages/Crops.tsx` |
+| `Alt+U` / `Alt+R` / `Alt+A` | AI complete / re-research / complete all crops | `pages/Crops.tsx` |
 | `Ctrl+Enter` / `Cmd+Enter` | Save notes drawer | `components/data-grid/NotesDrawer.tsx` |
 | `Ctrl+S` / `Cmd+S` | Save grid row while editing | `components/data-grid/DataGrid.tsx` |
-| `Esc` | Close dialogs / cancel edit in many places | `CommandPalette.tsx`, `App.tsx`, `pages/Cultures.tsx`, several dialogs/components |
+| `Esc` | Close dialogs / cancel edit in many places | `CommandPalette.tsx`, `App.tsx`, `pages/Crops.tsx`, several dialogs/components |
 
 ---
 

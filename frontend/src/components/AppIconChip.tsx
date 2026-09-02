@@ -13,7 +13,7 @@ interface AppIconChipProps extends Pick<
 
 /**
  * Small outlined status chip with a tooltip — the shared shape behind the
- * culture-library sync marker and the pending-species indicator, so a future
+ * crop-library sync marker and the pending-species indicator, so a future
  * visual tweak (spacing, disabled styling) happens in one place instead of
  * being hand-rolled per call site.
  */

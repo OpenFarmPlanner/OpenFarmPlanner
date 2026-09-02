@@ -27,8 +27,8 @@ export function getNotificationLink(notification: AppNotification): string | nul
     return null;
   }
   switch (notification.target_type) {
-    case 'public_culture':
-      return `/app/crop-library?cultureId=${notification.target_id}`;
+    case 'public_crop':
+      return `/app/crop-library?cropId=${notification.target_id}`;
     case 'crop_species':
       // Species have no detail route of their own; the library overview is the
       // closest place the decision is visible.

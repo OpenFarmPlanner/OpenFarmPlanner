@@ -1,8 +1,8 @@
-import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
+import type { Bed, Crop, Field, Location, PlantingPlan } from '../api/types';
 import { formatLocalizedNumber } from '../utils/numberLocalization';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
-import { formatCultureDisplayName, getCultureDisplayName } from '../cultures/cultureDisplay';
-import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
+import { formatCropDisplayName, getCropDisplayName } from '../crops/cropDisplay';
+import { getEffectiveCropValue } from '../crops/varietyValueSource';
 import { getGanttPhaseColors } from '../utils/colorContrast';
 
 export interface GanttTask {
@@ -14,8 +14,8 @@ export interface GanttTask {
   percent?: number;
   dependencies?: string[];
   plantingPlanId?: number;
-  cultureName?: string;
-  cultureVariety?: string;
+  cropName?: string;
+  cropVariety?: string;
   areaUsage?: number;
   notes?: string;
   harvestStartDate?: Date;
@@ -59,7 +59,7 @@ interface BuildTaskGroupsArgs {
   fields: Field[];
   beds: Bed[];
   plantingPlans: PlantingPlan[];
-  cultures: Culture[];
+  crops: Crop[];
 }
 
 /** Inclusive start/end of the calendar's visible time axis. */
@@ -110,7 +110,7 @@ export function parseDateString(dateStr: string): Date {
   return parseIsoDate(dateStr) ?? new Date(Number.NaN);
 }
 
-export function getDefaultCultureColor(cultureName: string): string {
+export function getDefaultCropColor(cropName: string): string {
   const colors = [
     '#3b82f6',
     '#10b981',
@@ -123,22 +123,22 @@ export function getDefaultCultureColor(cultureName: string): string {
   ];
 
   let hash = 0;
-  for (let i = 0; i < cultureName.length; i++) {
-    hash = cultureName.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < cropName.length; i++) {
+    hash = cropName.charCodeAt(i) + ((hash << 5) - hash);
   }
   return colors[Math.abs(hash) % colors.length];
 }
 
-function getCultureColor(
-  cultures: Culture[],
-  cultureId: number | null | undefined,
-  cultureName: string,
+function getCropColor(
+  crops: Crop[],
+  cropId: number | null | undefined,
+  cropName: string,
   fallbackColor?: string | null,
 ): string {
-  const culture = typeof cultureId === 'number'
-    ? cultures.find((entry) => entry.id === cultureId)
+  const crop = typeof cropId === 'number'
+    ? crops.find((entry) => entry.id === cropId)
     : undefined;
-  return culture?.display_color || fallbackColor || getDefaultCultureColor(cultureName);
+  return crop?.display_color || fallbackColor || getDefaultCropColor(cropName);
 }
 
 /**
@@ -149,31 +149,31 @@ function getCultureColor(
  */
 function getPlanPreCultivationDates(
   plan: PlantingPlan,
-  cultureById: Map<number, Culture>,
+  cropById: Map<number, Crop>,
 ): { propagationStartDate: Date; transplantDate: Date; propagationDurationDays: number } | null {
-  if (!plan.id || !plan.culture || !plan.planting_date) {
+  if (!plan.id || !plan.crop || !plan.planting_date) {
     return null;
   }
 
-  const culture = cultureById.get(plan.culture);
+  const crop = cropById.get(plan.crop);
   // Effective values throughout: a Sorte inherits any timing/cultivation field
   // it does not set from its general Kultur, and the plan row already carries
   // the same resolved values as a fallback.
-  const propagationDurationDays = getEffectiveCultureValue(culture, 'propagation_duration_days')
-    ?? plan.culture_propagation_duration_days
+  const propagationDurationDays = getEffectiveCropValue(crop, 'propagation_duration_days')
+    ?? plan.crop_propagation_duration_days
     ?? undefined;
   if (!propagationDurationDays || propagationDurationDays <= 0) {
     return null;
   }
 
-  const cultureCultivationType = getEffectiveCultureValue(culture, 'cultivation_type')
-    || plan.culture_cultivation_type || '';
-  const cultureCultivationTypes = getEffectiveCultureValue(culture, 'cultivation_types')
-    || plan.culture_cultivation_types || [];
+  const cropCultivationType = getEffectiveCropValue(crop, 'cultivation_type')
+    || plan.crop_cultivation_type || '';
+  const cropCultivationTypes = getEffectiveCropValue(crop, 'cultivation_types')
+    || plan.crop_cultivation_types || [];
   const isPreCultivation = plan.cultivation_type === 'pre_cultivation'
     || (!plan.cultivation_type && (
-      cultureCultivationType === 'pre_cultivation'
-      || cultureCultivationTypes.includes('pre_cultivation')
+      cropCultivationType === 'pre_cultivation'
+      || cropCultivationTypes.includes('pre_cultivation')
     ));
   if (!isPreCultivation) {
     return null;
@@ -184,14 +184,14 @@ function getPlanPreCultivationDates(
   return { propagationStartDate, transplantDate, propagationDurationDays };
 }
 
-function buildCultureById(cultures: Culture[]): Map<number, Culture> {
-  const cultureById = new Map<number, Culture>();
-  cultures.forEach((culture) => {
-    if (culture.id) {
-      cultureById.set(culture.id, culture);
+function buildCropById(crops: Crop[]): Map<number, Crop> {
+  const cropById = new Map<number, Crop>();
+  crops.forEach((crop) => {
+    if (crop.id) {
+      cropById.set(crop.id, crop);
     }
   });
-  return cultureById;
+  return cropById;
 }
 
 function extendRange(
@@ -246,12 +246,12 @@ export function getOccupancyCalendarRange(plantingPlans: PlantingPlan[]): Calend
  */
 export function getSeedlingCalendarRange(
   plantingPlans: PlantingPlan[],
-  cultures: Culture[],
+  crops: Crop[],
 ): CalendarDateRange | null {
-  const cultureById = buildCultureById(cultures);
+  const cropById = buildCropById(crops);
   let range: { start: Date; end: Date } | null = null;
   plantingPlans.forEach((plan) => {
-    const preCultivation = getPlanPreCultivationDates(plan, cultureById);
+    const preCultivation = getPlanPreCultivationDates(plan, cropById);
     if (!preCultivation) {
       return;
     }
@@ -260,22 +260,22 @@ export function getSeedlingCalendarRange(
   return range;
 }
 
-export function formatCultureDisplayLabel(cultureName?: string | null, variety?: string | null): string {
-  const normalizedCultureName = cultureName?.trim();
+export function formatCropDisplayLabel(cropName?: string | null, variety?: string | null): string {
+  const normalizedCropName = cropName?.trim();
   const normalizedVariety = variety?.trim();
 
-  if (normalizedCultureName && normalizedVariety) {
-    return `${normalizedCultureName} (${normalizedVariety})`;
+  if (normalizedCropName && normalizedVariety) {
+    return `${normalizedCropName} (${normalizedVariety})`;
   }
-  return normalizedCultureName || normalizedVariety || 'Unbekannte Kultur';
+  return normalizedCropName || normalizedVariety || 'Unbekannte Kultur';
 }
 
-function getPlanCultureDisplayName(plan: Pick<PlantingPlan, 'culture_display_name' | 'culture_name'>): string {
-  return getCultureDisplayName(plan);
+function getPlanCropDisplayName(plan: Pick<PlantingPlan, 'crop_display_name' | 'crop_name'>): string {
+  return getCropDisplayName(plan);
 }
 
-export function formatSeedlingTooltipTitle(task: Pick<GanttTask, 'cultureName' | 'cultureVariety' | 'name'>): string {
-  return formatCultureDisplayLabel(task.cultureName || task.name, task.cultureVariety);
+export function formatSeedlingTooltipTitle(task: Pick<GanttTask, 'cropName' | 'cropVariety' | 'name'>): string {
+  return formatCropDisplayLabel(task.cropName || task.name, task.cropVariety);
 }
 
 export function formatGanttDate(value: Date): string {
@@ -290,14 +290,14 @@ export function formatPlantCount(value: number): string {
   return formatLocalizedNumber(value, 'de-DE', { maximumFractionDigits: 0 });
 }
 
-function formatCultureLabel(culture?: Culture, fallbackName?: string | null, fallbackVariety?: string | null): string {
-  if (!culture) {
+function formatCropLabel(crop?: Crop, fallbackName?: string | null, fallbackVariety?: string | null): string {
+  if (!crop) {
     return fallbackName || 'Unbekannte Kultur';
   }
-  return formatCultureDisplayName({
-    ...culture,
-    culture_display_name: culture.culture_display_name || fallbackName,
-    variety: fallbackVariety || culture.variety,
+  return formatCropDisplayName({
+    ...crop,
+    crop_display_name: crop.crop_display_name || fallbackName,
+    variety: fallbackVariety || crop.variety,
   });
 }
 
@@ -378,7 +378,7 @@ export function buildFieldOccupancyTaskGroups({
   fields,
   beds,
   plantingPlans,
-  cultures,
+  crops,
 }: BuildTaskGroupsArgs): GanttTaskGroup[] {
   if (!locations.length || !fields.length || !beds.length || !plantingPlans.length) {
     return [];
@@ -443,24 +443,24 @@ export function buildFieldOccupancyTaskGroups({
           const harvestEndDate = plan.harvest_end_date
             ? parseDateString(plan.harvest_end_date)
             : harvestStartDate;
-          const cultureDisplayName = getPlanCultureDisplayName(plan);
-          const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+          const cropDisplayName = getPlanCropDisplayName(plan);
+          const baseColor = getCropColor(crops, plan.crop, cropDisplayName, plan.crop_display_color);
           const phaseColors = getGanttPhaseColors(baseColor);
-          const cultureLabel = formatCultureDisplayLabel(
-            cultureDisplayName || `Culture ${plan.culture}`,
-            plan.culture_variety,
+          const cropLabel = formatCropDisplayLabel(
+            cropDisplayName || `Crop ${plan.crop}`,
+            plan.crop_variety,
           );
 
           tasks.push({
             id: `plan-${plan.id}-growth`,
-            name: cultureLabel,
+            name: cropLabel,
             startDate: plantingDate,
             endDate: harvestStartDate,
             color: phaseColors.growth,
             percent: 100,
             plantingPlanId: plan.id,
-            cultureName: cultureDisplayName || undefined,
-            cultureVariety: plan.culture_variety ?? undefined,
+            cropName: cropDisplayName || undefined,
+            cropVariety: plan.crop_variety ?? undefined,
             areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
             notes: plan.notes,
             harvestStartDate,
@@ -470,14 +470,14 @@ export function buildFieldOccupancyTaskGroups({
           if (harvestEndDate > harvestStartDate) {
             tasks.push({
               id: `plan-${plan.id}-harvest`,
-              name: `${cultureLabel} (Ernte)`,
+              name: `${cropLabel} (Ernte)`,
               startDate: harvestStartDate,
               endDate: harvestEndDate,
               color: phaseColors.harvest,
               percent: 100,
               plantingPlanId: plan.id,
-              cultureName: cultureDisplayName || undefined,
-              cultureVariety: plan.culture_variety ?? undefined,
+              cropName: cropDisplayName || undefined,
+              cropVariety: plan.crop_variety ?? undefined,
               areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
               notes: plan.notes,
               harvestStartDate,
@@ -564,7 +564,7 @@ export function buildFieldOccupancyHierarchy({
   fields,
   beds,
   plantingPlans,
-  cultures,
+  crops,
 }: BuildTaskGroupsArgs): OccupancyHierarchyNode[] {
   if (!locations.length) {
     return [];
@@ -603,24 +603,24 @@ export function buildFieldOccupancyHierarchy({
       const harvestEndDate = plan.harvest_end_date
         ? parseDateString(plan.harvest_end_date)
         : harvestStartDate;
-      const cultureDisplayName = getPlanCultureDisplayName(plan);
-      const baseColor = getCultureColor(cultures, plan.culture, cultureDisplayName, plan.culture_display_color);
+      const cropDisplayName = getPlanCropDisplayName(plan);
+      const baseColor = getCropColor(crops, plan.crop, cropDisplayName, plan.crop_display_color);
       const phaseColors = getGanttPhaseColors(baseColor);
-      const cultureLabel = formatCultureDisplayLabel(
-        cultureDisplayName || `Culture ${plan.culture}`,
-        plan.culture_variety,
+      const cropLabel = formatCropDisplayLabel(
+        cropDisplayName || `Crop ${plan.crop}`,
+        plan.crop_variety,
       );
 
       tasks.push({
         id: `plan-${plan.id}-growth`,
-        name: cultureLabel,
+        name: cropLabel,
         startDate: plantingDate,
         endDate: harvestStartDate,
         color: phaseColors.growth,
         percent: 100,
         plantingPlanId: plan.id,
-        cultureName: cultureDisplayName || undefined,
-        cultureVariety: plan.culture_variety ?? undefined,
+        cropName: cropDisplayName || undefined,
+        cropVariety: plan.crop_variety ?? undefined,
         areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
         notes: plan.notes,
         harvestStartDate,
@@ -630,14 +630,14 @@ export function buildFieldOccupancyHierarchy({
       if (harvestEndDate > harvestStartDate) {
         tasks.push({
           id: `plan-${plan.id}-harvest`,
-          name: `${cultureLabel} (Ernte)`,
+          name: `${cropLabel} (Ernte)`,
           startDate: harvestStartDate,
           endDate: harvestEndDate,
           color: phaseColors.harvest,
           percent: 100,
           plantingPlanId: plan.id,
-          cultureName: cultureDisplayName || undefined,
-          cultureVariety: plan.culture_variety ?? undefined,
+          cropName: cropDisplayName || undefined,
+          cropVariety: plan.crop_variety ?? undefined,
           areaUsage: plan.area_usage_sqm ? Number(plan.area_usage_sqm) : undefined,
           notes: plan.notes,
           harvestStartDate,
@@ -733,37 +733,37 @@ export function buildFieldOccupancyHierarchy({
 
 export function buildSeedlingTaskGroups({
   plantingPlans,
-  cultures,
+  crops,
 }: BuildTaskGroupsArgs): GanttTaskGroup[] {
   if (!plantingPlans.length) {
     return [];
   }
 
-  const cultureById = buildCultureById(cultures);
+  const cropById = buildCropById(crops);
 
-  const groupsByCulture = new Map<string, GanttTaskGroup>();
+  const groupsByCrop = new Map<string, GanttTaskGroup>();
   const aggregatedTasksByKey = new Map<string, GanttTask>();
 
   plantingPlans.forEach((plan) => {
-    const preCultivation = getPlanPreCultivationDates(plan, cultureById);
+    const preCultivation = getPlanPreCultivationDates(plan, cropById);
     if (!preCultivation) {
       return;
     }
     const { propagationStartDate, transplantDate, propagationDurationDays } = preCultivation;
-    const culture = plan.culture ? cultureById.get(plan.culture) : undefined;
+    const crop = plan.crop ? cropById.get(plan.crop) : undefined;
 
-    const cultureDisplayName = getPlanCultureDisplayName(plan);
-    const cultureLabel = culture
-      ? formatCultureLabel(culture, cultureDisplayName || null, plan.culture_variety)
-      : formatCultureDisplayLabel(cultureDisplayName || `Kultur ${plan.culture}`, plan.culture_variety);
-    const groupId = `culture-${plan.culture}`;
-    const group = groupsByCulture.get(groupId) ?? {
+    const cropDisplayName = getPlanCropDisplayName(plan);
+    const cropLabel = crop
+      ? formatCropLabel(crop, cropDisplayName || null, plan.crop_variety)
+      : formatCropDisplayLabel(cropDisplayName || `Kultur ${plan.crop}`, plan.crop_variety);
+    const groupId = `crop-${plan.crop}`;
+    const group = groupsByCrop.get(groupId) ?? {
       id: groupId,
-      name: cultureLabel,
+      name: cropLabel,
       tasks: [],
     };
     const aggregateKey = [
-      plan.culture,
+      plan.crop,
       formatIsoDate(propagationStartDate),
       formatIsoDate(transplantDate),
     ].join('|');
@@ -779,15 +779,15 @@ export function buildSeedlingTaskGroups({
     }
 
     const task: GanttTask = {
-      id: `seedling-${plan.culture}-${formatIsoDate(propagationStartDate)}-${formatIsoDate(transplantDate)}`,
-      name: cultureLabel,
+      id: `seedling-${plan.crop}-${formatIsoDate(propagationStartDate)}-${formatIsoDate(transplantDate)}`,
+      name: cropLabel,
       startDate: propagationStartDate,
       endDate: transplantDate,
-      color: getCultureColor(cultures, plan.culture, cultureLabel, plan.culture_display_color),
+      color: getCropColor(crops, plan.crop, cropLabel, plan.crop_display_color),
       percent: 100,
       plantingPlanId: plan.id,
-      cultureName: cultureDisplayName || culture?.name || cultureLabel,
-      cultureVariety: culture?.variety || plan.culture_variety || undefined,
+      cropName: cropDisplayName || crop?.name || cropLabel,
+      cropVariety: crop?.variety || plan.crop_variety || undefined,
       propagationStartDate,
       propagationDurationDays,
       transplantDate,
@@ -797,10 +797,10 @@ export function buildSeedlingTaskGroups({
 
     group.tasks.push(task);
     aggregatedTasksByKey.set(aggregateKey, task);
-    groupsByCulture.set(groupId, group);
+    groupsByCrop.set(groupId, group);
   });
 
-  return [...groupsByCulture.values()]
+  return [...groupsByCrop.values()]
     .map((group) => ({
       ...group,
       tasks: [...group.tasks].sort((left, right) => left.startDate.getTime() - right.startDate.getTime()),

@@ -98,7 +98,7 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
   // harvest end) and the seedling range (propagation start -> planting) each
   // need to be wide enough that the timeline overflows its viewport and stays a
   // horizontal scroll container at every tested width, up to 1920px.
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Layout Kultur',
     growth_duration_days: 380,
     harvest_duration_days: 20,
@@ -118,7 +118,7 @@ async function createCalendarFixture(page: Page, options: { bedCount?: number } 
     });
     await api('/planting-plans/', {
       bed: bed.id,
-      culture: culture.id,
+      crop: crop.id,
       season: season.id,
       cultivation_type: 'pre_cultivation',
       planting_date: '2026-04-01',

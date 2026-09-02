@@ -29,7 +29,7 @@ test.describe('first-project onboarding', () => {
     await waitForPageStable(page, /Saatgutbedarf/);
     await expect(page.getByText('Karotte')).toBeVisible();
 
-    await page.goto('/app/cultures');
+    await page.goto('/app/crops');
     await waitForPageStable(page, /Kulturbibliothek/);
     await expect(page.getByRole('heading', { name: 'Gurke' })).toBeVisible();
   });

@@ -2,17 +2,17 @@ import { useMemo } from "react";
 import { type YieldCalendarWeek } from "../api/api";
 import { parseDateString } from "./ganttChartUtils";
 import {
-  ALL_CULTURES,
+  ALL_CROPS,
   formatDateToAPI,
   formatIsoWeek,
-  mergeCultureYields,
+  mergeCropYields,
   type ChartPeriod,
-  type YieldCalendarCulture,
-  type YieldCultureMeta,
+  type YieldCalendarCrop,
+  type YieldCropMeta,
 } from "./yieldOverviewUtils";
-import { getCultureDisplayName } from "../cultures/cultureDisplay";
+import { getCropDisplayName } from "../crops/cropDisplay";
 
-export interface YieldChartCulture extends YieldCultureMeta {
+export interface YieldChartCrop extends YieldCropMeta {
   totalYield: number;
 }
 
@@ -21,47 +21,47 @@ export interface YieldChartColumn {
   startDate: string;
   primaryLabel: string;
   secondaryLabel: string;
-  cultures: YieldCalendarCulture[];
+  crops: YieldCalendarCrop[];
   totalYield: number;
 }
 
 /**
  * Shapes the raw weekly yield rows into chart columns (grouped by week or
- * month) plus the legend cultures ordered by total visible yield. Memoized on
+ * month) plus the legend crops ordered by total visible yield. Memoized on
  * its inputs so the chart only recomputes when the data, filter, period, or
  * locale changes.
  */
 export function useYieldChartData(
   weeklyYield: YieldCalendarWeek[],
-  selectedCultureId: string,
+  selectedCropId: string,
   period: ChartPeriod,
   locale: string,
 ) {
   return useMemo(() => {
-    const cultureMeta = new Map<number, YieldCultureMeta>();
+    const cropMeta = new Map<number, YieldCropMeta>();
     weeklyYield.forEach((week) => {
-      week.cultures.forEach((culture) => {
-        cultureMeta.set(culture.culture_id, {
-          id: culture.culture_id,
-          name: getCultureDisplayName(culture),
-          color: culture.color,
+      week.crops.forEach((crop) => {
+        cropMeta.set(crop.crop_id, {
+          id: crop.crop_id,
+          name: getCropDisplayName(crop),
+          color: crop.color,
         });
       });
     });
 
-    const availableCultures = [...cultureMeta.values()].sort((left, right) =>
+    const availableCrops = [...cropMeta.values()].sort((left, right) =>
       left.name.localeCompare(right.name, locale),
     );
-    const selectedCulture =
-      selectedCultureId === ALL_CULTURES
+    const selectedCrop =
+      selectedCropId === ALL_CROPS
         ? null
-        : Number(selectedCultureId);
-    const filterCultures = (
-      cultures: YieldCalendarCulture[],
-    ): YieldCalendarCulture[] =>
-      selectedCulture === null
-        ? cultures
-        : cultures.filter((culture) => culture.culture_id === selectedCulture);
+        : Number(selectedCropId);
+    const filterCrops = (
+      crops: YieldCalendarCrop[],
+    ): YieldCalendarCrop[] =>
+      selectedCrop === null
+        ? crops
+        : crops.filter((crop) => crop.crop_id === selectedCrop);
 
     const sortedByStart = [...weeklyYield].sort((left, right) =>
       left.week_start.localeCompare(right.week_start),
@@ -69,8 +69,8 @@ export function useYieldChartData(
     if (sortedByStart.length === 0) {
       return {
         chartData: [] as YieldChartColumn[],
-        chartCultures: [] as YieldChartCulture[],
-        availableCultures,
+        chartCrops: [] as YieldChartCrop[],
+        availableCrops,
         yearBoundary: null as {
           columnId: string;
           year1: number;
@@ -91,7 +91,7 @@ export function useYieldChartData(
     while (currentDate <= endDate) {
       const weekStart = formatDateToAPI(currentDate);
       const week = weekMap.get(weekStart);
-      const cultures = filterCultures(week?.cultures ?? []);
+      const crops = filterCrops(week?.crops ?? []);
       const weekStartDate = parseDateString(weekStart);
       const isoWeek = week?.iso_week ?? formatIsoWeek(weekStartDate);
       weeklyColumns.push({
@@ -103,8 +103,8 @@ export function useYieldChartData(
         secondaryLabel: weekStartDate.toLocaleDateString(locale, {
           month: "short",
         }),
-        cultures,
-        totalYield: cultures.reduce((sum, culture) => sum + culture.yield, 0),
+        crops,
+        totalYield: crops.reduce((sum, crop) => sum + crop.yield, 0),
       });
       currentDate.setDate(currentDate.getDate() + 7);
     }
@@ -116,9 +116,9 @@ export function useYieldChartData(
             const sourceDate = parseDateString(column.startDate);
             const monthId = `${sourceDate.getFullYear()}-${String(sourceDate.getMonth() + 1).padStart(2, "0")}`;
             const existing = months.get(monthId);
-            const cultures = mergeCultureYields([
-              ...(existing?.cultures ?? []),
-              ...column.cultures,
+            const crops = mergeCropYields([
+              ...(existing?.crops ?? []),
+              ...column.crops,
             ]);
             months.set(monthId, {
               id: monthId,
@@ -127,33 +127,33 @@ export function useYieldChartData(
                 month: "short",
               }),
               secondaryLabel: String(sourceDate.getFullYear()),
-              cultures,
-              totalYield: cultures.reduce(
-                (sum, culture) => sum + culture.yield,
+              crops,
+              totalYield: crops.reduce(
+                (sum, crop) => sum + crop.yield,
                 0,
               ),
             });
             return months;
           }, new Map<string, YieldChartColumn>()).values()];
 
-    // The legend orders cultures by their total yield in the currently
+    // The legend orders crops by their total yield in the currently
     // visible data (descending) rather than alphabetically, so the most
-    // relevant cultures always appear first — this also determines which
+    // relevant crops always appear first — this also determines which
     // ones are shown first once the legend is collapsed to a subset.
-    const totalYieldByCultureId = new Map<number, number>();
+    const totalYieldByCropId = new Map<number, number>();
     chartData.forEach((column) => {
-      column.cultures.forEach((culture) => {
-        totalYieldByCultureId.set(
-          culture.culture_id,
-          (totalYieldByCultureId.get(culture.culture_id) ?? 0) + culture.yield,
+      column.crops.forEach((crop) => {
+        totalYieldByCropId.set(
+          crop.crop_id,
+          (totalYieldByCropId.get(crop.crop_id) ?? 0) + crop.yield,
         );
       });
     });
-    const chartCultures: YieldChartCulture[] = availableCultures
-      .filter((culture) => totalYieldByCultureId.has(culture.id))
-      .map((culture) => ({
-        ...culture,
-        totalYield: totalYieldByCultureId.get(culture.id) ?? 0,
+    const chartCrops: YieldChartCrop[] = availableCrops
+      .filter((crop) => totalYieldByCropId.has(crop.id))
+      .map((crop) => ({
+        ...crop,
+        totalYield: totalYieldByCropId.get(crop.id) ?? 0,
       }))
       .sort((left, right) => (
         right.totalYield - left.totalYield
@@ -184,13 +184,13 @@ export function useYieldChartData(
 
     return {
       chartData,
-      chartCultures,
-      availableCultures,
+      chartCrops,
+      availableCrops,
       yearBoundary,
       maxTotalYield: chartData.reduce(
         (max, column) => Math.max(max, column.totalYield),
         0,
       ),
     };
-  }, [locale, period, selectedCultureId, weeklyYield]);
+  }, [locale, period, selectedCropId, weeklyYield]);
 }

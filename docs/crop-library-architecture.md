@@ -69,7 +69,7 @@ The public Crop Library follows an open-data model:
   variants) is the concrete case: it depends on the farm's germination
   expectations, seeding technique and risk appetite, not on the crop, so
   publishing leaves it in the project crop and importing never overwrites
-  it. The shared `CultureForm`/`SeedingSection` and `CultureSeedDetails` hide
+  it. The shared `CropForm`/`SeedingSection` and `CropSeedDetails` hide
   the field entirely in the public-library variant (`showSeedSafetyMargin`),
   and keep it for project crops. See "Private project data that remains
   private" in
@@ -120,9 +120,9 @@ The public Crop Library follows an open-data model:
 - The diff stays reachable after a decision: `build_public_crop_update_status()`
   is still built for a rejected version, and the crop detail header carries a
   permanent, quiet marker next to the "Importiert" badge
-  (`PublicCultureUpdateMarker`) that reopens the dialog whenever the copy and
+  (`PublicCropUpdateMarker`) that reopens the dialog whenever the copy and
   the library version differ. Both entry points share one
-  `usePublicCultureUpdate` controller, so the notice and the marker can never
+  `usePublicCropUpdate` controller, so the notice and the marker can never
   disagree about what is loading, applying, or rejecting.
 - `CropSerializer.public_publish_blocked_reason` locks the "Öffentliche
   Kulturbibliothek aktualisieren" action while pushing the local copy would be
@@ -192,7 +192,7 @@ continue using their private copied snapshot until a future explicit
 update/merge flow is built.
 
 The public crop-library page treats URL state as the source of truth for
-navigable selections (`cultureId`, `tab`, `discussionId`). When users return
+navigable selections (`cropId`, `tab`, `discussionId`). When users return
 through the main navigation to the bare library route, the last valid
 crop-library view state is restored from local storage and written back into
 the URL; explicit URLs always override that saved state. Temporary UI state
@@ -220,15 +220,15 @@ never creates or proposes a public entry.
 
 The "Add crop" dialog's `Kulturart` ("Name") and `Sorte` ("Variety") fields
 are two separate suggestion sources
-(`frontend/src/cultures/publicCultureNameSuggestions.ts`,
-wired up in `CultureForm.tsx`/`BasicInfoSection.tsx`): the Name field
+(`frontend/src/crops/publicCropNameSuggestions.ts`,
+wired up in `CropForm.tsx`/`BasicInfoSection.tsx`): the Name field
 suggests deduplicated public crop species names only (one option per
 `crop_species`, never a "Species · Variety" combination), and the variety
 fields only offer suggestions — fetched via
 `GET /api/public-crops/?crop_species=<id>` — once the typed name exactly
 matches one of those species suggestions; otherwise they stay free text.
 Both suggestion sources filter out entries whose name or variety looks like
-manual-QA test data (`isLikelyTestPublicCultureEntry`) — a display-only
+manual-QA test data (`isLikelyTestPublicCropEntry`) — a display-only
 filter; no public-library rows are deleted for this.
 
 Selecting a Name suggestion links `crop_species` immediately and then copies
@@ -251,7 +251,7 @@ concrete `PublicCrop` row. The Add-**crop** dialog has no `variety` field at
 all; its optional "Sorte (optional)" field names a *second* crop created
 after the crop, so picking a suggestion there only records which library entry
 it came from and the linked draft is built at save time
-(`FirstVarietyDraft.draft`, applied in `Cultures.tsx`'s `handleSave`). Leaving
+(`FirstVarietyDraft.draft`, applied in `Crops.tsx`'s `handleSave`). Leaving
 it as free text keeps the pre-existing behavior of inheriting the crop's own
 values. This split is why the Add-crop dialog must prefill from the Name field:
 regression `#444`-era code put prefill exclusively on the `variety` field,
@@ -286,7 +286,7 @@ no-variety general crop row.
 
 The project page's "Kultur suchen" field has no dropdown of its own. It is a
 plain text field, and its results are the hierarchy list already sitting under
-it in the same card (`CultureDetail.tsx`, rows rendered by
+it in the same card (`CropDetail.tsx`, rows rendered by
 `CropHierarchyRow.tsx`): one row per Kultur group header, its Sorten
 underneath. The list keeps its own fixed, scrollable container, so typing
 re-filters it in place instead of floating an overlay over the surrounding
@@ -298,7 +298,7 @@ The search filters live, from the first character typed:
 
 - **Groups, not rows, are the unit of a hit.** A group matches when its Kultur
   name or any one of its Sorten does, and a hit is then shown with *all* of its
-  Sorten (`withGroupSiblingCultures`) — searching a Sorte name is a way of
+  Sorten (`withGroupSiblingCrops`) — searching a Sorte name is a way of
   finding its Kultur, so hiding that Kultur's other Sorten would answer a
   narrower question than the one asked. The widening runs on top of the other
   filters, never past them.
@@ -318,7 +318,7 @@ The search filters live, from the first character typed:
   Clicking a header still selects the general Kultur, unchanged.
 
 Filtering the page by a Sorte name keeps that Sorte's Kultur in the list
-(`withGroupGeneralCultures`), in the tree and the search results alike. Without
+(`withGroupGeneralCrops`), in the tree and the search results alike. Without
 it a group whose Kultur row was filtered away left a Kultur node with no data
 of its own: clicking it selected the first matching Sorte instead of the
 Kultur. The re-added Kultur is context for the matches and never a match
@@ -350,7 +350,7 @@ in the database for audit and transition safety. No UI creates, reviews, or
 displays them any more, and existing proposals are not automatically applied.
 The plumbing underneath is still there and still reachable: the model, the
 `change-proposals/` list/create/approve/reject actions on
-`PublicCropViewSet`, and the `publicCultureAPI.changeProposals(...)` /
+`PublicCropViewSet`, and the `publicCropAPI.changeProposals(...)` /
 `createChangeProposal` / `approveChangeProposal` / `rejectChangeProposal`
 wrappers in `frontend/src/api/api.ts` all still exist — only the components
 that used to call them are gone. Treat it as dead-but-live surface: don't build
@@ -370,7 +370,7 @@ planning calculations and the UI resolve it identically:
   always resolves to its own values.
 - `CROP_INHERITABLE_FIELDS` lists the planning fields that participate. It
   mirrors the frontend's `VARIETY_INHERITABLE_FIELDS`
-  (`frontend/src/cultures/varietyValueSource.ts`), which prefills a *new*
+  (`frontend/src/crops/varietyValueSource.ts`), which prefills a *new*
   Sorte from the same set, minus the legacy `seed_rate_value`/`seed_rate_unit`
   pair and the derived
   `seed_rate_by_cultivation` map (validated as a subset of the row's own
@@ -433,7 +433,7 @@ from its Kultur. The `crop_*` timing/cultivation fields the Gantt calendar
 plans from and the plant-count conversions also resolve through the service. On
 the frontend the same is true of `ganttChartUtils.ts`,
 `locationDerivedTasks.ts` and the "missing duration" tooltip in Anbaupläne, via
-`getEffectiveCultureValue`.
+`getEffectiveCropValue`.
 
 `Crop.plants_per_m2` is part of that: the model property still computes from
 the row's own spacing, but the serializer publishes the **effective** value.
@@ -450,7 +450,7 @@ changes, and when a general Kultur timing change affects Sorten that inherit
 that exact field. Existing plans are not bulk-recalculated during deployment or
 from GET endpoints just because a value became resolvable through inheritance.
 
-**The edit dialog.** `CultureForm` merges the resolved values into the form
+**The edit dialog.** `CropForm` merges the resolved values into the form
 (`buildInheritedValueBaseline`), so a field the Sorte does not override shows
 the Kultur's value rather than an empty input. Those values equal the Kultur's,
 so `getVarietyOwnValueSource` reports no override and the green highlight keeps
@@ -553,17 +553,17 @@ Making them public later is a one-line permission-class change, not a rewrite.
 All three crops mounts exist twice in `config/urls.py`, plain and
 legacy-prefixed, matching how `farm.urls` is already double-mounted.
 
-### Frontend — `frontend/src/crops/`
+### Frontend — `frontend/src/crop-library/`
 
 ```
-frontend/src/crops/
+frontend/src/crop-library/
   api/cropsApi.ts        client for /api/crop-library (list/get/match) —
                          still NOT wired into any page; only its own test
                          imports it
   components/
-    PublicCultureLibraryDialog.tsx     the quick import picker, moved from
-                                        src/cultures/ (see §3)
-    PublicCultureFiltersPopover.tsx    library filter UI
+    PublicCropLibraryDialog.tsx     the quick import picker, moved from
+                                        src/crops/ (see §3)
+    PublicCropFiltersPopover.tsx    library filter UI
     MultilingualTextFieldSection.tsx   per-language text editing
     publicCropLibrary/                 detail/discussion/version building
                                         blocks (CommentForm, DiscussionComment,
@@ -574,21 +574,21 @@ frontend/src/crops/
     PublicCropLibraryPage.tsx      /app/crop-library — the full workspace
     PublicLibraryModerationPage.tsx /app/public-library-moderation
   hooks/                 still empty (README explains what goes here later)
-  publicCultureDisplay.ts, publicCultureFilters.ts,
-  publicCultureListMerge.ts, publicCultureLibraryCommandSpecs.ts
-  index.ts               barrel (mirrors src/cultures/index.ts's convention
+  publicCropDisplay.ts, publicCropFilters.ts,
+  publicCropListMerge.ts, publicCropLibraryCommandSpecs.ts
+  index.ts               barrel (mirrors src/crops/index.ts's convention
                          of exporting only the public-facing pieces)
 ```
 
 `cropsApi.ts` exists so future code has somewhere to import from, but
-`Cultures.tsx` / `PublicCultureLibraryDialog` still call the existing
-`publicCultureAPI` in `api/api.ts` — switching the data source is a
+`Crops.tsx` / `PublicCropLibraryDialog` still call the existing
+`publicCropAPI` in `api/api.ts` — switching the data source is a
 separate, deliberate future step (see §5), not bundled into this
 architecture pass.
 
-`App.tsx` now exposes `/app/crop-library` (with `/app/crops` as an alias) as
-an authenticated full-page public library workspace. The existing
-`PublicCultureLibraryDialog` remains the quick import picker from the project
+`App.tsx` exposes `/app/crop-library` as an authenticated full-page public
+library workspace. The existing
+`PublicCropLibraryDialog` remains the quick import picker from the project
 Crop Library page and links to the full page for details, version history, and
 discussion.
 
@@ -631,49 +631,60 @@ Applied concretely:
   direction; deciding whether it should
   someday become a real network call (once crops is an actual separate
   service) is future work, documented in §5, not solved now.
-- `frontend/src/pages/usePublicCultureLibrary.ts` — the hook driving
+- `frontend/src/pages/usePublicCropLibrary.ts` — the hook driving
   publish/import from the project Crop Library page — stays in `pages/` for the same
   reason: it's the Farm-Planning-side integration point, not
   crop-library-only logic (it reads/writes a project's `Crop` and
-  needs a `selectedCulture`/`onImportSuccess` callback tied to that
+  needs a `selectedCrop`/`onImportSuccess` callback tied to that
   page's state).
-- `frontend/src/cultures/CultureDetail.tsx` also stays where it is: it's
+- `frontend/src/crops/CropDetail.tsx` also stays where it is: it's
   reusable, prop-driven code, but the *data* it displays (a project's own
   crops) is Farm Planning data, not the library. Only
-  `PublicCultureLibraryDialog.tsx` — which genuinely only ever renders
-  `PublicCrop[]` — moved to `crops/components/`.
+  `PublicCropLibraryDialog.tsx` — which genuinely only ever renders
+  `PublicCrop[]` — moved to `crop-library/components/`.
 
 ## 4. Naming
 
-The whole backend now speaks "Crop". The domain concept was originally
-called `Culture` — misleading in English, since it reads as microbiology or
-anthropology — and was renamed across models, serializers, viewsets, services,
-URLs and query parameters (`Culture` → `Crop`, `PublicCulture` → `PublicCrop`,
-`/api/cultures/` → `/api/crops/`, `/api/public-cultures/` → `/api/public-crops/`,
-`cultureId`/`culture_id` → `cropId`/`crop_id`). Tables, columns and the stored
-history/notification values moved with it (`farm/migrations/0098`–`0100`,
-`notifications/migrations/0004`).
+The whole codebase now speaks "Crop". The domain concept used to be called
+"Culture" — misleading in English, where it reads as microbiology or
+anthropology — and was renamed end to end: models, serializers, viewsets,
+services, URLs, query parameters, React components, hooks, API clients and
+i18n keys. Highlights:
 
-Because the project-owned rows took over `/api/crops/`, this app's read-only
-library surface moved to **`/api/crop-library/`**; `/api/crop-species/` and
-`/api/public-library/` are unchanged.
+| Was | Is |
+|---|---|
+| `Culture`, `PublicCulture`, `CultureSupplierData`, … | `Crop`, `PublicCrop`, `CropSupplierData`, … |
+| `/api/cultures/`, `/api/public-cultures/` | `/api/crops/`, `/api/public-crops/` |
+| `cultureId`, `culture_id` | `cropId`, `crop_id` |
+| `frontend/src/cultures/`, `Cultures.tsx`, `cultureAPI` | `frontend/src/crops/`, `Crops.tsx`, `cropAPI` |
+| route `/app/cultures` | route `/app/crops` |
 
-The frontend still uses the old vocabulary (`src/cultures/`, `Cultures.tsx`,
-`cultureAPI`, `publicCultureAPI`) — it is renamed in a separate, follow-up
-step. German UI text (`"Kultur"`, `"Kulturbibliothek"`) is untouched, as
-required.
+Tables, columns and the stored history/notification values moved with it
+(`farm/migrations/0098`–`0100`, `notifications/migrations/0004`).
+
+Two things shifted to make room, because the project-owned rows took over the
+`crops` name: this app's read-only API moved from `/api/crops/` to
+**`/api/crop-library/`**, and its frontend package from `src/crops/` to
+**`src/crop-library/`**. `/api/crop-species/` and `/api/public-library/` are
+unchanged. The `/app/crops` route alias for the library page is gone —
+`/app/crop-library` is its only route, and `/app/crops` is the project crop
+page.
+
+German UI text (`"Kultur"`, `"Kulturbibliothek"`) is untouched, as required:
+the rename covers i18n *keys* and interpolation placeholders only, never a
+translated string.
 
 ## 5. Deliberately NOT done (and why)
 
 | Not done | Why | Future path |
 |---|---|---|
 | Moving `PublicCrop` (or `Crop`) into `crops.models` | Changes migration state / `app_label`-derived `db_table`; real risk to existing data for zero current benefit | A dedicated migration using `SeparateDatabaseAndState` to move the model's Django state into `crops` while keeping (or explicitly renaming, in one controlled step) the actual table |
-| Removing/renaming `/api/public-crops/` | Would break the current frontend (`publicCultureAPI`) — a functional change the task forbids | Once `Cultures.tsx`/`PublicCultureLibraryDialog` are switched to `cropsApi`/`/api/crop-library`, deprecate and remove the legacy path |
-| Switching the frontend to actually call `/api/crop-library` | Not required to "prepare" the architecture, and swapping a working data source is exactly the kind of change to do deliberately and separately, with its own testing pass | Point `Cultures.tsx` at `cropsApi` instead of `publicCultureAPI`, delete the old client, delete `/api/public-crops/` |
+| Removing/renaming `/api/public-crops/` | Would break the current frontend (`publicCropAPI`) — a functional change the task forbids | Once `Crops.tsx`/`PublicCropLibraryDialog` are switched to `cropsApi`/`/api/crop-library`, deprecate and remove the legacy path |
+| Switching the frontend to actually call `/api/crop-library` | Not required to "prepare" the architecture, and swapping a working data source is exactly the kind of change to do deliberately and separately, with its own testing pass | Point `Crops.tsx` at `cropsApi` instead of `publicCropAPI`, delete the old client, delete `/api/public-crops/` |
 | A public, unauthenticated `/crops` route/page | The current collaboration and import workflow still needs an authenticated user and active project context | Split browsing from importing later: expose read-only public pages under `/crops`, keep project import under `/app` |
-| Splitting `i18n/locales/*/cultures.json` into a `crops` namespace | Namespace holds both library- and farm-planning-flavored strings today; splitting now is pure churn for zero user-visible benefit | Split when `crops/pages/` gets real UI text to hold |
+| Splitting `i18n/locales/*/crops.json` into a separate crop-library namespace | Namespace holds both library- and farm-planning-flavored strings today; splitting now is pure churn for zero user-visible benefit | Split when `crop-library/pages/` gets real UI text to hold |
 | Moving `Crop`/`CropViewSet`/`CropSupplierData`/`SeedPackage` into `crops` | These are genuinely Farm Planning (project-owned, or only meaningful attached to a project-owned `Crop`) — moving them would be the large, risky refactor the task asks to avoid | Not planned; these belong in Farm Planning long-term too |
-| Fixing `PublicCultureLibraryDialog.tsx`'s cross-import of `stripCitationMarkers` from `components/data-grid/markdown`, or its two pre-existing `react-hooks/set-state-in-effect` lint errors | Both pre-date this move (confirmed by lint-checking the file at its old path before moving it) — fixing them isn't in scope for an architecture-only pass | A future cleanup could move the markdown helper to a shared, domain-neutral location |
+| Fixing `PublicCropLibraryDialog.tsx`'s cross-import of `stripCitationMarkers` from `components/data-grid/markdown`, or its two pre-existing `react-hooks/set-state-in-effect` lint errors | Both pre-date this move (confirmed by lint-checking the file at its old path before moving it) — fixing them isn't in scope for an architecture-only pass | A future cleanup could move the markdown helper to a shared, domain-neutral location |
 
 ## 6. Current user-facing surfaces
 
@@ -682,7 +693,7 @@ required.
   `/api/public-cultures/...`) and `/api/crop-library/...` (this app's
   read-only surface, formerly `/api/crops/...`). New collaboration actions are additive child endpoints on
   `/api/public-crops/<id>/`.
-- The project Crop Library page still uses `PublicCultureLibraryDialog` for quick
+- The project Crop Library page still uses `PublicCropLibraryDialog` for quick
   import into the active project.
 - `/app/crop-library` is the full authenticated library workspace for
   browsing, importing, discussing entries, editing public crop data directly,
@@ -691,7 +702,7 @@ required.
 ## 7. Publishing Wizard quality gate
 
 Publishing a project-owned `Crop` is no longer a direct copy action from
-the project Crop Library page. The frontend opens `CulturesPublishingWizardDialog`,
+the project Crop Library page. The frontend opens `CropsPublishingWizardDialog`,
 which keeps the normal path intentionally small: the user selects the
 official `CropSpecies`, confirms the original language, and clicks publish.
 The wizard always publishes the crop's variety — there is no separate
@@ -708,7 +719,7 @@ step when the user attempts publication, then shows only actionable problems:
 
 The species `Autocomplete` offers the proposal inline in the dropdown instead
 of as a separate always-visible link: a sentinel option
-(`ProposeSpeciesOption` in `CulturesPublishingWizardDialog.tsx`) is appended
+(`ProposeSpeciesOption` in `CropsPublishingWizardDialog.tsx`) is appended
 by `filterOptions` as the **last** entry whenever the field holds text —
 including when official species *do* match. Hiding it behind `noOptionsText`
 (the earlier behaviour) meant a partial match such as "Kürbis" matching
@@ -836,14 +847,14 @@ no other row to own the entry, so it stays linked to the Sorte. Migration
 `is_incomplete`) whenever the species' general entry hasn't been updated in
 over 24 months (`GENERAL_CROP_STALE_THRESHOLD_DAYS`) or is missing one of the
 public-required fields. The wizard shows this as a dismissible info `Alert`
-linking to `/app/crop-library?cultureId=<id>` — it never blocks publishing.
+linking to `/app/crop-library?cropId=<id>` — it never blocks publishing.
 
-Duplicate candidates (`DuplicateCandidate`/`PublicCultureDuplicateCandidate`)
+Duplicate candidates (`DuplicateCandidate`/`PublicCropDuplicateCandidate`)
 now carry an `is_mine` flag (`created_by_id == user.id`). Since a user's own
 matching entry for the same source crop is already resolved as an update
 target rather than surfaced as a duplicate, `is_mine: false` is the common
 case in the blocking-duplicates list; the wizard renders each duplicate with
-a "View entry" link to `/app/crop-library?cultureId=<id>` so a name collision
+a "View entry" link to `/app/crop-library?cropId=<id>` so a name collision
 with someone else's entry points at a concrete place to look, rather than
 only naming it in text.
 

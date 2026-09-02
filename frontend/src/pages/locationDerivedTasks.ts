@@ -1,6 +1,6 @@
-import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/types';
-import { getCultureDisplayName } from '../cultures/cultureDisplay';
-import { getEffectiveCultureValue } from '../cultures/varietyValueSource';
+import type { Bed, Crop, Field, Location, PlantingPlan } from '../api/types';
+import { getCropDisplayName } from '../crops/cropDisplay';
+import { getEffectiveCropValue } from '../crops/varietyValueSource';
 import { addUtcDays, formatIsoDate, parseIsoDate } from '../utils/isoDate';
 
 export type DerivedTaskType =
@@ -14,7 +14,7 @@ export interface DerivedLocationTask {
   date: string;
   locationId: number;
   planId?: number;
-  cultureName?: string;
+  cropName?: string;
   bedName?: string;
   fieldName?: string;
 }
@@ -22,17 +22,17 @@ export interface DerivedLocationTask {
 const DIRECT_SOWING = 'direct_sowing';
 const PRE_CULTIVATION = 'pre_cultivation';
 
-const getPlanCultureDisplayName = (plan: PlantingPlan): string | undefined => (
-  plan.culture_display_name || plan.culture_name || undefined
+const getPlanCropDisplayName = (plan: PlantingPlan): string | undefined => (
+  plan.crop_display_name || plan.crop_name || undefined
 );
 
-const isDirectSowingPlan = (plan: PlantingPlan, culture?: Culture): boolean => {
-  const planType = plan.cultivation_type || plan.culture_cultivation_type;
+const isDirectSowingPlan = (plan: PlantingPlan, crop?: Crop): boolean => {
+  const planType = plan.cultivation_type || plan.crop_cultivation_type;
   if (planType === DIRECT_SOWING) return true;
   if (planType === PRE_CULTIVATION) return false;
 
-  const supported = plan.culture_cultivation_types
-    ?? getEffectiveCultureValue(culture, 'cultivation_types')
+  const supported = plan.crop_cultivation_types
+    ?? getEffectiveCropValue(crop, 'cultivation_types')
     ?? [];
   if (supported.includes(DIRECT_SOWING) && !supported.includes(PRE_CULTIVATION)) {
     return true;
@@ -45,20 +45,20 @@ export function deriveLocationTasks({
   fields,
   beds,
   plantingPlans,
-  cultures,
+  crops,
   today = new Date(),
 }: {
   locations: Location[];
   fields: Field[];
   beds: Bed[];
   plantingPlans: PlantingPlan[];
-  cultures: Culture[];
+  crops: Crop[];
   today?: Date;
 }): Record<number, DerivedLocationTask[]> {
   const locationIds = new Set(locations.map((location) => location.id).filter((id): id is number => typeof id === 'number'));
   const fieldById = new Map(fields.filter((field): field is Field & { id: number } => typeof field.id === 'number').map((field) => [field.id, field]));
   const bedById = new Map(beds.filter((bed): bed is Bed & { id: number } => typeof bed.id === 'number').map((bed) => [bed.id, bed]));
-  const cultureById = new Map(cultures.filter((culture): culture is Culture & { id: number } => typeof culture.id === 'number').map((culture) => [culture.id, culture]));
+  const cropById = new Map(crops.filter((crop): crop is Crop & { id: number } => typeof crop.id === 'number').map((crop) => [crop.id, crop]));
   const byLocation: Record<number, DerivedLocationTask[]> = {};
   const dedupe = new Set<string>();
   const todayIso = formatIsoDate(today);
@@ -73,16 +73,16 @@ export function deriveLocationTasks({
   };
 
   plantingPlans.forEach((plan) => {
-    if (!plan.bed || !plan.culture) return;
+    if (!plan.bed || !plan.crop) return;
     const bed = bedById.get(plan.bed);
     if (!bed) return;
     const field = fieldById.get(bed.field);
     if (!field || !locationIds.has(field.location)) return;
     const plantingDate = parseIsoDate(plan.planting_date);
     if (!plantingDate) return;
-    const culture = cultureById.get(plan.culture);
-    const cultureName = getPlanCultureDisplayName(plan) || (culture ? getCultureDisplayName(culture) : undefined);
-    const direct = isDirectSowingPlan(plan, culture);
+    const crop = cropById.get(plan.crop);
+    const cropName = getPlanCropDisplayName(plan) || (crop ? getCropDisplayName(crop) : undefined);
+    const direct = isDirectSowingPlan(plan, crop);
     const baseTaskType: DerivedTaskType = direct ? 'sowing' : 'planting';
 
     pushTask({
@@ -90,13 +90,13 @@ export function deriveLocationTasks({
       date: formatIsoDate(plantingDate),
       locationId: field.location,
       planId: plan.id,
-      cultureName,
+      cropName,
       bedName: plan.bed_name || bed.name,
       fieldName: field.name,
     });
 
-    const propagationDuration = plan.culture_propagation_duration_days
-      ?? getEffectiveCultureValue(culture, 'propagation_duration_days')
+    const propagationDuration = plan.crop_propagation_duration_days
+      ?? getEffectiveCropValue(crop, 'propagation_duration_days')
       ?? null;
     if (propagationDuration && propagationDuration > 0) {
       pushTask({
@@ -104,20 +104,20 @@ export function deriveLocationTasks({
         date: formatIsoDate(addUtcDays(plantingDate, -propagationDuration)),
         locationId: field.location,
         planId: plan.id,
-        cultureName,
+        cropName,
         bedName: plan.bed_name || bed.name,
         fieldName: field.name,
       });
     }
 
-    const growthDuration = getEffectiveCultureValue(culture, 'growth_duration_days') ?? null;
+    const growthDuration = getEffectiveCropValue(crop, 'growth_duration_days') ?? null;
     if (growthDuration && growthDuration > 0) {
       pushTask({
         type: 'harvestStart',
         date: formatIsoDate(addUtcDays(plantingDate, growthDuration)),
         locationId: field.location,
         planId: plan.id,
-        cultureName,
+        cropName,
         bedName: plan.bed_name || bed.name,
         fieldName: field.name,
       });

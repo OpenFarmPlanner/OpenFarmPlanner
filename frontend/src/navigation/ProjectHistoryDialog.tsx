@@ -18,26 +18,26 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { Link as RouterLink } from 'react-router';
 import type { TFunction } from 'i18next';
 
-import type { CultureHistoryEntry } from '../api/types';
+import type { CropHistoryEntry } from '../api/types';
 import {
   getBatchSummary,
   getHistoryEntryTarget,
   getHistoryEntryTitle,
   isBatchGroupEntry,
-} from '../pages/culturesHistoryUtils';
+} from '../pages/cropsHistoryUtils';
 
 interface ProjectHistoryDialogProps {
   open: boolean;
-  items: CultureHistoryEntry[];
+  items: CropHistoryEntry[];
   isPhonePortrait: boolean;
   fallbackActorLabel: string | undefined;
   formatTimestamp: (value: string) => string;
   onClose: () => void;
-  onRestore: (entry: CultureHistoryEntry) => void;
-  onRevertBatch: (entry: CultureHistoryEntry) => void;
+  onRestore: (entry: CropHistoryEntry) => void;
+  onRevertBatch: (entry: CropHistoryEntry) => void;
   /** `navigation` namespace translator (also resolves `common:`/`navigation:`). */
   t: TFunction;
-  tCultures: TFunction<'cultures'>;
+  tCrops: TFunction<'crops'>;
 }
 
 /**
@@ -58,16 +58,16 @@ export function ProjectHistoryDialog({
   onRestore,
   onRevertBatch,
   t,
-  tCultures,
+  tCrops,
 }: ProjectHistoryDialogProps) {
-  const actorOf = (entry: CultureHistoryEntry): string => (
+  const actorOf = (entry: CropHistoryEntry): string => (
     entry.actor_label?.trim()
     || entry.history_user?.trim()
     || fallbackActorLabel?.trim()
     || 'Unbekannter Benutzer'
   );
 
-  const renderBatchMeta = (entry: CultureHistoryEntry) => (
+  const renderBatchMeta = (entry: CropHistoryEntry) => (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
       <PersonOutlineIcon sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
       <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
@@ -94,8 +94,8 @@ export function ProjectHistoryDialog({
     )
   );
 
-  const renderBatchGroup = (entry: CultureHistoryEntry) => {
-    const summary = getBatchSummary(entry, tCultures);
+  const renderBatchGroup = (entry: CropHistoryEntry) => {
+    const summary = getBatchSummary(entry, tCrops);
     const action = restoreButton(() => onRevertBatch(entry));
 
     if (isPhonePortrait) {
@@ -122,9 +122,9 @@ export function ProjectHistoryDialog({
     );
   };
 
-  const renderEntry = (entry: CultureHistoryEntry) => {
+  const renderEntry = (entry: CropHistoryEntry) => {
     const historyTarget = getHistoryEntryTarget(entry);
-    const title = getHistoryEntryTitle(entry, tCultures);
+    const title = getHistoryEntryTitle(entry, tCrops);
     const actorLabel = actorOf(entry);
     const timestampLabel = formatTimestamp(entry.history_date);
     const targetLink = historyTarget ? (
@@ -135,7 +135,7 @@ export function ProjectHistoryDialog({
         onClick={onClose}
         sx={isPhonePortrait ? { fontSize: '0.78rem', color: 'text.secondary', flexShrink: 0 } : undefined}
       >
-        {entry.object_type === 'culture' ? tCultures('culture') : t('navigation:plantingPlans')}
+        {entry.object_type === 'crop' ? tCrops('crop') : t('navigation:plantingPlans')}
       </Link>
     ) : null;
 

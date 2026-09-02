@@ -67,7 +67,7 @@ describe('useKeyboardShortcuts context guard', () => {
     render(
       <ShortcutHarness
         contexts={['global']}
-        shortcut={{ id: 'a', title: 'A', keys: { alt: true, key: 'e' }, contexts: ['cultureDetail'], action }}
+        shortcut={{ id: 'a', title: 'A', keys: { alt: true, key: 'e' }, contexts: ['cropDetail'], action }}
       />,
     );
 
@@ -81,12 +81,12 @@ describe('command palette', () => {
     const action = vi.fn();
     const commands: CommandSpec[] = [
       {
-        id: 'culture.edit',
+        id: 'crop.edit',
         label: 'Kultur bearbeiten',
         group: 'navigation',
         keywords: ['kultur', 'bearbeiten'],
         shortcutHint: 'Alt+E',
-        contextTags: ['cultures'],
+        contextTags: ['crops'],
         isEnabled: () => true,
         action,
       },
@@ -117,7 +117,7 @@ describe('command palette', () => {
       { id: 'project.switch.a', label: 'Switch project: Alpha', group: 'project', keywords: [], contextTags: ['global'], action: vi.fn() },
       { id: 'project.switch.b', label: 'Switch project: Beta', group: 'project', keywords: [], contextTags: ['global'], action: switchProjectAction },
       { id: 'nav.second', label: 'Toggle sidebar', group: 'navigation', keywords: [], contextTags: ['global'], action: vi.fn() },
-      { id: 'culture.edit', label: 'Edit crop', group: 'navigation', keywords: [], contextTags: ['cultures'], action: editAction },
+      { id: 'crop.edit', label: 'Edit crop', group: 'navigation', keywords: [], contextTags: ['crops'], action: editAction },
     ];
 
     render(<CommandPalette open commands={commands} onClose={vi.fn()} />);

@@ -3,7 +3,7 @@
   "dashboard": "Overview",
   "locations": "Locations",
   "fieldsAndBeds": "Fields",
-  "cultures": "Crops",
+  "crops": "Crops",
   "cropLibrary": "Crop library",
   "suppliers": "Suppliers",
   "plantingPlans": "Planting plans",
@@ -64,9 +64,9 @@
       "endBeforeStart": "The end date must be after the start date.",
       "save": "Save",
       "error": "The period could not be changed.",
-      "unknownCulture": "Unknown culture",
+      "unknownCrop": "Unknown culture",
       "plantingConflictIntro": "These planting plans have a planting date outside the new period. Adjust or move them first before changing the period:",
-      "plantingConflictItem": "{{culture}} – planting date {{date}}",
+      "plantingConflictItem": "{{crop}} – planting date {{date}}",
       "overlapConflictIntro": "The new period overlaps another season:",
       "overlapConflictItem": "Season {{label}}: {{period}}"
     },
@@ -205,7 +205,7 @@
     "dashboard": "Help for dashboard",
     "locations": "Help for locations",
     "areas": "Help for growing areas",
-    "cultures": "Help for crops",
+    "crops": "Help for crops",
     "cropLibrary": "Help for the crop library",
     "plantingPlans": "Help for planting plans",
     "calendar": "Help for planting calendar",
@@ -214,13 +214,13 @@
     "suppliers": "Help for suppliers",
     "openAria": "Open {{label}}"
   },
-  "cultureActions": {
+  "cropActions": {
     "openLibrary": "Import from library",
     "library": "Import from library",
     "libraryShort": "Import",
     "openImportExport": "Open import/export",
     "importExport": "Import/Export",
-    "openCultureActions": "Open crop actions",
+    "openCropActions": "Open crop actions",
     "actions": "Actions"
   },
   "projectTrash": {
@@ -268,7 +268,7 @@
     "currentRegionShortcutsTitle": "Current focus region",
     "allPageShortcutsTitle": "Page-specific shortcuts",
     "allPageShortcuts": {
-      "cultures": {
+      "crops": {
         "title": "Crops",
         "create": "Add crop",
         "search": "Focus crop search",
@@ -336,7 +336,7 @@
     "restoreVersion": "Switch to this version",
     "contextTitles": {
       "global": "Global",
-      "cultures": "Crops",
+      "crops": "Crops",
       "publicCropLibrary": "Crop library",
       "locations": "Locations",
       "areas": "Growing areas",

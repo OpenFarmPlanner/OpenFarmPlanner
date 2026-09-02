@@ -137,7 +137,7 @@ saves are superseded by newer drafts, so the latest draft always wins.
 
 Who uses this today: `useAutosaveDraft` is consumed only from
 `components/data-grid/DataGrid.tsx` (`EditableDataGrid`), whose current sole
-page user is `PlantingPlans.tsx`. `CultureForm.tsx` and `Locations.tsx` moved
+page user is `PlantingPlans.tsx`. `CropForm.tsx` and `Locations.tsx` moved
 to explicit dialog Save/Cancel forms, and `FieldsBedsHierarchy.tsx` renders a
 raw `<DataGrid>` — none of them get this behavior. The hooks remain the right
 building blocks if a *form* needs blur-based autosave again.
@@ -429,7 +429,7 @@ Where this lives:
 | Entity | Delete | Undo |
 | --- | --- | --- |
 | Anbaupläne (`useDataGridDelete.ts`, `deleteUndoOptions`) | `api.delete` | `api.create(mapToApiData(row))` + reload |
-| Kulturen (`pages/useCultureDelete.ts`) | `cultureAPI.delete` (soft delete) | `cultureAPI.undelete` |
+| Kulturen (`pages/useCropDelete.ts`) | `cropAPI.delete` (soft delete) | `cropAPI.undelete` |
 | Standorte/Parzellen/Beete (`hooks/useHierarchyDelete.ts`) | `locationAPI`/`fieldAPI`/`bedAPI.delete` | recreate location → field → bed, remapping parent ids |
 | Lieferanten (`pages/Suppliers.tsx`) | `supplierAPI.delete` (409 when still referenced) | `supplierAPI.restoreUnlinkedDelete` with the payload the delete/unlink response returned |
 | Projekte (`projects/projectDeletionFeedback.ts`) | `projectAPI.delete` (soft delete) | `projectAPI.restore` |
@@ -598,8 +598,8 @@ drive-by change.
 
 Crop version history (backed by the generic `EntityRevision` model, see
 [versioning-and-history.md](./versioning-and-history.md)) is shown in a
-**standalone MUI `Dialog`** on `Cultures.tsx`, populated via
-`cultureAPI.history(...)`. It does not surface inside any grid cell,
+**standalone MUI `Dialog`** on `Crops.tsx`, populated via
+`cropAPI.history(...)`. It does not surface inside any grid cell,
 row-action menu, or notes drawer — if you're asked to "show history in the
 grid," that's new work, not exposing something that already half-exists.
 

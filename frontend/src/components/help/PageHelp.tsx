@@ -53,7 +53,7 @@ export type HelpPageKey =
   | 'fields'
   | 'beds'
   | 'areas'
-  | 'cultures'
+  | 'crops'
   | 'cropLibrary'
   | 'plantingPlans'
   | 'seedDemand'
@@ -106,7 +106,7 @@ const PAGE_SYMBOL_DEFINITIONS: Partial<Record<HelpPageKey, SymbolDefinition[]>> 
     },
     { key: 'delete', icon: <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} /> },
   ],
-  cultures: [
+  crops: [
     { key: 'add', icon: <AddIcon fontSize="small" sx={{ color: 'primary.main' }} /> },
     { key: 'library', icon: <PublicIcon fontSize="small" sx={{ color: 'primary.main' }} /> },
     { key: 'createPlan', icon: <AgricultureIcon fontSize="small" sx={{ color: 'primary.main' }} /> },

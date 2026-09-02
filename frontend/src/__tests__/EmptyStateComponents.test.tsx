@@ -12,7 +12,7 @@ describe('Empty state components', () => {
           title="Noch keine Daten"
           description="Lege zuerst Daten an."
           actions={[
-            { label: 'Primäre Aktion', to: '/app/cultures' },
+            { label: 'Primäre Aktion', to: '/app/crops' },
             { label: 'Sekundäre Aktion', to: '/app/fields-beds' },
           ]}
         />

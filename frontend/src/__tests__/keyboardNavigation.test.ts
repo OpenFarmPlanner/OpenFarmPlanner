@@ -141,7 +141,7 @@ describe('scrollCellIntoView', () => {
   // short of "Pflanzen").
   const createApiWithHiddenColumns = () => {
     const visibleColumns = [
-      { field: 'culture' },
+      { field: 'crop' },
       { field: 'planting_date' },
       { field: 'area_m2' },
       { field: 'plants_count' },

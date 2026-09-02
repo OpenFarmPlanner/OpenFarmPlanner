@@ -31,8 +31,8 @@ import dashboardDE from './locales/de/dashboard.json';
 import dashboardEN from './locales/en/dashboard.json';
 import locationsDE from './locales/de/locations.json';
 import locationsEN from './locales/en/locations.json';
-import culturesDE from './locales/de/cultures.json';
-import culturesEN from './locales/en/cultures.json';
+import cropsDE from './locales/de/crops.json';
+import cropsEN from './locales/en/crops.json';
 import plantingPlansDE from './locales/de/plantingPlans.json';
 import plantingPlansEN from './locales/en/plantingPlans.json';
 import fieldsDE from './locales/de/fields.json';
@@ -72,7 +72,7 @@ i18n
     debug: import.meta.env.DEV && import.meta.env.MODE !== 'test',
     
     // Namespaces for organizing translations
-    ns: ['common', 'navigation', 'home', 'dashboard', 'locations', 'cultures', 'plantingPlans', 'fields', 'beds', 'hierarchy', 'ganttChart', 'yieldOverview', 'suppliers', 'help', 'auth', 'account', 'projectInvitations', 'notifications', 'feedback'],
+    ns: ['common', 'navigation', 'home', 'dashboard', 'locations', 'crops', 'plantingPlans', 'fields', 'beds', 'hierarchy', 'ganttChart', 'yieldOverview', 'suppliers', 'help', 'auth', 'account', 'projectInvitations', 'notifications', 'feedback'],
     defaultNS: 'common',
     
     // Translation resources
@@ -83,7 +83,7 @@ i18n
         home: homeDE,
         dashboard: dashboardDE,
         locations: locationsDE,
-        cultures: culturesDE,
+        crops: cropsDE,
         plantingPlans: plantingPlansDE,
         fields: fieldsDE,
         beds: bedsDE,
@@ -104,7 +104,7 @@ i18n
         home: homeEN,
         dashboard: dashboardEN,
         locations: locationsEN,
-        cultures: culturesEN,
+        crops: cropsEN,
         plantingPlans: plantingPlansEN,
         fields: fieldsEN,
         beds: bedsEN,

@@ -26,7 +26,7 @@ npm run test:e2e
   - `E2E_TEST_TOKEN` is set for the backend process started by Playwright
 - Tests that publish global public-library data must clean up their scenario
   with `resetE2EScenario()` in a `finally` block. The backend reset removes
-  project data and reserved E2E public-culture varieties so local development
+  project data and reserved E2E public-crop varieties so local development
   catalogues do not accumulate test publications.
 - `FRONTEND_PORT` and `BACKEND_PORT` env vars override the default ports (4173 / 8000) if
   you need to run E2E tests alongside an already-running dev environment.

@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { PublicCulture } from '../api/types';
-import { PublicCropHierarchyList } from '../cultures/PublicCropHierarchyList';
+import type { PublicCrop } from '../api/types';
+import { PublicCropHierarchyList } from '../crops/PublicCropHierarchyList';
 
-const cultures: PublicCulture[] = [
+const crops: PublicCrop[] = [
   {
     id: 1,
     status: 'published',
@@ -30,8 +30,8 @@ describe('PublicCropHierarchyList', () => {
   it('shows variety rows without cultivation-type subtitles', async () => {
     render(
       <PublicCropHierarchyList
-        cultures={cultures}
-        selectedCultureId={2}
+        crops={crops}
+        selectedCropId={2}
         isSpeciesView={false}
         onSelect={vi.fn()}
         ariaLabel="Crop library"
@@ -50,7 +50,7 @@ describe('PublicCropHierarchyList', () => {
   it('shows all varieties in a matched crop group and highlights the search text', async () => {
     render(
       <PublicCropHierarchyList
-        cultures={[
+        crops={[
           {
             id: 10,
             status: 'published',
@@ -76,7 +76,7 @@ describe('PublicCropHierarchyList', () => {
             version: 1,
           },
         ]}
-        selectedCultureId={11}
+        selectedCropId={11}
         isSpeciesView={false}
         onSelect={vi.fn()}
         ariaLabel="Crop library"
@@ -92,7 +92,7 @@ describe('PublicCropHierarchyList', () => {
   });
 
   it('shows only the pending-suggestion icon for a species with a single pending variety', async () => {
-    const pendingCultures: PublicCulture[] = [{
+    const pendingCrops: PublicCrop[] = [{
       id: 3,
       status: 'published',
       name: 'Kürbis',
@@ -106,8 +106,8 @@ describe('PublicCropHierarchyList', () => {
 
     render(
       <PublicCropHierarchyList
-        cultures={pendingCultures}
-        selectedCultureId={null}
+        crops={pendingCrops}
+        selectedCropId={null}
         isSpeciesView
         onSelect={vi.fn()}
         ariaLabel="Crop library"
@@ -122,7 +122,7 @@ describe('PublicCropHierarchyList', () => {
   });
 
   it('shows the pending-suggestion icon alongside the count once more than one variety is proposed', async () => {
-    const pendingCultures: PublicCulture[] = [
+    const pendingCrops: PublicCrop[] = [
       {
         id: 4,
         status: 'published',
@@ -149,8 +149,8 @@ describe('PublicCropHierarchyList', () => {
 
     render(
       <PublicCropHierarchyList
-        cultures={pendingCultures}
-        selectedCultureId={null}
+        crops={pendingCrops}
+        selectedCropId={null}
         isSpeciesView
         onSelect={vi.fn()}
         ariaLabel="Crop library"

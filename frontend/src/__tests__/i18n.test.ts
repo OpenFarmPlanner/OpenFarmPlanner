@@ -23,12 +23,12 @@ describe('i18n Configuration', () => {
       'common:appName',
       'navigation:plantingPlans',
       'navigation:locations',
-      'navigation:cultures',
+      'navigation:crops',
       'navigation:cropLibrary',
-      'navigation:cultureActions.library',
-      'cultures:title',
-      'cultures:library.dialogTitle',
-      'cultures:library.page.title',
+      'navigation:cropActions.library',
+      'crops:title',
+      'crops:library.dialogTitle',
+      'crops:library.page.title',
     ];
 
     for (const key of keys) {
@@ -41,24 +41,24 @@ describe('i18n Configuration', () => {
   it('keeps the crop-library navigation entry and the public library entry distinct', () => {
     for (const language of ['de', 'en']) {
       const t = i18n.getFixedT(language);
-      expect(t('navigation:cultures')).not.toBe(t('navigation:cropLibrary'));
-      expect(t('cultures:library.dialogTitle')).not.toBe(t('cultures:library.page.title'));
+      expect(t('navigation:crops')).not.toBe(t('navigation:cropLibrary'));
+      expect(t('crops:library.dialogTitle')).not.toBe(t('crops:library.page.title'));
     }
   });
 
   it('should support interpolation', () => {
-    const harvestWindow = i18n.t('cultures:fields.harvestWindowValue', { first: 60, last: 90 });
+    const harvestWindow = i18n.t('crops:fields.harvestWindowValue', { first: 60, last: 90 });
     expect(harvestWindow).toContain('60');
     expect(harvestWindow).toContain('90');
   });
 
   it('interpolates values into the publish-instruction hint', () => {
-    const withPublish = i18n.t('cultures:library.importDialog.emptyInstructionAria', { publish: 'Veröffentlichen' });
+    const withPublish = i18n.t('crops:library.importDialog.emptyInstructionAria', { publish: 'Veröffentlichen' });
     expect(withPublish).toContain('Veröffentlichen');
   });
 
   it('should have all required namespaces', () => {
-    const namespaces = ['common', 'navigation', 'home', 'locations', 'cultures', 'plantingPlans', 'fields', 'beds', 'hierarchy'];
+    const namespaces = ['common', 'navigation', 'home', 'locations', 'crops', 'plantingPlans', 'fields', 'beds', 'hierarchy'];
 
     namespaces.forEach(ns => {
       expect(i18n.hasResourceBundle('de', ns)).toBe(true);

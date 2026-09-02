@@ -504,7 +504,7 @@ describe('App', () => {
     expect(screen.queryByRole('link', { name: translations.navigation.locations })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Zur Übersicht' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Zur Übersicht' }).length).toBeGreaterThan(0);
-    expect(screen.getByText(translations.navigation.cultures)).toBeInTheDocument();
+    expect(screen.getByText(translations.navigation.crops)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: translations.navigation.plantingPlans })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Aktives Projekt wechseln' })).toBeInTheDocument();
   });
@@ -531,16 +531,16 @@ describe('App', () => {
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
     // Still visible, so new users can see what OpenFarmPlanner offers...
-    const cultureLabel = await screen.findByText(translations.navigation.cultures);
-    expect(cultureLabel).toBeInTheDocument();
+    const cropLabel = await screen.findByText(translations.navigation.crops);
+    expect(cropLabel).toBeInTheDocument();
     // ...but not a navigable link, and exposed as disabled for assistive tech.
     // (The interactive sidebar row itself — including its hover tooltip and
     // click/keyboard guards — is exercised directly against real pointer/
     // keyboard events in NavListItem.test.tsx; this only has to confirm the
     // wiring from RootLayout produces a disabled, non-link entry.)
-    expect(screen.queryByRole('link', { name: translations.navigation.cultures })).not.toBeInTheDocument();
-    const disabledCultureControl = cultureLabel.closest('[aria-disabled]');
-    expect(disabledCultureControl).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('link', { name: translations.navigation.crops })).not.toBeInTheDocument();
+    const disabledCropControl = cropLabel.closest('[aria-disabled]');
+    expect(disabledCropControl).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('links logo to dashboard when an active project is selected', async () => {
@@ -1018,7 +1018,7 @@ describe('App', () => {
       pending_consents: [],
     };
     authState.activeProjectId = null;
-    window.history.pushState({}, '', '/app/cultures');
+    window.history.pushState({}, '', '/app/crops');
 
     render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);
 
@@ -1072,11 +1072,11 @@ describe('App', () => {
     authState.activeProjectId = 1;
 
     for (const { initialPath, previousHeading } of [
-      { initialPath: '/app/cultures', previousHeading: 'Kulturbibliothek' },
+      { initialPath: '/app/crops', previousHeading: 'Kulturbibliothek' },
       { initialPath: '/app/planting-plans', previousHeading: 'Anbaupläne' },
     ]) {
-      if (initialPath === '/app/cultures') {
-        localStorage.setItem('selectedCultureId', '1');
+      if (initialPath === '/app/crops') {
+        localStorage.setItem('selectedCropId', '1');
       }
       window.history.pushState({}, '', initialPath);
       const { unmount } = render(<FocusManagerProvider><CommandProvider><App /></CommandProvider></FocusManagerProvider>);

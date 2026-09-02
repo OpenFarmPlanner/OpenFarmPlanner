@@ -4,12 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import i18n from '../../i18n';
 import { ProjectHistoryDialog } from '../ProjectHistoryDialog';
-import type { CultureHistoryEntry } from '../../api/types';
+import type { CropHistoryEntry } from '../../api/types';
 
 const t = i18n.getFixedT('de', 'navigation');
-const tCultures = i18n.getFixedT('de', 'cultures');
+const tCrops = i18n.getFixedT('de', 'crops');
 
-function entry(partial: Partial<CultureHistoryEntry>): CultureHistoryEntry {
+function entry(partial: Partial<CropHistoryEntry>): CropHistoryEntry {
   return {
     history_id: Math.floor(Math.random() * 1e6),
     history_date: '2026-08-30T12:37:00.000Z',
@@ -22,7 +22,7 @@ function entry(partial: Partial<CultureHistoryEntry>): CultureHistoryEntry {
 }
 
 function renderDialog(
-  items: CultureHistoryEntry[],
+  items: CropHistoryEntry[],
   { onRestore = vi.fn(), onRevertBatch = vi.fn() } = {},
 ) {
   render(
@@ -37,7 +37,7 @@ function renderDialog(
         onRestore={onRestore}
         onRevertBatch={onRevertBatch}
         t={t}
-        tCultures={tCultures}
+        tCrops={tCrops}
       />
     </MemoryRouter>,
   );
@@ -88,8 +88,8 @@ describe('ProjectHistoryDialog', () => {
 
   it('lists ungrouped revisions flat with "Version wiederherstellen"', () => {
     renderDialog([
-      entry({ object_type: 'culture', object_display_name: 'Newest', action: 'updated' }),
-      entry({ object_type: 'culture', object_display_name: 'Bijella', action: 'updated' }),
+      entry({ object_type: 'crop', object_display_name: 'Newest', action: 'updated' }),
+      entry({ object_type: 'crop', object_display_name: 'Bijella', action: 'updated' }),
     ]);
 
     expect(screen.getByText(/Bijella/)).toBeInTheDocument();

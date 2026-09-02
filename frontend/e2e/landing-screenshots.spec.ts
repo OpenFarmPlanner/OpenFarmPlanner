@@ -26,15 +26,15 @@ const screenshots = [
     fieldsViewMode: 'table',
   },
   {
-    key: 'cultures',
-    path: '/app/cultures',
+    key: 'crops',
+    path: '/app/crops',
     ready: {
       de: /Kulturbibliothek|Karotte/i,
       en: /Crop library|Carrot/i,
     },
     filenames: {
-      de: 'demo-cultures.webp',
-      en: 'demo-cultures-en.webp',
+      de: 'demo-crops.webp',
+      en: 'demo-crops-en.webp',
     },
   },
   {

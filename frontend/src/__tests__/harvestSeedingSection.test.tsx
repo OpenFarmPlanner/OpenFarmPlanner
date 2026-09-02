@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { HarvestSection } from '../cultures/sections/HarvestSection';
-import { SeedingSection } from '../cultures/sections/SeedingSection';
+import { HarvestSection } from '../crops/sections/HarvestSection';
+import { SeedingSection } from '../crops/sections/SeedingSection';
 
 import i18n from '../i18n/config';
 
 const t = (key: string, options?: Record<string, unknown>) =>
-  i18n.getFixedT('de', 'cultures')(key, options) as string;
+  i18n.getFixedT('de', 'crops')(key, options) as string;
 
 describe('HarvestSection and SeedingSection', () => {
   it('changes yield unit via select', () => {

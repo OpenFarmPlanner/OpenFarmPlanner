@@ -12,7 +12,7 @@ function renderItem(overrides: Partial<React.ComponentProps<typeof NavListItem>>
   render(
     <MemoryRouter>
       <NavListItem
-        to="/app/cultures"
+        to="/app/crops"
         label={LABEL}
         icon={<span data-testid="icon" />}
         isActive={false}
@@ -91,7 +91,7 @@ describe('NavListItem — active project (enabled)', () => {
     renderItem({ disabled: false });
 
     const link = screen.getByRole('link', { name: LABEL });
-    expect(link).toHaveAttribute('href', '/app/cultures');
+    expect(link).toHaveAttribute('href', '/app/crops');
     expect(link).not.toHaveAttribute('aria-disabled');
   });
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { GridFilterModel } from '@mui/x-data-grid';
 import { usePersistentSortModel } from '../hooks/usePersistentSortModel';
 
-const allowedFields = ['planting_date', 'culture', 'bed'];
+const allowedFields = ['planting_date', 'crop', 'bed'];
 
 describe('usePersistentSortModel', () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('usePersistentSortModel', () => {
     );
 
     const nextFilterModel: GridFilterModel = {
-      items: [{ id: 1, field: 'culture', operator: 'contains', value: 'Tomate' }],
+      items: [{ id: 1, field: 'crop', operator: 'contains', value: 'Tomate' }],
     };
 
     act(() => {
@@ -47,7 +47,7 @@ describe('usePersistentSortModel', () => {
       items: [{ id: 1, field: 'bed', operator: 'contains', value: 'Nord' }],
     };
     const urlFilterModel: GridFilterModel = {
-      items: [{ id: 2, field: 'culture', operator: 'contains', value: 'Salat' }],
+      items: [{ id: 2, field: 'crop', operator: 'contains', value: 'Salat' }],
     };
     window.sessionStorage.setItem('tableFilter.plantingPlans', JSON.stringify(storedFilterModel));
     window.history.replaceState(
@@ -71,7 +71,7 @@ describe('usePersistentSortModel', () => {
       null,
       '',
       `/planting-plans?filter_plantingPlans=${encodeURIComponent(
-        JSON.stringify({ items: [{ id: 1, field: 'culture', operator: 'contains', value: 'Tomate' }] }),
+        JSON.stringify({ items: [{ id: 1, field: 'crop', operator: 'contains', value: 'Tomate' }] }),
       )}`,
     );
     const { result } = renderHook(() =>

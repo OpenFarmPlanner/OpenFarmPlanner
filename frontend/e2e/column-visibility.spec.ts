@@ -51,7 +51,7 @@ async function setUpPlantingPlan(page: Page, request: APIRequestContext, scenari
   const location = await api<{ id: number }>('/locations/', { name: 'Testhof' });
   const field = await api<{ id: number }>('/fields/', { name: 'Testfeld', location: location.id });
   const bed = await api<{ id: number }>('/beds/', { name: 'Testbeet', field: field.id, area_sqm: 5 });
-  const culture = await api<{ id: number }>('/cultures/', {
+  const crop = await api<{ id: number }>('/crops/', {
     name: 'Testkultur',
     variety: 'Sorte A',
     propagation_duration_days: 21,
@@ -61,7 +61,7 @@ async function setUpPlantingPlan(page: Page, request: APIRequestContext, scenari
   });
   await api('/planting-plans/', {
     bed: bed.id,
-    culture: culture.id,
+    crop: crop.id,
     season: season.id,
     cultivation_type: 'pre_cultivation',
     planting_date: '2026-04-01',

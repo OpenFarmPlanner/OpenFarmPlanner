@@ -1,7 +1,7 @@
 {
   "title": "Planting plans",
   "columns": {
-    "culture": "Crop (Variety)",
+    "crop": "Crop (Variety)",
     "location": "Location",
     "field": "Field",
     "bed": "Bed",
@@ -44,7 +44,7 @@
     "applyBedArea": "Use bed area"
   },
   "placeholders": {
-    "selectCulture": "Select culture",
+    "selectCrop": "Select culture",
     "selectCultivationType": "Select cultivation type",
     "selectArea": "Select growing area",
     "plantsCount": "Enter quantity",
@@ -76,12 +76,12 @@
   },
   "validation": {
     "plantingDateRequired": "Planting date is required",
-    "cultureRequired": "Culture is required",
+    "cropRequired": "Culture is required",
     "bedRequired": "Bed is required",
     "cultivationTypeRequired": "Cultivation type is required",
     "plantingDateOutsideSeason": "Planting date must fall within the season ({{start}} – {{end}}).",
     "requiredFields": "The following required fields must be filled in: {{fields}}",
-    "cultureOrBedRequired": "Culture or bed is required",
+    "cropOrBedRequired": "Culture or bed is required",
     "areaExceedsRemaining": "The specified area exceeds this bed's available remaining area.",
     "areaExceedsBedArea": "The specified area exceeds this bed's size.",
     "bedArea": "Bed area",
@@ -132,7 +132,7 @@
         "title": "You haven't created any beds yet.",
         "description": "Beds are the foundation for planting plans. Open Fields & Beds and add a bed via a field."
       },
-      "cultures": {
+      "crops": {
         "title": "You haven't created any cultures yet.",
         "description": "Cultures are required to create planting plans."
       },
@@ -148,8 +148,8 @@
     "actions": {
       "createField": "Add field",
       "createAreas": "Go to Fields & Beds",
-      "openCultureLibrary": "Open culture library",
-      "addCulture": "Add culture",
+      "openCropLibrary": "Open culture library",
+      "addCrop": "Add culture",
       "createSeason": "Create season"
     }
   },

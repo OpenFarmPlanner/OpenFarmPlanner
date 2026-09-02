@@ -7,7 +7,7 @@ import { MobilePlanFormDialog } from "../components/planting-plans/MobilePlanFor
 import type { MobileCreateFormState } from "../pages/plantingPlansUtils";
 
 const initialForm: MobileCreateFormState = {
-  culture: "1",
+  crop: "1",
   bed: "101",
   cultivation_type: "pre_cultivation",
   planting_date: "1.8.2026",
@@ -26,7 +26,7 @@ function renderDialog() {
         form={form}
         setForm={setForm}
         error=""
-        cultureOptions={[{ value: "1", label: "Tomate (Moneymaker)" }]}
+        cropOptions={[{ value: "1", label: "Tomate (Moneymaker)" }]}
         bedOptions={[{ value: "101", label: "Parzelle | Beet" }]}
         cultivationTypeOptions={[{ value: "pre_cultivation", label: "Vorkultur" }]}
         numberLocale="de-DE"

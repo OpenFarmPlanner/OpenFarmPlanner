@@ -5,8 +5,8 @@ import type {
   ApiTokenCreated,
   AppNotification,
   NotificationListResponse,
-  Culture,
-  CultureDeletePreview,
+  Crop,
+  CropDeletePreview,
   Location,
   Field,
   Bed,
@@ -16,32 +16,32 @@ import type {
   SeedDemand,
   YieldCalendarWeek,
   NoteAttachment,
-  CultureHistoryEntry,
-  CultureDuplicateCheckResponse,
-  CulturePublicUpdate,
+  CropHistoryEntry,
+  CropDuplicateCheckResponse,
+  CropPublicUpdate,
   SeedRateConstraintsResponse,
-  ImportPublicCultureResponse,
+  ImportPublicCropResponse,
   MediaFileRef,
-  PublicCulture,
-  PublicCultureChangeProposal,
-  PublicCultureDiscussionComment,
-  PublicCultureDiscussionTopic,
-  PublicCultureMatchResponse,
-  PublicCultureRemovalReason,
-  PublicCultureRevision,
-  PublicCultureDuplicateCandidate,
-  PublicCultureTranslations,
+  PublicCrop,
+  PublicCropChangeProposal,
+  PublicCropDiscussionComment,
+  PublicCropDiscussionTopic,
+  PublicCropMatchResponse,
+  PublicCropRemovalReason,
+  PublicCropRevision,
+  PublicCropDuplicateCandidate,
+  PublicCropTranslations,
   CropSpecies,
   CropSpeciesTranslation,
   PublicLibraryModeratorRequest,
   PublicLibraryModeratorRequestMine,
-  PublishPublicCulturePreview,
-  PublishPublicCultureResponse,
+  PublishPublicCropPreview,
+  PublishPublicCropResponse,
   RemainingAreaResponse,
   BedLayoutEntry,
   FieldLayoutEntry,
   LocationLayoutsResponse,
-  CultureSupplierData,
+  CropSupplierData,
   SupplierDeleteResponse,
   SupplierDeleteUsage,
   SupplierDeleteUndoPayload,
@@ -112,23 +112,23 @@ const withActiveProject = <T extends object>(data: T): T | (T & { project: numbe
   return { ...data, project: activeProjectId };
 };
 
-export const cultureAPI = {
-  list: (url = '/cultures/') => http.get<PaginatedResponse<Culture>>(url),
-  listAll: () => fetchAllPaginated<Culture>('/cultures/'),
-  get: (id: number) => http.get<Culture>(`/cultures/${id}/`),
+export const cropAPI = {
+  list: (url = '/crops/') => http.get<PaginatedResponse<Crop>>(url),
+  listAll: () => fetchAllPaginated<Crop>('/crops/'),
+  get: (id: number) => http.get<Crop>(`/crops/${id}/`),
   duplicateCheck: (params: { name: string; variety: string; exclude_id?: number }, signal?: AbortSignal) =>
-    http.get<CultureDuplicateCheckResponse>('/cultures/duplicate-check/', { params, signal }),
-  seedRateConstraints: () => http.get<SeedRateConstraintsResponse>('/cultures/seed-rate-constraints/'),
-  create: (data: Culture) => http.post<Culture>('/cultures/', withActiveProject(data)),
-  update: (id: number, data: Culture) => http.put<Culture>(`/cultures/${id}/`, withActiveProject(data)),
-  deletePreview: (id: number) => http.get<CultureDeletePreview>(`/cultures/${id}/delete-preview/`),
-  delete: (id: number) => http.delete(`/cultures/${id}/`),
-  history: (id: number) => http.get<CultureHistoryEntry[]>(`/cultures/${id}/history/`),
-  restore: (id: number, history_id: number) => http.post<Culture>(`/cultures/${id}/restore/`, { history_id }),
-  undelete: (id: number) => http.post<Culture>(`/cultures/${id}/undelete/`, {}),
-  globalHistory: () => http.get<CultureHistoryEntry[]>('/history/global/'),
-  globalRestore: (history_id: number) => http.post<Culture>('/history/global/restore/', { history_id }),
-  projectHistory: () => http.get<CultureHistoryEntry[]>('/history/project/'),
+    http.get<CropDuplicateCheckResponse>('/crops/duplicate-check/', { params, signal }),
+  seedRateConstraints: () => http.get<SeedRateConstraintsResponse>('/crops/seed-rate-constraints/'),
+  create: (data: Crop) => http.post<Crop>('/crops/', withActiveProject(data)),
+  update: (id: number, data: Crop) => http.put<Crop>(`/crops/${id}/`, withActiveProject(data)),
+  deletePreview: (id: number) => http.get<CropDeletePreview>(`/crops/${id}/delete-preview/`),
+  delete: (id: number) => http.delete(`/crops/${id}/`),
+  history: (id: number) => http.get<CropHistoryEntry[]>(`/crops/${id}/history/`),
+  restore: (id: number, history_id: number) => http.post<Crop>(`/crops/${id}/restore/`, { history_id }),
+  undelete: (id: number) => http.post<Crop>(`/crops/${id}/undelete/`, {}),
+  globalHistory: () => http.get<CropHistoryEntry[]>('/history/global/'),
+  globalRestore: (history_id: number) => http.post<Crop>('/history/global/restore/', { history_id }),
+  projectHistory: () => http.get<CropHistoryEntry[]>('/history/project/'),
   projectRestore: (history_id: number) => http.post<{ detail: string }>('/history/project/restore/', { history_id }),
   revertBatch: (batch_id: number) => http.post<{ detail: string }>(`/history/batch/${batch_id}/revert/`, {}),
   // Legacy import flow split into preview/apply endpoints.
@@ -136,12 +136,12 @@ export const cultureAPI = {
     results: Array<{
       index: number;
       status: 'create' | 'update_candidate';
-      matched_culture_id?: number;
+      matched_crop_id?: number;
       diff?: Array<{ field: string; current: unknown; new: unknown }>;
       import_data: Record<string, unknown>;
       error?: string;
     }>;
-  }>('/cultures/import/preview/', data),
+  }>('/crops/import/preview/', data),
   importApply: (data: {
     items: Record<string, unknown>[];
     confirm_updates: boolean;
@@ -150,19 +150,19 @@ export const cultureAPI = {
     updated_count: number;
     skipped_count: number;
     errors: Array<{ index: number; error: unknown }>;
-  }>('/cultures/import/apply/', data),
+  }>('/crops/import/apply/', data),
   publishPreview: (id: number, params: { crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
-    http.get<PublishPublicCulturePreview>(`/cultures/${id}/publish-public/preview/`, { params }),
+    http.get<PublishPublicCropPreview>(`/crops/${id}/publish-public/preview/`, { params }),
   publishPublic: (id: number, data: { accepted_public_library_terms: boolean; crop_species_id?: number | null; original_language_code?: string; publish_as_general?: boolean }) =>
-    http.post<PublishPublicCultureResponse>(`/cultures/${id}/publish-public/`, data),
-  linkPublicCulture: (id: number, publicCultureId: number) =>
-    http.post<Culture>(`/cultures/${id}/link-public-culture/`, { public_culture_id: publicCultureId }),
+    http.post<PublishPublicCropResponse>(`/crops/${id}/publish-public/`, data),
+  linkPublicCrop: (id: number, publicCropId: number) =>
+    http.post<Crop>(`/crops/${id}/link-public-crop/`, { public_crop_id: publicCropId }),
   // Read-only preview of the pending library update; applying it goes through
-  // publicCultureAPI.importToProject(publicCultureId, 'update').
-  publicUpdate: (id: number) => http.get<CulturePublicUpdate>(`/cultures/${id}/public-update/`),
+  // publicCropAPI.importToProject(publicCropId, 'update').
+  publicUpdate: (id: number) => http.get<CropPublicUpdate>(`/crops/${id}/public-update/`),
   // Records the explicit "do not take this version" decision. Nothing is copied;
   // only the notice for exactly this public version disappears.
-  rejectPublicUpdate: (id: number) => http.post<Culture>(`/cultures/${id}/public-update/reject/`),
+  rejectPublicUpdate: (id: number) => http.post<Crop>(`/crops/${id}/public-update/reject/`),
 };
 
 export const notificationAPI = {
@@ -203,51 +203,51 @@ export const publicLibraryModeratorRequestAPI = {
 };
 
 
-export const publicCultureAPI = {
+export const publicCropAPI = {
   list: (params?: { q?: string; name?: string; variety?: string; crop_species?: number; status?: 'removed'; page_size?: number }, signal?: AbortSignal) =>
-    http.get<PaginatedResponse<PublicCulture>>('/public-cultures/', { params, signal }),
-  listAll: () => fetchAllPaginated<PublicCulture>('/public-cultures/'),
-  get: (id: number) => http.get<PublicCulture>(`/public-cultures/${id}/`),
-  update: (id: number, data: Partial<PublicCulture> & { base_version?: number }) =>
-    http.patch<PublicCulture>(`/public-cultures/${id}/`, data),
+    http.get<PaginatedResponse<PublicCrop>>('/public-crops/', { params, signal }),
+  listAll: () => fetchAllPaginated<PublicCrop>('/public-crops/'),
+  get: (id: number) => http.get<PublicCrop>(`/public-crops/${id}/`),
+  update: (id: number, data: Partial<PublicCrop> & { base_version?: number }) =>
+    http.patch<PublicCrop>(`/public-crops/${id}/`, data),
   match: (params: { name: string; variety: string }, signal?: AbortSignal) =>
-    http.get<PublicCultureMatchResponse>('/public-cultures/match/', { params, signal }),
+    http.get<PublicCropMatchResponse>('/public-crops/match/', { params, signal }),
   importToProject: (id: number, mode?: 'update' | 'new') =>
-    http.post<ImportPublicCultureResponse>(`/public-cultures/${id}/import/`, mode ? { mode } : {}),
+    http.post<ImportPublicCropResponse>(`/public-crops/${id}/import/`, mode ? { mode } : {}),
   // Contributors remove their own entry without a reason; moderators removing
   // somebody else's entry must supply a structured moderation reason.
-  remove: (id: number, reason?: PublicCultureRemovalReason) =>
-    http.post<PublicCulture>(`/public-cultures/${id}/remove/`, reason ? { reason } : {}),
+  remove: (id: number, reason?: PublicCropRemovalReason) =>
+    http.post<PublicCrop>(`/public-crops/${id}/remove/`, reason ? { reason } : {}),
   // Moderator-only undo for a moderator removal; no time limit (see
-  // reinstate_removed_public_culture on the backend for why a contributor
+  // reinstate_removed_public_crop on the backend for why a contributor
   // can't just republish their way past a moderation decision).
-  restore: (id: number) => http.post<PublicCulture>(`/public-cultures/${id}/restore/`, {}),
-  hardDelete: (id: number) => http.post<void>(`/public-cultures/${id}/hard-delete/`, {}),
-  discussionTopics: (id: number) => http.get<PublicCultureDiscussionTopic[]>(`/public-cultures/${id}/discussion-topics/`),
+  restore: (id: number) => http.post<PublicCrop>(`/public-crops/${id}/restore/`, {}),
+  hardDelete: (id: number) => http.post<void>(`/public-crops/${id}/hard-delete/`, {}),
+  discussionTopics: (id: number) => http.get<PublicCropDiscussionTopic[]>(`/public-crops/${id}/discussion-topics/`),
   createDiscussionTopic: (id: number, data: { title: string; body: string; revision?: number }) =>
-    http.post<PublicCultureDiscussionTopic>(`/public-cultures/${id}/discussion-topics/`, data),
+    http.post<PublicCropDiscussionTopic>(`/public-crops/${id}/discussion-topics/`, data),
   discussionComments: (id: number, topicId: number) =>
-    http.get<PublicCultureDiscussionComment[]>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`),
+    http.get<PublicCropDiscussionComment[]>(`/public-crops/${id}/discussion-topics/${topicId}/comments/`),
   createDiscussionComment: (id: number, topicId: number, body: string, parent?: number) =>
-    http.post<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-topics/${topicId}/comments/`, { body, parent }),
+    http.post<PublicCropDiscussionComment>(`/public-crops/${id}/discussion-topics/${topicId}/comments/`, { body, parent }),
   updateDiscussionComment: (id: number, commentId: number, body: string) =>
-    http.patch<PublicCultureDiscussionComment>(`/public-cultures/${id}/discussion-comments/${commentId}/`, { body }),
+    http.patch<PublicCropDiscussionComment>(`/public-crops/${id}/discussion-comments/${commentId}/`, { body }),
   deleteDiscussionComment: (id: number, commentId: number) =>
-    http.delete(`/public-cultures/${id}/discussion-comments/${commentId}/`),
-  versions: (id: number) => http.get<PublicCultureRevision[]>(`/public-cultures/${id}/versions/`),
+    http.delete(`/public-crops/${id}/discussion-comments/${commentId}/`),
+  versions: (id: number) => http.get<PublicCropRevision[]>(`/public-crops/${id}/versions/`),
   revert: (id: number, data: { version: number; base_version?: number }) =>
-    http.post<PublicCulture>(`/public-cultures/${id}/revert/`, data),
+    http.post<PublicCrop>(`/public-crops/${id}/revert/`, data),
   getTranslations: (id: number) =>
-    http.get<PublicCultureTranslations>(`/public-cultures/${id}/translations/`),
+    http.get<PublicCropTranslations>(`/public-crops/${id}/translations/`),
   updateTranslations: (id: number, translations: Record<string, string>) =>
-    http.put<PublicCultureTranslations>(`/public-cultures/${id}/translations/`, { translations }),
-  changeProposals: (id: number) => http.get<PublicCultureChangeProposal[]>(`/public-cultures/${id}/change-proposals/`),
-  createChangeProposal: (id: number, data: { summary: string; proposed_data: Partial<PublicCulture> }) =>
-    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/`, data),
+    http.put<PublicCropTranslations>(`/public-crops/${id}/translations/`, { translations }),
+  changeProposals: (id: number) => http.get<PublicCropChangeProposal[]>(`/public-crops/${id}/change-proposals/`),
+  createChangeProposal: (id: number, data: { summary: string; proposed_data: Partial<PublicCrop> }) =>
+    http.post<PublicCropChangeProposal>(`/public-crops/${id}/change-proposals/`, data),
   approveChangeProposal: (id: number, proposalId: number, reviewNote = '') =>
-    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/${proposalId}/approve/`, { review_note: reviewNote }),
+    http.post<PublicCropChangeProposal>(`/public-crops/${id}/change-proposals/${proposalId}/approve/`, { review_note: reviewNote }),
   rejectChangeProposal: (id: number, proposalId: number, reviewNote = '') =>
-    http.post<PublicCultureChangeProposal>(`/public-cultures/${id}/change-proposals/${proposalId}/reject/`, { review_note: reviewNote }),
+    http.post<PublicCropChangeProposal>(`/public-crops/${id}/change-proposals/${proposalId}/reject/`, { review_note: reviewNote }),
 };
 
 export const supplierAPI = {
@@ -265,11 +265,11 @@ export const supplierAPI = {
   delete: (id: number) => http.delete<SupplierDeleteResponse>(`/suppliers/${id}/`),
 };
 
-export const cultureSupplierDataAPI = {
-  list: () => http.get<PaginatedResponse<CultureSupplierData>>('/culture-supplier-data/'),
-  create: (data: CultureSupplierData) => http.post<CultureSupplierData>('/culture-supplier-data/', withActiveProject(data)),
-  update: (id: number, data: CultureSupplierData) => http.put<CultureSupplierData>(`/culture-supplier-data/${id}/`, withActiveProject(data)),
-  delete: (id: number) => http.delete(`/culture-supplier-data/${id}/`),
+export const cropSupplierDataAPI = {
+  list: () => http.get<PaginatedResponse<CropSupplierData>>('/crop-supplier-data/'),
+  create: (data: CropSupplierData) => http.post<CropSupplierData>('/crop-supplier-data/', withActiveProject(data)),
+  update: (id: number, data: CropSupplierData) => http.put<CropSupplierData>(`/crop-supplier-data/${id}/`, withActiveProject(data)),
+  delete: (id: number) => http.delete(`/crop-supplier-data/${id}/`),
 };
 
 export const bedAPI = {
@@ -337,7 +337,7 @@ export const layoutAPI = {
 export const mediaFileAPI = {
   upload: (file: File) => {
     const formData = new FormData();
-    formData.append('file', file, file.name || 'culture-media');
+    formData.append('file', file, file.name || 'crop-media');
     return http.post<MediaFileRef>('/media-files/upload/', formData);
   },
 };
@@ -362,9 +362,9 @@ export const seedDemandAPI = {
   list: (supplierSelection?: string) => http.get<PaginatedResponse<SeedDemand>>('/seed-demand/', {
     params: supplierSelection ? { supplier_selection: supplierSelection } : {},
   }),
-  saveSupplierSelection: (cultureId: number, supplierId: number | null) =>
-    http.post<{ culture_id: number; selected_supplier_id: number | null }>('/seed-demand/', {
-      culture_id: cultureId,
+  saveSupplierSelection: (cropId: number, supplierId: number | null) =>
+    http.post<{ crop_id: number; selected_supplier_id: number | null }>('/seed-demand/', {
+      crop_id: cropId,
       supplier_id: supplierId,
     }),
 };
@@ -543,7 +543,7 @@ export type {
   ApiToken,
   ApiTokenCreatePayload,
   ApiTokenCreated,
-  Culture,
+  Crop,
   Location,
   Field,
   Bed,
@@ -553,30 +553,30 @@ export type {
   SeedDemand,
   YieldCalendarWeek,
   NoteAttachment,
-  CultureHistoryEntry,
+  CropHistoryEntry,
   MediaFileRef,
-  PublicCulture,
-  PublicCultureChangeProposal,
-  PublicCultureDiscussionComment,
-  PublicCultureRemovalReason,
-  PublicCultureRevision,
-  PublicCultureDuplicateCandidate,
+  PublicCrop,
+  PublicCropChangeProposal,
+  PublicCropDiscussionComment,
+  PublicCropRemovalReason,
+  PublicCropRevision,
+  PublicCropDuplicateCandidate,
   CropSpecies,
-  PublishPublicCulturePreview,
+  PublishPublicCropPreview,
   RemainingAreaResponse,
   BedLayoutEntry,
   FieldLayoutEntry,
   LocationLayoutsResponse,
-  CultureSupplierData,
+  CropSupplierData,
 };
 
 export default {
-  cultures: cultureAPI,
+  crops: cropAPI,
   cropSpecies: cropSpeciesAPI,
   notifications: notificationAPI,
-  publicCultures: publicCultureAPI,
+  publicCrops: publicCropAPI,
   suppliers: supplierAPI,
-  cultureSupplierData: cultureSupplierDataAPI,
+  cropSupplierData: cropSupplierDataAPI,
   beds: bedAPI,
   plantingPlans: plantingPlanAPI,
   fields: fieldAPI,

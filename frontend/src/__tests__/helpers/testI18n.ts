@@ -8,7 +8,7 @@ export const i18nMap: Record<string, string> = {
   'common:errorFieldLabels.harvest_end_date': 'Ernteende',
   'common:errorFieldLabels.quantity': 'Pflanzen',
   'common:errorFieldLabels.cultivation_type': 'Anbauart',
-  'common:errorFieldLabels.culture': 'Kultur',
+  'common:errorFieldLabels.crop': 'Kultur',
   'common:errorFieldLabels.bed': 'Beet',
   'common:errorFieldLabels.field': 'Parzelle',
   'common:errorFieldLabels.location': 'Standort',

@@ -12,7 +12,7 @@ const mockGridRowState = vi.hoisted(() => ({
 }));
 
 const apiMocks = vi.hoisted(() => ({
-  cultureList: vi.fn(),
+  cropList: vi.fn(),
   locationList: vi.fn(),
   fieldList: vi.fn(),
   bedList: vi.fn(),
@@ -204,7 +204,7 @@ const mockRemainingAreaScenario = (): void => {
   apiMocks.planList.mockResolvedValue({
     data: {
       results: [{
-        id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3,
+        id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 3,
       }],
     },
   });
@@ -224,10 +224,10 @@ vi.mock("../api/api", async () => {
   const actual = await vi.importActual<typeof import("../api/api")>("../api/api");
   return {
     ...actual,
-    cultureAPI: {
-      ...actual.cultureAPI,
-      list: apiMocks.cultureList,
-      listAll: async () => (await apiMocks.cultureList()).data,
+    cropAPI: {
+      ...actual.cropAPI,
+      list: apiMocks.cropList,
+      listAll: async () => (await apiMocks.cropList()).data,
     },
     locationAPI: {
       ...actual.locationAPI,
@@ -256,7 +256,7 @@ describe("PlantingPlans save-time area validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGridRowState.row = {};
-    apiMocks.cultureList.mockResolvedValue({ data: { results: [{ id: 2, name: "Möhre", plants_per_m2: 10 }] } });
+    apiMocks.cropList.mockResolvedValue({ data: { results: [{ id: 2, name: "Möhre", plants_per_m2: 10 }] } });
     apiMocks.locationList.mockResolvedValue({ data: { results: [{ id: 1, name: "Hof" }] } });
     apiMocks.fieldList.mockResolvedValue({ data: { results: [{ id: 11, name: "Parzelle 1", location: 1 }] } });
     apiMocks.bedList.mockResolvedValue({ data: { results: [{ id: 101, name: "Beet A", field: 11, area_sqm: 1 }] } });
@@ -271,7 +271,7 @@ describe("PlantingPlans save-time area validation", () => {
     expect(latestProps).toMatchObject({
       showDeleteAction: false,
       showRowEditActions: false,
-      inlineRowActionField: "culture",
+      inlineRowActionField: "crop",
       deleteUndoOptions: {
         message: "Anbauplan gelöscht",
         snackbarTestId: "planting-plan-delete-snackbar",
@@ -302,13 +302,13 @@ describe("PlantingPlans save-time area validation", () => {
     expect(latestProps.duplicateRow({
       id: 9,
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "2026-04-01",
       area_m2: 3,
       notes: "Notiz",
     })).toMatchObject({
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "2026-04-01",
       area_m2: 3,
       notes: "Notiz",
@@ -319,7 +319,7 @@ describe("PlantingPlans save-time area validation", () => {
     const inlineDeleteHelper = vi.fn();
     const inlineRowActions = latestProps.getInlineRowActions({
       id: -1,
-      culture: 0,
+      crop: 0,
       bed: 101,
       area_m2: 5,
       isNew: true,
@@ -479,7 +479,7 @@ describe("PlantingPlans save-time area validation", () => {
   });
 
   it("renders unavailable calculated harvest dates with a dash and explanatory tooltip", async () => {
-    apiMocks.cultureList.mockResolvedValue({
+    apiMocks.cropList.mockResolvedValue({
       data: {
         results: [
           { id: 2, name: "Ohne Zeitangaben", plants_per_m2: 10, growth_duration_days: null, harvest_duration_days: null },
@@ -507,7 +507,7 @@ describe("PlantingPlans save-time area validation", () => {
 
     const completeStart = render(<>{renderCell(harvestStartColumn, {
       id: 1,
-      culture: 4,
+      crop: 4,
       harvest_date: "2026-05-01",
       harvest_end_date: "2026-05-08",
     })}</>);
@@ -516,7 +516,7 @@ describe("PlantingPlans save-time area validation", () => {
 
     const missingStart = render(<>{renderCell(harvestStartColumn, {
       id: 2,
-      culture: 2,
+      crop: 2,
       harvest_date: null,
       harvest_end_date: null,
     })}</>);
@@ -530,7 +530,7 @@ describe("PlantingPlans save-time area validation", () => {
 
     const missingEnd = render(<>{renderCell(harvestEndColumn, {
       id: 3,
-      culture: 2,
+      crop: 2,
       harvest_date: null,
       harvest_end_date: null,
     })}</>);
@@ -542,7 +542,7 @@ describe("PlantingPlans save-time area validation", () => {
 
     const partialEnd = render(<>{renderCell(harvestEndColumn, {
       id: 4,
-      culture: 3,
+      crop: 3,
       harvest_date: "2026-05-01",
       harvest_end_date: null,
     })}</>);
@@ -555,7 +555,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("shows bed-limit dialog when requested area exceeds bed area", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99,00",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99,00",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -569,7 +569,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("shows bed-limit dialog when plants count implies an area larger than the bed", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "0,50", plants_count: "1000",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "0,50", plants_count: "1000",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -594,7 +594,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("closes the area validation dialog with Escape", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -615,7 +615,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("shows bed-limit dialog when saving via Enter flow", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -626,7 +626,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("shows bed-limit dialog when saving through focus loss", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -639,7 +639,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("keeps invalid drafts editable when the conflict dialog is canceled", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -660,12 +660,12 @@ describe("PlantingPlans save-time area validation", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
+          id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
         }],
       },
     });
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "2",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "2",
     };
 
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
@@ -685,7 +685,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("applies bed area when clicking 'Beetfläche übernehmen'", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99,00",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99,00",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -704,12 +704,12 @@ describe("PlantingPlans save-time area validation", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
+          id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
         }],
       },
     });
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -725,12 +725,12 @@ describe("PlantingPlans save-time area validation", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
+          id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
         }],
       },
     });
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -749,12 +749,12 @@ describe("PlantingPlans save-time area validation", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
+          id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
         }],
       },
     });
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "5",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -765,7 +765,7 @@ describe("PlantingPlans save-time area validation", () => {
 
   it("shows identical dialog details for click-save and enter-save", async () => {
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-01", area_m2: "99,00",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-01", area_m2: "99,00",
     };
     const { unmount } = render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -784,12 +784,12 @@ describe("PlantingPlans save-time area validation", () => {
     apiMocks.planList.mockResolvedValue({
       data: {
         results: [{
-          id: 9, bed: 101, culture: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
+          id: 9, bed: 101, crop: 2, planting_date: "2026-04-01", harvest_date: "2026-05-01", area_usage_sqm: 4,
         }],
       },
     });
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "max",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "max",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -803,7 +803,7 @@ describe("PlantingPlans save-time area validation", () => {
   it("applies the remaining area for max input without positive-number validation", async () => {
     mockRemainingAreaScenario();
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "max",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "max",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -815,7 +815,7 @@ describe("PlantingPlans save-time area validation", () => {
   it("applies the remaining area for trimmed uppercase max input", async () => {
     mockRemainingAreaScenario();
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: " MAX ",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: " MAX ",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -827,7 +827,7 @@ describe("PlantingPlans save-time area validation", () => {
   it("applies the remaining area for empty area input", async () => {
     mockRemainingAreaScenario();
     mockGridRowState.row = {
-      id: 1, bed: 101, culture: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "",
+      id: 1, bed: 101, crop: 2, planting_date: "2026-04-10", harvest_date: "2026-05-10", area_m2: "",
     };
     render(<MemoryRouter><PlantingPlans /></MemoryRouter>);
     await waitForPlansToLoad();
@@ -841,7 +841,7 @@ describe("PlantingPlans save-time area validation", () => {
     const staleRow = {
       id: 1,
       bed: 101,
-      culture: 2,
+      crop: 2,
       cultivation_type: "direct_sowing",
       planting_date: "2026-04-10",
       harvest_date: "2026-05-10",
@@ -868,7 +868,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 21,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.9.2026",
             harvest_end_date: "2.2.2027",
             area_usage_sqm: 7,
@@ -876,7 +876,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 22,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.2.2026",
             harvest_end_date: "18.9.2026",
             area_usage_sqm: 1,
@@ -887,7 +887,7 @@ describe("PlantingPlans save-time area validation", () => {
     mockGridRowState.row = {
       id: 22,
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "20.2.2026",
       harvest_end_date: "18.9.2026",
       area_m2: "7",
@@ -908,7 +908,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 23,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "2.2.2026",
             harvest_end_date: "2.6.2026",
             area_usage_sqm: 3,
@@ -916,7 +916,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 22,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.2.2026",
             harvest_end_date: "18.9.2026",
             area_usage_sqm: 1,
@@ -927,7 +927,7 @@ describe("PlantingPlans save-time area validation", () => {
     mockGridRowState.row = {
       id: 22,
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "20.2.2026",
       harvest_end_date: "18.9.2026",
       area_m2: "5",
@@ -949,7 +949,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 21,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.9.2026",
             harvest_end_date: "2.2.2027",
             area_usage_sqm: 7,
@@ -957,7 +957,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 23,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "2.2.2026",
             harvest_end_date: "2.6.2026",
             area_usage_sqm: 3,
@@ -965,7 +965,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 22,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.2.2026",
             harvest_end_date: "18.9.2026",
             area_usage_sqm: 1,
@@ -976,7 +976,7 @@ describe("PlantingPlans save-time area validation", () => {
     mockGridRowState.row = {
       id: 22,
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "20.2.2026",
       harvest_end_date: "18.9.2026",
       area_m2: "5",
@@ -1001,7 +1001,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 21,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.9.2026",
             harvest_end_date: "2.2.2027",
             area_usage_sqm: 7,
@@ -1009,7 +1009,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 23,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "2.2.2026",
             harvest_end_date: "2.6.2026",
             area_usage_sqm: 3,
@@ -1017,7 +1017,7 @@ describe("PlantingPlans save-time area validation", () => {
           {
             id: 22,
             bed: 101,
-            culture: 2,
+            crop: 2,
             planting_date: "20.2.2026",
             harvest_end_date: "18.9.2026",
             area_usage_sqm: 1,
@@ -1028,7 +1028,7 @@ describe("PlantingPlans save-time area validation", () => {
     mockGridRowState.row = {
       id: 22,
       bed: 101,
-      culture: 2,
+      crop: 2,
       planting_date: "20.2.2026",
       harvest_end_date: "18.9.2026",
       area_m2: "4",

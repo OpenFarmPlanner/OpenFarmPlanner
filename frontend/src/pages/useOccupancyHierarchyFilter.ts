@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Bed, Culture, Field, Location, PlantingPlan } from '../api/api';
+import type { Bed, Crop, Field, Location, PlantingPlan } from '../api/api';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
 import { useHierarchyLevelToggle } from '../components/hierarchy/hooks/useHierarchyLevelToggle';
 import { OCCUPANCY_TREE_AUTO_EXPAND_ALL_THRESHOLD } from './ganttChartState';
@@ -10,7 +10,7 @@ interface UseOccupancyHierarchyFilterParams {
   fields: Field[];
   beds: Bed[];
   plantingPlans: PlantingPlan[];
-  cultures: Culture[];
+  crops: Crop[];
   activeProjectId: number | null;
 }
 
@@ -27,7 +27,7 @@ export function useOccupancyHierarchyFilter({
   fields,
   beds,
   plantingPlans,
-  cultures,
+  crops,
   activeProjectId,
 }: UseOccupancyHierarchyFilterParams) {
   const [occupancyLocationFilter, setOccupancyLocationFilter] = useState<number | 'all'>('all');
@@ -50,8 +50,8 @@ export function useOccupancyHierarchyFilter({
     fields,
     beds,
     plantingPlans,
-    cultures,
-  }), [beds, cultures, fields, locations, plantingPlans]);
+    crops,
+  }), [beds, crops, fields, locations, plantingPlans]);
 
   // Default expansion — once per project, until the user manually
   // expands/collapses something (which then persists via useExpandedState's

@@ -60,8 +60,8 @@ describe('PageHelp', () => {
     expect(screen.queryByRole('button', { name: 'Bearbeiten' })).not.toBeInTheDocument();
   });
 
-  it('renders cultures help with vertical more-actions icon and without separate delete symbol', async () => {
-    render(<PageHelp pageKey="cultures" />);
+  it('renders crops help with vertical more-actions icon and without separate delete symbol', async () => {
+    render(<PageHelp pageKey="crops" />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Hilfe anzeigen' }));
 

@@ -118,7 +118,7 @@ export const HIERARCHY_DATA_GRID_SX = {
   "& .ofp-hierarchy-row-highlighted .MuiDataGrid-cell": {
     animation: "ofp-hierarchy-row-highlight-flash 2.5s ease-out",
   },
-  // Matches the app's established green "selected" look (e.g. CultureDetail's
+  // Matches the app's established green "selected" look (e.g. CropDetail's
   // selected list item) instead of an unrelated yellow flash.
   "@keyframes ofp-hierarchy-row-highlight-flash": {
     "0%": { backgroundColor: "rgba(37, 111, 42, 0.22)" },

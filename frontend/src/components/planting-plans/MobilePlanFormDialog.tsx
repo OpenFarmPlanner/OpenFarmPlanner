@@ -45,13 +45,13 @@ interface MobilePlanFormDialogProps {
   form: MobileCreateFormState;
   setForm: Dispatch<SetStateAction<MobileCreateFormState>>;
   error: string;
-  cultureOptions: SearchableSelectOption[];
+  cropOptions: SearchableSelectOption[];
   bedOptions: SearchableSelectOption[];
   cultivationTypeOptions: CultivationTypeSelectOption[];
   numberLocale: string;
   /** Shown under the planting-date field to signal the active season's range. */
   plantingDateHelperText?: string;
-  getPlantsPerSqm: (cultureId: string) => number | null;
+  getPlantsPerSqm: (cropId: string) => number | null;
   /** Called when the user edits one of the two linked area/plants inputs. */
   onLinkedFieldEdited: (field: "area_m2" | "plants_count") => void;
   onClose: () => void;
@@ -70,7 +70,7 @@ export function MobilePlanFormDialog({
   form,
   setForm,
   error,
-  cultureOptions,
+  cropOptions,
   bedOptions,
   cultivationTypeOptions,
   numberLocale,
@@ -117,16 +117,16 @@ export function MobilePlanFormDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
           <FormControl sx={wideFieldSx}>
-            <InputLabel>{t("plantingPlans:columns.culture")}</InputLabel>
+            <InputLabel>{t("plantingPlans:columns.crop")}</InputLabel>
             <Select
               fullWidth
-              value={form.culture}
-              label={t("plantingPlans:columns.culture")}
+              value={form.crop}
+              label={t("plantingPlans:columns.crop")}
               onChange={(event) =>
-                setForm((previous) => ({ ...previous, culture: String(event.target.value) }))
+                setForm((previous) => ({ ...previous, crop: String(event.target.value) }))
               }
             >
-              {cultureOptions.map((option) => (
+              {cropOptions.map((option) => (
                 <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
               ))}
             </Select>
@@ -219,7 +219,7 @@ export function MobilePlanFormDialog({
               value={form.area_m2}
               onChange={(event) => {
                 const nextArea = event.target.value;
-                const plantsPerSqm = getPlantsPerSqm(form.culture);
+                const plantsPerSqm = getPlantsPerSqm(form.crop);
                 const normalizedArea = nextArea.trim().toLowerCase();
                 const maxKeyword = t("plantingPlans:placeholders.maxKeyword").toLowerCase();
                 const parsedArea = normalizedArea === maxKeyword ? null : parseLocalizedNumber(nextArea, numberLocale);
@@ -248,7 +248,7 @@ export function MobilePlanFormDialog({
               value={form.plants_count}
               onChange={(event) => {
                 const nextPlants = event.target.value;
-                const plantsPerSqm = getPlantsPerSqm(form.culture);
+                const plantsPerSqm = getPlantsPerSqm(form.crop);
                 const parsedPlants = parseLocalizedNumber(nextPlants, numberLocale);
                 setForm((previous) => ({
                   ...previous,

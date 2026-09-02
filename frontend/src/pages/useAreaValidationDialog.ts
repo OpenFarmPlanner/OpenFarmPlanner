@@ -20,7 +20,7 @@ export interface AreaValidationDialogState {
   availableArea: number;
   bedArea: number;
   occupiedArea: number;
-  cultureId?: number;
+  cropId?: number;
   plantsCount?: number | null;
   mode: "bedLimit" | "remainingLimit" | "noRemainingArea";
 }
