@@ -20,7 +20,8 @@ export interface CultureSeedRateRow {
   method: CultivationType;
   value: number;
   unit: SeedRateUnit | string;
-  safety: number | null;
+  /** Omitted where the safety margin is not part of the data set (public library). */
+  safety?: number | null;
   valueSource?: ValueSource | null;
   safetySource?: ValueSource | null;
 }
@@ -31,6 +32,12 @@ interface CultureSeedDetailsProps {
   activeCultivationTypes: CultivationType[];
   cultivationTypeSource?: ValueSource | null;
   seedRateRows: CultureSeedRateRow[];
+  /**
+   * The seed safety margin is a farm-specific planning decision, so views on
+   * data that is not farm-specific (the public crop library) hide it entirely
+   * instead of rendering an empty value.
+   */
+  showSeedSafetyMargin?: boolean;
   sowingSafetyPercent?: number | null;
   sowingSafetySource?: ValueSource | null;
   seedingRequirement?: number | null;
@@ -77,6 +84,7 @@ export function CultureSeedDetails({
   activeCultivationTypes,
   cultivationTypeSource = null,
   seedRateRows,
+  showSeedSafetyMargin = true,
   sowingSafetyPercent,
   sowingSafetySource = null,
   seedingRequirement,
@@ -120,7 +128,7 @@ export function CultureSeedDetails({
           </ValueWithSource>
         </Box>
       )}
-      {hasSingleSeedRate && (
+      {hasSingleSeedRate && showSeedSafetyMargin && (
         <Box>
           <Typography
             variant="body2"
@@ -130,7 +138,9 @@ export function CultureSeedDetails({
             {t('detail.fields.seedSafetyMargin')}
           </Typography>
           <ValueWithSource source={seedRateRows[0].safetySource}>
-            {seedRateRows[0].safety !== null ? `${formatNumber(seedRateRows[0].safety, t, locale)} ${t('detail.units.percent')}` : '-'}
+            {seedRateRows[0].safety !== null && seedRateRows[0].safety !== undefined
+              ? `${formatNumber(seedRateRows[0].safety, t, locale)} ${t('detail.units.percent')}`
+              : '-'}
           </ValueWithSource>
         </Box>
       )}
@@ -143,7 +153,9 @@ export function CultureSeedDetails({
                 <TableCell>{t('detail.fields.method')}</TableCell>
                 <TableCell>{t('form.seedAmountLabel')}</TableCell>
                 <TableCell>{t('form.seedUnitLabel')}</TableCell>
-                <TableCell>{t('detail.fields.seedSafetyMarginPercent')}</TableCell>
+                {showSeedSafetyMargin && (
+                  <TableCell>{t('detail.fields.seedSafetyMarginPercent')}</TableCell>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -158,18 +170,22 @@ export function CultureSeedDetails({
                   <TableCell>
                     {formatSeedUnitLabel(row.unit, t)}
                   </TableCell>
-                  <TableCell>
-                    <Box component="span" sx={getOwnValueSx(row.safetySource)}>
-                      {row.safety !== null ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}` : '-'}
-                    </Box>
-                  </TableCell>
+                  {showSeedSafetyMargin && (
+                    <TableCell>
+                      <Box component="span" sx={getOwnValueSx(row.safetySource)}>
+                        {row.safety !== null && row.safety !== undefined
+                          ? `${formatNumber(row.safety, t, locale)} ${t('detail.units.percent')}`
+                          : '-'}
+                      </Box>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </Box>
       )}
-      {seedRateRows.length === 0 && sowingSafetyPercent !== undefined && sowingSafetyPercent !== null && (
+      {seedRateRows.length === 0 && showSeedSafetyMargin && sowingSafetyPercent !== undefined && sowingSafetyPercent !== null && (
         <Box>
           <Typography variant="body2" color="text.secondary">
             {t('detail.fields.seedSafetyMargin')}

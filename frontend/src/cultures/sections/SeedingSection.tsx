@@ -16,6 +16,11 @@ interface SeedingSectionProps {
   t: TFunction;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
   seedRateUnitConstraints?: Partial<SeedRateUnitConstraints> | null;
+  /**
+   * The seed safety margin is a farm-specific planning decision, so the public
+   * crop library form hides it (mirrors `CultureSeedDetails.showSeedSafetyMargin`).
+   */
+  showSeedSafetyMargin?: boolean;
 }
 
 const seedRateUnitOptions: Array<{ value: SeedRateUnit; labelKey: string }> = [
@@ -38,6 +43,7 @@ function SeedRateBlock({
   valueField,
   unitField,
   safetyField,
+  showSeedSafetyMargin,
   formData,
   errors,
   onChange,
@@ -49,6 +55,7 @@ function SeedRateBlock({
   valueField: 'seed_rate_direct_value' | 'seed_rate_pre_cultivation_value';
   unitField: 'seed_rate_direct_unit' | 'seed_rate_pre_cultivation_unit';
   safetyField: 'sowing_calculation_safety_percent_direct' | 'sowing_calculation_safety_percent_pre_cultivation';
+  showSeedSafetyMargin: boolean;
   formData: Partial<Culture>;
   errors: Record<string, string>;
   onChange: <K extends keyof Culture>(name: K, value: Culture[K]) => void;
@@ -112,18 +119,20 @@ function SeedRateBlock({
           </FormControl>
         </DropdownAwareTooltip>
 
-        <DropdownAwareTooltip title={safetyVariety?.tooltipTitle ?? t('form.sowingCalculationSafetyPercentHelp')} arrow>
-          <TextField
-            sx={mergeVarietyFieldSx(mediumFieldSx, safetyVariety?.sx)}
-            type="number"
-            label={t('form.sowingCalculationSafetyPercentLabel')}
-            value={formData[safetyField] ?? ''}
-            onChange={(e) => onChange(safetyField, e.target.value ? parseFloat(e.target.value) : null)}
-            error={Boolean(errors[safetyField])}
-            helperText={errors[safetyField]}
-            slotProps={{ htmlInput: { min: 0, max: 100, step: 1, inputMode: 'decimal' } }}
-          />
-        </DropdownAwareTooltip>
+        {showSeedSafetyMargin && (
+          <DropdownAwareTooltip title={safetyVariety?.tooltipTitle ?? t('form.sowingCalculationSafetyPercentHelp')} arrow>
+            <TextField
+              sx={mergeVarietyFieldSx(mediumFieldSx, safetyVariety?.sx)}
+              type="number"
+              label={t('form.sowingCalculationSafetyPercentLabel')}
+              value={formData[safetyField] ?? ''}
+              onChange={(e) => onChange(safetyField, e.target.value ? parseFloat(e.target.value) : null)}
+              error={Boolean(errors[safetyField])}
+              helperText={errors[safetyField]}
+              slotProps={{ htmlInput: { min: 0, max: 100, step: 1, inputMode: 'decimal' } }}
+            />
+          </DropdownAwareTooltip>
+        )}
       </Box>
     </>
   );
@@ -136,6 +145,7 @@ export function SeedingSection({
   t,
   getFieldTooltipProps,
   seedRateUnitConstraints,
+  showSeedSafetyMargin = true,
 }: SeedingSectionProps) {
   const cultivationTypes = formData.cultivation_types ?? (formData.cultivation_type ? [formData.cultivation_type] : []);
   const showsDirect = cultivationTypes.includes('direct_sowing');
@@ -165,6 +175,7 @@ export function SeedingSection({
           valueField="seed_rate_direct_value"
           unitField="seed_rate_direct_unit"
           safetyField="sowing_calculation_safety_percent_direct"
+          showSeedSafetyMargin={showSeedSafetyMargin}
           formData={formData}
           errors={errors}
           onChange={onChange}
@@ -180,6 +191,7 @@ export function SeedingSection({
           valueField="seed_rate_pre_cultivation_value"
           unitField="seed_rate_pre_cultivation_unit"
           safetyField="sowing_calculation_safety_percent_pre_cultivation"
+          showSeedSafetyMargin={showSeedSafetyMargin}
           formData={formData}
           errors={errors}
           onChange={onChange}

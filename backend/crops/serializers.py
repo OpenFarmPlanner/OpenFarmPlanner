@@ -443,7 +443,6 @@ class CropSerializer(serializers.ModelSerializer):
             'seed_rate_value',
             'seed_rate_unit',
             'seed_rate_by_cultivation',
-            'sowing_calculation_safety_percent',
             'thousand_kernel_weight_g',
             'seeding_requirement',
             'seeding_requirement_type',

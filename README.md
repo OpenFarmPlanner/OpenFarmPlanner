@@ -6,7 +6,7 @@ OpenFarmPlanner is an open-source crop planning tool for vegetable production. I
 
 Built with a Django REST Framework backend and a React frontend in a single repository.
 
-> Deployment and infrastructure are maintained in a separate repository: **[OpenFarmPlanner-ops](https://github.com/stipsitzm/OpenFarmPlanner-ops)**.
+> Deployment and infrastructure are maintained in a separate repository: **[ops](https://github.com/OpenFarmPlanner/ops)**.
 
 ## Main Features
 
@@ -22,7 +22,7 @@ Built with a Django REST Framework backend and a React frontend in a single repo
 
 - **Backend (`backend/`)**: Django + Django REST Framework API, authentication, business logic, data persistence, media handling.
 - **Frontend (`frontend/`)**: React + TypeScript SPA (Vite), UI workflows, routing, i18n resources, and API integration.
-- **Operations (`OpenFarmPlanner-ops`)**: deployment, runtime environment, and operational automation (separate repository).
+- **Operations (`ops`)**: deployment, runtime environment, and operational automation (separate repository).
 
 ## Aggregated Usage Insight and Privacy
 
@@ -290,7 +290,7 @@ Safety behavior:
 Deployment and runtime operations are intentionally separated from this repository.
 Use the ops repository for deployment guides, infrastructure configuration, and environment-specific operational steps:
 
-- **https://github.com/stipsitzm/OpenFarmPlanner-ops**
+- **https://github.com/OpenFarmPlanner/ops**
 
 ## Contributing
 

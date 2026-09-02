@@ -344,7 +344,6 @@ def populate_public_demo_library_from_project(project: Project, *, owner: Any | 
                 row_spacing_m=culture.row_spacing_m,
                 sowing_depth_m=culture.sowing_depth_m,
                 seed_rate_by_cultivation=seed_rate_by_cultivation or None,
-                sowing_calculation_safety_percent=culture.sowing_calculation_safety_percent,
                 thousand_kernel_weight_g=culture.thousand_kernel_weight_g,
                 seeding_requirement=culture.seeding_requirement,
                 seeding_requirement_type=culture.seeding_requirement_type,

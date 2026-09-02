@@ -121,14 +121,14 @@ describe('buildPublicCultureUpdatePayload', () => {
     expect(payload.cultivation_types).toEqual(['direct_sowing']);
   });
 
-  it('prioritizes the direct sowing safety percent over pre-cultivation and the legacy field', () => {
+  it('keeps the farm-specific seed safety margin out of the public payload', () => {
     const payload = buildPublicCultureUpdatePayload(buildCultureDraft({
       sowing_calculation_safety_percent_direct: 10,
       sowing_calculation_safety_percent_pre_cultivation: 20,
       sowing_calculation_safety_percent: 30,
     }), 1);
 
-    expect(payload.sowing_calculation_safety_percent).toBe(10);
+    expect(payload).not.toHaveProperty('sowing_calculation_safety_percent');
   });
 
   it('falls back to the legacy seed rate when no method-specific values are set', () => {

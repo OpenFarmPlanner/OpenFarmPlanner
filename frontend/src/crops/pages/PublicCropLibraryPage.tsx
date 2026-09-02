@@ -518,9 +518,7 @@ export default function PublicCropLibraryPage() {
           method: 'direct_sowing',
           value: directValue,
           unit: directUnit,
-          safety: getPublicFieldValue('sowing_calculation_safety_percent_direct', selectedCulture.sowing_calculation_safety_percent_direct) ?? null,
           valueSource: getPublicFieldSource('seed_rate_direct_value') ?? getPublicFieldSource('seed_rate_direct_unit'),
-          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_direct'),
         });
       }
       if (isPreCultivationActive && preCultivationValue !== null && preCultivationValue !== undefined && preCultivationUnit) {
@@ -528,9 +526,7 @@ export default function PublicCropLibraryPage() {
           method: 'pre_cultivation',
           value: preCultivationValue,
           unit: preCultivationUnit,
-          safety: getPublicFieldValue('sowing_calculation_safety_percent_pre_cultivation', selectedCulture.sowing_calculation_safety_percent_pre_cultivation) ?? null,
           valueSource: getPublicFieldSource('seed_rate_pre_cultivation_value') ?? getPublicFieldSource('seed_rate_pre_cultivation_unit'),
-          safetySource: getPublicFieldSource('sowing_calculation_safety_percent_pre_cultivation'),
         });
       }
 
@@ -552,9 +548,7 @@ export default function PublicCropLibraryPage() {
             method: method as CultivationType,
             value: payload.value,
             unit: payload.unit,
-            safety: null,
             valueSource: getPublicFieldSource('seed_rate_by_cultivation'),
-            safetySource: null,
           }));
       }
 
@@ -570,9 +564,7 @@ export default function PublicCropLibraryPage() {
           method: publicActiveCultivationTypes.includes('direct_sowing') ? 'direct_sowing' : 'pre_cultivation',
           value: generalSeedRateValue,
           unit: generalSeedRateUnit,
-          safety: getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent) ?? null,
           valueSource: getPublicFieldSource('seed_rate_value') ?? getPublicFieldSource('seed_rate_unit'),
-          safetySource: getPublicFieldSource('sowing_calculation_safety_percent'),
         }];
       }
 
@@ -1926,8 +1918,7 @@ export default function PublicCropLibraryPage() {
                         <CultureSeedDetails
                           activeCultivationTypes={publicActiveCultivationTypes}
                           seedRateRows={publicSeedRateRows}
-                          sowingSafetyPercent={getPublicFieldValue('sowing_calculation_safety_percent', selectedCulture.sowing_calculation_safety_percent)}
-                          sowingSafetySource={getPublicFieldSource('sowing_calculation_safety_percent')}
+                          showSeedSafetyMargin={false}
                           seedingRequirement={getPublicFieldValue('seeding_requirement', selectedCulture.seeding_requirement)}
                           seedingRequirementSource={getPublicFieldSource('seeding_requirement')}
                           seedingRequirementType={getPublicFieldValue('seeding_requirement_type', selectedCulture.seeding_requirement_type)}

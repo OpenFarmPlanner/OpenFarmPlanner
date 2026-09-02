@@ -112,7 +112,7 @@ is committed. Use `rediss://` when the Redis service requires TLS.
 ## Uberspace deployment
 
 Staging and production infrastructure lives in the sibling
-`OpenFarmPlanner-ops` repository. Those environments run
+`ops` repository. Those environments run
 `config.asgi:application` under Daphne and configure Redis through
 `CHANNEL_REDIS_URL`; the Uberspace web backend forwards `/ws` to the same ASGI
 process as the HTTP API. Application changes in this repository should keep

@@ -40,7 +40,6 @@ PUBLIC_CULTURE_PROPOSABLE_FIELDS = {
     'seed_rate_value',
     'seed_rate_unit',
     'seed_rate_by_cultivation',
-    'sowing_calculation_safety_percent',
     'thousand_kernel_weight_g',
     'seeding_requirement',
     'seeding_requirement_type',
@@ -100,8 +99,6 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     seed_rate_direct_unit = serializers.SerializerMethodField()
     seed_rate_pre_cultivation_value = serializers.SerializerMethodField()
     seed_rate_pre_cultivation_unit = serializers.SerializerMethodField()
-    sowing_calculation_safety_percent_direct = serializers.SerializerMethodField()
-    sowing_calculation_safety_percent_pre_cultivation = serializers.SerializerMethodField()
     thousand_kernel_weight_g = LocalizedDecimalField(
         max_digits=6,
         decimal_places=2,
@@ -151,11 +148,8 @@ class PublicCultureSerializer(serializers.ModelSerializer):
             'seed_requirements',
             'seed_rate_direct_value',
             'seed_rate_direct_unit',
-            'sowing_calculation_safety_percent_direct',
             'seed_rate_pre_cultivation_value',
             'seed_rate_pre_cultivation_unit',
-            'sowing_calculation_safety_percent_pre_cultivation',
-            'sowing_calculation_safety_percent',
             'thousand_kernel_weight_g',
             'seeding_requirement',
             'seeding_requirement_type',
@@ -211,12 +205,6 @@ class PublicCultureSerializer(serializers.ModelSerializer):
     def get_seed_rate_pre_cultivation_unit(self, obj: PublicCulture) -> str | None:
         entry = self._seed_rate_for_method(obj, 'pre_cultivation')
         return entry.get('unit') if entry else None
-
-    def get_sowing_calculation_safety_percent_direct(self, obj: PublicCulture) -> float | None:
-        return obj.sowing_calculation_safety_percent
-
-    def get_sowing_calculation_safety_percent_pre_cultivation(self, obj: PublicCulture) -> float | None:
-        return obj.sowing_calculation_safety_percent
 
     def get_created_by_label(self, obj: PublicCulture) -> str:
         return obj.created_by_label

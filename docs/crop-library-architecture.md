@@ -63,6 +63,17 @@ The public Crop Library follows an open-data model:
 - Moderator removal is reserved for exceptional cases such as test data,
   duplicates, unlawful content, personal data in a published record, spam,
   obvious abuse, or another moderation decision. It is also non-destructive.
+- Farm-specific planning decisions are not library data and are neither
+  published nor served by the public API. The seed safety margin
+  (`sowing_calculation_safety_percent` and its direct/pre-cultivation
+  variants) is the concrete case: it depends on the farm's germination
+  expectations, seeding technique and risk appetite, not on the crop, so
+  publishing leaves it in the project culture and importing never overwrites
+  it. The shared `CultureForm`/`SeedingSection` and `CultureSeedDetails` hide
+  the field entirely in the public-library variant (`showSeedSafetyMargin`),
+  and keep it for project cultures. See "Private project data that remains
+  private" in
+  [`public-crop-library-data-model.md`](public-crop-library-data-model.md).
 - Public entries can be edited directly by logged-in users. Each edit is
   immediately published as the current public version and records an immutable
   `PublicCultureRevision` snapshot with author, timestamp, changed fields, and

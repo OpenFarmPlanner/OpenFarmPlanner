@@ -260,7 +260,7 @@ a new one.
   [datagrid-architecture.md](./datagrid-architecture.md#column-visibility)).
   Don't reintroduce a bespoke column-visibility UI on `EditableDataGrid`.
 - **Deployment/infrastructure live in a separate repository**
-  (`OpenFarmPlanner-ops`) — this repo intentionally has no Dockerfile,
+  (`ops`) — this repo intentionally has no Dockerfile,
   deploy scripts, or cron config for production use.
 - **`overflow-x: hidden` belongs on `<body>`/`#root`, never on `<html>`**
   (`frontend/src/index.css`). The viewport takes its overflow from the root
