@@ -1,9 +1,7 @@
-import { memo, useCallback, useState } from "react";
+import { memo } from "react";
 import { Box, MenuItem, TextField } from "@mui/material";
 import type { GridRenderEditCellParams } from "@mui/x-data-grid";
-import { useClosedSelectTypeahead } from "../components/inputs/selectTypeahead";
-import { useSelectEditCellOpenRequest } from "../components/data-grid/SelectEditCellContext";
-import { useSelectMenuEnterCommit } from "../components/data-grid/useSelectMenuEnterCommit";
+import { useSingleSelectEditCell } from "../components/data-grid/useSingleSelectEditCell";
 import { normalizeCultivationType } from "./plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "./usePlantingPlanHierarchy";
 
@@ -21,39 +19,16 @@ export const CultivationTypeEditCell = memo(function CultivationTypeEditCell({
   options,
   placeholder,
 }: CultivationTypeEditCellProps) {
-  const [open, setOpen] = useState(false);
   const selectedValue = normalizeCultivationType(value) ?? "";
   const selectedOption = options.find((option) => option.value === selectedValue);
-  const handleOpen = useCallback((): void => {
-    setOpen(true);
-  }, []);
-  const notifyMenuClose = useSelectEditCellOpenRequest(id, field, handleOpen);
-  const handleClose = useCallback((event: unknown): void => {
-    setOpen(false);
-    notifyMenuClose(event);
-  }, [notifyMenuClose]);
-  const handleTypeaheadSelect = useCallback((nextValue: string | string[]): void => {
-    const nextSelectedValue = Array.isArray(nextValue) ? nextValue[0] : nextValue;
-    void api.setEditCellValue({
+  const { open, handleOpen, handleClose, handleSelectKeyDown, handleMenuKeyDown } =
+    useSingleSelectEditCell<string>({
       id,
       field,
-      value: nextSelectedValue,
+      api,
+      options,
+      typeaheadValue: selectedValue,
     });
-  }, [api, field, id]);
-  const handleSelectKeyDown = useClosedSelectTypeahead<string>({
-    options,
-    value: selectedValue,
-    onSelect: handleTypeaheadSelect,
-  });
-  const handleMenuKeyDown = useSelectMenuEnterCommit({
-    open,
-    options,
-    api,
-    id,
-    field,
-    setOpen,
-    notifyMenuClose,
-  });
 
   return (
     <TextField
