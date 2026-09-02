@@ -2,7 +2,7 @@
 
 OpenFarmPlanner's frontend is a client-rendered React SPA (Vite) that is
 deployed as static assets and served from the site root by the operations
-stack (see `OpenFarmPlanner-ops`). The Django backend is API-only and does
+stack (see `ops`). The Django backend is API-only and does
 **not** serve the SPA or any SEO artifact. Everything below is therefore
 produced by the **frontend build**.
 
@@ -112,7 +112,7 @@ client-rendered frame is already in the resolved language.
 `PRERENDER_OUT_DIR` (default `dist`) tells the script which build output
 directory to prerender into, mirroring `vite build --outDir`; ops sets this
 alongside `VITE_BASE_PATH` when building into `dist-production`/`dist-staging`
-(see `OpenFarmPlanner-ops/deploy/deploy_frontend.sh`).
+(see `ops/deploy/deploy_frontend.sh`).
 
 Production must serve the generated files with distinct cache policies:
 
@@ -239,7 +239,7 @@ curl -sSI https://openfarmplanner.org/sitemap.xml
 curl -s https://openfarmplanner.org/ | grep -iE 'rel="canonical"|name="robots"'
 
 # There must be no X-Robots-Tag: noindex response header (this is set by the
-# web server / proxy, i.e. in OpenFarmPlanner-ops, not in this repository)
+# web server / proxy, i.e. in ops, not in this repository)
 curl -sSI https://openfarmplanner.org/ | grep -i 'x-robots-tag'
 ```
 
@@ -248,7 +248,7 @@ curl -sSI https://openfarmplanner.org/ | grep -i 'x-robots-tag'
 - **Fixable here:** the initial HTML metadata (canonical, robots, OG/Twitter),
   `robots.txt`, `sitemap.xml`, per-route `noindex` for private pages, and the
   canonical-domain configuration. All covered above.
-- **Hosting / proxy / DNS (OpenFarmPlanner-ops):** any `X-Robots-Tag: noindex`
+- **Hosting / proxy / DNS (ops):** any `X-Robots-Tag: noindex`
   response header, HTTP→HTTPS and `www`→non-`www` redirects, TLS, and the actual
   static serving of `robots.txt` / `sitemap.xml`. A previously-indexed site that
   silently dropped out of Google — while still being found by other engines — is

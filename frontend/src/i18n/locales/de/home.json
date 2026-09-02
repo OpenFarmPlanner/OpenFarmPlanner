@@ -48,7 +48,7 @@
   "statusOpenSource": {
     "text": "Als Open-Source-Projekt freuen wir uns über Feedback, Ideen und Mitentwicklung.",
     "linkLabel": "Projekt auf GitHub",
-    "githubUrl": "https://github.com/stipsitzm/OpenFarmPlanner"
+    "githubUrl": "https://github.com/OpenFarmPlanner/planner"
   },
   "productTour": {
     "title": "Saisonplanung im Überblick",
@@ -311,7 +311,7 @@
         },
         "openSource": {
           "title": "Open-Source-Software",
-          "content": "Der Quellcode von OpenFarmPlanner ist als Open-Source-Software unter der GNU Affero General Public License Version 3 (AGPLv3) veröffentlicht und kann im GitHub-Repository von OpenFarmPlanner (https://github.com/stipsitzm/OpenFarmPlanner) eingesehen, weiterverwendet und verändert werden. Die Lizenz regelt ausschließlich die Rechte an der Software selbst und schließt, wie bei Open-Source-Software üblich, jede Gewährleistung für die Software aus.\n\nDavon zu unterscheiden ist die Nutzung der unter openfarmplanner.org gehosteten Anwendung: Diese richtet sich nach den vorliegenden Nutzungsbedingungen."
+          "content": "Der Quellcode von OpenFarmPlanner ist als Open-Source-Software unter der GNU Affero General Public License Version 3 (AGPLv3) veröffentlicht und kann im GitHub-Repository von OpenFarmPlanner (https://github.com/OpenFarmPlanner/planner) eingesehen, weiterverwendet und verändert werden. Die Lizenz regelt ausschließlich die Rechte an der Software selbst und schließt, wie bei Open-Source-Software üblich, jede Gewährleistung für die Software aus.\n\nDavon zu unterscheiden ist die Nutzung der unter openfarmplanner.org gehosteten Anwendung: Diese richtet sich nach den vorliegenden Nutzungsbedingungen."
         },
         "futureFeatures": {
           "title": "Weiterentwicklung der Plattform",

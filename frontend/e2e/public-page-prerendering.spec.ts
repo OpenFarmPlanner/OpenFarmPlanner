@@ -93,7 +93,7 @@ test.describe('public page prerendering', () => {
   test('app-shell.html stays the empty SPA shell, not the prerendered landing page', () => {
     // Production's Apache SPA fallback serves this file for any route that
     // isn't one of the prerendered public pages above (all /app/*, /login,
-    // etc.) - see OpenFarmPlanner-ops/deploy/deploy_frontend.sh. If this ever
+    // etc.) - see ops/deploy/deploy_frontend.sh. If this ever
     // regressed to contain rendered landing-page markup again, reloading an
     // authenticated route in production would flash the landing/login page
     // before the SPA bundle boots.

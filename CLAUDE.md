@@ -134,7 +134,7 @@ existing screenshot test happens to fail.
 
 Follow existing placement patterns before creating new directories.
 
-Deploy scripts, cron/scheduling config, and infra are **not** in this repo — they live in the separate `OpenFarmPlanner-ops` repo (sibling directory `OpenFarmPlanner-ops/`). Before concluding that a management command is never scheduled, or that a deploy/retention step is missing, check `OpenFarmPlanner-ops` (`cron.d/`, `deploy/`, `services.d/`) as well as this repo.
+Deploy scripts, cron/scheduling config, and infra are **not** in this repo — they live in the separate `ops` repo (sibling directory `ops/`). Before concluding that a management command is never scheduled, or that a deploy/retention step is missing, check `ops` (`cron.d/`, `deploy/`, `services.d/`) as well as this repo.
 
 ## Frontend and UX Rules
 
@@ -256,7 +256,7 @@ tests, screenshots, or manual checks were performed.
 
 ## Git and PR Workflow
 - This repository should use the SSH GitHub remote:
-  `git@github.com:stipsitzm/OpenFarmPlanner.git`
+  `git@github.com:OpenFarmPlanner/planner.git`
 - If origin uses HTTPS and a push is requested, switch to SSH.
 - Assume SSH works unless push errors indicate otherwise.
 - Never commit directly to `main`. Always work on a feature/fix branch and open a pull request, even for small changes.
