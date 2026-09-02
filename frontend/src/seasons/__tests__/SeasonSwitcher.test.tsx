@@ -305,7 +305,7 @@ describe('SeasonSwitcher', () => {
 
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
     expect(createSeason).toHaveBeenCalledTimes(1);
-    expect(createSeason).toHaveBeenCalledWith('2026-10-01', '2026-12-31', 2);
+    expect(createSeason).toHaveBeenCalledWith('2026-10-01', '2027-12-31', 2);
     expect(switchSeason).toHaveBeenCalledWith(9);
   });
 
@@ -374,7 +374,7 @@ describe('SeasonSwitcher', () => {
     expect(screen.getByText(confirmation)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Anlegen' }));
-    expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2026-12-31', 2);
+    expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2027-12-31', 2);
   });
 
   it('links from the create dialog to the season-pattern settings without creating a season', async () => {

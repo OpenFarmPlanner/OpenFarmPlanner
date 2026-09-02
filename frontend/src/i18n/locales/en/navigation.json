@@ -98,6 +98,7 @@
         "transition": "Create a transition season (joins the last season seamlessly)",
         "transitionTwoSeasons": "Two seasons will be created: transition season {{transitionPeriod}} and {{followupLabel}} ({{followupPeriod}}).",
         "manual": "Set the start date manually",
+        "manualCaption": "The season closes the gap from the chosen date and runs through the end of the following regular pattern period.",
         "manualStartLabel": "Start date",
         "manualPeriod": "Period: {{period}}",
         "residualClosed": {

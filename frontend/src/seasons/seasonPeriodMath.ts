@@ -57,6 +57,28 @@ export function computeCustomSeasonEnd(
   return toIsoDate(nextStart);
 }
 
+/**
+ * End date (inclusive) for a hand-picked manual start in the gap-decision flow.
+ *
+ * Mirrors `compute_manual_season_period`: the season runs from `startDate`
+ * through the end of the following full pattern period, so it closes the gap
+ * and then absorbs the next regular season (start 2026-09-01, pattern Jan 1 ->
+ * end 2027-12-31).
+ */
+export function computeManualSeasonEnd(
+  startDate: string,
+  startDay: number,
+  startMonth: number,
+): string {
+  const nextStart = parseIsoDate(computeNextPatternStartAfter(startDate, startDay, startMonth));
+  const followupYear = nextStart.getFullYear() + 1;
+  const month1 = nextStart.getMonth() + 1;
+  const day = Math.min(nextStart.getDate(), daysInMonth(followupYear, month1));
+  const end = new Date(followupYear, month1 - 1, day);
+  end.setDate(end.getDate() - 1);
+  return toIsoDate(end);
+}
+
 /** Add `days` to an ISO date string. */
 export function addDaysIso(isoDate: string, days: number): string {
   const date = parseIsoDate(isoDate);

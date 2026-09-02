@@ -38,7 +38,7 @@ import { SeasonRenameDialog } from './SeasonRenameDialog';
 import { SeasonPeriodEditDialog } from './SeasonPeriodEditDialog';
 import { SeasonCopyDataDialog } from './SeasonCopyDataDialog';
 import { computeSeasonLabel, formatSeasonPeriod, resolveSeasonDateLocale } from './formatSeasonDate';
-import { addDaysIso, analyzePeriodTransition, computeCustomSeasonEnd } from './seasonPeriodMath';
+import { addDaysIso, analyzePeriodTransition, computeManualSeasonEnd } from './seasonPeriodMath';
 import { SEASON_SWITCHER_EMOJI } from '../navigation/navigationIconEmoji';
 import { NavEmojiIcon } from '../navigation/NavEmojiIcon';
 import { DeleteUndoSnackbar } from '../components/data-grid';
@@ -135,7 +135,7 @@ export function SeasonCreateSuggestionDialog({
   const followupLabel = duePeriod ? computeSeasonLabel(duePeriod.start_date, duePeriod.end_date) : '';
   const copyFromLabel = seasonCreationOptions?.copy_source_label ?? activeSeason?.label ?? '';
   const manualEndDate = manualStartDate && seasonCreationOptions
-    ? computeCustomSeasonEnd(
+    ? computeManualSeasonEnd(
       manualStartDate,
       seasonCreationOptions.start_day,
       seasonCreationOptions.start_month,
@@ -353,6 +353,9 @@ export function SeasonCreateSuggestionDialog({
                       <Stack sx={{ pt: 0.75 }}>
                         <Typography variant="body2">
                           {t('navigation:seasonSwitcher.suggestion.gap.manual')}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('navigation:seasonSwitcher.suggestion.gap.manualCaption')}
                         </Typography>
                       </Stack>
                     )}

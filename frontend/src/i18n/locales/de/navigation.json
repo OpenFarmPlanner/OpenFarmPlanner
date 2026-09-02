@@ -98,6 +98,7 @@
         "transition": "Übergangssaison anlegen (schließt nahtlos an die letzte Saison an)",
         "transitionTwoSeasons": "Es werden zwei Saisonen angelegt: Übergangssaison {{transitionPeriod}} und {{followupLabel}} ({{followupPeriod}}).",
         "manual": "Startdatum manuell anpassen",
+        "manualCaption": "Die Saison schließt die Lücke ab dem gewählten Datum und läuft bis zum Ende der darauffolgenden regulären Muster-Periode.",
         "manualStartLabel": "Startdatum",
         "manualPeriod": "Zeitraum: {{period}}",
         "residualClosed": {

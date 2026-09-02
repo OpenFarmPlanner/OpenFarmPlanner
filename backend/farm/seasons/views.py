@@ -25,6 +25,7 @@ from farm.services.seasons import (
     analyze_period_transition,
     compute_custom_season_period,
     compute_first_future_pattern_period,
+    compute_manual_season_period,
     compute_preview_periods,
     compute_setup_target_period,
     copy_planting_plans,
@@ -445,7 +446,7 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                     {'detail': 'manual_start_date must be an ISO date (YYYY-MM-DD).'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            manual_start, manual_end = compute_custom_season_period(pattern, manual_start)
+            manual_start, manual_end = compute_manual_season_period(pattern, manual_start)
             payload['manual_period'] = {
                 'start_date': manual_start.isoformat(),
                 'end_date': manual_end.isoformat(),

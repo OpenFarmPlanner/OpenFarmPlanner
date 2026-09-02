@@ -11,6 +11,7 @@ from farm.services.seasons import (
     assign_unassigned_planting_plans,
     compute_custom_season_period,
     compute_due_season_period,
+    compute_manual_season_period,
     compute_period_containing,
     compute_preview_periods,
     compute_season_period,
@@ -122,6 +123,17 @@ class SeasonTransitionMathTest(ProjectApiTestCase):
         start_date, end_date = compute_custom_season_period(pattern, date(2026, 9, 1))
         self.assertEqual(end_date, date(2027, 8, 31))
 
+    def test_manual_season_period_runs_through_the_following_full_pattern_period(self):
+        pattern = SeasonPattern(project=self.project, start_day=1, start_month=1)
+        start_date, end_date = compute_manual_season_period(pattern, date(2026, 9, 1))
+        self.assertEqual(start_date, date(2026, 9, 1))
+        self.assertEqual(end_date, date(2027, 12, 31))
+
+    def test_manual_season_period_from_a_grid_start_still_absorbs_one_more_year(self):
+        pattern = SeasonPattern(project=self.project, start_day=1, start_month=9)
+        _, end_date = compute_manual_season_period(pattern, date(2026, 5, 1))
+        self.assertEqual(end_date, date(2027, 8, 31))
+
     def test_analyze_period_transition_detects_gap_overlap_and_seam(self):
         self.assertIsNone(analyze_period_transition(date(2026, 8, 31), date(2026, 9, 1)))
         gap = analyze_period_transition(date(2026, 8, 31), date(2026, 10, 1))
@@ -191,8 +203,11 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
             '/openfarmplanner/api/seasons/creation-options/', {'manual_start_date': '2025-05-01'},
         )
 
+        # The manual season closes the gap from the chosen start and then runs
+        # through the end of the following full pattern period (Sep 2025 - Aug
+        # 2026), so copied plans land back in range.
         self.assertEqual(response.data['manual_period'], {
-            'start_date': '2025-05-01', 'end_date': '2025-08-31',
+            'start_date': '2025-05-01', 'end_date': '2026-08-31',
         })
         self.assertEqual(response.data['manual_residual'], {
             'kind': 'gap', 'start_date': '2025-04-01', 'end_date': '2025-04-30',
@@ -267,6 +282,32 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         self.assertEqual(preview['transition'], {'total': 3, 'copied': 2, 'skipped': 0})
         self.assertEqual(preview['transition_followup'], {'total': 3, 'copied': 1, 'skipped': 0})
         self.assertEqual(preview['adopt']['skipped'], 1)
+
+    def test_creation_options_manual_start_copies_every_plan_of_the_last_season(self):
+        self._set_pattern(1, 1)
+        last_season = Season.objects.create(
+            project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+        )
+        # Plans spread across the whole source season, including spring months
+        # that a short Sep-Dec transition season could never hold.
+        for planting_date in (date(2025, 10, 15), date(2026, 3, 1), date(2026, 6, 20)):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season=last_season, planting_date=planting_date,
+            )
+
+        response = self.client.get(
+            '/openfarmplanner/api/seasons/creation-options/',
+            {'manual_start_date': '2026-09-01'},
+        )
+
+        self.assertEqual(response.data['manual_period'], {
+            'start_date': '2026-09-01', 'end_date': '2027-12-31',
+        })
+        self.assertEqual(
+            response.data['copy_preview']['manual'],
+            {'total': 3, 'copied': 3, 'skipped': 0},
+        )
 
 
 class SeasonCopyServiceTest(ProjectApiTestCase):

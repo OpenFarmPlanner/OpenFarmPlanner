@@ -98,6 +98,20 @@ def compute_custom_season_period(pattern: SeasonPattern, start_date: date) -> tu
     return start_date, compute_next_pattern_start_after(pattern, start_date) - timedelta(days=1)
 
 
+def compute_manual_season_period(pattern: SeasonPattern, start_date: date) -> tuple[date, date]:
+    """Return the period for a hand-picked manual start in the gap-decision flow.
+
+    Unlike `compute_custom_season_period` (a short transition season that snaps
+    to the next pattern start), the manual season runs from `start_date` through
+    the *end of the following full pattern period*: it closes the gap as far as
+    the user drags the start date and then absorbs the next regular season, so
+    the plans copied into it (shifted by the whole-year gap) land back in range.
+    Example: pattern Jan 1, start 2026-09-01 -> 2026-09-01 .. 2027-12-31.
+    """
+    next_start = compute_next_pattern_start_after(pattern, start_date)
+    return start_date, add_months(next_start, 12) - timedelta(days=1)
+
+
 def analyze_period_transition(previous_end: date, next_start: date) -> dict | None:
     """Classify the join between one period's end and the next period's start.
 

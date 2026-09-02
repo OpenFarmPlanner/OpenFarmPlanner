@@ -282,7 +282,10 @@ decides once, at the point the concrete season is actually created.
   `gap`/`overlap`/seamless; `compute_custom_season_period(pattern, start_date)`
   returns an individual period whose end is the day before the next pattern
   start on/after `start_date` (so a transition season snaps back onto the
-  pattern grid rather than running a fixed 12 months);
+  pattern grid rather than running a fixed 12 months) — used for option 2's
+  short transition season; `compute_manual_season_period(pattern, start_date)`
+  instead ends at the close of the *following full pattern period*, used for
+  option 3 (see the create flow below);
   `compute_first_future_pattern_period(pattern, latest_season)` is the
   skip-ahead period `find_due_but_missing_season` already used, now shared.
 - **Preview (project settings, `SeasonPatternCard`).**
@@ -308,10 +311,17 @@ decides once, at the point the concrete season is actually created.
      angelegt: …").
   3. manual start date — the field is prefilled with the seamless date
      (last season's `end_date` + 1 day, i.e. the date that closes the gap /
-     avoids the overlap completely) and stays freely editable; the end is
-     derived the same way and shown read-only, with
-     a live green "gap fully closed" / orange "remaining gap {period}" hint
-     computed client-side via `seasons/seasonPeriodMath.ts` (a tested mirror of
+     avoids the overlap completely) and stays freely editable. The end is
+     **not** the short transition end: `compute_manual_season_period` runs the
+     season from the chosen start through the *end of the following full
+     pattern period* (start 2026-09-01, pattern Jan 1 → end 2027-12-31), so it
+     closes the gap and absorbs the next regular season into one period. That
+     keeps the whole-year-shifted copy in range — the point of the option is to
+     carry the last season's plans forward, which a Sep–Dec transition window
+     cannot do. The end is shown read-only next to a live green "gap fully
+     closed" / orange "remaining gap {period}" hint (the gap check is on the
+     *start* date, unaffected by the longer end), computed client-side via
+     `seasons/seasonPeriodMath.ts::computeManualSeasonEnd` (a tested mirror of
      the backend math, so option 3 needs no round-trip per keystroke). The
      copy preview for a manual start *is* re-fetched from the server.
   Options 2 and 3 create seasons with individual, non-12-month dates; every

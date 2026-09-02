@@ -3,6 +3,7 @@ import {
   addDaysIso,
   analyzePeriodTransition,
   computeCustomSeasonEnd,
+  computeManualSeasonEnd,
   computeNextPatternStartAfter,
 } from '../seasonPeriodMath';
 
@@ -20,6 +21,12 @@ describe('seasonPeriodMath', () => {
   it('derives a custom season end as the day before the next pattern start', () => {
     expect(computeCustomSeasonEnd('2026-04-15', 1, 1)).toBe('2026-12-31');
     expect(computeCustomSeasonEnd('2025-04-01', 1, 9)).toBe('2025-08-31');
+  });
+
+  it('derives a manual season end at the close of the following full pattern period', () => {
+    expect(computeManualSeasonEnd('2026-09-01', 1, 1)).toBe('2027-12-31');
+    expect(computeManualSeasonEnd('2026-04-15', 1, 1)).toBe('2027-12-31');
+    expect(computeManualSeasonEnd('2025-05-01', 1, 9)).toBe('2026-08-31');
   });
 
   it('classifies gaps, overlaps and seamless joins', () => {
