@@ -4,13 +4,14 @@
  * Keeps raw input text during editing and lets the save flow normalize it.
  */
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { TextField } from '@mui/material';
 import { useGridApiContext } from '@mui/x-data-grid';
 import type { GridRenderEditCellParams } from '@mui/x-data-grid';
 import type { Crop } from '../../api/types';
 import { useEditCellNavigation } from './EditCellNavigationContext';
 import { useEditCellAutoFocus } from './useEditCellAutoFocus';
+import { forwardEditCellTabNavigation, useEditCellTabNavigation } from './useEditCellTabNavigation';
 
 export interface PlantsCountEditCellProps extends GridRenderEditCellParams {
   crops: Crop[];
@@ -35,44 +36,8 @@ export function PlantsCountEditCell(props: PlantsCountEditCellProps) {
   }, []);
   useEditCellAutoFocus(hasFocus, inputRef, selectAll);
 
-  useEffect(() => {
-    const input = inputRef.current;
-    if (!input || !editCellNavigation) {
-      return undefined;
-    }
+  useEditCellTabNavigation(inputRef, editCellNavigation, id, field);
 
-    const handleNativeTabKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-        event.stopPropagation();
-        return;
-      }
-
-      if (event.key !== 'Tab') {
-        return;
-      }
-
-      editCellNavigation({
-        id,
-        field,
-        event: {
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          key: event.key,
-          metaKey: event.metaKey,
-          nativeEvent: event,
-          preventDefault: () => event.preventDefault(),
-          shiftKey: event.shiftKey,
-          stopPropagation: () => event.stopPropagation(),
-        },
-      });
-    };
-
-    input.addEventListener('keydown', handleNativeTabKeyDown, { capture: true });
-    return () => {
-      input.removeEventListener('keydown', handleNativeTabKeyDown, { capture: true });
-    };
-  }, [editCellNavigation, field, id]);
-  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInputValue(val);
@@ -81,23 +46,12 @@ export function PlantsCountEditCell(props: PlantsCountEditCellProps) {
       field,
       value: val
     });
-    
+
     onLastEditedFieldChange('plants_count');
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-      event.stopPropagation();
-      return;
-    }
-
-    if (event.key === 'Tab') {
-      editCellNavigation?.({
-        id,
-        field,
-        event: event as ReactKeyboardEvent<HTMLElement>,
-      });
-    }
+    forwardEditCellTabNavigation(event, editCellNavigation, id, field);
   };
   
   return (
