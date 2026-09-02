@@ -314,7 +314,9 @@ decides once, at the point the concrete season is actually created.
      (`POST /seasons/create-transition/`): the gap-filling `seamless_period`
      plus the regular follow-up season (`due_period`) the pattern computes
      next. The dialog states this up front ("Es werden zwei Saisonen
-     angelegt: …").
+     angelegt: …"). If either period matches a soft-deleted season it is
+     resurrected and its hard-deleted planting plans are restored, same as the
+     `POST /seasons/` resurrection path and the `undelete` action.
   3. manual start date — the field is prefilled with the seamless date
      (last season's `end_date` + 1 day, i.e. the date that closes the gap /
      avoids the overlap completely) and stays freely editable. The end is

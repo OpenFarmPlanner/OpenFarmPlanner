@@ -464,7 +464,8 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
 
     def _create_or_resurrect_season(self, project, start_date, end_date, user, batch):
         """Create a season for `[start_date, end_date]`, or resurrect a
-        soft-deleted one occupying the same (project, start_date) slot."""
+        soft-deleted one occupying the same (project, start_date) slot,
+        restoring the planting plans hard-deleted with it (an undelete)."""
         resurrected = (
             Season.all_objects
             .filter(project=project, start_date=start_date, deleted_at__isnull=False)
@@ -479,6 +480,10 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 resurrected, EntityRevision.ACTION_UPDATED,
                 changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
             )
+            # Re-creating a season's period is an undelete — bring back the
+            # planting plans (and their tasks) hard-deleted with it, matching
+            # the `perform_create` resurrection path and the `undelete` action.
+            self._restore_season_planting_plans(resurrected, batch)
             return resurrected
         season = Season.objects.create(
             project=project, start_date=start_date, end_date=end_date, created_by=user,

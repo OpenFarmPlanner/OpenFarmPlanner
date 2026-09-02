@@ -274,6 +274,50 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         # Every source plan landed in exactly one of the two seasons.
         self.assertEqual(len(transition_dates) + len(followup_dates), len(months))
 
+    def test_create_transition_resurrecting_seasons_restores_their_planting_plans(self):
+        self._set_pattern(1, 1)
+        last_season = Season.objects.create(
+            project=self.project, start_date=date(2025, 9, 1), end_date=date(2026, 8, 31),
+        )
+        for planting_date in (date(2025, 10, 15), date(2025, 11, 15), date(2026, 3, 15)):
+            PlantingPlan.objects.create(
+                culture=self.culture, bed=self.bed, project=self.project,
+                season=last_season, planting_date=planting_date,
+            )
+
+        first = self.client.post('/openfarmplanner/api/seasons/create-transition/', {'copy': True})
+        self.assertEqual(first.status_code, 201, getattr(first, 'data', None))
+        transition_id = first.data['transition_season']['id']
+        followup_id = first.data['followup_season']['id']
+        plans_by_season = {
+            transition_id: sorted(
+                PlantingPlan.objects.filter(season_id=transition_id).values_list('pk', flat=True)
+            ),
+            followup_id: sorted(
+                PlantingPlan.objects.filter(season_id=followup_id).values_list('pk', flat=True)
+            ),
+        }
+        self.assertTrue(plans_by_season[transition_id] and plans_by_season[followup_id])
+
+        # Delete both new seasons (hard-deletes their plans), leaving the gap.
+        self.client.delete(f'/openfarmplanner/api/seasons/{transition_id}/')
+        self.client.delete(f'/openfarmplanner/api/seasons/{followup_id}/')
+        self.assertEqual(PlantingPlan.objects.exclude(season=last_season).count(), 0)
+
+        # Re-running the transition flow resurrects both seasons AND brings
+        # their previously contained plans back with their original ids.
+        second = self.client.post('/openfarmplanner/api/seasons/create-transition/', {})
+        self.assertEqual(second.status_code, 201, getattr(second, 'data', None))
+        self.assertEqual(second.data['transition_season']['id'], transition_id)
+        self.assertEqual(second.data['followup_season']['id'], followup_id)
+        for season_id, plan_ids in plans_by_season.items():
+            self.assertEqual(
+                sorted(
+                    PlantingPlan.objects.filter(season_id=season_id).values_list('pk', flat=True)
+                ),
+                plan_ids,
+            )
+
     def test_creation_options_reports_copy_preview_for_each_option(self):
         self._set_pattern(1, 1)
         last_season = Season.objects.create(
