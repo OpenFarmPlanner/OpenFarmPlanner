@@ -1,4 +1,4 @@
-import { Alert, Box, Button, InputAdornment, Stack, TextField } from '@mui/material';
+import { Alert, Box, Button, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router';
@@ -9,7 +9,7 @@ import { getAuthenticatedAppDestination } from '../../auth/authDestination';
 import { useTranslation } from '../../i18n';
 import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
 import SocialLoginLegalNotice from '../../components/auth/SocialLoginLegalNotice';
-import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
+import { AuthPasswordField } from './AuthPasswordField';
 import { getNextFromSearch } from '../invitationAcceptance';
 import AuthPageShell from './AuthPageShell';
 import { authFormSx, authPrimaryButtonSx, authSecondaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
@@ -111,28 +111,14 @@ export default function LoginPage() {
             fullWidth
             sx={authTextFieldSx}
           />
-          <TextField
+          <AuthPasswordField
             label={t('auth:login.password')}
-            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-            sx={authTextFieldSx}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <PasswordVisibilityToggle
-                      isVisible={showPassword}
-                      showLabel={t('auth:login.showPassword')}
-                      hideLabel={t('auth:login.hidePassword')}
-                      onToggle={() => setShowPassword((current) => !current)}
-                    />
-                  </InputAdornment>
-                ),
-              },
-            }}
+            onValueChange={setPassword}
+            isVisible={showPassword}
+            onToggleVisibility={() => setShowPassword((current) => !current)}
+            showLabel={t('auth:login.showPassword')}
+            hideLabel={t('auth:login.hidePassword')}
           />
           <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth sx={authPrimaryButtonSx}>
             {submitting ? t('auth:login.submitting') : t('auth:login.submit')}

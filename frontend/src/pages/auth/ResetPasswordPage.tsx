@@ -1,12 +1,12 @@
-import { Alert, Box, Button, InputAdornment, Stack, TextField } from '@mui/material';
+import { Alert, Box, Button, Stack } from '@mui/material';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/useAuth';
-import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
+import { AuthPasswordField } from './AuthPasswordField';
 import { useTranslation } from '../../i18n';
 import AuthPageShell from './AuthPageShell';
-import { authFormSx, authPrimaryButtonSx, authTextButtonSx, authTextFieldSx } from './authPageStyles';
+import { authFormSx, authPrimaryButtonSx, authTextButtonSx } from './authPageStyles';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -39,53 +39,25 @@ export default function ResetPasswordPage() {
         <Stack spacing={2.25}>
           {message ? <Alert severity="success">{message}</Alert> : null}
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <TextField
+          <AuthPasswordField
             label={t('resetPassword.password')}
-            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-            sx={authTextFieldSx}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <PasswordVisibilityToggle
-                      isVisible={showPassword}
-                      showLabel={t('resetPassword.showPassword')}
-                      hideLabel={t('resetPassword.hidePassword')}
-                      onToggle={() => setShowPassword((current) => !current)}
-                    />
-                  </InputAdornment>
-                ),
-              },
-              htmlInput: { autoComplete: 'new-password' },
-            }}
+            onValueChange={setPassword}
+            isVisible={showPassword}
+            onToggleVisibility={() => setShowPassword((current) => !current)}
+            showLabel={t('resetPassword.showPassword')}
+            hideLabel={t('resetPassword.hidePassword')}
+            autoComplete="new-password"
           />
-          <TextField
+          <AuthPasswordField
             label={t('resetPassword.passwordConfirm')}
-            type={showPasswordConfirm ? 'text' : 'password'}
             value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            required
-            fullWidth
-            sx={authTextFieldSx}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <PasswordVisibilityToggle
-                      isVisible={showPasswordConfirm}
-                      showLabel={t('resetPassword.showPassword')}
-                      hideLabel={t('resetPassword.hidePassword')}
-                      onToggle={() => setShowPasswordConfirm((current) => !current)}
-                    />
-                  </InputAdornment>
-                ),
-              },
-              htmlInput: { autoComplete: 'new-password' },
-            }}
+            onValueChange={setPasswordConfirm}
+            isVisible={showPasswordConfirm}
+            onToggleVisibility={() => setShowPasswordConfirm((current) => !current)}
+            showLabel={t('resetPassword.showPassword')}
+            hideLabel={t('resetPassword.hidePassword')}
+            autoComplete="new-password"
           />
           <Button type="submit" variant="contained" size="large" fullWidth sx={authPrimaryButtonSx}>
             {t('resetPassword.submit')}
