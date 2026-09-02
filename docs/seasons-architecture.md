@@ -306,7 +306,10 @@ decides once, at the point the concrete season is actually created.
      plus the regular follow-up season (`due_period`) the pattern computes
      next. The dialog states this up front ("Es werden zwei Saisonen
      angelegt: …").
-  3. manual start date — end is derived the same way and shown read-only, with
+  3. manual start date — the field is prefilled with the seamless date
+     (last season's `end_date` + 1 day, i.e. the date that closes the gap /
+     avoids the overlap completely) and stays freely editable; the end is
+     derived the same way and shown read-only, with
      a live green "gap fully closed" / orange "remaining gap {period}" hint
      computed client-side via `seasons/seasonPeriodMath.ts` (a tested mirror of
      the backend math, so option 3 needs no round-trip per keystroke). The

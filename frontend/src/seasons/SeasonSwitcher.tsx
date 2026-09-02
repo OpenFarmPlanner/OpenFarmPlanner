@@ -38,7 +38,7 @@ import { SeasonRenameDialog } from './SeasonRenameDialog';
 import { SeasonPeriodEditDialog } from './SeasonPeriodEditDialog';
 import { SeasonCopyDataDialog } from './SeasonCopyDataDialog';
 import { computeSeasonLabel, formatSeasonPeriod, resolveSeasonDateLocale } from './formatSeasonDate';
-import { analyzePeriodTransition, computeCustomSeasonEnd } from './seasonPeriodMath';
+import { addDaysIso, analyzePeriodTransition, computeCustomSeasonEnd } from './seasonPeriodMath';
 import { SEASON_SWITCHER_EMOJI } from '../navigation/navigationIconEmoji';
 import { NavEmojiIcon } from '../navigation/NavEmojiIcon';
 import { DeleteUndoSnackbar } from '../components/data-grid';
@@ -142,6 +142,10 @@ export function SeasonCreateSuggestionDialog({
     )
     : '';
   const manualValid = Boolean(manualStartDate && manualEndDate && manualEndDate > manualStartDate);
+  // Default for the manual option: the date that closes the gap / avoids the
+  // overlap completely, so the field starts on the seamless join instead of
+  // empty or on the pattern-computed date.
+  const seamlessStartDate = lastSeason ? addDaysIso(lastSeason.end_date, 1) : '';
   const manualResidual = manualValid && lastSeason
     ? analyzePeriodTransition(lastSeason.end_date, manualStartDate)
     : null;
@@ -293,7 +297,13 @@ export function SeasonCreateSuggestionDialog({
                 </FormLabel>
                 <RadioGroup
                   value={gapChoice}
-                  onChange={(event) => setGapChoice(event.target.value as typeof gapChoice)}
+                  onChange={(event) => {
+                    const choice = event.target.value as typeof gapChoice;
+                    setGapChoice(choice);
+                    if (choice === 'manual' && !manualStartDate && seamlessStartDate) {
+                      setManualStartDate(seamlessStartDate);
+                    }
+                  }}
                 >
                   <FormControlLabel
                     value="adopt"

@@ -295,6 +295,9 @@ describe('SeasonSwitcher', () => {
 
     await user.click(screen.getByRole('radio', { name: /Startdatum manuell anpassen/ }));
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    // Prefilled with the date that closes the gap; the user overrides it here.
+    expect(dateInput.value).toBe('2026-09-01');
+    await user.clear(dateInput);
     await user.type(dateInput, '2026-10-01');
 
     expect(await screen.findByText(/1 von 4 Anbauplänen aus 25\/26 werden übernommen/)).toBeInTheDocument();
@@ -304,6 +307,74 @@ describe('SeasonSwitcher', () => {
     expect(createSeason).toHaveBeenCalledTimes(1);
     expect(createSeason).toHaveBeenCalledWith('2026-10-01', '2026-12-31', 2);
     expect(switchSeason).toHaveBeenCalledWith(9);
+  });
+
+  it.each([
+    {
+      kind: 'gap' as const,
+      transition: { kind: 'gap' as const, start_date: '2026-09-01', end_date: '2026-12-31' },
+      duePeriod: { start_date: '2027-01-01', end_date: '2027-12-31' },
+      dueSuggestion: { due: true, start_date: '2027-01-01', end_date: '2027-12-31' },
+      confirmation: 'Die Lücke wird vollständig geschlossen.',
+    },
+    {
+      kind: 'overlap' as const,
+      transition: { kind: 'overlap' as const, start_date: '2026-01-01', end_date: '2026-08-31' },
+      duePeriod: { start_date: '2026-01-01', end_date: '2026-12-31' },
+      dueSuggestion: { due: true, start_date: '2026-01-01', end_date: '2026-12-31' },
+      confirmation: 'Die Überlappung wird vollständig vermieden.',
+    },
+  ])('prefills the manual start date with the seamless date ($kind)', async ({
+    transition, duePeriod, dueSuggestion, confirmation,
+  }) => {
+    const user = userEvent.setup();
+    creationOptionsMock.mockResolvedValue({
+      data: { copy_preview: { manual: { total: 3, copied: 3, skipped: 0 } } },
+    });
+    const createSeason = vi.fn().mockResolvedValue({ ...seasons[0], id: 9, label: '2026' });
+    const controller = {
+      seasons,
+      activeSeason: seasons[0],
+      dueSuggestion,
+      seasonCreationOptions: {
+        start_day: 1,
+        start_month: 1,
+        last_season: { start_date: '2025-09-01', end_date: '2026-08-31', label: '25/26' },
+        due_period: duePeriod,
+        transition,
+        seamless_period: { start_date: '2026-09-01', end_date: '2026-12-31' },
+        manual_period: null,
+        manual_residual: null,
+        copy_source_label: '25/26',
+        copy_preview: { adopt: null, transition: null, transition_followup: null, manual: null },
+      },
+      pendingDeletions: [],
+      createSeason,
+      switchSeason: vi.fn(),
+      renameSeason: vi.fn(),
+      copyDataInto: vi.fn(),
+      deleteSeason: vi.fn(),
+      undoPendingDeletion: vi.fn(),
+      closePendingDeletionSnackbar: vi.fn(),
+    } as unknown as UseActiveSeasonReturn;
+
+    render(
+      <SeasonCreateSuggestionDialog
+        controller={controller}
+        open
+        onClose={vi.fn()}
+        onEditSeasonPattern={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: /Startdatum manuell anpassen/ }));
+
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(dateInput.value).toBe('2026-09-01');
+    expect(screen.getByText(confirmation)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Anlegen' }));
+    expect(createSeason).toHaveBeenCalledWith('2026-09-01', '2026-12-31', 2);
   });
 
   it('links from the create dialog to the season-pattern settings without creating a season', async () => {
