@@ -17,8 +17,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { useTranslation } from '../../i18n';
-import { formatDateAsGerman, parseGermanDateText } from './GermanDateEditCell';
-import { toIsoDateString } from './dateEditCellUtils';
+import { formatDateAsGerman, parseGermanDateText, toIsoDateString } from './dateEditCellUtils';
 import { useEditCellNavigation } from './EditCellNavigationContext';
 import { useEditCellTabNavigation } from './useEditCellTabNavigation';
 

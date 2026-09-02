@@ -9,7 +9,7 @@
 
 import type { GridApi, GridColDef, GridRowId } from '@mui/x-data-grid';
 import { cssEscape } from './continuousScrollLayout';
-import { parseGermanDateText } from './GermanDateEditCell';
+import { parseGermanDateText } from './dateEditCellUtils';
 import type { EditableRow } from './types';
 
 /**

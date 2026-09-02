@@ -25,7 +25,7 @@ import {
   parseLocalizedNumber,
 } from "../../utils/numberLocalization";
 import type { SearchableSelectOption } from "../data-grid";
-import { formatDateAsGerman, parseGermanDateText } from "../data-grid/GermanDateEditCell";
+import { formatDateAsGerman, parseGermanDateText } from "../data-grid/dateEditCellUtils";
 import { toIsoDateString } from "../data-grid/dateEditCellUtils";
 import type { MobileCreateFormState } from "../../pages/plantingPlansUtils";
 import type { CultivationTypeSelectOption } from "../../pages/usePlantingPlanHierarchy";

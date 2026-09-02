@@ -4,7 +4,7 @@ import type { GridSortModel } from '@mui/x-data-grid';
 import { handleEditableCellClick, handleRowEditStop } from '../components/data-grid/handlers';
 import { getPlainExcerpt, stripMarkdown } from '../components/data-grid/markdown';
 import { buildDefaultClipboardColumns, getSortedRowIds, orderRowsByStableIds } from '../components/data-grid/dataGridUtils';
-import { toGridDateValue } from '../components/data-grid/dateEditCellUtils';
+import { formatDateAsGerman, parseGermanDateText, toGridDateValue } from '../components/data-grid/dateEditCellUtils';
 import type { GridColDef } from '@mui/x-data-grid';
 import type { EditableRow } from '../components/data-grid/types';
 
@@ -194,5 +194,30 @@ describe('toGridDateValue', () => {
     expect(toGridDateValue('nicht datierbar')).toBeNull();
     expect(toGridDateValue(new Date('nope'))).toBeNull();
     expect(toGridDateValue({ year: 2026 })).toBeNull();
+  });
+});
+
+describe('parseGermanDateText', () => {
+  it('parses valid dd.MM.yyyy text into a local Date', () => {
+    expect(parseGermanDateText('10.04.2026')).toEqual(new Date(2026, 3, 10));
+    expect(parseGermanDateText('  5.1.2026 ')).toEqual(new Date(2026, 0, 5));
+  });
+
+  it('rejects malformed or non-existent dates', () => {
+    expect(parseGermanDateText('2026-04-10')).toBeNull();
+    expect(parseGermanDateText('31.02.2026')).toBeNull();
+    expect(parseGermanDateText('nope')).toBeNull();
+  });
+});
+
+describe('formatDateAsGerman', () => {
+  it('formats a Date as zero-padded dd.MM.yyyy', () => {
+    expect(formatDateAsGerman(new Date(2026, 3, 5))).toBe('05.04.2026');
+  });
+
+  it('returns an empty string for empty or invalid input', () => {
+    expect(formatDateAsGerman(null)).toBe('');
+    expect(formatDateAsGerman(undefined)).toBe('');
+    expect(formatDateAsGerman(new Date('nope'))).toBe('');
   });
 });
