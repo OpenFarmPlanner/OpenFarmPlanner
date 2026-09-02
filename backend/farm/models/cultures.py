@@ -973,7 +973,6 @@ class PublicCulture(TimestampedModel):
     seed_rate_value = models.FloatField(null=True, blank=True)
     seed_rate_unit = models.CharField(max_length=30, null=True, blank=True)
     seed_rate_by_cultivation = models.JSONField(null=True, blank=True)
-    sowing_calculation_safety_percent = models.FloatField(null=True, blank=True)
     thousand_kernel_weight_g = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     seeding_requirement = models.FloatField(null=True, blank=True)
     seeding_requirement_type = models.CharField(max_length=30, blank=True)

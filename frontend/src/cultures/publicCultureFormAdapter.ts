@@ -93,11 +93,8 @@ export function publicCultureToCultureFormData(culture: PublicCulture): Culture 
     seed_rate_by_cultivation: culture.seed_rate_by_cultivation ?? null,
     seed_rate_direct_value: directRate.value ?? null,
     seed_rate_direct_unit: normalizeSeedRateUnit(directRate.unit),
-    sowing_calculation_safety_percent_direct: culture.sowing_calculation_safety_percent ?? null,
     seed_rate_pre_cultivation_value: preCultivationRate.value ?? null,
     seed_rate_pre_cultivation_unit: normalizeSeedRateUnit(preCultivationRate.unit),
-    sowing_calculation_safety_percent_pre_cultivation: culture.sowing_calculation_safety_percent ?? null,
-    sowing_calculation_safety_percent: culture.sowing_calculation_safety_percent ?? undefined,
     thousand_kernel_weight_g: culture.thousand_kernel_weight_g ?? undefined,
     seeding_requirement: culture.seeding_requirement ?? undefined,
     seeding_requirement_type: culture.seeding_requirement_type ?? '',
@@ -118,11 +115,6 @@ export function buildPublicCultureUpdatePayload(
     seedRateUnitOrNull(draft.seed_rate_direct_unit),
     seedRateUnitOrNull(draft.seed_rate_pre_cultivation_unit),
   );
-  const sowingSafetyPercent = draft.sowing_calculation_safety_percent_direct
-    ?? draft.sowing_calculation_safety_percent_pre_cultivation
-    ?? draft.sowing_calculation_safety_percent
-    ?? null;
-
   return {
     base_version: baseVersion,
     variety: draft.variety ?? '',
@@ -142,7 +134,6 @@ export function buildPublicCultureUpdatePayload(
     seed_rate_value: seedRateFallbackFields.seed_rate_value,
     seed_rate_unit: seedRateFallbackFields.seed_rate_unit,
     seed_rate_by_cultivation: seedRateFallbackFields.seed_rate_by_cultivation,
-    sowing_calculation_safety_percent: sowingSafetyPercent,
     thousand_kernel_weight_g: draft.thousand_kernel_weight_g ?? null,
     seeding_requirement: draft.seeding_requirement ?? null,
     seeding_requirement_type: normalizeSeedingRequirementType(draft.seeding_requirement_type),

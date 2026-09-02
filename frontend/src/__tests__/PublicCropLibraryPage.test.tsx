@@ -416,10 +416,8 @@ describe('PublicCropLibraryPage', () => {
         cultivation_types: ['pre_cultivation', 'direct_sowing'],
         seed_rate_direct_value: 0.014,
         seed_rate_direct_unit: 'seeds_per_lfm',
-        sowing_calculation_safety_percent_direct: 5,
         seed_rate_pre_cultivation_value: 1.357,
         seed_rate_pre_cultivation_unit: 'seeds_per_plant',
-        sowing_calculation_safety_percent_pre_cultivation: 10,
         thousand_kernel_weight_g: 1.3,
         seeding_requirement: 4.5,
         seeding_requirement_type: 'per_sqm',
@@ -439,15 +437,16 @@ describe('PublicCropLibraryPage', () => {
     expect(screen.getByText('Methode')).toBeInTheDocument();
     expect(screen.getByText('Menge')).toBeInTheDocument();
     expect(screen.getByText('Einheit')).toBeInTheDocument();
-    expect(screen.getByText('Sicherheitszuschlag (%)')).toBeInTheDocument();
+    // The seed safety margin is a farm-specific planning value and must not
+    // appear anywhere in the public library.
+    expect(screen.queryByText('Sicherheitszuschlag (%)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sicherheitszuschlag Saatgut')).not.toBeInTheDocument();
     expect(screen.getByText('Pflanzung')).toBeInTheDocument();
     expect(screen.getByText('Direktsaat')).toBeInTheDocument();
     expect(screen.getByText('1,357')).toBeInTheDocument();
     expect(screen.getByText('0,014')).toBeInTheDocument();
     expect(screen.getByText('Korn / Pflanze')).toBeInTheDocument();
     expect(screen.getByText('Korn / lfm')).toBeInTheDocument();
-    expect(screen.getByText('10 %')).toBeInTheDocument();
-    expect(screen.getByText('5 %')).toBeInTheDocument();
     expect(screen.getByText('1000-Korn-Gewicht (g)')).toBeInTheDocument();
     expect(screen.getByText('1,3 g')).toBeInTheDocument();
     expect(screen.getByText('Saatgutbedarf')).toBeInTheDocument();

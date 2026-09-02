@@ -101,7 +101,6 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
                 'direct_sowing': {'value': 12, 'unit': 'seeds_per_lfm'},
                 'pre_cultivation': {'value': 3, 'unit': 'seeds_per_plant'},
             },
-            sowing_calculation_safety_percent=15,
         )
 
         response = self.client.get('/openfarmplanner/api/public-cultures/')
@@ -125,8 +124,37 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertEqual(public_culture['seed_rate_direct_unit'], 'seeds_per_lfm')
         self.assertEqual(public_culture['seed_rate_pre_cultivation_value'], 3)
         self.assertEqual(public_culture['seed_rate_pre_cultivation_unit'], 'seeds_per_plant')
-        self.assertEqual(public_culture['sowing_calculation_safety_percent_direct'], 15)
-        self.assertEqual(public_culture['sowing_calculation_safety_percent_pre_cultivation'], 15)
+
+    def test_public_culture_response_omits_seed_safety_margin(self):
+        # The safety margin is a farm-specific planning decision, not a
+        # property of the crop, so it is not public-library data.
+        PublicCulture.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status=PublicCulture.STATUS_PUBLISHED,
+            crop_species=self.species,
+            created_by=self.user,
+            cultivation_types=['direct_sowing'],
+        )
+
+        response = self.client.get('/openfarmplanner/api/public-cultures/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        public_culture = response.data['results'][0]
+        self.assertNotIn('sowing_calculation_safety_percent', public_culture)
+        self.assertNotIn('sowing_calculation_safety_percent_direct', public_culture)
+        self.assertNotIn('sowing_calculation_safety_percent_pre_cultivation', public_culture)
+
+    def test_publish_keeps_the_seed_safety_margin_out_of_the_public_entry(self):
+        self.culture.sowing_calculation_safety_percent = 15
+        self.culture.save()
+
+        response = self.publish_current_culture()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        public_culture = PublicCulture.objects.get(variety='Bijella')
+        self.assertFalse(hasattr(public_culture, 'sowing_calculation_safety_percent'))
+        self.assertNotIn('sowing_calculation_safety_percent', response.data['public_culture'])
 
     def test_publish_requires_public_library_contribution_terms(self):
         response = self.client.post(f'/openfarmplanner/api/cultures/{self.culture.id}/publish-public/', {}, format='json')
@@ -876,6 +904,31 @@ class PublicCultureLibraryApiTest(DRFAPITestCase):
         self.assertFalse(imported.is_modified_from_source)
         self.assertEqual(imported.seed_packages.count(), 1)
         self.assertEqual(float(imported.seed_packages.first().size_value), 15.0)
+
+    def test_import_does_not_overwrite_the_project_seed_safety_margin(self):
+        public_culture = PublicCulture.objects.create(
+            name='Lettuce',
+            variety='Bijella',
+            status='published',
+            crop_species=self.species,
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        self.culture.source_public_culture = public_culture
+        self.culture.source_public_version = public_culture.version
+        self.culture.sowing_calculation_safety_percent = 15
+        self.culture.save()
+
+        response = self.client.post(
+            f'/openfarmplanner/api/public-cultures/{public_culture.id}/import/',
+            {'mode': 'update'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.culture.refresh_from_db()
+        self.assertEqual(self.culture.growth_duration_days, 70)
+        self.assertEqual(self.culture.sowing_calculation_safety_percent, 15)
 
     def test_import_variety_public_culture_also_creates_missing_local_general_culture(self):
         bean_species = CropSpecies.objects.create(name='Bean')

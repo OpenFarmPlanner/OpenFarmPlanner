@@ -306,11 +306,8 @@ export interface PublicCulture {
   seed_requirements?: SeedRequirements;
   seed_rate_direct_value?: number | null;
   seed_rate_direct_unit?: SeedRateUnit | null;
-  sowing_calculation_safety_percent_direct?: number | null;
   seed_rate_pre_cultivation_value?: number | null;
   seed_rate_pre_cultivation_unit?: SeedRateUnit | null;
-  sowing_calculation_safety_percent_pre_cultivation?: number | null;
-  sowing_calculation_safety_percent?: number | null;
   thousand_kernel_weight_g?: number | null;
   seeding_requirement?: number | null;
   seeding_requirement_type?: 'per_sqm' | 'per_plant' | '';
