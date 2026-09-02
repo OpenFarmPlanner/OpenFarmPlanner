@@ -2,15 +2,14 @@ import type { Ref } from 'react';
 import {
   Box,
   IconButton,
-  InputAdornment,
   Stack,
-  TextField,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 
 import { useTranslation } from '../../i18n';
 import { AppTooltip } from '../AppTooltip';
+import { GanttSearchField } from './GanttSearchField';
 
 interface SeedlingFiltersProps {
   /** Mobile layout renders a collapsible search icon; desktop a plain field. */
@@ -51,21 +50,11 @@ export function SeedlingFilters({
         <Stack spacing={0}>
           {searchExpanded ? (
             <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
-              <TextField
-                size="small"
+              <GanttSearchField
                 placeholder={t('ganttChart:treeFilters.searchPlaceholderSeedlings')}
                 value={searchText}
-                onChange={(event) => onSearchTextChange(event.target.value)}
+                onValueChange={onSearchTextChange}
                 inputRef={searchInputRef}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
                 sx={{ flex: '1 1 auto', minWidth: 0 }}
               />
               <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
@@ -101,21 +90,11 @@ export function SeedlingFilters({
               alignItems: 'center',
           }}
         >
-          <TextField
-            size="small"
+          <GanttSearchField
             placeholder={t('ganttChart:treeFilters.searchPlaceholderSeedlings')}
             value={searchText}
-            onChange={(event) => onSearchTextChange(event.target.value)}
+            onValueChange={onSearchTextChange}
             inputRef={searchInputRef}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              },
-            }}
             sx={{ minWidth: 240, flex: '1 1 240px' }}
           />
         </Box>
