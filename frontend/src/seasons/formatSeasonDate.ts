@@ -13,19 +13,16 @@ export function formatSeasonPeriod(startDate: string, endDate: string, locale: s
   return `${formatSeasonDate(startDate, locale)} – ${formatSeasonDate(endDate, locale)}`;
 }
 
-/** Mirrors `Season.computed_label` on the backend (see `farm/models/seasons.py`). */
+/** Mirrors `Season.computed_label` on the backend (see `farm/models/seasons.py`):
+ * a four-digit year when start and end are in the same calendar year (including
+ * a partial-year transition season), otherwise a "YY/YY" span. */
 export function computeSeasonLabel(startDate: string, endDate: string): string {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
-  const isCalendarYear = (
-    start.getMonth() === 0 && start.getDate() === 1
-    && end.getMonth() === 11 && end.getDate() === 31
-    && start.getFullYear() === end.getFullYear()
-  );
-  if (isCalendarYear) {
+  if (start.getFullYear() === end.getFullYear()) {
     return String(start.getFullYear());
   }
-  const startYear = String(start.getFullYear()).slice(-2);
-  const endYear = String(end.getFullYear()).slice(-2);
+  const startYear = String(start.getFullYear() % 100).padStart(2, '0');
+  const endYear = String(end.getFullYear() % 100).padStart(2, '0');
   return `${startYear}/${endYear}`;
 }

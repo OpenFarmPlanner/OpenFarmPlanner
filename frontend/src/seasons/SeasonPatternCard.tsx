@@ -12,8 +12,10 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { seasonPatternAPI } from '../api/api';
-import type { SeasonPatternPreviewPeriod } from '../api/types';
+import type { SeasonPatternPreviewResponse } from '../api/types';
 import { useTranslation } from '../i18n';
 import { extractApiErrorMessage } from '../api/errors';
 import { formatSeasonPeriod, resolveSeasonDateLocale } from './formatSeasonDate';
@@ -28,7 +30,11 @@ export function SeasonPatternCard({ id, onSaved }: { id?: string; onSaved?: () =
   const [startMonth, setStartMonth] = useState(1);
   const [savedStartDay, setSavedStartDay] = useState(1);
   const [savedStartMonth, setSavedStartMonth] = useState(1);
-  const [preview, setPreview] = useState<SeasonPatternPreviewPeriod[]>([]);
+  const [preview, setPreview] = useState<SeasonPatternPreviewResponse>({
+    periods: [],
+    reference_season: null,
+    transition: null,
+  });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
 
@@ -109,7 +115,44 @@ export function SeasonPatternCard({ id, onSaved }: { id?: string; onSaved?: () =
             </TableRow>
           </TableHead>
           <TableBody>
-            {preview.map((period) => (
+            {preview.reference_season ? (
+              <TableRow sx={{ bgcolor: 'action.hover' }}>
+                <TableCell>{preview.reference_season.label}</TableCell>
+                <TableCell>
+                  {formatSeasonPeriod(
+                    preview.reference_season.start_date,
+                    preview.reference_season.end_date,
+                    locale,
+                  )}
+                  {' '}
+                  <Typography component="span" variant="caption" color="text.secondary">
+                    {t('navigation:seasonPattern.previewReferenceHint')}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : null}
+            {preview.transition ? (
+              <TableRow sx={{ bgcolor: (theme) => alpha(theme.palette.warning.main, 0.12) }}>
+                <TableCell sx={{ color: 'warning.dark' }}>
+                  <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                    <WarningAmberIcon fontSize="small" />
+                    {t(`navigation:seasonPattern.transition.${preview.transition.kind}Label`)}
+                  </Stack>
+                </TableCell>
+                <TableCell sx={{ color: 'warning.dark' }}>
+                  {formatSeasonPeriod(
+                    preview.transition.start_date,
+                    preview.transition.end_date,
+                    locale,
+                  )}
+                  {' '}
+                  <Typography component="span" variant="caption" color="warning.dark">
+                    {t('navigation:seasonPattern.transition.rowHint')}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : null}
+            {preview.periods.map((period) => (
               <TableRow key={period.start_date}>
                 <TableCell>
                   {new Date(`${period.start_date}T00:00:00`).getFullYear()}

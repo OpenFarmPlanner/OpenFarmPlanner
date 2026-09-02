@@ -758,6 +758,78 @@ export interface SeasonPatternPreviewPeriod {
   is_current: boolean;
 }
 
+export interface SeasonPeriodRange {
+  start_date: string;
+  end_date: string;
+}
+
+/** A gap or overlap between the end of one season period and the start of the next. */
+export interface SeasonPeriodTransition {
+  kind: 'gap' | 'overlap';
+  start_date: string;
+  end_date: string;
+}
+
+export interface SeasonPatternPreviewResponse {
+  periods: SeasonPatternPreviewPeriod[];
+  reference_season: { start_date: string; end_date: string; label: string } | null;
+  transition: SeasonPeriodTransition | null;
+}
+
+/** How many of a source season's planting plans would land inside a target period. */
+export interface SeasonCopyCounts {
+  total: number;
+  copied: number;
+  skipped: number;
+}
+
+export interface SeasonCreationOptions {
+  start_day: number;
+  start_month: number;
+  last_season: { start_date: string; end_date: string; label: string } | null;
+  due_period: SeasonPeriodRange | null;
+  transition: SeasonPeriodTransition | null;
+  seamless_period: SeasonPeriodRange | null;
+  manual_period: SeasonPeriodRange | null;
+  manual_residual: SeasonPeriodTransition | null;
+  copy_source_label: string | null;
+  copy_preview: {
+    adopt: SeasonCopyCounts | null;
+    transition: SeasonCopyCounts | null;
+    transition_followup: SeasonCopyCounts | null;
+    manual: SeasonCopyCounts | null;
+  };
+}
+
+export interface SeasonPeriodEditPlantingConflict {
+  id: number | string;
+  label: string;
+  culture: string;
+  planting_date: string;
+}
+
+export interface SeasonPeriodEditOverlapConflict {
+  season_id: number;
+  season_label: string;
+  overlap_start_date: string;
+  overlap_end_date: string;
+}
+
+export interface SeasonPeriodEditConflict {
+  code: 'season_period_edit_conflict';
+  detail?: string;
+  planting_plan_conflicts: SeasonPeriodEditPlantingConflict[];
+  overlap_conflicts: SeasonPeriodEditOverlapConflict[];
+}
+
+export interface SeasonCreateTransitionResponse {
+  transition_season: Season;
+  followup_season: Season;
+  transition_copied_count: number;
+  followup_copied_count: number;
+  skipped_count: number;
+}
+
 export interface SeasonDueSuggestion {
   due: boolean;
   start_date?: string;
@@ -766,6 +838,7 @@ export interface SeasonDueSuggestion {
 
 export interface SeasonCopyFromResponse {
   copied_count: number;
+  skipped_count: number;
   target_planting_plan_count: number;
 }
 

@@ -53,7 +53,22 @@
       "openAria": "Saison-Aktionen öffnen",
       "copyDataFrom": "Daten übernehmen von…",
       "rename": "Umbenennen",
+      "editPeriod": "Zeitraum bearbeiten",
       "delete": "Löschen"
+    },
+    "periodEditDialog": {
+      "title": "Zeitraum bearbeiten",
+      "startLabel": "Startdatum",
+      "endLabel": "Enddatum",
+      "currentPeriod": "Bisheriger Zeitraum: {{period}}",
+      "endBeforeStart": "Das Enddatum muss nach dem Startdatum liegen.",
+      "save": "Speichern",
+      "error": "Der Zeitraum konnte nicht geändert werden.",
+      "unknownCulture": "Unbekannte Kultur",
+      "plantingConflictIntro": "Diese Anbaupläne liegen mit ihrem Pflanzdatum außerhalb des neuen Zeitraums. Passe sie zuerst an oder verschiebe sie, bevor du den Zeitraum änderst:",
+      "plantingConflictItem": "{{culture}} – Pflanzdatum {{date}}",
+      "overlapConflictIntro": "Der neue Zeitraum überschneidet sich mit einer anderen Saison:",
+      "overlapConflictItem": "Saison {{label}}: {{period}}"
     },
     "suggestion": {
       "title": "Saison {{label}} anlegen",
@@ -69,6 +84,34 @@
         "prefix": "Zeitraum stimmt nicht? Das Saison-Muster kannst du in den",
         "link": "Projekteinstellungen",
         "suffix": "anpassen — die Änderung gilt dann für künftige Saisons."
+      },
+      "gap": {
+        "intro": {
+          "gap": "Zwischen der letzten Saison „{{label}}“ und der neuen Saison liegt eine Lücke ({{period}}). Wähle, wie du fortfahren möchtest:",
+          "overlap": "Die neue Saison überlappt sich mit der letzten Saison „{{label}}“ ({{period}}). Wähle, wie du fortfahren möchtest:"
+        },
+        "chooseLabel": "Wie soll die neue Saison beginnen?",
+        "adopt": {
+          "gap": "Lücke übernehmen (Saison exakt nach Muster-Berechnung)",
+          "overlap": "Überlappung übernehmen (Saison exakt nach Muster-Berechnung)"
+        },
+        "transition": "Übergangssaison anlegen (schließt nahtlos an die letzte Saison an)",
+        "transitionTwoSeasons": "Es werden zwei Saisonen angelegt: Übergangssaison {{transitionPeriod}} und {{followupLabel}} ({{followupPeriod}}).",
+        "manual": "Startdatum manuell anpassen",
+        "manualCaption": "Die Saison schließt die Lücke ab dem gewählten Datum und läuft bis zum Ende der darauffolgenden regulären Muster-Periode.",
+        "manualStartLabel": "Startdatum",
+        "manualPeriod": "Zeitraum: {{period}}",
+        "residualClosed": {
+          "gap": "Die Lücke wird vollständig geschlossen.",
+          "overlap": "Die Überlappung wird vollständig vermieden."
+        },
+        "residualRemains": {
+          "gap": "Es bleibt eine Restlücke: {{period}}.",
+          "overlap": "Es bleibt eine Überlappung: {{period}}."
+        },
+        "copyPreviewAll": "Alle {{total}} Anbaupläne aus {{label}} werden übernommen.",
+        "copyPreviewPartial": "{{copied}} von {{total}} Anbauplänen aus {{label}} werden übernommen – {{skipped}} liegen außerhalb des Zeitraums und werden nicht übernommen.",
+        "copyPreviewFollowup": "Folge-Saison {{label}}: {{copied}} von {{total}} Anbauplänen werden übernommen."
       }
     },
     "renameDialog": {
@@ -108,7 +151,13 @@
     "previewColumnLabel": "Jahr",
     "previewColumnPeriod": "Zeitraum",
     "current": "(aktuell)",
-    "changeNotice": "Eine Änderung des Musters wirkt sich nur auf künftig neu angelegte Saisonen aus. Bereits bestehende Saisonen und ihre Anbaupläne bleiben unverändert.",
+    "previewReferenceHint": "(zuletzt bestehende Saison)",
+    "transition": {
+      "gapLabel": "Lücke",
+      "overlapLabel": "Überlappung",
+      "rowHint": "Optionen beim Anlegen wählbar"
+    },
+    "changeNotice": "Die Änderung wirkt sich nur auf künftig neu angelegte Saisonen aus; bestehende Saisonen bleiben unverändert.",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "saveAriaLabel": "Saison-Muster speichern",

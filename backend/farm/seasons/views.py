@@ -1,7 +1,7 @@
 """API endpoints for the seasons domain: seasons, the season pattern, and
 the first-run setup that migrates a project's unassigned planting plans."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import Count
@@ -12,20 +12,42 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
-from farm.history import _current_actor_label, _entity_display_name, _serialize_instance, start_batch_operation
+from farm.history import (
+    _current_actor_label,
+    _entity_display_name,
+    _serialize_instance,
+    start_batch_operation,
+)
 from farm.history.restore import _record_cascade_deletions
 from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern, Task
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
+    analyze_period_transition,
+    compute_custom_season_period,
+    compute_first_future_pattern_period,
+    compute_manual_season_period,
     compute_preview_periods,
     compute_setup_target_period,
     copy_planting_plans,
+    distribute_planting_plans,
     find_due_but_missing_season,
     get_or_create_season_for_period,
     get_or_create_season_pattern,
+    latest_existing_season,
+    preview_bridged_copy_counts,
+    preview_copy_counts,
 )
 
 from .serializers import SeasonCopyFromSerializer, SeasonPatternSerializer, SeasonSerializer
+
+
+def _serialize_transition(raw_transition: dict) -> dict:
+    """Convert an ``analyze_period_transition`` result to JSON-safe ISO strings."""
+    return {
+        'kind': raw_transition['kind'],
+        'start_date': raw_transition['start_date'].isoformat(),
+        'end_date': raw_transition['end_date'].isoformat(),
+    }
 
 
 class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):
@@ -300,7 +322,9 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             return Response({'detail': 'Source and target season must be different.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            created_plans = copy_planting_plans(source_season=source_season, target_season=target_season)
+            created_plans, skipped_count = copy_planting_plans(
+                source_season=source_season, target_season=target_season,
+            )
             if created_plans:
                 # Copied plans are new rows — record a `created` revision per
                 # plan (so each is individually restorable) and group them
@@ -323,7 +347,220 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                         plan, EntityRevision.ACTION_CREATED, batch_operation=batch,
                     )
         total_count = PlantingPlan.objects.filter(season=target_season).count()
-        return Response({'copied_count': len(created_plans), 'target_planting_plan_count': total_count})
+        return Response({
+            'copied_count': len(created_plans),
+            'skipped_count': skipped_count,
+            'target_planting_plan_count': total_count,
+        })
+
+    @action(detail=False, methods=['get'], url_path='creation-options')
+    def creation_options(self, request):
+        """Describe the gap/overlap decision for the next season the user would create.
+
+        The season switcher's "create season" flow calls this before creating a
+        season based on the current pattern. When the pattern period following
+        the latest existing season leaves a gap (or overlaps it), the flow shows
+        an intermediate step so the user decides explicitly instead of silently
+        adopting whatever the pattern computes.
+        """
+        project = self.request.active_project
+        pattern = get_or_create_season_pattern(project)
+        latest_season = latest_existing_season(project)
+        due_period = find_due_but_missing_season(project)
+
+        payload: dict = {
+            'start_day': pattern.start_day,
+            'start_month': pattern.start_month,
+            'last_season': None,
+            'due_period': None,
+            'transition': None,
+            'seamless_period': None,
+            'manual_period': None,
+            'manual_residual': None,
+        }
+
+        if due_period is not None:
+            due_start, due_end = due_period
+            payload['due_period'] = {
+                'start_date': due_start.isoformat(),
+                'end_date': due_end.isoformat(),
+            }
+
+        payload['copy_source_label'] = latest_season.label if latest_season is not None else None
+        payload['copy_preview'] = {'adopt': None, 'transition': None, 'transition_followup': None, 'manual': None}
+
+        last_planting_dates: list = []
+        if latest_season is not None:
+            last_planting_dates = list(
+                PlantingPlan.objects
+                .filter(season=latest_season)
+                .values_list('planting_date', flat=True)
+            )
+            payload['last_season'] = {
+                'start_date': latest_season.start_date.isoformat(),
+                'end_date': latest_season.end_date.isoformat(),
+                'label': latest_season.label,
+            }
+            if due_period is not None:
+                due_start, due_end = due_period
+                payload['copy_preview']['adopt'] = preview_copy_counts(
+                    source_planting_dates=last_planting_dates,
+                    target_start=due_start, target_end=due_end,
+                )
+                raw_transition = analyze_period_transition(latest_season.end_date, due_start)
+                if raw_transition is not None:
+                    payload['transition'] = _serialize_transition(raw_transition)
+                    seamless_start = latest_season.end_date + timedelta(days=1)
+                    seamless_start, seamless_end = compute_custom_season_period(pattern, seamless_start)
+                    payload['seamless_period'] = {
+                        'start_date': seamless_start.isoformat(),
+                        'end_date': seamless_end.isoformat(),
+                    }
+                    # Choosing "transition season" creates the transition season
+                    # AND the regular follow-up season; every source plan is
+                    # shifted once and routed to whichever of the two it lands in.
+                    bridged = preview_bridged_copy_counts(
+                        source_planting_dates=last_planting_dates,
+                        source_start_year=latest_season.start_date.year,
+                        transition_start=seamless_start, transition_end=seamless_end,
+                        followup_start=due_start, followup_end=due_end,
+                    )
+                    payload['copy_preview']['transition'] = {
+                        'total': bridged['total'],
+                        'copied': bridged['transition'],
+                        'skipped': bridged['skipped'],
+                    }
+                    payload['copy_preview']['transition_followup'] = {
+                        'total': bridged['total'],
+                        'copied': bridged['followup'],
+                        'skipped': bridged['skipped'],
+                    }
+
+        manual_start_param = request.query_params.get('manual_start_date')
+        if manual_start_param:
+            try:
+                manual_start = date.fromisoformat(manual_start_param)
+            except ValueError:
+                return Response(
+                    {'detail': 'manual_start_date must be an ISO date (YYYY-MM-DD).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            manual_start, manual_end = compute_manual_season_period(pattern, manual_start)
+            payload['manual_period'] = {
+                'start_date': manual_start.isoformat(),
+                'end_date': manual_end.isoformat(),
+            }
+            if latest_season is not None:
+                raw_residual = analyze_period_transition(latest_season.end_date, manual_start)
+                payload['manual_residual'] = (
+                    _serialize_transition(raw_residual) if raw_residual is not None else None
+                )
+                payload['copy_preview']['manual'] = preview_copy_counts(
+                    source_planting_dates=last_planting_dates,
+                    target_start=manual_start, target_end=manual_end,
+                )
+
+        return Response(payload)
+
+    def _create_or_resurrect_season(self, project, start_date, end_date, user, batch):
+        """Create a season for `[start_date, end_date]`, or resurrect a
+        soft-deleted one occupying the same (project, start_date) slot,
+        restoring the planting plans hard-deleted with it (an undelete)."""
+        resurrected = (
+            Season.all_objects
+            .filter(project=project, start_date=start_date, deleted_at__isnull=False)
+            .first()
+        )
+        if resurrected is not None:
+            resurrected.deleted_at = None
+            resurrected.end_date = end_date
+            resurrected.created_by = user
+            resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
+            self.record_revision(
+                resurrected, EntityRevision.ACTION_UPDATED,
+                changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
+            )
+            # Re-creating a season's period is an undelete — bring back the
+            # planting plans (and their tasks) hard-deleted with it, matching
+            # the `perform_create` resurrection path and the `undelete` action.
+            self._restore_season_planting_plans(resurrected, batch)
+            return resurrected
+        season = Season.objects.create(
+            project=project, start_date=start_date, end_date=end_date, created_by=user,
+        )
+        self.record_revision(season, EntityRevision.ACTION_CREATED, batch_operation=batch)
+        return season
+
+    @action(detail=False, methods=['post'], url_path='create-transition')
+    def create_transition(self, request):
+        """Create the gap-filling transition season AND the regular follow-up
+        season in one transaction, distributing the last season's plans across
+        both (each plan shifted once and routed to the season it lands in).
+        """
+        project = self.request.active_project
+        pattern = get_or_create_season_pattern(project)
+        latest_season = latest_existing_season(project)
+        due_period = find_due_but_missing_season(project)
+        if latest_season is None or due_period is None:
+            return Response(
+                {'detail': 'No transition season is applicable.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        due_start, due_end = due_period
+        if analyze_period_transition(latest_season.end_date, due_start) is None:
+            return Response(
+                {'detail': 'There is no gap between the last season and the next pattern period.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        seamless_start, seamless_end = compute_custom_season_period(
+            pattern, latest_season.end_date + timedelta(days=1),
+        )
+        copy_requested = bool(request.data.get('copy'))
+        user = request.user if request.user.is_authenticated else None
+
+        transition_label = Season(start_date=seamless_start, end_date=seamless_end).computed_label
+        with transaction.atomic():
+            batch = start_batch_operation(
+                project=project, operation_type=BatchOperation.TYPE_SEASON_CREATE,
+                context={'season_label': transition_label},
+                user_name=_current_actor_label(request=request),
+            )
+            transition_season = self._create_or_resurrect_season(
+                project, seamless_start, seamless_end, user, batch,
+            )
+            followup_season = self._create_or_resurrect_season(
+                project, due_start, due_end, user, batch,
+            )
+            distribution = {'transition': [], 'followup': [], 'skipped': 0}
+            if copy_requested:
+                distribution = distribute_planting_plans(
+                    source_season=latest_season,
+                    transition_season=transition_season,
+                    followup_season=followup_season,
+                )
+                created_ids = [
+                    plan.pk
+                    for plan in (*distribution['transition'], *distribution['followup'])
+                ]
+                for plan in (
+                    PlantingPlan.objects
+                    .filter(pk__in=created_ids)
+                    .select_related('culture', 'bed')
+                ):
+                    self.record_revision(plan, EntityRevision.ACTION_CREATED, batch_operation=batch)
+
+        annotated = (
+            Season.objects
+            .annotate(planting_plan_count=Count('planting_plans'))
+            .in_bulk([transition_season.pk, followup_season.pk])
+        )
+        return Response({
+            'transition_season': SeasonSerializer(annotated[transition_season.pk]).data,
+            'followup_season': SeasonSerializer(annotated[followup_season.pk]).data,
+            'transition_copied_count': len(distribution['transition']),
+            'followup_copied_count': len(distribution['followup']),
+            'skipped_count': distribution['skipped'],
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='due-suggestion')
     def due_suggestion(self, request):
@@ -375,14 +612,31 @@ class SeasonPatternPreviewView(APIView):
                 return Response({'detail': 'start_month must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
 
         periods = compute_preview_periods(pattern, date.today())
-        return Response([
-            {
-                'start_date': period['start_date'].isoformat(),
-                'end_date': period['end_date'].isoformat(),
-                'is_current': period['is_current'],
+        latest_season = latest_existing_season(active_project)
+        reference_season = None
+        transition = None
+        if latest_season is not None:
+            reference_season = {
+                'start_date': latest_season.start_date.isoformat(),
+                'end_date': latest_season.end_date.isoformat(),
+                'label': latest_season.label,
             }
-            for period in periods
-        ])
+            future_start, _ = compute_first_future_pattern_period(pattern, latest_season)
+            raw_transition = analyze_period_transition(latest_season.end_date, future_start)
+            if raw_transition is not None:
+                transition = _serialize_transition(raw_transition)
+        return Response({
+            'periods': [
+                {
+                    'start_date': period['start_date'].isoformat(),
+                    'end_date': period['end_date'].isoformat(),
+                    'is_current': period['is_current'],
+                }
+                for period in periods
+            ],
+            'reference_season': reference_season,
+            'transition': transition,
+        })
 
 
 class SeasonSetupStatusView(APIView):

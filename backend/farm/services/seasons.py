@@ -74,6 +74,76 @@ def compute_preview_periods(pattern: SeasonPattern, today: date) -> list[dict]:
     ]
 
 
+def _pattern_start_for_year(pattern: SeasonPattern, year: int) -> date:
+    """Return the pattern's start day/month in `year`, clamped to the month length."""
+    day = min(pattern.start_day, calendar.monthrange(year, pattern.start_month)[1])
+    return date(year, pattern.start_month, day)
+
+
+def compute_next_pattern_start_after(pattern: SeasonPattern, reference_date: date) -> date:
+    """Return the earliest pattern start date strictly after `reference_date`."""
+    candidate = _pattern_start_for_year(pattern, reference_date.year)
+    if candidate <= reference_date:
+        candidate = _pattern_start_for_year(pattern, reference_date.year + 1)
+    return candidate
+
+
+def compute_custom_season_period(pattern: SeasonPattern, start_date: date) -> tuple[date, date]:
+    """Return an individual season period for a hand-picked `start_date`.
+
+    The end date is the day before the next pattern start on/after `start_date`,
+    so a transitional season snaps back onto the regular pattern grid rather
+    than running a fixed 12 months from an off-grid start.
+    """
+    return start_date, compute_next_pattern_start_after(pattern, start_date) - timedelta(days=1)
+
+
+def compute_manual_season_period(pattern: SeasonPattern, start_date: date) -> tuple[date, date]:
+    """Return the period for a hand-picked manual start in the gap-decision flow.
+
+    Unlike `compute_custom_season_period` (a short transition season that snaps
+    to the next pattern start), the manual season runs from `start_date` through
+    the *end of the following full pattern period*: it closes the gap as far as
+    the user drags the start date and then absorbs the next regular season, so
+    the plans copied into it (shifted by the whole-year gap) land back in range.
+    Example: pattern Jan 1, start 2026-09-01 -> 2026-09-01 .. 2027-12-31.
+    """
+    next_start = compute_next_pattern_start_after(pattern, start_date)
+    return start_date, add_months(next_start, 12) - timedelta(days=1)
+
+
+def analyze_period_transition(previous_end: date, next_start: date) -> dict | None:
+    """Classify the join between one period's end and the next period's start.
+
+    Returns ``None`` when they are seamless (the next period starts the day
+    after the previous one ends), otherwise a dict with ``kind`` (``'gap'`` or
+    ``'overlap'``) and the ``start_date``/``end_date`` of the affected range.
+    """
+    seam = previous_end + timedelta(days=1)
+    if next_start == seam:
+        return None
+    if next_start > seam:
+        return {'kind': 'gap', 'start_date': seam, 'end_date': next_start - timedelta(days=1)}
+    return {'kind': 'overlap', 'start_date': next_start, 'end_date': previous_end}
+
+
+def latest_existing_season(project: Project) -> Season | None:
+    """Return the project's chronologically latest (not soft-deleted) season."""
+    return Season.objects.filter(project=project).order_by('-start_date').first()
+
+
+def compute_first_future_pattern_period(
+    pattern: SeasonPattern, latest_season: Season,
+) -> tuple[date, date]:
+    """Return the first full pattern period that starts after `latest_season` ends."""
+    anchor_year = latest_season.start_date.year + 1
+    next_start, next_end = compute_season_period(pattern, anchor_year)
+    while next_start <= latest_season.end_date:
+        anchor_year += 1
+        next_start, next_end = compute_season_period(pattern, anchor_year)
+    return next_start, next_end
+
+
 def compute_due_season_period(project: Project, today: date | None = None) -> tuple[date, date]:
     """Return the season pattern period that should be active today for `project`."""
     pattern = get_or_create_season_pattern(project)
@@ -87,17 +157,13 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
     latest season rather than the period containing today's date. Projects
     without a season retain the initial suggestion for the current period.
     """
-    latest_season = Season.objects.filter(project=project).order_by('-start_date').first()
+    latest_season = latest_existing_season(project)
     if latest_season is None:
         due_start, due_end = compute_due_season_period(project, today)
         return due_start, due_end
 
     pattern = get_or_create_season_pattern(project)
-    anchor_year = latest_season.start_date.year + 1
-    next_start, next_end = compute_season_period(pattern, anchor_year)
-    while next_start <= latest_season.end_date:
-        anchor_year += 1
-        next_start, next_end = compute_season_period(pattern, anchor_year)
+    next_start, next_end = compute_first_future_pattern_period(pattern, latest_season)
 
     overlaps_existing = Season.objects.filter(
         project=project,
@@ -107,32 +173,200 @@ def find_due_but_missing_season(project: Project, today: date | None = None) -> 
     return None if overlaps_existing else (next_start, next_end)
 
 
-def copy_planting_plans(*, source_season: Season, target_season: Season) -> list[PlantingPlan]:
-    """Copy all planting plans from `source_season` into `target_season`, additively.
+def planting_date_fits_period(planting_date: date | None, start_date: date, end_date: date) -> bool:
+    """Whether a (already shifted) `planting_date` falls inside `[start_date, end_date]`.
 
-    Planting, harvest and harvest-end dates are shifted forward (or back) by the
-    whole-year gap between the two seasons' start dates, so the copies land in
-    the target season's own period. Feb 29 is clamped to Feb 28 when the shifted
-    year is not a leap year.
+    A missing `planting_date` always fits — there is nothing to place out of
+    range. Harvest dates are deliberately not checked here: they legitimately
+    fall after a season's end (see docs/seasons-architecture.md).
+    """
+    return planting_date is None or start_date <= planting_date <= end_date
+
+
+def whole_year_offset_into_period(reference: date, start_date: date, end_date: date) -> int:
+    """Whole number of years to add to `reference` so it lands in `[start, end]`.
+
+    The month and day are preserved; only the year moves. This is what "copy
+    this plan into the target season" means — a plan planted in April is planted
+    the following April, regardless of how the two seasons' start *years* line
+    up. That distinction matters when the source season is longer than 12 months
+    (e.g. a manual transition season spanning two calendar years): its plans do
+    not all share one year offset relative to the target, so the shift must be
+    derived per plan, not from the source season's start year.
+
+    When the target period is shorter than a year and `reference`'s month is not
+    covered by it, the returned offset lands just outside — the caller's
+    `planting_date_fits_period` check then drops that plan, as before.
+    """
+    offset_years = start_date.year - reference.year
+    shifted = add_months(reference, offset_years * 12)
+    if shifted < start_date:
+        offset_years += 1
+    elif shifted > end_date:
+        offset_years -= 1
+    return offset_years
+
+
+def copy_planting_plans(
+    *,
+    source_season: Season,
+    target_season: Season,
+    restrict_to_target_period: bool = True,
+) -> tuple[list[PlantingPlan], int]:
+    """Copy planting plans from `source_season` into `target_season`, additively.
+
+    Planting, harvest and harvest-end dates are shifted forward (or back) by a
+    whole number of years, chosen per plan so the `planting_date` keeps its
+    month and day but lands in the target season's period (see
+    `whole_year_offset_into_period`). All three dates of one plan move by the
+    same offset, so its growth duration is preserved. Feb 29 is clamped to
+    Feb 28 when the shifted year is not a leap year. Plans without a
+    `planting_date` fall back to the whole-year gap between the two seasons'
+    start dates.
+
+    When `restrict_to_target_period` is True (the default), a source plan is
+    only copied if its *shifted* `planting_date` falls within the target
+    season's period — relevant for short transition seasons, where a source
+    month may not be covered at all. Harvest dates are never range-checked.
 
     Existing planting plans already in `target_season` are left untouched —
-    this only ever appends copies of the source season's plans. Returns the
-    created plans so the caller can record revisions for them.
+    this only ever appends copies of the source season's plans. Returns
+    `(created_plans, skipped_count)` so the caller can record revisions and
+    report how many plans were left out.
     """
-    year_offset = target_season.start_date.year - source_season.start_date.year
-    month_offset = year_offset * 12
+    fallback_offset = (target_season.start_date.year - source_season.start_date.year) * 12
+
+    def month_offset_for(planting_date: date | None) -> int:
+        if planting_date is None:
+            return fallback_offset
+        return 12 * whole_year_offset_into_period(
+            planting_date, target_season.start_date, target_season.end_date,
+        )
+
+    source_plans = PlantingPlan.objects.filter(season=source_season)
+    new_plans = []
+    skipped_count = 0
+    for plan in source_plans:
+        fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
+        month_offset = month_offset_for(fields['planting_date'])
+        for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
+            value = fields[date_field]
+            fields[date_field] = None if value is None else add_months(value, month_offset)
+        if restrict_to_target_period and not planting_date_fits_period(
+            fields['planting_date'], target_season.start_date, target_season.end_date,
+        ):
+            skipped_count += 1
+            continue
+        new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
+    return PlantingPlan.objects.bulk_create(new_plans), skipped_count
+
+
+def preview_copy_counts(
+    *,
+    source_planting_dates: list[date | None],
+    target_start: date,
+    target_end: date,
+) -> dict:
+    """Count how many of `source_planting_dates` would be copied into a target
+    period once shifted per plan into range, and how many fall outside it.
+    Returns `{total, copied, skipped}`."""
+    copied = 0
+    for planting_date in source_planting_dates:
+        if planting_date is None:
+            copied += 1
+            continue
+        offset_years = whole_year_offset_into_period(planting_date, target_start, target_end)
+        if planting_date_fits_period(
+            add_months(planting_date, offset_years * 12), target_start, target_end,
+        ):
+            copied += 1
+    total = len(source_planting_dates)
+    return {'total': total, 'copied': copied, 'skipped': total - copied}
+
+
+def _route_shifted_planting_date(
+    shifted: date | None,
+    first_start: date, first_end: date,
+    second_start: date, second_end: date,
+) -> str:
+    """Return ``'first'``/``'second'``/``'skipped'`` for a shifted planting_date.
+
+    A missing planting_date always goes to the first (transition) season.
+    """
+    if shifted is None or first_start <= shifted <= first_end:
+        return 'first'
+    if second_start <= shifted <= second_end:
+        return 'second'
+    return 'skipped'
+
+
+def preview_bridged_copy_counts(
+    *,
+    source_planting_dates: list[date | None],
+    source_start_year: int,
+    transition_start: date, transition_end: date,
+    followup_start: date, followup_end: date,
+) -> dict:
+    """Route each source plan, shifted by the single whole-year gap to the
+    transition season, to whichever of the transition / follow-up season its
+    shifted planting_date lands in. Returns `{total, transition, followup, skipped}`."""
+    month_offset = (transition_start.year - source_start_year) * 12
+    counts = {'transition': 0, 'followup': 0, 'skipped': 0}
+    bucket = {'first': 'transition', 'second': 'followup', 'skipped': 'skipped'}
+    for planting_date in source_planting_dates:
+        shifted = None if planting_date is None else add_months(planting_date, month_offset)
+        target = _route_shifted_planting_date(
+            shifted, transition_start, transition_end, followup_start, followup_end,
+        )
+        counts[bucket[target]] += 1
+    return {'total': len(source_planting_dates), **counts}
+
+
+def distribute_planting_plans(
+    *,
+    source_season: Season,
+    transition_season: Season,
+    followup_season: Season,
+) -> dict:
+    """Copy `source_season`'s plans across the transition + follow-up season pair.
+
+    Every plan is shifted once, by the whole-year gap between the source and the
+    transition season, then routed to whichever of the two target seasons its
+    shifted `planting_date` falls in (the transition season also takes plans with
+    no `planting_date`). Plans landing in neither are skipped. Returns
+    `{transition: [plans], followup: [plans], skipped: int}`.
+    """
+    month_offset = (transition_season.start_date.year - source_season.start_date.year) * 12
 
     def shifted(value: date | None) -> date | None:
         return None if value is None else add_months(value, month_offset)
 
-    source_plans = PlantingPlan.objects.filter(season=source_season)
-    new_plans = []
-    for plan in source_plans:
+    per_target: dict[str, list[PlantingPlan]] = {'first': [], 'second': []}
+    target_season = {'first': transition_season, 'second': followup_season}
+    skipped_count = 0
+    for plan in PlantingPlan.objects.filter(season=source_season):
         fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
         for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
             fields[date_field] = shifted(fields[date_field])
-        new_plans.append(PlantingPlan(project=target_season.project, season=target_season, **fields))
-    return PlantingPlan.objects.bulk_create(new_plans)
+        route = _route_shifted_planting_date(
+            fields['planting_date'],
+            transition_season.start_date, transition_season.end_date,
+            followup_season.start_date, followup_season.end_date,
+        )
+        if route == 'skipped':
+            skipped_count += 1
+            continue
+        season = target_season[route]
+        per_target[route].append(
+            PlantingPlan(project=season.project, season=season, **fields)
+        )
+
+    created = {
+        'transition': PlantingPlan.objects.bulk_create(per_target['first']),
+        'followup': PlantingPlan.objects.bulk_create(per_target['second']),
+        'skipped': skipped_count,
+    }
+    return created
 
 
 def get_or_create_season_for_period(

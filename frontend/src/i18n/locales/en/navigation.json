@@ -53,7 +53,22 @@
       "openAria": "Open season actions",
       "copyDataFrom": "Copy data from…",
       "rename": "Rename",
+      "editPeriod": "Edit period",
       "delete": "Delete"
+    },
+    "periodEditDialog": {
+      "title": "Edit period",
+      "startLabel": "Start date",
+      "endLabel": "End date",
+      "currentPeriod": "Current period: {{period}}",
+      "endBeforeStart": "The end date must be after the start date.",
+      "save": "Save",
+      "error": "The period could not be changed.",
+      "unknownCulture": "Unknown culture",
+      "plantingConflictIntro": "These planting plans have a planting date outside the new period. Adjust or move them first before changing the period:",
+      "plantingConflictItem": "{{culture}} – planting date {{date}}",
+      "overlapConflictIntro": "The new period overlaps another season:",
+      "overlapConflictItem": "Season {{label}}: {{period}}"
     },
     "suggestion": {
       "title": "Create season {{label}}",
@@ -69,6 +84,34 @@
         "prefix": "Period doesn't fit? You can adjust the season pattern in",
         "link": "project settings",
         "suffix": "— the change then applies to future seasons."
+      },
+      "gap": {
+        "intro": {
+          "gap": "There is a gap between the last season \"{{label}}\" and the new season ({{period}}). Choose how to proceed:",
+          "overlap": "The new season overlaps the last season \"{{label}}\" ({{period}}). Choose how to proceed:"
+        },
+        "chooseLabel": "How should the new season start?",
+        "adopt": {
+          "gap": "Keep the gap (season exactly as computed by the pattern)",
+          "overlap": "Keep the overlap (season exactly as computed by the pattern)"
+        },
+        "transition": "Create a transition season (joins the last season seamlessly)",
+        "transitionTwoSeasons": "Two seasons will be created: transition season {{transitionPeriod}} and {{followupLabel}} ({{followupPeriod}}).",
+        "manual": "Set the start date manually",
+        "manualCaption": "The season closes the gap from the chosen date and runs through the end of the following regular pattern period.",
+        "manualStartLabel": "Start date",
+        "manualPeriod": "Period: {{period}}",
+        "residualClosed": {
+          "gap": "The gap is fully closed.",
+          "overlap": "The overlap is fully avoided."
+        },
+        "residualRemains": {
+          "gap": "A remaining gap stays: {{period}}.",
+          "overlap": "An overlap stays: {{period}}."
+        },
+        "copyPreviewAll": "All {{total}} planting plans from {{label}} will be copied.",
+        "copyPreviewPartial": "{{copied}} of {{total}} planting plans from {{label}} will be copied – {{skipped}} lie outside the period and will not be copied.",
+        "copyPreviewFollowup": "Follow-up season {{label}}: {{copied}} of {{total}} planting plans will be copied."
       }
     },
     "renameDialog": {
@@ -108,7 +151,13 @@
     "previewColumnLabel": "Year",
     "previewColumnPeriod": "Period",
     "current": "(current)",
-    "changeNotice": "Changing the pattern only affects seasons created from now on. Existing seasons and their planting plans stay unchanged.",
+    "previewReferenceHint": "(last existing season)",
+    "transition": {
+      "gapLabel": "Gap",
+      "overlapLabel": "Overlap",
+      "rowHint": "Options selectable when creating"
+    },
+    "changeNotice": "The change only affects seasons created from now on; existing seasons stay unchanged.",
     "cancel": "Cancel",
     "save": "Save",
     "saveAriaLabel": "Save season pattern",

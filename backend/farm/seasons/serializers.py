@@ -35,21 +35,75 @@ class SeasonSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'end_date': 'End date must be after start date.'})
         request = self.context.get('request')
         project = getattr(request, 'active_project', None)
-        if project is not None and start_date is not None and end_date is not None:
-            overlapping_seasons = Season.objects.filter(
-                project=project,
-                start_date__lte=end_date,
-                end_date__gte=start_date,
-            )
-            if self.instance is not None:
-                overlapping_seasons = overlapping_seasons.exclude(pk=self.instance.pk)
-            if overlapping_seasons.exists():
-                raise serializers.ValidationError(
-                    'Season dates must not overlap an existing season.',
-                )
-            if self.instance is None:
-                self._validate_unassigned_planting_plans_fit(project, start_date, end_date)
+        if project is None or start_date is None or end_date is None:
+            return attrs
+
+        if self.instance is None:
+            self._validate_new_season_period(project, start_date, end_date)
+        elif 'start_date' in attrs or 'end_date' in attrs:
+            self._validate_period_edit(project, start_date, end_date)
         return attrs
+
+    def _validate_new_season_period(self, project, start_date, end_date) -> None:
+        if self._overlapping_seasons(project, start_date, end_date).exists():
+            raise serializers.ValidationError(
+                'Season dates must not overlap an existing season.',
+            )
+        self._validate_unassigned_planting_plans_fit(project, start_date, end_date)
+
+    def _overlapping_seasons(self, project, start_date, end_date):
+        overlapping = Season.objects.filter(
+            project=project,
+            start_date__lte=end_date,
+            end_date__gte=start_date,
+        )
+        if self.instance is not None:
+            overlapping = overlapping.exclude(pk=self.instance.pk)
+        return overlapping.order_by('start_date')
+
+    def _validate_period_edit(self, project, start_date, end_date) -> None:
+        """Reject a period change while assigned plans or neighbouring seasons conflict.
+
+        Only `planting_date` is range-checked — harvest dates legitimately fall
+        after a season's end. The user must move the listed plans (or resolve
+        the overlap) before the period can change; nothing is shifted silently.
+        """
+        planting_plan_conflicts = [
+            {
+                'id': plan.pk,
+                'label': str(plan),
+                'culture': plan.culture.name if plan.culture_id else '',
+                'planting_date': plan.planting_date.isoformat(),
+            }
+            for plan in (
+                PlantingPlan.objects
+                .filter(season=self.instance)
+                .exclude(planting_date__isnull=True)
+                .select_related('culture')
+                .order_by('planting_date', 'pk')
+            )
+            if not start_date <= plan.planting_date <= end_date
+        ]
+        overlap_conflicts = [
+            {
+                'season_id': season.pk,
+                'season_label': season.label,
+                'overlap_start_date': max(start_date, season.start_date).isoformat(),
+                'overlap_end_date': min(end_date, season.end_date).isoformat(),
+            }
+            for season in self._overlapping_seasons(project, start_date, end_date)
+        ]
+        if not planting_plan_conflicts and not overlap_conflicts:
+            return
+        raise serializers.ValidationError({
+            'code': 'season_period_edit_conflict',
+            'detail': (
+                'The season period cannot be changed while planting plans or '
+                'neighbouring seasons conflict with it.'
+            ),
+            'planting_plan_conflicts': planting_plan_conflicts,
+            'overlap_conflicts': overlap_conflicts,
+        })
 
     def _validate_unassigned_planting_plans_fit(self, project, start_date, end_date) -> None:
         """Reject a new season if legacy unassigned plans would fall outside it."""
