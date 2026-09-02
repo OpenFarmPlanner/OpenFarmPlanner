@@ -22,6 +22,7 @@ export { RichTextEditor } from './RichTextEditor';
 export { normalizeRichTextMarkdown } from './richText';
 export { RichTextViewer } from './RichTextViewer';
 export { getPlainExcerpt, stripMarkdown } from './markdown';
+export { markdownComponents } from './markdownComponents';
 export { useNotesEditor } from './useNotesEditor';
 export type { UseNotesEditorConfig, UseNotesEditorReturn, NotesEditorSaveOptions } from './useNotesEditor';
 export { NotesPreviewPopover } from './NotesPreviewPopover';

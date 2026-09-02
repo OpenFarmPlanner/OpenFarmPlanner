@@ -30,6 +30,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 // see docs/crop-library-architecture.md for why this is flagged as a
 // future cleanup candidate rather than fixed now.
 import { stripCitationMarkers } from '../../components/data-grid/markdown';
+import { markdownComponents } from '../../components/data-grid/markdownComponents';
 import { useOverlayHistory } from '../../hooks/useOverlayHistory';
 import { PublicCropHierarchyList } from '../../cultures/PublicCropHierarchyList';
 import { getPublicCultureTitle } from '../publicCultureDisplay';
@@ -488,7 +489,7 @@ export function PublicCultureLibraryDialog({
                         fontSize: '0.875rem',
                       }}
                     >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                         {stripCitationMarkers(selectedCulture.notes)}
                       </ReactMarkdown>
                     </Box>

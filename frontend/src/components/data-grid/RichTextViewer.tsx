@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from '../../i18n';
+import { markdownComponents } from './markdownComponents';
 
 interface RichTextViewerProps {
   value: string;
@@ -60,13 +61,7 @@ export function RichTextViewer({ value, emptyLabel }: RichTextViewerProps) {
     <Box sx={viewerSx} data-testid="rich-text-viewer">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ node, ...props }) => {
-            void node;
-            return <a {...props} target="_blank" rel="noopener noreferrer" />;
-          },
-          html: () => null,
-        }}
+        components={{ ...markdownComponents, html: () => null }}
       >
         {text}
       </ReactMarkdown>

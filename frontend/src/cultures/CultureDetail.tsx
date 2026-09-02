@@ -43,6 +43,7 @@ import {
 import type { Culture } from '../api/api';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { stripCitationMarkers } from '../components/data-grid/markdown';
+import { markdownComponents } from '../components/data-grid/markdownComponents';
 import { useCultureListKeyboardNavigation } from './useCultureListKeyboardNavigation';
 import { useSearchExpandedGroups } from './useSearchExpandedGroups';
 import { DetailPageActions } from '../components/layout/DetailPageActions';
@@ -1327,13 +1328,7 @@ const detailSectionGridSx = {
                       >
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({ children, ...props }) => (
-                              <Link target="_blank" rel="noreferrer" {...props}>
-                                {children}
-                              </Link>
-                            ),
-                          }}
+                          components={markdownComponents}
                         >
                           {stripCitationMarkers(selectedCulture.notes)}
                         </ReactMarkdown>
