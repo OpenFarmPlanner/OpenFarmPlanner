@@ -183,6 +183,30 @@ def planting_date_fits_period(planting_date: date | None, start_date: date, end_
     return planting_date is None or start_date <= planting_date <= end_date
 
 
+def whole_year_offset_into_period(reference: date, start_date: date, end_date: date) -> int:
+    """Whole number of years to add to `reference` so it lands in `[start, end]`.
+
+    The month and day are preserved; only the year moves. This is what "copy
+    this plan into the target season" means — a plan planted in April is planted
+    the following April, regardless of how the two seasons' start *years* line
+    up. That distinction matters when the source season is longer than 12 months
+    (e.g. a manual transition season spanning two calendar years): its plans do
+    not all share one year offset relative to the target, so the shift must be
+    derived per plan, not from the source season's start year.
+
+    When the target period is shorter than a year and `reference`'s month is not
+    covered by it, the returned offset lands just outside — the caller's
+    `planting_date_fits_period` check then drops that plan, as before.
+    """
+    offset_years = start_date.year - reference.year
+    shifted = add_months(reference, offset_years * 12)
+    if shifted < start_date:
+        offset_years += 1
+    elif shifted > end_date:
+        offset_years -= 1
+    return offset_years
+
+
 def copy_planting_plans(
     *,
     source_season: Season,
@@ -191,34 +215,43 @@ def copy_planting_plans(
 ) -> tuple[list[PlantingPlan], int]:
     """Copy planting plans from `source_season` into `target_season`, additively.
 
-    Planting, harvest and harvest-end dates are shifted forward (or back) by the
-    whole-year gap between the two seasons' start dates, so the copies land in
-    the target season's own period. Feb 29 is clamped to Feb 28 when the shifted
-    year is not a leap year.
+    Planting, harvest and harvest-end dates are shifted forward (or back) by a
+    whole number of years, chosen per plan so the `planting_date` keeps its
+    month and day but lands in the target season's period (see
+    `whole_year_offset_into_period`). All three dates of one plan move by the
+    same offset, so its growth duration is preserved. Feb 29 is clamped to
+    Feb 28 when the shifted year is not a leap year. Plans without a
+    `planting_date` fall back to the whole-year gap between the two seasons'
+    start dates.
 
     When `restrict_to_target_period` is True (the default), a source plan is
     only copied if its *shifted* `planting_date` falls within the target
-    season's period — relevant for short transition seasons, where most shifted
-    plans no longer fit. Harvest dates are never range-checked.
+    season's period — relevant for short transition seasons, where a source
+    month may not be covered at all. Harvest dates are never range-checked.
 
     Existing planting plans already in `target_season` are left untouched —
     this only ever appends copies of the source season's plans. Returns
     `(created_plans, skipped_count)` so the caller can record revisions and
     report how many plans were left out.
     """
-    year_offset = target_season.start_date.year - source_season.start_date.year
-    month_offset = year_offset * 12
+    fallback_offset = (target_season.start_date.year - source_season.start_date.year) * 12
 
-    def shifted(value: date | None) -> date | None:
-        return None if value is None else add_months(value, month_offset)
+    def month_offset_for(planting_date: date | None) -> int:
+        if planting_date is None:
+            return fallback_offset
+        return 12 * whole_year_offset_into_period(
+            planting_date, target_season.start_date, target_season.end_date,
+        )
 
     source_plans = PlantingPlan.objects.filter(season=source_season)
     new_plans = []
     skipped_count = 0
     for plan in source_plans:
         fields = {field: getattr(plan, field) for field in PLANTING_PLAN_COPY_FIELDS}
+        month_offset = month_offset_for(fields['planting_date'])
         for date_field in PLANTING_PLAN_SHIFTED_DATE_FIELDS:
-            fields[date_field] = shifted(fields[date_field])
+            value = fields[date_field]
+            fields[date_field] = None if value is None else add_months(value, month_offset)
         if restrict_to_target_period and not planting_date_fits_period(
             fields['planting_date'], target_season.start_date, target_season.end_date,
         ):
@@ -231,23 +264,22 @@ def copy_planting_plans(
 def preview_copy_counts(
     *,
     source_planting_dates: list[date | None],
-    source_start_year: int,
     target_start: date,
     target_end: date,
 ) -> dict:
     """Count how many of `source_planting_dates` would be copied into a target
-    period once shifted, and how many fall outside it. Returns
-    `{total, copied, skipped}`."""
-    year_offset = target_start.year - source_start_year
-    copied = sum(
-        1
-        for planting_date in source_planting_dates
+    period once shifted per plan into range, and how many fall outside it.
+    Returns `{total, copied, skipped}`."""
+    copied = 0
+    for planting_date in source_planting_dates:
+        if planting_date is None:
+            copied += 1
+            continue
+        offset_years = whole_year_offset_into_period(planting_date, target_start, target_end)
         if planting_date_fits_period(
-            None if planting_date is None else add_months(planting_date, year_offset * 12),
-            target_start,
-            target_end,
-        )
-    )
+            add_months(planting_date, offset_years * 12), target_start, target_end,
+        ):
+            copied += 1
     total = len(source_planting_dates)
     return {'total': total, 'copied': copied, 'skipped': total - copied}
 

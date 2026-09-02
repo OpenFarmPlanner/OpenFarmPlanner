@@ -405,7 +405,6 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 due_start, due_end = due_period
                 payload['copy_preview']['adopt'] = preview_copy_counts(
                     source_planting_dates=last_planting_dates,
-                    source_start_year=latest_season.start_date.year,
                     target_start=due_start, target_end=due_end,
                 )
                 raw_transition = analyze_period_transition(latest_season.end_date, due_start)
@@ -458,7 +457,6 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 )
                 payload['copy_preview']['manual'] = preview_copy_counts(
                     source_planting_dates=last_planting_dates,
-                    source_start_year=latest_season.start_date.year,
                     target_start=manual_start, target_end=manual_end,
                 )
 

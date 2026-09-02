@@ -178,13 +178,19 @@ single reusable action, not a per-entry-point special case:
   excludes the PK, timestamps, and audit fields) and `bulk_create`s the
   copies against the target season. It is always additive: existing plans in
   the target season are never touched, matched, or replaced.
-- `planting_date`, `harvest_date` and `harvest_end_date` are shifted forward
-  (or back) by the whole-year gap between the two seasons' start dates
-  (`PLANTING_PLAN_SHIFTED_DATE_FIELDS`), so a plan copied from 25/26 into
-  27/28 keeps its month and day but moves two years on. Feb 29 clamps to
-  Feb 28 when the shifted year is not a leap year (`add_months`). The shift is
-  a whole number of years, so it works for any season pattern, calendar-year
-  or not.
+- `planting_date`, `harvest_date` and `harvest_end_date`
+  (`PLANTING_PLAN_SHIFTED_DATE_FIELDS`) are shifted by a **whole number of
+  years, chosen per plan** so the `planting_date` keeps its month and day but
+  lands in the target season's period (`whole_year_offset_into_period`); all
+  three dates of one plan move by that same offset, so its growth duration is
+  preserved. Deriving the offset per plan — rather than from the two seasons'
+  start years — is what makes a copy out of a season longer than 12 months
+  work: a manual transition season spanning Sep 2026 – Dec 2027 holds plans in
+  both calendar years, and "start year difference" would push the 2027 plans a
+  year too far and drop them all. Feb 29 clamps to Feb 28 when the shifted year
+  is not a leap year (`add_months`). Plans with no `planting_date` fall back to
+  the whole-year gap between the two seasons' start dates. The shift is always
+  whole years, so it works for any season pattern, calendar-year or not.
 - `SeasonViewSet.copy_from` (`backend/farm/seasons/views.py`) is the API
   surface both entry points call: the "Daten aus Saison X übernehmen"
   checkbox when creating a suggested season, and "Daten übernehmen von…" on
@@ -329,15 +335,15 @@ decides once, at the point the concrete season is actually created.
   name comes from `computed_label` on the resulting range, so a
   within-one-year transition season is proposed as e.g. "2026", not "26/26"
   (still editable via "Umbenennen").
-- **Copy filtering.** Every copy into a newly created season (all three
-  options) drops a source plan whose *shifted* `planting_date` falls outside
-  the target period — `copy_planting_plans(..., restrict_to_target_period=True)`
-  and, for the transition pair, `distribute_planting_plans(source, transition,
-  followup)`: each source plan is shifted **once** (by the whole-year gap to
-  the transition season) and routed to whichever of the two new seasons its
-  shifted `planting_date` lands in — never both, never silently dropped without
-  the `skipped` count surfacing in the dialog. Harvest dates are never
-  range-checked (they legitimately run past a season's end).
+- **Copy filtering.** `copy_planting_plans(..., restrict_to_target_period=True)`
+  shifts each source plan into the target period per plan (see the Copy-data
+  section) and only drops one whose month the (possibly short) target period
+  never covers — surfacing the `skipped` count in the dialog. For the
+  transition pair, `distribute_planting_plans(source, transition, followup)`
+  instead shifts each plan **once** (by the whole-year gap to the transition
+  season) and routes it to whichever of the two new seasons its shifted
+  `planting_date` lands in — never both, never silently dropped. Harvest dates
+  are never range-checked (they legitimately run past a season's end).
 
 ## Editing a season's period
 
@@ -369,23 +375,23 @@ range-derived view pick up the new dates.
   `planting_plan_count` annotation is page-wide, not per-row, so it does not
   grow with the row count.
 - "Daten übernehmen" shifts `planting_date`/`harvest_date`/`harvest_end_date`
-  by the whole-year gap between the source and target season start dates (see
-  the "Copy-data action" section), so copies land in the target season's own
-  period rather than the source's. A copied `planting_date` can still fall
-  just outside the target period if the two seasons' patterns differ, but for
-  the common case (same pattern, N years apart) it stays in range.
+  per plan by whole years so the `planting_date` lands in the target period
+  (see the "Copy-data action" section). A copied `planting_date` only falls
+  outside the target when the target period is shorter than a year and does not
+  cover that plan's month at all (a short transition season); those plans are
+  reported as skipped, not copied out of range.
 - `PlantingPlan.planting_date` otherwise has a **hard boundary**: on API
   create/update `PlantingPlanSerializer` rejects a `planting_date` outside the
   target season's `start_date`–`end_date` range
   (`_validate_planting_date_within_season`), and the frontend constrains the
   date picker (the `PlantingPlans` grid's inline edit via `DateEditCell`'s
   `minDate`/`maxDate`, the mobile create/edit form via a helper text plus a
-  submit-time check). The copy flow above is the one sanctioned way to
-  produce an out-of-range date, because `bulk_create` bypasses serializer
-  validation; the constrained editor then lets the user pull such a plan back
-  into range. This boundary applies to `planting_date` only — harvest dates
-  are still free (they are derived from culture timing and legitimately fall
-  after a season's end).
+  submit-time check). The copy flow keeps every copied `planting_date` in
+  range by construction (it shifts per plan and skips a plan whose month the
+  target never covers), so it does not rely on the editor to pull plans back.
+  This boundary applies to `planting_date` only — harvest dates are still free
+  (they are derived from culture timing and legitimately fall after a season's
+  end).
 - A season's `computed_label` is not guaranteed unique within a project:
   changing the season pattern repeatedly can produce two different date
   ranges that both compute to the same "YY/YY" label (e.g. two periods both

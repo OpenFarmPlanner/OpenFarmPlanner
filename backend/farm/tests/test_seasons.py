@@ -17,6 +17,7 @@ from farm.services.seasons import (
     compute_season_period,
     copy_planting_plans,
     find_due_but_missing_season,
+    whole_year_offset_into_period,
 )
 from farm.tests.api_base import ProjectApiTestCase
 
@@ -133,6 +134,21 @@ class SeasonTransitionMathTest(ProjectApiTestCase):
         pattern = SeasonPattern(project=self.project, start_day=1, start_month=9)
         _, end_date = compute_manual_season_period(pattern, date(2026, 5, 1))
         self.assertEqual(end_date, date(2027, 8, 31))
+
+    def test_whole_year_offset_into_period_picks_the_year_that_fits(self):
+        # Same calendar-year target: April plan -> the following April.
+        self.assertEqual(
+            whole_year_offset_into_period(date(2026, 4, 1), date(2028, 1, 1), date(2028, 12, 31)),
+            2,
+        )
+        # Sep-Aug target: an April plan belongs to the second calendar year of it.
+        self.assertEqual(
+            whole_year_offset_into_period(date(2025, 4, 1), date(2026, 9, 1), date(2027, 8, 31)),
+            2,
+        )
+        # A month the short target never covers lands just outside (then dropped).
+        offset = whole_year_offset_into_period(date(2025, 9, 1), date(2026, 1, 1), date(2026, 4, 30))
+        self.assertEqual(offset, 0)
 
     def test_analyze_period_transition_detects_gap_overlap_and_seam(self):
         self.assertIsNone(analyze_period_transition(date(2026, 8, 31), date(2026, 9, 1)))
@@ -281,7 +297,9 @@ class SeasonGapDecisionApiTest(ProjectApiTestCase):
         # follow-up season, none are lost.
         self.assertEqual(preview['transition'], {'total': 3, 'copied': 2, 'skipped': 0})
         self.assertEqual(preview['transition_followup'], {'total': 3, 'copied': 1, 'skipped': 0})
-        self.assertEqual(preview['adopt']['skipped'], 1)
+        # Adopting the due period shifts each plan into 2027 by its own month,
+        # so all three fit even though they span two calendar years in the source.
+        self.assertEqual(preview['adopt'], {'total': 3, 'copied': 3, 'skipped': 0})
 
     def test_creation_options_manual_start_copies_every_plan_of_the_last_season(self):
         self._set_pattern(1, 1)
@@ -376,6 +394,33 @@ class SeasonCopyServiceTest(ProjectApiTestCase):
         self.assertEqual(len(created_plans), 1)
         self.assertEqual(skipped_count, 1)
         self.assertEqual(created_plans[0].planting_date, date(2026, 3, 1))
+
+    def test_copy_from_a_multi_year_source_season_shifts_each_plan_into_range(self):
+        # A manual transition season can span two calendar years (Sep 2026 -
+        # Dec 2027). Its plans do not share one year offset relative to the next
+        # regular season, so the shift must be derived per plan.
+        source = Season.objects.create(
+            project=self.project, start_date=date(2026, 9, 1), end_date=date(2027, 12, 31),
+        )
+        target = Season.objects.create(
+            project=self.project, start_date=date(2028, 1, 1), end_date=date(2028, 12, 31),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2026, 10, 15),
+        )
+        PlantingPlan.objects.create(
+            culture=self.culture, bed=self.bed, project=self.project, season=source,
+            planting_date=date(2027, 3, 20),
+        )
+
+        created_plans, skipped_count = copy_planting_plans(source_season=source, target_season=target)
+
+        self.assertEqual(skipped_count, 0)
+        self.assertEqual(
+            sorted(plan.planting_date for plan in created_plans),
+            [date(2028, 3, 20), date(2028, 10, 15)],
+        )
 
 
 class SeasonApiTest(ProjectApiTestCase):
