@@ -1,4 +1,4 @@
-import { Alert, Box, Button, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router';
@@ -6,7 +6,7 @@ import { projectAPI, type InvitationPublicStatus } from '../../api/api';
 import { useAuth } from '../../auth/useAuth';
 import AccountCreationLegalNotice from '../../components/auth/AccountCreationLegalNotice';
 import SocialLoginButtons from '../../components/auth/SocialLoginButtons';
-import PasswordVisibilityToggle from '../../components/inputs/PasswordVisibilityToggle';
+import { AuthPasswordField } from './AuthPasswordField';
 import { useTranslation } from '../../i18n';
 import { getNextFromSearch, getTokenFromNextPath, storeInvitationRedirect } from '../invitationAcceptance';
 import AuthPageShell from './AuthPageShell';
@@ -151,57 +151,27 @@ export default function RegisterPage() {
             fullWidth
             sx={authTextFieldSx}
           />
-          <TextField
+          <AuthPasswordField
             label={t('auth:register.password')}
-            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
+            onValueChange={setPassword}
+            isVisible={showPassword}
+            onToggleVisibility={() => setShowPassword((current) => !current)}
+            showLabel={t('auth:register.showPassword')}
+            hideLabel={t('auth:register.hidePassword')}
             disabled={isLoggedIn}
-            fullWidth
-            sx={authTextFieldSx}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <PasswordVisibilityToggle
-                      isVisible={showPassword}
-                      showLabel={t('auth:register.showPassword')}
-                      hideLabel={t('auth:register.hidePassword')}
-                      onToggle={() => setShowPassword((current) => !current)}
-                      disabled={isLoggedIn}
-                    />
-                  </InputAdornment>
-                ),
-              },
-              htmlInput: { autoComplete: 'new-password' },
-            }}
+            autoComplete="new-password"
           />
-          <TextField
+          <AuthPasswordField
             label={t('auth:register.passwordConfirm')}
-            type={showPasswordConfirm ? 'text' : 'password'}
             value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            required
+            onValueChange={setPasswordConfirm}
+            isVisible={showPasswordConfirm}
+            onToggleVisibility={() => setShowPasswordConfirm((current) => !current)}
+            showLabel={t('auth:register.showPassword')}
+            hideLabel={t('auth:register.hidePassword')}
             disabled={isLoggedIn}
-            fullWidth
-            sx={authTextFieldSx}
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <PasswordVisibilityToggle
-                      isVisible={showPasswordConfirm}
-                      showLabel={t('auth:register.showPassword')}
-                      hideLabel={t('auth:register.hidePassword')}
-                      onToggle={() => setShowPasswordConfirm((current) => !current)}
-                      disabled={isLoggedIn}
-                    />
-                  </InputAdornment>
-                ),
-              },
-              htmlInput: { autoComplete: 'new-password' },
-            }}
+            autoComplete="new-password"
           />
           <Button type="submit" variant="contained" size="large" disabled={submitting || isLoggedIn} fullWidth sx={authPrimaryButtonSx}>
             {submitting ? t('auth:register.submitting') : t('auth:register.submit')}
