@@ -36,6 +36,7 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         dach_supplier_extension_names = [
             'Alexandrinerklee',
             'Bischofskraut',
+            'Blattsenf',
             'Brunnenkresse',
             'Gartenmelde',
             'Inkarnatklee',
@@ -49,7 +50,6 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
             'Portulak',
             'Ringelblume',
             'Salatrauke',
-            'Blattsenf',
             'Shiso',
             'Strohblume',
             'Tatsoi',
