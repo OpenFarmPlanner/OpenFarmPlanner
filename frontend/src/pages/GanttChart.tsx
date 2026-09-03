@@ -58,23 +58,13 @@ import {
   type CalendarMode,
   DEFAULT_TIMELINE_VIEW_MODE,
   GANTT_HEADER_VIEW_MODES,
-  GANTT_LEFT_COLUMN_DESKTOP_DEFAULT_WIDTH,
-  GANTT_LEFT_COLUMN_DESKTOP_MAX_WIDTH,
-  GANTT_LEFT_COLUMN_DESKTOP_MIN_WIDTH,
-  GANTT_LEFT_COLUMN_MOBILE_DEFAULT_WIDTH,
-  GANTT_LEFT_COLUMN_MOBILE_MAX_WIDTH,
-  GANTT_LEFT_COLUMN_MOBILE_MIN_WIDTH,
   GANTT_ROW_HEIGHT,
-  GANTT_SIDEBAR_RESIZE_HANDLE_DESKTOP_HITBOX_WIDTH,
-  GANTT_SIDEBAR_RESIZE_HANDLE_MOBILE_HITBOX_WIDTH,
-  GANTT_SIDEBAR_RESIZE_KEYBOARD_STEP,
   GANTT_VIEWPORT_BOTTOM_MARGIN_PX,
   GANTT_VIEWPORT_MIN_HEIGHT_PX,
   type SyntheticMousePoint,
   addTimelinePeriod,
   addTimelinePeriodLarge,
   clampDate,
-  clampGanttLeftColumnWidth,
   dispatchSyntheticMouseEvent,
   formatDateToAPI,
   getCalendarGanttRowHeight,
@@ -96,6 +86,7 @@ import {
   storeTimelineViewMode,
   toSyntheticMousePoint,
 } from './ganttChartState';
+import { useGanttSidebarResize } from './useGanttSidebarResize';
 import {
   buildOccupancyTooltipDetails,
   buildSeedlingTaskGroups,
@@ -221,7 +212,6 @@ function GanttChartPage() {
   const [ganttMaxHeightPx, setGanttMaxHeightPx] = useState<number | null>(null);
   const ganttViewportRef = useRef<HTMLDivElement | null>(null);
   const [ganttResizeBoundaryNode, setGanttResizeBoundaryNode] = useState<HTMLDivElement | null>(null);
-  const ganttSidebarWidthFrameRef = useRef<number | null>(null);
   const hasRestoredTimelineRef = useRef(false);
   const latestReferenceDateRef = useRef<Date | null>(null);
   const outletContext = useOutletContext<RootLayoutOutletContext | null>();
@@ -275,15 +265,6 @@ function GanttChartPage() {
     () => getStoredGanttState(ganttStateStorageKey),
     [ganttStateStorageKey],
   );
-  const [ganttLeftColumnWidthDesktop, setGanttLeftColumnWidthDesktop] = useState(
-    storedGanttState?.leftColumnWidthDesktop
-      ?? storedGanttState?.leftColumnWidth
-      ?? GANTT_LEFT_COLUMN_DESKTOP_DEFAULT_WIDTH,
-  );
-  const [ganttLeftColumnWidthMobile, setGanttLeftColumnWidthMobile] = useState(
-    storedGanttState?.leftColumnWidthMobile ?? GANTT_LEFT_COLUMN_MOBILE_DEFAULT_WIDTH,
-  );
-  const [isResizingGanttSidebar, setIsResizingGanttSidebar] = useState(false);
   const [ganttResizeHandleTop, setGanttResizeHandleTop] = useState<number | null>(null);
   const calendarViewStorageKey = useMemo(
     () => (canUseStoredCalendarView ? getCalendarViewStorageKey(activeProjectId) : null),
@@ -328,52 +309,27 @@ function GanttChartPage() {
     () => calendarDataRange?.end ?? new Date(displayYear, 11, 31),
     [calendarDataRange, displayYear],
   );
-  const activeGanttLeftColumnWidth = useMobileFilterLayout
-    ? ganttLeftColumnWidthMobile
-    : ganttLeftColumnWidthDesktop;
-  const activeGanttLeftColumnMinWidth = useMobileFilterLayout
-    ? GANTT_LEFT_COLUMN_MOBILE_MIN_WIDTH
-    : GANTT_LEFT_COLUMN_DESKTOP_MIN_WIDTH;
-  const activeGanttLeftColumnMaxWidth = useMobileFilterLayout
-    ? GANTT_LEFT_COLUMN_MOBILE_MAX_WIDTH
-    : GANTT_LEFT_COLUMN_DESKTOP_MAX_WIDTH;
-  const ganttSidebarResizeHandleHitboxWidth = useMobileFilterLayout
-    ? GANTT_SIDEBAR_RESIZE_HANDLE_MOBILE_HITBOX_WIDTH
-    : GANTT_SIDEBAR_RESIZE_HANDLE_DESKTOP_HITBOX_WIDTH;
+  const {
+    width: activeGanttLeftColumnWidth,
+    widthRef: activeGanttLeftColumnWidthRef,
+    minWidth: activeGanttLeftColumnMinWidth,
+    maxWidth: activeGanttLeftColumnMaxWidth,
+    handleHitboxWidth: ganttSidebarResizeHandleHitboxWidth,
+    isResizing: isResizingGanttSidebar,
+    handleResizeStart: handleGanttSidebarResizeStart,
+    handleResizeKeyDown: handleGanttSidebarResizeKeyDown,
+  } = useGanttSidebarResize({
+    storageKey: ganttStateStorageKey,
+    storedState: storedGanttState,
+    useMobileLimits: useMobileFilterLayout,
+  });
   const useWindowedGanttRows = !useMobileFilterLayout;
-  const activeGanttLeftColumnWidthRef = useRef(activeGanttLeftColumnWidth);
   const handleGanttResizeBoundaryRef = useCallback((node: HTMLDivElement | null): void => {
     setGanttResizeBoundaryNode(node);
   }, []);
   const [editMode, setEditMode] = useState(false);
   const setTopbarContextActions = outletContext?.setTopbarContextActions;
   const setTopbarTitleActions = outletContext?.setTopbarTitleActions;
-
-  useEffect(() => {
-    setGanttLeftColumnWidthDesktop(
-      storedGanttState?.leftColumnWidthDesktop
-        ?? storedGanttState?.leftColumnWidth
-        ?? GANTT_LEFT_COLUMN_DESKTOP_DEFAULT_WIDTH,
-    );
-    setGanttLeftColumnWidthMobile(
-      storedGanttState?.leftColumnWidthMobile ?? GANTT_LEFT_COLUMN_MOBILE_DEFAULT_WIDTH,
-    );
-  }, [
-    ganttStateStorageKey,
-    storedGanttState?.leftColumnWidth,
-    storedGanttState?.leftColumnWidthDesktop,
-    storedGanttState?.leftColumnWidthMobile,
-  ]);
-
-  useEffect(() => () => {
-    if (ganttSidebarWidthFrameRef.current !== null) {
-      window.cancelAnimationFrame(ganttSidebarWidthFrameRef.current);
-    }
-  }, []);
-
-  useEffect(() => {
-    activeGanttLeftColumnWidthRef.current = activeGanttLeftColumnWidth;
-  }, [activeGanttLeftColumnWidth]);
 
   useEffect(() => {
     const viewParam = searchParams.get('view');
@@ -699,122 +655,6 @@ function GanttChartPage() {
     }
     setMobileSearchOpen(false);
   }, [calendarMode]);
-  const persistGanttLeftColumnWidth = useCallback((width: number, useMobileLimits: boolean) => {
-    storeGanttState(ganttStateStorageKey, {
-      [useMobileLimits ? 'leftColumnWidthMobile' : 'leftColumnWidthDesktop']: clampGanttLeftColumnWidth(
-        width,
-        useMobileLimits,
-      ),
-    });
-  }, [ganttStateStorageKey]);
-  const handleGanttSidebarResizeStart = useCallback((event: React.PointerEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const target = event.currentTarget;
-    if (target.setPointerCapture) {
-      target.setPointerCapture(event.pointerId);
-    }
-
-    const useMobileLimits = useMobileFilterLayout;
-    const startClientX = event.clientX;
-    const startWidth = activeGanttLeftColumnWidth;
-    let pendingWidth = startWidth;
-    const previousCursor = document.body.style.cursor;
-    const previousUserSelect = document.body.style.userSelect;
-    const previousTouchAction = document.body.style.touchAction;
-    let isFinished = false;
-
-    const setActiveWidth = (width: number): void => {
-      if (useMobileLimits) {
-        setGanttLeftColumnWidthMobile(width);
-      } else {
-        setGanttLeftColumnWidthDesktop(width);
-      }
-    };
-
-    const applyPendingWidth = (): void => {
-      ganttSidebarWidthFrameRef.current = null;
-      setActiveWidth(pendingWidth);
-    };
-
-    const queueWidthUpdate = (width: number): void => {
-      pendingWidth = clampGanttLeftColumnWidth(width, useMobileLimits);
-      if (ganttSidebarWidthFrameRef.current === null) {
-        ganttSidebarWidthFrameRef.current = window.requestAnimationFrame(applyPendingWidth);
-      }
-    };
-
-    const finishResize = (finishEvent?: Event): void => {
-      if (isFinished) {
-        return;
-      }
-      isFinished = true;
-      finishEvent?.preventDefault();
-      if (ganttSidebarWidthFrameRef.current !== null) {
-        window.cancelAnimationFrame(ganttSidebarWidthFrameRef.current);
-        ganttSidebarWidthFrameRef.current = null;
-      }
-      setActiveWidth(pendingWidth);
-      persistGanttLeftColumnWidth(pendingWidth, useMobileLimits);
-      setIsResizingGanttSidebar(false);
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousUserSelect;
-      document.body.style.touchAction = previousTouchAction;
-      if (target.releasePointerCapture && target.hasPointerCapture?.(event.pointerId)) {
-        target.releasePointerCapture(event.pointerId);
-      }
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', finishResize, { capture: true });
-      window.removeEventListener('pointercancel', finishResize, { capture: true });
-      target.removeEventListener('lostpointercapture', finishResize);
-    };
-
-    const handlePointerMove = (moveEvent: PointerEvent): void => {
-      moveEvent.preventDefault();
-      queueWidthUpdate(startWidth + moveEvent.clientX - startClientX);
-    };
-
-    setIsResizingGanttSidebar(true);
-    document.body.style.cursor = useMobileLimits ? previousCursor : 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.body.style.touchAction = 'none';
-    window.addEventListener('pointermove', handlePointerMove, { passive: false });
-    window.addEventListener('pointerup', finishResize, { passive: false, capture: true });
-    window.addEventListener('pointercancel', finishResize, { passive: false, capture: true });
-    target.addEventListener('lostpointercapture', finishResize, { passive: false });
-  }, [activeGanttLeftColumnWidth, persistGanttLeftColumnWidth, useMobileFilterLayout]);
-  const handleGanttSidebarResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLElement>) => {
-    let nextWidth: number | null = null;
-    if (event.key === 'ArrowLeft') {
-      nextWidth = activeGanttLeftColumnWidth - GANTT_SIDEBAR_RESIZE_KEYBOARD_STEP;
-    } else if (event.key === 'ArrowRight') {
-      nextWidth = activeGanttLeftColumnWidth + GANTT_SIDEBAR_RESIZE_KEYBOARD_STEP;
-    } else if (event.key === 'Home') {
-      nextWidth = activeGanttLeftColumnMinWidth;
-    } else if (event.key === 'End') {
-      nextWidth = activeGanttLeftColumnMaxWidth;
-    }
-
-    if (nextWidth === null) {
-      return;
-    }
-
-    event.preventDefault();
-    const clampedWidth = clampGanttLeftColumnWidth(nextWidth, useMobileFilterLayout);
-    if (useMobileFilterLayout) {
-      setGanttLeftColumnWidthMobile(clampedWidth);
-    } else {
-      setGanttLeftColumnWidthDesktop(clampedWidth);
-    }
-    persistGanttLeftColumnWidth(clampedWidth, useMobileFilterLayout);
-  }, [
-    activeGanttLeftColumnMaxWidth,
-    activeGanttLeftColumnMinWidth,
-    activeGanttLeftColumnWidth,
-    persistGanttLeftColumnWidth,
-    useMobileFilterLayout,
-  ]);
 
   const occupancyTaskGroups = useMemo<GanttTaskGroup[]>(
     () => buildOccupancyTaskGroups({
@@ -1429,6 +1269,7 @@ function GanttChartPage() {
       }
     };
   }, [
+    activeGanttLeftColumnWidthRef,
     activeProjectId,
     calendarMode,
     endDate,
