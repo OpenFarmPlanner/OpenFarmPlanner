@@ -107,6 +107,7 @@ import { CommentForm } from '../components/publicCropLibrary/CommentForm';
 import { ThreadCommentBranch } from '../components/publicCropLibrary/DiscussionComment';
 import { PublicCropMobileSelectorDialog } from '../components/publicCropLibrary/PublicCropMobileSelectorDialog';
 import { ImportConflictDialog } from '../components/publicCropLibrary/ImportConflictDialog';
+import { PublicCropTranslationDialog } from '../components/PublicCropTranslationDialog';
 import {
   PUBLIC_CROP_TAB_BY_INDEX,
   PUBLIC_CROP_TAB_INDEX_BY_PARAM,
@@ -182,6 +183,7 @@ export default function PublicCropLibraryPage() {
     varietyChange: { from: string; to: string } | null;
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState<PublicCropRemovalReason | ''>('');
   const [removing, setRemoving] = useState(false);
@@ -924,6 +926,7 @@ export default function PublicCropLibraryPage() {
     setTopicTitle('');
     setNewTopicOpen(false);
     setEditDialogOpen(false);
+    setTranslationDialogOpen(false);
     setReplyTo(null);
     setEditingCommentId(null);
     setCommentBody('');
@@ -1080,6 +1083,17 @@ export default function PublicCropLibraryPage() {
     setEditDialogOpen(false);
   };
 
+  const openTranslationDialog = useCallback((): void => {
+    if (!selectedCrop) {
+      return;
+    }
+    setTranslationDialogOpen(true);
+  }, [selectedCrop]);
+
+  const closeTranslationDialog = (): void => {
+    setTranslationDialogOpen(false);
+  };
+
   const openRemoveDialog = useCallback((): void => {
     if (!selectedCrop) {
       return;
@@ -1188,6 +1202,15 @@ export default function PublicCropLibraryPage() {
       next[existingIndex] = updatedCrop;
       return next;
     });
+  };
+
+  const handleTranslationDialogSaved = async (): Promise<void> => {
+    if (!selectedCrop) {
+      return;
+    }
+    const response = await publicCropAPI.get(selectedCrop.id);
+    upsertCropInList(response.data);
+    showGlobalSnackbar({ message: t('library.translation.saveSuccess'), severity: 'success' });
   };
 
   const handleEditSave = async (draft: Crop): Promise<void> => {
@@ -1958,7 +1981,7 @@ export default function PublicCropLibraryPage() {
                                 size="small"
                                 variant="outlined"
                                 startIcon={<TranslateOutlinedIcon fontSize="small" />}
-                                onClick={openEditDialog}
+                                onClick={openTranslationDialog}
                               >
                                 {t('library.translation.addTranslationAction', {
                                   language: getLanguageDisplayName(currentLanguageCode, language),
@@ -2246,6 +2269,15 @@ export default function PublicCropLibraryPage() {
               }))}
             />
           )}
+        />
+      ) : null}
+      {translationDialogOpen && selectedCrop ? (
+        <PublicCropTranslationDialog
+          open={translationDialogOpen}
+          crop={selectedCrop}
+          language={currentLanguageCode}
+          onClose={closeTranslationDialog}
+          onSaved={handleTranslationDialogSaved}
         />
       ) : null}
       <Dialog open={removeDialogOpen} onClose={closeRemoveDialog} maxWidth="sm" fullWidth>
