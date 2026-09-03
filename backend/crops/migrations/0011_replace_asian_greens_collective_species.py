@@ -29,6 +29,12 @@ COLLECTIVE_REVIEW_NOTE = (
     'Pak Choi, Tatsoi, Mizuna, Mibuna, Komatsuna or Chinakohl instead.'
 )
 
+LEAF_MUSTARD_DUPLICATE_NOTE = (
+    'Automatically rejected: superseded by the "Blattsenf" leaf-mustard '
+    'species. "Senfkohl" was the earlier German label for the same species '
+    '(Brassica juncea); use "Blattsenf" instead.'
+)
+
 
 def _species_ids_for_normalized_names(apps, normalized_names):
     CropSpecies = apps.get_model('crops', 'CropSpecies')
@@ -47,8 +53,12 @@ def _species_ids_for_normalized_names(apps, normalized_names):
     return species_ids
 
 
-def _rename_leaf_mustard(apps, from_name, to_name):
-    """Move the German leaf-mustard label without creating a duplicate species."""
+def _rename_leaf_mustard(apps, from_name, to_name, duplicate_note=None):
+    """Move the German leaf-mustard label without creating a duplicate species.
+
+    Returns the canonical leaf-mustard species (under ``to_name``), or ``None``
+    when no leaf-mustard species exists at all.
+    """
     from farm.utils import normalize_text
 
     CropSpecies = apps.get_model('crops', 'CropSpecies')
@@ -59,26 +69,41 @@ def _rename_leaf_mustard(apps, from_name, to_name):
 
     target = CropSpecies.objects.filter(name_normalized=to_normalized).first()
     source = CropSpecies.objects.filter(name_normalized=from_normalized).first()
-    if source is None or (target is not None and target.id != source.id):
-        # Nothing to rename, or a species under the new name already exists
-        # (fresh databases: the seed sync migration created it directly).
-        species = target
-    else:
+
+    if source is not None and (target is None or target.id == source.id):
+        # The usual path: rename the existing species in place. Because
+        # name_normalized is unique there is no separate target to collide
+        # with, so this is a plain relabel.
         source.name = to_name
         source.name_normalized = to_normalized
         source.save(update_fields=['name', 'name_normalized'])
         species = source
+    else:
+        # Either nothing to rename, or a separate species already carries the
+        # new name. In the latter case a leftover species under the old name is
+        # a superseded duplicate of the same crop, so reject it instead of
+        # leaving two competing published leaf-mustard species as public
+        # mapping targets.
+        if source is not None and target is not None and duplicate_note:
+            source.status = 'rejected'
+            source.review_note = duplicate_note
+            source.save(update_fields=['status', 'review_note'])
+        species = target
 
     if species is None:
-        return
+        return None
 
-    CropSpeciesTranslation.objects.filter(
+    # update_or_create (not a filtered update) so the canonical species always
+    # ends up with a matching German translation, even if it had none before.
+    CropSpeciesTranslation.objects.update_or_create(
         species=species,
         language_code='de',
-    ).update(
-        common_name=to_name,
-        common_name_normalized=to_normalized,
+        defaults={
+            'common_name': to_name,
+            'common_name_normalized': to_normalized,
+        },
     )
+    return species
 
 
 def replace_asian_greens_collective_species(apps, schema_editor):
@@ -86,7 +111,10 @@ def replace_asian_greens_collective_species(apps, schema_editor):
 
     CropSpecies = apps.get_model('crops', 'CropSpecies')
 
-    _rename_leaf_mustard(apps, LEGACY_LEAF_MUSTARD_NAME, LEAF_MUSTARD_NAME)
+    _rename_leaf_mustard(
+        apps, LEGACY_LEAF_MUSTARD_NAME, LEAF_MUSTARD_NAME,
+        duplicate_note=LEAF_MUSTARD_DUPLICATE_NOTE,
+    )
 
     normalized_names = [
         normalize_text(name) or ''
@@ -94,14 +122,36 @@ def replace_asian_greens_collective_species(apps, schema_editor):
     ]
     species_ids = _species_ids_for_normalized_names(apps, normalized_names)
     if species_ids:
-        CropSpecies.objects.filter(id__in=species_ids).update(
+        # Skip rows already rejected so an earlier, more specific moderation
+        # note is preserved instead of being overwritten with the generic one.
+        CropSpecies.objects.filter(id__in=species_ids).exclude(
+            status='rejected',
+        ).update(
             status='rejected',
             review_note=COLLECTIVE_REVIEW_NOTE,
         )
 
 
 def restore_asian_greens_collective_species(apps, schema_editor):
+    from farm.utils import normalize_text
+
+    CropSpecies = apps.get_model('crops', 'CropSpecies')
+
     _rename_leaf_mustard(apps, LEAF_MUSTARD_NAME, LEGACY_LEAF_MUSTARD_NAME)
+
+    # Only un-reject rows this migration itself rejected (identified by the
+    # note it wrote), so species that were already rejected for other reasons
+    # keep their status and note.
+    normalized_names = [
+        normalize_text(name) or ''
+        for name in COLLECTIVE_ASIAN_GREENS_NAMES
+    ]
+    species_ids = _species_ids_for_normalized_names(apps, normalized_names)
+    if species_ids:
+        CropSpecies.objects.filter(
+            id__in=species_ids,
+            review_note=COLLECTIVE_REVIEW_NOTE,
+        ).update(status='published', review_note='')
 
 
 class Migration(migrations.Migration):
