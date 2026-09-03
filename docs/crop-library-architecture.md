@@ -903,6 +903,25 @@ The catalogue stores concrete crop species only: use categories such as
 Buchweizen, Phacelia, Inkarnatklee, or Ölrettich instead of becoming upload
 targets themselves.
 
+Naming conventions for `CROP_SPECIES_SEED_DATA` entries:
+
+- No slash collective names unless both terms are genuine synonyms for the
+  same species. `Asiatisches Blattgemüse/Senfkohl` was not a synonym pair but
+  a bundle, and is therefore replaced by `Blattsenf` / `Mustard greens`
+  (*Brassica juncea*).
+- No supplier or shop categories as a crop species when they mix several
+  botanical species or clearly different growing and harvest logic. The
+  Asia-greens shelf covers Blattsenf, Pak Choi, Tatsoi, Mizuna, Mibuna,
+  Komatsuna and Chinakohl — species that are planned, spaced and harvested
+  differently.
+- Add the concrete, user-recognizable species instead, one entry per species,
+  and do not introduce an umbrella entry alongside them.
+
+`crops/tests/test_seed_data.py` enforces the first two rules for the seed
+catalogue, and the `0011_replace_asian_greens_collective_species` migration
+rejects such collective species already stored in a database so they stop
+being public mapping targets.
+
 When a project crop already points to an owned public entry, the wizard is
 an update flow instead of a mapping flow. The owned public crop is shown as
 a read-only information block, and the official species plus original language

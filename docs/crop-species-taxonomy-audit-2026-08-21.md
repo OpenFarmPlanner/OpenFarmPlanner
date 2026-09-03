@@ -35,6 +35,15 @@ Nach zusätzlicher serverseitiger Prüfung auf dem Production-System wurde der k
 
 Zusätzlich wurde das Hauptrepo so angepasst, dass der generische Seed-Eintrag `Bohne`/`Bean` nicht mehr neu angelegt wird, normale Nutzer diesen zu groben Namen nicht mehr als Mapping-Ziel sehen und veröffentlichte Kulturen unter abgelehnten Species nicht mehr in den öffentlichen API-Listen und Detail-Endpunkten erscheinen.
 
+## Nachtrag: Asia-Blattgemüse am 2026-09-03
+
+Die Sammelbezeichnung `Asiatisches Blattgemüse/Senfkohl` ist eine Supplier-/Shop-Kategorie und mischt mehrere botanische Arten (Blattsenf, Pak Choi, Tatsoi, Mizuna, Mibuna, Komatsuna, Chinakohl) mit unterschiedlicher Anbau- und Erntelogik. Sie ist deshalb keine Kulturart.
+
+- Der Seed-Eintrag `leaf_mustard` heißt auf Deutsch jetzt `Blattsenf` statt `Senfkohl`; Englisch bleibt `Mustard greens`. Damit ist die passende Kulturart für Sorten wie `Grün im Schnee` (*Brassica juncea* var. *multiceps*) eindeutig benannt.
+- Die konkreten Arten `Pak Choi`, `Tatsoi`, `Mizuna`, `Mibuna`, `Komatsuna` und `Chinakohl` waren bereits in der Seed-Liste vorhanden und bleiben unverändert. Eine zusätzliche Oberkategorie `Asiatische Blattgemüse` wird bewusst nicht angelegt.
+- Die Migration `crops.0011_replace_asian_greens_collective_species` benennt eine vorhandene `Senfkohl`-Species inklusive deutscher Übersetzung um und setzt gespeicherte Sammelkategorien (`Asiatisches Blattgemüse/Senfkohl`, `Asiasalate`, `Asian greens` usw.) auf `rejected`, damit sie nicht mehr als öffentliches Mapping-Ziel erscheinen.
+- Production-Daten wurden in diesem Schritt nicht direkt verändert; die Korrektur läuft ausschließlich über Code, Seed-Daten und die Migration.
+
 ## Vorgegebene CropSpecies-Liste Deutsch/Englisch
 
 Die vorgegebene Liste `backend/crops/seed_data.py` wurde ebenfalls geprüft:

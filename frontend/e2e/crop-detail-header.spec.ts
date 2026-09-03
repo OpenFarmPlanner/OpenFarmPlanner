@@ -7,7 +7,7 @@ import { apiRequest, loginWithDeterministicProject, setViewportPreset, VIEWPORTS
 // Asserted geometrically rather than by screenshot so the failure message says
 // which of the two broke, at which viewport.
 const SHORT_NAME = 'Kresse';
-const LONG_NAME = 'Asiatisches Blattgemüse/Senfkohl';
+const LONG_NAME = 'Blattsenf Grün im Schnee (Winter)';
 
 // Matches ACTION_LABEL_BREAKPOINT in components/buttons/segmentedControlStyles.ts.
 const LABEL_BREAKPOINT_PX = 1200;
