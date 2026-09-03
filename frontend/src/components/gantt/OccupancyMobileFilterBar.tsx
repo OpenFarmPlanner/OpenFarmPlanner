@@ -1,17 +1,9 @@
 import type { MouseEvent, Ref } from 'react';
-import {
-  Button,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
+import { Button } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 
 import { useTranslation } from '../../i18n';
-import { AppTooltip } from '../AppTooltip';
+import { GanttMobileSearchRow } from './GanttMobileSearchRow';
 
 interface OccupancyMobileFilterBarProps {
   /** Show the expanded search field instead of the search icon. */
@@ -45,72 +37,18 @@ export function OccupancyMobileFilterBar({
   activeFilterCount,
   onOpenFilterPopover,
 }: OccupancyMobileFilterBarProps) {
-  const { t } = useTranslation(['ganttChart', 'common']);
+  const { t } = useTranslation('ganttChart');
 
-  return searchExpanded ? (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
-      <TextField
-        size="small"
-        placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
-        value={searchText}
-        onChange={(event) => onSearchTextChange(event.target.value)}
-        inputRef={searchInputRef}
-        slotProps={{
-          input: {
-      startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          },
-        }}
-        sx={{ flex: '1 1 auto', minWidth: 0 }}
-      />
-      <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
-        <IconButton
-          size="small"
-          aria-label={t('ganttChart:treeFilters.clearSearch')}
-          onClick={onClearSearch}
-          sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider' }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </AppTooltip>
-      <Button
-        size="small"
-        variant="outlined"
-        color="inherit"
-        startIcon={<TuneIcon fontSize="small" />}
-        onClick={onOpenFilterPopover}
-        aria-expanded={filterPopoverOpen}
-        aria-haspopup="dialog"
-        aria-controls={filterPopoverOpen ? 'calendar-filters-popover' : undefined}
-        sx={{
-          minHeight: 40,
-          minWidth: 0,
-          px: 1,
-          whiteSpace: 'nowrap',
-          borderColor: activeFilterCount > 0 ? 'text.secondary' : 'divider',
-          bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent',
-        }}
-      >
-        {activeFilterCount > 0
-          ? t('ganttChart:treeFilters.filterButtonWithCount', { count: activeFilterCount })
-          : t('ganttChart:treeFilters.filterButton')}
-      </Button>
-    </Stack>
-  ) : (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
-      <AppTooltip title={t('common:actions.search')}>
-        <IconButton
-          size="small"
-          aria-label={t('common:actions.search')}
-          onClick={onOpenSearch}
-          sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider' }}
-        >
-          <SearchIcon fontSize="small" />
-        </IconButton>
-      </AppTooltip>
+  return (
+    <GanttMobileSearchRow
+      searchExpanded={searchExpanded}
+      placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
+      searchText={searchText}
+      onSearchTextChange={onSearchTextChange}
+      searchInputRef={searchInputRef}
+      onClearSearch={onClearSearch}
+      onOpenSearch={onOpenSearch}
+    >
       <Button
         size="small"
         variant="outlined"
@@ -123,6 +61,9 @@ export function OccupancyMobileFilterBar({
         sx={{
           minHeight: 40,
           whiteSpace: 'nowrap',
+          // The expanded search field is the flexible element in the row, so
+          // the button gives up its default padding to leave room for it.
+          ...(searchExpanded ? { minWidth: 0, px: 1 } : {}),
           borderColor: activeFilterCount > 0 ? 'text.secondary' : 'divider',
           bgcolor: activeFilterCount > 0 ? 'action.selected' : 'transparent',
         }}
@@ -131,6 +72,6 @@ export function OccupancyMobileFilterBar({
           ? t('ganttChart:treeFilters.filterButtonWithCount', { count: activeFilterCount })
           : t('ganttChart:treeFilters.filterButton')}
       </Button>
-    </Stack>
+    </GanttMobileSearchRow>
   );
 }

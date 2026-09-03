@@ -1,15 +1,10 @@
 import type { Ref } from 'react';
-import {
-  Box,
-  IconButton,
-  Stack,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
+import { Box } from '@mui/material';
 
 import { useTranslation } from '../../i18n';
-import { AppTooltip } from '../AppTooltip';
+import { GanttMobileSearchRow } from './GanttMobileSearchRow';
 import { GanttSearchField } from './GanttSearchField';
+import { ganttDesktopFilterRowSx } from './ganttFilterBarStyles';
 
 interface SeedlingFiltersProps {
   /** Mobile layout renders a collapsible search icon; desktop a plain field. */
@@ -37,7 +32,8 @@ export function SeedlingFilters({
   onClearSearch,
   onOpenSearch,
 }: SeedlingFiltersProps) {
-  const { t } = useTranslation(['ganttChart', 'common']);
+  const { t } = useTranslation('ganttChart');
+  const placeholder = t('ganttChart:treeFilters.searchPlaceholderSeedlings');
 
   return (
     <Box
@@ -47,51 +43,19 @@ export function SeedlingFilters({
       }}
     >
       {useMobileLayout ? (
-        <Stack spacing={0}>
-          {searchExpanded ? (
-            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", }} >
-              <GanttSearchField
-                placeholder={t('ganttChart:treeFilters.searchPlaceholderSeedlings')}
-                value={searchText}
-                onValueChange={onSearchTextChange}
-                inputRef={searchInputRef}
-                sx={{ flex: '1 1 auto', minWidth: 0 }}
-              />
-              <AppTooltip title={t('ganttChart:treeFilters.clearSearch')}>
-                <IconButton
-                  size="small"
-                  aria-label={t('ganttChart:treeFilters.clearSearch')}
-                  onClick={onClearSearch}
-                  sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider' }}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </AppTooltip>
-            </Stack>
-          ) : (
-            <AppTooltip title={t('common:actions.search')}>
-              <IconButton
-                size="small"
-                aria-label={t('common:actions.search')}
-                onClick={onOpenSearch}
-                sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider' }}
-              >
-                <SearchIcon fontSize="small" />
-              </IconButton>
-            </AppTooltip>
-          )}
-        </Stack>
+        <GanttMobileSearchRow
+          searchExpanded={searchExpanded}
+          placeholder={placeholder}
+          searchText={searchText}
+          onSearchTextChange={onSearchTextChange}
+          searchInputRef={searchInputRef}
+          onClearSearch={onClearSearch}
+          onOpenSearch={onOpenSearch}
+        />
       ) : (
-        <Box
-          sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 1.5,
-              alignItems: 'center',
-          }}
-        >
+        <Box sx={ganttDesktopFilterRowSx}>
           <GanttSearchField
-            placeholder={t('ganttChart:treeFilters.searchPlaceholderSeedlings')}
+            placeholder={placeholder}
             value={searchText}
             onValueChange={onSearchTextChange}
             inputRef={searchInputRef}
