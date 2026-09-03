@@ -13,7 +13,8 @@ from farm.models import BatchOperation, Crop, EntityRevision
 from farm.project_context import get_active_project_or_400, require_project_admin
 from farm.crops.serializers import CropSerializer
 
-from .records import _build_entity_revision_changes, _current_actor_label, record_entity_revision
+from .payloads import build_crop_history_payload
+from .records import _current_actor_label, record_entity_revision
 from .restore import BatchRevertError, _restore_project_state_at, revert_batch_operation
 from .serializers import CropHistoryEntrySerializer, CropRestoreSerializer
 
@@ -137,31 +138,7 @@ class GlobalHistoryListView(APIView):
             .filter(project=active_project, entity_type='crop', created_at__gte=since)
             .order_by('-created_at')
         )
-        current_revision_id = rows[0].id if rows else None
-        payload = [
-            {
-                'history_id': row.id,
-                'crop_id': row.object_id,
-                'history_date': row.created_at,
-                'history_type': 'snapshot',
-                'history_user': row.user_name or None,
-                'summary': f"Crop #{row.object_id}: " + (', '.join(row.changed_fields[:5]) if row.changed_fields else 'snapshot'),
-                'object_type': 'crop',
-                'object_display_name': row.display_name or None,
-                'action': row.action,
-                'actor_label': row.user_name or None,
-                'is_current_version': row.id == current_revision_id,
-                'changes': _build_entity_revision_changes(
-                    row.snapshot,
-                    next(
-                        (candidate.snapshot for candidate in rows[index + 1:] if candidate.object_id == row.object_id),
-                        None,
-                    ),
-                    row.changed_fields,
-                ),
-            }
-            for index, row in enumerate(rows)
-        ]
+        payload = build_crop_history_payload(rows, label_crop_in_summary=True)
         return Response(CropHistoryEntrySerializer(payload, many=True).data)
 
 

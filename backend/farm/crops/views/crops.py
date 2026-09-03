@@ -15,10 +15,7 @@ from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_
 from accounts.consent import has_accepted_current, record_acceptance
 from accounts.models import DocumentConsent
 from farm.common.mixins import ProjectScopedMixin
-from farm.history import (
-    _build_entity_revision_changes,
-    _current_actor_label,
-)
+from farm.history import _current_actor_label, build_crop_history_payload
 from farm.history.serializers import CropHistoryEntrySerializer, CropRestoreSerializer
 from farm.models import (
     Crop,
@@ -621,28 +618,7 @@ class CropViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             .filter(project_id=crop.project_id, entity_type='crop', object_id=crop.pk, created_at__gte=since)
             .order_by('-created_at')
         )
-        current_revision_id = rows[0].id if rows else None
-        payload = [
-            {
-                'history_id': row.id,
-                'crop_id': row.object_id,
-                'history_date': row.created_at,
-                'history_type': 'snapshot',
-                'history_user': row.user_name or None,
-                'summary': ', '.join(row.changed_fields[:5]) if row.changed_fields else 'snapshot',
-                'object_type': 'crop',
-                'object_display_name': row.display_name or None,
-                'action': row.action,
-                'actor_label': row.user_name or None,
-                'is_current_version': row.id == current_revision_id,
-                'changes': _build_entity_revision_changes(
-                    row.snapshot,
-                    rows[index + 1].snapshot if index + 1 < len(rows) else None,
-                    row.changed_fields,
-                ),
-            }
-            for index, row in enumerate(rows)
-        ]
+        payload = build_crop_history_payload(rows)
         return Response(CropHistoryEntrySerializer(payload, many=True).data)
 
     @action(detail=True, methods=['post'], url_path='restore')

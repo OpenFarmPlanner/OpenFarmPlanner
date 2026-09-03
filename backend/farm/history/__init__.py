@@ -4,6 +4,7 @@ Public seam used by the API layer (views/mixins): recording revisions,
 serializing snapshots, and restoring whole-project state.
 """
 
+from .payloads import build_crop_history_payload
 from .records import (
     _build_entity_revision_changes,
     _current_actor_label,
@@ -24,6 +25,7 @@ __all__ = [
     '_entity_type_for',
     '_restore_project_state_at',
     '_serialize_instance',
+    'build_crop_history_payload',
     'record_entity_revision',
     'start_batch_operation',
 ]
