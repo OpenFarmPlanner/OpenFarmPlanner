@@ -176,3 +176,80 @@ class TestPublicCropTranslationBackfill:
 
         model = self.new_apps.get_model('farm', 'PublicCultureTranslation')
         assert model.objects.count() == 3
+
+
+@pytest.mark.django_db(transaction=True)
+class TestAsianGreensCollectiveSpeciesReplacement:
+    """`Asiatisches Blattgemüse/Senfkohl` is a supplier category, not a species."""
+
+    migrate_from = ('crops', '0010_sync_dach_crop_species_seed_data')
+    migrate_to = ('crops', '0011_replace_asian_greens_collective_species')
+
+    def setup_method(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_from])
+        old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+
+        species_model = old_apps.get_model('crops', 'CropSpecies')
+        translation_model = old_apps.get_model('crops', 'CropSpeciesTranslation')
+        # Reproduce the pre-rename database instead of whatever the seed sync
+        # produced, so the rename path is actually exercised.
+        translation_model.objects.all().delete()
+        species_model.objects.all().delete()
+
+        leaf_mustard = species_model.objects.create(
+            name='Senfkohl', name_normalized='senfkohl', status='published',
+        )
+        translation_model.objects.create(
+            species=leaf_mustard, language_code='de',
+            common_name='Senfkohl', common_name_normalized='senfkohl',
+        )
+        translation_model.objects.create(
+            species=leaf_mustard, language_code='en',
+            common_name='Mustard greens', common_name_normalized='mustard greens',
+        )
+        species_model.objects.create(
+            name='Asiatisches Blattgemüse/Senfkohl',
+            name_normalized='asiatisches blattgemüse/senfkohl',
+            status='published',
+        )
+        species_model.objects.create(
+            name='Tomate', name_normalized='tomate', status='published',
+        )
+
+        self.executor.loader.build_graph()
+        self.executor.migrate([self.migrate_to])
+        self.new_apps = self.executor.loader.project_state([self.migrate_to]).apps
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def _species(self, name_normalized: str):
+        species_model = self.new_apps.get_model('crops', 'CropSpecies')
+        return species_model.objects.get(name_normalized=name_normalized)
+
+    def test_renames_the_german_leaf_mustard_label(self):
+        species = self._species('blattsenf')
+
+        assert species.name == 'Blattsenf'
+        assert {row.language_code: row.common_name for row in species.translations.all()} == {
+            'de': 'Blattsenf',
+            'en': 'Mustard greens',
+        }
+
+    def test_creates_no_second_leaf_mustard_species(self):
+        species_model = self.new_apps.get_model('crops', 'CropSpecies')
+
+        assert not species_model.objects.filter(name_normalized='senfkohl').exists()
+        assert species_model.objects.filter(name_normalized='blattsenf').count() == 1
+
+    def test_rejects_the_collective_supplier_category(self):
+        species = self._species('asiatisches blattgemüse/senfkohl')
+
+        assert species.status == 'rejected'
+        assert 'Blattsenf' in species.review_note
+
+    def test_leaves_unrelated_species_untouched(self):
+        assert self._species('tomate').status == 'published'

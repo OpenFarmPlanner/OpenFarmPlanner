@@ -49,7 +49,7 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
             'Portulak',
             'Ringelblume',
             'Salatrauke',
-            'Senfkohl',
+            'Blattsenf',
             'Shiso',
             'Strohblume',
             'Tatsoi',
@@ -65,3 +65,41 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         for entry in CROP_SPECIES_SEED_DATA:
             self.assertIn('de', entry.translations)
             self.assertIn('en', entry.translations)
+
+    def test_seed_entries_use_concrete_species_instead_of_supplier_categories(self):
+        """Guards the naming convention documented in docs/crop-library-architecture.md.
+
+        Slash collective names and supplier/shop categories mix several
+        botanical species with different growing and harvest logic, so they
+        must never become suggestable crop species again.
+        """
+        german_names = [get_crop_species_seed_name(entry, 'de') for entry in CROP_SPECIES_SEED_DATA]
+        english_names = [get_crop_species_seed_name(entry, 'en') for entry in CROP_SPECIES_SEED_DATA]
+
+        for name in german_names + english_names:
+            self.assertNotIn('/', name)
+
+        supplier_category_names = [
+            'Asiatisches Blattgemüse/Senfkohl',
+            'Asiatisches Blattgemüse',
+            'Asiatische Blattgemüse',
+            'Asiasalat',
+            'Asiasalate',
+            'Asian greens',
+        ]
+        for name in supplier_category_names:
+            self.assertNotIn(name, german_names)
+            self.assertNotIn(name, english_names)
+
+        concrete_asian_greens_names = [
+            'Blattsenf',
+            'Chinakohl',
+            'Komatsuna',
+            'Mibuna',
+            'Mizuna',
+            'Pak Choi',
+            'Tatsoi',
+        ]
+        for name in concrete_asian_greens_names:
+            self.assertIn(name, german_names)
+        self.assertIn('Mustard greens', english_names)
