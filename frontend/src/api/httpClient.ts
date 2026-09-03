@@ -4,14 +4,10 @@ import i18n from 'i18next';
 import { isAuthenticationExpiredError } from './errors';
 import { createAuthenticationExpiredEvent } from '../auth/authEvents';
 import { FALLBACK_LANGUAGE } from '../i18n/languages';
+import { normalizeBasePath } from '../utils/basePath';
+import { readCookie } from '../utils/cookies';
 
 const PROD_API_PATH = '/api';
-
-function normalizeBasePath(basePath?: string): string {
-  const value = basePath && basePath.trim().length > 0 ? basePath.trim() : '/';
-  const withLeadingSlash = value.startsWith('/') ? value : `/${value}`;
-  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
-}
 
 export function computeProdApiPath(viteBasePath?: string): string {
   const normalizedBasePath = normalizeBasePath(viteBasePath);
@@ -84,15 +80,6 @@ export function validateBaseURL(isProd: boolean, baseURL: string): void {
   }
 }
 
-function getCookie(name: string): string | null {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() ?? null;
-  }
-  return null;
-}
-
 const baseURL = computeBaseURL(import.meta.env.PROD, import.meta.env.VITE_API_BASE_URL, import.meta.env.BASE_URL);
 validateBaseURL(import.meta.env.PROD, baseURL);
 
@@ -144,7 +131,7 @@ httpClient.interceptors.request.use((config) => {
 
   const method = (config.method ?? 'get').toLowerCase();
   if (['post', 'put', 'patch', 'delete'].includes(method)) {
-    const csrfToken = getCookie('csrftoken');
+    const csrfToken = readCookie('csrftoken');
     if (csrfToken) {
       config.headers = config.headers ?? {};
       config.headers['X-CSRFToken'] = csrfToken;

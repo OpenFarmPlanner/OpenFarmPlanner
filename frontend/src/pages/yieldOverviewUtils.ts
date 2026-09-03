@@ -23,13 +23,6 @@ export function formatCompactYield(value: number, locale: string): string {
 }
 
 /** Formats a Date as YYYY-MM-DD using the local calendar date. */
-export function formatDateToAPI(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 /** Returns the ISO-8601 week identifier (e.g. "2024-W05") for the given date. */
 export function formatIsoWeek(date: Date): string {
   const utcDate = new Date(

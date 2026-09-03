@@ -2,28 +2,20 @@ import { useEffect, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useNavigate } from 'react-router';
 
-import { AuthApiError } from '../../auth/authApi';
+import { AuthApiError, parsePositiveSeconds } from '../../auth/authApi';
 import { useAuth } from '../../auth/useAuth';
 import { useTranslation } from '../../i18n';
 
 const RETRY_DETAIL_PATTERN = /available in (\d+(?:\.\d+)?) seconds/i;
 
-function parsePositiveSeconds(value: unknown): number | null {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return Math.ceil(parsed);
-}
-
 function getRetrySeconds(error: AuthApiError): number | null {
   const explicitRetry = parsePositiveSeconds(error.retryAfterSeconds);
-  if (explicitRetry !== null) {
+  if (explicitRetry !== undefined) {
     return explicitRetry;
   }
 
   const payloadRetry = parsePositiveSeconds(error.payload?.retry_after);
-  if (payloadRetry !== null) {
+  if (payloadRetry !== undefined) {
     return payloadRetry;
   }
 
@@ -32,7 +24,7 @@ function getRetrySeconds(error: AuthApiError): number | null {
   }
 
   const match = RETRY_DETAIL_PATTERN.exec(error.payload.detail);
-  return match ? parsePositiveSeconds(match[1]) : null;
+  return (match ? parsePositiveSeconds(match[1]) : undefined) ?? null;
 }
 
 function formatRetryTime(seconds: number, t: TFunction<'home'>): string {

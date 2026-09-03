@@ -365,13 +365,6 @@ export function addTimelinePeriodLarge(date: Date, viewMode: ViewMode, direction
   return nextDate;
 }
 
-export function formatDateToAPI(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 export function getPrimaryTouch(event: TouchEvent): Touch | null {
   return event.touches[0] ?? event.changedTouches[0] ?? null;
 }

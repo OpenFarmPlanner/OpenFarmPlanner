@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { normalizeBasePath } from '../utils/basePath';
 
 const DEFAULT_HEARTBEAT_MS = 30_000;
 const DEFAULT_FALLBACK_POLL_MS = 60_000;
@@ -15,12 +16,6 @@ interface UseWebSocketOptions {
   onFallbackPoll?: () => void;
   heartbeatMs?: number;
   fallbackPollMs?: number;
-}
-
-function normalizeBasePath(basePath: string): string {
-  const value = basePath.trim() || '/';
-  const leading = value.startsWith('/') ? value : `/${value}`;
-  return leading.endsWith('/') ? leading : `${leading}/`;
 }
 
 function normalizeWebSocketBaseUrl(baseUrl: string | undefined): string | null {
