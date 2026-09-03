@@ -121,15 +121,6 @@ describe('PublicCropUpdateDialog', () => {
     expect(screen.getByText(t.importConflictDialog.updateWarning)).toBeInTheDocument();
   });
 
-  it('states plainly when a version bump changed none of the crop data', async () => {
-    await openDialog({ ...varietyRenameUpdate, has_local_changes: true, changes: [] });
-
-    expect(screen.getByTestId('crop-public-update-no-field-changes'))
-      .toHaveTextContent(t.publicUpdate.noFieldChanges);
-    expect(screen.queryByLabelText(t.publicUpdate.changesAriaLabel)).not.toBeInTheDocument();
-    expect(screen.queryByText(t.importConflictDialog.updateWarning)).not.toBeInTheDocument();
-  });
-
   it('records a rejection without copying anything into the local crop', async () => {
     apiMocks.rejectPublicUpdate.mockResolvedValue({ data: {} });
     const onUpdated = await openDialog();

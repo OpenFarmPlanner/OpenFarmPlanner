@@ -7,7 +7,7 @@ import type { PublicCropUpdateController } from './usePublicCropUpdate';
  * it replaced the header overflow entry, the "Update verfügbar" banner and the
  * sync marker chip.
  */
-export type CropLibraryActionKind = 'publish' | 'pullUpdate' | 'pushUpdate' | 'noChanges';
+export type CropLibraryActionKind = 'publish' | 'pullUpdate' | 'pushUpdate' | 'upToDate';
 
 export interface CropLibraryAction {
   kind: CropLibraryActionKind;
@@ -38,7 +38,8 @@ export interface CropLibraryAction {
  *    -> push. `public_publish_blocked_reason` is `null` exactly then; the
  *    `update_pending` / `update_rejected` reasons always coincide with case 2
  *    and are handled there.
- * 5. Connected, nothing pending and nothing to contribute -> disabled.
+ * 5. Connected, nothing pending and nothing to contribute -> a plain "Aktuell"
+ *    status chip, not a button (there is no action to offer).
  *
  * A crop species still awaiting moderation freezes library sync, so cases 2-4
  * render disabled with the existing "proposal under review" tooltip instead.
@@ -57,7 +58,7 @@ export function resolveCropLibraryAction(
       labelKey: 'libraryAction.publish',
       color: 'primary',
       disabled: false,
-      tooltipKey: null,
+      tooltipKey: 'libraryAction.publishTooltip',
       trigger: 'publish',
     };
   }
@@ -68,7 +69,7 @@ export function resolveCropLibraryAction(
       labelKey: 'libraryAction.pullUpdate',
       color: 'info',
       disabled: speciesPending,
-      tooltipKey: frozenTooltipKey,
+      tooltipKey: frozenTooltipKey ?? 'libraryAction.pullUpdateTooltip',
       trigger: speciesPending ? null : 'diff',
     };
   }
@@ -79,17 +80,17 @@ export function resolveCropLibraryAction(
       labelKey: 'libraryAction.pushUpdate',
       color: 'primary',
       disabled: speciesPending,
-      tooltipKey: frozenTooltipKey,
+      tooltipKey: frozenTooltipKey ?? 'libraryAction.pushUpdateTooltip',
       trigger: speciesPending ? null : 'publish',
     };
   }
 
   return {
-    kind: 'noChanges',
-    labelKey: 'libraryAction.pushUpdate',
-    color: 'primary',
+    kind: 'upToDate',
+    labelKey: 'publicUpdate.markerUpToDateLabel',
+    color: 'info',
     disabled: true,
-    tooltipKey: 'libraryAction.noLocalChangesTooltip',
+    tooltipKey: 'publicUpdate.markerUpToDateTooltip',
     trigger: null,
   };
 }

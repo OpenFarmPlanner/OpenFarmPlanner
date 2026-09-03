@@ -1332,6 +1332,10 @@ def _ensure_local_general_crop(*, public_crop: PublicCrop, project: Project) -> 
 def _apply_public_crop_update(*, crop: Crop, public_crop: PublicCrop) -> Crop:
     """Overwrite `crop`'s library-sourced fields with the current public crop."""
     payload = build_project_crop_payload(public_crop)
+    # `display_color` is a project-local choice — kept out of the update diff
+    # (see `_compared_public_update_fields`), so a pull must not silently
+    # overwrite it either.
+    payload.pop('display_color', None)
     for field, value in payload.items():
         setattr(crop, field, value)
     crop.save()
@@ -1359,13 +1363,13 @@ class PublicCropFieldChange:
 class PublicCropUpdateStatus:
     """A pending library update for one imported project crop.
 
-    ``changes`` is derived from ``CROP_COPY_FIELDS`` — the exact set
-    :func:`_apply_public_crop_update` overwrites — so the preview can never
-    show a field the update leaves alone, nor hide one it rewrites (which is
-    what let a public variety rename reach a project copy unannounced). The one
-    exception is ``crop_family`` / ``nutrient_demand`` on a species-linked
-    Sorte: the apply step clears them right back (a linked Sorte owns none),
-    so showing them would only ever be noise.
+    ``changes`` comes from :func:`public_crop_update_changes` — the fields an
+    apply overwrites, minus the ones an apply deliberately leaves alone
+    (``display_color``, and ``crop_family`` / ``nutrient_demand`` on a
+    species-linked Sorte). So the preview can never show a field the update
+    would not touch, nor hide one it rewrites (which is what let a public
+    variety rename reach a project copy unannounced), and it is never empty:
+    a bump with no compared-field change is not a pending update at all.
     """
 
     public_crop: PublicCrop
@@ -1376,17 +1380,52 @@ class PublicCropUpdateStatus:
     changes: list[PublicCropFieldChange]
 
 
-def has_pending_public_crop_update(crop: Crop) -> bool:
-    """Whether the linked library entry has a version this copy has not taken yet.
+def _compared_public_update_fields(crop: Crop) -> list[str]:
+    """The fields whose difference counts as a real library update for ``crop``.
 
-    Version-based, exactly like the 'unchanged' branch of
-    :func:`import_public_crop_into_project`, so the badge the user sees and
-    the decision the import takes can never disagree.
+    - ``display_color`` is a project-local presentation choice: an imported crop
+      always gets an auto colour while a public entry often has none, so a
+      colour mismatch is never on its own a "library update".
+    - ``crop_family`` / ``nutrient_demand`` on a species-linked Sorte belong to
+      the species-level public entry, not the variety one (see
+      :func:`build_public_crop_payload`).
+    """
+    excluded = {'display_color'}
+    if (crop.variety or '').strip() and crop.crop_species_id:
+        excluded |= set(PUBLIC_SPECIES_INVARIANT_FIELDS)
+    return [field for field in CROP_COPY_FIELDS if field not in excluded]
+
+
+def public_crop_update_changes(crop: Crop) -> list[tuple[str, Any, Any]]:
+    """``(field, local_value, public_value)`` for every compared field that differs
+    between ``crop`` and its linked public entry (empty when not linked)."""
+    public_crop = crop.source_public_crop
+    if public_crop is None:
+        return []
+    local = _copy_fields(crop)
+    remote = _copy_fields(public_crop)
+    return [
+        (field, local[field], remote[field])
+        for field in _compared_public_update_fields(crop)
+        if local[field] != remote[field]
+    ]
+
+
+def has_pending_public_crop_update(crop: Crop) -> bool:
+    """Whether the linked library entry carries content this copy has not taken.
+
+    Version-based first — the entry moved past the version this copy imported —
+    but a bump that changed none of the compared fields (a translation-only
+    edit, or a value the copy already matches) is not a pending update: there is
+    nothing to review, to block a push over, or to announce. Both checks run
+    in memory over the already-``select_related``-ed ``source_public_crop``.
     """
     public_crop = crop.source_public_crop
     if public_crop is None or public_crop.status != PublicCrop.STATUS_PUBLISHED:
         return False
-    return crop.source_public_version != public_crop.version
+    if crop.source_public_version == public_crop.version:
+        return False
+    return bool(public_crop_update_changes(crop))
 
 
 def is_public_crop_update_rejected(crop: Crop) -> bool:
@@ -1430,12 +1469,21 @@ def resolve_public_publish_block(
       public entry, so there is nothing to contribute.
     """
     if owned_public_crop is None:
+        # No entry of the user's own to update. A push would fork a new entry,
+        # so it is only worth offering when the copy actually diverges from the
+        # public source it was imported from.
+        if crop.source_public_crop_id and not public_crop_update_changes(crop):
+            return 'no_local_changes'
         return None
 
     if crop.source_public_crop_id == owned_public_crop.id:
         if has_pending_public_crop_update(crop):
             return 'update_rejected' if is_public_crop_update_rejected(crop) else 'update_pending'
-        if not crop.is_modified_from_source:
+        # `is_modified_from_source` is a sticky flag (an edit sets it, only an
+        # apply clears it) — a copy edited then edited back, or overtaken by a
+        # matching public edit, still carries it. Compare the actual fields so
+        # a copy that matches the entry reports nothing to contribute.
+        if not crop.is_modified_from_source or not public_crop_update_changes(crop):
             return 'no_local_changes'
         return None
 
@@ -1463,33 +1511,20 @@ def reject_public_crop_update(crop: Crop) -> Crop:
 def build_public_crop_update_status(crop: Crop) -> PublicCropUpdateStatus | None:
     """The field-level preview of the pending library update, or None if there is none.
 
-    Still built after a rejection: the user must be able to reopen the diff and
-    change their mind without waiting for another public edit.
+    Still built after a rejection so the user can reopen the diff and change
+    their mind without waiting for another public edit. Returns None when the
+    linked entry only bumped its version without changing a compared field.
     """
     if not has_pending_public_crop_update(crop):
         return None
     public_crop = crop.source_public_crop
-    local_payload = _copy_fields(crop)
-    public_payload = _copy_fields(public_crop)
-    # A species-linked Sorte does not own crop_family/nutrient_demand — they are
-    # resolved from the species entry — so a stale value on either side of the
-    # variety comparison is not a change to apply.
-    compared_fields = [
-        field for field in CROP_COPY_FIELDS
-        if not (
-            field in PUBLIC_SPECIES_INVARIANT_FIELDS
-            and (crop.variety or '').strip()
-            and crop.crop_species_id
-        )
-    ]
     changes = [
         PublicCropFieldChange(
             field=field,
-            local_value=_json_safe(local_payload[field]),
-            public_value=_json_safe(public_payload[field]),
+            local_value=_json_safe(local_value),
+            public_value=_json_safe(public_value),
         )
-        for field in compared_fields
-        if local_payload[field] != public_payload[field]
+        for field, local_value, public_value in public_crop_update_changes(crop)
     ]
     return PublicCropUpdateStatus(
         public_crop=public_crop,

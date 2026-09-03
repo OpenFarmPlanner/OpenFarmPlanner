@@ -75,11 +75,11 @@ describe('CropLibraryActionButton', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bibliothek aktualisieren' }));
     expect(onPublish).toHaveBeenCalledTimes(1);
   });
 
-  it('is inert and explains itself when there is nothing to contribute', () => {
+  it('renders a plain "Aktuell" status chip, not a button, when there is nothing to do', async () => {
     const onPublish = vi.fn();
     render(
       <Harness
@@ -88,18 +88,15 @@ describe('CropLibraryActionButton', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' });
-    expect(button).toBeDisabled();
-    fireEvent.mouseDown(button);
-    expect(onPublish).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    const chip = screen.getByTestId('crop-detail-library-status');
+    expect(chip).toHaveTextContent('Aktuell');
 
-    const wrapper = button.parentElement as HTMLElement;
-    fireEvent.focus(wrapper);
-    // The reason is the focusable wrapper's accessible name and the tooltip.
-    expect(wrapper).toHaveAttribute(
-      'aria-label',
-      'Keine lokalen Änderungen, die noch nicht in der Bibliothek sind.',
-    );
+    fireEvent.mouseOver(chip);
+    expect(await screen.findByRole('tooltip', {}, { timeout: 4000 }))
+      .toHaveTextContent('Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.');
+    expect(onPublish).not.toHaveBeenCalled();
+    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
   });
 
   it('disables itself with the moderation tooltip while the species is under review', () => {
@@ -137,7 +134,7 @@ describe('CropLibraryActionButton', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' });
+    const button = screen.getByRole('button', { name: 'Bibliothek aktualisieren' });
     expect(button).toBeDisabled();
     expect(button.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
   });

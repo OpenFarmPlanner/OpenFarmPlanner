@@ -1548,6 +1548,53 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {'available': False})
 
+    def test_a_version_bump_with_no_compared_field_change_is_not_a_pending_update(self):
+        """A translation-only edit (or a value the copy already matches) bumps
+        the public version but leaves every compared field equal — nothing to
+        review, so no notice and the push stays blocked as "no local changes"."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot', variety='Nantes', status='published', created_by=self.user,
+            growth_duration_days=70, display_color='#123456',
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json',
+        )
+        imported = Crop.objects.get(id=import_response.data['crop']['id'])
+        PublicCrop.objects.filter(pk=public_crop.pk).update(version=public_crop.version + 1)
+
+        preview = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/public-update/')
+        self.assertEqual(preview.data, {'available': False})
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
+        self.assertFalse(rows[imported.id]['public_update_available'])
+        self.assertFalse(rows[imported.id]['public_update_rejected'])
+        self.assertEqual(rows[imported.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+        reject = self.client.post(
+            f'/openfarmplanner/api/crops/{imported.id}/public-update/reject/', {}, format='json',
+        )
+        self.assertEqual(reject.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_a_display_color_only_difference_is_not_a_pending_update(self):
+        """An imported crop always gets an auto colour; a public entry often has
+        none, so a colour mismatch alone never announces a library update."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot', variety='Danvers', status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json',
+        )
+        imported = Crop.objects.get(id=import_response.data['crop']['id'])
+        # Bump the version and change *only* the colour.
+        PublicCrop.objects.filter(pk=public_crop.pk).update(
+            version=public_crop.version + 1, display_color='#abcdef',
+        )
+        self.assertNotEqual(imported.display_color, '#abcdef')
+
+        preview = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/public-update/')
+        self.assertEqual(preview.data, {'available': False})
+
     def test_crop_list_flags_a_pending_public_update(self):
         _, imported = self._import_and_rename_variety()
 

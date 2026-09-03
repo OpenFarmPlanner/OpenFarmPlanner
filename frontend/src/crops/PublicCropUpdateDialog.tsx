@@ -84,12 +84,6 @@ export function PublicCropUpdateDialog({ crop, controller }: PublicCropUpdateDia
           </Alert>
         ) : null}
 
-        {!varietyChange && otherChanges.length === 0 ? (
-          <Alert severity="info" data-testid="crop-public-update-no-field-changes">
-            {t('library.publicUpdate.noFieldChanges')}
-          </Alert>
-        ) : null}
-
         {otherChanges.length ? (
           <Box
             aria-label={t('library.publicUpdate.changesAriaLabel')}
@@ -122,7 +116,7 @@ export function PublicCropUpdateDialog({ crop, controller }: PublicCropUpdateDia
           </Box>
         ) : null}
 
-        {update?.has_local_changes && (varietyChange || otherChanges.length > 0) ? (
+        {update?.has_local_changes ? (
           <Alert severity="warning" sx={{ mt: 2 }}>
             {t('library.importConflictDialog.updateWarning')}
           </Alert>

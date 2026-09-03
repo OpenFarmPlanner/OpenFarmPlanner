@@ -844,8 +844,6 @@
     },
     "publicUpdate": {
       "notice": "Für diese Kultur gibt es eine neuere Version in der Kulturbibliothek.",
-      "review": "Änderungen ansehen",
-      "loading": "Lade Änderungen…",
       "loadError": "Die Änderungen aus der Bibliothek konnten nicht geladen werden.",
       "gone": "Diese Kultur ist bereits auf dem aktuellen Stand der Bibliothek.",
       "dialogTitle": "Aktualisierung aus der Bibliothek",
@@ -853,7 +851,6 @@
       "changesAriaLabel": "Vergleich zwischen deiner Projektkultur und der Bibliothek",
       "localValue": "Deine Projektkultur",
       "publicValue": "Neu in der Bibliothek",
-      "noFieldChanges": "An den Kulturdaten hat sich nichts geändert – nur die Bibliotheksversion wurde erhöht (z. B. durch eine aktualisierte Übersetzung). Beim Übernehmen bleibt deine Projektkultur inhaltlich unverändert.",
       "apply": "Übernehmen",
       "applying": "Übernehme…",
       "applied": "Die Änderungen an „{{name}}“ wurden übernommen.",
@@ -863,10 +860,6 @@
       "rejected": "Die Änderungen an „{{name}}“ wurden abgelehnt. Deine lokale Kopie bleibt unverändert.",
       "rejectError": "Die Änderungen konnten nicht abgelehnt werden.",
       "rejectedHint": "Du hast diese Version bereits abgelehnt. Du kannst sie hier jederzeit doch noch übernehmen.",
-      "markerLabel": "Update verfügbar",
-      "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
-      "markerRejectedLabel": "Update abgelehnt",
-      "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
       "markerUpToDateLabel": "Aktuell",
       "markerUpToDateTooltip": "Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.",
       "publishBlocked": {
@@ -876,15 +869,14 @@
       }
     },
     "publishButton": "Veröffentlichen",
-    "publishTooltip": "Veröffentlicht die ausgewählte Kultur dauerhaft in der gemeinschaftlichen Kulturbibliothek.",
-    "updateButton": "Kulturbibliothek aktualisieren",
     "publishing": "Veröffentliche…",
-    "updating": "Aktualisiere…",
     "libraryAction": {
       "publish": "In Bibliothek veröffentlichen",
+      "publishTooltip": "Diese Kultur zum ersten Mal in der gemeinschaftlichen Kulturbibliothek veröffentlichen.",
       "pullUpdate": "Kultur aktualisieren",
-      "pushUpdate": "Kulturbibliothek aktualisieren",
-      "noLocalChangesTooltip": "Keine lokalen Änderungen, die noch nicht in der Bibliothek sind."
+      "pullUpdateTooltip": "Die Bibliothek hat eine neuere Version. Änderungen ansehen und in deine Projektkultur übernehmen.",
+      "pushUpdate": "Bibliothek aktualisieren",
+      "pushUpdateTooltip": "Deine lokalen Änderungen in die öffentliche Version in der Bibliothek übernehmen."
     },
     "publishSuccess": "„{{name}}“ wurde in die Kulturbibliothek veröffentlicht.",
     "updateSuccess": "Die öffentliche Version von „{{name}}“ wurde aktualisiert.",

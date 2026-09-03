@@ -40,7 +40,7 @@ describe('CropHeaderActionsMenu', () => {
       'Löschen',
     ]);
     // The public-library publish/update action moved to the badge row.
-    expect(screen.queryByRole('menuitem', { name: /Veröffentlichen|Kulturbibliothek aktualisieren/ }))
+    expect(screen.queryByRole('menuitem', { name: /Veröffentlichen|Bibliothek aktualisieren/ }))
       .not.toBeInTheDocument();
   });
 

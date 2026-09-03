@@ -20,6 +20,7 @@ describe('resolveCropLibraryAction', () => {
       labelKey: 'libraryAction.publish',
       color: 'primary',
       disabled: false,
+      tooltipKey: 'libraryAction.publishTooltip',
       trigger: 'publish',
     });
   });
@@ -34,6 +35,7 @@ describe('resolveCropLibraryAction', () => {
       labelKey: 'libraryAction.pullUpdate',
       color: 'info',
       disabled: false,
+      tooltipKey: 'libraryAction.pullUpdateTooltip',
       trigger: 'diff',
     });
   });
@@ -82,6 +84,7 @@ describe('resolveCropLibraryAction', () => {
       labelKey: 'libraryAction.pushUpdate',
       color: 'primary',
       disabled: false,
+      tooltipKey: 'libraryAction.pushUpdateTooltip',
       trigger: 'publish',
     });
   });
@@ -99,7 +102,7 @@ describe('resolveCropLibraryAction', () => {
     expect(action).toMatchObject({ kind: 'pushUpdate', trigger: 'publish', color: 'primary' });
   });
 
-  it('state 5: linked, nothing pending, nothing to contribute -> disabled', () => {
+  it('state 5: linked, nothing pending, nothing to contribute -> "Aktuell" status', () => {
     const action = resolveCropLibraryAction(
       crop({
         source_public_crop: 9,
@@ -108,12 +111,28 @@ describe('resolveCropLibraryAction', () => {
       inSync,
     );
     expect(action).toMatchObject({
-      kind: 'noChanges',
-      labelKey: 'libraryAction.pushUpdate',
-      disabled: true,
-      tooltipKey: 'libraryAction.noLocalChangesTooltip',
+      kind: 'upToDate',
+      labelKey: 'publicUpdate.markerUpToDateLabel',
+      tooltipKey: 'publicUpdate.markerUpToDateTooltip',
       trigger: null,
     });
+  });
+
+  it('state 5: an imported copy that matches its source (version-only bump) -> "Aktuell"', () => {
+    // The backend reports no_local_changes for an imported, not-owned copy
+    // whose content equals its public source, and does not flag an update for
+    // a bump with no compared-field change.
+    const action = resolveCropLibraryAction(
+      crop({
+        source_public_crop: 9,
+        is_modified_from_source: true,
+        public_update_available: false,
+        public_publish_blocked_reason: 'no_local_changes',
+      }),
+      inSync,
+    );
+    expect(action.kind).toBe('upToDate');
+    expect(action.trigger).toBeNull();
   });
 
   it('freezes the button while the crop species is still under moderation', () => {

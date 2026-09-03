@@ -98,41 +98,49 @@ The public Crop Library follows an open-data model:
   can call the identity change out explicitly instead of blending it into a
   generic warning).
 - Nothing about that model is automatic, but it is no longer invisible.
-  `CropSerializer.public_update_available` compares the copy's
-  `source_public_version` against the linked entry's current `version` — the
-  same comparison `import_public_crop_into_project()` makes — so the private
-  crop view knows the library moved on.
-  `GET /api/crops/<id>/public-update/` then returns the field-level diff,
-  derived from `CROP_COPY_FIELDS` (exactly what an update overwrites, so a
-  renamed `variety` can never be applied without appearing in the preview).
-  The endpoint is read-only: confirming in the dialog calls the existing
-  `public-crops/<id>/import/` action with `mode=update`, so the private
-  crop page and the library page share one import/update path.
-- **One button carries all of this.** The crop detail badge row has a single
+  `CropSerializer.public_update_available` is true when the linked entry's
+  `version` moved past the copy's `source_public_version` **and**
+  `public_crop_update_changes()` finds an actual compared-field difference — a
+  translation-only bump, or a value the copy already matches, is not a pending
+  update (nothing to review, nothing to disable the push over). The compared
+  set is `CROP_COPY_FIELDS` minus `display_color` (a project-local colour: an
+  imported crop always has an auto one, a public entry often none) and, on a
+  species-linked Sorte, `crop_family` / `nutrient_demand` (they live on the
+  species entry). An apply overwrites exactly that same set — `variety`
+  included, so a rename can never be applied without appearing in the preview;
+  `display_color` is popped from the apply too, matching the diff.
+  `GET /api/crops/<id>/public-update/` returns that diff and is read-only:
+  confirming in the dialog calls `public-crops/<id>/import/` with
+  `mode=update`, so the private crop page and the library page share one
+  import/update path.
+- **One control carries all of this.** The crop detail badge row has a single
   `CropLibraryActionButton` (next to the "Importiert" badge) whose label,
   colour, enabled state and target follow the context — it replaced the header
-  overflow entry, a standalone "Update verfügbar" banner and a sync marker
-  chip. `resolveCropLibraryAction` decides, first match wins:
-  1. **not linked** -> "In Bibliothek veröffentlichen", opens the publishing
-     wizard.
+  overflow entry, a standalone "Update verfügbar" banner, a sync marker chip
+  and the "Lokal" / "Veröffentlicht" / "Lokal geändert" badges.
+  `resolveCropLibraryAction` decides, first match wins (every state carries a
+  tooltip, on hover and on keyboard focus):
+  1. **not linked** -> button "In Bibliothek veröffentlichen", up arrow, opens
+     the publishing wizard.
   2. **`public_update_available` or `public_update_rejected`** (both surface as
-     the `usePublicCropUpdate` controller's `isDiverged`) -> "Kultur
-     aktualisieren", blue, opens the pull diff/apply dialog. Wins over any push
-     offer, and it is the only way a declined version stays applyable now that
-     the marker chip is gone.
+     the `usePublicCropUpdate` controller's `isDiverged`) -> button "Kultur
+     aktualisieren", blue, down arrow (pull), opens the pull diff/apply dialog.
+     Wins over any push offer, and it is the only way a declined version stays
+     applyable now that the marker chip is gone.
   3./4. **linked with local changes** (`public_publish_blocked_reason` is
      `null` — the `update_pending` / `update_rejected` reasons always coincide
-     with case 2) -> "Kulturbibliothek aktualisieren", green, opens the wizard
-     (which routes an owned-entry update through its own flow). Own entry vs a
-     foreign imported one is the same direct-update path, so the label does not
-     distinguish them.
-  5. **linked, nothing pending, nothing to contribute** -> the same label,
-     disabled, tooltip "Keine lokalen Änderungen, die noch nicht in der
-     Bibliothek sind.".
+     with case 2) -> button "Bibliothek aktualisieren", green, up arrow (push),
+     opens the wizard (which routes an owned-entry update through its own flow).
+     Own entry vs a foreign imported one is the same direct-update path, so the
+     label does not distinguish them.
+  5. **linked, nothing pending, nothing to contribute** -> not a button but a
+     plain "Aktuell" status chip (`crop-detail-library-status`), tooltip
+     "Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek."
+     There is no action, so no dialog opens.
 
   A crop species still under moderation (`public_crop_species_pending`) freezes
-  cases 2-4 as disabled with the existing "Vorschlag in Prüfung" tooltip; the
-  `CropSpeciesPendingChip` stays in the row as the explanation.
+  cases 2-4 as a disabled button with the existing "Vorschlag in Prüfung"
+  tooltip; the `CropSpeciesPendingChip` stays in the row as the explanation.
 - Declining a public change is a third, explicit outcome next to applying and
   cancelling. `POST /api/crops/<id>/public-update/reject/` stores
   `Crop.rejected_public_version` and touches no library-sourced field, so the

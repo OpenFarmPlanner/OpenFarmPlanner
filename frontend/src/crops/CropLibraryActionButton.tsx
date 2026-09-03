@@ -1,5 +1,6 @@
-import { Box, Button, CircularProgress } from '@mui/material';
-import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
+import { Box, Button, Chip, CircularProgress } from '@mui/material';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import { useTranslation } from '../i18n';
 import { AppTooltip } from '../components/AppTooltip';
@@ -17,8 +18,10 @@ interface CropLibraryActionButtonProps {
 }
 
 /**
- * The permanent public-library action in the crop detail badge row. See
- * `resolveCropLibraryAction` for the five states and their priority.
+ * The permanent public-library control in the crop detail badge row. See
+ * `resolveCropLibraryAction`: four states render a button (publish / pull /
+ * push), and the "nothing to do" state renders a plain "Aktuell" status chip.
+ * Every state carries a tooltip, shown on hover and on keyboard focus.
  */
 export function CropLibraryActionButton({
   crop,
@@ -28,9 +31,29 @@ export function CropLibraryActionButton({
 }: CropLibraryActionButtonProps) {
   const { t } = useTranslation('crops');
   const action = resolveCropLibraryAction(crop, controller);
-  const loading = action.trigger === 'diff' ? controller.isLoading : isPublishing;
+  const label = t(`library.${action.labelKey}`);
   const tooltip = action.tooltipKey ? t(`library.${action.tooltipKey}`) : '';
-  const Icon = action.kind === 'pullUpdate' ? SyncOutlinedIcon : PublicOutlinedIcon;
+
+  if (action.kind === 'upToDate') {
+    return (
+      <AppTooltip title={tooltip}>
+        <Box component="span" tabIndex={0} aria-label={tooltip} sx={{ display: 'inline-flex' }}>
+          <Chip
+            size="small"
+            variant="outlined"
+            color="info"
+            icon={<SyncOutlinedIcon fontSize="small" />}
+            label={label}
+            data-testid="crop-detail-library-status"
+          />
+        </Box>
+      </AppTooltip>
+    );
+  }
+
+  const loading = action.trigger === 'diff' ? controller.isLoading : isPublishing;
+  // Direction of the sync: down = pull from the library, up = publish/push to it.
+  const Icon = action.kind === 'pullUpdate' ? ArrowDownwardIcon : ArrowUpwardIcon;
 
   const handleClick = () => {
     if (action.trigger === 'publish') {
@@ -56,32 +79,33 @@ export function CropLibraryActionButton({
       // when the badge row gets too narrow for the long German labels.
       sx={{ py: 0.25, flexShrink: 0, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
     >
-      {t(`library.${action.labelKey}`)}
+      {label}
     </Button>
   );
 
-  if (!tooltip) {
-    return button;
+  // A disabled <button> is not focusable, so its tooltip hangs off a focusable
+  // wrapper that also carries it as an accessible name (hover + keyboard). An
+  // enabled button is focusable itself and needs no extra wrapper.
+  if (action.disabled) {
+    return (
+      <AppTooltip title={tooltip}>
+        <Box
+          component="span"
+          tabIndex={0}
+          aria-label={tooltip}
+          sx={{
+            display: 'inline-flex',
+            flexShrink: 0,
+            maxWidth: '100%',
+            borderRadius: 1,
+            '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}` },
+          }}
+        >
+          {button}
+        </Box>
+      </AppTooltip>
+    );
   }
 
-  // A disabled <button> is not focusable, so the reason hangs off a focusable
-  // wrapper that also carries it as an accessible name (hover + keyboard).
-  return (
-    <AppTooltip title={tooltip}>
-      <Box
-        component="span"
-        tabIndex={0}
-        aria-label={tooltip}
-        sx={{
-          display: 'inline-flex',
-          flexShrink: 0,
-          maxWidth: '100%',
-          borderRadius: 1,
-          '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}` },
-        }}
-      >
-        {button}
-      </Box>
-    </AppTooltip>
-  );
+  return <AppTooltip title={tooltip}>{button}</AppTooltip>;
 }

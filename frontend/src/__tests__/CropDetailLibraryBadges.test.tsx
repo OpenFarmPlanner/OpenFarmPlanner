@@ -82,22 +82,16 @@ describe('CropDetail library badge row', () => {
     expect(button.className).toMatch(/MuiButton-(outlined)?[Cc]olorInfo/);
   });
 
-  it('disables the action for a linked crop with nothing to contribute, with a hover + focus tooltip', async () => {
+  it('shows an "Aktuell" status chip (no button, no dialog) when there is nothing to do', async () => {
     renderDetail(importedInSync);
-    const button = screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('data-action-kind', 'noChanges');
+    expect(screen.queryByRole('button', { name: /veröffentlichen|aktualisieren/i })).not.toBeInTheDocument();
 
-    const wrapper = button.parentElement as HTMLElement;
-    expect(wrapper).toHaveAttribute('tabindex', '0');
-    expect(wrapper).toHaveAttribute(
-      'aria-label',
-      'Keine lokalen Änderungen, die noch nicht in der Bibliothek sind.',
-    );
+    const chip = screen.getByTestId('crop-detail-library-status');
+    expect(chip).toHaveTextContent('Aktuell');
 
-    fireEvent.mouseOver(wrapper);
+    fireEvent.mouseOver(chip);
     expect(await screen.findByRole('tooltip', {}, { timeout: 4000 }))
-      .toHaveTextContent('Keine lokalen Änderungen, die noch nicht in der Bibliothek sind.');
+      .toHaveTextContent('Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.');
   });
 
   it('does not render the action button when no publish handler is wired', () => {

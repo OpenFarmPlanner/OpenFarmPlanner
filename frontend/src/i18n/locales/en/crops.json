@@ -844,8 +844,6 @@
     },
     "publicUpdate": {
       "notice": "A newer version of this crop is available in the crop library.",
-      "review": "Review changes",
-      "loading": "Loading changes…",
       "loadError": "The changes from the library could not be loaded.",
       "gone": "This crop already matches the current library version.",
       "dialogTitle": "Update from the library",
@@ -853,7 +851,6 @@
       "changesAriaLabel": "Comparison between your project crop and the library",
       "localValue": "Your project crop",
       "publicValue": "New in the library",
-      "noFieldChanges": "None of the crop data changed — only the library version was bumped (e.g. by an updated translation). Applying it leaves your project crop's content unchanged.",
       "apply": "Apply",
       "applying": "Applying…",
       "applied": "The changes to “{{name}}” have been applied.",
@@ -863,10 +860,6 @@
       "rejected": "The changes to “{{name}}” were declined. Your local copy stays unchanged.",
       "rejectError": "The changes could not be declined.",
       "rejectedHint": "You already declined this version. You can still apply it here at any time.",
-      "markerLabel": "Update available",
-      "markerTooltip": "Your local copy differs from the current library version. Click to review the changes.",
-      "markerRejectedLabel": "Update declined",
-      "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
       "markerUpToDateLabel": "Up to date",
       "markerUpToDateTooltip": "This crop matches the current version in the crop library.",
       "publishBlocked": {
@@ -876,15 +869,14 @@
       }
     },
     "publishButton": "Publish",
-    "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
-    "updateButton": "Update crop library",
     "publishing": "Publishing…",
-    "updating": "Updating…",
     "libraryAction": {
       "publish": "Publish to library",
+      "publishTooltip": "Publish this crop to the shared crop library for the first time.",
       "pullUpdate": "Update crop",
-      "pushUpdate": "Update crop library",
-      "noLocalChangesTooltip": "No local changes that aren't in the library yet."
+      "pullUpdateTooltip": "The library has a newer version. Review the changes and apply them to your project crop.",
+      "pushUpdate": "Update library",
+      "pushUpdateTooltip": "Push your local changes into the public version in the library."
     },
     "publishSuccess": "“{{name}}” was published to the crop library.",
     "updateSuccess": "The public version of “{{name}}” was updated.",
