@@ -1425,6 +1425,40 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
             revision_count_after_first_import + 1,
         )
 
+    def test_reimporting_after_version_bump_with_no_compared_change_is_a_no_op(self):
+        """A library version bump that touches only a non-compared field (here
+        the project-local ``display_color``) is not a real update: the auto
+        re-import must report ``unchanged`` and record no revision, matching
+        ``has_pending_public_crop_update`` -- the detail badge and the re-import
+        decision must never disagree over a version-only bump."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json')
+        imported_id = first_response.data['crop']['id']
+        revision_count_after_first_import = EntityRevision.objects.filter(entity_type='crop', object_id=imported_id).count()
+
+        public_crop.display_color = '#123456'
+        public_crop.version = 2
+        public_crop.save(update_fields=['display_color', 'version'])
+
+        second_response = self.client.post(f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json')
+
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.data['operation'], 'unchanged')
+        self.assertEqual(second_response.data['crop']['id'], imported_id)
+        self.assertEqual(Crop.objects.filter(source_public_crop=public_crop).count(), 1)
+        imported = Crop.objects.get(id=imported_id)
+        self.assertFalse(imported.is_modified_from_source)
+        self.assertEqual(
+            EntityRevision.objects.filter(entity_type='crop', object_id=imported_id).count(),
+            revision_count_after_first_import,
+        )
+
     def test_reimporting_with_local_changes_requires_confirmation(self):
         public_crop = PublicCrop.objects.create(
             name='Carrot',
@@ -2690,12 +2724,11 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['results'][0]['owned_public_crop_role'], 'moderator')
 
     def test_contributor_crop_list_reports_the_contributor_role_for_their_public_entry(self):
-        published_at = datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc)
         public_crop = PublicCrop.objects.create(
             name='Lettuce',
             variety='Bijella',
             status=PublicCrop.STATUS_PUBLISHED,
-            published_at=published_at,
+            published_at=datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc),
             created_by=self.user,
             source_project=self.project,
             source_project_crop=self.crop,
@@ -2706,10 +2739,6 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['owned_public_crop_id'], public_crop.id)
         self.assertEqual(response.data['results'][0]['owned_public_crop_role'], 'contributor')
-        self.assertEqual(
-            response.data['results'][0]['owned_public_crop_published_at'],
-            '2026-03-10T12:00:00+00:00',
-        )
 
     def test_contributor_crop_list_ignores_withdrawn_or_removed_public_entries(self):
         for public_status in (PublicCrop.STATUS_WITHDRAWN, PublicCrop.STATUS_REMOVED):
@@ -2730,7 +2759,6 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertIsNone(response.data['results'][0]['owned_public_crop_id'])
                 self.assertIsNone(response.data['results'][0]['owned_public_crop_role'])
-                self.assertIsNone(response.data['results'][0]['owned_public_crop_published_at'])
 
     def test_crop_list_reports_no_public_library_role_without_a_linked_entry(self):
         response = self.client.get('/openfarmplanner/api/crops/')
@@ -2738,7 +2766,6 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data['results'][0]['owned_public_crop_id'])
         self.assertIsNone(response.data['results'][0]['owned_public_crop_role'])
-        self.assertIsNone(response.data['results'][0]['owned_public_crop_published_at'])
 
     def test_moderator_removing_their_own_public_crop_withdraws_it_without_a_reason(self):
         moderator = User.objects.create_user(

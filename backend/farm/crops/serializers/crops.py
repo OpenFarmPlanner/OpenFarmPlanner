@@ -287,7 +287,6 @@ class CropSerializer(serializers.ModelSerializer):
     )
     owned_public_crop_id = serializers.SerializerMethodField()
     owned_public_crop_role = serializers.SerializerMethodField()
-    owned_public_crop_published_at = serializers.SerializerMethodField()
     public_update_available = serializers.SerializerMethodField()
     public_update_rejected = serializers.SerializerMethodField()
     public_publish_blocked_reason = serializers.SerializerMethodField()
@@ -525,12 +524,6 @@ class CropSerializer(serializers.ModelSerializer):
         if is_public_crop_contributor(public_crop=public_crop, user=user):
             return 'contributor'
         return 'moderator'
-
-    def get_owned_public_crop_published_at(self, obj: Crop) -> str | None:
-        public_crop = self._resolve_owned_public_crop(obj)
-        if public_crop is None or public_crop.published_at is None:
-            return None
-        return public_crop.published_at.isoformat()
 
     def get_public_update_available(self, obj: Crop) -> bool:
         """Whether an undecided library update should be announced for this crop.

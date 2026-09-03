@@ -68,7 +68,7 @@ import { VarietyValueLegend } from './VarietyValueLegend';
 import { CropVarietiesOverview } from './CropVarietiesOverview';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
-import { getDescriptionFallbackNotice } from '../crop-library/publicCropDisplay';
+import { buildLocalizedText, getDescriptionFallbackNotice } from '../crop-library/publicCropDisplay';
 
 interface CropDetailProps {
   crops: Crop[];
@@ -463,18 +463,16 @@ const detailSectionGridSx = {
     [crops, selectedCropId],
   );
   const descriptionFallbackNotice = useMemo(
-    () => getDescriptionFallbackNotice({
-      text: (selectedCrop?.notes ?? '').trim(),
-      languageCode:
-        selectedCrop?.description_language_code === 'de' || selectedCrop?.description_language_code === 'en'
-          ? selectedCrop.description_language_code
-          : null,
-      isFallback: Boolean(
-        (selectedCrop?.notes ?? '').trim()
-        && selectedCrop?.description_language_code
-        && selectedCrop.description_language_code !== currentLanguage,
+    () => getDescriptionFallbackNotice(
+      buildLocalizedText(
+        selectedCrop?.notes,
+        selectedCrop?.description_language_code,
+        currentLanguage,
+        '',
       ),
-    }, t, currentLanguage),
+      t,
+      currentLanguage,
+    ),
     [currentLanguage, selectedCrop, t],
   );
   const publicUpdate = usePublicCropUpdate(selectedCrop, onPublicUpdateApplied);

@@ -25,7 +25,14 @@ export interface LocalizedText {
   isFallback: boolean;
 }
 
-function buildLocalizedText(
+/**
+ * Normalize a served value plus its language tag into a {@link LocalizedText},
+ * deciding fallback status by comparing normalized language tags (so a regional
+ * tag such as `de-DE` still counts as the `de` UI language). Shared by the
+ * public-library helpers and by any caller that already holds the raw text and
+ * its served language (e.g. a project crop's description).
+ */
+export function buildLocalizedText(
   value: string | null | undefined,
   servedLanguage: string | null | undefined,
   currentLanguage: string,

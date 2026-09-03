@@ -1586,5 +1586,14 @@ def import_public_crop_into_project(
     if existing.source_public_version == public_crop.version:
         return existing, 'unchanged'
 
+    # A version bump that changed none of the compared fields (a
+    # translation-only edit, or values this copy already matches) is not a real
+    # update: applying it would clear species-invariant overrides and record a
+    # spurious revision. It would also contradict has_pending_public_crop_update
+    # -- which the detail badge reads -- so gate the auto-sync on the same
+    # comparison to keep the badge and the re-import decision in lockstep.
+    if not public_crop_update_changes(existing):
+        return existing, 'unchanged'
+
     crop = _apply_public_crop_update(crop=existing, public_crop=public_crop)
     return crop, 'updated'
