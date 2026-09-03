@@ -2,7 +2,6 @@
 
 from datetime import timedelta
 
-from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -15,7 +14,12 @@ from farm.crops.serializers import CropSerializer
 
 from .payloads import build_crop_history_payload
 from .records import _current_actor_label, record_entity_revision
-from .restore import BatchRevertError, _restore_project_state_at, revert_batch_operation
+from .restore import (
+    BatchRevertError,
+    _restore_project_state_at,
+    restore_crop_from_revision,
+    revert_batch_operation,
+)
 from .serializers import CropHistoryEntrySerializer, CropRestoreSerializer
 
 
@@ -157,15 +161,6 @@ class GlobalHistoryRestoreView(APIView):
             id=revision_id,
         )
         crop = get_object_or_404(Crop.all_objects.filter(project=active_project), pk=revision.object_id)
-        snapshot = revision.snapshot
-        allowed_fields = {f.name for f in Crop._meta.fields if f.name not in {'id', 'created_at', 'updated_at'}}
-
-        with transaction.atomic():
-            for key, value in snapshot.items():
-                if key in allowed_fields:
-                    setattr(crop, key, value)
-            crop.deleted_at = None
-            crop._history_action = EntityRevision.ACTION_RESTORED
-            crop.save()
+        restore_crop_from_revision(crop, revision)
 
         return Response(CropSerializer(crop).data, status=status.HTTP_200_OK)

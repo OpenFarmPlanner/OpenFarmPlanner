@@ -15,7 +15,7 @@ from .records import (
     record_entity_revision,
     start_batch_operation,
 )
-from .restore import _restore_project_state_at
+from .restore import _restore_project_state_at, restore_crop_from_revision
 
 __all__ = [
     '_build_entity_revision_changes',
@@ -27,5 +27,6 @@ __all__ = [
     '_serialize_instance',
     'build_crop_history_payload',
     'record_entity_revision',
+    'restore_crop_from_revision',
     'start_batch_operation',
 ]

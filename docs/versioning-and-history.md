@@ -60,6 +60,11 @@ write path — it just creates an `EntityRevision` row. It's called:
   built by `build_crop_history_payload` (`backend/farm/history/payloads.py`),
   shared with the per-crop `GET /api/crops/{id}/history/` endpoint; the global
   list passes `label_crop_in_summary=True` because its entries span crops.
+- Both crop restore endpoints (`POST /api/crops/{id}/restore/` and
+  `POST /api/history/global/restore/`) write a snapshot back through
+  `restore_crop_from_revision` (`backend/farm/history/restore.py`), which
+  skips `id`/`created_at`/`updated_at` and clears `deleted_at`, so restoring an
+  old version keeps the row's identity and undeletes it in one step.
 - On the frontend this surfaces as the per-crop/global history **dialog**
   on `Crops.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))

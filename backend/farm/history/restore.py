@@ -6,7 +6,7 @@ from typing import Any
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from farm.models import EntityRevision, Project
+from farm.models import Crop, EntityRevision, Project
 
 from .records import (
     _ENTITY_TYPE_LABELS,
@@ -168,6 +168,30 @@ def _restore_project_state_at(project: Project, target_time) -> None:
                 [instance for _object_id, instance in recreate],
                 [object_id for object_id, _instance in recreate],
             )
+
+
+def restore_crop_from_revision(crop: Crop, revision: EntityRevision) -> Crop:
+    """Write a revision's snapshot back onto `crop` and undelete it.
+
+    Fields the snapshot cannot own — the primary key and the timestamps — are
+    skipped, so restoring an old version keeps the row's identity and its
+    audit timestamps. `_history_action` tags the resulting save as a restore
+    rather than a plain update (see `Crop.save`).
+    """
+    restorable_fields = {
+        field.name for field in Crop._meta.fields
+        if field.name not in {'id', 'created_at', 'updated_at'}
+    }
+
+    with transaction.atomic():
+        for key, value in revision.snapshot.items():
+            if key in restorable_fields:
+                setattr(crop, key, value)
+        crop.deleted_at = None
+        crop._history_action = EntityRevision.ACTION_RESTORED
+        crop.save()
+
+    return crop
 
 
 class BatchRevertError(Exception):
