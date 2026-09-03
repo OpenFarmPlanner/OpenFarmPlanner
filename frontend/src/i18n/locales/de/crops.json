@@ -1094,11 +1094,8 @@
       "speciesPendingChip": "Vorschlag in Prüfung",
       "speciesPendingTooltip": "Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.",
       "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
-      "local": "Lokal",
       "imported": "Importiert",
       "importedTooltip": "Diese Kultur wurde aus der öffentlichen Kulturbibliothek importiert.",
-      "published": "Veröffentlicht",
-      "publishedTooltip": "Diese Kultur wurde von dir am {{date}} in der öffentlichen Kulturbibliothek veröffentlicht.",
       "modified": "Lokal geändert"
     },
     "translation": {

@@ -1094,11 +1094,8 @@
       "speciesPendingChip": "Proposal under review",
       "speciesPendingTooltip": "This function becomes available once a moderator has reviewed the crop species proposal.",
       "speciesPendingChipTooltip": "The crop species has been proposed and has not been reviewed by a moderator yet.",
-      "local": "Local",
       "imported": "Imported",
       "importedTooltip": "This crop was imported from the public crop library.",
-      "published": "Published",
-      "publishedTooltip": "You published this crop in the public crop library on {{date}}.",
       "modified": "Modified locally"
     },
     "translation": {

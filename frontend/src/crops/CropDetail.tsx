@@ -484,21 +484,25 @@ const detailSectionGridSx = {
   const publishBlockedTooltip = selectedCrop?.public_publish_blocked_reason
     ? t(`library.publicUpdate.publishBlocked.${selectedCrop.public_publish_blocked_reason}`)
     : undefined;
-  const ownedPublicCropPublishedAt = selectedCrop?.owned_public_crop_published_at;
-  const publishedPublicCropDate = useMemo(() => {
-    if (!ownedPublicCropPublishedAt) {
-      return t('noData');
-    }
-    const date = new Date(ownedPublicCropPublishedAt);
-    if (Number.isNaN(date.getTime())) {
-      return t('noData');
-    }
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
-  }, [locale, ownedPublicCropPublishedAt, t]);
-  const showPublishedBadge = selectedCrop?.owned_public_crop_role === 'contributor';
-  const publishedBadgeTooltip = t('library.badges.publishedTooltip', {
-    date: publishedPublicCropDate,
-  });
+  // The public-library publish/update action, shown as a permanent secondary
+  // button in the badge row. Same modes/labels/blocked reasons as before, when
+  // it lived in the header overflow menu — only its location changed.
+  const publishActionButton = (
+    <Button
+      size="small"
+      variant="outlined"
+      color="primary"
+      data-testid="crop-detail-publish-action"
+      startIcon={isPublishingCrop
+        ? <CircularProgress size={14} color="inherit" />
+        : <PublicOutlinedIcon fontSize="small" />}
+      disabled={isPublishingCrop || Boolean(publishBlockedTooltip)}
+      onClick={() => onPublishCrop?.()}
+      sx={{ py: 0.25, whiteSpace: 'nowrap', flexShrink: 0 }}
+    >
+      {publishActionLabel ?? t('library.publishButton')}
+    </Button>
+  );
   // The variety is published, but under a species a moderator has not
   // confirmed yet — visible as a chip, and the library sync waits for it.
   const isPublishedUnderPendingSpecies = Boolean(selectedCrop?.public_crop_species_pending);
@@ -1022,7 +1026,7 @@ const detailSectionGridSx = {
                           </Typography>
                         </Stack>
                       ) : null}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                      <Box data-testid="crop-detail-badge-row" sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                         {selectedCrop.origin_type === 'imported' ? (
                           <AppTooltip title={t('library.badges.importedTooltip')}>
                             <Box component="span" sx={{ display: 'inline-flex' }}>
@@ -1033,26 +1037,38 @@ const detailSectionGridSx = {
                               />
                             </Box>
                           </AppTooltip>
-                        ) : (
-                          <Chip
-                            size="small"
-                            label={t('library.badges.local')}
-                          />
-                        )}
-                        {showPublishedBadge ? (
-                          <AppTooltip title={publishedBadgeTooltip}>
-                            <Box component="span" sx={{ display: 'inline-flex' }}>
-                              <Chip
-                                size="small"
-                                icon={<PublicOutlinedIcon fontSize="small" />}
-                                label={t('library.badges.published')}
-                                variant="outlined"
-                                color="info"
-                              />
-                            </Box>
-                          </AppTooltip>
                         ) : null}
-                        {selectedCrop.is_modified_from_source ? (
+                        {onPublishCrop ? (
+                          publishBlockedTooltip ? (
+                            <AppTooltip title={publishBlockedTooltip}>
+                              <Box
+                                component="span"
+                                tabIndex={0}
+                                aria-label={publishBlockedTooltip}
+                                sx={{
+                                  display: 'inline-flex',
+                                  borderRadius: 1,
+                                  '&:focus-visible': {
+                                    outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                                  },
+                                }}
+                              >
+                                {publishActionButton}
+                              </Box>
+                            </AppTooltip>
+                          ) : (
+                            publishActionButton
+                          )
+                        ) : null}
+                        {/* "Lokal geändert" only where no state of the publish
+                            button already carries it: for a non-owned imported
+                            copy the button shows the "Veröffentlichen" mode,
+                            which does not signal that the local copy diverged
+                            from its import source. When the user owns the
+                            public entry the button is in "aktualisieren" mode
+                            and being enabled already means "there is something
+                            to push". */}
+                        {selectedCrop.is_modified_from_source && !selectedCrop.owned_public_crop_id ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}
                         {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
@@ -1091,10 +1107,6 @@ const detailSectionGridSx = {
                 onClose={() => setHeaderMenuAnchorEl(null)}
                 onOpenHistory={() => onOpenHistory?.()}
                 onExport={() => onExportCrop?.()}
-                onPublish={() => onPublishCrop?.()}
-                isPublishing={isPublishingCrop}
-                publishLabel={publishActionLabel ?? t('library.publishButton')}
-                publishBlockedTooltip={publishBlockedTooltip}
                 onDelete={() => onDeleteCrop?.(selectedCrop)}
                 t={t}
               />

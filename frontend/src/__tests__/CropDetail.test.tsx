@@ -1234,12 +1234,15 @@ describe('CropDetail Component', () => {
 
     expect(screen.getByRole('button', { name: 'Bearbeiten' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).toBeInTheDocument();
+    // The publish/update action is a permanent button in the badge row, not a
+    // menu entry.
+    expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
 
     expect(screen.queryByRole('menuitem', { name: 'Bearbeiten' })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Versionen' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Veröffentlichen' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Löschen' })).toBeInTheDocument();
   });
 
