@@ -34,6 +34,7 @@ from farm.seed_units import (
     SEED_RATE_UNIT_SEEDS_PER_PLANT,
 )
 from farm.services.demo_project import reset_project_demo_data
+from farm.services.project_users import get_or_create_project_user
 from farm.services.seasons import assign_unassigned_planting_plans
 
 User = get_user_model()
@@ -75,12 +76,12 @@ def create_or_reset_hint_test_project(
 ) -> HintTestProjectResult:
     """Create a deterministic visual QA project and replace its project data."""
     with transaction.atomic():
-        user, created_user = _get_or_create_user(
+        user, created_user = get_or_create_project_user(
             email=user_email,
             username=username,
             password=password,
         )
-        member_user, created_member_user = _get_or_create_user(
+        member_user, created_member_user = get_or_create_project_user(
             email=member_email,
             username=member_username,
             password=member_password,
@@ -142,27 +143,6 @@ def populate_hint_test_project(project: Project, *, owner: Any | None = None) ->
         _create_planting_plans(project, crops, beds, owner)
         assign_unassigned_planting_plans(project, owner=owner)
         _create_invitation(project, owner)
-
-
-def _get_or_create_user(*, email: str, username: str, password: str) -> tuple[Any, bool]:
-    user, created_user = User.objects.get_or_create(
-        email=email,
-        defaults={
-            'username': username,
-            'is_active': True,
-        },
-    )
-    if created_user:
-        user.set_password(password)
-        user.save(update_fields=['password'])
-    elif password:
-        user.set_password(password)
-        if not user.username:
-            user.username = username
-            user.save(update_fields=['password', 'username'])
-        else:
-            user.save(update_fields=['password'])
-    return user, created_user
 
 
 def _apply_project_settings(*, user: Any, project: Project) -> None:
