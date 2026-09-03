@@ -3,7 +3,6 @@ import { type YieldCalendarWeek } from "../api/api";
 import { parseDateString } from "./ganttChartUtils";
 import {
   ALL_CROPS,
-  formatDateToAPI,
   formatIsoWeek,
   mergeCropYields,
   type ChartPeriod,
@@ -11,6 +10,7 @@ import {
   type YieldCropMeta,
 } from "./yieldOverviewUtils";
 import { getCropDisplayName } from "../crops/cropDisplay";
+import { formatDateToAPI } from '../utils/isoDate';
 
 export interface YieldChartCrop extends YieldCropMeta {
   totalYield: number;

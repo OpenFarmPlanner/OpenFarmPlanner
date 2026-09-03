@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCompactYield,
-  formatDateToAPI,
   formatIsoWeek,
   getYieldAxisLabelStep,
   mergeCropYields,
   type YieldCalendarCrop,
 } from '../pages/yieldOverviewUtils';
+import { formatDateToAPI } from '../utils/isoDate';
 
 describe('formatCompactYield', () => {
   it('keeps one fraction digit for small values', () => {

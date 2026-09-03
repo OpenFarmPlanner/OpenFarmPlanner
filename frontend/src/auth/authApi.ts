@@ -1,6 +1,7 @@
 import type { AccountActionResponse, AccountDeleteResponse, AuthUser, ProjectSwitchResponse } from './types';
 import i18n from '../i18n';
 import { computeBaseURL } from '../api/httpClient';
+import { readCookie } from '../utils/cookies';
 
 const API_BASE = computeBaseURL(import.meta.env.PROD, import.meta.env.VITE_API_BASE_URL, import.meta.env.BASE_URL);
 
@@ -39,7 +40,12 @@ export class AuthApiError extends Error {
   }
 }
 
-function parsePositiveSeconds(value: unknown): number | undefined {
+/**
+ * A retry-after style duration: a positive, finite number of seconds, rounded
+ * up so a caller never advertises a shorter wait than the server asked for.
+ * Anything else (missing, zero, negative, unparseable) is `undefined`.
+ */
+export function parsePositiveSeconds(value: unknown): number | undefined {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return undefined;
@@ -202,15 +208,6 @@ function toUserFriendlyErrorMessage(payload: Record<string, unknown>): string {
   return translateOrFallback('auth:error.requestFailed', 'Anfrage fehlgeschlagen.');
 }
 
-function getCookie(name: string): string | null {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() ?? null;
-  }
-  return null;
-}
-
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
@@ -253,7 +250,7 @@ export async function ensureCsrfCookie(): Promise<void> {
 }
 
 export function csrfHeader(): Record<string, string> {
-  return { 'X-CSRFToken': getCookie('csrftoken') ?? '' };
+  return { 'X-CSRFToken': readCookie('csrftoken') ?? '' };
 }
 
 export function getMe(): Promise<AuthUser> {

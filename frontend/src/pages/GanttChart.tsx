@@ -66,7 +66,6 @@ import {
   addTimelinePeriodLarge,
   clampDate,
   dispatchSyntheticMouseEvent,
-  formatDateToAPI,
   getCalendarGanttRowHeight,
   getCalendarModeFromViewParam,
   getCalendarViewStorageKey,
@@ -87,6 +86,7 @@ import {
   toSyntheticMousePoint,
 } from './ganttChartState';
 import { useGanttSidebarResize } from './useGanttSidebarResize';
+import { formatDateToAPI } from '../utils/isoDate';
 import {
   buildOccupancyTooltipDetails,
   buildSeedlingTaskGroups,

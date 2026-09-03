@@ -8,6 +8,7 @@
  * while the read-only endpoints around it use the regular auth client.
  */
 import { csrfHeader, ensureCsrfCookie, request } from './authApi';
+import { readCookie } from '../utils/cookies';
 
 export type SocialProviderId = 'google' | 'microsoft';
 
@@ -51,15 +52,6 @@ export async function disconnectSocialConnection(connectionId: number): Promise<
   });
 }
 
-function getCookie(name: string): string | null {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() ?? null;
-  }
-  return null;
-}
-
 function appendHiddenField(form: HTMLFormElement, name: string, value: string): void {
   const field = document.createElement('input');
   field.type = 'hidden';
@@ -85,7 +77,7 @@ export async function startSocialLogin(
   form.method = 'POST';
   form.action = provider.login_url;
   form.style.display = 'none';
-  appendHiddenField(form, 'csrfmiddlewaretoken', getCookie('csrftoken') ?? '');
+  appendHiddenField(form, 'csrfmiddlewaretoken', readCookie('csrftoken') ?? '');
   appendHiddenField(form, 'process', options.process ?? 'login');
 
   document.body.appendChild(form);
