@@ -593,7 +593,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
     def _create_general_kultur(self, **overrides) -> Crop:
         return Crop.objects.create(
-            name='Lettuce',
+            name=overrides.pop('name', 'Lettuce'),
             crop_species=self.species,
             growth_duration_days=overrides.pop('growth_duration_days', 60),
             harvest_duration_days=overrides.pop('harvest_duration_days', 30),
