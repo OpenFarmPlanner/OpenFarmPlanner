@@ -52,7 +52,9 @@ export function CropLibraryActionButton({
         : <Icon fontSize="small" />}
       disabled={action.disabled || loading}
       onClick={handleClick}
-      sx={{ py: 0.25, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
+      // 1 line at its natural width where there is room; wraps (never overflows)
+      // when the badge row gets too narrow for the long German labels.
+      sx={{ py: 0.25, flexShrink: 0, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
     >
       {t(`library.${action.labelKey}`)}
     </Button>
@@ -72,6 +74,7 @@ export function CropLibraryActionButton({
         aria-label={tooltip}
         sx={{
           display: 'inline-flex',
+          flexShrink: 0,
           maxWidth: '100%',
           borderRadius: 1,
           '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}` },
