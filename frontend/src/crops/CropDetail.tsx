@@ -498,7 +498,7 @@ const detailSectionGridSx = {
         : <PublicOutlinedIcon fontSize="small" />}
       disabled={isPublishingCrop || Boolean(publishBlockedTooltip)}
       onClick={() => onPublishCrop?.()}
-      sx={{ py: 0.25, whiteSpace: 'nowrap', flexShrink: 0 }}
+      sx={{ py: 0.25, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
     >
       {publishActionLabel ?? t('library.publishButton')}
     </Button>
@@ -1047,6 +1047,7 @@ const detailSectionGridSx = {
                                 aria-label={publishBlockedTooltip}
                                 sx={{
                                   display: 'inline-flex',
+                                  maxWidth: '100%',
                                   borderRadius: 1,
                                   '&:focus-visible': {
                                     outline: (theme) => `2px solid ${theme.palette.primary.main}`,
