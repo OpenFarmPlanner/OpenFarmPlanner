@@ -17,6 +17,8 @@ import {
   buildAreaColumnHeaderLabel,
   buildBedDisplayLabel,
   AREA_LABEL_SEPARATOR,
+  BED_COLUMN_MAX_WIDTH,
+  CROP_COLUMN_MAX_WIDTH,
 } from './plantingPlansUtils';
 import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 import { collectHierarchyAvailability } from '../components/planting-plans/areaHierarchySelection';
@@ -41,8 +43,6 @@ const CULTIVATION_TYPE_OPTIONS = [
   { value: 'pre_cultivation', labelKey: 'plantingPlans:cultivationTypes.preCultivation' },
 ] as const;
 
-const CROP_COLUMN_MAX_WIDTH = 280;
-const BED_COLUMN_MAX_WIDTH = 220;
 const DATE_COLUMN_WIDTH = 142;
 
 const estimateColumnWidth = (values: string[], min: number, max: number): number => {
