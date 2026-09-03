@@ -4,10 +4,11 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 
 from accounts.models import UserProjectSettings
 from farm.models import Bed, BedLayout, Crop, FieldLayout, Location, PlantingPlan, Project, ProjectMembership, PublicCrop, Season, Supplier
+from config.languages import resolve_request_language
 from farm.services.demo_project import (
     DEMO_PROJECT_DESCRIPTION,
     DEMO_PROJECT_NAME,
@@ -15,6 +16,7 @@ from farm.services.demo_project import (
     DEMO_PROJECT_SLUG,
     create_or_reset_demo_project,
     create_personal_demo_project,
+    resolve_demo_request_language,
 )
 
 User = get_user_model()
@@ -222,3 +224,35 @@ class DemoProjectServiceTests(TestCase):
 
         self.assertFalse(Project.objects.filter(memberships__user=user, name=DEMO_PROJECT_NAME).exists())
         self.assertFalse(UserProjectSettings.objects.filter(user=user).exists())
+
+
+class DemoRequestLanguageTests(TestCase):
+    """The demo templates fall back to German where the rest of the API falls
+    back to English; everything ahead of that last step is shared."""
+
+    def setUp(self) -> None:
+        self.factory = RequestFactory()
+
+    def test_falls_back_to_german_where_the_api_falls_back_to_english(self) -> None:
+        request = self.factory.get('/', HTTP_ACCEPT_LANGUAGE='fr')
+
+        self.assertEqual(resolve_demo_request_language(request), 'de')
+        self.assertEqual(resolve_request_language(request), 'en')
+
+    def test_an_explicit_query_parameter_wins_over_the_demo_default(self) -> None:
+        request = self.factory.get('/', {'language': 'en'})
+
+        self.assertEqual(resolve_demo_request_language(request), 'en')
+
+    def test_a_supported_accept_language_header_wins_over_the_demo_default(self) -> None:
+        request = self.factory.get('/', HTTP_ACCEPT_LANGUAGE='en')
+
+        self.assertEqual(resolve_demo_request_language(request), 'en')
+
+    def test_the_stored_user_preference_wins_over_the_header(self) -> None:
+        user = User.objects.create_user(username='pref', email='pref@example.com', password='pass12345', is_active=True)
+        UserProjectSettings.objects.update_or_create(user=user, defaults={'ui_language': 'en'})
+        request = self.factory.get('/', HTTP_ACCEPT_LANGUAGE='de')
+        request.user = user
+
+        self.assertEqual(resolve_demo_request_language(request), 'en')

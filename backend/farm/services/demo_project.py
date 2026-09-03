@@ -11,7 +11,7 @@ from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
 from accounts.models import UserProjectSettings
-from config.languages import UI_LANGUAGE_AUTO, normalize_language_tag, parse_accept_language
+from config.languages import normalize_language_tag, resolve_request_language
 from crops.models import CropSpecies
 from crops.services import find_species_by_common_name
 from farm.models import (
@@ -256,25 +256,7 @@ def resolve_demo_language(language_code: str | None) -> str:
 
 def resolve_demo_request_language(request: Any) -> str:
     """Resolve the demo template language from a request, defaulting to German."""
-    query_params = getattr(request, 'query_params', None)
-    if query_params is None:
-        query_params = getattr(request, 'GET', {})
-    explicit = normalize_language_tag(query_params.get('language'))
-    if explicit:
-        return explicit
-
-    user = getattr(request, 'user', None)
-    if user is not None and getattr(user, 'is_authenticated', False):
-        settings_row = getattr(user, 'project_settings', None)
-        stored = getattr(settings_row, 'ui_language', '') or ''
-        if stored != UI_LANGUAGE_AUTO:
-            preference = normalize_language_tag(stored)
-            if preference:
-                return preference
-
-    headers = getattr(request, 'headers', None)
-    header = headers.get('Accept-Language', '') if headers is not None else ''
-    return parse_accept_language(header) or DEMO_LANGUAGE_DEFAULT
+    return resolve_request_language(request, default=DEMO_LANGUAGE_DEFAULT)
 
 
 def get_demo_project_name(language_code: str | None) -> str:
