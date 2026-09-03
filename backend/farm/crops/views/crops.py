@@ -15,7 +15,11 @@ from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_
 from accounts.consent import has_accepted_current, record_acceptance
 from accounts.models import DocumentConsent
 from farm.common.mixins import ProjectScopedMixin
-from farm.history import _current_actor_label, build_crop_history_payload
+from farm.history import (
+    _current_actor_label,
+    build_crop_history_payload,
+    restore_crop_from_revision,
+)
 from farm.history.serializers import CropHistoryEntrySerializer, CropRestoreSerializer
 from farm.models import (
     Crop,
@@ -633,16 +637,7 @@ class CropViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
             EntityRevision.objects.filter(project_id=crop.project_id, entity_type='crop', object_id=crop.pk),
             id=revision_id,
         )
-        snapshot = revision.snapshot
-        allowed_fields = {f.name for f in Crop._meta.fields if f.name not in {'id', 'created_at', 'updated_at'}}
-
-        with transaction.atomic():
-            for key, value in snapshot.items():
-                if key in allowed_fields:
-                    setattr(crop, key, value)
-            crop.deleted_at = None
-            crop._history_action = EntityRevision.ACTION_RESTORED
-            crop.save()
+        restore_crop_from_revision(crop, revision)
         self._set_latest_revision_actor(crop)
 
         return Response(self.get_serializer(crop).data, status=status.HTTP_200_OK)

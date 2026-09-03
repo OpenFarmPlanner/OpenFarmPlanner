@@ -54,6 +54,26 @@ class CropHistoryTests(TestCase):
 
 
 
+    def test_restore_keeps_the_row_identity_and_creation_timestamp(self):
+        """The snapshot carries id/created_at/updated_at, but writing them back
+        would rewrite the row's identity and audit trail, so restore skips them."""
+        original_created_at = self.crop.created_at
+        self.crop.name = 'Carrot Renamed'
+        self.crop.save()
+        history = self.client.get(f'/openfarmplanner/api/crops/{self.crop.id}/history/').json()
+        oldest_revision_id = history[-1]['history_id']
+
+        response = self.client.post(
+            f'/openfarmplanner/api/crops/{self.crop.id}/restore/',
+            {'history_id': oldest_revision_id},
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.crop.refresh_from_db()
+        self.assertEqual(self.crop.name, 'Carrot')
+        self.assertEqual(self.crop.created_at, original_created_at)
+
     def test_soft_delete_and_undelete(self):
         delete_response = self.client.delete(f'/openfarmplanner/api/crops/{self.crop.id}/')
         self.assertEqual(delete_response.status_code, 204)
