@@ -865,7 +865,7 @@
       "markerRejectedLabel": "Update abgelehnt",
       "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
       "markerUpToDateLabel": "Aktuell",
-      "markerUpToDateTooltip": "Kulturbibliothek ist bereits aktuell",
+      "markerUpToDateTooltip": "Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die Kulturbibliothek aktualisierst.",
         "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
@@ -1094,6 +1094,9 @@
       "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
       "local": "Lokal",
       "imported": "Importiert",
+      "importedTooltip": "Diese Kultur wurde aus der öffentlichen Kulturbibliothek importiert.",
+      "published": "Veröffentlicht",
+      "publishedTooltip": "Diese Kultur wurde von dir am {{date}} in der öffentlichen Kulturbibliothek veröffentlicht.",
       "modified": "Lokal geändert"
     },
     "translation": {

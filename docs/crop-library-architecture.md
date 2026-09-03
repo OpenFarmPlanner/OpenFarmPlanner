@@ -124,6 +124,12 @@ The public Crop Library follows an open-data model:
   the library version differ. Both entry points share one
   `usePublicCropUpdate` controller, so the notice and the marker can never
   disagree about what is loading, applying, or rejecting.
+- Private crop details also show a quiet "Veröffentlicht" badge when the
+  requesting user contributed the linked public entry and that entry is still
+  `published`. Withdrawn and moderator-removed entries do not get the badge.
+  The crop serializer includes the linked public entry's `published_at`
+  timestamp so the badge tooltip can show the localized publication date
+  without an extra request.
 - `CropSerializer.public_publish_blocked_reason` locks the "Öffentliche
   Kulturbibliothek aktualisieren" action while pushing the local copy would be
   wrong: `update_pending` (undecided library change), `update_rejected` (the

@@ -1,4 +1,4 @@
-import { Chip } from '@mui/material';
+import { Box, Chip } from '@mui/material';
 import type { ChipProps } from '@mui/material';
 import type { ReactNode } from 'react';
 import { AppTooltip } from './AppTooltip';
@@ -20,7 +20,9 @@ interface AppIconChipProps extends Pick<
 export function AppIconChip({ tooltip, ...chipProps }: AppIconChipProps) {
   return (
     <AppTooltip title={tooltip}>
-      <Chip size="small" variant="outlined" {...chipProps} />
+      <Box component="span" sx={{ display: 'inline-flex' }}>
+        <Chip size="small" variant="outlined" {...chipProps} />
+      </Box>
     </AppTooltip>
   );
 }

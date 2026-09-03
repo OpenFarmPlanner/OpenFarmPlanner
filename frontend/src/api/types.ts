@@ -107,6 +107,7 @@ export interface Crop {
   origin_type?: 'manual' | 'imported';
   owned_public_crop_id?: number | null;
   owned_public_crop_role?: PublicCropOwnershipRole | null;
+  owned_public_crop_published_at?: string | null;
   is_modified_from_source?: boolean;
   /** True when the linked library entry has a newer version the user has not decided on yet. */
   public_update_available?: boolean;

@@ -20,6 +20,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
+import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCropUpdateNotice } from './PublicCropUpdateNotice';
 import { PublicCropUpdateMarker } from './PublicCropUpdateMarker';
@@ -483,6 +484,21 @@ const detailSectionGridSx = {
   const publishBlockedTooltip = selectedCrop?.public_publish_blocked_reason
     ? t(`library.publicUpdate.publishBlocked.${selectedCrop.public_publish_blocked_reason}`)
     : undefined;
+  const ownedPublicCropPublishedAt = selectedCrop?.owned_public_crop_published_at;
+  const publishedPublicCropDate = useMemo(() => {
+    if (!ownedPublicCropPublishedAt) {
+      return t('noData');
+    }
+    const date = new Date(ownedPublicCropPublishedAt);
+    if (Number.isNaN(date.getTime())) {
+      return t('noData');
+    }
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(date);
+  }, [locale, ownedPublicCropPublishedAt, t]);
+  const showPublishedBadge = selectedCrop?.owned_public_crop_role === 'contributor';
+  const publishedBadgeTooltip = t('library.badges.publishedTooltip', {
+    date: publishedPublicCropDate,
+  });
   // The variety is published, but under a species a moderator has not
   // confirmed yet — visible as a chip, and the library sync waits for it.
   const isPublishedUnderPendingSpecies = Boolean(selectedCrop?.public_crop_species_pending);
@@ -1007,11 +1023,35 @@ const detailSectionGridSx = {
                         </Stack>
                       ) : null}
                       <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                        <Chip
-                          size="small"
-                          color={selectedCrop.origin_type === 'imported' ? 'secondary' : 'default'}
-                          label={selectedCrop.origin_type === 'imported' ? t('library.badges.imported') : t('library.badges.local')}
-                        />
+                        {selectedCrop.origin_type === 'imported' ? (
+                          <AppTooltip title={t('library.badges.importedTooltip')}>
+                            <Box component="span" sx={{ display: 'inline-flex' }}>
+                              <Chip
+                                size="small"
+                                color="secondary"
+                                label={t('library.badges.imported')}
+                              />
+                            </Box>
+                          </AppTooltip>
+                        ) : (
+                          <Chip
+                            size="small"
+                            label={t('library.badges.local')}
+                          />
+                        )}
+                        {showPublishedBadge ? (
+                          <AppTooltip title={publishedBadgeTooltip}>
+                            <Box component="span" sx={{ display: 'inline-flex' }}>
+                              <Chip
+                                size="small"
+                                icon={<PublicOutlinedIcon fontSize="small" />}
+                                label={t('library.badges.published')}
+                                variant="outlined"
+                                color="info"
+                              />
+                            </Box>
+                          </AppTooltip>
+                        ) : null}
                         {selectedCrop.is_modified_from_source ? (
                           <Chip size="small" color="warning" label={t('library.badges.modified')} />
                         ) : null}

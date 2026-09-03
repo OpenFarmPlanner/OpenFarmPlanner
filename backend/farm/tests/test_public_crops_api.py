@@ -1,7 +1,7 @@
 """API tests for the public crop library endpoints."""
 
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal
 
 from django.utils import timezone
@@ -2586,10 +2586,12 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.data['results'][0]['owned_public_crop_role'], 'moderator')
 
     def test_contributor_crop_list_reports_the_contributor_role_for_their_public_entry(self):
+        published_at = datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc)
         public_crop = PublicCrop.objects.create(
             name='Lettuce',
             variety='Bijella',
             status=PublicCrop.STATUS_PUBLISHED,
+            published_at=published_at,
             created_by=self.user,
             source_project=self.project,
             source_project_crop=self.crop,
@@ -2600,6 +2602,31 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['owned_public_crop_id'], public_crop.id)
         self.assertEqual(response.data['results'][0]['owned_public_crop_role'], 'contributor')
+        self.assertEqual(
+            response.data['results'][0]['owned_public_crop_published_at'],
+            '2026-03-10T12:00:00+00:00',
+        )
+
+    def test_contributor_crop_list_ignores_withdrawn_or_removed_public_entries(self):
+        for public_status in (PublicCrop.STATUS_WITHDRAWN, PublicCrop.STATUS_REMOVED):
+            with self.subTest(public_status=public_status):
+                PublicCrop.objects.filter(source_project_crop=self.crop).delete()
+                PublicCrop.objects.create(
+                    name='Lettuce',
+                    variety='Bijella',
+                    status=public_status,
+                    published_at=datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc),
+                    created_by=self.user,
+                    source_project=self.project,
+                    source_project_crop=self.crop,
+                )
+
+                response = self.client.get('/openfarmplanner/api/crops/')
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertIsNone(response.data['results'][0]['owned_public_crop_id'])
+                self.assertIsNone(response.data['results'][0]['owned_public_crop_role'])
+                self.assertIsNone(response.data['results'][0]['owned_public_crop_published_at'])
 
     def test_crop_list_reports_no_public_library_role_without_a_linked_entry(self):
         response = self.client.get('/openfarmplanner/api/crops/')
@@ -2607,6 +2634,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(response.data['results'][0]['owned_public_crop_id'])
         self.assertIsNone(response.data['results'][0]['owned_public_crop_role'])
+        self.assertIsNone(response.data['results'][0]['owned_public_crop_published_at'])
 
     def test_moderator_removing_their_own_public_crop_withdraws_it_without_a_reason(self):
         moderator = User.objects.create_user(
