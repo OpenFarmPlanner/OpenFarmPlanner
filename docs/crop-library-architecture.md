@@ -120,7 +120,7 @@ The public Crop Library follows an open-data model:
   and the "Lokal" / "Veröffentlicht" / "Lokal geändert" badges.
   `resolveCropLibraryAction` decides, first match wins (every state carries a
   tooltip, on hover and on keyboard focus):
-  1. **not linked** -> button "In Bibliothek veröffentlichen", up arrow, opens
+  1. **not linked** -> button "In Bibliothek teilen", up arrow, opens
      the publishing wizard.
   2. **`public_update_available` or `public_update_rejected`** (both surface as
      the `usePublicCropUpdate` controller's `isDiverged`) -> button "Kultur
@@ -912,7 +912,7 @@ project's own general Kultur (when the project has one) as its
 `source_project_crop`. That link is what the crop list reads back as
 `owned_public_crop_id`, so the Kultur the user sees as published is
 recognized as published: its badge-row action shows a "Kulturbibliothek
-aktualisieren" state instead of "In Bibliothek veröffentlichen", and a later
+aktualisieren" state instead of "In Bibliothek teilen", and a later
 publish from that Kultur updates the existing entry instead of tripping the
 duplicate check. Without a general Kultur in the project there is
 no other row to own the entry, so it stays linked to the Sorte. Migration

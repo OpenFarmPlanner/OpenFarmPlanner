@@ -13,7 +13,7 @@ test('the crop detail badge row wraps instead of overflowing at every viewport',
   const species = await apiRequest<{ results: Array<{ id: number }> }>(page, 'GET', '/crop-species/');
   const speciesId = species.results[0]?.id;
 
-  // Two of the widest states: state 1 (long "In Bibliothek veröffentlichen"
+  // Two of the widest states: state 1 (long "In Bibliothek teilen"
   // button) and state 3 (published then edited -> "Kulturbibliothek
   // aktualisieren" button).
   const unlinked = await apiRequest<{ id: number }>(page, 'POST', '/crops/', {
@@ -37,7 +37,7 @@ test('the crop detail badge row wraps instead of overflowing at every viewport',
   await apiRequest(page, 'PATCH', `/crops/${published.id}/`, { notes: 'v2 local edit' });
 
   const cases: Array<{ id: number; button: RegExp }> = [
-    { id: unlinked.id, button: /In Bibliothek veröffentlichen/ },
+    { id: unlinked.id, button: /In Bibliothek teilen/ },
     { id: published.id, button: /Bibliothek aktualisieren/ },
   ];
 

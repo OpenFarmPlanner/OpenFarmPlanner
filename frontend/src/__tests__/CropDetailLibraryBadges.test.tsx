@@ -69,7 +69,7 @@ describe('CropDetail library badge row', () => {
 
   it('shows the publish action for an unlinked crop', () => {
     renderDetail(localCrop);
-    const button = screen.getByRole('button', { name: 'In Bibliothek veröffentlichen' });
+    const button = screen.getByRole('button', { name: 'In Bibliothek teilen' });
     expect(button).toBeEnabled();
     expect(button).toHaveAttribute('data-action-kind', 'publish');
   });

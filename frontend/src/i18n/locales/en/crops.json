@@ -871,7 +871,7 @@
     "publishButton": "Publish",
     "publishing": "Publishing…",
     "libraryAction": {
-      "publish": "Publish to library",
+      "publish": "Share to library",
       "publishTooltip": "Publish this crop to the shared crop library for the first time.",
       "pullUpdate": "Update crop",
       "pullUpdateTooltip": "The library has a newer version. Review the changes and apply them to your project crop.",

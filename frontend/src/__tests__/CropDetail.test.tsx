@@ -1236,7 +1236,7 @@ describe('CropDetail Component', () => {
     expect(screen.getByRole('button', { name: 'Anbauplan hinzufügen' })).toBeInTheDocument();
     // The public-library action is a permanent button in the badge row, not a
     // menu entry.
-    expect(screen.getByRole('button', { name: 'In Bibliothek veröffentlichen' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'In Bibliothek teilen' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }));
 

@@ -44,7 +44,7 @@ describe('CropLibraryActionButton', () => {
     const onPublish = vi.fn();
     render(<Harness crop={{ ...baseCrop, crop_species: 3 }} onPublish={onPublish} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'In Bibliothek veröffentlichen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'In Bibliothek teilen' }));
     expect(onPublish).toHaveBeenCalledTimes(1);
     expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
   });
