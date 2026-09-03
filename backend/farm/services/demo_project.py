@@ -32,6 +32,7 @@ from farm.models import (
     SeedPackage,
     Supplier,
 )
+from farm.services.project_users import get_or_create_project_user
 from farm.services.seasons import assign_unassigned_planting_plans, get_or_create_season_for_date
 
 User = get_user_model()
@@ -367,23 +368,11 @@ def create_or_reset_demo_project(
     resolved_project_name = project_name or get_demo_project_name(language)
     project_description = get_demo_project_description(language, screenshot=True)
     with transaction.atomic():
-        user, created_user = User.objects.get_or_create(
+        user, created_user = get_or_create_project_user(
             email=user_email,
-            defaults={
-                'username': username,
-                'is_active': True,
-            },
+            username=username,
+            password=password,
         )
-        if created_user:
-            user.set_password(password)
-            user.save(update_fields=['password'])
-        elif password:
-            user.set_password(password)
-            if not user.username:
-                user.username = username
-                user.save(update_fields=['password', 'username'])
-            else:
-                user.save(update_fields=['password'])
 
         project, created_project = Project.objects.get_or_create(
             slug=project_slug,
