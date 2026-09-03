@@ -56,7 +56,10 @@ write path — it just creates an `EntityRevision` row. It's called:
   human-readable diff (`_build_entity_revision_changes`) between each
   revision's snapshot and the *previous* revision for the same object,
   skipping internal/denormalized fields (`id`, timestamps, `project_id`,
-  `*_normalized` fields, ...).
+  `*_normalized` fields, ...). That entry shape — including the diff — is
+  built by `build_crop_history_payload` (`backend/farm/history/payloads.py`),
+  shared with the per-crop `GET /api/crops/{id}/history/` endpoint; the global
+  list passes `label_crop_in_summary=True` because its entries span crops.
 - On the frontend this surfaces as the per-crop/global history **dialog**
   on `Crops.tsx` (see
   [datagrid-architecture.md](./datagrid-architecture.md#row-history--versioning--not-a-grid-feature))

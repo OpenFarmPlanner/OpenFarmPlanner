@@ -76,6 +76,48 @@ class CropHistoryTests(TestCase):
         self.assertGreaterEqual(len(response.json()), 1)
         self.assertTrue(response.json()[0].get('is_current_version'))
 
+    def test_global_history_summary_is_labelled_per_crop(self):
+        """The global list spans crops, so its summaries name the crop; the
+        per-crop list does not."""
+        other_crop = Crop.objects.create(
+            name='Beetroot', variety='Boro', growth_duration_days=70,
+            harvest_duration_days=15, harvest_method='per_plant', project=self.project,
+        )
+        self.crop.name = 'Carrot Renamed'
+        self.crop.save()
+        other_crop.name = 'Beetroot Renamed'
+        other_crop.save()
+
+        global_entries = self.client.get('/openfarmplanner/api/history/global/').json()
+        for entry in global_entries:
+            self.assertTrue(
+                entry['summary'].startswith(f"Crop #{entry['crop_id']}: "),
+                entry['summary'],
+            )
+
+        crop_entries = self.client.get(f'/openfarmplanner/api/crops/{self.crop.id}/history/').json()
+        for entry in crop_entries:
+            self.assertFalse(entry['summary'].startswith('Crop #'), entry['summary'])
+
+    def test_global_history_diffs_against_the_same_crop(self):
+        """Revisions of different crops interleave in the global list, so each
+        entry must diff against the previous revision of its own crop."""
+        other_crop = Crop.objects.create(
+            name='Beetroot', variety='Boro', growth_duration_days=70,
+            harvest_duration_days=15, harvest_method='per_plant', project=self.project,
+        )
+        self.crop.name = 'Carrot Renamed'
+        self.crop.save()
+        other_crop.name = 'Beetroot Renamed'
+        other_crop.save()
+
+        entries = self.client.get('/openfarmplanner/api/history/global/').json()
+        latest_carrot = next(entry for entry in entries if entry['crop_id'] == self.crop.id)
+        self.assertIn(
+            {'field': 'name', 'old_value': 'Carrot', 'new_value': 'Carrot Renamed'},
+            latest_carrot['changes'],
+        )
+
     def test_global_history_restore_undeletes_crop(self):
         delete_response = self.client.delete(f'/openfarmplanner/api/crops/{self.crop.id}/')
         self.assertEqual(delete_response.status_code, 204)
