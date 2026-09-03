@@ -1,9 +1,7 @@
 import {
   Button,
   Checkbox,
-  FormControl,
   FormControlLabel,
-  InputLabel,
   MenuItem,
   Popover,
   Stack,
@@ -12,7 +10,9 @@ import {
 import { useTranslation } from '../../i18n';
 import type { Location } from '../../api/api';
 import type { OccupancyHierarchyNode } from '../../pages/ganttChartUtils';
-import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
+import { FilterSelectField } from '../filters/FilterSelectField';
+
+const FULL_WIDTH_FIELD = { minWidth: '100%' } as const;
 
 interface CalendarFiltersPopoverProps {
   anchorEl: HTMLElement | null;
@@ -64,43 +64,37 @@ export function CalendarFiltersPopover({
       }}
     >
       <Stack spacing={1.25}>
-        <FormControl size="small" sx={{ minWidth: '100%' }}>
-          <InputLabel id="calendar-location-filter-label">{t('ganttChart:treeFilters.locationLabel')}</InputLabel>
-          <Select
-            fullWidth
-            labelId="calendar-location-filter-label"
-            value={locationFilter === 'all' ? 'all' : String(locationFilter)}
-            label={t('ganttChart:treeFilters.locationLabel')}
-            onChange={(event) => {
-              const { value } = event.target;
-              onLocationFilterChange(value === 'all' ? 'all' : Number(value));
-            }}
-          >
-            <MenuItem value="all">{t('ganttChart:treeFilters.allLocations')}</MenuItem>
-            {locations.filter((location) => location.id).map((location) => (
-              <MenuItem key={location.id} value={String(location.id)}>{location.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl size="small" sx={{ minWidth: '100%' }}>
-          <InputLabel id="calendar-field-filter-label">{t('ganttChart:treeFilters.fieldLabel')}</InputLabel>
-          <Select
-            fullWidth
-            labelId="calendar-field-filter-label"
-            value={fieldFilter === 'all' ? 'all' : String(fieldFilter)}
-            label={t('ganttChart:treeFilters.fieldLabel')}
-            onChange={(event) => {
-              const { value } = event.target;
-              onFieldFilterChange(value === 'all' ? 'all' : Number(value));
-            }}
-            disabled={locationFilter === 'all'}
-          >
-            <MenuItem value="all">{t('ganttChart:treeFilters.allFields')}</MenuItem>
-            {fieldOptions.map((field) => (
-              <MenuItem key={field.id} value={String(field.fieldId)}>{field.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <FilterSelectField
+          id="calendar-location-filter"
+          label={t('ganttChart:treeFilters.locationLabel')}
+          value={locationFilter === 'all' ? 'all' : String(locationFilter)}
+          onChange={(event) => {
+            const { value } = event.target;
+            onLocationFilterChange(value === 'all' ? 'all' : Number(value));
+          }}
+          sx={FULL_WIDTH_FIELD}
+        >
+          <MenuItem value="all">{t('ganttChart:treeFilters.allLocations')}</MenuItem>
+          {locations.filter((location) => location.id).map((location) => (
+            <MenuItem key={location.id} value={String(location.id)}>{location.name}</MenuItem>
+          ))}
+        </FilterSelectField>
+        <FilterSelectField
+          id="calendar-field-filter"
+          label={t('ganttChart:treeFilters.fieldLabel')}
+          value={fieldFilter === 'all' ? 'all' : String(fieldFilter)}
+          onChange={(event) => {
+            const { value } = event.target;
+            onFieldFilterChange(value === 'all' ? 'all' : Number(value));
+          }}
+          disabled={locationFilter === 'all'}
+          sx={FULL_WIDTH_FIELD}
+        >
+          <MenuItem value="all">{t('ganttChart:treeFilters.allFields')}</MenuItem>
+          {fieldOptions.map((field) => (
+            <MenuItem key={field.id} value={String(field.fieldId)}>{field.name}</MenuItem>
+          ))}
+        </FilterSelectField>
         <FormControlLabel
           control={(
             <Checkbox
