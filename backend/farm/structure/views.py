@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
-from farm.history import _entity_display_name, _serialize_instance
+from farm.history import _serialize_instance
 from farm.models import Bed, BedLayout, EntityRevision, Field, FieldLayout, Location
 from farm.project_context import get_active_project_or_400
 from farm.services.bed_layouts import extract_layout_payloads, save_location_layouts
@@ -88,21 +88,6 @@ class LocationViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
     def perform_create(self, serializer):
         instance = serializer.save(project=self.request.active_project)
         self.record_revision(instance, EntityRevision.ACTION_CREATED)
-
-    def perform_update(self, serializer):
-        previous_snapshot = _serialize_instance(serializer.instance)
-        instance = serializer.save()
-        self.record_revision(instance, EntityRevision.ACTION_UPDATED, previous_snapshot=previous_snapshot)
-
-    def perform_destroy(self, instance):
-        instance_id = instance.pk
-        snapshot = _serialize_instance(instance)
-        display_name = _entity_display_name(instance)
-        instance.delete()
-        self.record_revision(
-            instance, EntityRevision.ACTION_DELETED,
-            object_id=instance_id, snapshot=snapshot, display_name=display_name, changed_fields=[],
-        )
 
 
 class FieldViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelViewSet):

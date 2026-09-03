@@ -4,6 +4,8 @@ import time
 from typing import Any
 
 from django.db import OperationalError, transaction
+from django.db.models import Model
+from rest_framework.serializers import BaseSerializer
 
 from farm.history import (
     _current_actor_label,
@@ -51,6 +53,31 @@ class ProjectRevisionMixin:
             changed_fields=resolved_changed_fields,
             user_name=_current_actor_label(self.request),
             batch_operation=batch_operation,
+        )
+
+    def perform_update(self, serializer: BaseSerializer) -> None:
+        """Save the update and record it against the pre-save snapshot.
+
+        Viewsets that need extra save kwargs (e.g. `updated_by`) or their own
+        IntegrityError mapping override this; everything else inherits it.
+        """
+        previous_snapshot = _serialize_instance(serializer.instance)
+        instance = serializer.save()
+        self.record_revision(instance, EntityRevision.ACTION_UPDATED, previous_snapshot=previous_snapshot)
+
+    def perform_destroy(self, instance: Model) -> None:
+        """Delete the instance and record the revision from a pre-delete snapshot.
+
+        The id, snapshot and display name are read before `delete()` because the
+        instance (and anything it resolves a label from) is gone afterwards.
+        """
+        instance_id = instance.pk
+        snapshot = _serialize_instance(instance)
+        display_name = _entity_display_name(instance)
+        instance.delete()
+        self.record_revision(
+            instance, EntityRevision.ACTION_DELETED,
+            object_id=instance_id, snapshot=snapshot, display_name=display_name, changed_fields=[],
         )
 
 

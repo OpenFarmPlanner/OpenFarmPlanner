@@ -10,7 +10,6 @@ from rest_framework.response import Response
 
 from farm.common.mixins import ProjectRevisionMixin, ProjectScopedMixin
 from farm.history import (
-    _entity_display_name,
     _serialize_instance,
 )
 from farm.models import (
@@ -148,7 +147,6 @@ class SupplierViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelVi
             object_id=instance_id, snapshot=snapshot, display_name=name, changed_fields=[],
         )
 
-
     def get_queryset(self):
         """Filter suppliers by name if query parameter is provided.
 
@@ -214,18 +212,3 @@ class CropSupplierDataViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets
     def perform_create(self, serializer):
         instance = serializer.save(project=self.request.active_project)
         self.record_revision(instance, EntityRevision.ACTION_CREATED)
-
-    def perform_update(self, serializer):
-        previous_snapshot = _serialize_instance(serializer.instance)
-        instance = serializer.save()
-        self.record_revision(instance, EntityRevision.ACTION_UPDATED, previous_snapshot=previous_snapshot)
-
-    def perform_destroy(self, instance):
-        instance_id = instance.pk
-        snapshot = _serialize_instance(instance)
-        display_name = _entity_display_name(instance)
-        instance.delete()
-        self.record_revision(
-            instance, EntityRevision.ACTION_DELETED,
-            object_id=instance_id, snapshot=snapshot, display_name=display_name, changed_fields=[],
-        )
