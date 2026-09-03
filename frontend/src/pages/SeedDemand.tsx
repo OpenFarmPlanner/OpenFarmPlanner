@@ -24,7 +24,7 @@ import type { SeedDemand } from '../api/types';
 import { useTranslation } from '../i18n';
 import { ContextMenuActionItem } from '../components/contextMenu/ContextMenuActionItem';
 import { ContextMenuIndicator } from '../components/contextMenu/ContextMenuIndicator';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
+import { contextMenuActionsCellSx, contextMenuActionsCellTextSx, contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
 import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
@@ -537,24 +537,10 @@ export default function SeedDemandPage() {
                   >
                     <TableCell sx={{ maxWidth: { xs: 180, sm: 240 } }}>
                       <Box
-                        sx={{
-                          position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          minWidth: 0,
-                          width: '100%',
-                          overflow: 'hidden',
-                        }}
+                        sx={contextMenuActionsCellSx}
                       >
                         <Box
-                          sx={{
-                            display: 'block',
-                            flex: '1 1 auto',
-                            minWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
+                          sx={contextMenuActionsCellTextSx}
                         >
                           <Link component={RouterLink} to={`/app/crops?cropId=${row.crop_id}`} underline="hover">
                             {getCropLabel(row)}

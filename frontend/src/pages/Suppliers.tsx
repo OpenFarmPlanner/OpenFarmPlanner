@@ -23,7 +23,7 @@ import PageContainer from '../components/layout/PageContainer';
 import PageSurface from '../components/layout/PageSurface';
 import { ContextMenuActionItem } from '../components/contextMenu/ContextMenuActionItem';
 import { ContextMenuIndicator } from '../components/contextMenu/ContextMenuIndicator';
-import { contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
+import { contextMenuActionsCellSx, contextMenuActionsCellTextSx, contextMenuActionsOverlaySx } from '../components/contextMenu/contextMenuIndicatorStyles';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
 import TableSurface from '../components/layout/TableSurface';
 import type { Supplier, SupplierDeleteUndoPayload, SupplierDeleteUsage } from '../api/types';
@@ -570,25 +570,11 @@ export default function Suppliers() {
                   >
                     <TableCell sx={{ py: 1.25, maxWidth: { xs: 180, sm: 240 } }}>
                       <Box
-                        sx={{
-                          position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          minWidth: 0,
-                          width: '100%',
-                          overflow: 'hidden',
-                        }}
+                        sx={contextMenuActionsCellSx}
                       >
                         <Box
                           component="span"
-                          sx={{
-                            display: 'block',
-                            flex: '1 1 auto',
-                            minWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
+                          sx={contextMenuActionsCellTextSx}
                         >
                           {supplier.name}
                         </Box>

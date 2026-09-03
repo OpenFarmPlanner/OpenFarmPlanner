@@ -64,6 +64,32 @@ export const contextMenuIndicatorHostSx: SystemStyleObject<Theme> = {
  * without the media guard, one tap on touch would focus the row and reveal
  * the icons exactly like a real desktop hover would.
  */
+/**
+ * The cell content wrapper that hosts a `contextMenuActionsOverlaySx` panel:
+ * it establishes the positioning context the absolutely-positioned overlay
+ * needs and clips the text the overlay slides over. Used by the plain
+ * `<TableRow>` tables (Suppliers, SeedDemand); the DataGrid and hierarchy rows
+ * bring their own wrappers.
+ */
+export const contextMenuActionsCellSx: SystemStyleObject<Theme> = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+  minWidth: 0,
+  width: '100%',
+  overflow: 'hidden',
+};
+
+/** The truncated cell text inside `contextMenuActionsCellSx`. */
+export const contextMenuActionsCellTextSx: SystemStyleObject<Theme> = {
+  display: 'block',
+  flex: '1 1 auto',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
 export function contextMenuActionsOverlaySx(
   hoverSelector: string,
   focusWithinSelector?: string,
