@@ -18,4 +18,6 @@ def resolve_crop_display_name(
     species: CropSpecies | None = crop.crop_species
     if species is None:
         return crop.name, ''
+    if species.status == CropSpecies.STATUS_PROPOSED:
+        return crop.name, ''
     return species.localized_name(language_code, region)

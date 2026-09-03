@@ -474,15 +474,19 @@ def build_public_crop_payload(
 
     ``source_crop`` overrides which project crop the entry records as its
     origin. It differs from ``crop`` only when a Sorte's publish creates the
-    species-level entry alongside it: the values come from the Sorte, but the
+    species-level entry alongside it: most values come from the Sorte, but the
     entry belongs to the project's general Kultur, which is the row that later
-    updates it (see :func:`ensure_general_public_crop`).
+    updates it (see :func:`ensure_general_public_crop`). In that case the
+    public entry's species-level name must also come from the general Kultur,
+    so temporary variety/copy names never become the displayed Kultur name.
     """
     payload = _copy_fields(crop)
     if public_variety is not None:
         payload['variety'] = public_variety
     payload['seed_packages'] = _seed_packages_payload_from_crop(crop)
     origin_crop = source_crop or crop
+    if source_crop is not None:
+        payload['name'] = source_crop.name
     payload['source_project_crop'] = origin_crop
     payload['source_project'] = origin_crop.project
     payload['published_at'] = timezone.now()

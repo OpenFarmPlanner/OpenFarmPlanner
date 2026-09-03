@@ -622,6 +622,22 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
             self.crop,
         )
 
+    def test_publishing_a_sorte_keeps_the_general_kultur_name_for_the_species_entry(self):
+        general_kultur = self._create_general_kultur(name='t')
+        self.crop.name = 'PublishCopy 1787901718647'
+        self.crop.save(update_fields=['name', 'name_normalized', 'updated_at'])
+
+        response = self.publish_current_crop()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general_public_crop = PublicCrop.objects.get(variety='')
+        self.assertEqual(general_public_crop.name, 't')
+        self.assertEqual(general_public_crop.source_project_crop, general_kultur)
+        self.assertEqual(
+            PublicCrop.objects.get(variety='Bijella').name,
+            'PublishCopy 1787901718647',
+        )
+
     def test_publishing_a_sorte_without_a_general_kultur_keeps_the_sorte_as_owner(self):
         """Nothing else can own the entry when the project has no general Kultur."""
         self.publish_current_crop()
@@ -2898,6 +2914,25 @@ class PublicCropPendingSpeciesApiTest(DRFAPITestCase):
         response = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['public_crop_species_pending'])
+
+    def test_crop_detail_keeps_the_local_name_for_a_pending_species(self):
+        imported = Crop.objects.create(
+            name='t',
+            variety='Egyptian',
+            crop_species=self.pending_species,
+            project=self.project,
+            source_public_crop=self.pending_entry,
+            source_public_version=1,
+            origin_type=Crop.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 't')
+        self.assertEqual(response.data['crop_display_name'], 't')
+        self.assertEqual(response.data['crop_display_language_code'], '')
         self.assertTrue(response.data['public_crop_species_pending'])
 
     def test_crop_detail_reports_no_pending_state_for_a_published_species(self):
