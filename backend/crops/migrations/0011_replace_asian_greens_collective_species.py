@@ -84,7 +84,11 @@ def _rename_leaf_mustard(apps, from_name, to_name, duplicate_note=None):
         # a superseded duplicate of the same crop, so reject it instead of
         # leaving two competing published leaf-mustard species as public
         # mapping targets.
-        if source is not None and target is not None and duplicate_note:
+        if source is not None and target is not None and duplicate_note and source.status == 'published':
+            # Only demote an already-published duplicate. A 'proposed' source
+            # is an unreviewed user submission, not this migration's to
+            # reject, and an already-'rejected' one needs no change; leaving
+            # both alone keeps the reverse migration a true inverse.
             source.status = 'rejected'
             source.review_note = duplicate_note
             source.save(update_fields=['status', 'review_note'])
@@ -122,10 +126,15 @@ def replace_asian_greens_collective_species(apps, schema_editor):
     ]
     species_ids = _species_ids_for_normalized_names(apps, normalized_names)
     if species_ids:
-        # Skip rows already rejected so an earlier, more specific moderation
-        # note is preserved instead of being overwritten with the generic one.
-        CropSpecies.objects.filter(id__in=species_ids).exclude(
-            status='rejected',
+        # Only demote already-published collective categories. A 'proposed'
+        # species is an unreviewed user submission that this migration must
+        # not silently reject, and an already-'rejected' one keeps its
+        # existing, more specific moderation note. Restricting to 'published'
+        # also keeps the reverse migration a true inverse: it always
+        # restores matched rows to 'published'.
+        CropSpecies.objects.filter(
+            id__in=species_ids,
+            status='published',
         ).update(
             status='rejected',
             review_note=COLLECTIVE_REVIEW_NOTE,

@@ -256,6 +256,44 @@ class TestAsianGreensCollectiveSpeciesReplacement:
 
 
 @pytest.mark.django_db(transaction=True)
+class TestAsianGreensCollectiveSpeciesReplacementLeavesProposalsAlone:
+    """An unreviewed user proposal under a collective name is not this migration's to reject."""
+
+    migrate_from = ('crops', '0010_sync_dach_crop_species_seed_data')
+    migrate_to = ('crops', '0011_replace_asian_greens_collective_species')
+
+    def setup_method(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_from])
+        old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+
+        species_model = old_apps.get_model('crops', 'CropSpecies')
+        translation_model = old_apps.get_model('crops', 'CropSpeciesTranslation')
+        translation_model.objects.all().delete()
+        species_model.objects.all().delete()
+
+        species_model.objects.create(
+            name='Asiasalat', name_normalized='asiasalat', status='proposed',
+        )
+
+        self.executor.loader.build_graph()
+        self.executor.migrate([self.migrate_to])
+        self.new_apps = self.executor.loader.project_state([self.migrate_to]).apps
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_leaves_the_unreviewed_proposal_untouched(self):
+        species_model = self.new_apps.get_model('crops', 'CropSpecies')
+
+        proposal = species_model.objects.get(name_normalized='asiasalat')
+        assert proposal.status == 'proposed'
+        assert proposal.review_note == ''
+
+
+@pytest.mark.django_db(transaction=True)
 class TestAsianGreensRenameWithExistingBlattsenf:
     """A stray `Blattsenf` alongside legacy `Senfkohl` must not leave a duplicate."""
 
@@ -321,3 +359,44 @@ class TestAsianGreensRenameWithExistingBlattsenf:
         assert legacy.status == 'published'
         assert legacy.review_note == ''
         assert blattsenf.status == 'published'
+
+
+@pytest.mark.django_db(transaction=True)
+class TestAsianGreensRenameWithProposedSenfkohlDuplicate:
+    """An unreviewed 'Senfkohl' proposal alongside 'Blattsenf' is not this migration's to reject."""
+
+    migrate_from = ('crops', '0010_sync_dach_crop_species_seed_data')
+    migrate_to = ('crops', '0011_replace_asian_greens_collective_species')
+
+    def setup_method(self):
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_from])
+        old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+
+        species_model = old_apps.get_model('crops', 'CropSpecies')
+        translation_model = old_apps.get_model('crops', 'CropSpeciesTranslation')
+        translation_model.objects.all().delete()
+        species_model.objects.all().delete()
+
+        species_model.objects.create(
+            name='Senfkohl', name_normalized='senfkohl', status='proposed',
+        )
+        species_model.objects.create(
+            name='Blattsenf', name_normalized='blattsenf', status='published',
+        )
+
+        self.executor.loader.build_graph()
+        self.executor.migrate([self.migrate_to])
+        self.new_apps = self.executor.loader.project_state([self.migrate_to]).apps
+
+    def teardown_method(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_leaves_the_unreviewed_proposal_untouched(self):
+        species_model = self.new_apps.get_model('crops', 'CropSpecies')
+
+        proposal = species_model.objects.get(name_normalized='senfkohl')
+        assert proposal.status == 'proposed'
+        assert proposal.review_note == ''
