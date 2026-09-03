@@ -18,6 +18,11 @@ def resolve_crop_display_name(
     species: CropSpecies | None = crop.crop_species
     if species is None:
         return crop.name, ''
-    if species.status == CropSpecies.STATUS_PROPOSED:
+    # Only a published species carries an authoritative, moderator-approved
+    # name. A still-proposed species has no official translations yet, and a
+    # rejected one keeps whatever free-text name the proposer typed (which can
+    # be an unrelated placeholder). In both cases the crop's own name is the
+    # correct thing to show.
+    if species.status != CropSpecies.STATUS_PUBLISHED:
         return crop.name, ''
     return species.localized_name(language_code, region)

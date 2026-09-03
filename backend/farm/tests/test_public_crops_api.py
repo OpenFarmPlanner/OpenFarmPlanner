@@ -2935,6 +2935,27 @@ class PublicCropPendingSpeciesApiTest(DRFAPITestCase):
         self.assertEqual(response.data['crop_display_language_code'], '')
         self.assertTrue(response.data['public_crop_species_pending'])
 
+    def test_crop_detail_keeps_the_local_name_for_a_rejected_species(self):
+        """A rejected species keeps the proposer's free-text name, which may be
+        an unrelated placeholder, so the crop's own name must still win."""
+        rejected_species = CropSpecies.objects.create(
+            name='PublishCopy 1787901718647',
+            status=CropSpecies.STATUS_REJECTED,
+            proposed_by=self.user,
+        )
+        crop = Crop.objects.create(
+            name='test',
+            variety='sorte',
+            crop_species=rejected_species,
+            project=self.project,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/crops/{crop.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['crop_display_name'], 'test')
+        self.assertEqual(response.data['crop_display_language_code'], '')
+
     def test_crop_detail_reports_no_pending_state_for_a_published_species(self):
         published_species = CropSpecies.objects.create(name='Lettuce', status=CropSpecies.STATUS_PUBLISHED)
         published_entry = PublicCrop.objects.create(
