@@ -853,6 +853,7 @@
       "changesAriaLabel": "Vergleich zwischen deiner Projektkultur und der Bibliothek",
       "localValue": "Deine Projektkultur",
       "publicValue": "Neu in der Bibliothek",
+      "noFieldChanges": "An den Kulturdaten hat sich nichts geändert – nur die Bibliotheksversion wurde erhöht (z. B. durch eine aktualisierte Übersetzung). Beim Übernehmen bleibt deine Projektkultur inhaltlich unverändert.",
       "apply": "Übernehmen",
       "applying": "Übernehme…",
       "applied": "Die Änderungen an „{{name}}“ wurden übernommen.",

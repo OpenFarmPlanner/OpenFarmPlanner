@@ -853,6 +853,7 @@
       "changesAriaLabel": "Comparison between your project crop and the library",
       "localValue": "Your project crop",
       "publicValue": "New in the library",
+      "noFieldChanges": "None of the crop data changed — only the library version was bumped (e.g. by an updated translation). Applying it leaves your project crop's content unchanged.",
       "apply": "Apply",
       "applying": "Applying…",
       "applied": "The changes to “{{name}}” have been applied.",
