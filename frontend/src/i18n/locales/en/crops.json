@@ -880,6 +880,12 @@
     "updateButton": "Update crop library",
     "publishing": "Publishing…",
     "updating": "Updating…",
+    "libraryAction": {
+      "publish": "Publish to library",
+      "pullUpdate": "Update crop",
+      "pushUpdate": "Update crop library",
+      "noLocalChangesTooltip": "No local changes that aren't in the library yet."
+    },
     "publishSuccess": "“{{name}}” was published to the crop library.",
     "updateSuccess": "The public version of “{{name}}” was updated.",
     "linkPublicCropSuccess": "“{{name}}” was linked to the crop library.",

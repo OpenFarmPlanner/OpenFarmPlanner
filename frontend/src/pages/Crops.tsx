@@ -270,7 +270,6 @@ function Crops() {
     publicLibraryInitialSelectedId,
     publicLibraryInitialQuery,
     publishingCropId,
-    isUpdatingOwnPublicCrop,
     fetchPublicCrops,
     handleOpenPublicLibrary,
     handleImportPublicCrop,
@@ -717,11 +716,6 @@ function Crops() {
           canCreatePlan={canCreatePlantingPlan}
           createPlanDisabledTooltip={createPlanDisabledTooltip}
           isPublishingCrop={Boolean(selectedCrop && publishingCropId === selectedCrop.id)}
-          publishActionLabel={publishingCropId === selectedCrop?.id
-            ? (isUpdatingOwnPublicCrop ? t('library.updating') : t('library.publishing'))
-            : (isUpdatingOwnPublicCrop
-              ? t('library.updateButton')
-              : t('library.publishButton'))}
         />
       </Box>
       {crops.length > 0 && (

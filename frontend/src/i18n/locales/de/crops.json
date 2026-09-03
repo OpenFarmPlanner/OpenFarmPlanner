@@ -880,6 +880,12 @@
     "updateButton": "Kulturbibliothek aktualisieren",
     "publishing": "Veröffentliche…",
     "updating": "Aktualisiere…",
+    "libraryAction": {
+      "publish": "In Bibliothek veröffentlichen",
+      "pullUpdate": "Kultur aktualisieren",
+      "pushUpdate": "Kulturbibliothek aktualisieren",
+      "noLocalChangesTooltip": "Keine lokalen Änderungen, die noch nicht in der Bibliothek sind."
+    },
     "publishSuccess": "„{{name}}“ wurde in die Kulturbibliothek veröffentlicht.",
     "updateSuccess": "Die öffentliche Version von „{{name}}“ wurde aktualisiert.",
     "linkPublicCropSuccess": "„{{name}}“ wurde mit der Kulturbibliothek verknüpft.",

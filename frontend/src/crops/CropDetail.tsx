@@ -20,10 +20,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
 import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
-import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
-import { PublicCropUpdateNotice } from './PublicCropUpdateNotice';
-import { PublicCropUpdateMarker } from './PublicCropUpdateMarker';
+import { PublicCropUpdateDialog } from './PublicCropUpdateDialog';
+import { CropLibraryActionButton } from './CropLibraryActionButton';
 import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { usePublicCropUpdate } from './usePublicCropUpdate';
 import {
@@ -97,7 +96,6 @@ interface CropDetailProps {
   canCreatePlan?: boolean;
   createPlanDisabledTooltip?: string;
   isPublishingCrop?: boolean;
-  publishActionLabel?: string;
   searchInputRef?: Ref<HTMLInputElement>;
 }
 
@@ -132,7 +130,6 @@ export function CropDetail({
   canCreatePlan = true,
   createPlanDisabledTooltip,
   isPublishingCrop = false,
-  publishActionLabel,
   searchInputRef,
 }: CropDetailProps) {
   const { t, i18n } = useTranslation('crops');
@@ -481,34 +478,10 @@ const detailSectionGridSx = {
     [currentLanguage, selectedCrop, t],
   );
   const publicUpdate = usePublicCropUpdate(selectedCrop, onPublicUpdateApplied);
-  const publishBlockedTooltip = selectedCrop?.public_publish_blocked_reason
-    ? t(`library.publicUpdate.publishBlocked.${selectedCrop.public_publish_blocked_reason}`)
-    : undefined;
-  // The public-library publish/update action, shown as a permanent secondary
-  // button in the badge row. Same modes/labels/blocked reasons as before, when
-  // it lived in the header overflow menu — only its location changed.
-  const publishActionButton = (
-    <Button
-      size="small"
-      variant="outlined"
-      color="primary"
-      data-testid="crop-detail-publish-action"
-      startIcon={isPublishingCrop
-        ? <CircularProgress size={14} color="inherit" />
-        : <PublicOutlinedIcon fontSize="small" />}
-      disabled={isPublishingCrop || Boolean(publishBlockedTooltip)}
-      onClick={() => onPublishCrop?.()}
-      sx={{ py: 0.25, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
-    >
-      {publishActionLabel ?? t('library.publishButton')}
-    </Button>
-  );
   // The variety is published, but under a species a moderator has not
-  // confirmed yet — visible as a chip, and the library sync waits for it.
+  // confirmed yet — visible as a chip, and the library sync waits for it
+  // (the badge-row action button disables itself in that case).
   const isPublishedUnderPendingSpecies = Boolean(selectedCrop?.public_crop_species_pending);
-  const pendingSpeciesDisabledReason = isPublishedUnderPendingSpecies
-    ? t('library.badges.speciesPendingTooltip')
-    : undefined;
   const selectedCropSpeciesKey = selectedCrop ? getCropSpeciesKey(selectedCrop) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCrop && !(selectedCrop.variety || '').trim());
   const isSpeciesView = Boolean(
@@ -1039,44 +1012,14 @@ const detailSectionGridSx = {
                           </AppTooltip>
                         ) : null}
                         {onPublishCrop ? (
-                          publishBlockedTooltip ? (
-                            <AppTooltip title={publishBlockedTooltip}>
-                              <Box
-                                component="span"
-                                tabIndex={0}
-                                aria-label={publishBlockedTooltip}
-                                sx={{
-                                  display: 'inline-flex',
-                                  maxWidth: '100%',
-                                  borderRadius: 1,
-                                  '&:focus-visible': {
-                                    outline: (theme) => `2px solid ${theme.palette.primary.main}`,
-                                  },
-                                }}
-                              >
-                                {publishActionButton}
-                              </Box>
-                            </AppTooltip>
-                          ) : (
-                            publishActionButton
-                          )
-                        ) : null}
-                        {/* "Lokal geändert" only where no state of the publish
-                            button already carries it: for a non-owned imported
-                            copy the button shows the "Veröffentlichen" mode,
-                            which does not signal that the local copy diverged
-                            from its import source. When the user owns the
-                            public entry the button is in "aktualisieren" mode
-                            and being enabled already means "there is something
-                            to push". */}
-                        {selectedCrop.is_modified_from_source && !selectedCrop.owned_public_crop_id ? (
-                          <Chip size="small" color="warning" label={t('library.badges.modified')} />
+                          <CropLibraryActionButton
+                            crop={selectedCrop}
+                            controller={publicUpdate}
+                            onPublish={() => onPublishCrop?.()}
+                            isPublishing={isPublishingCrop}
+                          />
                         ) : null}
                         {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
-                        <PublicCropUpdateMarker
-                          controller={publicUpdate}
-                          disabledReason={pendingSpeciesDisabledReason}
-                        />
                       </Box>
                     </Box>
                   </Box>
@@ -1113,10 +1056,9 @@ const detailSectionGridSx = {
               />
             </Box>
 
-            <PublicCropUpdateNotice
+            <PublicCropUpdateDialog
               crop={selectedCrop}
               controller={publicUpdate}
-              disabledReason={pendingSpeciesDisabledReason}
             />
 
             {showVarietyValueLegend ? (

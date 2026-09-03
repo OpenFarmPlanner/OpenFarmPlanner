@@ -1,8 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PublicCropUpdateNotice } from '../crops/PublicCropUpdateNotice';
-import { PublicCropUpdateMarker } from '../crops/PublicCropUpdateMarker';
+import { PublicCropUpdateDialog } from '../crops/PublicCropUpdateDialog';
 import { usePublicCropUpdate } from '../crops/usePublicCropUpdate';
 import type { Crop, CropPublicUpdate } from '../api/types';
 import translations from '@/test-utils/translations';
@@ -50,22 +49,18 @@ const varietyRenameUpdate: CropPublicUpdate = {
   ],
 };
 
-/** Mirrors how CropDetail wires the shared controller into both entry points. */
-function UpdateHarness({ crop, onUpdated, disabledReason }: {
-  crop: Crop;
-  onUpdated?: () => void;
-  disabledReason?: string;
-}) {
+/** The dialog is opened from the badge-row action button; here a plain trigger stands in for it. */
+function DialogHarness({ crop, onUpdated }: { crop: Crop; onUpdated?: () => void }) {
   const controller = usePublicCropUpdate(crop, onUpdated);
   return (
     <>
-      <PublicCropUpdateMarker controller={controller} disabledReason={disabledReason} />
-      <PublicCropUpdateNotice crop={crop} controller={controller} disabledReason={disabledReason} />
+      <button type="button" onClick={controller.openDiff}>open</button>
+      <PublicCropUpdateDialog crop={crop} controller={controller} />
     </>
   );
 }
 
-describe('PublicCropUpdateNotice', () => {
+describe('PublicCropUpdateDialog', () => {
   beforeEach(() => {
     apiMocks.publicUpdate.mockReset();
     apiMocks.rejectPublicUpdate.mockReset();
@@ -78,33 +73,16 @@ describe('PublicCropUpdateNotice', () => {
   ) => {
     apiMocks.publicUpdate.mockResolvedValue({ data: update });
     const onUpdated = vi.fn();
-    render(<UpdateHarness crop={crop} onUpdated={onUpdated} />);
-    await userEvent.click(screen.getByRole('button', { name: t.publicUpdate.review }));
+    render(<DialogHarness crop={crop} onUpdated={onUpdated} />);
+    await userEvent.click(screen.getByRole('button', { name: 'open' }));
     await screen.findByText(t.publicUpdate.dialogTitle);
     return onUpdated;
   };
 
-  it('stays hidden entirely when the crop is not linked to a library entry', () => {
-    render(<UpdateHarness crop={{
-      ...importedCrop,
-      source_public_crop: null,
-      public_update_available: false,
-    }}
-    />);
-
-    expect(screen.queryByTestId('crop-public-update-notice')).toBeNull();
-    expect(screen.queryByTestId('crop-public-update-marker')).toBeNull();
-    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
-  });
-
-  it('shows a disabled, tooltipped marker when a linked copy already matches the library version', () => {
-    render(<UpdateHarness crop={{ ...importedCrop, public_update_available: false }} />);
-
-    expect(screen.queryByTestId('crop-public-update-notice')).toBeNull();
-    const marker = screen.getByTestId('crop-public-update-marker');
-    expect(marker).toHaveTextContent(t.publicUpdate.markerUpToDateLabel);
-    expect(marker).toHaveClass('Mui-disabled');
-    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
+  it('stays closed until it is opened', () => {
+    apiMocks.publicUpdate.mockResolvedValue({ data: varietyRenameUpdate });
+    render(<DialogHarness crop={importedCrop} />);
+    expect(screen.queryByText(t.publicUpdate.dialogTitle)).toBeNull();
   });
 
   it('calls out a variety rename explicitly instead of as a generic field row', async () => {
@@ -112,7 +90,6 @@ describe('PublicCropUpdateNotice', () => {
 
     expect(screen.getByTestId('crop-public-update-variety-change'))
       .toHaveTextContent('Sortenname geändert: „Nantes“ → „Nantes II“');
-    // Other changed fields stay in the plain comparison table.
     expect(screen.getByText(t.publishWizard.comparison.fields.growth_duration_days)).toBeInTheDocument();
     expect(screen.getByText('80')).toBeInTheDocument();
   });
@@ -145,17 +122,11 @@ describe('PublicCropUpdateNotice', () => {
   });
 
   it('states plainly when a version bump changed none of the crop data', async () => {
-    await openDialog({
-      ...varietyRenameUpdate,
-      has_local_changes: true,
-      changes: [],
-    });
+    await openDialog({ ...varietyRenameUpdate, has_local_changes: true, changes: [] });
 
     expect(screen.getByTestId('crop-public-update-no-field-changes'))
       .toHaveTextContent(t.publicUpdate.noFieldChanges);
     expect(screen.queryByLabelText(t.publicUpdate.changesAriaLabel)).not.toBeInTheDocument();
-    // Nothing is actually overwritten, so the "local edits will be lost"
-    // warning must not fire.
     expect(screen.queryByText(t.importConflictDialog.updateWarning)).not.toBeInTheDocument();
   });
 
@@ -171,32 +142,14 @@ describe('PublicCropUpdateNotice', () => {
     await waitFor(() => expect(screen.queryByText(t.publicUpdate.dialogTitle)).toBeNull());
   });
 
-  it('keeps the diff reachable through the permanent marker after a rejection', async () => {
-    const rejectedCrop: Crop = {
-      ...importedCrop,
-      public_update_available: false,
-      public_update_rejected: true,
-    };
-    apiMocks.publicUpdate.mockResolvedValue({ data: { ...varietyRenameUpdate, is_rejected: true } });
-    render(<UpdateHarness crop={rejectedCrop} />);
+  it('lets the user reverse a rejection: the declined version stays applyable', async () => {
+    await openDialog(
+      { ...varietyRenameUpdate, is_rejected: true },
+      { ...importedCrop, public_update_available: false, public_update_rejected: true },
+    );
 
-    // The banner is gone, but the decision stays reversible from the marker.
-    expect(screen.queryByTestId('crop-public-update-notice')).toBeNull();
-    await userEvent.click(screen.getByTestId('crop-public-update-marker'));
-
-    await screen.findByText(t.publicUpdate.dialogTitle);
     expect(screen.getByTestId('crop-public-update-rejected-hint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.publicUpdate.reject })).toBeDisabled();
     expect(screen.getByRole('button', { name: t.publicUpdate.apply })).toBeEnabled();
-  });
-  it('blocks both entry points while the crop species is still awaiting moderation', () => {
-    render(<UpdateHarness crop={importedCrop} disabledReason={t.badges.speciesPendingTooltip} />);
-
-    expect(screen.getByRole('button', { name: t.publicUpdate.review })).toBeDisabled();
-    // Disabled MUI chips drop pointer events entirely, so the diff cannot be
-    // opened from the marker either.
-    expect(screen.getByTestId('crop-public-update-marker')).toHaveClass('Mui-disabled');
-    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
-    expect(screen.queryByText(t.publicUpdate.dialogTitle)).toBeNull();
   });
 });

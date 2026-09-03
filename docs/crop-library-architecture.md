@@ -101,13 +101,38 @@ The public Crop Library follows an open-data model:
   `CropSerializer.public_update_available` compares the copy's
   `source_public_version` against the linked entry's current `version` — the
   same comparison `import_public_crop_into_project()` makes — so the private
-  crop view can show a notice that the library moved on.
+  crop view knows the library moved on.
   `GET /api/crops/<id>/public-update/` then returns the field-level diff,
   derived from `CROP_COPY_FIELDS` (exactly what an update overwrites, so a
   renamed `variety` can never be applied without appearing in the preview).
   The endpoint is read-only: confirming in the dialog calls the existing
   `public-crops/<id>/import/` action with `mode=update`, so the private
   crop page and the library page share one import/update path.
+- **One button carries all of this.** The crop detail badge row has a single
+  `CropLibraryActionButton` (next to the "Importiert" badge) whose label,
+  colour, enabled state and target follow the context — it replaced the header
+  overflow entry, a standalone "Update verfügbar" banner and a sync marker
+  chip. `resolveCropLibraryAction` decides, first match wins:
+  1. **not linked** -> "In Bibliothek veröffentlichen", opens the publishing
+     wizard.
+  2. **`public_update_available` or `public_update_rejected`** (both surface as
+     the `usePublicCropUpdate` controller's `isDiverged`) -> "Kultur
+     aktualisieren", blue, opens the pull diff/apply dialog. Wins over any push
+     offer, and it is the only way a declined version stays applyable now that
+     the marker chip is gone.
+  3./4. **linked with local changes** (`public_publish_blocked_reason` is
+     `null` — the `update_pending` / `update_rejected` reasons always coincide
+     with case 2) -> "Kulturbibliothek aktualisieren", green, opens the wizard
+     (which routes an owned-entry update through its own flow). Own entry vs a
+     foreign imported one is the same direct-update path, so the label does not
+     distinguish them.
+  5. **linked, nothing pending, nothing to contribute** -> the same label,
+     disabled, tooltip "Keine lokalen Änderungen, die noch nicht in der
+     Bibliothek sind.".
+
+  A crop species still under moderation (`public_crop_species_pending`) freezes
+  cases 2-4 as disabled with the existing "Vorschlag in Prüfung" tooltip; the
+  `CropSpeciesPendingChip` stays in the row as the explanation.
 - Declining a public change is a third, explicit outcome next to applying and
   cancelling. `POST /api/crops/<id>/public-update/reject/` stores
   `Crop.rejected_public_version` and touches no library-sourced field, so the
@@ -118,29 +143,17 @@ The public Crop Library follows an open-data model:
   clears the rejection again. Cancelling remains the "no decision" path — the
   notice returns on the next visit.
 - The diff stays reachable after a decision: `build_public_crop_update_status()`
-  is still built for a rejected version, and the crop detail header carries a
-  permanent, quiet marker next to the "Importiert" badge
-  (`PublicCropUpdateMarker`) that reopens the dialog whenever the copy and
-  the library version differ. Both entry points share one
-  `usePublicCropUpdate` controller, so the notice and the marker can never
-  disagree about what is loading, applying, or rejecting.
-- Private crop details also show a quiet "Veröffentlicht" badge when the
-  requesting user contributed the linked public entry and that entry is still
-  `published`. Withdrawn and moderator-removed entries do not get the badge.
-  The crop serializer includes the linked public entry's `published_at`
-  timestamp so the badge tooltip can show the localized publication date
-  without an extra request.
-- `CropSerializer.public_publish_blocked_reason` locks the "Öffentliche
-  Kulturbibliothek aktualisieren" action while pushing the local copy would be
-  wrong: `update_pending` (undecided library change), `update_rejected` (the
-  user declined that public version — pushing would silently undo exactly the
-  change they declined), and `no_local_changes` (aligned copy with nothing to
-  contribute). The lock is not only cosmetic:
+  is still built for a rejected version, and case 2 of the badge-row button
+  (triggered by `isDiverged`, not just `public_update_available`) reopens the
+  dialog whenever the copy and the library version differ.
+- `CropSerializer.public_publish_blocked_reason` reports why a *push* is not on
+  offer: `update_pending` / `update_rejected` (the library is ahead — the
+  button shows case 2 instead) and `no_local_changes` (aligned copy with
+  nothing to contribute — case 5). The lock is not only cosmetic:
   `publish_crop_to_public_library()` raises `PublicCropUpdateBlockedError`
   (409 `public_crop_update_blocked`) for the two divergence cases before the
-  quality gate runs. The action becomes available again once the copy is
-  aligned with the current public version *and* carries local edits made after
-  that.
+  quality gate runs. A push becomes available again once the copy is aligned
+  with the current public version *and* carries local edits made after that.
 - The publishing wizard's comparison covers `variety` too. Before the Sorte
   became editable it was left out as immutable, which meant publishing an
   update could rename the public entry without the change ever appearing in
@@ -890,10 +903,10 @@ The auto-created entry takes its **values** from the Sorte, but records the
 project's own general Kultur (when the project has one) as its
 `source_project_crop`. That link is what the crop list reads back as
 `owned_public_crop_id`, so the Kultur the user sees as published is
-recognized as published: its overflow menu offers "Kulturbibliothek
-aktualisieren" with the usual block reasons instead of "Veröffentlichen", and
-a later publish from that Kultur updates the existing entry instead of
-tripping the duplicate check. Without a general Kultur in the project there is
+recognized as published: its badge-row action shows a "Kulturbibliothek
+aktualisieren" state instead of "In Bibliothek veröffentlichen", and a later
+publish from that Kultur updates the existing entry instead of tripping the
+duplicate check. Without a general Kultur in the project there is
 no other row to own the entry, so it stays linked to the Sorte. Migration
 `0093_relink_general_public_crops` re-points entries created before this.
 
