@@ -70,7 +70,6 @@ import {
   GANTT_SIDEBAR_RESIZE_KEYBOARD_STEP,
   GANTT_VIEWPORT_BOTTOM_MARGIN_PX,
   GANTT_VIEWPORT_MIN_HEIGHT_PX,
-  OCCUPANCY_COMPACT_ROW_HEIGHT,
   type SyntheticMousePoint,
   addTimelinePeriod,
   addTimelinePeriodLarge,
@@ -110,12 +109,7 @@ import {
   type CalendarDateRange,
   type GanttTask,
   type GanttTaskGroup,
-  type OccupancyHierarchyNode,
 } from './ganttChartUtils';
-import {
-  buildOccupancyStructureSummaries,
-  formatOccupancyStructureSummary,
-} from './occupancyStructureSummary';
 import { useGanttContextMenu } from './useGanttContextMenu';
 import { useGanttTaskActions } from './useGanttTaskActions';
 import { useOccupancyHierarchyFilter } from './useOccupancyHierarchyFilter';
@@ -125,7 +119,7 @@ import {
   segmentedButtonGroupSx,
 } from '../components/buttons/segmentedControlStyles';
 import { getGanttRenderWindow } from './ganttRenderWindow';
-import { collectVisibleIdsWithAncestors, flattenTreeRows } from '../components/hierarchy/utils/treeRows';
+import { buildOccupancyTaskGroups } from './occupancyTaskGroups';
 import { HierarchyLevelButtons } from '../components/hierarchy/HierarchyLevelToggle';
 import { CalendarFiltersPopover } from '../components/gantt/CalendarFiltersPopover';
 import { OccupancyFilterRow } from '../components/gantt/OccupancyFilterRow';
@@ -821,126 +815,26 @@ function GanttChartPage() {
     useMobileFilterLayout,
   ]);
 
-  const occupancyTaskGroups = useMemo<GanttTaskGroup[]>(() => {
-    // Structural filter: "only occupied beds" removes empty beds (and any
-    // now-childless field/location ancestors) from the tree entirely,
-    // independent of expand/collapse state.
-    const structurallyVisibleIds = onlyOccupiedBeds
-      ? collectVisibleIdsWithAncestors(
-        occupancyHierarchyNodes,
-        new Set(
-          occupancyHierarchyNodes
-            .filter((node) => node.type === 'bed' && node.occupiedBedCount > 0)
-            .map((node) => node.id),
-        ),
-      )
-      : null;
-    const prunedNodes = structurallyVisibleIds
-      ? occupancyHierarchyNodes.filter((node) => structurallyVisibleIds.has(node.id))
-      : occupancyHierarchyNodes;
-
-    const fieldNameById = new Map<number, string>(
-      prunedNodes
-        .filter((node): node is OccupancyHierarchyNode & { fieldId: number } => node.type === 'field' && node.fieldId !== undefined)
-        .map((node) => [node.fieldId, node.name]),
-    );
-    const locationNameById = new Map<number, string>(
-      prunedNodes.filter((node) => node.type === 'location').map((node) => [node.locationId, node.name]),
-    );
-
-    const normalizedSearch = occupancySearchText.trim().toLowerCase();
-    const isActivelyFiltering = Boolean(normalizedSearch)
-      || occupancyLocationFilter !== 'all'
-      || occupancyFieldFilter !== 'all';
-
-    let visibleIds: Set<string | number> | null = null;
-    if (isActivelyFiltering) {
-      const matchedBedIds = new Set(
-        prunedNodes
-          .filter((node) => {
-            if (node.type !== 'bed') {
-              return false;
-            }
-            if (occupancyLocationFilter !== 'all' && node.locationId !== occupancyLocationFilter) {
-              return false;
-            }
-            if (occupancyFieldFilter !== 'all' && node.fieldId !== occupancyFieldFilter) {
-              return false;
-            }
-            if (!normalizedSearch) {
-              return true;
-            }
-            const haystack = [
-              node.name,
-              node.fieldId !== undefined ? fieldNameById.get(node.fieldId) : undefined,
-              locationNameById.get(node.locationId),
-              ...node.tasks.map((task) => task.cropName),
-            ]
-              .filter(Boolean)
-              .join(' ')
-              .toLowerCase();
-            return haystack.includes(normalizedSearch);
-          })
-          .map((node) => node.id),
-      );
-      visibleIds = collectVisibleIdsWithAncestors(prunedNodes, matchedBedIds);
-    }
-
-    // Summaries come from the filtered node set (structural "nur belegte
-    // Beete" pruning plus the location/field/search match), so the grey
-    // summary can never claim more beds than the view actually lists.
-    // Expansion state is intentionally not folded in — collapsing a row
-    // hides it, it does not remove it from the structure.
-    const summarizedNodes = visibleIds
-      ? prunedNodes.filter((node) => visibleIds.has(node.id))
-      : prunedNodes;
-    const structureSummaries = buildOccupancyStructureSummaries(summarizedNodes);
-
-    const flatRows = flattenTreeRows(prunedNodes, {
+  const occupancyTaskGroups = useMemo<GanttTaskGroup[]>(
+    () => buildOccupancyTaskGroups({
+      nodes: occupancyHierarchyNodes,
+      onlyOccupiedBeds,
+      searchText: occupancySearchText,
+      locationFilter: occupancyLocationFilter,
+      fieldFilter: occupancyFieldFilter,
       expandedIds: expandedHierarchyIds,
-      visibleIds,
-    });
-
-    return flatRows.map(({ node, depth, hasChildren }) => {
-      const isExpandable = node.type !== 'bed' && hasChildren;
-      const isExpanded = expandedHierarchyIds.has(node.id);
-
-      const structureSummary = structureSummaries.get(node.id);
-      const emptyRowLabel = structureSummary
-        ? formatOccupancyStructureSummary(structureSummary, t)
-        : undefined;
-
-      const group: GanttTaskGroup = {
-        id: node.id,
-        name: node.name,
-        tasks: node.tasks,
-        depth,
-        isExpandable,
-        isExpanded,
-        // Standort/Parzelle rows carry no bars — their structural summary is
-        // rendered in the timeline area instead (see TaskRow's
-        // `emptyRowLabel` handling), not as a second line in the left column.
-        emptyRowLabel,
-        // Standort/Parzelle rows have no bars of their own, so they don't
-        // need a full task-row height — Beet rows keep the normal,
-        // task-count-based height (rowHeightOverride left unset).
-        rowHeightOverride: node.type === 'bed' ? undefined : OCCUPANCY_COMPACT_ROW_HEIGHT,
-        locationId: node.locationId,
-        fieldId: node.fieldId,
-        bedId: node.bedId,
-        area: node.area,
-      };
-      return group;
-    });
-  }, [
-    expandedHierarchyIds,
-    occupancyFieldFilter,
-    occupancyHierarchyNodes,
-    occupancyLocationFilter,
-    occupancySearchText,
-    onlyOccupiedBeds,
-    t,
-  ]);
+      t,
+    }),
+    [
+      expandedHierarchyIds,
+      occupancyFieldFilter,
+      occupancyHierarchyNodes,
+      occupancyLocationFilter,
+      occupancySearchText,
+      onlyOccupiedBeds,
+      t,
+    ],
+  );
 
   const handleToggleGroupExpand = useCallback((groupId: string) => {
     toggleHierarchyExpand(groupId);
