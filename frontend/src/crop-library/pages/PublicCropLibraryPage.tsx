@@ -76,6 +76,7 @@ import type { RootLayoutOutletContext, TopbarContextAction } from '../../navigat
 import { useTopbarContextActions } from '../../hooks/useTopbarContextActions';
 import { useWebSocket, type WebSocketEvent } from '../../realtime/useWebSocket';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
+import { resolveLocaleFromLanguage } from '../../utils/numberLocalization';
 import {
   getDescriptionFallbackNotice,
   getPublicCropDescription,
@@ -285,7 +286,7 @@ export default function PublicCropLibraryPage() {
     searchInputRef.current?.select();
   }, [useCompactLibraryLayout]);
 
-  const locale = i18n.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
+  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage);
   const anonymousLabel = t('library.anonymousAuthor');
 
   const navigateToLibraryState = useCallback(({
