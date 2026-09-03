@@ -13,14 +13,9 @@ import {
 import { useSocialProviders } from '../../auth/useSocialProviders';
 import { useTranslation } from '../../i18n';
 import { authSecondaryButtonSx } from '../../pages/auth/authPageStyles';
-import { GoogleIcon, MicrosoftIcon } from './providerIcons';
+import { PROVIDER_ICONS } from './socialProviderIcons';
 import { socialLoginErrorKey } from './socialLoginErrors';
 import SocialLoginLegalNotice from './SocialLoginLegalNotice';
-
-const providerIcons = {
-  google: GoogleIcon,
-  microsoft: MicrosoftIcon,
-} as const;
 
 const socialButtonSx = {
   ...authSecondaryButtonSx,
@@ -81,7 +76,7 @@ export default function SocialLoginButtons({ hideLegalNotice = false }: SocialLo
       {error ? <Alert severity="error">{error}</Alert> : null}
 
       {providers.map((provider) => {
-        const ProviderIcon = providerIcons[provider.id];
+        const ProviderIcon = PROVIDER_ICONS[provider.id];
         const isPending = pendingProvider === provider.id;
         return (
           <Button

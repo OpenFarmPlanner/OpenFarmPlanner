@@ -20,16 +20,11 @@ import {
   type SocialProvider,
 } from '../auth/socialAuth';
 import { useAuth } from '../auth/useAuth';
-import { GoogleIcon, MicrosoftIcon } from '../components/auth/providerIcons';
+import { PROVIDER_ICONS } from '../components/auth/socialProviderIcons';
 import { socialLoginErrorKey } from '../components/auth/socialLoginErrors';
 import { useTranslation } from '../i18n';
 import { actionButtonSx } from './accountSettingsForm';
 import { SettingsCard } from './accountSettingsCards';
-
-const providerIcons = {
-  google: GoogleIcon,
-  microsoft: MicrosoftIcon,
-} as const;
 
 interface AccountSettingsSocialMethodsContentProps {
   wrapInCard: boolean;
@@ -124,7 +119,7 @@ function AccountSettingsSocialMethodsContent({ wrapInCard }: AccountSettingsSoci
         ) : null}
 
         {connections.map((connection) => {
-          const ProviderIcon = providerIcons[connection.provider];
+          const ProviderIcon = PROVIDER_ICONS[connection.provider];
           return (
             <Stack
               key={connection.id}
@@ -157,7 +152,7 @@ function AccountSettingsSocialMethodsContent({ wrapInCard }: AccountSettingsSoci
         {providers
           .filter((provider) => !connectedProviderIds.has(provider.id))
           .map((provider) => {
-            const ProviderIcon = providerIcons[provider.id];
+            const ProviderIcon = PROVIDER_ICONS[provider.id];
             return (
               <Button
                 key={provider.id}

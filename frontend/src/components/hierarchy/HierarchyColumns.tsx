@@ -31,6 +31,7 @@ import { getPlainExcerpt } from '../data-grid/markdown';
 import { CALCULATED_COLUMN_CELL_CLASS, getCalculatedColumnProps } from '../data-grid/calculatedColumns';
 import { HierarchyLevelButtons } from './HierarchyLevelToggle';
 import { FullCellTooltip, FULL_CELL_TOOLTIP_CELL_CLASS } from '../data-grid/FullCellTooltip';
+import { dataGridHeaderLabelSx } from '../data-grid/styles';
 
 export interface HierarchyColumnWidths {
   name: number;
@@ -46,7 +47,6 @@ export const DEFAULT_HIERARCHY_COLUMN_WIDTHS: HierarchyColumnWidths = {
   notes: 220,
 };
 
-const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 const renderImmediateEditInputCell = (
   params: GridRenderEditCellParams<HierarchyRow>,
 ): ReactElement => <GridEditInputCell {...params} debounceMs={0} />;
@@ -217,7 +217,7 @@ export function createHierarchyColumns(
               gap: 1.5,
             }}
           >
-            <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>{t('hierarchy:columns.name')}</Box>
+            <Box component="span" sx={dataGridHeaderLabelSx}>{t('hierarchy:columns.name')}</Box>
             <HierarchyLevelButtons {...levelToggle} />
           </Box>
         ),
@@ -229,7 +229,7 @@ export function createHierarchyColumns(
       renderHeader: () => (
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
           <SwapVertIcon fontSize="small" aria-hidden="true" />
-          <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>{t('columns.length')}</Box>
+          <Box component="span" sx={dataGridHeaderLabelSx}>{t('columns.length')}</Box>
         </Box>
       ),
       width: widths.dimensions,
@@ -250,7 +250,7 @@ export function createHierarchyColumns(
       renderHeader: () => (
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
           <SwapHorizIcon fontSize="small" aria-hidden="true" />
-          <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>{t('columns.width')}</Box>
+          <Box component="span" sx={dataGridHeaderLabelSx}>{t('columns.width')}</Box>
         </Box>
       ),
       width: widths.dimensions,

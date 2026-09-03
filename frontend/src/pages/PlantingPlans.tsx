@@ -107,6 +107,8 @@ import {
   areRowsSemanticallyEqual,
   buildMobileCreateForm,
   createEmptyMobileCreateForm,
+  BED_COLUMN_MAX_WIDTH,
+  CROP_COLUMN_MAX_WIDTH,
   getVisibleMobileRows,
   isAutoAreaRequest,
   normalizeSelectionAfterBedChange,
@@ -119,15 +121,13 @@ import {
   type PlantingPlanRow,
 } from './plantingPlansUtils';
 import { AppTooltip } from '../components/AppTooltip';
+import { dataGridHeaderLabelSx } from "../components/data-grid/styles";
 
-const DATA_GRID_HEADER_LABEL_SX = { fontWeight: 600 };
 
 /**
  * Row data type for Data Grid
  */
 
-const CROP_COLUMN_MAX_WIDTH = 280;
-const BED_COLUMN_MAX_WIDTH = 220;
 /** Columns whose editor is a dialog the cell opens on a single click. */
 const PLANTING_PLAN_DIALOG_EDIT_FIELDS = ["bed"];
 
@@ -711,7 +711,7 @@ function PlantingPlans() {
               </Box>
             )}
           >
-            <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
+            <Box component="span" sx={dataGridHeaderLabelSx}>
               {t("plantingPlans:columns.areaM2")}
             </Box>
           </AppTooltip>
@@ -758,7 +758,7 @@ function PlantingPlans() {
         type: "number",
         renderHeader: () => (
           <AppTooltip title={t("plantingPlans:tooltips.plantsFromSpacing")}>
-            <Box component="span" sx={DATA_GRID_HEADER_LABEL_SX}>
+            <Box component="span" sx={dataGridHeaderLabelSx}>
               {t("plantingPlans:columns.plantsCount")}
             </Box>
           </AppTooltip>

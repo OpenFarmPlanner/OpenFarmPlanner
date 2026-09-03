@@ -285,3 +285,9 @@ export const deleteIconButtonSx = {
     backgroundColor: 'rgba(211, 47, 47, 0.08)',
   },
 };
+
+/**
+ * The bold label inside a custom `renderHeader`, matching what the DataGrid
+ * renders for a plain `headerName`.
+ */
+export const dataGridHeaderLabelSx = { fontWeight: 600 };

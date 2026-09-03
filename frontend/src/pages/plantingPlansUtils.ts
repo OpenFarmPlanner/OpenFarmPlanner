@@ -1,9 +1,16 @@
 import type { Bed, Crop, CultivationType, Field, PlantingPlan } from '../api/types';
 import type { EditableRow } from '../components/data-grid/types';
-import { parseLocalizedNumber } from '../utils/numberLocalization';
-import { formatLocalizedNumber } from '../utils/numberLocalization';
+import { formatLocalizedNumber, parseLocalizedNumber } from '../utils/numberLocalization';
 
 export const AREA_LABEL_SEPARATOR = ' | ';
+
+/**
+ * Upper bounds for the two flexible planting-plan grid columns. The hierarchy
+ * hook sizes the columns to their content and the grid caps them here, so both
+ * have to agree on the same number.
+ */
+export const CROP_COLUMN_MAX_WIDTH = 280;
+export const BED_COLUMN_MAX_WIDTH = 220;
 const UNIT_NON_BREAKING_SPACE = '\u00a0';
 
 export const toNumericValue = (value: unknown): number | null => {
