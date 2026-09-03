@@ -11,6 +11,7 @@ import type { Location } from '../../api/api';
 import type { OccupancyHierarchyNode } from '../../pages/ganttChartUtils';
 import { TypeaheadSelect as Select } from '../inputs/TypeaheadSelect';
 import { GanttSearchField } from './GanttSearchField';
+import { ganttDesktopFilterRowSx } from './ganttFilterBarStyles';
 
 interface OccupancyFilterRowProps {
   searchText: string;
@@ -49,14 +50,7 @@ export function OccupancyFilterRow({
   const { t } = useTranslation(['ganttChart', 'common']);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 1.5,
-        alignItems: 'center',
-      }}
-    >
+    <Box sx={ganttDesktopFilterRowSx}>
       <GanttSearchField
         placeholder={t('ganttChart:treeFilters.searchPlaceholder')}
         value={searchText}
