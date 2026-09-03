@@ -105,11 +105,6 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         )
         self.record_revision(instance, EntityRevision.ACTION_CREATED, batch_operation=batch)
 
-    def perform_update(self, serializer):
-        previous_snapshot = _serialize_instance(serializer.instance)
-        instance = serializer.save()
-        self.record_revision(instance, EntityRevision.ACTION_UPDATED, previous_snapshot=previous_snapshot)
-
     def destroy(self, request, *args, **kwargs):
         season = self.get_object()
         if season.deleted_at is not None:

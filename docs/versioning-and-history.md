@@ -39,6 +39,14 @@ write path — it just creates an `EntityRevision` row. It's called:
   assignments before `.save()` calls in the farm domain view packages; this is
   how a save is tagged as a delete/restore action rather than a plain
   update for history purposes.
+- **Through `ProjectRevisionMixin`** (`backend/farm/common/mixins.py`) for the
+  project-scoped viewsets: its `record_revision` helper wraps
+  `record_entity_revision` with the active project and actor, and its default
+  `perform_update`/`perform_destroy` record the revision for a plain PATCH/PUT
+  or DELETE. A viewset only overrides those hooks when it needs something extra
+  (additional `save()` kwargs, `IntegrityError` mapping, a soft-delete
+  `destroy`); `perform_create` is always per-viewset because `ProjectScopedMixin`
+  precedes the revision mixin in the MRO and owns that hook.
 
 ## Reading history
 

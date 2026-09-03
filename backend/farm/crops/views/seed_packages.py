@@ -31,11 +31,6 @@ class SeedPackageViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.Mode
         instance = serializer.save(project=self.request.active_project)
         self.record_revision(instance, EntityRevision.ACTION_CREATED)
 
-    def perform_update(self, serializer):
-        previous_snapshot = _serialize_instance(serializer.instance)
-        instance = serializer.save()
-        self.record_revision(instance, EntityRevision.ACTION_UPDATED, previous_snapshot=previous_snapshot)
-
     def perform_destroy(self, instance):
         package_id = instance.pk
         snapshot = _serialize_instance(instance)
