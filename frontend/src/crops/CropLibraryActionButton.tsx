@@ -86,6 +86,10 @@ export function CropLibraryActionButton({
   // A disabled <button> is not focusable, so its tooltip hangs off a focusable
   // wrapper that also carries it as an accessible name (hover + keyboard). An
   // enabled button is focusable itself and needs no extra wrapper.
+  //
+  // `describeChild` keeps the button's visible label as its accessible name;
+  // without it MUI turns the tooltip text into an `aria-label` that shadows the
+  // label. The tooltip stays available as an `aria-describedby` description.
   if (action.disabled) {
     return (
       <AppTooltip title={tooltip}>
@@ -107,5 +111,5 @@ export function CropLibraryActionButton({
     );
   }
 
-  return <AppTooltip title={tooltip}>{button}</AppTooltip>;
+  return <AppTooltip title={tooltip} describeChild>{button}</AppTooltip>;
 }
