@@ -309,3 +309,15 @@ class TestAsianGreensRenameWithExistingBlattsenf:
         legacy = species_model.objects.get(name_normalized='senfkohl')
         assert legacy.status == 'rejected'
         assert 'Blattsenf' in legacy.review_note
+
+    def test_reverse_migration_restores_the_superseded_legacy_species(self):
+        self.executor.loader.build_graph()
+        self.executor.migrate([self.migrate_from])
+        apps = self.executor.loader.project_state([self.migrate_from]).apps
+        species_model = apps.get_model('crops', 'CropSpecies')
+
+        legacy = species_model.objects.get(name_normalized='senfkohl')
+        blattsenf = species_model.objects.get(name_normalized='blattsenf')
+        assert legacy.status == 'published'
+        assert legacy.review_note == ''
+        assert blattsenf.status == 'published'

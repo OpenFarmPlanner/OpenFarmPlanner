@@ -139,6 +139,18 @@ def restore_asian_greens_collective_species(apps, schema_editor):
 
     _rename_leaf_mustard(apps, LEAF_MUSTARD_NAME, LEGACY_LEAF_MUSTARD_NAME)
 
+    # Undo the leaf-mustard duplicate-rejection from the dual-existence case:
+    # a leftover "Senfkohl" species that was rejected as a duplicate of
+    # "Blattsenf" goes back to published, matched by the note this migration
+    # itself wrote so unrelated rejections are left alone. _rename_leaf_mustard
+    # renamed the species back to "Senfkohl" above only when it was the sole
+    # leaf-mustard species; here it is instead a second, separate species that
+    # was never renamed, so it needs restoring in place.
+    CropSpecies.objects.filter(
+        name_normalized=normalize_text(LEGACY_LEAF_MUSTARD_NAME) or '',
+        review_note=LEAF_MUSTARD_DUPLICATE_NOTE,
+    ).update(status='published', review_note='')
+
     # Only un-reject rows this migration itself rejected (identified by the
     # note it wrote), so species that were already rejected for other reasons
     # keep their status and note.
