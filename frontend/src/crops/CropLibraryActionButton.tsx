@@ -75,9 +75,20 @@ export function CropLibraryActionButton({
         : <Icon fontSize="small" />}
       disabled={action.disabled || loading}
       onClick={handleClick}
+      // Compact next to the header's "Bearbeiten" / "Anbauplan hinzufügen":
+      // the theme's default 24px side padding is too wide here, so tighten the
+      // sides to one 8px step and drop the label a touch. Height is unchanged.
       // 1 line at its natural width where there is room; wraps (never overflows)
       // when the badge row gets too narrow for the long German labels.
-      sx={{ py: 0.25, flexShrink: 0, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.25 }}
+      sx={{
+        px: 1,
+        py: 0.25,
+        fontSize: '0.75rem',
+        flexShrink: 0,
+        maxWidth: '100%',
+        whiteSpace: 'normal',
+        lineHeight: 1.25,
+      }}
     >
       {label}
     </Button>
