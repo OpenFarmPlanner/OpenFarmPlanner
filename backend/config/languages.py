@@ -95,7 +95,7 @@ def normalize_ui_language_preference(value: str | None) -> str:
     raise ValueError(f'Unsupported UI language preference: {value!r}')
 
 
-def resolve_request_language(request) -> str:
+def resolve_request_language(request, *, default: str = DEFAULT_LANGUAGE_CODE) -> str:
     """The content language an API response should prefer for this request.
 
     Resolution order, matching the frontend's UI-language order so the two
@@ -105,7 +105,8 @@ def resolve_request_language(request) -> str:
        ignored rather than rejected, so a stale client link never 400s),
     2. the signed-in user's stored preference (unless it is ``auto``),
     3. the ``Accept-Language`` header,
-    4. English.
+    4. ``default``, English unless a caller has its own last resort (the demo
+       project templates default to German).
     """
     query_params = getattr(request, 'query_params', None)
     if query_params is None:
@@ -127,7 +128,7 @@ def resolve_request_language(request) -> str:
     headers = getattr(request, 'headers', None)
     if headers is not None:
         header = headers.get('Accept-Language', '')
-    return parse_accept_language(header) or DEFAULT_LANGUAGE_CODE
+    return parse_accept_language(header) or default
 
 
 def build_fallback_chain(language_code: str | None) -> tuple[str, ...]:
