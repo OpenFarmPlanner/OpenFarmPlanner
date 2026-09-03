@@ -106,7 +106,6 @@ vi.mock('../crops/CropDetail', () => ({
     onEditCrop,
     onDeleteCrop,
     canCreatePlan,
-    publishActionLabel,
     selectedCropId,
   }: {
     crops: Array<CropDetailMockCrop>;
@@ -117,7 +116,6 @@ vi.mock('../crops/CropDetail', () => ({
     onEditCrop?: (crop: { id?: number; name: string }) => void;
     onDeleteCrop?: (crop: { id?: number; name: string; variety?: string; cultivation_type?: string }) => void;
     canCreatePlan?: boolean;
-    publishActionLabel?: string;
     selectedCropId?: number;
   }): ReactElement => (
     <div data-testid="crop-detail-mock">
@@ -126,7 +124,7 @@ vi.mock('../crops/CropDetail', () => ({
         <span key={crop.id} data-testid={`crop-row-${crop.id}`}>{crop.name}</span>
       ))}
       <button type="button" onClick={() => onCreateCrop?.()}>Kultur hinzufügen</button>
-      <button type="button" onClick={() => onPublishCrop?.()}>{publishActionLabel ?? 'Veröffentlichen'}</button>
+      <button type="button" onClick={() => onPublishCrop?.()}>Veröffentlichen</button>
       <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
       <button type="button" onClick={() => onEditCrop?.(crops[0])}>Kultur bearbeiten</button>
       <button type="button" onClick={() => onDeleteCrop?.(crops[0])}>Kultur löschen</button>
@@ -525,25 +523,8 @@ describe('Crops action area', () => {
     expect(screen.getByRole('dialog', { name: 'Aus Kulturbibliothek importieren' })).toBeInTheDocument();
   });
 
-  it('shows update label for crops linked to an owned public crop', async () => {
-    listMock.mockResolvedValue({
-      data: {
-        count: 1,
-        next: null,
-        previous: null,
-        results: [
-          { id: 1, name: 'Tomate', growth_duration_days: 1, harvest_duration_days: 1, owned_public_crop_id: 77 },
-        ],
-      },
-    });
-
-    renderCrops('/crops?cropId=1');
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
-    });
-    expect(screen.queryByRole('button', { name: 'Veröffentlichen' })).not.toBeInTheDocument();
-  });
+  // The dynamic label per library-link state is covered by cropLibraryAction.test.ts;
+  // this suite drives the flow through a mocked CropDetail with a plain button.
 
   it('keeps the public target fixed in the owned public crop update dialog', async () => {
     authUser.public_library_terms_accepted = true;
@@ -583,9 +564,9 @@ describe('Crops action area', () => {
     renderCrops('/crops?cropId=1');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Veröffentlichen' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('Tomate · Roma aktualisieren')).toBeInTheDocument();
@@ -628,7 +609,7 @@ describe('Crops action area', () => {
     renderCrops('/crops?cropId=1');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
   });
@@ -648,7 +629,7 @@ describe('Crops action area', () => {
 
     renderCrops('/crops?cropId=1');
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Kulturbibliothek aktualisieren' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'Aus Bibliothek entfernen' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Endgültig löschen' })).not.toBeInTheDocument();
   });

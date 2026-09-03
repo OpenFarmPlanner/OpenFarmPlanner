@@ -2,11 +2,13 @@
  * BasicInfoSection: Name, Variety, Crop Family, Nutrient Demand
  */
 import type { ReactNode } from 'react';
-import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem } from '@mui/material';
+import { Autocomplete, Box, CircularProgress, TextField, FormControl, InputLabel, MenuItem, Typography } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { fieldRowSx, mediumFieldSx, smallFieldSx } from './styles.tsx';
 import type { Crop } from '../../api/types';
 import type { TFunction } from 'i18next';
+import { AppTooltip } from '../../components/AppTooltip';
 import { TypeaheadSelect as Select } from '../../components/inputs/TypeaheadSelect';
 import { VarietyFieldTooltip } from '../VarietyFieldTooltip';
 import type { GetVarietyFieldTooltipProps } from '../varietyFieldTooltipHelpers';
@@ -56,6 +58,13 @@ interface BasicInfoSectionProps {
   /** Optional control rendered directly below the Name/Sorte identity row. */
   identityRowControl?: ReactNode;
   getFieldTooltipProps?: GetVarietyFieldTooltipProps;
+  /**
+   * Render the species-invariant crop-rotation fields (crop family, nutrient
+   * demand, rotation break) read-only and show an info icon next to the section
+   * heading. Set for a Sorte linked to a crop species: those three fields
+   * describe the crop species and are edited only on the general Kultur.
+   */
+  speciesInvariantFieldsReadOnly?: boolean;
 }
 
 const identityRowSx = {
@@ -100,6 +109,7 @@ export function BasicInfoSection({
   varietyApplyHint,
   identityRowControl,
   getFieldTooltipProps,
+  speciesInvariantFieldsReadOnly = false,
 }: BasicInfoSectionProps) {
   const nameAutocomplete = nameOptions && onNameSearchChange && onNameOptionSelect
     ? {
@@ -330,6 +340,27 @@ export function BasicInfoSection({
         <Box sx={fieldRowSx}>{firstVarietySourceHint}</Box>
       ) : null}
       {identityHint}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 2 }}>
+        <Typography variant="h6">{t('form.sectionCropRotation')}</Typography>
+        {speciesInvariantFieldsReadOnly ? (
+          <AppTooltip title={t('form.cropRotationInheritedTooltip')}>
+            <Box
+              component="span"
+              tabIndex={0}
+              aria-label={t('form.cropRotationInheritedTooltip')}
+              sx={{
+                display: 'inline-flex',
+                color: 'text.secondary',
+                cursor: 'help',
+                borderRadius: '50%',
+                '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}` },
+              }}
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </Box>
+          </AppTooltip>
+        ) : null}
+      </Box>
       <Box sx={{ ...fieldRowSx, alignItems: 'flex-end' }}>
         <VarietyFieldTooltip tooltipTitle={cropFamilyVariety?.tooltipTitle}>
           <TextField
@@ -338,16 +369,21 @@ export function BasicInfoSection({
             placeholder={t('form.cropFamilyPlaceholder')}
             value={formData.crop_family}
             onChange={e => onChange('crop_family', e.target.value)}
+            disabled={speciesInvariantFieldsReadOnly}
           />
         </VarietyFieldTooltip>
         <VarietyFieldTooltip tooltipTitle={nutrientDemandVariety?.tooltipTitle}>
-          <FormControl sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}>
+          <FormControl
+            sx={mergeVarietyFieldSx(smallFieldSx, nutrientDemandVariety?.sx)}
+            disabled={speciesInvariantFieldsReadOnly}
+          >
             <InputLabel>{t('form.nutrientDemand')}</InputLabel>
             <Select
               fullWidth
               value={formData.nutrient_demand || ''}
               onChange={e => onChange('nutrient_demand', e.target.value)}
               label={t('form.nutrientDemand')}
+              disabled={speciesInvariantFieldsReadOnly}
             >
               <MenuItem value="">{t('noData')}</MenuItem>
               <MenuItem value="low">{t('form.nutrientDemandLow')}</MenuItem>
@@ -364,6 +400,7 @@ export function BasicInfoSection({
             value={formData.rotation_break_years ?? ''}
             onChange={e => onChange('rotation_break_years', e.target.value === '' ? null : parseInt(e.target.value, 10))}
             slotProps={{ htmlInput: { min: 0, inputMode: 'numeric' } }}
+            disabled={speciesInvariantFieldsReadOnly}
           />
         </VarietyFieldTooltip>
       </Box>

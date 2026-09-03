@@ -138,6 +138,8 @@ export interface Crop {
   crop_display_name?: string | null;
   /** Language `crop_display_name` actually came from; '' when no translation exists. */
   crop_display_language_code?: string | null;
+  /** Language imported public-library notes actually came from; null when no public description applies. */
+  description_language_code?: string | null;
   /** Every stored linked species name, keyed by language code. */
   crop_species_translations?: Record<string, string>;
   variety?: string;
@@ -280,8 +282,8 @@ export interface PublicCrop {
   display_language_code?: string;
   /** Public description in the request language, after the fallback chain. */
   description?: string;
-  /** Language `description` actually came from; '' when none exists. */
-  description_language_code?: string;
+  /** Language `description` actually came from; null when none exists. */
+  description_language_code?: string | null;
   /** Every stored public description, keyed by language code. */
   translations?: Record<string, string>;
   original_language_code?: string;

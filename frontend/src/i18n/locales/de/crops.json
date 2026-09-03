@@ -207,6 +207,8 @@
     "addSupplierData": "Lieferanteninformation hinzufügen",
     "removeSupplierData": "Lieferantendaten entfernen",
     "removeSeedPackageAriaLabel": "Packungsgröße entfernen",
+    "sectionCropRotation": "Fruchtfolge-Eigenschaften",
+    "cropRotationInheritedTooltip": "Gilt für die gesamte Kultur, änderbar nur dort.",
     "cropFamily": "Pflanzenfamilie",
     "cropFamilyPlaceholder": "z.B. Solanaceae",
     "nutrientDemand": "Nährstoffbedarf",
@@ -842,8 +844,6 @@
     },
     "publicUpdate": {
       "notice": "Für diese Kultur gibt es eine neuere Version in der Kulturbibliothek.",
-      "review": "Änderungen ansehen",
-      "loading": "Lade Änderungen…",
       "loadError": "Die Änderungen aus der Bibliothek konnten nicht geladen werden.",
       "gone": "Diese Kultur ist bereits auf dem aktuellen Stand der Bibliothek.",
       "dialogTitle": "Aktualisierung aus der Bibliothek",
@@ -860,12 +860,8 @@
       "rejected": "Die Änderungen an „{{name}}“ wurden abgelehnt. Deine lokale Kopie bleibt unverändert.",
       "rejectError": "Die Änderungen konnten nicht abgelehnt werden.",
       "rejectedHint": "Du hast diese Version bereits abgelehnt. Du kannst sie hier jederzeit doch noch übernehmen.",
-      "markerLabel": "Update verfügbar",
-      "markerTooltip": "Deine lokale Kopie weicht von der aktuellen Version in der Bibliothek ab. Klicke, um die Änderungen anzusehen.",
-      "markerRejectedLabel": "Update abgelehnt",
-      "markerRejectedTooltip": "Du hast diese Version aus der Bibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen und sie doch noch zu übernehmen.",
       "markerUpToDateLabel": "Aktuell",
-      "markerUpToDateTooltip": "Kulturbibliothek ist bereits aktuell",
+      "markerUpToDateTooltip": "Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.",
       "publishBlocked": {
         "update_pending": "Für diese Kultur steht eine Änderung aus der Bibliothek aus. Bitte entscheide zuerst über die Änderungen, bevor du die Kulturbibliothek aktualisierst.",
         "update_rejected": "Du hast eine neuere Version abgelehnt. Übernimm sie über das Update-Symbol bei der Sorte, um wieder veröffentlichen zu können.",
@@ -873,10 +869,15 @@
       }
     },
     "publishButton": "Veröffentlichen",
-    "publishTooltip": "Veröffentlicht die ausgewählte Kultur dauerhaft in der gemeinschaftlichen Kulturbibliothek.",
-    "updateButton": "Kulturbibliothek aktualisieren",
     "publishing": "Veröffentliche…",
-    "updating": "Aktualisiere…",
+    "libraryAction": {
+      "publish": "In Bibliothek teilen",
+      "publishTooltip": "Diese Kultur zum ersten Mal in der gemeinschaftlichen Kulturbibliothek veröffentlichen.",
+      "pullUpdate": "Kultur aktualisieren",
+      "pullUpdateTooltip": "Die Bibliothek hat eine neuere Version. Änderungen ansehen und in deine Projektkultur übernehmen.",
+      "pushUpdate": "Bibliothek aktualisieren",
+      "pushUpdateTooltip": "Deine lokalen Änderungen in die öffentliche Version in der Bibliothek übernehmen."
+    },
     "publishSuccess": "„{{name}}“ wurde in die Kulturbibliothek veröffentlicht.",
     "updateSuccess": "Die öffentliche Version von „{{name}}“ wurde aktualisiert.",
     "linkPublicCropSuccess": "„{{name}}“ wurde mit der Kulturbibliothek verknüpft.",
@@ -1092,8 +1093,8 @@
       "speciesPendingChip": "Vorschlag in Prüfung",
       "speciesPendingTooltip": "Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.",
       "speciesPendingChipTooltip": "Die Kulturart wurde vorgeschlagen und ist noch nicht von einem Moderator geprüft.",
-      "local": "Lokal",
       "imported": "Importiert",
+      "importedTooltip": "Diese Kultur wurde aus der öffentlichen Kulturbibliothek importiert.",
       "modified": "Lokal geändert"
     },
     "translation": {

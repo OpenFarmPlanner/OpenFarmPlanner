@@ -113,13 +113,17 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
             public_crop = PublicCrop.objects.create(
                 name=f'Public crop {index}', variety='Sorte',
                 status=PublicCrop.STATUS_PUBLISHED, crop_species=species, created_by=self.user,
+                original_language_code='en',
             )
             self.public_crops.append(public_crop)
-            # An imported copy so the serializer's `project_import_status`
-            # has something to resolve for every public row.
+            # An imported copy so the serializer's `project_import_status` has
+            # something to resolve for every public row. `notes` is set and the
+            # copy is left pristine so `description_language_code` reaches into
+            # `source_public_crop.original_language_code` -- the relation read
+            # this list's query count must keep guarding against an N+1.
             Crop.objects.create(
                 name=f'Imported crop {index}', variety='Sorte', project=self.project,
-                source_public_crop=public_crop,
+                source_public_crop=public_crop, notes=f'Imported description {index}',
             )
 
     def assert_list_query_count(
@@ -152,8 +156,10 @@ class ListEndpointQueryCountTest(ProjectApiTestCase):
     def test_crops_list_query_count(self):
         """The heaviest project list: supplier rows, seed packages, species
         translations, the owned-public-crop lookup, that entry's species
-        status, the same user's species-level public entry and the general
-        Kultur a Sorte inherits from are all per-row data that the viewset
+        status, the same user's species-level public entry, the general
+        Kultur a Sorte inherits from, and the imported copy's
+        `description_language_code` (which reads the linked public entry's
+        `original_language_code`) are all per-row data that the viewset
         resolves for the whole page."""
         # Each crop created above also has an imported sibling row, so the
         # project holds twice ROW_COUNT crops.

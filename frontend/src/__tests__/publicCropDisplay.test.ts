@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import type { PublicCrop } from '../api/types';
 import i18n from '../i18n/config';
 import {
+  buildLocalizedText,
   getDescriptionFallbackNotice,
   getFallbackNotice,
   getPublicCropDescription,
@@ -130,6 +131,41 @@ describe('getPublicCropDescription', () => {
     const result = getPublicCropDescription(buildCrop({ description: '', notes: '' }), 'de');
 
     expect(result.text).toBe('');
+    expect(result.isFallback).toBe(false);
+  });
+
+  it('does not treat an empty description language code as badge-worthy content', () => {
+    const result = getPublicCropDescription(
+      buildCrop({ description: '   ', notes: '', description_language_code: 'en' }),
+      'de',
+    );
+
+    expect(result.text).toBe('');
+    expect(getDescriptionFallbackNotice(result, t, 'de')).toBeNull();
+  });
+});
+
+describe('buildLocalizedText', () => {
+  it('does not flag content as a fallback when the UI language is a regional variant of it', () => {
+    const result = buildLocalizedText('Robuste Sorte.', 'de', 'de-DE', '');
+
+    expect(result.text).toBe('Robuste Sorte.');
+    expect(result.languageCode).toBe('de');
+    expect(result.isFallback).toBe(false);
+  });
+
+  it('normalizes a regional served tag down to its base language', () => {
+    const result = buildLocalizedText('A robust variety.', 'en-US', 'de', '');
+
+    expect(result.languageCode).toBe('en');
+    expect(result.isFallback).toBe(true);
+  });
+
+  it('returns the fallback text with no language and no fallback flag for empty content', () => {
+    const result = buildLocalizedText('   ', 'en', 'de', '');
+
+    expect(result.text).toBe('');
+    expect(result.languageCode).toBeNull();
     expect(result.isFallback).toBe(false);
   });
 });

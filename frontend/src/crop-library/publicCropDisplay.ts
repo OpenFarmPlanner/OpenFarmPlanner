@@ -4,9 +4,8 @@
  * The API already resolves the caller's language and reports which language it
  * actually served (`display_language_code` / `description_language_code`). These
  * helpers turn that into what the UI needs: a name that is never empty, and a
- * flag for whether the text is a real translation or a fallback from another
- * language, so the UI can say so instead of passing an English name off as a
- * German one.
+ * flag for whether description text is a real translation or a fallback from
+ * another language.
  *
  * Variety names are proper names and are never translated — they are appended
  * verbatim in every language.
@@ -26,9 +25,16 @@ export interface LocalizedText {
   isFallback: boolean;
 }
 
-function buildLocalizedText(
-  value: string | undefined,
-  servedLanguage: string | undefined,
+/**
+ * Normalize a served value plus its language tag into a {@link LocalizedText},
+ * deciding fallback status by comparing normalized language tags (so a regional
+ * tag such as `de-DE` still counts as the `de` UI language). Shared by the
+ * public-library helpers and by any caller that already holds the raw text and
+ * its served language (e.g. a project crop's description).
+ */
+export function buildLocalizedText(
+  value: string | null | undefined,
+  servedLanguage: string | null | undefined,
   currentLanguage: string,
   fallbackText: string,
 ): LocalizedText {
@@ -117,7 +123,7 @@ export function getFallbackNotice(
   t: TFunction,
   displayLanguage: string,
 ): { label: string; tooltip: string } | null {
-  if (!localized.isFallback || !localized.languageCode) {
+  if (!localized.text || !localized.isFallback || !localized.languageCode) {
     return null;
   }
   const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);
@@ -138,7 +144,7 @@ export function getDescriptionFallbackNotice(
   t: TFunction,
   displayLanguage: string,
 ): { label: string; tooltip: string } | null {
-  if (!localized.isFallback || !localized.languageCode) {
+  if (!localized.text || !localized.isFallback || !localized.languageCode) {
     return null;
   }
   const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);

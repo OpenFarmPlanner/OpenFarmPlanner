@@ -401,6 +401,7 @@ class CropApiLocalizationTest(DRFAPITestCase):
 
         self.assertEqual(payload['display_name'], 'Tomate')
         self.assertEqual(payload['description'], 'Robuste Freilandsorte.')
+        self.assertEqual(payload['description_language_code'], 'de')
 
     def test_serves_the_english_species_name_for_an_english_request(self):
         payload = self._get_crop(language='en')
@@ -416,6 +417,16 @@ class CropApiLocalizationTest(DRFAPITestCase):
 
         self.assertEqual(payload['description'], 'Robuste Freilandsorte.')
         self.assertEqual(payload['description_language_code'], 'de')
+
+    def test_empty_description_reports_no_language(self):
+        self.crop.notes = ''
+        self.crop.save(update_fields=['notes'])
+        self.crop.translations.all().delete()
+
+        payload = self._get_crop(language='en')
+
+        self.assertEqual(payload['description'], '')
+        self.assertIsNone(payload['description_language_code'])
 
     def test_endpoints_agree_on_the_resolved_language(self):
         detail = self._get_crop(language='en')

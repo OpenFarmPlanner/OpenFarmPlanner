@@ -207,6 +207,8 @@
     "addSupplierData": "Add supplier information",
     "removeSupplierData": "Remove supplier data",
     "removeSeedPackageAriaLabel": "Remove package size",
+    "sectionCropRotation": "Crop rotation properties",
+    "cropRotationInheritedTooltip": "Applies to the whole crop; editable only there.",
     "cropFamily": "Crop family",
     "cropFamilyPlaceholder": "e.g. Solanaceae",
     "nutrientDemand": "Nutrient demand",
@@ -842,8 +844,6 @@
     },
     "publicUpdate": {
       "notice": "A newer version of this crop is available in the crop library.",
-      "review": "Review changes",
-      "loading": "Loading changes…",
       "loadError": "The changes from the library could not be loaded.",
       "gone": "This crop already matches the current library version.",
       "dialogTitle": "Update from the library",
@@ -860,12 +860,8 @@
       "rejected": "The changes to “{{name}}” were declined. Your local copy stays unchanged.",
       "rejectError": "The changes could not be declined.",
       "rejectedHint": "You already declined this version. You can still apply it here at any time.",
-      "markerLabel": "Update available",
-      "markerTooltip": "Your local copy differs from the current library version. Click to review the changes.",
-      "markerRejectedLabel": "Update declined",
-      "markerRejectedTooltip": "You declined this library version. Click to review the changes again and apply them after all.",
       "markerUpToDateLabel": "Up to date",
-      "markerUpToDateTooltip": "Culture library is already up to date",
+      "markerUpToDateTooltip": "This crop matches the current version in the crop library.",
       "publishBlocked": {
         "update_pending": "There is a pending library change for this crop. Decide on the changes before updating the crop library.",
         "update_rejected": "You declined a newer version from the library. Edit the public crop directly first to align the versions.",
@@ -873,10 +869,15 @@
       }
     },
     "publishButton": "Publish",
-    "publishTooltip": "Publishes the selected crop permanently in the shared crop library.",
-    "updateButton": "Update crop library",
     "publishing": "Publishing…",
-    "updating": "Updating…",
+    "libraryAction": {
+      "publish": "Share to library",
+      "publishTooltip": "Publish this crop to the shared crop library for the first time.",
+      "pullUpdate": "Update crop",
+      "pullUpdateTooltip": "The library has a newer version. Review the changes and apply them to your project crop.",
+      "pushUpdate": "Update library",
+      "pushUpdateTooltip": "Push your local changes into the public version in the library."
+    },
     "publishSuccess": "“{{name}}” was published to the crop library.",
     "updateSuccess": "The public version of “{{name}}” was updated.",
     "linkPublicCropSuccess": "“{{name}}” was linked to the crop library.",
@@ -1092,8 +1093,8 @@
       "speciesPendingChip": "Proposal under review",
       "speciesPendingTooltip": "This function becomes available once a moderator has reviewed the crop species proposal.",
       "speciesPendingChipTooltip": "The crop species has been proposed and has not been reviewed by a moderator yet.",
-      "local": "Local",
       "imported": "Imported",
+      "importedTooltip": "This crop was imported from the public crop library.",
       "modified": "Modified locally"
     },
     "translation": {

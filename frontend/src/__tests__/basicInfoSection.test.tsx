@@ -4,6 +4,15 @@ import { BasicInfoSection } from '../crops/sections/BasicInfoSection';
 
 const t = ((key: string) => key) as never;
 
+const linkedVarietyForm = {
+  name: 'Karotte',
+  variety: 'Nantaise',
+  crop_species: 5,
+  crop_family: 'Apiaceae',
+  nutrient_demand: 'medium',
+  rotation_break_years: 4,
+};
+
 describe('BasicInfoSection', () => {
   it('updates basic text fields', () => {
     const onChange = vi.fn();
@@ -65,5 +74,69 @@ describe('BasicInfoSection', () => {
 
     fireEvent.change(rotationBreakInput, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith('rotation_break_years', null);
+  });
+
+  it('keeps the crop-rotation fields editable with no info icon by default', () => {
+    render(
+      <BasicInfoSection
+        formData={{ crop_family: 'Apiaceae', nutrient_demand: 'medium', rotation_break_years: 2 }}
+        errors={{}}
+        onChange={vi.fn()}
+        t={t}
+      />
+    );
+
+    expect(screen.getByText('form.sectionCropRotation')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('form.cropFamilyPlaceholder')).toBeEnabled();
+    expect(screen.getByLabelText('form.rotationBreakYears')).toBeEnabled();
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByLabelText('form.cropRotationInheritedTooltip')).not.toBeInTheDocument();
+  });
+
+  it('renders the crop-rotation fields read-only with an info icon for a linked Sorte', () => {
+    const onChange = vi.fn();
+
+    render(
+      <BasicInfoSection
+        formData={linkedVarietyForm}
+        errors={{}}
+        onChange={onChange}
+        t={t}
+        speciesInvariantFieldsReadOnly
+      />
+    );
+
+    const cropFamilyInput = screen.getByPlaceholderText('form.cropFamilyPlaceholder');
+    expect(cropFamilyInput).toBeDisabled();
+    expect(cropFamilyInput).toHaveValue('Apiaceae');
+    expect(screen.getByLabelText('form.rotationBreakYears')).toBeDisabled();
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-disabled', 'true');
+
+    const infoIcon = screen.getByLabelText('form.cropRotationInheritedTooltip');
+    expect(infoIcon).toHaveAttribute('tabindex', '0');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows the info-icon tooltip on hover and on keyboard focus', async () => {
+    render(
+      <BasicInfoSection
+        formData={linkedVarietyForm}
+        errors={{}}
+        onChange={vi.fn()}
+        t={t}
+        speciesInvariantFieldsReadOnly
+      />
+    );
+
+    const infoIcon = screen.getByLabelText('form.cropRotationInheritedTooltip');
+
+    fireEvent.mouseOver(infoIcon);
+    expect(await screen.findByRole('tooltip'))
+      .toHaveTextContent('form.cropRotationInheritedTooltip');
+    fireEvent.mouseLeave(infoIcon);
+
+    fireEvent.focus(infoIcon);
+    expect(await screen.findByRole('tooltip'))
+      .toHaveTextContent('form.cropRotationInheritedTooltip');
   });
 });

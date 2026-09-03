@@ -23,6 +23,7 @@ const publicCropApiMocks = vi.hoisted(() => ({
   versions: vi.fn(),
   importToProject: vi.fn(),
   update: vi.fn(),
+  getTranslations: vi.fn(),
   updateTranslations: vi.fn(),
   remove: vi.fn(),
 }));
@@ -96,6 +97,7 @@ vi.mock('../api/api', async () => {
       versions: publicCropApiMocks.versions,
       importToProject: publicCropApiMocks.importToProject,
       update: publicCropApiMocks.update,
+      getTranslations: publicCropApiMocks.getTranslations,
       updateTranslations: publicCropApiMocks.updateTranslations,
       remove: publicCropApiMocks.remove,
     },
@@ -299,6 +301,12 @@ describe('PublicCropLibraryPage', () => {
       data: {
         original_language_code: 'de',
         translations: { de: 'Robuste Sorte.', en: 'A robust variety.' },
+      },
+    });
+    publicCropApiMocks.getTranslations.mockResolvedValue({
+      data: {
+        original_language_code: 'de',
+        translations: { de: 'Robuste Sorte.' },
       },
     });
     publicCropApiMocks.get.mockResolvedValue({
@@ -1944,7 +1952,7 @@ describe('PublicCropLibraryPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Öffentliche Kultur bearbeiten' })).not.toBeInTheDocument());
   }, 30000);
 
-  it('adds a missing English notes translation inline from the Notes section', async () => {
+  it('adds a missing English notes translation from the Notes section dialog and refreshes the fallback state', async () => {
     await i18n.changeLanguage('en');
     const user = userEvent.setup();
     renderPage(['/app/crop-library?cropId=1']);
@@ -1955,21 +1963,20 @@ describe('PublicCropLibraryPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add English translation' }));
 
-    const editDialog = await screen.findByRole('dialog', { name: 'Edit public crop' });
-    expect(within(editDialog).getByText('Original language: German')).toBeInTheDocument();
-    expect(within(editDialog).getByText('Showing original German text')).toBeInTheDocument();
-    const englishNotesInput = within(editDialog).getByLabelText('English translation');
+    const translationDialog = await screen.findByRole('dialog', { name: 'Edit translation' });
+    expect(publicCropApiMocks.getTranslations).toHaveBeenCalledWith(1);
+    expect(within(translationDialog).getByText('Robuste Sorte.')).toBeInTheDocument();
+    const englishNotesInput = within(translationDialog).getByLabelText('English – Translation');
     expect(englishNotesInput).toHaveValue('');
 
     fireEvent.change(englishNotesInput, { target: { value: 'A robust variety.' } });
-    await user.click(within(editDialog).getByRole('button', { name: 'Save' }));
+    await user.click(within(translationDialog).getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(publicCropApiMocks.update).toHaveBeenCalledWith(1, expect.objectContaining({
-      base_version: 1,
-      notes: 'Robuste Sorte.',
-    })));
     await waitFor(() => expect(publicCropApiMocks.updateTranslations).toHaveBeenCalledWith(1, { en: 'A robust variety.' }));
     await waitFor(() => expect(publicCropApiMocks.get).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(screen.queryByText('Only available in German')).not.toBeInTheDocument());
+    expect(screen.getByText('A robust variety.')).toBeInTheDocument();
+    expect(publicCropApiMocks.update).not.toHaveBeenCalled();
   }, 30000);
 
   it('keeps the saved public crop details while the search field filters locally', async () => {

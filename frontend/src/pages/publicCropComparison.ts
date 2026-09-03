@@ -43,6 +43,11 @@ const COMPARISON_FIELDS = [
   'seed_packages',
 ] as const;
 
+// crop_family / nutrient_demand describe the crop species, so a species-linked
+// Sorte never publishes them onto its variety entry (see
+// build_public_crop_payload) — they are curated on the species-level entry.
+const SPECIES_INVARIANT_COMPARISON_FIELDS = ['crop_family', 'nutrient_demand'] as const;
+
 export interface PublicCropComparisonOptions {
   /**
    * A species-level publish always writes an empty variety server-side, so the
@@ -60,8 +65,13 @@ export function buildPublicCropComparison(
   const privatePayload = buildPublicCropUpdatePayload(crop, publicCrop.version);
   const privateValues: Partial<PublicCrop> = privatePayload;
   const publicValues: Partial<PublicCrop> = publicCrop;
+  const isSpeciesLinkedVariety = Boolean((crop.variety || '').trim() && crop.crop_species)
+    && !options.publishAsGeneral;
   return COMPARISON_FIELDS.flatMap((field) => {
     if (field === 'variety' && options.publishAsGeneral) return [];
+    if (isSpeciesLinkedVariety && SPECIES_INVARIANT_COMPARISON_FIELDS.includes(field as never)) {
+      return [];
+    }
     const privateValue = privateValues[field];
     const publicValue = publicValues[field];
     if (arePublicValuesEqual(privateValue, publicValue)) return [];

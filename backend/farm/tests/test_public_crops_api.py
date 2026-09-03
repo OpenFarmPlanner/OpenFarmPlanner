@@ -1,7 +1,7 @@
 """API tests for the public crop library endpoints."""
 
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal
 
 from django.utils import timezone
@@ -593,7 +593,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
     def _create_general_kultur(self, **overrides) -> Crop:
         return Crop.objects.create(
-            name='Lettuce',
+            name=overrides.pop('name', 'Lettuce'),
             crop_species=self.species,
             growth_duration_days=overrides.pop('growth_duration_days', 60),
             harvest_duration_days=overrides.pop('harvest_duration_days', 30),
@@ -622,11 +622,68 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
             self.crop,
         )
 
+    def test_publishing_a_sorte_keeps_the_general_kultur_name_for_the_species_entry(self):
+        general_kultur = self._create_general_kultur(name='t')
+        self.crop.name = 'PublishCopy 1787901718647'
+        self.crop.save(update_fields=['name', 'name_normalized', 'updated_at'])
+
+        response = self.publish_current_crop()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        general_public_crop = PublicCrop.objects.get(variety='')
+        self.assertEqual(general_public_crop.name, 't')
+        self.assertEqual(general_public_crop.source_project_crop, general_kultur)
+        self.assertEqual(
+            PublicCrop.objects.get(variety='Bijella').name,
+            'PublishCopy 1787901718647',
+        )
+
     def test_publishing_a_sorte_without_a_general_kultur_keeps_the_sorte_as_owner(self):
         """Nothing else can own the entry when the project has no general Kultur."""
         self.publish_current_crop()
 
         self.assertEqual(PublicCrop.objects.get(variety='').source_project_crop, self.crop)
+
+    def test_publishing_a_sorte_keeps_species_invariant_fields_off_the_variety_entry(self):
+        """crop_family / nutrient_demand describe the species: the Sorte's public
+        variety entry never carries them, and the species-level entry takes them
+        from the project's general Kultur, not from the Sorte."""
+        general_kultur = self._create_general_kultur(
+            crop_family='Asteraceae', nutrient_demand='high',
+        )
+        # A stale value on the Sorte itself must be ignored on publish.
+        Crop.objects.filter(pk=self.crop.pk).update(crop_family='Wrong', nutrient_demand='low')
+
+        response = self.publish_current_crop()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        variety_entry = PublicCrop.objects.get(variety='Bijella')
+        self.assertEqual(variety_entry.crop_family, '')
+        self.assertEqual(variety_entry.nutrient_demand, '')
+
+        general_entry = PublicCrop.objects.get(variety='')
+        self.assertEqual(general_entry.source_project_crop, general_kultur)
+        self.assertEqual(general_entry.crop_family, 'Asteraceae')
+        self.assertEqual(general_entry.nutrient_demand, 'high')
+
+    def test_updating_a_sorte_entry_does_not_wipe_a_curated_species_invariant_value(self):
+        """The project-side update omits these fields, so a value curated on the
+        public variety entry survives."""
+        self._create_general_kultur(crop_family='Asteraceae')
+        self.publish_current_crop()
+        variety_entry = PublicCrop.objects.get(variety='Bijella')
+        PublicCrop.objects.filter(pk=variety_entry.pk).update(
+            crop_family='Curated', nutrient_demand='medium',
+        )
+
+        self.crop.notes = 'Local edit to trigger an update'
+        self.crop.save()
+        response = self.publish_current_crop()
+        self.assertEqual(response.data['operation'], 'updated')
+
+        variety_entry.refresh_from_db()
+        self.assertEqual(variety_entry.crop_family, 'Curated')
+        self.assertEqual(variety_entry.nutrient_demand, 'medium')
 
     def test_general_kultur_published_through_a_sorte_offers_a_library_update(self):
         """The menu state the frontend derives must match a directly published Kultur."""
@@ -1116,6 +1173,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         })
         self.assertEqual(response.data['crop']['crop_display_name'], 'Broad bean')
         self.assertEqual(response.data['crop']['crop_display_language_code'], 'en')
+        self.assertEqual(response.data['crop']['description_language_code'], 'de')
         self.assertEqual(response.data['crop']['crop_species_translations'], {
             'de': 'Ackerbohne',
             'en': 'Broad bean',
@@ -1130,6 +1188,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(detail_response.data['name'], 'Ackerbohne')
         self.assertEqual(detail_response.data['crop_display_name'], 'Broad bean')
         self.assertEqual(detail_response.data['crop_display_language_code'], 'en')
+        self.assertEqual(detail_response.data['description_language_code'], 'de')
 
     def test_imported_crop_detail_serves_german_name_when_requested(self):
         species = CropSpecies.objects.create(name='Localized Import Species 2')
@@ -1154,6 +1213,44 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_response.data['crop_display_name'], 'Ackerbohne')
         self.assertEqual(detail_response.data['crop_display_language_code'], 'de')
+        self.assertIsNone(detail_response.data['description_language_code'])
+
+    def test_imported_crop_detail_reports_original_notes_language(self):
+        species = CropSpecies.objects.create(name='Localized Import Species With Notes')
+        CropSpeciesTranslation.objects.create(
+            species=species,
+            language_code='de',
+            common_name='Ackerbohne',
+        )
+        public_crop = PublicCrop.objects.create(
+            name='Ackerbohne',
+            variety='Hangdown',
+            notes='Deutsche Beschreibung',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            original_language_code='de',
+        )
+        PublicCropTranslation.objects.create(
+            public_crop=public_crop,
+            language_code='de',
+            description='Deutsche Beschreibung',
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/',
+            {},
+            format='json',
+        )
+        imported_id = import_response.data['crop']['id']
+
+        detail_response = self.client.get(
+            f'/openfarmplanner/api/crops/{imported_id}/',
+            HTTP_ACCEPT_LANGUAGE='de',
+        )
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['notes'], 'Deutsche Beschreibung')
+        self.assertEqual(detail_response.data['description_language_code'], 'de')
 
     def test_imported_crop_detail_falls_back_when_requested_translation_is_missing(self):
         species = CropSpecies.objects.create(name='Localized Import Species 3')
@@ -1328,6 +1425,40 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
             revision_count_after_first_import + 1,
         )
 
+    def test_reimporting_after_version_bump_with_no_compared_change_is_a_no_op(self):
+        """A library version bump that touches only a non-compared field (here
+        the project-local ``display_color``) is not a real update: the auto
+        re-import must report ``unchanged`` and record no revision, matching
+        ``has_pending_public_crop_update`` -- the detail badge and the re-import
+        decision must never disagree over a version-only bump."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot',
+            variety='Nantes',
+            status='published',
+            created_by=self.user,
+            growth_duration_days=70,
+        )
+        first_response = self.client.post(f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json')
+        imported_id = first_response.data['crop']['id']
+        revision_count_after_first_import = EntityRevision.objects.filter(entity_type='crop', object_id=imported_id).count()
+
+        public_crop.display_color = '#123456'
+        public_crop.version = 2
+        public_crop.save(update_fields=['display_color', 'version'])
+
+        second_response = self.client.post(f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json')
+
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.data['operation'], 'unchanged')
+        self.assertEqual(second_response.data['crop']['id'], imported_id)
+        self.assertEqual(Crop.objects.filter(source_public_crop=public_crop).count(), 1)
+        imported = Crop.objects.get(id=imported_id)
+        self.assertFalse(imported.is_modified_from_source)
+        self.assertEqual(
+            EntityRevision.objects.filter(entity_type='crop', object_id=imported_id).count(),
+            revision_count_after_first_import,
+        )
+
     def test_reimporting_with_local_changes_requires_confirmation(self):
         public_crop = PublicCrop.objects.create(
             name='Carrot',
@@ -1450,6 +1581,53 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {'available': False})
+
+    def test_a_version_bump_with_no_compared_field_change_is_not_a_pending_update(self):
+        """A translation-only edit (or a value the copy already matches) bumps
+        the public version but leaves every compared field equal — nothing to
+        review, so no notice and the push stays blocked as "no local changes"."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot', variety='Nantes', status='published', created_by=self.user,
+            growth_duration_days=70, display_color='#123456',
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json',
+        )
+        imported = Crop.objects.get(id=import_response.data['crop']['id'])
+        PublicCrop.objects.filter(pk=public_crop.pk).update(version=public_crop.version + 1)
+
+        preview = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/public-update/')
+        self.assertEqual(preview.data, {'available': False})
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
+        self.assertFalse(rows[imported.id]['public_update_available'])
+        self.assertFalse(rows[imported.id]['public_update_rejected'])
+        self.assertEqual(rows[imported.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+        reject = self.client.post(
+            f'/openfarmplanner/api/crops/{imported.id}/public-update/reject/', {}, format='json',
+        )
+        self.assertEqual(reject.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_a_display_color_only_difference_is_not_a_pending_update(self):
+        """An imported crop always gets an auto colour; a public entry often has
+        none, so a colour mismatch alone never announces a library update."""
+        public_crop = PublicCrop.objects.create(
+            name='Carrot', variety='Danvers', status='published', created_by=self.user,
+            growth_duration_days=70,
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/', {}, format='json',
+        )
+        imported = Crop.objects.get(id=import_response.data['crop']['id'])
+        # Bump the version and change *only* the colour.
+        PublicCrop.objects.filter(pk=public_crop.pk).update(
+            version=public_crop.version + 1, display_color='#abcdef',
+        )
+        self.assertNotEqual(imported.display_color, '#abcdef')
+
+        preview = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/public-update/')
+        self.assertEqual(preview.data, {'available': False})
 
     def test_crop_list_flags_a_pending_public_update(self):
         _, imported = self._import_and_rename_variety()
@@ -2550,6 +2728,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
             name='Lettuce',
             variety='Bijella',
             status=PublicCrop.STATUS_PUBLISHED,
+            published_at=datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc),
             created_by=self.user,
             source_project=self.project,
             source_project_crop=self.crop,
@@ -2560,6 +2739,26 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['owned_public_crop_id'], public_crop.id)
         self.assertEqual(response.data['results'][0]['owned_public_crop_role'], 'contributor')
+
+    def test_contributor_crop_list_ignores_withdrawn_or_removed_public_entries(self):
+        for public_status in (PublicCrop.STATUS_WITHDRAWN, PublicCrop.STATUS_REMOVED):
+            with self.subTest(public_status=public_status):
+                PublicCrop.objects.filter(source_project_crop=self.crop).delete()
+                PublicCrop.objects.create(
+                    name='Lettuce',
+                    variety='Bijella',
+                    status=public_status,
+                    published_at=datetime(2026, 3, 10, 12, 0, tzinfo=datetime_timezone.utc),
+                    created_by=self.user,
+                    source_project=self.project,
+                    source_project_crop=self.crop,
+                )
+
+                response = self.client.get('/openfarmplanner/api/crops/')
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertIsNone(response.data['results'][0]['owned_public_crop_id'])
+                self.assertIsNone(response.data['results'][0]['owned_public_crop_role'])
 
     def test_crop_list_reports_no_public_library_role_without_a_linked_entry(self):
         response = self.client.get('/openfarmplanner/api/crops/')
@@ -2831,6 +3030,46 @@ class PublicCropPendingSpeciesApiTest(DRFAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['public_crop_species_pending'])
+
+    def test_crop_detail_keeps_the_local_name_for_a_pending_species(self):
+        imported = Crop.objects.create(
+            name='t',
+            variety='Egyptian',
+            crop_species=self.pending_species,
+            project=self.project,
+            source_public_crop=self.pending_entry,
+            source_public_version=1,
+            origin_type=Crop.ORIGIN_IMPORTED,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/crops/{imported.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['name'], 't')
+        self.assertEqual(response.data['crop_display_name'], 't')
+        self.assertEqual(response.data['crop_display_language_code'], '')
+        self.assertTrue(response.data['public_crop_species_pending'])
+
+    def test_crop_detail_keeps_the_local_name_for_a_rejected_species(self):
+        """A rejected species keeps the proposer's free-text name, which may be
+        an unrelated placeholder, so the crop's own name must still win."""
+        rejected_species = CropSpecies.objects.create(
+            name='PublishCopy 1787901718647',
+            status=CropSpecies.STATUS_REJECTED,
+            proposed_by=self.user,
+        )
+        crop = Crop.objects.create(
+            name='test',
+            variety='sorte',
+            crop_species=rejected_species,
+            project=self.project,
+        )
+
+        response = self.client.get(f'/openfarmplanner/api/crops/{crop.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['crop_display_name'], 'test')
+        self.assertEqual(response.data['crop_display_language_code'], '')
 
     def test_crop_detail_reports_no_pending_state_for_a_published_species(self):
         published_species = CropSpecies.objects.create(name='Lettuce', status=CropSpecies.STATUS_PUBLISHED)

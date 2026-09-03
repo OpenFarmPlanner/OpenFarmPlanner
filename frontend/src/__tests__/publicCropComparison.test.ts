@@ -71,4 +71,54 @@ describe('buildPublicCropComparison', () => {
 
     expect(unchanged).toEqual([]);
   });
+
+  it('omits crop_family and nutrient_demand for a species-linked Sorte publish', () => {
+    const changes = buildPublicCropComparison(
+      {
+        ...privateCrop,
+        notes: 'Public notes',
+        growth_duration_days: 60,
+        crop_species: 5,
+        crop_family: 'Nightshades',
+        nutrient_demand: 'high',
+      },
+      { ...publicCrop, crop_family: 'Solanaceae', nutrient_demand: 'low' },
+      t,
+    );
+
+    expect(changes.map((change) => change.field)).not.toContain('crop_family');
+    expect(changes.map((change) => change.field)).not.toContain('nutrient_demand');
+  });
+
+  it('still compares crop_family for a free-text Sorte (no crop_species)', () => {
+    const changes = buildPublicCropComparison(
+      {
+        ...privateCrop,
+        notes: 'Public notes',
+        growth_duration_days: 60,
+        crop_family: 'Nightshades',
+      },
+      { ...publicCrop, crop_family: 'Solanaceae' },
+      t,
+    );
+
+    expect(changes.map((change) => change.field)).toContain('crop_family');
+  });
+
+  it('compares crop_family for a species-level publish (writes the general entry)', () => {
+    const changes = buildPublicCropComparison(
+      {
+        ...privateCrop,
+        notes: 'Public notes',
+        growth_duration_days: 60,
+        crop_species: 5,
+        crop_family: 'Nightshades',
+      },
+      { ...publicCrop, crop_family: 'Solanaceae' },
+      t,
+      { publishAsGeneral: true },
+    );
+
+    expect(changes.map((change) => change.field)).toContain('crop_family');
+  });
 });

@@ -38,6 +38,7 @@ from farm.services.crop_inheritance import (
     build_effective_crop_values,
     build_general_crop_index,
     build_inherited_crop_values,
+    clear_species_invariant_overrides,
     ensure_general_crop_for_variety,
     get_general_crop,
     resolve_plants_per_m2,
@@ -119,6 +120,7 @@ class CropSerializer(serializers.ModelSerializer):
     """Serializer for crop data with unit conversion and supplier helpers."""
     crop_display_name = serializers.SerializerMethodField(read_only=True)
     crop_display_language_code = serializers.SerializerMethodField(read_only=True)
+    description_language_code = serializers.SerializerMethodField(read_only=True)
     crop_species_translations = serializers.SerializerMethodField(read_only=True)
     variety = serializers.CharField(
         required=False,
@@ -337,6 +339,15 @@ class CropSerializer(serializers.ModelSerializer):
 
     def get_crop_display_language_code(self, obj: Crop) -> str:
         return self._get_localized_crop_name(obj)[1]
+
+    def get_description_language_code(self, obj: Crop) -> str | None:
+        if (
+            not obj.source_public_crop_id
+            or obj.is_modified_from_source
+            or not (obj.notes or '').strip()
+        ):
+            return None
+        return obj.source_public_crop.original_language_code or None
 
     def get_crop_species_translations(self, obj: Crop) -> dict[str, str]:
         species = self._get_crop_species(obj)
@@ -646,6 +657,12 @@ class CropSerializer(serializers.ModelSerializer):
                     crop,
                     copy_values=copy_values_to_crop,
                 )
+                # The species-invariant fields belong to the general Kultur.
+                # ensure_general_crop_for_variety has just had its chance to
+                # lift a genuinely new value up there; whatever is still on the
+                # Sorte is a dead override and gets dropped (the API "silently
+                # discards" a Sorte-level value rather than rejecting it).
+                clear_species_invariant_overrides(crop)
         except IntegrityError as exc:
             self._raise_name_conflict_if_general_name_constraint(exc)
             raise
@@ -678,6 +695,7 @@ class CropSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 crop = super().update(instance, validated_data)
                 crop._auto_general_crop = ensure_general_crop_for_variety(crop)
+                clear_species_invariant_overrides(crop)
         except IntegrityError as exc:
             self._raise_name_conflict_if_general_name_constraint(exc)
             raise

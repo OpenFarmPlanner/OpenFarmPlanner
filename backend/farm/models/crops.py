@@ -1014,7 +1014,7 @@ class PublicCrop(TimestampedModel):
             if translation.description
         }
 
-    def localized_description(self, language_code: str | None) -> tuple[str, str]:
+    def localized_description(self, language_code: str | None) -> tuple[str, str | None]:
         """Public description in the best available language, plus that language.
 
         Falls back to :attr:`notes` (the original-language text, kept in sync
@@ -1026,7 +1026,10 @@ class PublicCrop(TimestampedModel):
         text, used = resolve_translation(self.descriptions_by_language(), language_code)
         if text:
             return text, used
-        return self.notes or '', (self.original_language_code or '')
+        notes = (self.notes or '').strip()
+        if notes:
+            return notes, (self.original_language_code or None)
+        return '', None
 
     def display_name(self, language_code: str | None, region: str | None = None) -> tuple[str, str]:
         """Species common name in the requested language, plus that language.

@@ -19,9 +19,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
+import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
-import { PublicCropUpdateNotice } from './PublicCropUpdateNotice';
-import { PublicCropUpdateMarker } from './PublicCropUpdateMarker';
+import { PublicCropUpdateDialog } from './PublicCropUpdateDialog';
+import { CropLibraryActionButton } from './CropLibraryActionButton';
 import { CropSpeciesPendingChip } from './CropSpeciesPendingChip';
 import { usePublicCropUpdate } from './usePublicCropUpdate';
 import {
@@ -67,6 +68,7 @@ import { VarietyValueLegend } from './VarietyValueLegend';
 import { CropVarietiesOverview } from './CropVarietiesOverview';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
+import { buildLocalizedText, getDescriptionFallbackNotice } from '../crop-library/publicCropDisplay';
 
 interface CropDetailProps {
   crops: Crop[];
@@ -94,7 +96,6 @@ interface CropDetailProps {
   canCreatePlan?: boolean;
   createPlanDisabledTooltip?: string;
   isPublishingCrop?: boolean;
-  publishActionLabel?: string;
   searchInputRef?: Ref<HTMLInputElement>;
 }
 
@@ -129,11 +130,11 @@ export function CropDetail({
   canCreatePlan = true,
   createPlanDisabledTooltip,
   isPublishingCrop = false,
-  publishActionLabel,
   searchInputRef,
 }: CropDetailProps) {
   const { t, i18n } = useTranslation('crops');
-  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const locale = resolveLocaleFromLanguage(currentLanguage);
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
@@ -461,16 +462,24 @@ const detailSectionGridSx = {
     () => crops.find((crop) => crop.id === selectedCropId) ?? null,
     [crops, selectedCropId],
   );
+  const descriptionFallbackNotice = useMemo(
+    () => getDescriptionFallbackNotice(
+      buildLocalizedText(
+        selectedCrop?.notes,
+        selectedCrop?.description_language_code,
+        currentLanguage,
+        '',
+      ),
+      t,
+      currentLanguage,
+    ),
+    [currentLanguage, selectedCrop, t],
+  );
   const publicUpdate = usePublicCropUpdate(selectedCrop, onPublicUpdateApplied);
-  const publishBlockedTooltip = selectedCrop?.public_publish_blocked_reason
-    ? t(`library.publicUpdate.publishBlocked.${selectedCrop.public_publish_blocked_reason}`)
-    : undefined;
   // The variety is published, but under a species a moderator has not
-  // confirmed yet — visible as a chip, and the library sync waits for it.
+  // confirmed yet — visible as a chip, and the library sync waits for it
+  // (the badge-row action button disables itself in that case).
   const isPublishedUnderPendingSpecies = Boolean(selectedCrop?.public_crop_species_pending);
-  const pendingSpeciesDisabledReason = isPublishedUnderPendingSpecies
-    ? t('library.badges.speciesPendingTooltip')
-    : undefined;
   const selectedCropSpeciesKey = selectedCrop ? getCropSpeciesKey(selectedCrop) : null;
   const isSelectedSpeciesEntry = Boolean(selectedCrop && !(selectedCrop.variety || '').trim());
   const isSpeciesView = Boolean(
@@ -988,20 +997,27 @@ const detailSectionGridSx = {
                           </Typography>
                         </Stack>
                       ) : null}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                        <Chip
-                          size="small"
-                          color={selectedCrop.origin_type === 'imported' ? 'secondary' : 'default'}
-                          label={selectedCrop.origin_type === 'imported' ? t('library.badges.imported') : t('library.badges.local')}
-                        />
-                        {selectedCrop.is_modified_from_source ? (
-                          <Chip size="small" color="warning" label={t('library.badges.modified')} />
+                      <Box data-testid="crop-detail-badge-row" sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {selectedCrop.origin_type === 'imported' ? (
+                          <AppTooltip title={t('library.badges.importedTooltip')}>
+                            <Box component="span" sx={{ display: 'inline-flex' }}>
+                              <Chip
+                                size="small"
+                                color="secondary"
+                                label={t('library.badges.imported')}
+                              />
+                            </Box>
+                          </AppTooltip>
+                        ) : null}
+                        {onPublishCrop ? (
+                          <CropLibraryActionButton
+                            crop={selectedCrop}
+                            controller={publicUpdate}
+                            onPublish={() => onPublishCrop?.()}
+                            isPublishing={isPublishingCrop}
+                          />
                         ) : null}
                         {isPublishedUnderPendingSpecies ? <CropSpeciesPendingChip /> : null}
-                        <PublicCropUpdateMarker
-                          controller={publicUpdate}
-                          disabledReason={pendingSpeciesDisabledReason}
-                        />
                       </Box>
                     </Box>
                   </Box>
@@ -1033,19 +1049,14 @@ const detailSectionGridSx = {
                 onClose={() => setHeaderMenuAnchorEl(null)}
                 onOpenHistory={() => onOpenHistory?.()}
                 onExport={() => onExportCrop?.()}
-                onPublish={() => onPublishCrop?.()}
-                isPublishing={isPublishingCrop}
-                publishLabel={publishActionLabel ?? t('library.publishButton')}
-                publishBlockedTooltip={publishBlockedTooltip}
                 onDelete={() => onDeleteCrop?.(selectedCrop)}
                 t={t}
               />
             </Box>
 
-            <PublicCropUpdateNotice
+            <PublicCropUpdateDialog
               crop={selectedCrop}
               controller={publicUpdate}
-              disabledReason={pendingSpeciesDisabledReason}
             />
 
             {showVarietyValueLegend ? (
@@ -1326,6 +1337,18 @@ const detailSectionGridSx = {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
                   {selectedCrop.notes && (
                     <Box>
+                      {descriptionFallbackNotice ? (
+                        <AppTooltip title={descriptionFallbackNotice.tooltip}>
+                          <Chip
+                            size="small"
+                            icon={<TranslateOutlinedIcon fontSize="small" />}
+                            label={descriptionFallbackNotice.label}
+                            variant="outlined"
+                            color="warning"
+                            sx={{ mb: 1 }}
+                          />
+                        </AppTooltip>
+                      ) : null}
                       <Box
                         sx={{
                           '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },
