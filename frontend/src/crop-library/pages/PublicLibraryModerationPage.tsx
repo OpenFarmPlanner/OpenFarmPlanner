@@ -31,6 +31,7 @@ import PageContainer from '../../components/layout/PageContainer';
 import PageHeader from '../../components/layout/PageHeader';
 import { useTranslation } from '../../i18n';
 import { showGlobalSnackbar } from '../../utils/globalSnackbar';
+import { resolveLocaleFromLanguage } from '../../utils/numberLocalization';
 
 type RequiredSpeciesLanguage = 'de' | 'en';
 type SpeciesApprovalTranslations = Record<RequiredSpeciesLanguage, string>;
@@ -51,7 +52,7 @@ export default function PublicLibraryModerationPage() {
 
   const canModerate = Boolean(user?.is_public_library_moderator || user?.is_staff || user?.is_superuser);
   const canManageRequests = Boolean(user?.is_staff || user?.is_superuser);
-  const locale = i18n.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
+  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage);
 
   const formatDate = (value?: string | null): string => {
     if (!value) {

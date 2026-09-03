@@ -12,6 +12,7 @@ import ProjectRequiredState from '../components/project/ProjectRequiredState';
 import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import { getFirstMissingProjectSetupStep, getTranslatedProjectSetupActions } from './requirementFlow';
 import { deriveLocationTasks } from './locationDerivedTasks';
+import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation(['dashboard', 'common']);
@@ -63,7 +64,7 @@ export default function Dashboard() {
     hasCrops: crops.length > 0,
     hasPlans: plans.length > 0,
   });
-  const locale = i18n.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
+  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage);
 
   const checklistItems = [
     { key: 'fields', label: t('dashboard:checklist.field'), done: fields.length > 0 },

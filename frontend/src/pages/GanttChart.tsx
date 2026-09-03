@@ -126,6 +126,7 @@ import { OccupancyFilterRow } from '../components/gantt/OccupancyFilterRow';
 import { SeedlingFilters } from '../components/gantt/SeedlingFilters';
 import { OccupancyMobileFilterBar } from '../components/gantt/OccupancyMobileFilterBar';
 import { AppTooltip } from '../components/AppTooltip';
+import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 
 const GanttChartWithFocusMode = GanttChart as React.ComponentType<
   React.ComponentProps<typeof GanttChart> & { focusMode?: boolean }
@@ -859,16 +860,10 @@ function GanttChartPage() {
     ));
   }, [crops, plantingPlans, seedlingSearchText]);
 
-  const resolvedLocale = useMemo(() => {
-    const language = i18n.resolvedLanguage || i18n.language || 'de';
-    if (language === 'de') {
-      return 'de-DE';
-    }
-    if (language === 'en') {
-      return 'en-US';
-    }
-    return language;
-  }, [i18n.language, i18n.resolvedLanguage]);
+  const resolvedLocale = useMemo(
+    () => resolveLocaleFromLanguage(i18n.resolvedLanguage || i18n.language || 'de'),
+    [i18n.language, i18n.resolvedLanguage],
+  );
   const ganttLocaleText = useMemo(() => ({
     title: calendarMode === 'seedlings'
       ? t('ganttChart:chartLocaleText.titleSeedlings')

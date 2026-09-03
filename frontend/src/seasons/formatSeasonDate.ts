@@ -1,8 +1,9 @@
 import type { i18n as I18nInstance } from 'i18next';
+import { resolveLocaleFromLanguage } from '../utils/numberLocalization';
 
 /** `de-DE` unless the resolved UI language is anything other than German. */
 export function resolveSeasonDateLocale(i18nInstance: I18nInstance): string {
-  return i18nInstance.resolvedLanguage === 'de' ? 'de-DE' : 'en-US';
+  return resolveLocaleFromLanguage(i18nInstance.resolvedLanguage);
 }
 
 export function formatSeasonDate(isoDate: string, locale: string): string {
