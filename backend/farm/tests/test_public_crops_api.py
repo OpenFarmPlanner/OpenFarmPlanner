@@ -1116,6 +1116,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         })
         self.assertEqual(response.data['crop']['crop_display_name'], 'Broad bean')
         self.assertEqual(response.data['crop']['crop_display_language_code'], 'en')
+        self.assertEqual(response.data['crop']['description_language_code'], 'de')
         self.assertEqual(response.data['crop']['crop_species_translations'], {
             'de': 'Ackerbohne',
             'en': 'Broad bean',
@@ -1130,6 +1131,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(detail_response.data['name'], 'Ackerbohne')
         self.assertEqual(detail_response.data['crop_display_name'], 'Broad bean')
         self.assertEqual(detail_response.data['crop_display_language_code'], 'en')
+        self.assertEqual(detail_response.data['description_language_code'], 'de')
 
     def test_imported_crop_detail_serves_german_name_when_requested(self):
         species = CropSpecies.objects.create(name='Localized Import Species 2')
@@ -1154,6 +1156,44 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_response.data['crop_display_name'], 'Ackerbohne')
         self.assertEqual(detail_response.data['crop_display_language_code'], 'de')
+        self.assertIsNone(detail_response.data['description_language_code'])
+
+    def test_imported_crop_detail_reports_original_notes_language(self):
+        species = CropSpecies.objects.create(name='Localized Import Species With Notes')
+        CropSpeciesTranslation.objects.create(
+            species=species,
+            language_code='de',
+            common_name='Ackerbohne',
+        )
+        public_crop = PublicCrop.objects.create(
+            name='Ackerbohne',
+            variety='Hangdown',
+            notes='Deutsche Beschreibung',
+            status='published',
+            crop_species=species,
+            created_by=self.user,
+            original_language_code='de',
+        )
+        PublicCropTranslation.objects.create(
+            public_crop=public_crop,
+            language_code='de',
+            description='Deutsche Beschreibung',
+        )
+        import_response = self.client.post(
+            f'/openfarmplanner/api/public-crops/{public_crop.id}/import/',
+            {},
+            format='json',
+        )
+        imported_id = import_response.data['crop']['id']
+
+        detail_response = self.client.get(
+            f'/openfarmplanner/api/crops/{imported_id}/',
+            HTTP_ACCEPT_LANGUAGE='de',
+        )
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['notes'], 'Deutsche Beschreibung')
+        self.assertEqual(detail_response.data['description_language_code'], 'de')
 
     def test_imported_crop_detail_falls_back_when_requested_translation_is_missing(self):
         species = CropSpecies.objects.create(name='Localized Import Species 3')

@@ -4,9 +4,8 @@
  * The API already resolves the caller's language and reports which language it
  * actually served (`display_language_code` / `description_language_code`). These
  * helpers turn that into what the UI needs: a name that is never empty, and a
- * flag for whether the text is a real translation or a fallback from another
- * language, so the UI can say so instead of passing an English name off as a
- * German one.
+ * flag for whether description text is a real translation or a fallback from
+ * another language.
  *
  * Variety names are proper names and are never translated — they are appended
  * verbatim in every language.
@@ -27,8 +26,8 @@ export interface LocalizedText {
 }
 
 function buildLocalizedText(
-  value: string | undefined,
-  servedLanguage: string | undefined,
+  value: string | null | undefined,
+  servedLanguage: string | null | undefined,
   currentLanguage: string,
   fallbackText: string,
 ): LocalizedText {
@@ -117,7 +116,7 @@ export function getFallbackNotice(
   t: TFunction,
   displayLanguage: string,
 ): { label: string; tooltip: string } | null {
-  if (!localized.isFallback || !localized.languageCode) {
+  if (!localized.text || !localized.isFallback || !localized.languageCode) {
     return null;
   }
   const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);
@@ -138,7 +137,7 @@ export function getDescriptionFallbackNotice(
   t: TFunction,
   displayLanguage: string,
 ): { label: string; tooltip: string } | null {
-  if (!localized.isFallback || !localized.languageCode) {
+  if (!localized.text || !localized.isFallback || !localized.languageCode) {
     return null;
   }
   const languageName = getLanguageDisplayName(localized.languageCode, displayLanguage);

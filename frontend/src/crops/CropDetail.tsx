@@ -19,6 +19,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import AddIcon from '@mui/icons-material/Add';
+import TranslateOutlinedIcon from '@mui/icons-material/TranslateOutlined';
 import { CropHierarchyRow } from './CropHierarchyRow';
 import { PublicCropUpdateNotice } from './PublicCropUpdateNotice';
 import { PublicCropUpdateMarker } from './PublicCropUpdateMarker';
@@ -67,6 +68,7 @@ import { VarietyValueLegend } from './VarietyValueLegend';
 import { CropVarietiesOverview } from './CropVarietiesOverview';
 import { varietySpecificValueHighlightSx } from './varietyValueAccent';
 import { isEmptyCropValue, getVarietyOwnValueSource } from './varietyValueSource';
+import { getDescriptionFallbackNotice } from '../crop-library/publicCropDisplay';
 
 interface CropDetailProps {
   crops: Crop[];
@@ -133,7 +135,8 @@ export function CropDetail({
   searchInputRef,
 }: CropDetailProps) {
   const { t, i18n } = useTranslation('crops');
-  const locale = resolveLocaleFromLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const currentLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const locale = resolveLocaleFromLanguage(currentLanguage);
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('sm'));
@@ -460,6 +463,21 @@ const detailSectionGridSx = {
   const selectedCrop = useMemo(
     () => crops.find((crop) => crop.id === selectedCropId) ?? null,
     [crops, selectedCropId],
+  );
+  const descriptionFallbackNotice = useMemo(
+    () => getDescriptionFallbackNotice({
+      text: (selectedCrop?.notes ?? '').trim(),
+      languageCode:
+        selectedCrop?.description_language_code === 'de' || selectedCrop?.description_language_code === 'en'
+          ? selectedCrop.description_language_code
+          : null,
+      isFallback: Boolean(
+        (selectedCrop?.notes ?? '').trim()
+        && selectedCrop?.description_language_code
+        && selectedCrop.description_language_code !== currentLanguage,
+      ),
+    }, t, currentLanguage),
+    [currentLanguage, selectedCrop, t],
   );
   const publicUpdate = usePublicCropUpdate(selectedCrop, onPublicUpdateApplied);
   const publishBlockedTooltip = selectedCrop?.public_publish_blocked_reason
@@ -1326,6 +1344,18 @@ const detailSectionGridSx = {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: { xs: '100%', xl: 1180 } }}>
                   {selectedCrop.notes && (
                     <Box>
+                      {descriptionFallbackNotice ? (
+                        <AppTooltip title={descriptionFallbackNotice.tooltip}>
+                          <Chip
+                            size="small"
+                            icon={<TranslateOutlinedIcon fontSize="small" />}
+                            label={descriptionFallbackNotice.label}
+                            variant="outlined"
+                            color="warning"
+                            sx={{ mb: 1 }}
+                          />
+                        </AppTooltip>
+                      ) : null}
                       <Box
                         sx={{
                           '& h3': { mt: 2, mb: 1, fontSize: '1.05rem' },

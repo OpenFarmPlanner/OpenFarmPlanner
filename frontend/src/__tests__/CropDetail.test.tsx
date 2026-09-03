@@ -30,8 +30,9 @@ describe('CropDetail Component', () => {
     });
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     window.sessionStorage.clear();
+    await i18n.changeLanguage('de');
   });
 
   const mockCrops: Crop[] = [
@@ -810,6 +811,71 @@ describe('CropDetail Component', () => {
     expect(notesContent).toBeInTheDocument();
     expect(notesHeading.nextElementSibling).toContainElement(notesContent);
     expect(notesHeading).not.toContainElement(notesContent);
+  });
+
+  it('shows the language fallback chip in the notes block for imported public notes', () => {
+    renderCropDetail(
+      <CropDetail
+        crops={[{
+          id: 10,
+          name: 'Tomate',
+          notes: 'A robust variety.',
+          description_language_code: 'en',
+          origin_type: 'imported',
+        }]}
+        selectedCropId={10}
+        onCropSelect={vi.fn()}
+      />
+    );
+
+    const notesSection = screen
+      .getByRole('heading', { level: 6, name: 'Notizen' })
+      .closest('section');
+
+    expect(notesSection).not.toBeNull();
+    expect(
+      within(notesSection as HTMLElement).getByText('Nur auf Englisch verfügbar'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('crop-detail-header')).queryByText('Nur auf Englisch verfügbar'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show a language chip for notes in the current UI language', () => {
+    renderCropDetail(
+      <CropDetail
+        crops={[{
+          id: 11,
+          name: 'Tomate',
+          notes: 'Robuste Sorte.',
+          description_language_code: 'de',
+          origin_type: 'imported',
+        }]}
+        selectedCropId={11}
+        onCropSelect={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Robuste Sorte.')).toBeInTheDocument();
+    expect(screen.queryByText(/Nur auf .* verfügbar/)).not.toBeInTheDocument();
+  });
+
+  it('does not show a language chip when notes are empty', () => {
+    renderCropDetail(
+      <CropDetail
+        crops={[{
+          id: 12,
+          name: 'Tomate',
+          notes: '',
+          description_language_code: 'en',
+          origin_type: 'imported',
+        }]}
+        selectedCropId={12}
+        onCropSelect={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/Nur auf .* verfügbar/)).not.toBeInTheDocument();
   });
 
   it('renders supplier homepage as clickable link', () => {

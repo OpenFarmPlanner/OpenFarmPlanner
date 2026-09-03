@@ -132,6 +132,16 @@ describe('getPublicCropDescription', () => {
     expect(result.text).toBe('');
     expect(result.isFallback).toBe(false);
   });
+
+  it('does not treat an empty description language code as badge-worthy content', () => {
+    const result = getPublicCropDescription(
+      buildCrop({ description: '   ', notes: '', description_language_code: 'en' }),
+      'de',
+    );
+
+    expect(result.text).toBe('');
+    expect(getDescriptionFallbackNotice(result, t, 'de')).toBeNull();
+  });
 });
 
 describe('getFallbackNotice', () => {

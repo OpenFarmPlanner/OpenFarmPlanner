@@ -78,7 +78,6 @@ import { useWebSocket, type WebSocketEvent } from '../../realtime/useWebSocket';
 import { createPublicCropLibraryCommandSpecs } from '../publicCropLibraryCommandSpecs';
 import {
   getDescriptionFallbackNotice,
-  getFallbackNotice,
   getPublicCropDescription,
   getPublicCropName,
 } from '../publicCropDisplay';
@@ -572,17 +571,12 @@ export default function PublicCropLibraryPage() {
       return [];
     })()
     : []), [getPublicFieldSource, getPublicFieldValue, publicActiveCultivationTypes, selectedCrop]);
-  // Localized species name for the selected entry, plus the notice shown when
-  // only another language's text is available.
+  // Localized species name for the selected entry.
   const selectedCropName = useMemo(
     () => (selectedCrop
       ? getPublicCropName(selectedCrop, language, t('library.translation.missingName'))
       : { text: '', languageCode: null, isFallback: false }),
     [language, selectedCrop, t],
-  );
-  const nameFallbackNotice = useMemo(
-    () => getFallbackNotice(selectedCropName, t, language),
-    [selectedCropName, t, language],
   );
   const selectedCropDescription = useMemo(
     () => (selectedCrop
@@ -1796,20 +1790,6 @@ export default function PublicCropLibraryPage() {
                           ) : null}
                           <Stack direction="row" spacing={0.75} sx={{ mt: 1,
                             flexWrap: "wrap", }}  useFlexGap >
-                            {/* Say plainly that this is another language's text
-                                rather than letting an English name read as a
-                                German translation. */}
-                            {nameFallbackNotice ? (
-                              <AppTooltip title={nameFallbackNotice.tooltip}>
-                                <Chip
-                                  size="small"
-                                  icon={<TranslateOutlinedIcon fontSize="small" />}
-                                  label={nameFallbackNotice.label}
-                                  variant="outlined"
-                                  color="warning"
-                                />
-                              </AppTooltip>
-                            ) : null}
                             {isSelectedSpeciesPending ? <CropSpeciesPendingChip /> : null}
                             <Chip size="small" label={t('library.page.byAuthor', { author: selectedCrop.created_by_label || anonymousLabel })} variant="outlined" />
                           </Stack>

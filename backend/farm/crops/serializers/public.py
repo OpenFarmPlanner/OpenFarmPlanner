@@ -254,7 +254,7 @@ class PublicCropSerializer(serializers.ModelSerializer):
     def get_description(self, obj: PublicCrop) -> str:
         return obj.localized_description(self._language())[0]
 
-    def get_description_language_code(self, obj: PublicCrop) -> str:
+    def get_description_language_code(self, obj: PublicCrop) -> str | None:
         return obj.localized_description(self._language())[1]
 
     def get_translations(self, obj: PublicCrop) -> dict[str, str]:
