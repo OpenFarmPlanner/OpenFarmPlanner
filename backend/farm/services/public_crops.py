@@ -33,6 +33,7 @@ from farm.models import (
 # does not re-implement: it only calls the service that owns it whenever
 # publishing links a project crop to a crop species.
 from farm.services.crop_inheritance import (
+    clear_species_invariant_overrides,
     get_general_crop,
     sync_crop_species_across_crop_group,
 )
@@ -464,6 +465,12 @@ def normalize_identity_value(value: str | None) -> str:
     return compacted.lower()
 
 
+# Species-invariant public fields (see CROP_SPECIES_INVARIANT_FIELDS): they
+# describe the crop species, so only the species-level (general) public entry
+# carries them. rotation_break_years is not a PublicCrop field.
+PUBLIC_SPECIES_INVARIANT_FIELDS = ('crop_family', 'nutrient_demand')
+
+
 def build_public_crop_payload(
     crop: Crop,
     *,
@@ -479,6 +486,12 @@ def build_public_crop_payload(
     updates it (see :func:`ensure_general_public_crop`). In that case the
     public entry's species-level name must also come from the general Kultur,
     so temporary variety/copy names never become the displayed Kultur name.
+
+    ``crop_family`` and ``nutrient_demand`` follow the same rule as the whole
+    Sorte -> Kultur value model: a species-linked variety entry never carries
+    them (the library UI resolves them from the species entry), and the
+    species-level entry takes them from the project's general Kultur rather
+    than from the Sorte being published.
     """
     payload = _copy_fields(crop)
     if public_variety is not None:
@@ -490,6 +503,21 @@ def build_public_crop_payload(
     payload['source_project_crop'] = origin_crop
     payload['source_project'] = origin_crop.project
     payload['published_at'] = timezone.now()
+
+    is_general_entry = not (payload['variety'] or '').strip()
+    if is_general_entry:
+        general_source = source_crop or get_general_crop(crop) or crop
+        for field in PUBLIC_SPECIES_INVARIANT_FIELDS:
+            payload[field] = getattr(general_source, field)
+    elif crop.crop_species_id:
+        # A species-linked variety entry does not own these fields: leave them
+        # out of the payload so a create falls back to the blank default and an
+        # update keeps whatever the entry already has (a moderator may have
+        # curated it; migration 0102 handles the bulk of the historical data).
+        for field in PUBLIC_SPECIES_INVARIANT_FIELDS:
+            payload.pop(field, None)
+    # A free-text variety (no crop_species) has no species entry to hold these
+    # values, so it keeps its own — untouched from _copy_fields above.
     return payload
 
 
@@ -1314,6 +1342,9 @@ def _apply_public_crop_update(*, crop: Crop, public_crop: PublicCrop) -> Crop:
     # doesn't trigger another divergence pass or a second EntityRevision.
     Crop.objects.filter(pk=crop.pk).update(is_modified_from_source=False)
     crop.is_modified_from_source = False
+    # A linked Sorte owns no species-invariant values; anything the public
+    # payload just wrote onto its columns is a dead override.
+    clear_species_invariant_overrides(crop)
     return crop
 
 
@@ -1331,7 +1362,10 @@ class PublicCropUpdateStatus:
     ``changes`` is derived from ``CROP_COPY_FIELDS`` — the exact set
     :func:`_apply_public_crop_update` overwrites — so the preview can never
     show a field the update leaves alone, nor hide one it rewrites (which is
-    what let a public variety rename reach a project copy unannounced).
+    what let a public variety rename reach a project copy unannounced). The one
+    exception is ``crop_family`` / ``nutrient_demand`` on a species-linked
+    Sorte: the apply step clears them right back (a linked Sorte owns none),
+    so showing them would only ever be noise.
     """
 
     public_crop: PublicCrop
@@ -1437,13 +1471,24 @@ def build_public_crop_update_status(crop: Crop) -> PublicCropUpdateStatus | None
     public_crop = crop.source_public_crop
     local_payload = _copy_fields(crop)
     public_payload = _copy_fields(public_crop)
+    # A species-linked Sorte does not own crop_family/nutrient_demand — they are
+    # resolved from the species entry — so a stale value on either side of the
+    # variety comparison is not a change to apply.
+    compared_fields = [
+        field for field in CROP_COPY_FIELDS
+        if not (
+            field in PUBLIC_SPECIES_INVARIANT_FIELDS
+            and (crop.variety or '').strip()
+            and crop.crop_species_id
+        )
+    ]
     changes = [
         PublicCropFieldChange(
             field=field,
             local_value=_json_safe(local_payload[field]),
             public_value=_json_safe(public_payload[field]),
         )
-        for field in CROP_COPY_FIELDS
+        for field in compared_fields
         if local_payload[field] != public_payload[field]
     ]
     return PublicCropUpdateStatus(

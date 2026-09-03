@@ -644,6 +644,47 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
         self.assertEqual(PublicCrop.objects.get(variety='').source_project_crop, self.crop)
 
+    def test_publishing_a_sorte_keeps_species_invariant_fields_off_the_variety_entry(self):
+        """crop_family / nutrient_demand describe the species: the Sorte's public
+        variety entry never carries them, and the species-level entry takes them
+        from the project's general Kultur, not from the Sorte."""
+        general_kultur = self._create_general_kultur(
+            crop_family='Asteraceae', nutrient_demand='high',
+        )
+        # A stale value on the Sorte itself must be ignored on publish.
+        Crop.objects.filter(pk=self.crop.pk).update(crop_family='Wrong', nutrient_demand='low')
+
+        response = self.publish_current_crop()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        variety_entry = PublicCrop.objects.get(variety='Bijella')
+        self.assertEqual(variety_entry.crop_family, '')
+        self.assertEqual(variety_entry.nutrient_demand, '')
+
+        general_entry = PublicCrop.objects.get(variety='')
+        self.assertEqual(general_entry.source_project_crop, general_kultur)
+        self.assertEqual(general_entry.crop_family, 'Asteraceae')
+        self.assertEqual(general_entry.nutrient_demand, 'high')
+
+    def test_updating_a_sorte_entry_does_not_wipe_a_curated_species_invariant_value(self):
+        """The project-side update omits these fields, so a value curated on the
+        public variety entry survives."""
+        self._create_general_kultur(crop_family='Asteraceae')
+        self.publish_current_crop()
+        variety_entry = PublicCrop.objects.get(variety='Bijella')
+        PublicCrop.objects.filter(pk=variety_entry.pk).update(
+            crop_family='Curated', nutrient_demand='medium',
+        )
+
+        self.crop.notes = 'Local edit to trigger an update'
+        self.crop.save()
+        response = self.publish_current_crop()
+        self.assertEqual(response.data['operation'], 'updated')
+
+        variety_entry.refresh_from_db()
+        self.assertEqual(variety_entry.crop_family, 'Curated')
+        self.assertEqual(variety_entry.nutrient_demand, 'medium')
+
     def test_general_kultur_published_through_a_sorte_offers_a_library_update(self):
         """The menu state the frontend derives must match a directly published Kultur."""
         general_kultur = self._create_general_kultur()

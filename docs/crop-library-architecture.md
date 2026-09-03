@@ -402,6 +402,19 @@ planning calculations and the UI resolve it identically:
   `0101_clear_variety_species_invariant_overrides` cleared the columns on
   existing linked Sorten. A free-text Sorte keeps editing all three normally
   (it has no Kultur to inherit from).
+- The same rule reaches the **public** side. `PublicCrop` only has
+  `crop_family` and `nutrient_demand` (not `rotation_break_years`), and only
+  the species-level (general) public entry carries them:
+  `build_public_crop_payload` omits them from a species-linked variety entry
+  (a create defaults to blank, an update keeps whatever a moderator curated)
+  and sources them for the general entry from the project's general Kultur,
+  not from the Sorte being published. `build_public_crop_update_status` drops
+  them from the pull diff for an imported linked Sorte, and
+  `buildPublicCropComparison` drops them from the publish diff. The library
+  detail view resolves a variety entry's blank value from its species entry
+  (`getPublicFieldValue` in `PublicCropLibraryPage`). Migration
+  `0102_clear_public_variety_species_invariant_fields` blanked existing
+  variety entries whose species already has a general entry.
 - Creating or editing a linked Sorte always ensures that its project has a
   general Kultur row for the same species. The species-invariant fields fill
   empty general values automatically (from the Sorte's create payload, before
