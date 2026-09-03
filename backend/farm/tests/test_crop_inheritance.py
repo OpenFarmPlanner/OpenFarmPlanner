@@ -11,6 +11,7 @@ from farm.services.crop_inheritance import (
     build_effective_crop_values,
     build_general_crop_index,
     build_inherited_crop_values,
+    clear_species_invariant_overrides,
     get_general_crop,
     is_unset_crop_value,
     resolve_crop_field,
@@ -107,9 +108,54 @@ class CropInheritanceTest(TestCase):
         self.assertEqual(resolve_crop_field(variety, 'rotation_break_years'), 4)
 
     def test_own_field_wins_over_the_general_value(self):
-        variety = self._variety(harvest_duration_days=7, crop_family='Own family')
+        variety = self._variety(harvest_duration_days=7, expected_yield=Decimal('9.99'))
         self.assertEqual(resolve_crop_field(variety, 'harvest_duration_days'), 7)
+        self.assertEqual(resolve_crop_field(variety, 'expected_yield'), Decimal('9.99'))
+
+    def test_species_invariant_field_always_inherits_ignoring_a_raw_value(self):
+        """``crop_family`` / ``nutrient_demand`` / ``rotation_break_years``
+        describe the species: a leftover raw value on a linked Sorte is ignored
+        entirely, the effective value is always the general Kultur's.
+        """
+        variety = self._variety(
+            crop_family='Stale family',
+            nutrient_demand='high',
+            rotation_break_years=9,
+        )
+        self.assertEqual(resolve_crop_field(variety, 'crop_family'), 'Apiaceae')
+        self.assertEqual(resolve_crop_field(variety, 'nutrient_demand'), 'medium')
+        self.assertEqual(resolve_crop_field(variety, 'rotation_break_years'), 4)
+
+        inherited = build_inherited_crop_values(variety)
+        self.assertEqual(inherited['crop_family'], 'Apiaceae')
+        self.assertEqual(inherited['nutrient_demand'], 'medium')
+        self.assertEqual(inherited['rotation_break_years'], 4)
+
+        effective = build_effective_crop_values(variety)
+        self.assertEqual(effective['crop_family'], 'Apiaceae')
+        self.assertEqual(effective['rotation_break_years'], 4)
+
+    def test_species_invariant_field_is_empty_when_the_kultur_has_none(self):
+        """A raw Sorte value is never the fallback for a species-invariant field."""
+        self.general.crop_family = ''
+        self.general.nutrient_demand = ''
+        self.general.rotation_break_years = None
+        self.general.save(update_fields=['crop_family', 'nutrient_demand', 'rotation_break_years'])
+        variety = self._variety(crop_family='Stale family', rotation_break_years=9)
+        self.assertIsNone(resolve_crop_field(variety, 'crop_family'))
+        self.assertIsNone(resolve_crop_field(variety, 'rotation_break_years'))
+        effective = build_effective_crop_values(variety)
+        self.assertIsNone(effective['crop_family'])
+        self.assertIsNone(effective['rotation_break_years'])
+        self.assertNotIn('crop_family', build_inherited_crop_values(variety))
+
+    def test_free_text_variety_keeps_its_own_species_invariant_values(self):
+        """No ``crop_species`` -> nothing to inherit from -> the raw values stand."""
+        variety = self._variety(
+            crop_species=None, crop_family='Own family', rotation_break_years=2,
+        )
         self.assertEqual(resolve_crop_field(variety, 'crop_family'), 'Own family')
+        self.assertEqual(resolve_crop_field(variety, 'rotation_break_years'), 2)
 
     def test_zero_is_an_own_value_and_does_not_inherit(self):
         variety = self._variety(harvest_duration_days=0, sowing_calculation_safety_percent=0)
@@ -161,6 +207,31 @@ class CropInheritanceTest(TestCase):
         )
         index = build_general_crop_index(self.project.id)
         self.assertEqual(index[self.species.id], self.general)
+
+    def test_clear_species_invariant_overrides_resets_a_linked_variety(self):
+        variety = self._variety(
+            crop_family='Dead family', nutrient_demand='high', rotation_break_years=9,
+            harvest_duration_days=7,
+        )
+        reset = clear_species_invariant_overrides(variety)
+        self.assertEqual(set(reset), {'crop_family', 'nutrient_demand', 'rotation_break_years'})
+        variety.refresh_from_db()
+        self.assertEqual(variety.crop_family, '')
+        self.assertEqual(variety.nutrient_demand, '')
+        self.assertIsNone(variety.rotation_break_years)
+        # non-invariant own values are untouched
+        self.assertEqual(variety.harvest_duration_days, 7)
+
+    def test_clear_species_invariant_overrides_is_a_noop_when_already_clean(self):
+        variety = self._variety()
+        with self.assertNumQueries(0):
+            self.assertEqual(clear_species_invariant_overrides(variety), [])
+
+    def test_clear_species_invariant_overrides_skips_free_text_varieties(self):
+        variety = self._variety(crop_species=None, crop_family='Own family', rotation_break_years=2)
+        self.assertEqual(clear_species_invariant_overrides(variety), [])
+        variety.refresh_from_db()
+        self.assertEqual(variety.crop_family, 'Own family')
 
     def test_lookup_is_cached_on_the_instance(self):
         variety = self._variety()

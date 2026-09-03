@@ -250,6 +250,12 @@ class CropApiTest(ProjectApiTestCase):
         self.assertEqual(general.crop_family, 'Solanaceae')
         self.assertEqual(general.nutrient_demand, 'high')
         self.assertEqual(general.rotation_break_years, 4)
+        # The values landed on the Kultur, not on the Sorte: the Sorte keeps
+        # none of the three species-invariant fields itself.
+        variety = Crop.objects.get(id=response.data['id'])
+        self.assertEqual(variety.crop_family, '')
+        self.assertEqual(variety.nutrient_demand, '')
+        self.assertIsNone(variety.rotation_break_years)
 
     def test_copying_variety_values_never_overwrites_general_crop_fields(self):
         species = CropSpecies.objects.create(name='Solanum lycopersicum')
@@ -284,6 +290,10 @@ class CropApiTest(ProjectApiTestCase):
         self.assertEqual(general.crop_family, 'Solanaceae')
         self.assertEqual(general.nutrient_demand, 'high')
         self.assertEqual(general.rotation_break_years, 6)
+        variety = Crop.objects.get(id=response.data['id'])
+        self.assertEqual(variety.crop_family, '')
+        self.assertEqual(variety.nutrient_demand, '')
+        self.assertIsNone(variety.rotation_break_years)
 
     def test_creating_first_variety_skips_auto_general_when_name_taken_by_other_species(self):
         tomato_species = CropSpecies.objects.create(name='Solanum lycopersicum')
@@ -1207,6 +1217,73 @@ class CropInheritanceApiTest(ProjectApiTestCase):
         self.assertIsNone(row['growth_duration_days'])
         self.assertEqual(row['effective_values']['growth_duration_days'], 70)
         self.assertIn('growth_duration_days', row['inherited_fields'])
+
+    def test_species_invariant_fields_are_read_only_for_a_linked_sorte(self):
+        """crop_family / nutrient_demand / rotation_break_years belong to the
+        Kultur: a value sent for a linked Sorte is silently discarded, not
+        rejected, and never lands on the Sorte."""
+        self.general.nutrient_demand = 'medium'
+        self.general.rotation_break_years = 3
+        self.general.save(update_fields=['nutrient_demand', 'rotation_break_years'])
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/crops/{self.sorte.id}/',
+            {'crop_family': 'Wrong', 'nutrient_demand': 'high', 'rotation_break_years': 9},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.sorte.refresh_from_db()
+        self.assertEqual(self.sorte.crop_family, '')
+        self.assertEqual(self.sorte.nutrient_demand, '')
+        self.assertIsNone(self.sorte.rotation_break_years)
+
+        row = self._row(self.sorte)
+        self.assertEqual(row['effective_values']['crop_family'], 'Apiaceae')
+        self.assertEqual(row['effective_values']['nutrient_demand'], 'medium')
+        self.assertEqual(row['effective_values']['rotation_break_years'], 3)
+        for field in ('crop_family', 'nutrient_demand', 'rotation_break_years'):
+            self.assertIn(field, row['inherited_fields'])
+
+    def test_linked_sorte_ignores_a_raw_species_invariant_value_from_the_db(self):
+        """A value written straight to the column (pre-rule, or by a migration
+        that has not run yet) is still ignored when resolving."""
+        Crop.objects.filter(pk=self.sorte.pk).update(
+            crop_family='Legacy', rotation_break_years=7,
+        )
+        row = self._row(self.sorte)
+        self.assertEqual(row['crop_family'], 'Legacy')  # raw field is untouched
+        self.assertEqual(row['effective_values']['crop_family'], 'Apiaceae')
+        self.assertIn('crop_family', row['inherited_fields'])
+
+    def test_free_text_sorte_can_still_edit_species_invariant_fields(self):
+        free_text = Crop.objects.create(
+            name='Karotte', variety='Freitext', project=self.project,
+        )
+        response = self.client.patch(
+            f'/openfarmplanner/api/crops/{free_text.id}/',
+            {'crop_family': 'Apiaceae', 'rotation_break_years': 2},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        free_text.refresh_from_db()
+        self.assertEqual(free_text.crop_family, 'Apiaceae')
+        self.assertEqual(free_text.rotation_break_years, 2)
+
+    def test_general_kultur_can_still_edit_species_invariant_fields(self):
+        species = CropSpecies.objects.create(name='Petroselinum crispum')
+        general = Crop.objects.create(
+            name='Petersilie', variety='', project=self.project, crop_species=species,
+        )
+        response = self.client.patch(
+            f'/openfarmplanner/api/crops/{general.id}/',
+            {'crop_family': 'Apiaceae', 'rotation_break_years': 5},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        general.refresh_from_db()
+        self.assertEqual(general.crop_family, 'Apiaceae')
+        self.assertEqual(general.rotation_break_years, 5)
 
     def test_inheritance_payload_costs_one_query_for_a_whole_list_page(self):
         for index in range(5):

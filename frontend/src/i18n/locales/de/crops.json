@@ -207,6 +207,8 @@
     "addSupplierData": "Lieferanteninformation hinzufügen",
     "removeSupplierData": "Lieferantendaten entfernen",
     "removeSeedPackageAriaLabel": "Packungsgröße entfernen",
+    "sectionCropRotation": "Fruchtfolge-Eigenschaften",
+    "cropRotationInheritedTooltip": "Gilt für die gesamte Kultur, änderbar nur dort.",
     "cropFamily": "Pflanzenfamilie",
     "cropFamilyPlaceholder": "z.B. Solanaceae",
     "nutrientDemand": "Nährstoffbedarf",

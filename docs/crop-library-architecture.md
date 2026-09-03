@@ -386,10 +386,26 @@ planning calculations and the UI resolve it identically:
   empty collection. `0` and `False` are real values and are never replaced.
 - Nothing is copied onto the Sorte. Clearing a field removes the override, and
   the Sorte follows later edits of the general Kultur automatically.
+- The three species-invariant fields (`CROP_SPECIES_INVARIANT_FIELDS`:
+  `crop_family`, `nutrient_demand`, `rotation_break_years`) go further: on a
+  linked Sorte they are **not overridable at all**. They describe the crop
+  species, so `resolve_crop_field` / `build_effective_crop_values` always return
+  the general Kultur's value (or nothing) for them and ignore any raw value the
+  Sorte still carries — `forces_species_invariant_inheritance` gates this, so
+  even a stale column is harmless. The form renders the three fields read-only
+  for a linked Sorte (`speciesInvariantFieldsReadOnly`, with an info icon next
+  to the "Fruchtfolge-Eigenschaften" heading). On the write side `CropSerializer`
+  **silently discards** a Sorte-level value rather than rejecting it: `create` /
+  `update` call `clear_species_invariant_overrides(crop)` right after
+  `ensure_general_crop_for_variety`, so a genuinely new value still promotes to
+  an empty general Kultur (below) but never sticks to the Sorte. Migration
+  `0101_clear_variety_species_invariant_overrides` cleared the columns on
+  existing linked Sorten. A free-text Sorte keeps editing all three normally
+  (it has no Kultur to inherit from).
 - Creating or editing a linked Sorte always ensures that its project has a
-  general Kultur row for the same species. Species-invariant fields
-  (`crop_family`, `nutrient_demand`, `rotation_break_years`) fill empty general
-  values automatically because they describe the crop species, not a variety.
+  general Kultur row for the same species. The species-invariant fields fill
+  empty general values automatically (from the Sorte's create payload, before
+  it is cleared) because they describe the crop species, not a variety.
   Variety-variable timing, yield, spacing, and seed fields flow back only
   through the create API's optional `copy_values_to_crop` flag (default
   `false`), and then only into general fields that are still unset. Existing
@@ -410,9 +426,9 @@ client can tell them apart per field:
 
 | Field | Meaning |
 |---|---|
-| the plain crop fields | always the row's **own** stored values |
+| the plain crop fields | always the row's **own** stored values (for the three species-invariant fields on a linked Sorte this is a dead column — read `effective_values` instead) |
 | `general_crop` | id of the Kultur this Sorte inherits from, else `null` |
-| `inherited_fields` | API field names whose effective value comes from that Kultur |
+| `inherited_fields` | API field names whose effective value comes from that Kultur; the species-invariant fields are always listed for a linked Sorte when the Kultur has a value, whatever the Sorte's own column holds |
 | `effective_values` | effective value per inheritable field, in the same API units as the plain fields (centimeters, normalized seed-rate units) |
 
 `effective_values` and `inherited_fields` are empty whenever `general_crop`

@@ -403,6 +403,12 @@ export function CropForm({
     [crops, formData.variety, formData.crop_species, formData.crop_display_name, formData.name],
   );
   const showVarietyValueLegend = Boolean(formData.variety && selectedSpeciesCrop);
+  // A Sorte linked to a crop species takes crop family, nutrient demand and
+  // rotation break from its general Kultur — those fields describe the species,
+  // so the form shows them read-only here and they are edited on the Kultur.
+  const isSpeciesLinkedVariety = isProjectForm
+    && formKind === 'variety'
+    && Boolean(formData.crop_species);
   const getFieldTooltipProps: GetVarietyFieldTooltipProps = useCallback((fields, helpText) => {
     if (!selectedSpeciesCrop) {
       return null;
@@ -1312,6 +1318,7 @@ export function CropForm({
               onChange={handleChange}
               t={t}
               getFieldTooltipProps={getFieldTooltipProps}
+              speciesInvariantFieldsReadOnly={isSpeciesLinkedVariety}
               showIdentityFields={isProjectForm}
               showVarietyField={showVarietyField}
               varietyRequired={isProjectForm}

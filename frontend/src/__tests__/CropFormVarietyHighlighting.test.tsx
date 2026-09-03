@@ -174,13 +174,34 @@ describe('CropForm variety override highlighting', () => {
 
     await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
 
+    // A non-invariant inherited field (row spacing) still shows the Kultur's
+    // value and keeps the inherited-field tooltip.
+    const rowSpacingField = screen.getByLabelText('form.rowSpacingCm');
+    expect(rowSpacingField).toHaveValue(30);
+    expect(rowSpacingField).toBeEnabled();
+
+    await user.click(rowSpacingField);
+    await user.hover(rowSpacingField);
+    expect(await screen.findByRole('tooltip', {}, { timeout: 5000 })).toHaveTextContent('hierarchy.inheritedFieldTooltip');
+  }, 20000);
+
+  it('renders the species-invariant fields read-only for a species-linked Sorte', async () => {
+    render(
+      <CropForm
+        crop={INHERITING_VARIETY_CROP}
+        crops={[LINKED_SPECIES_CROP, INHERITING_VARIETY_CROP]}
+        onSave={vi.fn().mockResolvedValue(undefined)}
+        onCancel={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
+
     const cropFamilyField = screen.getByLabelText('form.cropFamily');
     expect(cropFamilyField).toHaveValue('Doldenblütler');
-    expect(screen.getByLabelText('form.rowSpacingCm')).toHaveValue(30);
-
-    await user.click(cropFamilyField);
-    await user.hover(cropFamilyField);
-    expect(await screen.findByRole('tooltip', {}, { timeout: 5000 })).toHaveTextContent('hierarchy.inheritedFieldTooltip');
+    expect(cropFamilyField).toBeDisabled();
+    expect(screen.getByLabelText('form.rotationBreakYears')).toBeDisabled();
+    expect(screen.getByLabelText('form.cropRotationInheritedTooltip')).toBeInTheDocument();
   }, 20000);
 
   it('does not turn a displayed inherited value into an own override on save', async () => {
@@ -213,7 +234,7 @@ describe('CropForm variety override highlighting', () => {
     }));
   });
 
-  it('keeps an edited inherited field as the variety\'s own value', async () => {
+  it('keeps an edited non-invariant inherited field as the variety\'s own value', async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
 
     render(
@@ -227,12 +248,12 @@ describe('CropForm variety override highlighting', () => {
 
     await waitFor(() => expect(supplierListMock).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByLabelText('form.cropFamily'), { target: { value: 'Sonderfamilie' } });
+    fireEvent.change(screen.getByLabelText('form.rowSpacingCm'), { target: { value: '55' } });
     const saveButton = screen.getByRole('button', { name: 'form.save' });
     await waitFor(() => expect(saveButton).toBeEnabled());
     fireEvent.click(saveButton);
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ crop_family: 'Sonderfamilie' }));
+    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ row_spacing_cm: 55 }));
   });
 });
