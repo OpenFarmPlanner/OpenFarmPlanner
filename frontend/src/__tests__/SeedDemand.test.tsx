@@ -382,7 +382,7 @@ describe('SeedDemandPage', () => {
     expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCrop' })).toBeInTheDocument();
     expect(contextMenuEvent.defaultPrevented).toBe(true);
     expect(stopPropagationSpy).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'common:actions.copyRow' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'actions.copyRow' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
@@ -661,8 +661,8 @@ describe('SeedDemandPage', () => {
 
     expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.openCrop' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'seedDemand.contextMenu.editCrop' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'common:actions.copyRow' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'common:actions.copyTable' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'actions.copyRow' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'actions.copyTable' })).toBeInTheDocument();
   });
 
   it('copies the visible seed demand table including headers as TSV', async () => {
@@ -706,7 +706,7 @@ describe('SeedDemandPage', () => {
     expect(row).not.toBeNull();
 
     fireEvent.contextMenu(row as HTMLTableRowElement);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'common:actions.copyTable' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'actions.copyTable' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(
@@ -804,7 +804,7 @@ describe('SeedDemandPage', () => {
     const row = cropLink.closest('tr');
     expect(row).not.toBeNull();
     fireEvent.contextMenu(row as HTMLTableRowElement);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'common:actions.copyRow' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'actions.copyRow' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(

@@ -18,7 +18,6 @@ import {
   Box,
   Button,
   ButtonGroup,
-  Divider,
   MenuItem,
   Stack,
   Typography,
@@ -50,6 +49,7 @@ import { extractApiErrorMessage } from '../api/errors';
 import { useTopbarContextActions } from '../hooks/useTopbarContextActions';
 import { useTopbarTitleActions } from '../hooks/useTopbarTitleActions';
 import { CustomContextMenu } from '../components/contextMenu/CustomContextMenu';
+import { renderGroupedContextMenuActions } from '../components/contextMenu/contextMenuGroups';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import type { RootLayoutOutletContext, TopbarContextAction } from '../navigation/topbarTypes';
 import { AuthContext } from '../auth/authContextShared';
@@ -1922,25 +1922,18 @@ function GanttChartPage() {
         mouseX={contextMenuState?.mouseX}
         mouseY={contextMenuState?.mouseY}
       >
-        {contextMenuActions.flatMap((action, index) => {
-          const previousAction = contextMenuActions[index - 1];
-          const shouldSeparateGroup = previousAction !== undefined && previousAction.group !== action.group;
-          const menuItem = (
-            <MenuItem
-              key={action.id}
-              onClick={() => {
-                closeContextMenu();
-                action.onClick();
-              }}
-              sx={{ color: action.group === 'danger' ? 'error.main' : undefined }}
-            >
-              {action.label}
-            </MenuItem>
-          );
-          return shouldSeparateGroup
-            ? [<Divider key={`${action.id}-divider`} role="separator" />, menuItem]
-            : [menuItem];
-        })}
+        {renderGroupedContextMenuActions(contextMenuActions, (action) => (
+          <MenuItem
+            key={action.id}
+            onClick={() => {
+              closeContextMenu();
+              action.onClick();
+            }}
+            sx={{ color: action.group === 'danger' ? 'error.main' : undefined }}
+          >
+            {action.label}
+          </MenuItem>
+        ))}
       </CustomContextMenu>
     </PageContainer>
   );

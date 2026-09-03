@@ -919,8 +919,8 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Parzelle hinzufügenEinfg',
       'Löschen',
-      'common:actions.copyRow',
-      'common:actions.copyTable',
+      'actions.copyRow',
+      'actions.copyTable',
     ]);
     expect(screen.getByRole('menuitem', { name: /^Parzelle hinzufügen/ })).toBeInTheDocument();
     expect(screen.getAllByRole('separator')).toHaveLength(2);
@@ -934,8 +934,8 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Beet hinzufügenEinfg',
       'Löschen',
-      'common:actions.copyRow',
-      'common:actions.copyTable',
+      'actions.copyRow',
+      'actions.copyTable',
     ]);
     expect(screen.getByRole('menuitem', { name: /^Beet hinzufügen/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Beet' })).not.toBeInTheDocument();
@@ -949,8 +949,8 @@ describe('FieldsBedsHierarchy edit cancellation', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Beet hinzufügenEinfg',
       'Löschen',
-      'common:actions.copyRow',
-      'common:actions.copyTable',
+      'actions.copyRow',
+      'actions.copyTable',
     ]);
     expect(screen.getByRole('menuitem', { name: /^Beet hinzufügen/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Beet' })).not.toBeInTheDocument();
