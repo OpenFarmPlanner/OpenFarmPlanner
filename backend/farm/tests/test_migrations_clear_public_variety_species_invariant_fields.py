@@ -16,8 +16,14 @@ class TestClearPublicVarietySpeciesInvariantFields:
         public_crop = old_apps.get_model('farm', 'PublicCrop')
         species_model = old_apps.get_model('crops', 'CropSpecies')
 
-        with_general = species_model.objects.create(name='Solanum lycopersicum')
-        without_general = species_model.objects.create(name='Daucus carota')
+        # The historical model does not run CropSpecies.save(), which is what
+        # normally fills name_normalized (unique) — set it explicitly.
+        with_general = species_model.objects.create(
+            name='Solanum lycopersicum', name_normalized='solanum lycopersicum',
+        )
+        without_general = species_model.objects.create(
+            name='Daucus carota', name_normalized='daucus carota',
+        )
 
         public_crop.objects.create(
             name='Tomate', name_normalized='tomate', variety='', status='published',
