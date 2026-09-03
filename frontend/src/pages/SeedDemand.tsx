@@ -664,11 +664,6 @@ export default function SeedDemandPage() {
         <TableCopyMenuItems
           rowValues={contextMenuState ? getRowClipboardValues(contextMenuState.key) : null}
           tableRows={getTableClipboardRows()}
-          copyRowLabel={t('common:actions.copyRow')}
-          copyTableLabel={t('common:actions.copyTable')}
-          rowCopiedMessage={t('common:messages.rowCopied')}
-          tableCopiedMessage={t('common:messages.tableCopied')}
-          copyErrorMessage={t('common:messages.copyError')}
           includeDivider
           onClose={closeContextMenu}
         />

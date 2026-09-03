@@ -34,11 +34,11 @@ import type {
   GridRowModesModel,
 } from "@mui/x-data-grid";
 import { Box, Alert, useMediaQuery } from "@mui/material";
-import Divider from "@mui/material/Divider";
 import AgricultureIcon from "@mui/icons-material/Agriculture";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { ContextMenuActionItem } from "../components/contextMenu/ContextMenuActionItem";
 import { CustomContextMenu } from "../components/contextMenu/CustomContextMenu";
+import { renderGroupedContextMenuActions } from "../components/contextMenu/contextMenuGroups";
 import { ConfirmationDialog } from "../components/feedback/ConfirmationDialog";
 import { HierarchyAddIcon } from "../components/hierarchy/HierarchyAddIcon";
 import EmptyStateCard from '../components/project/EmptyStateCard';
@@ -1844,37 +1844,24 @@ function FieldsBedsHierarchy({
         mouseX={contextMenuState?.mouseX}
         mouseY={contextMenuState?.mouseY}
       >
-        {contextMenuActions.flatMap((action, index) => {
-          const previousAction = contextMenuActions[index - 1];
-          const shouldSeparateGroup = previousAction !== undefined && previousAction.group !== action.group;
-          const menuItem = (
-            <ContextMenuActionItem
-              key={action.id}
-              label={action.label}
-              icon={action.icon}
-              color={action.color === "error" ? "error" : undefined}
-              emphasized={action.emphasized}
-              shortcutHint={action.shortcutHint}
-              renderPlainWhenUnadorned
-              onClick={() => {
-                closeContextMenu();
-                action.onClick();
-              }}
-            />
-          );
-
-          return shouldSeparateGroup
-            ? [<Divider key={`${action.id}-divider`} role="separator" />, menuItem]
-            : [menuItem];
-        })}
+        {renderGroupedContextMenuActions(contextMenuActions, (action) => (
+          <ContextMenuActionItem
+            key={action.id}
+            label={action.label}
+            icon={action.icon}
+            color={action.color === "error" ? "error" : undefined}
+            emphasized={action.emphasized}
+            shortcutHint={action.shortcutHint}
+            renderPlainWhenUnadorned
+            onClick={() => {
+              closeContextMenu();
+              action.onClick();
+            }}
+          />
+        ))}
         <TableCopyMenuItems
           rowValues={contextMenuState ? getHierarchyRowClipboardValues(contextMenuState.row) : null}
           tableRows={getHierarchyTableClipboardRows()}
-          copyRowLabel={t("common:actions.copyRow")}
-          copyTableLabel={t("common:actions.copyTable")}
-          rowCopiedMessage={t("common:messages.rowCopied")}
-          tableCopiedMessage={t("common:messages.tableCopied")}
-          copyErrorMessage={t("common:messages.copyError")}
           includeDivider={contextMenuActions.length > 0}
           onClose={closeContextMenu}
         />

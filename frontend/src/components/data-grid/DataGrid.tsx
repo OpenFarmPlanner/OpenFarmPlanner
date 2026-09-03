@@ -2994,11 +2994,6 @@ export function EditableDataGrid<T extends EditableRow>({
         <TableCopyMenuItems
           rowValues={menuRow ? getClipboardRowValues(menuRow) : null}
           tableRows={getClipboardTableRows()}
-          copyRowLabel={t('actions.copyRow')}
-          copyTableLabel={t('actions.copyTable')}
-          rowCopiedMessage={t('messages.rowCopied')}
-          tableCopiedMessage={t('messages.tableCopied')}
-          copyErrorMessage={t('messages.copyError')}
           includeDivider={menuActions.length > 0}
           onClose={closeRowActionMenu}
         />
