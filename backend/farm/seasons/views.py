@@ -18,8 +18,11 @@ from farm.history import (
     _serialize_instance,
     start_batch_operation,
 )
-from farm.history.restore import _record_cascade_deletions
-from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern, Task
+from farm.history.restore import (
+    _record_cascade_deletions,
+    restore_plans_and_tasks_deleted_with_season,
+)
+from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
     analyze_period_transition,
@@ -179,117 +182,9 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             .first()
         )
         if deleted_revision is not None:
-            self._restore_planting_plans_deleted_with_season(
-                season, deleted_revision.created_at, batch,
-            )
-
-    def _restore_planting_plans_deleted_with_season(
-        self, season: Season, deleted_since, batch: BatchOperation,
-    ) -> None:
-        allowed_fields = {field.attname for field in PlantingPlan._meta.concrete_fields}
-        revisions = (
-            EntityRevision.objects
-            .filter(
-                project=self.request.active_project,
-                entity_type='planting_plan',
-                created_at__gte=deleted_since,
-            )
-            .order_by('object_id', '-created_at')
-        )
-        recreated: list[PlantingPlan] = []
-        seen: set[int] = set()
-        for revision in revisions:
-            if revision.object_id in seen:
-                continue
-            seen.add(revision.object_id)
-            snapshot = revision.snapshot
-            if (
-                revision.action != EntityRevision.ACTION_DELETED
-                or not isinstance(snapshot, dict)
-                or snapshot.get('season_id') != season.pk
-                or PlantingPlan.objects.filter(pk=revision.object_id).exists()
-            ):
-                continue
-            row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
-            row_data['project_id'] = season.project_id
-            row_data['season_id'] = season.pk
-            # A FK target (bed/crop/user) may have been hard-deleted since
-            # the snapshot — null the nullable ones rather than 500 on insert,
-            # matching the other restore paths.
-            for field in PlantingPlan._meta.concrete_fields:
-                related_id = row_data.get(field.attname)
-                if (
-                    field.remote_field is None
-                    or related_id is None
-                    or field.attname in ('project_id', 'season_id')
-                    or not field.null
-                ):
-                    continue
-                target_manager = (
-                    getattr(field.remote_field.model, 'all_objects', None)
-                    or field.remote_field.model._base_manager
-                )
-                if not target_manager.filter(pk=related_id).exists():
-                    row_data[field.attname] = None
-            recreated.append(PlantingPlan(**row_data))
-        if not recreated:
-            return
-        PlantingPlan.objects.bulk_create(recreated)
-        recreated_plan_ids = [plan.pk for plan in recreated]
-        for plan in (
-            PlantingPlan.objects
-            .filter(pk__in=recreated_plan_ids)
-            .select_related('crop', 'bed')
-        ):
-            self.record_revision(
-                plan, EntityRevision.ACTION_RESTORED,
-                snapshot=_serialize_instance(plan),
-                display_name=_entity_display_name(plan), changed_fields=[],
-                batch_operation=batch,
-            )
-        self._restore_tasks_deleted_with_plans(recreated_plan_ids, deleted_since, batch)
-
-    def _restore_tasks_deleted_with_plans(
-        self, plan_ids: list[int], deleted_since, batch: BatchOperation,
-    ) -> None:
-        """Recreate tasks that DB-cascaded away when their planting plans were
-        deleted with the season."""
-        allowed_fields = {field.attname for field in Task._meta.concrete_fields}
-        revisions = (
-            EntityRevision.objects
-            .filter(
-                project=self.request.active_project,
-                entity_type='task',
-                created_at__gte=deleted_since,
-            )
-            .order_by('object_id', '-created_at')
-        )
-        recreated: list[Task] = []
-        seen: set[int] = set()
-        for revision in revisions:
-            if revision.object_id in seen:
-                continue
-            seen.add(revision.object_id)
-            snapshot = revision.snapshot
-            if (
-                revision.action != EntityRevision.ACTION_DELETED
-                or not isinstance(snapshot, dict)
-                or snapshot.get('planting_plan_id') not in plan_ids
-                or Task.objects.filter(pk=revision.object_id).exists()
-            ):
-                continue
-            row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
-            row_data['project_id'] = self.request.active_project.id
-            recreated.append(Task(**row_data))
-        if not recreated:
-            return
-        Task.objects.bulk_create(recreated)
-        for task in Task.objects.filter(pk__in=[task.pk for task in recreated]):
-            self.record_revision(
-                task, EntityRevision.ACTION_RESTORED,
-                snapshot=_serialize_instance(task),
-                display_name=_entity_display_name(task), changed_fields=[],
-                batch_operation=batch,
+            restore_plans_and_tasks_deleted_with_season(
+                self.request.active_project, season, deleted_revision.created_at, batch,
+                user_name=_current_actor_label(request=self.request),
             )
 
     @action(detail=True, methods=['post'], url_path='copy-from')

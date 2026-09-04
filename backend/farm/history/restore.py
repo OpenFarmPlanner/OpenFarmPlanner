@@ -1,12 +1,13 @@
 """Point-in-time restore and batch-operation revert, built on recorded
 entity revisions."""
 
+from collections.abc import Callable
 from typing import Any
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from farm.models import Crop, EntityRevision, Project
+from farm.models import Crop, EntityRevision, PlantingPlan, Project, Task
 
 from .records import (
     _ENTITY_TYPE_LABELS,
@@ -192,6 +193,141 @@ def restore_crop_from_revision(crop: Crop, revision: EntityRevision) -> Crop:
         crop.save()
 
     return crop
+
+
+def _latest_revision_per_object(project: Project, entity_type: str, since) -> list[EntityRevision]:
+    """Newest revision per object of `entity_type` recorded at/after `since`."""
+    revisions = (
+        EntityRevision.objects
+        .filter(project=project, entity_type=entity_type, created_at__gte=since)
+        .order_by('object_id', '-created_at')
+    )
+    latest: list[EntityRevision] = []
+    seen: set[int] = set()
+    for revision in revisions:
+        if revision.object_id in seen:
+            continue
+        seen.add(revision.object_id)
+        latest.append(revision)
+    return latest
+
+
+def _recreate_rows_deleted_since(
+    project: Project,
+    model: type,
+    entity_type: str,
+    deleted_since,
+    batch,
+    *,
+    user_name: str,
+    belongs_to_restore: Callable[[dict], bool],
+    build_row_data: Callable[[dict], dict],
+    select_related: tuple[str, ...] = (),
+) -> list[int]:
+    """Recreate rows this project's history records as deleted since
+    `deleted_since`, and record an `ACTION_RESTORED` revision for each.
+
+    Only the newest revision per object is considered, so a row deleted and
+    later recreated by other means is left alone; `belongs_to_restore` narrows
+    the candidates to the ones that went away with the entity being restored.
+    Returns the ids that were recreated.
+    """
+    allowed_fields = {field.attname for field in model._meta.concrete_fields}
+    recreated = []
+    for revision in _latest_revision_per_object(project, entity_type, deleted_since):
+        snapshot = revision.snapshot
+        if (
+            revision.action != EntityRevision.ACTION_DELETED
+            or not isinstance(snapshot, dict)
+            or not belongs_to_restore(snapshot)
+            or model.objects.filter(pk=revision.object_id).exists()
+        ):
+            continue
+        row_data = {key: value for key, value in snapshot.items() if key in allowed_fields}
+        recreated.append(model(**build_row_data(row_data)))
+
+    if not recreated:
+        return []
+
+    model.objects.bulk_create(recreated)
+    recreated_ids = [instance.pk for instance in recreated]
+    queryset = model.objects.filter(pk__in=recreated_ids)
+    if select_related:
+        queryset = queryset.select_related(*select_related)
+    for instance in queryset:
+        record_entity_revision(
+            project=project, entity_type=entity_type, object_id=instance.pk,
+            action=EntityRevision.ACTION_RESTORED,
+            snapshot=_serialize_instance(instance),
+            display_name=_entity_display_name(instance),
+            changed_fields=[], user_name=user_name, batch_operation=batch,
+        )
+    return recreated_ids
+
+
+def _null_dangling_nullable_fks(model: type, row_data: dict, *, keep: set[str]) -> dict:
+    """A FK target (bed/crop/user) may have been hard-deleted since the
+    snapshot — null the nullable ones rather than 500 on insert, matching the
+    other restore paths. `keep` names FKs the caller has already set itself."""
+    for field in model._meta.concrete_fields:
+        related_id = row_data.get(field.attname)
+        if (
+            field.remote_field is None
+            or related_id is None
+            or field.attname in keep
+            or not field.null
+        ):
+            continue
+        target_manager = (
+            getattr(field.remote_field.model, 'all_objects', None)
+            or field.remote_field.model._base_manager
+        )
+        if not target_manager.filter(pk=related_id).exists():
+            row_data[field.attname] = None
+    return row_data
+
+
+def restore_plans_and_tasks_deleted_with_season(
+    project: Project,
+    season,
+    deleted_since,
+    batch,
+    *,
+    user_name: str,
+) -> None:
+    """Bring back the planting plans hard-deleted with `season`, and the tasks
+    that DB-cascaded away with those plans.
+
+    Planting plans have no soft delete, so undeleting a season has to recreate
+    them from the revisions recorded when it was deleted.
+    """
+    def build_plan_row(row_data: dict) -> dict:
+        row_data['project_id'] = season.project_id
+        row_data['season_id'] = season.pk
+        return _null_dangling_nullable_fks(
+            PlantingPlan, row_data, keep={'project_id', 'season_id'},
+        )
+
+    plan_ids = _recreate_rows_deleted_since(
+        project, PlantingPlan, 'planting_plan', deleted_since, batch,
+        user_name=user_name,
+        belongs_to_restore=lambda snapshot: snapshot.get('season_id') == season.pk,
+        build_row_data=build_plan_row,
+        select_related=('crop', 'bed'),
+    )
+    if not plan_ids:
+        return
+
+    def build_task_row(row_data: dict) -> dict:
+        row_data['project_id'] = project.id
+        return row_data
+
+    _recreate_rows_deleted_since(
+        project, Task, 'task', deleted_since, batch,
+        user_name=user_name,
+        belongs_to_restore=lambda snapshot: snapshot.get('planting_plan_id') in plan_ids,
+        build_row_data=build_task_row,
+    )
 
 
 class BatchRevertError(Exception):
