@@ -47,7 +47,7 @@ def _bulk_create_skipping_conflicts(model, instances: list, object_ids: list[int
         pass
 
     inserted: set[int] = set()
-    for instance, object_id in zip(instances, object_ids):
+    for instance, object_id in zip(instances, object_ids, strict=True):
         try:
             with transaction.atomic():
                 model.objects.bulk_create([instance])
@@ -327,6 +327,31 @@ def restore_plans_and_tasks_deleted_with_season(
         user_name=user_name,
         belongs_to_restore=lambda snapshot: snapshot.get('planting_plan_id') in plan_ids,
         build_row_data=build_task_row,
+    )
+
+
+def restore_season_planting_plans(project: Project, season, batch, *, user_name: str) -> None:
+    """Replay the plan/task deletions recorded when `season` was last deleted.
+
+    A no-op for a season that was never deleted; otherwise it finds that
+    deletion's timestamp and hands it to
+    `restore_plans_and_tasks_deleted_with_season`.
+    """
+    deleted_revision = (
+        EntityRevision.objects
+        .filter(
+            project=project,
+            entity_type='season',
+            object_id=season.pk,
+            action=EntityRevision.ACTION_DELETED,
+        )
+        .order_by('-created_at')
+        .first()
+    )
+    if deleted_revision is None:
+        return
+    restore_plans_and_tasks_deleted_with_season(
+        project, season, deleted_revision.created_at, batch, user_name=user_name,
     )
 
 
