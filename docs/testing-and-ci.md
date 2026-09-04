@@ -12,14 +12,13 @@ gates to run locally, see the "Testing Rules" section of
 
 | Job | What it runs | Roughly |
 | --- | --- | --- |
-| `frontend-tests (shard 1/2)` | `vitest run --shard=1/2` | ~3 min |
-| `frontend-tests (shard 2/2)` | `vitest run --shard=2/2` | ~3 min |
-| `backend-tests` | `pytest` (xdist, with coverage) | ~4 min |
-| `quality` | ruff, radon, ESLint, madge | ~1 min |
+| `frontend-tests (shard 1/2)` | `vitest run --shard=1/2` | ~2 min |
+| `frontend-tests (shard 2/2)` | `vitest run --shard=2/2` | ~3.5 min |
+| `backend-tests` | `pytest` (xdist, with coverage) | ~6.5 min |
+| `quality` | ruff, radon, ESLint, madge | ~4.5 min |
 
 `.github/workflows/e2e.yml` runs the Playwright suite against a production
-build on pull requests, and is the longest job in the pipeline (~12 min).
-It is deliberately not sharded — see "Why E2E is not parallel" below.
+build on pull requests, split across two shards of its own.
 
 All jobs run concurrently, so the pipeline is as long as its slowest job.
 
@@ -102,14 +101,50 @@ twice per pipeline and `quality` took as long as the job it duplicated.
 If you add a backend gate, put it in `backend-tests` if it needs the test
 run, and in `quality.sh` if it only needs the source.
 
-## Why E2E is not parallel
+## E2E: sharded across runners, serial inside one
 
-`frontend/playwright.config.ts` pins `workers: 1` and
-`fullyParallel: false`. The specs share one Django backend on one database
-and log in as the same fixture users, so running them concurrently would
-have them overwrite each other's rows. Sharding the E2E suite would mean
-giving each shard its own backend and database, which is a larger change
-than the frontend shard split.
+`frontend/playwright.config.ts` still pins `workers: 1` and
+`fullyParallel: false`, and that stays: inside a single runner the specs
+share one Django backend on one SQLite file, and concurrent workers there
+would contend on that database (the WAL/`transaction_mode` comment in
+`config/settings.py` is the scar tissue from exactly that).
+
+Sharding across runners is a different axis and needs none of that. Each
+matrix job is a fresh VM, and `playwright.config.ts` starts the backend
+itself through its `webServer` block — so each shard gets its own Django
+process, its own `db.sqlite3` and its own fixture users for free. Nothing
+is shared to contend over.
+
+The suite is additionally scenario-scoped: every spec passes a
+`scenario_id` to the `/api/__e2e__/` fixture endpoint, and
+`E2EInvitationFixtureView._reset` deletes only that scenario's project,
+memberships, invitations and users. No spec depends on another spec having
+run, which is why splitting them at any file boundary is safe.
+
+Verify a shard-count change with `npx playwright test --list --shard=N/<count>`
+— it needs no browser and no backend, and the shards must add up to the
+unsharded total (currently 88 tests in 28 files, split 47 and 41).
+
+### The E2E job's real cost is `npm ci`
+
+Roughly a third of that job is neither building nor testing:
+
+| step | e2e | frontend-build | frontend-tests |
+| --- | --- | --- | --- |
+| `npm ci` | ~3m20s-4m | ~3m45s | ~15s |
+
+Same lockfile, same `cache: npm`, same runner label — and it reproduces
+across runs. It is *not* Playwright downloading browsers: the job's
+post-run step reports `Path(s) specified in the action for caching do(es)
+not exist` for `~/.cache/ms-playwright`, so nothing was ever written
+there. (That also means the `Cache Playwright browsers` steps in `e2e.yml`
+and `frontend-build.yml` never save or restore anything — the Chrome the
+config pins comes from the runner image, which is the fast path
+`scripts/ci/install-playwright-chrome.sh` documents.)
+
+The cause is not yet identified, and sharding does not fix it — it
+duplicates it onto both runners. Whoever picks this up: that is ~3.5
+minutes on the pipeline's critical path, worth more than another shard.
 
 ## Adding tests
 

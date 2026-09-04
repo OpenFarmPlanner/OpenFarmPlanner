@@ -10,8 +10,19 @@ concurrency:
 
 jobs:
   e2e:
+    # Split across two runners with `playwright test --shard`. Each runner is a
+    # fresh VM that starts its own Django backend against its own SQLite file
+    # (see the webServer block in playwright.config.ts), so the shards share no
+    # database and no fixture users - the isolation the suite needs comes from
+    # the split itself, and `workers: 1` still holds inside a shard.
+    # Keep `--shard=N/<count>` in step with the matrix.
+    name: e2e (shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -63,14 +74,16 @@ jobs:
           VITE_WS_BASE_URL: ws://127.0.0.1:8000
 
       - name: Run E2E tests against the production build
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/2
         working-directory: frontend
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          # Must be unique per shard: two jobs uploading the same artifact
+          # name in one run is an error, not a merge.
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             frontend/playwright-report/
             frontend/test-results/
