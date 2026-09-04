@@ -12,38 +12,41 @@ gates to run locally, see the "Testing Rules" section of
 
 | Job | What it runs | Roughly |
 | --- | --- | --- |
-| `frontend-tests (shard 1/2)` | `vitest run --shard=1/2` | ~2 min |
-| `frontend-tests (shard 2/2)` | `vitest run --shard=2/2` | ~3.5 min |
-| `backend-tests` | `pytest` (xdist, with coverage) | ~6.5 min |
-| `quality` | ruff, radon, ESLint, madge | ~4.5 min |
+| `frontend-tests` | `vitest run` | ~5 min |
+| `backend-tests` | `pytest` (xdist, with coverage) | ~6.5-7.5 min |
+| `quality` | ruff, radon, ESLint, madge | ~3 min |
 
 `.github/workflows/e2e.yml` runs the Playwright suite against a production
 build on pull requests, split across three shards of its own.
 
 All jobs run concurrently, so the pipeline is as long as its slowest job.
 
-## Frontend: sharded, and parallel within a shard
+## Frontend: one job, parallel within it
 
-Two independent things make the frontend suite fast, and both have to stay
-in place:
+What makes this suite fast is **`fileParallelism` in
+`frontend/vite.config.ts`**. Vitest runs test files across a pool of
+workers; this was previously switched off under CI
+(`fileParallelism: !process.env.CI`), which put all ~240 files on a single
+worker. Re-enabling it took a local run from 392s to 240s with an
+identical 2405-test result.
 
-1. **`fileParallelism` in `frontend/vite.config.ts`.** Vitest runs test
-   files across a pool of workers. This was previously switched off under
-   CI (`fileParallelism: !process.env.CI`), which put all ~240 files on a
-   single worker. Re-enabling it took a local run from 392s to 240s with an
-   identical 2405-test result.
-2. **`--shard` in the CI matrix.** Vitest splits the *files* across shards,
-   so shard 1 and shard 2 are disjoint and cover the whole suite between
-   them. Nothing is skipped and nothing runs twice.
+It is deliberately **not** sharded across runners. It was, briefly, and
+the measurement is the reason it is not any more: the two shards' test
+steps were 2m10s and 2m41s, i.e. 4m51s of work split onto two runners —
+but `backend-tests` in the same workflow runs 6-7.5 minutes, so the second
+runner shortened a job that was never the critical path. Merged back the
+job is ~5 minutes and still finishes first.
 
-The shard count lives in two places that must agree: the `matrix.shard`
-list and the `--shard=N/<count>` argument. Adding a third shard means
-updating both.
+Sharding is close to free to reintroduce if that changes: add a
+`strategy.matrix.shard` and a matching `--shard=N/<count>` (the two must
+be kept in step), and verify with `npx vitest run --shard=N/<count>` that
+the parts add up to the whole. Do that when the suite approaches the
+backend job's runtime — currently about two minutes of headroom.
 
-Sharding by file also means a shard's runtime depends on which files land
-in it, so the two shards are not exactly equal (measured 108s and 136s).
-That is expected; balance it by splitting an oversized test file, not by
-hand-assigning files to shards.
+Note the shape of the trade: because each shard already saturates the
+runner's cores, splitting is close to *additive* rather than free (locally
+104s + 136s against 240s unsharded). Sharding buys wall-clock only when
+the job is the one holding the pipeline up.
 
 ### Where the frontend time actually goes
 
@@ -224,9 +227,12 @@ the config pins comes from the runner image, which is the fast path
 ## Adding tests
 
 - Keep new frontend files under `src/**/*.{test,spec}.{ts,tsx}` — that is
-  what both the shard split and the coverage config match on.
+  what the `include` glob and the coverage config match on.
+- Watch the frontend job's runtime against the backend job's. It is a
+  single job with about two minutes of headroom; past that, re-shard it
+  (see above) rather than letting it become the critical path.
 - Prefer extending an existing test file, but not past the point where it
-  dominates a shard. A file that is minutes long is a scheduling problem
-  for the shard it lands in, since a file never splits across shards.
+  dominates a run. A file that is minutes long is a scheduling problem for
+  whichever worker or e2e shard it lands on, since a file never splits.
 - Backend tests that manipulate migrations belong in a `test_migrations_*`
   file, so `--dist loadfile` keeps them isolated on one worker.
