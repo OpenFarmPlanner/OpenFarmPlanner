@@ -63,6 +63,7 @@ import {
 import { filterCropGroupsForSearch } from './cropGroupSearch';
 import { flattenTreeRows } from '../components/hierarchy/utils/treeRows';
 import { useExpandedState } from '../components/hierarchy/hooks/useExpandedState';
+import { usePreservedScrollPosition } from '../hooks/usePreservedScrollPosition';
 import { CropSeedDetails, type CropSeedRateRow, type ValueSource } from './CropSeedDetails';
 import { VarietyValueLegend } from './VarietyValueLegend';
 import { CropVarietiesOverview } from './CropVarietiesOverview';
@@ -526,6 +527,14 @@ const detailSectionGridSx = {
     },
   });
 
+  // Declared after the keyboard navigation hook on purpose: both act on the
+  // list in the same commit, and the restored offset must win over the
+  // "scroll the selected row into view" the navigation hook does on mount.
+  const {
+    scrollableRef: cropListScrollableRef,
+    onScroll: handleCropListScroll,
+  } = usePreservedScrollPosition<HTMLUListElement>();
+
   const selectedSpeciesCrop = useMemo(
     () => findSpeciesCrop(selectedCrop, crops),
     [crops, selectedCrop],
@@ -844,6 +853,8 @@ const detailSectionGridSx = {
             ) : (
             <List
               {...cropListNavigation.getListProps()}
+              ref={cropListScrollableRef}
+              onScroll={handleCropListScroll}
               dense
               role="listbox"
               aria-label={t('title')}

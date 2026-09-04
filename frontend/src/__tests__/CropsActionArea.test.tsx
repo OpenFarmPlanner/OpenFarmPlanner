@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import type { ReactElement } from 'react';
 import type { AxiosError } from 'axios';
@@ -8,6 +8,7 @@ import { CommandProvider } from '../commands/CommandProvider';
 import { FocusManagerProvider } from '../focus/FocusManager';
 
 const {
+  detailLoadingHistory,
   listMock,
   locationListMock,
   fieldListMock,
@@ -24,6 +25,7 @@ const {
   refreshUserMock,
   authUser,
 } = vi.hoisted(() => ({
+  detailLoadingHistory: [] as boolean[],
   listMock: vi.fn(),
   locationListMock: vi.fn(),
   fieldListMock: vi.fn(),
@@ -107,6 +109,7 @@ vi.mock('../crops/CropDetail', () => ({
     onDeleteCrop,
     canCreatePlan,
     selectedCropId,
+    isLoading,
   }: {
     crops: Array<CropDetailMockCrop>;
     onCropSelect: (crop: { id?: number; name: string } | null) => void;
@@ -117,7 +120,11 @@ vi.mock('../crops/CropDetail', () => ({
     onDeleteCrop?: (crop: { id?: number; name: string; variety?: string; cultivation_type?: string }) => void;
     canCreatePlan?: boolean;
     selectedCropId?: number;
-  }): ReactElement => (
+    isLoading?: boolean;
+  }): ReactElement => {
+    detailLoadingHistory.push(Boolean(isLoading));
+
+    return (
     <div data-testid="crop-detail-mock">
       <span data-testid="selected-crop-id">{selectedCropId ?? 'none'}</span>
       {crops.map((crop) => (
@@ -130,7 +137,8 @@ vi.mock('../crops/CropDetail', () => ({
       <button type="button" onClick={() => onDeleteCrop?.(crops[0])}>Kultur löschen</button>
       <button type="button" onClick={() => onCropSelect(crops[0] ?? null)}>select-crop</button>
     </div>
-  ),
+    );
+  },
 }));
 
 vi.mock('../auth/useAuth', () => ({
@@ -171,6 +179,7 @@ const waitForDeleteDialogToClose = async (): Promise<void> => {
 describe('Crops action area', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    detailLoadingHistory.length = 0;
     authUser.public_library_terms_accepted = false;
     authUser.is_staff = false;
     authUser.is_superuser = false;
@@ -375,6 +384,46 @@ describe('Crops action area', () => {
       expect(publishPublicMock).toHaveBeenCalledWith(1, { accepted_public_library_terms: false, crop_species_id: 1, original_language_code: 'de' });
       expect(listMock).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('keeps the crop list rendered across the refetch that follows publishing', async () => {
+    authUser.public_library_terms_accepted = true;
+    // The refetch triggered by publishing is held open, so the render pass
+    // while it is in flight is observable: putting the page back into its
+    // loading state there unmounts the crop list and resets its scroll
+    // position.
+    let resolveRefetch = (): void => {};
+    const refetchResponse = await listMock.mock.results[0]?.value ?? { data: { count: 0, next: null, previous: null, results: [] } };
+
+    renderCrops();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument();
+    });
+
+    listMock.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveRefetch = () => resolve(refetchResponse);
+    }));
+    detailLoadingHistory.length = 0;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Veröffentlichen' }));
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Jetzt veröffentlichen' })).toBeEnabled());
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Jetzt veröffentlichen' }));
+
+    await waitFor(() => {
+      expect(listMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(detailLoadingHistory).not.toContain(true);
+    expect(screen.getByTestId('crop-detail-mock')).toBeInTheDocument();
+
+    await act(async () => {
+      resolveRefetch();
+    });
+
+    expect(detailLoadingHistory).not.toContain(true);
   });
 
   it('preselects the official crop species when the crop name matches', async () => {

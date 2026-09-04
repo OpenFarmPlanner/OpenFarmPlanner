@@ -92,6 +92,9 @@ function Crops() {
 
   const [loadedCrops, setCrops] = useState<Crop[]>([]);
   const [isFetchingCrops, setIsCropsLoading] = useState(true);
+  // Whether a crop list response has already been rendered. Guards the loading
+  // state in fetchCrops below so later refetches keep the list on screen.
+  const hasLoadedCropsRef = useRef(false);
   const [showForm, setShowForm] = useState(false);
   const [editingCrop, setEditingCrop] = useState<Crop | undefined>(undefined);
   const [cropFormKind, setCropFormKind] = useState<'crop' | 'variety'>('crop');
@@ -194,9 +197,17 @@ function Crops() {
   }, []);
 
   const fetchCrops = useCallback(async (preservedCrop?: Crop) => {
-    setIsCropsLoading(true);
+    // Only the first load swaps the page for the loading card. A refetch that
+    // runs while crops are already on screen (save, import, publish to the
+    // public library) would otherwise unmount the detail area including the
+    // crop list, which drops the list's scroll position back to the top.
+    const isInitialLoad = !hasLoadedCropsRef.current;
+    if (isInitialLoad) {
+      setIsCropsLoading(true);
+    }
     try {
       const response = await cropAPI.list();
+      hasLoadedCropsRef.current = true;
       const fetchedCrops = response.data.results;
       if (!preservedCrop?.id) {
         setCrops(fetchedCrops);
@@ -219,7 +230,9 @@ function Crops() {
       console.error('Error fetching crops:', error);
       showSnackbar(t('messages.fetchError'), 'error');
     } finally {
-      setIsCropsLoading(false);
+      if (isInitialLoad) {
+        setIsCropsLoading(false);
+      }
     }
   }, [showSnackbar, t]);
 
