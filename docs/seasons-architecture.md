@@ -47,12 +47,13 @@ deleted for real, but `_delete_planting_plans_with_season` records an
   `season_create`, `season_undelete` and `season_copy_data` batch the same way;
 - `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
   any later manual undelete) recreates them. It finds the season's most recent
-  `ACTION_DELETED` revision and, via
-  `_restore_planting_plans_deleted_with_season`, re-inserts every
-  `planting_plan` whose latest revision at/after that timestamp is a deletion
-  with `snapshot['season_id']` pointing at this season — keeping the original
-  primary keys and skipping any plan a user had already deleted individually
-  beforehand.
+  `ACTION_DELETED` revision and hands it to
+  `farm/history/restore.py::restore_plans_and_tasks_deleted_with_season`, which
+  re-inserts every `planting_plan` whose latest revision at/after that
+  timestamp is a deletion with `snapshot['season_id']` pointing at this season
+  — keeping the original primary keys and skipping any plan a user had already
+  deleted individually beforehand — and then the `task` rows that DB-cascaded
+  away with those plans.
 
 On the client, `useActiveSeason.deleteSeason` treats deleting the **active**
 season as an active-season change: it repoints the stored id at the newest
