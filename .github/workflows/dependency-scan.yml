@@ -86,6 +86,15 @@ jobs:
       # --audit-level=high: only fail the build on High/Critical findings,
       # so low/moderate advisories (often unfixable transitive dev-tooling
       # noise) don't block every push/PR.
+      #
+      # `npm audit` exits 1 both for a real finding and for its own transport
+      # errors, so the two have to be told apart by what it printed. Treating
+      # every non-zero exit as a finding is what turned pushes to main red on
+      # 2026-09-04: registry.npmjs.org answered the advisories endpoint with a
+      # 503 and the step reported it as "npm audit found High/Critical
+      # vulnerabilities", while `npm ci` in the same job had just said "found 0
+      # vulnerabilities". An outage at npm is not a vulnerability in this
+      # lockfile, and must not be announced as one.
       - name: Run npm audit
         run: |
           cd frontend
@@ -93,13 +102,46 @@ jobs:
             echo "## npm audit (frontend, --audit-level=high)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
           set +o pipefail
-          npm audit --audit-level=high 2>&1 | tee /tmp/npm-audit.txt
-          exit_code=${PIPESTATUS[0]}
+          max_attempts=3
+          attempt=1
+          endpoint_unreachable=0
+
+          while true; do
+            npm audit --audit-level=high 2>&1 | tee /tmp/npm-audit.txt
+            exit_code=${PIPESTATUS[0]}
+
+            # A clean scan, or a scan that ran and found something: either way
+            # the answer is about the lockfile, so stop and report it.
+            if [ "$exit_code" -eq 0 ] || ! grep -qE 'audit endpoint returned an error|npm error code (ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN)' /tmp/npm-audit.txt; then
+              break
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              endpoint_unreachable=1
+              break
+            fi
+
+            echo "npm audit could not reach the advisory endpoint (attempt ${attempt}/${max_attempts}); retrying in $((attempt * 15))s."
+            sleep "$((attempt * 15))"
+            attempt=$((attempt + 1))
+          done
+
           {
             cat /tmp/npm-audit.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Not a clean scan, and deliberately not a red build either: no
+          # advisory data came back, so there is nothing to act on and nothing
+          # a contributor could fix. The Monday `schedule` re-scans the
+          # unchanged lockfile, and the next push re-runs this job anyway.
+          if [ "$endpoint_unreachable" -eq 1 ]; then
+            echo "::warning title=npm audit could not run::registry.npmjs.org's advisory endpoint was unreachable after ${max_attempts} attempts, so no vulnerability data was retrieved. This is an inconclusive scan, not a clean one."
+            exit 0
+          fi
+
           if [ "$exit_code" -ne 0 ]; then
             echo "::error title=npm audit found High/Critical vulnerabilities::Review the npm audit job summary for affected frontend packages and available fix versions."
           fi
