@@ -369,6 +369,15 @@ content — and nothing around it reflows. An earlier `CropSearchSelect`
 Autocomplete did exactly that and was removed: it duplicated the list beneath
 it and covered it while typing.
 
+That container also keeps its scroll offset across a refetch. Saving,
+importing or publishing a crop reloads the crop list, and two things would
+otherwise send the user back to the top of it: the page swapping itself for
+its loading card (which unmounts the list), and the remounted list starting at
+offset 0. So `Crops.tsx` shows the loading card only for the first load — later
+refetches keep the current rows on screen — and the list itself is wired to
+`usePreservedScrollPosition`, which restores the last offset (clamped to the
+new content height) whenever the container remounts anyway.
+
 The search filters live, from the first character typed:
 
 - **Groups, not rows, are the unit of a hit.** A group matches when its Kultur
