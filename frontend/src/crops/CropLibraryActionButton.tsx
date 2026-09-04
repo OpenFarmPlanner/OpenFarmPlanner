@@ -7,7 +7,13 @@ import { useTranslation } from '../i18n';
 import { AppTooltip } from '../components/AppTooltip';
 import type { Crop } from '../api/types';
 import type { PublicCropUpdateController } from './usePublicCropUpdate';
-import { resolveCropLibraryAction } from './cropLibraryAction';
+import { resolveCropLibraryAction, type CropLibraryActionKind } from './cropLibraryAction';
+
+function chipIcon(kind: CropLibraryActionKind) {
+  return kind === 'updateRejected'
+    ? <SyncDisabledOutlinedIcon fontSize="small" />
+    : <SyncOutlinedIcon fontSize="small" />;
+}
 
 interface CropLibraryActionButtonProps {
   crop: Crop;
@@ -40,32 +46,41 @@ export function CropLibraryActionButton({
   const handleClick = () => {
     if (action.trigger === 'publish') {
       onPublish();
-    } else if (action.trigger === 'diff') {
+    } else if (action.trigger === 'diff' && !controller.isLoading) {
       controller.openDiff();
     }
   };
 
   if (action.variant === 'chip') {
-    // `isLoading` also guards against a second request from a double click.
-    const clickable = action.trigger !== null && !action.disabled && !controller.isLoading;
+    // Whether the chip is interactive must not depend on `isLoading`: the two
+    // branches below differ structurally, so flipping it mid-click would
+    // remount the chip the user just activated and drop keyboard focus (and
+    // leave the tooltip open, since the unmounted chip never fires its
+    // mouse-leave). The in-flight request is handled inside `handleClick`
+    // instead, and shows as a spinner in the chip's icon slot.
+    const interactive = action.trigger !== null && !action.disabled;
     const chip = (
       <Chip
         size="small"
         variant="outlined"
         color={action.color}
-        icon={action.kind === 'updateRejected'
-          ? <SyncDisabledOutlinedIcon fontSize="small" />
-          : <SyncOutlinedIcon fontSize="small" />}
+        disabled={action.disabled}
+        icon={controller.isLoading && interactive
+          ? <CircularProgress size={14} color="inherit" />
+          : chipIcon(action.kind)}
         label={label}
-        onClick={clickable ? handleClick : undefined}
+        onClick={interactive ? handleClick : undefined}
         data-testid="crop-detail-library-status"
         data-action-kind={action.kind}
+        // A chip is the smallest control in the badge row; the interactive one
+        // gets a touch-sized target rather than the 24px default.
+        sx={interactive ? { minHeight: 32 } : undefined}
       />
     );
 
     // A clickable chip is a focusable button itself; an inert one needs the
     // focusable wrapper so its tooltip is reachable by keyboard.
-    return clickable ? (
+    return interactive ? (
       <AppTooltip title={tooltip} describeChild>{chip}</AppTooltip>
     ) : (
       <AppTooltip title={tooltip}>

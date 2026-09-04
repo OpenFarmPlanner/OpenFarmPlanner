@@ -13,9 +13,10 @@ test('the crop detail badge row wraps instead of overflowing at every viewport',
   const species = await apiRequest<{ results: Array<{ id: number }> }>(page, 'GET', '/crop-species/');
   const speciesId = species.results[0]?.id;
 
-  // Two of the widest states: state 1 (long "In Bibliothek teilen"
-  // button) and state 3 (published then edited -> "Kulturbibliothek
-  // aktualisieren" button).
+  // Three states: the two widest buttons — state 1 (long "In Bibliothek
+  // teilen") and state 3 (published then edited -> "Kulturbibliothek
+  // aktualisieren") — plus the declined-update chip, the one state that is not
+  // a button.
   const unlinked = await apiRequest<{ id: number }>(page, 'POST', '/crops/', {
     name: `Badge unlinked ${Date.now()}`,
     growth_duration_days: 30,
@@ -36,20 +37,46 @@ test('the crop detail badge row wraps instead of overflowing at every viewport',
   });
   await apiRequest(page, 'PATCH', `/crops/${published.id}/`, { notes: 'v2 local edit' });
 
-  const cases: Array<{ id: number; button: RegExp }> = [
-    { id: unlinked.id, button: /In Bibliothek teilen/ },
-    { id: published.id, button: /Bibliothek aktualisieren/ },
+  // State 2b: publish, move the public entry ahead, then decline that version.
+  const declined = await apiRequest<{ id: number }>(page, 'POST', '/crops/', {
+    name: `Badge declined ${Date.now()}`,
+    // The publish duplicate gate keys on species + normalized variety, so this
+    // must not collide with the "Testsorte" published above.
+    variety: `Ablehnsorte ${Date.now()}`,
+    crop_species: speciesId,
+    growth_duration_days: 40,
+    harvest_duration_days: 14,
+  });
+  const declinedPublic = await apiRequest<{ public_crop: { id: number } }>(
+    page,
+    'POST',
+    `/crops/${declined.id}/publish-public/`,
+    { accepted_public_library_terms: true, crop_species_id: speciesId, original_language_code: 'de' },
+  );
+  await apiRequest(page, 'PATCH', `/public-crops/${declinedPublic.public_crop.id}/`, {
+    growth_duration_days: 55,
+  });
+  await apiRequest(page, 'POST', `/crops/${declined.id}/public-update/reject/`);
+
+  const cases: Array<{ id: number; control: RegExp; testId?: string }> = [
+    { id: unlinked.id, control: /In Bibliothek teilen/ },
+    { id: published.id, control: /Bibliothek aktualisieren/ },
+    { id: declined.id, control: /Update abgelehnt/, testId: 'crop-detail-library-status' },
   ];
 
   for (const viewport of VIEWPORTS) {
     await setViewportPreset(page, viewport);
-    for (const { id, button } of cases) {
+    for (const { id, control, testId } of cases) {
       await page.goto(`/app/crops?cropId=${id}`);
       await waitForPageStable(page, /Kulturbibliothek/i);
 
       const badgeRow = page.getByTestId('crop-detail-badge-row');
       await expect(badgeRow).toBeVisible();
-      await expect(badgeRow.getByRole('button', { name: button })).toBeVisible();
+      const libraryControl = testId
+        ? badgeRow.getByTestId(testId)
+        : badgeRow.getByRole('button', { name: control });
+      await expect(libraryControl).toBeVisible();
+      await expect(libraryControl).toHaveText(control);
 
       const overflow = await badgeRow.evaluate((el) => ({
         row: el.scrollWidth - el.clientWidth,

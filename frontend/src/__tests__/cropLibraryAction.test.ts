@@ -169,6 +169,8 @@ describe('resolveCropLibraryAction', () => {
       labelKey: 'publicUpdate.markerUpToDateLabel',
       tooltipKey: 'publicUpdate.markerUpToDateTooltip',
       trigger: null,
+      // A passive status, not a disabled control: nothing is greyed out.
+      disabled: false,
     });
   });
 

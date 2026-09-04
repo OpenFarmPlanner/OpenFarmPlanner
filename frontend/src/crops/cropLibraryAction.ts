@@ -28,6 +28,11 @@ export interface CropLibraryAction {
    * the "Aktuell" chip, `default` for the neutral declined-update chip.
    */
   color: 'primary' | 'info' | 'default';
+  /**
+   * The control exists but is currently unavailable (species under moderation)
+   * — it renders greyed out. A passive status like "Aktuell" is not "disabled":
+   * it offers no action in the first place.
+   */
   disabled: boolean;
   /** i18n key under `library` for the explanatory tooltip, or null when there is none. */
   tooltipKey: string | null;
@@ -123,7 +128,7 @@ export function resolveCropLibraryAction(
     variant: 'chip',
     labelKey: 'publicUpdate.markerUpToDateLabel',
     color: 'info',
-    disabled: true,
+    disabled: false,
     tooltipKey: 'publicUpdate.markerUpToDateTooltip',
     trigger: null,
   };

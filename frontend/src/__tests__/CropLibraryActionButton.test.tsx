@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CropLibraryActionButton } from '../crops/CropLibraryActionButton';
 import { usePublicCropUpdate } from '../crops/usePublicCropUpdate';
@@ -124,6 +124,64 @@ describe('CropLibraryActionButton', () => {
     fireEvent.click(chip);
     expect(apiMocks.publicUpdate).toHaveBeenCalledTimes(1);
     expect(onPublish).not.toHaveBeenCalled();
+  });
+
+  it('keeps the declined chip focused and single-shot while the diff loads', async () => {
+    let resolveRequest: ((value: unknown) => void) | undefined;
+    apiMocks.publicUpdate.mockReturnValue(new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+    render(
+      <Harness
+        crop={{
+          ...baseCrop,
+          source_public_crop: 9,
+          public_update_rejected: true,
+          public_publish_blocked_reason: 'update_rejected',
+        }}
+        onPublish={vi.fn()}
+      />,
+    );
+
+    const chip = screen.getByTestId('crop-detail-library-status');
+    chip.focus();
+    fireEvent.click(chip);
+    // The chip must survive its own click: a remount would drop focus and
+    // strand the tooltip.
+    expect(screen.getByTestId('crop-detail-library-status')).toBe(chip);
+    expect(chip).toHaveFocus();
+    expect(chip.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
+
+    fireEvent.click(chip);
+    expect(apiMocks.publicUpdate).toHaveBeenCalledTimes(1);
+
+    resolveRequest?.({ data: { available: true, public_crop_id: 9, public_version: 2, changes: [] } });
+    await waitFor(() => {
+      expect(chip.querySelector('.MuiCircularProgress-root')).not.toBeInTheDocument();
+    });
+  });
+
+  it('greys the declined chip out and swallows nothing while the species is under review', () => {
+    render(
+      <Harness
+        crop={{
+          ...baseCrop,
+          source_public_crop: 9,
+          public_update_rejected: true,
+          public_crop_species_pending: true,
+        }}
+        onPublish={vi.fn()}
+      />,
+    );
+
+    const chip = screen.getByTestId('crop-detail-library-status');
+    expect(chip).toHaveClass('Mui-disabled');
+    fireEvent.click(chip);
+    expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
+    expect(chip.parentElement).toHaveAttribute(
+      'aria-label',
+      'Diese Funktion ist erst verfügbar, sobald der Kulturart-Vorschlag von einem Moderator geprüft wurde.',
+    );
   });
 
   it('disables itself with the moderation tooltip while the species is under review', () => {
