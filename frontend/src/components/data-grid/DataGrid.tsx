@@ -64,7 +64,6 @@ import { extractApiErrorMessage } from '../../api/errors';
 import { getDataGridLocaleText } from './localeText';
 import { TableCopyMenuItems } from './TableCopyMenuItems';
 import { buildClipboardRowValues, buildClipboardTableRows, type TableClipboardRow } from './tableClipboard';
-import { handleContextMenuKeyboardNavigation } from './contextMenuFocus';
 import { ContextMenuHint } from './ContextMenuHint';
 import { useContextMenuHint } from './useContextMenuHint';
 import { useDataGridCommandApi } from './hooks/useDataGridCommandApi';
@@ -2726,11 +2725,8 @@ export function EditableDataGrid<T extends EditableRow>({
       <CustomContextMenu
         open={Boolean(rowActionMenuState)}
         onClose={closeRowActionMenu}
-        autoFocus
-        disableAutoFocusItem={false}
+        keyboardNavigation
         listRef={rowActionMenuListRef}
-        onListKeyDown={(event: KeyboardEvent<HTMLUListElement>) => handleContextMenuKeyboardNavigation(event, closeRowActionMenu)}
-        onKeyDown={(event) => handleContextMenuKeyboardNavigation(event, closeRowActionMenu)}
         anchorEl={rowActionMenuState?.anchorEl}
         mouseX={rowActionMenuState?.mouseX}
         mouseY={rowActionMenuState?.mouseY}

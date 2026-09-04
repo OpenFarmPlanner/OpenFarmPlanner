@@ -61,7 +61,6 @@ import {
   useContextMenuHint,
   StableScrollbarTrack,
 } from "../components/data-grid";
-import { handleContextMenuKeyboardNavigation } from "../components/data-grid/contextMenuFocus";
 import {
   isInteractiveCellTarget,
   preventReadOnlyCellMouseFocus,
@@ -1836,11 +1835,8 @@ function FieldsBedsHierarchy({
       <CustomContextMenu
         open={contextMenuState !== null}
         onClose={closeContextMenu}
-        autoFocus
-        disableAutoFocusItem={false}
+        keyboardNavigation
         listRef={contextMenuListRef}
-        onListKeyDown={(event: React.KeyboardEvent<HTMLUListElement>) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
-        onKeyDown={(event) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
         mouseX={contextMenuState?.mouseX}
         mouseY={contextMenuState?.mouseY}
       >

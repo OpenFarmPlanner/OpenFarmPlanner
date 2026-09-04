@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useContextMenuFocus } from '../components/data-grid/contextMenuFocus';
+import { useContextMenuFocus } from '../components/contextMenu/contextMenuFocus';
 
 function ContextMenuHarness({ open }: { open: boolean }) {
   const menuListRef = useContextMenuFocus(open);
