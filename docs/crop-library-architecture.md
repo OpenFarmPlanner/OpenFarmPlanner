@@ -231,6 +231,13 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+`CropSpecies` also carries optional reference metadata for the official
+suggestion list: `scientific_name`, botanical `family`, and a list of broad
+`categories` such as `vegetable`. These fields belong to the moderated species
+identity. They are not copied into every variety row; project crop-family values
+are filled from the species metadata only when a general project crop has no
+user-entered `crop_family` yet.
+
 Crop species display names are language- and region-aware at the API boundary.
 The canonical German translation is standard Germany terminology; Austria and
 Switzerland are explicit regional overrides on `CropSpeciesTranslation`, while
@@ -954,7 +961,7 @@ aligned with the crop categories covered by established German, Austrian,
 and Swiss organic seed suppliers such as ReinSaat, Bingenheimer, Samen Maier,
 Austrosaat, Dreschflegel, Culinaris, and Sativa Rheinau. Entries already carry
 stable keys and translation maps for the future multilingual species library.
-The catalogue stores concrete crop species only: use categories such as
+The catalogue stores concrete crop species only: usage categories such as
 `Gründüngung` / `Green manure` are represented by concrete species like
 Buchweizen, Phacelia, Inkarnatklee, or Ölrettich instead of becoming upload
 targets themselves.
@@ -970,6 +977,11 @@ Naming conventions for `CROP_SPECIES_SEED_DATA` entries:
   Asia-greens shelf covers Blattsenf, Pak Choi, Tatsoi, Mizuna, Mibuna,
   Komatsuna and Chinakohl — species that are planned, spaced and harvested
   differently.
+- No parent crop name when the catalogue represents all practical choices as
+  complete, disjoint child entries. For fennel, use `Knollenfenchel` /
+  `Florence fennel` for the bulb crop and `Gewürzfenchel` / `Common fennel`
+  for the herb/seed crop; do not keep generic `Fenchel` / `Fennel` beside
+  them.
 - Add the concrete, user-recognizable species instead, one entry per species,
   and do not introduce an umbrella entry alongside them.
 

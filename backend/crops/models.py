@@ -31,6 +31,9 @@ class CropSpecies(models.Model):
 
     name = models.CharField(max_length=200)
     name_normalized = models.CharField(max_length=200, db_index=True, editable=False, unique=True)
+    scientific_name = models.CharField(max_length=200, blank=True)
+    family = models.CharField(max_length=200, blank=True)
+    categories = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED)
     proposed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -61,7 +64,33 @@ class CropSpecies(models.Model):
         from farm.utils import normalize_text
 
         self.name_normalized = normalize_text(self.name) or ''
+        self.scientific_name = ' '.join((self.scientific_name or '').split())
+        self.family = ' '.join((self.family or '').split())
+        self.categories = self._clean_categories(self.categories)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {
+                'categories',
+                'family',
+                'name_normalized',
+                'scientific_name',
+            }
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def _clean_categories(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for entry in value:
+            if not isinstance(entry, str):
+                continue
+            category = ' '.join(entry.split()).lower()
+            if category and category not in seen:
+                cleaned.append(category)
+                seen.add(category)
+        return cleaned
 
     @property
     def is_pending(self) -> bool:
@@ -93,7 +122,7 @@ class CropSpecies(models.Model):
         display translations, but autocomplete UIs still need to show which
         alias made a canonical species appear.
         """
-        names = [self.name]
+        names = [self.name, self.scientific_name]
         for translation in self.translations.all():
             names.append(translation.common_name)
             names.extend(translation.synonyms)

@@ -11,6 +11,9 @@ class CropSpeciesSeedEntry:
 
     key: str
     translations: dict[str, str]
+    scientific_name: str = ''
+    family: str = ''
+    categories: tuple[str, ...] = ()
 
 
 CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
@@ -74,8 +77,20 @@ CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
     CropSpeciesSeedEntry(key='elderberry', translations={'de': 'Holunder', 'en': 'Elderberry'}),
     CropSpeciesSeedEntry(key='emmer', translations={'de': 'Emmer', 'en': 'Emmer'}),
     CropSpeciesSeedEntry(key='endive', translations={'de': 'Endivie', 'en': 'Endive'}),
-    CropSpeciesSeedEntry(key='fennel_bulb', translations={'de': 'Knollenfenchel', 'en': 'Florence fennel'}),
-    CropSpeciesSeedEntry(key='fennel', translations={'de': 'Fenchel', 'en': 'Fennel'}),
+    CropSpeciesSeedEntry(
+        key='fennel_bulb',
+        translations={'de': 'Knollenfenchel', 'en': 'Florence fennel'},
+        scientific_name='Foeniculum vulgare var. azoricum',
+        family='Apiaceae',
+        categories=('vegetable',),
+    ),
+    CropSpeciesSeedEntry(
+        key='fennel_herb',
+        translations={'de': 'Gewürzfenchel', 'en': 'Common fennel'},
+        scientific_name='Foeniculum vulgare',
+        family='Apiaceae',
+        categories=('herb',),
+    ),
     CropSpeciesSeedEntry(key='field_pea', translations={'de': 'Futtererbse', 'en': 'Field pea'}),
     CropSpeciesSeedEntry(key='flax', translations={'de': 'Lein', 'en': 'Flax'}),
     CropSpeciesSeedEntry(key='fodder_beet', translations={'de': 'Futterrübe', 'en': 'Fodder beet'}),
@@ -98,7 +113,13 @@ CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
     CropSpeciesSeedEntry(key='kohlrabi', translations={'de': 'Kohlrabi', 'en': 'Kohlrabi'}),
     CropSpeciesSeedEntry(key='komatsuna', translations={'de': 'Komatsuna', 'en': 'Komatsuna'}),
     CropSpeciesSeedEntry(key='lavender', translations={'de': 'Lavendel', 'en': 'Lavender'}),
-    CropSpeciesSeedEntry(key='leaf_mustard', translations={'de': 'Blattsenf', 'en': 'Mustard greens'}),
+    CropSpeciesSeedEntry(
+        key='leaf_mustard',
+        translations={'de': 'Blattsenf', 'en': 'Mustard greens'},
+        scientific_name='Brassica juncea',
+        family='Brassicaceae',
+        categories=('vegetable',),
+    ),
     CropSpeciesSeedEntry(key='leek', translations={'de': 'Lauch', 'en': 'Leek'}),
     CropSpeciesSeedEntry(key='lemon_balm', translations={'de': 'Zitronenmelisse', 'en': 'Lemon balm'}),
     CropSpeciesSeedEntry(key='lentil', translations={'de': 'Linse', 'en': 'Lentil'}),

@@ -525,6 +525,9 @@ export interface CropSpeciesTranslation {
 export interface CropSpecies {
   id: number;
   name: string;
+  scientific_name?: string;
+  family?: string;
+  categories?: string[];
   display_name?: string;
   display_language_code?: string;
   translations?: CropSpeciesTranslation[];

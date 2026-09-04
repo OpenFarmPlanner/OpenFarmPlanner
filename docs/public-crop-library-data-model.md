@@ -16,6 +16,8 @@ yet.**
 - `CropSpecies` as the language-independent identity, optional private
   `Crop.crop_species`, `PublicCrop.crop_species`, and
   `PublicCrop.original_language_code`;
+- optional `CropSpecies` reference metadata for `scientific_name`, botanical
+  `family`, and broad `categories`;
 - the Publishing Wizard as the quality gate at the publishing boundary
   (Variant B from section 6, minus the `CropVariety` half);
 - the non-destructive public-library lifecycle (`draft`, `published`,
