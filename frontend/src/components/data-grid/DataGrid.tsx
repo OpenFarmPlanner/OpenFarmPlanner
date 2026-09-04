@@ -21,7 +21,7 @@
  * DataGrid with its own parallel implementation of several of these patterns).
  */
 
-import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type KeyboardEvent, type ReactNode } from 'react';
 import {
   DataGrid,
   GridPagination,
@@ -94,24 +94,15 @@ import {
 } from './SelectEditCellContext';
 import {
   CONTINUOUS_SCROLL_PAGE_SIZE,
-  CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
   CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX,
+  DATA_GRID_CONTINUOUS_SCROLL_FOOTER_CLASS,
+  CONTINUOUS_SCROLL_REQUESTED_ROW_HEIGHT_PX,
   CONTINUOUS_SCROLL_HEADER_HEIGHT_PX,
   CONTINUOUS_SCROLL_FOOTER_HEIGHT_PX,
-  CONTINUOUS_SCROLL_BOTTOM_MARGIN_PX,
-  CONTINUOUS_SCROLL_MIN_HEIGHT_PX,
-  DATA_GRID_ROOT_SELECTOR,
   DATA_GRID_VIRTUAL_SCROLLER_SELECTOR,
-  DATA_GRID_MAIN_SELECTOR,
-  DATA_GRID_CONTINUOUS_SCROLL_FOOTER_CLASS,
-  CONTINUOUS_SCROLL_FIT_EPSILON_PX,
   cssEscape,
-  DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS,
-  getElementHeight,
-  getVerticalBorderHeight,
-  continuousScrollLayoutHeightsEqual,
-  type ContinuousScrollLayoutHeights,
 } from './continuousScrollLayout';
+import { useContinuousScrollSizing } from './useContinuousScrollSizing';
 import {
   buildDefaultClipboardColumns,
   getSortedRowIds,
@@ -302,41 +293,6 @@ export function EditableDataGrid<T extends EditableRow>({
     () => (isContinuousScroll && !isMobile ? rowsForGrid.map(() => CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX) : []),
     [isContinuousScroll, isMobile, rowsForGrid],
   );
-  const [continuousScrollLayoutHeights, setContinuousScrollLayoutHeights] = useState<ContinuousScrollLayoutHeights>(() => ({
-    ...DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS,
-    footer: continuousScrollFooterFallbackHeight,
-  }));
-  const measuredContinuousScrollContentHeight = useMemo(() => Math.ceil(
-    continuousScrollLayoutHeights.header
-    + continuousScrollLayoutHeights.footer
-    + continuousScrollLayoutHeights.border
-    + currentWindowRowCount * CONTINUOUS_SCROLL_COMPACT_ROW_HEIGHT_PX
-    + CONTINUOUS_SCROLL_FIT_EPSILON_PX,
-  ), [continuousScrollLayoutHeights, currentWindowRowCount]);
-  const [availableGridHeight, setAvailableGridHeight] = useState<number | null>(null);
-  const [scrollbarRightOffsetPx, setScrollbarRightOffsetPx] = useState<number>(0);
-  const resolvedContinuousScrollHeight = isContinuousScroll && !isMobile
-    ? Math.min(
-      measuredContinuousScrollContentHeight,
-      availableGridHeight ?? measuredContinuousScrollContentHeight,
-    )
-    : undefined;
-  const resolvedContinuousScrollBodyHeight = resolvedContinuousScrollHeight === undefined
-    ? undefined
-    : Math.max(
-      0,
-      resolvedContinuousScrollHeight - continuousScrollLayoutHeights.footer - continuousScrollLayoutHeights.border,
-    );
-  const shouldHideContinuousVerticalOverflow = Boolean(
-    isContinuousScroll
-    && !isMobile
-    && resolvedContinuousScrollHeight !== undefined
-    && measuredContinuousScrollContentHeight <= resolvedContinuousScrollHeight + CONTINUOUS_SCROLL_FIT_EPSILON_PX,
-  );
-  const shouldCollapseContinuousRenderZone = Boolean(
-    shouldHideContinuousVerticalOverflow
-    && rowsForGrid.length <= CONTINUOUS_SCROLL_PAGE_SIZE,
-  );
   const stableScrollbar = useStableDataGridScrollbar(
     stableScrollbarRowHeights,
     scrollDrivenRowWindow,
@@ -363,182 +319,6 @@ export function EditableDataGrid<T extends EditableRow>({
       requestAnimationFrame(action);
     });
   }, [ensureRowVisible]);
-
-  useLayoutEffect(() => {
-    if (!isContinuousScroll || isMobile) {
-      return undefined;
-    }
-
-    const measure = (): void => {
-      const surface = gridSurfaceRef.current;
-      if (!surface) {
-        return;
-      }
-
-      const root = surface.querySelector('.MuiDataGrid-root');
-      const header = surface.querySelector('.MuiDataGrid-columnHeaders');
-      const footer = surface.querySelector(`.${DATA_GRID_CONTINUOUS_SCROLL_FOOTER_CLASS}`);
-      const nextHeights = {
-        header: getElementHeight(header, DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS.header),
-        footer: getElementHeight(footer, continuousScrollFooterFallbackHeight),
-        border: getVerticalBorderHeight(root, DEFAULT_CONTINUOUS_SCROLL_LAYOUT_HEIGHTS.border),
-      };
-
-      setContinuousScrollLayoutHeights((currentHeights) => (
-        continuousScrollLayoutHeightsEqual(currentHeights, nextHeights)
-          ? currentHeights
-          : nextHeights
-      ));
-    };
-
-    measure();
-
-    let resizeObserver: ResizeObserver | undefined;
-    const observedElement = gridSurfaceRef.current;
-    if (observedElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(measure);
-      resizeObserver.observe(observedElement);
-    }
-
-    window.addEventListener('resize', measure);
-    return () => {
-      resizeObserver?.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, [continuousScrollFooterFallbackHeight, currentWindowRowCount, isContinuousScroll, isMobile]);
-
-  useLayoutEffect(() => {
-    if (!isContinuousScroll || isMobile) {
-      return undefined;
-    }
-
-    const surface = gridSurfaceRef.current;
-    const root = surface?.querySelector<HTMLElement>(DATA_GRID_ROOT_SELECTOR);
-    const main = surface?.querySelector<HTMLElement>(DATA_GRID_MAIN_SELECTOR);
-    const scroller = surface?.querySelector<HTMLElement>(DATA_GRID_VIRTUAL_SCROLLER_SELECTOR);
-    if (
-      !root
-      || !main
-      || !scroller
-      || resolvedContinuousScrollHeight === undefined
-      || resolvedContinuousScrollBodyHeight === undefined
-    ) {
-      return undefined;
-    }
-
-    const bodyHeight = `${resolvedContinuousScrollBodyHeight}px`;
-    const rootHeight = `${resolvedContinuousScrollHeight}px`;
-    const applyHeight = (): void => {
-      root.style.setProperty('height', rootHeight, 'important');
-      root.style.setProperty('max-height', rootHeight, 'important');
-      main.style.setProperty('height', bodyHeight, 'important');
-      main.style.setProperty('max-height', bodyHeight, 'important');
-      main.style.setProperty('overflow', 'hidden');
-      scroller.style.setProperty('height', bodyHeight, 'important');
-      scroller.style.setProperty('max-height', bodyHeight, 'important');
-    };
-
-    applyHeight();
-    const rafId = window.requestAnimationFrame(applyHeight);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      root.style.removeProperty('height');
-      root.style.removeProperty('max-height');
-      main.style.removeProperty('height');
-      main.style.removeProperty('max-height');
-      main.style.removeProperty('overflow');
-      scroller.style.removeProperty('height');
-      scroller.style.removeProperty('max-height');
-    };
-  }, [
-    continuousScrollLayoutHeights.border,
-    continuousScrollLayoutHeights.footer,
-    isContinuousScroll,
-    isMobile,
-    resolvedContinuousScrollBodyHeight,
-    resolvedContinuousScrollHeight,
-    scrollDrivenRowWindow.page,
-  ]);
-
-  useLayoutEffect(() => {
-    if (!shouldHideContinuousVerticalOverflow) {
-      return undefined;
-    }
-
-    const scroller = gridSurfaceRef.current?.querySelector<HTMLElement>(DATA_GRID_VIRTUAL_SCROLLER_SELECTOR);
-    if (!scroller) {
-      return undefined;
-    }
-
-    const keepAtTop = (): void => {
-      if (scroller.scrollTop !== 0) {
-        scroller.scrollTop = 0;
-      }
-    };
-
-    keepAtTop();
-    scroller.addEventListener('scroll', keepAtTop);
-    return () => {
-      scroller.removeEventListener('scroll', keepAtTop);
-    };
-  }, [shouldHideContinuousVerticalOverflow]);
-
-  useLayoutEffect(() => {
-    if (!isContinuousScroll || isMobile) {
-      return undefined;
-    }
-
-    const scrollport = horizontalScrollRef.current;
-    const content = gridSurfaceRef.current;
-    const page = pageContentRef.current;
-    if (!scrollport || !content || !page) {
-      return undefined;
-    }
-
-    // The vertical scrollbar track must sit at the table's *visible* right
-    // edge: the table's own edge when it's narrower than the scrollport
-    // (centered on a wide screen, with empty space to its right), or the
-    // scrollport's edge when the table overflows and is scrolled (so the
-    // track stays glued to the viewport instead of scrolling away with the
-    // wider-than-viewport content). Taking the leftmost of the two edges
-    // covers both cases without needing to special-case which one applies.
-    const measure = (): void => {
-      const scrollportRect = scrollport.getBoundingClientRect();
-      const contentRect = content.getBoundingClientRect();
-      const pageRect = page.getBoundingClientRect();
-      const visibleRight = Math.min(scrollportRect.right, contentRect.right);
-      setScrollbarRightOffsetPx(Math.max(0, pageRect.right - visibleRight));
-    };
-
-    measure();
-
-    let rafId: number | null = null;
-    const scheduleMeasure = (): void => {
-      if (rafId !== null) {
-        return;
-      }
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        measure();
-      });
-    };
-
-    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleMeasure) : undefined;
-    resizeObserver?.observe(scrollport);
-    resizeObserver?.observe(content);
-    scrollport.addEventListener('scroll', scheduleMeasure, { passive: true });
-    window.addEventListener('resize', scheduleMeasure);
-
-    return () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      resizeObserver?.disconnect();
-      scrollport.removeEventListener('scroll', scheduleMeasure);
-      window.removeEventListener('resize', scheduleMeasure);
-    };
-  }, [isContinuousScroll, isMobile]);
 
   useEffect(() => {
     if (!import.meta.env.DEV || (!showPaginationControls && !isContinuousScroll) || loading) {
@@ -590,47 +370,27 @@ export function EditableDataGrid<T extends EditableRow>({
     hasRows: hasContextMenuHintRows,
   });
 
-  useLayoutEffect(() => {
-    if (!isContinuousScroll || isMobile) {
-      return undefined;
-    }
-
-    const measure = (): void => {
-      const surface = gridSurfaceRef.current;
-      if (!surface) {
-        return;
-      }
-      const top = surface.getBoundingClientRect().top;
-      setAvailableGridHeight(
-        Math.max(CONTINUOUS_SCROLL_MIN_HEIGHT_PX, window.innerHeight - top - CONTINUOUS_SCROLL_BOTTOM_MARGIN_PX),
-      );
-    };
-
-    measure();
-    window.addEventListener('resize', measure);
-
-    let resizeObserver: ResizeObserver | undefined;
-    const observedElement = pageContentRef.current;
-    if (observedElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(measure);
-      resizeObserver.observe(observedElement);
-    }
-
-    return () => {
-      window.removeEventListener('resize', measure);
-      resizeObserver?.disconnect();
-    };
-    // error, showContextMenuHint and showTouchContextMenuHint aren't read
-    // inside the effect, but all three toggle sibling banners rendered
-    // above gridSurfaceRef (see the error Alert / ContextMenuHint variants
-    // in the JSX below) — they shift the surface's top position without
-    // changing pageContentRef's own size, so the ResizeObserver above never
-    // fires for them on its own. Without this, the hint banner appearing
-    // after data loads (a later render than this effect's first run) left
-    // availableGridHeight stale/too-tall, letting the capped grid height
-    // push the whole page taller than the viewport — a second, native
-    // page-level scrollbar alongside the grid's own.
-  }, [isContinuousScroll, isMobile, error, showContextMenuHint, showTouchContextMenuHint]);
+  const {
+    layoutHeights: continuousScrollLayoutHeights,
+    resolvedHeight: resolvedContinuousScrollHeight,
+    resolvedBodyHeight: resolvedContinuousScrollBodyHeight,
+    shouldHideVerticalOverflow: shouldHideContinuousVerticalOverflow,
+    shouldCollapseRenderZone: shouldCollapseContinuousRenderZone,
+    scrollbarRightOffsetPx,
+  } = useContinuousScrollSizing({
+    isContinuousScroll,
+    isMobile,
+    gridSurfaceRef,
+    horizontalScrollRef,
+    pageContentRef,
+    currentWindowRowCount,
+    totalRowCount: rowsForGrid.length,
+    footerFallbackHeight: continuousScrollFooterFallbackHeight,
+    scrollWindowPage: scrollDrivenRowWindow.page,
+    hasErrorBanner: Boolean(error),
+    hasContextMenuHint: showContextMenuHint,
+    hasTouchContextMenuHint: showTouchContextMenuHint,
+  });
 
   const refreshStableRowOrder = useCallback((sourceRows: readonly T[], model: GridSortModel = sortModel): void => {
     setStableRowOrder(getSortedRowIds(sourceRows, model));
