@@ -183,6 +183,11 @@ export function CropsPublishingWizardDialog({
   const [showLanguageOverride, setShowLanguageOverride] = useState(false);
   // Sorten are published along by default, so only the exceptions are tracked.
   const [deselectedVarietyIds, setDeselectedVarietyIds] = useState<Set<number>>(new Set());
+  // Whether the public entries the Sorten are matched against have arrived.
+  // Their absence is not the same as "no conflicts": a pending or failed
+  // lookup would silently offer every Sorte as new.
+  const [varietyLookupSettled, setVarietyLookupSettled] = useState(false);
+  const [varietyLookupFailed, setVarietyLookupFailed] = useState(false);
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
   const highlightedSpeciesOptionRef = useRef<SpeciesPickerOption | null>(null);
@@ -226,6 +231,8 @@ export function CropsPublishingWizardDialog({
       setPublicCropInput(crop?.name ?? '');
       setSelectedPublicCrop(null);
       setDeselectedVarietyIds(new Set());
+      setVarietyLookupSettled(false);
+      setVarietyLookupFailed(false);
     });
   }, [crop?.name, crop?.variety, open]);
 
@@ -259,6 +266,12 @@ export function CropsPublishingWizardDialog({
       queueMicrotask(() => setPublicCropOptions([]));
       return undefined;
     }
+    // A species switch invalidates the previous species' entries, so the
+    // Sorten must not be matched against them while the new list is loading.
+    queueMicrotask(() => {
+      setVarietyLookupSettled(false);
+      setVarietyLookupFailed(false);
+    });
 
     let cancelled = false;
     const abortController = new AbortController();
@@ -271,6 +284,7 @@ export function CropsPublishingWizardDialog({
             !selectedSpecies || entry.crop_species === selectedSpecies.id
           ));
           setPublicCropOptions(filtered);
+          setVarietyLookupSettled(true);
           // If the local variety already has a matching public entry,
           // recognize it immediately instead of leaving the field empty —
           // mirrors the species field's own-name prefill above.
@@ -286,7 +300,10 @@ export function CropsPublishingWizardDialog({
           }
         })
         .catch(() => {
-          if (!cancelled && !abortController.signal.aborted) setPublicCropOptions([]);
+          if (cancelled || abortController.signal.aborted) return;
+          setPublicCropOptions([]);
+          setVarietyLookupSettled(true);
+          setVarietyLookupFailed(true);
         })
         .finally(() => {
           if (!cancelled) setPublicCropLoading(false);
@@ -353,6 +370,9 @@ export function CropsPublishingWizardDialog({
   // Co-publishing Sorten belongs to the initial publication of a Kultur; an
   // update of an already-published entry keeps its existing scope.
   const showVarietySelection = !isOwnedPublicCropUpdate && varietyCandidates.length > 0;
+  // Nothing may be published while the entries the Sorten are compared against
+  // are still on their way — until then "no conflict" only means "not known yet".
+  const varietyConflictsPending = showVarietySelection && Boolean(selectedSpecies) && !varietyLookupSettled;
   const selectedVarieties = useMemo<PublishVarietySelection[]>(
     () => (showVarietySelection
       ? varietyCandidates
@@ -423,8 +443,17 @@ export function CropsPublishingWizardDialog({
   const handlePublish = useCallback(async () => {
     if (!crop?.id) return;
     if (selectedPublicCrop && !isUpdatingOwnedPublicCrop) {
+      // Linking needs no license acceptance, but a Sorte published along with
+      // it does — without it the backend rejects every one of them with
+      // `public_library_terms_required`.
+      const publishesNewVarieties = selectedVarieties.some((variety) => !variety.publicCropId);
+      const needsLicense = publishesNewVarieties && !termsAlreadyAccepted;
+      if (needsLicense && (!showLicenseConfirmation || !acceptedLicense)) {
+        setShowLicenseConfirmation(true);
+        return;
+      }
       onPublish({
-        acceptedPublicLibraryTerms: false,
+        acceptedPublicLibraryTerms: needsLicense && acceptedLicense,
         cropSpeciesId: selectedPublicCrop.crop_species ?? undefined,
         originalLanguageCode,
         publicCropId: selectedPublicCrop.id,
@@ -684,6 +713,19 @@ export function CropsPublishingWizardDialog({
                     <Typography variant="body2" color="text.secondary">
                       {t('library.publishWizard.varieties.description')}
                     </Typography>
+                    {varietyConflictsPending ? (
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
+                        <CircularProgress color="inherit" size={14} />
+                        <Typography variant="caption" color="text.secondary">
+                          {t('library.publishWizard.varieties.checking')}
+                        </Typography>
+                      </Stack>
+                    ) : null}
+                    {varietyLookupFailed ? (
+                      <Alert severity="warning" sx={{ mt: 1 }}>
+                        {t('library.publishWizard.varieties.checkFailed')}
+                      </Alert>
+                    ) : null}
                     <FormGroup sx={{ mt: 0.5 }}>
                       {varietyCandidates.map((candidate) => (
                         <FormControlLabel
@@ -945,6 +987,7 @@ export function CropsPublishingWizardDialog({
             || publishing
             || validationLoading
             || proposingSpecies
+            || varietyConflictsPending
             || isBlockedByValidation
             || (isUpdatingOwnedPublicCrop && comparison?.length === 0)
             || (showLicenseConfirmation && !termsAlreadyAccepted && !acceptedLicense)

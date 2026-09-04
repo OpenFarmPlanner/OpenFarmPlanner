@@ -50,20 +50,29 @@ const CROP: Crop = {
 
 const renderWizard = (
   crop: Crop = CROP,
-  options: { varieties?: Crop[]; onPublish?: (data: unknown) => void } = {},
+  options: { varieties?: Crop[]; onPublish?: (data: unknown) => void; termsAlreadyAccepted?: boolean } = {},
 ) => render(
   <MemoryRouter>
     <CropsPublishingWizardDialog
       open
       crop={crop}
       varieties={options.varieties}
-      termsAlreadyAccepted
+      termsAlreadyAccepted={options.termsAlreadyAccepted ?? true}
       publishing={false}
       onClose={vi.fn()}
       onPublish={options.onPublish ?? vi.fn()}
     />
   </MemoryRouter>,
 );
+
+// The wizard keeps the publish button disabled until the public entries the
+// Sorten are matched against have arrived, so a Sorte is never offered as new
+// just because the lookup had not answered yet.
+const findEnabledPublishButton = async (name = 'Jetzt veröffentlichen') => {
+  const button = await screen.findByRole('button', { name });
+  await waitFor(() => expect(button).toBeEnabled());
+  return button;
+};
 
 const GENERAL_CROP: Crop = { ...CROP, variety: '' };
 const VARIETY_ROMA: Crop = { ...CROP, id: 2, variety: 'Roma' };
@@ -558,7 +567,7 @@ describe('CropsPublishingWizardDialog', () => {
       expect(romaCheckbox).toBeChecked();
       expect(ochsenherzCheckbox).toBeChecked();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+      fireEvent.click(await findEnabledPublishButton());
 
       await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
         publishAsGeneral: true,
@@ -577,7 +586,7 @@ describe('CropsPublishingWizardDialog', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: /^Ochsenherz/ }));
       expect(screen.getByRole('checkbox', { name: /^Ochsenherz/ })).not.toBeChecked();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+      fireEvent.click(await findEnabledPublishButton());
 
       await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
         varieties: [{ cropId: 2, publicCropId: null }],
@@ -600,11 +609,66 @@ describe('CropsPublishingWizardDialog', () => {
       // Only the conflicting Sorte carries the hint.
       expect(screen.getAllByText('bereits vorhanden – wird verknüpft')).toHaveLength(1);
 
-      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+      fireEvent.click(await findEnabledPublishButton());
 
       await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
         varieties: [
           { cropId: 2, publicCropId: 40 },
+          { cropId: 3, publicCropId: null },
+        ],
+      })));
+    });
+    it('asks for the license before co-publishing Sorten on the link path', async () => {
+      // Linking the Kultur itself needs no license, but the Sorten published
+      // along with it do — without the acceptance the backend rejects each of
+      // them with `public_library_terms_required`.
+      const linkedGeneralEntry: PublicCrop = {
+        id: 55,
+        status: 'published',
+        name: 'Tomate',
+        display_name: 'Tomate',
+        variety: '',
+        crop_species: 1,
+        version: 3,
+      };
+      publicCropGetMock.mockResolvedValue({ data: linkedGeneralEntry });
+      const onPublish = vi.fn();
+      renderWizard(
+        { ...GENERAL_CROP, source_public_crop: 55 },
+        { varieties: [VARIETY_ROMA], onPublish, termsAlreadyAccepted: false },
+      );
+
+      await waitFor(() => expect(publicCropGetMock).toHaveBeenCalledWith(55));
+      fireEvent.click(await findEnabledPublishButton('Mit öffentlicher Kultur verknüpfen'));
+
+      // First click only reveals the license box; nothing is published yet.
+      const licenseCheckbox = await screen.findByRole('checkbox', { name: /Lizenz|CC BY-SA|akzeptiere/i });
+      expect(onPublish).not.toHaveBeenCalled();
+
+      fireEvent.click(licenseCheckbox);
+      fireEvent.click(screen.getByRole('button', { name: 'Mit öffentlicher Kultur verknüpfen' }));
+
+      await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
+        acceptedPublicLibraryTerms: true,
+        publicCropId: 55,
+        varieties: [{ cropId: 2, publicCropId: null }],
+      })));
+    });
+
+    it('warns instead of silently offering every Sorte as new when the library lookup fails', async () => {
+      publicCropListMock.mockRejectedValue(new Error('network down'));
+      const onPublish = vi.fn();
+      renderWizard(GENERAL_CROP, { varieties: [VARIETY_ROMA, VARIETY_OCHSENHERZ], onPublish });
+
+      await screen.findByLabelText(/Offizielle Kulturart/i);
+      expect(await screen.findByText(/Abgleich mit der Kulturbibliothek fehlgeschlagen/)).toBeInTheDocument();
+
+      // A failed lookup must not block publishing — the backend's own
+      // duplicate gate still catches a Sorte that is public already.
+      fireEvent.click(await findEnabledPublishButton());
+      await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
+        varieties: [
+          { cropId: 2, publicCropId: null },
           { cropId: 3, publicCropId: null },
         ],
       })));

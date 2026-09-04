@@ -883,6 +883,8 @@
     "linkPublicCropSuccess": "“{{name}}” was linked to the crop library.",
     "publishVarietiesSuccess_one": "1 variety was published along with it.",
     "publishVarietiesSuccess_other": "{{count}} varieties were published along with it.",
+    "publishVarietiesAlreadyPublic_one": "1 variety was already in the library.",
+    "publishVarietiesAlreadyPublic_other": "{{count}} varieties were already in the library.",
     "publishVarietiesPartialError_one": "1 variety could not be published.",
     "publishVarietiesPartialError_other": "{{count}} varieties could not be published.",
     "publishDuplicateError": "This crop already exists in the crop library.",
@@ -989,7 +991,9 @@
       "varieties": {
         "title": "Publish varieties as well",
         "description": "Selected varieties are published together with the crop species.",
-        "alreadyPublic": "already exists – will be linked"
+        "alreadyPublic": "already exists – will be linked",
+        "checking": "Matching varieties against the library…",
+        "checkFailed": "Matching against the crop library failed. Varieties that already exist are skipped while publishing."
       },
       "updateHeading": "Update {{name}}",
       "publishNow": "Publish now",

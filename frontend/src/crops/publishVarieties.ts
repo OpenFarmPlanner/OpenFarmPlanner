@@ -1,7 +1,8 @@
+import axios from 'axios';
 import { cropAPI } from '../api/api';
 import type { Crop, PublicCrop } from '../api/types';
 import { getCropDisplayName, getCropVariety } from './cropDisplay';
-import { hasStrongCropSpeciesIdentityMatch } from './cropSpeciesMatching';
+import { normalizeCropIdentityValue } from './cropIdentity';
 
 /**
  * A project Sorte the publishing wizard offers to publish together with its
@@ -29,6 +30,8 @@ export interface PublishVarietySelection {
 export interface PublishVarietiesResult {
   published: number;
   linked: number;
+  /** Rejected by the backend's duplicate gate — the Sorte is public already. */
+  alreadyPublic: number;
   failed: number;
 }
 
@@ -43,23 +46,25 @@ const isConnectedToLibrary = (crop: Crop): boolean => (
 /**
  * The public entry this Sorte would duplicate, if any.
  *
- * Uses the same "same or similar name" rule as the species picker
- * (`hasStrongCropSpeciesIdentityMatch`), so "Roma" and "Romaa" are recognized
- * as the same Sorte while "Roma" and "Roma Rispen" stay distinct entries.
+ * Deliberately the strict identity rule (`normalizeCropIdentityValue`: casing
+ * and whitespace only, the same normalization the duplicate check uses), not
+ * the species picker's fuzzy matcher. Linking is destructive in a way the
+ * species picker's suggestion is not — it points the user's own Sorte at a
+ * stranger's entry and flips `origin_type` to `imported`, with no undo — so a
+ * near-miss like "Matina"/"Marina" must stay two Sorten. Missing a match only
+ * means the backend's own duplicate gate reports it afterwards.
  */
 export const findExistingPublicVariety = (
   crop: Crop,
   publicCrops: readonly PublicCrop[],
 ): PublicCrop | null => {
-  const varietyName = getCropVariety(crop).trim();
+  const varietyName = normalizeCropIdentityValue(getCropVariety(crop));
   if (!varietyName) {
     return null;
   }
-  return publicCrops.find((candidate) => {
-    const publicVariety = (candidate.variety || '').trim();
-    return Boolean(publicVariety)
-      && hasStrongCropSpeciesIdentityMatch(varietyName, [{ searchNames: [publicVariety] }]);
-  }) ?? null;
+  return publicCrops.find((candidate) => (
+    normalizeCropIdentityValue(candidate.variety) === varietyName
+  )) ?? null;
 };
 
 /** The Sorten of a Kultur group that can still be published from the wizard. */
@@ -102,7 +107,7 @@ export const publishSelectedVarieties = async ({
   originalLanguageCode: string;
   acceptedPublicLibraryTerms?: boolean;
 }): Promise<PublishVarietiesResult> => {
-  const result: PublishVarietiesResult = { published: 0, linked: 0, failed: 0 };
+  const result: PublishVarietiesResult = { published: 0, linked: 0, alreadyPublic: 0, failed: 0 };
   for (const variety of varieties) {
     try {
       if (variety.publicCropId) {
@@ -112,15 +117,23 @@ export const publishSelectedVarieties = async ({
       }
       await cropAPI.publishPublic(variety.cropId, {
         // The backend only records an acceptance while none exists, so
-        // repeating the flag from the Kultur publish costs nothing and keeps
-        // the Sorten publishable on the paths that do not publish the Kultur
-        // itself (linking an existing public entry).
+        // repeating the flag from the Kultur publish costs nothing. The wizard
+        // collects it on every path that publishes a Sorte, including the one
+        // that only links the Kultur to an existing public entry.
         accepted_public_library_terms: acceptedPublicLibraryTerms,
         crop_species_id: cropSpeciesId,
         original_language_code: originalLanguageCode,
       });
       result.published += 1;
     } catch (error) {
+      // A duplicate is not a failure the user has to act on: the Sorte the
+      // conflict check did not see (a stale or failed lookup) is in the
+      // library already, which is what co-publishing wanted.
+      if (axios.isAxiosError(error) && error.response?.status === 409
+        && (error.response.data as { code?: string } | undefined)?.code === 'duplicate_public_crop') {
+        result.alreadyPublic += 1;
+        continue;
+      }
       console.error('Error publishing variety:', error);
       result.failed += 1;
     }
