@@ -799,7 +799,12 @@ step when the user attempts publication, then shows only actionable problems:
 - official `CropSpecies` selected;
 - exactly one original language selected (defaulted from the UI language);
 - public-library required fields complete (including `variety`, since a
-  crop without a variety cannot be published from this dialog); and
+  crop without a variety cannot be published from this dialog). Required
+  fields are checked against the crop's *effective* value, so a Sorte that
+  inherits e.g. `harvest_duration_days` from its general Kultur passes the
+  gate and the published entry stores the resolved value
+  (`get_public_required_field_gaps` / `build_public_crop_payload` resolve
+  through `resolve_crop_field`); and
 - no published public duplicate for the same `CropSpecies` + normalized
   variety.
 

@@ -33,8 +33,11 @@ from farm.models import (
 # does not re-implement: it only calls the service that owns it whenever
 # publishing links a project crop to a crop species.
 from farm.services.crop_inheritance import (
+    CROP_INHERITABLE_FIELDS,
+    CROP_SPECIES_INVARIANT_FIELDS,
     clear_species_invariant_overrides,
     get_general_crop,
+    resolve_crop_field,
     sync_crop_species_across_crop_group,
 )
 
@@ -494,6 +497,13 @@ def build_public_crop_payload(
     than from the Sorte being published.
     """
     payload = _copy_fields(crop)
+    # A Sorte that leaves an inheritable field unset takes its general Kultur's
+    # value as the effective one; the public entry must carry that resolved
+    # value, not the blank stored on the Sorte. Species-invariant fields are
+    # resolved explicitly further down and are left out here.
+    for field in CROP_INHERITABLE_FIELDS:
+        if field in payload and field not in CROP_SPECIES_INVARIANT_FIELDS:
+            payload[field] = resolve_crop_field(crop, field)
     if public_variety is not None:
         payload['variety'] = public_variety
     payload['seed_packages'] = _seed_packages_payload_from_crop(crop)
@@ -638,7 +648,10 @@ def get_public_required_field_gaps(crop: Crop, *, require_variety: bool = True) 
     for field in PUBLIC_REQUIRED_FIELDS:
         if field == 'variety' and not require_variety:
             continue
-        value = getattr(crop, field)
+        # Resolve the effective value so a Sorte that inherits a required field
+        # (e.g. harvest duration) from its general Kultur is not flagged as
+        # incomplete — the published entry carries the inherited value.
+        value = resolve_crop_field(crop, field)
         if value is None or (isinstance(value, str) and not value.strip()):
             gaps.append(MissingRequiredField(field=field, label_key=f'library.publishWizard.fields.{field}'))
     return gaps
