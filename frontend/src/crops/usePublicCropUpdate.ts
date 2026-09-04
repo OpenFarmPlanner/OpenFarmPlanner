@@ -18,10 +18,12 @@ export interface PublicCropUpdateController {
   update: CropPublicUpdate | null;
   /** An undecided library update exists — the notice should be shown. */
   hasOpenUpdate: boolean;
-  /** The pending library version was explicitly declined. */
+  /**
+   * The pending library version was explicitly declined. The decision is
+   * stored per public version, so this clears itself once the entry changes
+   * again (see `Crop.rejected_public_version` on the backend).
+   */
   isRejected: boolean;
-  /** The copy differs from the current library version, decided or not. */
-  isDiverged: boolean;
   /** The crop is linked to a public library entry at all. */
   isLinked: boolean;
   isLoading: boolean;
@@ -131,7 +133,6 @@ export function usePublicCropUpdate(
     update,
     hasOpenUpdate,
     isRejected,
-    isDiverged: hasOpenUpdate || isRejected,
     isLinked,
     isLoading,
     isApplying,

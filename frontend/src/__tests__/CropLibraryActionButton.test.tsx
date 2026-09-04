@@ -99,6 +99,33 @@ describe('CropLibraryActionButton', () => {
     expect(apiMocks.publicUpdate).not.toHaveBeenCalled();
   });
 
+  it('replaces the pull button with a clickable "Update abgelehnt" chip after a decline', async () => {
+    const onPublish = vi.fn();
+    render(
+      <Harness
+        crop={{
+          ...baseCrop,
+          source_public_crop: 9,
+          owned_public_crop_id: 9,
+          owned_public_crop_role: 'contributor',
+          public_update_available: false,
+          public_update_rejected: true,
+          public_publish_blocked_reason: 'update_rejected',
+        }}
+        onPublish={onPublish}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Kultur aktualisieren' })).not.toBeInTheDocument();
+    const chip = screen.getByTestId('crop-detail-library-status');
+    expect(chip).toHaveTextContent('Update abgelehnt');
+
+    // The decision is not a dead end: the same diff reopens from the chip.
+    fireEvent.click(chip);
+    expect(apiMocks.publicUpdate).toHaveBeenCalledTimes(1);
+    expect(onPublish).not.toHaveBeenCalled();
+  });
+
   it('disables itself with the moderation tooltip while the species is under review', () => {
     render(
       <Harness

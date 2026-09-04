@@ -1,12 +1,13 @@
 /**
  * The pending public-library update diff/apply dialog for a linked project crop.
  *
- * It is opened from the badge-row library-action button when the library is
- * ahead of the local copy (`CropLibraryActionButton`, state "pullUpdate"). The
- * dialog offers three outcomes: applying the update, declining it for exactly
- * this public version ("Ablehnen", which changes nothing locally), and closing
- * without deciding. The permanent banner and sync marker chip that used to open
- * it are gone — the button carries that state now.
+ * It is opened from the badge-row library action when the library is ahead of
+ * the local copy (`CropLibraryActionButton`, state "pullUpdate", or the
+ * "Update abgelehnt" chip after a decision). The dialog offers three outcomes:
+ * applying the update, declining it for exactly this public version
+ * ("Ablehnen", which changes nothing locally and retires the "Kultur
+ * aktualisieren" button until the public entry changes again), and closing
+ * without deciding ("Abbrechen", which stores nothing at all).
  */
 
 import {
