@@ -120,12 +120,19 @@ export function usePublicCropLibrary({
   // Publishes the Sorten the wizard offered alongside the Kultur. Runs after
   // the Kultur itself is in the library, because a Sorte is published under
   // the species entry the Kultur publication creates.
-  const publishSelectedVarietiesWithFeedback = async (
+  //
+  // The Kultur's own message is passed in rather than shown first: the
+  // snackbar holds one message at a time, so a second call would replace the
+  // confirmation the user has not read yet. Everything that happened is
+  // reported in a single sentence instead.
+  const publishCropVarieties = async (
+    cropMessage: string,
     varieties: PublishVarietySelection[] | undefined,
     publishingData: { cropSpeciesId?: number; originalLanguageCode: string } | undefined,
     acceptedPublicLibraryTerms: boolean,
   ): Promise<void> => {
     if (!varieties?.length || !publishingData) {
+      showSnackbar(cropMessage, 'success');
       return;
     }
     const result = await publishSelectedVarieties({
@@ -135,12 +142,17 @@ export function usePublicCropLibrary({
       acceptedPublicLibraryTerms,
     });
     const succeeded = result.published + result.linked;
+    const messages = [cropMessage];
     if (succeeded > 0) {
-      showSnackbar(t('library.publishVarietiesSuccess', { count: succeeded }), 'success');
+      messages.push(t('library.publishVarietiesSuccess', { count: succeeded }));
+    }
+    if (result.alreadyPublic > 0) {
+      messages.push(t('library.publishVarietiesAlreadyPublic', { count: result.alreadyPublic }));
     }
     if (result.failed > 0) {
-      showSnackbar(t('library.publishVarietiesPartialError', { count: result.failed }), 'error');
+      messages.push(t('library.publishVarietiesPartialError', { count: result.failed }));
     }
+    showSnackbar(messages.join(' '), result.failed > 0 ? 'error' : 'success');
   };
 
   const handlePublishCurrentCrop = async (
@@ -161,8 +173,8 @@ export function usePublicCropLibrary({
       setPublishingCropId(selectedCrop.id);
       if (publishingData?.publicCropId) {
         await cropAPI.linkPublicCrop(selectedCrop.id, publishingData.publicCropId);
-        showSnackbar(t('library.linkPublicCropSuccess', { name: formatCropDisplayName(selectedCrop) }), 'success');
-        await publishSelectedVarietiesWithFeedback(
+        await publishCropVarieties(
+          t('library.linkPublicCropSuccess', { name: formatCropDisplayName(selectedCrop) }),
           publishingData.varieties,
           publishingData,
           acceptedPublicLibraryTerms,
@@ -178,15 +190,14 @@ export function usePublicCropLibrary({
           ...(publishingData.publishAsGeneral !== undefined ? { publish_as_general: publishingData.publishAsGeneral } : {}),
         } : {}),
       });
-      if (response.data.operation === 'updated') {
-        showSnackbar(t('library.updateSuccess', { name: formatCropDisplayName(selectedCrop) }), 'success');
-      } else {
-        showSnackbar(t('library.publishSuccess', { name: formatCropDisplayName(selectedCrop) }), 'success');
-      }
+      const cropMessage = response.data.operation === 'updated'
+        ? t('library.updateSuccess', { name: formatCropDisplayName(selectedCrop) })
+        : t('library.publishSuccess', { name: formatCropDisplayName(selectedCrop) });
       if (acceptedPublicLibraryTerms) {
         await refreshUser();
       }
-      await publishSelectedVarietiesWithFeedback(
+      await publishCropVarieties(
+        cropMessage,
         publishingData?.varieties,
         publishingData,
         acceptedPublicLibraryTerms,

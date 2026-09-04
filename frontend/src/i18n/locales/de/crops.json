@@ -883,6 +883,8 @@
     "linkPublicCropSuccess": "„{{name}}“ wurde mit der Kulturbibliothek verknüpft.",
     "publishVarietiesSuccess_one": "1 Sorte wurde mitveröffentlicht.",
     "publishVarietiesSuccess_other": "{{count}} Sorten wurden mitveröffentlicht.",
+    "publishVarietiesAlreadyPublic_one": "1 Sorte war bereits in der Bibliothek vorhanden.",
+    "publishVarietiesAlreadyPublic_other": "{{count}} Sorten waren bereits in der Bibliothek vorhanden.",
     "publishVarietiesPartialError_one": "1 Sorte konnte nicht mitveröffentlicht werden.",
     "publishVarietiesPartialError_other": "{{count}} Sorten konnten nicht mitveröffentlicht werden.",
     "publishDuplicateError": "Diese Kultur ist bereits in der Kulturbibliothek vorhanden.",
@@ -989,7 +991,9 @@
       "varieties": {
         "title": "Sorten mitveröffentlichen",
         "description": "Ausgewählte Sorten werden zusammen mit der Kulturart veröffentlicht.",
-        "alreadyPublic": "bereits vorhanden – wird verknüpft"
+        "alreadyPublic": "bereits vorhanden – wird verknüpft",
+        "checking": "Sorten werden mit der Bibliothek abgeglichen…",
+        "checkFailed": "Abgleich mit der Kulturbibliothek fehlgeschlagen. Bereits vorhandene Sorten werden beim Veröffentlichen übersprungen."
       },
       "updateHeading": "{{name}} aktualisieren",
       "publishNow": "Jetzt veröffentlichen",

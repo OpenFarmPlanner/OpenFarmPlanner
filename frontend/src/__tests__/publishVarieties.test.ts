@@ -44,13 +44,20 @@ describe('findExistingPublicVariety', () => {
     expect(findExistingPublicVariety(variety(1, 'Roma'), [publicCrop(40, 'Roma')])?.id).toBe(40);
   });
 
-  it('matches a near-identical spelling', () => {
-    expect(findExistingPublicVariety(variety(1, 'roma '), [publicCrop(40, 'Roma')])?.id).toBe(40);
-    expect(findExistingPublicVariety(variety(1, 'Romo'), [publicCrop(40, 'Roma')])?.id).toBe(40);
+  it('ignores casing and surrounding whitespace', () => {
+    expect(findExistingPublicVariety(variety(1, '  roma '), [publicCrop(40, 'Roma')])?.id).toBe(40);
+    expect(findExistingPublicVariety(variety(1, 'Roma  Rispen'), [publicCrop(40, 'roma rispen')])?.id).toBe(40);
   });
 
   it('keeps a longer, distinct variety name separate', () => {
     expect(findExistingPublicVariety(variety(1, 'Roma Rispen'), [publicCrop(40, 'Roma')])).toBeNull();
+  });
+
+  it('never links two different cultivars that only look alike', () => {
+    // Linking points the user's own Sorte at a stranger's entry and flips it
+    // to `imported`, so a one-letter difference must stay two Sorten.
+    expect(findExistingPublicVariety(variety(1, 'Matina'), [publicCrop(40, 'Marina')])).toBeNull();
+    expect(findExistingPublicVariety(variety(1, 'Romo'), [publicCrop(40, 'Roma')])).toBeNull();
   });
 
   it('ignores general (varietyless) public entries', () => {
@@ -107,7 +114,7 @@ describe('publishSelectedVarieties', () => {
       crop_species_id: 1,
       original_language_code: 'de',
     });
-    expect(result).toEqual({ published: 1, linked: 1, failed: 0 });
+    expect(result).toEqual({ published: 1, linked: 1, alreadyPublic: 0, failed: 0 });
   });
 
   it('keeps going when a single Sorte fails', async () => {
@@ -123,6 +130,33 @@ describe('publishSelectedVarieties', () => {
     });
 
     expect(publishPublicMock).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ published: 1, linked: 0, failed: 1 });
+    expect(result).toEqual({ published: 1, linked: 0, alreadyPublic: 0, failed: 1 });
+  });
+
+  it('counts a Sorte the backend rejects as a duplicate as already public, not as a failure', async () => {
+    publishPublicMock.mockRejectedValueOnce(Object.assign(new Error('conflict'), {
+      isAxiosError: true,
+      response: { status: 409, data: { code: 'duplicate_public_crop' } },
+    }));
+
+    const result = await publishSelectedVarieties({
+      varieties: [{ cropId: 2, publicCropId: null }],
+      originalLanguageCode: 'de',
+    });
+
+    expect(result).toEqual({ published: 0, linked: 0, alreadyPublic: 1, failed: 0 });
+  });
+
+  it('passes the accepted library terms on so a Sorte is not rejected for missing consent', async () => {
+    await publishSelectedVarieties({
+      varieties: [{ cropId: 2, publicCropId: null }],
+      cropSpeciesId: 1,
+      originalLanguageCode: 'de',
+      acceptedPublicLibraryTerms: true,
+    });
+
+    expect(publishPublicMock).toHaveBeenCalledWith(2, expect.objectContaining({
+      accepted_public_library_terms: true,
+    }));
   });
 });
