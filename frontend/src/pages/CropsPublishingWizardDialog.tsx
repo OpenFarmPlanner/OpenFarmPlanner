@@ -13,6 +13,7 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormGroup,
   InputLabel,
   Link,
   MenuItem,
@@ -30,6 +31,11 @@ import i18n from '../i18n/config';
 import { getLanguageDisplayName } from '../i18n/languages';
 import { buildPublicCropComparison } from './publicCropComparison';
 import {
+  buildPublishVarietyCandidates,
+  getPublishableVarieties,
+  type PublishVarietySelection,
+} from '../crops/publishVarieties';
+import {
   findMatchedCropSpeciesAlias,
   formatCropSpeciesMatchLabel,
   getCropSpeciesCanonicalName,
@@ -42,15 +48,29 @@ import {
 interface CropsPublishingWizardDialogProps {
   open: boolean;
   crop: Crop | undefined;
+  /**
+   * The project's Sorten belonging to `crop`'s Kultur group, offered for
+   * co-publication. Empty for a Sorte publish — a Sorte has no Sorten of its
+   * own — which keeps the dialog exactly as it was for those crops.
+   */
+  varieties?: Crop[];
   termsAlreadyAccepted: boolean;
   publishing: boolean;
   onClose: () => void;
-  onPublish: (data: { acceptedPublicLibraryTerms: boolean; cropSpeciesId?: number; originalLanguageCode: string; publicCropId?: number | null; publishAsGeneral?: boolean }) => void;
+  onPublish: (data: {
+    acceptedPublicLibraryTerms: boolean;
+    cropSpeciesId?: number;
+    originalLanguageCode: string;
+    publicCropId?: number | null;
+    publishAsGeneral?: boolean;
+    varieties?: PublishVarietySelection[];
+  }) => void;
 }
 
 const LANGUAGE_CODES = ['de', 'en'] as const;
 const EMPTY_REQUIRED_FIELDS: PublishPublicCropPreview['missing_required_fields'] = [];
 const EMPTY_DUPLICATES: PublishPublicCropPreview['duplicates'] = [];
+const EMPTY_VARIETIES: Crop[] = [];
 
 const getDefaultLanguageCode = (): string => {
   const language = (i18n.language || 'de').split('-')[0];
@@ -132,6 +152,7 @@ const getExistingVarietyOptionLabel = (option: PublicCrop): string => option.var
 export function CropsPublishingWizardDialog({
   open,
   crop,
+  varieties = EMPTY_VARIETIES,
   termsAlreadyAccepted,
   publishing,
   onClose,
@@ -160,6 +181,8 @@ export function CropsPublishingWizardDialog({
   const [proposeSpeciesError, setProposeSpeciesError] = useState('');
   const [generalNoticeDismissed, setGeneralNoticeDismissed] = useState(false);
   const [showLanguageOverride, setShowLanguageOverride] = useState(false);
+  // Sorten are published along by default, so only the exceptions are tracked.
+  const [deselectedVarietyIds, setDeselectedVarietyIds] = useState<Set<number>>(new Set());
   const speciesInputRef = useRef<HTMLInputElement | null>(null);
   const languageInputRef = useRef<HTMLInputElement | null>(null);
   const highlightedSpeciesOptionRef = useRef<SpeciesPickerOption | null>(null);
@@ -177,6 +200,7 @@ export function CropsPublishingWizardDialog({
   const isCropLevelPublish = isOwnedPublicCropUpdate
     ? Boolean(selectedPublicCrop) && !selectedPublicCrop?.variety?.trim()
     : !crop?.variety?.trim();
+  const publishableVarieties = useMemo(() => getPublishableVarieties(varieties), [varieties]);
 
   useEffect(() => {
     if (!open) return;
@@ -201,6 +225,7 @@ export function CropsPublishingWizardDialog({
       setOriginalLanguageCode(getDefaultLanguageCode());
       setPublicCropInput(crop?.name ?? '');
       setSelectedPublicCrop(null);
+      setDeselectedVarietyIds(new Set());
     });
   }, [crop?.name, crop?.variety, open]);
 
@@ -224,7 +249,10 @@ export function CropsPublishingWizardDialog({
   }, [crop?.source_public_crop, open, ownedPublicCropId]);
 
   useEffect(() => {
-    if (isOwnedPublicCropUpdate || isCropLevelPublish) return undefined;
+    // A crop-level publish has no variety field of its own, but its Sorten
+    // still need the species' public entries to spot name conflicts.
+    if (isOwnedPublicCropUpdate) return undefined;
+    if (isCropLevelPublish && publishableVarieties.length === 0) return undefined;
     if (!open) return undefined;
     const searchTerm = selectedSpecies?.name.trim() || '';
     if (!searchTerm) {
@@ -270,7 +298,7 @@ export function CropsPublishingWizardDialog({
       window.clearTimeout(timeoutId);
       abortController.abort();
     };
-  }, [crop?.variety, isOwnedPublicCropUpdate, isCropLevelPublish, open, selectedSpecies]);
+  }, [crop?.variety, isOwnedPublicCropUpdate, isCropLevelPublish, open, publishableVarieties.length, selectedSpecies]);
 
   useEffect(() => {
     if (isOwnedPublicCropUpdate) return;
@@ -318,6 +346,35 @@ export function CropsPublishingWizardDialog({
     && validationResult !== null
     && !validationResult.can_publish;
   const existingVarietyOptions = publicCropOptions.filter((option) => (option.variety || '').trim());
+  const varietyCandidates = useMemo(
+    () => buildPublishVarietyCandidates(publishableVarieties, publicCropOptions),
+    [publicCropOptions, publishableVarieties],
+  );
+  // Co-publishing Sorten belongs to the initial publication of a Kultur; an
+  // update of an already-published entry keeps its existing scope.
+  const showVarietySelection = !isOwnedPublicCropUpdate && varietyCandidates.length > 0;
+  const selectedVarieties = useMemo<PublishVarietySelection[]>(
+    () => (showVarietySelection
+      ? varietyCandidates
+        .filter((candidate) => !deselectedVarietyIds.has(candidate.cropId))
+        .map((candidate) => ({
+          cropId: candidate.cropId,
+          publicCropId: candidate.existingPublicCrop?.id ?? null,
+        }))
+      : []),
+    [deselectedVarietyIds, showVarietySelection, varietyCandidates],
+  );
+  const toggleVariety = useCallback((cropId: number) => {
+    setDeselectedVarietyIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(cropId)) {
+        next.delete(cropId);
+      } else {
+        next.add(cropId);
+      }
+      return next;
+    });
+  }, []);
   const isProposingNewSpecies = Boolean(pendingSpeciesProposalName) && !isUpdatingOwnedPublicCrop;
   const shouldShowProposedSpeciesNotice = Boolean(proposedSpeciesName) && !validationLoading && !isBlockedByValidation;
 
@@ -368,8 +425,10 @@ export function CropsPublishingWizardDialog({
     if (selectedPublicCrop && !isUpdatingOwnedPublicCrop) {
       onPublish({
         acceptedPublicLibraryTerms: false,
+        cropSpeciesId: selectedPublicCrop.crop_species ?? undefined,
         originalLanguageCode,
         publicCropId: selectedPublicCrop.id,
+        varieties: selectedVarieties,
       });
       return;
     }
@@ -424,6 +483,7 @@ export function CropsPublishingWizardDialog({
       acceptedPublicLibraryTerms: !termsAlreadyAccepted && acceptedLicense,
       cropSpeciesId,
       originalLanguageCode,
+      varieties: selectedVarieties,
       ...(isCropLevelPublish ? { publishAsGeneral: true } : {}),
     });
   }, [
@@ -437,6 +497,7 @@ export function CropsPublishingWizardDialog({
     pendingSpeciesProposalName,
     selectedPublicCrop,
     selectedSpecies,
+    selectedVarieties,
     showLicenseConfirmation,
     termsAlreadyAccepted,
     isUpdatingOwnedPublicCrop,
@@ -456,7 +517,11 @@ export function CropsPublishingWizardDialog({
           ) : (
             <Typography variant="body2" color="text.secondary">
               {t(
-                isCropLevelPublish ? 'library.publishWizard.introGeneral' : 'library.publishWizard.intro',
+                isCropLevelPublish
+                  ? (showVarietySelection
+                    ? 'library.publishWizard.introGeneralWithVarieties'
+                    : 'library.publishWizard.introGeneral')
+                  : 'library.publishWizard.intro',
                 { name: crop?.name ?? '' },
               )}
             </Typography>
@@ -610,6 +675,44 @@ export function CropsPublishingWizardDialog({
                     />
                   )}
                 />
+
+                {showVarietySelection ? (
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 2, py: 1.5 }}>
+                    <Typography variant="subtitle2">
+                      {t('library.publishWizard.varieties.title')}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('library.publishWizard.varieties.description')}
+                    </Typography>
+                    <FormGroup sx={{ mt: 0.5 }}>
+                      {varietyCandidates.map((candidate) => (
+                        <FormControlLabel
+                          key={candidate.cropId}
+                          control={(
+                            <Checkbox
+                              size="small"
+                              checked={!deselectedVarietyIds.has(candidate.cropId)}
+                              onChange={() => toggleVariety(candidate.cropId)}
+                            />
+                          )}
+                          // The hint sits inside the label so it stays with its
+                          // own Sorte when it wraps to a second line on narrow
+                          // screens, and so the checkbox announces it too.
+                          label={(
+                            <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', flexWrap: 'wrap' }}>
+                              <span>{candidate.label}</span>
+                              {candidate.existingPublicCrop ? (
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('library.publishWizard.varieties.alreadyPublic')}
+                                </Typography>
+                              ) : null}
+                            </Stack>
+                          )}
+                        />
+                      ))}
+                    </FormGroup>
+                  </Box>
+                ) : null}
 
                 {isCropLevelPublish ? null : (
                   <Autocomplete

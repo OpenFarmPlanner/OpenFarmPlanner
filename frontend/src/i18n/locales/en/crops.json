@@ -881,6 +881,10 @@
     "publishSuccess": "“{{name}}” was published to the crop library.",
     "updateSuccess": "The public version of “{{name}}” was updated.",
     "linkPublicCropSuccess": "“{{name}}” was linked to the crop library.",
+    "publishVarietiesSuccess_one": "1 variety was published along with it.",
+    "publishVarietiesSuccess_other": "{{count}} varieties were published along with it.",
+    "publishVarietiesPartialError_one": "1 variety could not be published.",
+    "publishVarietiesPartialError_other": "{{count}} varieties could not be published.",
     "publishDuplicateError": "This crop already exists in the crop library.",
     "publishDuplicateErrorWithCandidates": "This crop already exists publicly: {{duplicates}}",
     "publishError": "The crop could not be published.",
@@ -981,6 +985,12 @@
       "title": "Publish culture",
       "intro": "First choose the matching public crop species. Your variety is published under it; if the species has no general entry yet, one is created automatically from your current values.",
       "introGeneral": "Choose the matching public crop species. Only its general data is published, not a variety.",
+      "introGeneralWithVarieties": "The general data of this crop species is published. Selected varieties are published along with it.",
+      "varieties": {
+        "title": "Publish varieties as well",
+        "description": "Selected varieties are published together with the crop species.",
+        "alreadyPublic": "already exists – will be linked"
+      },
       "updateHeading": "Update {{name}}",
       "publishNow": "Publish now",
       "linkExisting": "Link public crop",

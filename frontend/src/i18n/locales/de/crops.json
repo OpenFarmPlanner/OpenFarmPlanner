@@ -881,6 +881,10 @@
     "publishSuccess": "„{{name}}“ wurde in die Kulturbibliothek veröffentlicht.",
     "updateSuccess": "Die öffentliche Version von „{{name}}“ wurde aktualisiert.",
     "linkPublicCropSuccess": "„{{name}}“ wurde mit der Kulturbibliothek verknüpft.",
+    "publishVarietiesSuccess_one": "1 Sorte wurde mitveröffentlicht.",
+    "publishVarietiesSuccess_other": "{{count}} Sorten wurden mitveröffentlicht.",
+    "publishVarietiesPartialError_one": "1 Sorte konnte nicht mitveröffentlicht werden.",
+    "publishVarietiesPartialError_other": "{{count}} Sorten konnten nicht mitveröffentlicht werden.",
     "publishDuplicateError": "Diese Kultur ist bereits in der Kulturbibliothek vorhanden.",
     "publishDuplicateErrorWithCandidates": "Diese Kultur ist bereits öffentlich vorhanden: {{duplicates}}",
     "publishError": "Die Kultur konnte nicht veröffentlicht werden.",
@@ -981,6 +985,12 @@
       "title": "Kultur veröffentlichen",
       "intro": "Wähle zuerst die passende öffentliche Kulturart. Deine Sorte wird darunter veröffentlicht; falls es zu dieser Kulturart noch keinen allgemeinen Eintrag gibt, wird er automatisch aus deinen aktuellen Werten angelegt.",
       "introGeneral": "Wähle die passende öffentliche Kulturart. Es werden die allgemeinen Daten dieser Kulturart veröffentlicht, keine Sorte.",
+      "introGeneralWithVarieties": "Es werden die allgemeinen Daten dieser Kulturart veröffentlicht. Zusätzlich ausgewählte Sorten werden mitveröffentlicht.",
+      "varieties": {
+        "title": "Sorten mitveröffentlichen",
+        "description": "Ausgewählte Sorten werden zusammen mit der Kulturart veröffentlicht.",
+        "alreadyPublic": "bereits vorhanden – wird verknüpft"
+      },
       "updateHeading": "{{name}} aktualisieren",
       "publishNow": "Jetzt veröffentlichen",
       "linkExisting": "Mit öffentlicher Kultur verknüpfen",

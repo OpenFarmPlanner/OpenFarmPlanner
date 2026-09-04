@@ -56,6 +56,8 @@ import {
   DeleteUndoSnackbar,
 } from '../components/data-grid';
 import { getCropDisplayName } from '../crops/cropDisplay';
+import { getCropSpeciesKey } from '../crops/cropHierarchy';
+import type { PublishVarietySelection } from '../crops/publishVarieties';
 import { buildVarietyInheritanceBaseline } from '../crops/varietyValueSource';
 import { normalizeCropIdentityValue } from '../crops/cropIdentity';
 
@@ -285,6 +287,20 @@ function Crops() {
 
   const [publishWizardOpen, setPublishWizardOpen] = useState(false);
 
+  // Only a general Kultur has Sorten to offer: the group members of a Sorte
+  // are its siblings, which are published from their own page.
+  const publishWizardVarieties = useMemo(() => {
+    if (!selectedCrop || (selectedCrop.variety ?? '').trim()) {
+      return [];
+    }
+    const speciesKey = getCropSpeciesKey(selectedCrop);
+    return crops.filter((candidate) => (
+      candidate.id !== selectedCrop.id
+      && Boolean((candidate.variety ?? '').trim())
+      && getCropSpeciesKey(candidate) === speciesKey
+    ));
+  }, [crops, selectedCrop]);
+
   const handleRequestPublishCrop = useCallback(() => {
     setPublishWizardOpen(true);
   }, []);
@@ -295,6 +311,7 @@ function Crops() {
     originalLanguageCode: string;
     publicCropId?: number | null;
     publishAsGeneral?: boolean;
+    varieties?: PublishVarietySelection[];
   }) => {
     setPublishWizardOpen(false);
     void handlePublishCurrentCrop(data.acceptedPublicLibraryTerms, {
@@ -302,6 +319,7 @@ function Crops() {
       originalLanguageCode: data.originalLanguageCode,
       publicCropId: data.publicCropId,
       publishAsGeneral: data.publishAsGeneral,
+      varieties: data.varieties,
     });
   }, [handlePublishCurrentCrop]);
 
@@ -772,6 +790,7 @@ function Crops() {
       <CropsPublishingWizardDialog
         open={publishWizardOpen}
         crop={selectedCrop}
+        varieties={publishWizardVarieties}
         termsAlreadyAccepted={Boolean(user?.public_library_terms_accepted)}
         publishing={Boolean(selectedCrop && publishingCropId === selectedCrop.id)}
         onClose={() => setPublishWizardOpen(false)}

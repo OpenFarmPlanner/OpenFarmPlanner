@@ -48,18 +48,26 @@ const CROP: Crop = {
   harvest_duration_days: 60,
 };
 
-const renderWizard = (crop: Crop = CROP) => render(
+const renderWizard = (
+  crop: Crop = CROP,
+  options: { varieties?: Crop[]; onPublish?: (data: unknown) => void } = {},
+) => render(
   <MemoryRouter>
     <CropsPublishingWizardDialog
       open
       crop={crop}
+      varieties={options.varieties}
       termsAlreadyAccepted
       publishing={false}
       onClose={vi.fn()}
-      onPublish={vi.fn()}
+      onPublish={options.onPublish ?? vi.fn()}
     />
   </MemoryRouter>,
 );
+
+const GENERAL_CROP: Crop = { ...CROP, variety: '' };
+const VARIETY_ROMA: Crop = { ...CROP, id: 2, variety: 'Roma' };
+const VARIETY_OCHSENHERZ: Crop = { ...CROP, id: 3, variety: 'Ochsenherz' };
 
 describe('CropsPublishingWizardDialog', () => {
   beforeEach(() => {
@@ -527,5 +535,79 @@ describe('CropsPublishingWizardDialog', () => {
 
     fireEvent.click(screen.getByLabelText(/close/i));
     await waitFor(() => expect(screen.queryByText(/wurden lange nicht aktualisiert/)).not.toBeInTheDocument());
+  });
+  describe('publishing the Kultur together with its Sorten', () => {
+    it('keeps the dialog unchanged for a Kultur without Sorten', async () => {
+      renderWizard(GENERAL_CROP);
+
+      await screen.findByLabelText(/Offizielle Kulturart/i);
+      expect(screen.getByText(/Es werden die allgemeinen Daten dieser Kulturart veröffentlicht, keine Sorte/)).toBeInTheDocument();
+      expect(screen.queryByText('Sorten mitveröffentlichen')).not.toBeInTheDocument();
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    });
+
+    it('preselects every Sorte and publishes them along with the Kultur', async () => {
+      const onPublish = vi.fn();
+      renderWizard(GENERAL_CROP, { varieties: [VARIETY_ROMA, VARIETY_OCHSENHERZ], onPublish });
+
+      await screen.findByLabelText(/Offizielle Kulturart/i);
+      expect(screen.getByText('Es werden die allgemeinen Daten dieser Kulturart veröffentlicht. Zusätzlich ausgewählte Sorten werden mitveröffentlicht.')).toBeInTheDocument();
+
+      const romaCheckbox = screen.getByRole('checkbox', { name: /^Roma/ });
+      const ochsenherzCheckbox = screen.getByRole('checkbox', { name: /^Ochsenherz/ });
+      expect(romaCheckbox).toBeChecked();
+      expect(ochsenherzCheckbox).toBeChecked();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+
+      await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
+        publishAsGeneral: true,
+        varieties: [
+          { cropId: 2, publicCropId: null },
+          { cropId: 3, publicCropId: null },
+        ],
+      })));
+    });
+
+    it('leaves deselected Sorten out of the publication', async () => {
+      const onPublish = vi.fn();
+      renderWizard(GENERAL_CROP, { varieties: [VARIETY_ROMA, VARIETY_OCHSENHERZ], onPublish });
+
+      await screen.findByLabelText(/Offizielle Kulturart/i);
+      fireEvent.click(screen.getByRole('checkbox', { name: /^Ochsenherz/ }));
+      expect(screen.getByRole('checkbox', { name: /^Ochsenherz/ })).not.toBeChecked();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+
+      await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
+        varieties: [{ cropId: 2, publicCropId: null }],
+      })));
+    });
+
+    it('links a Sorte that already exists in the public library instead of duplicating it', async () => {
+      publicCropListMock.mockResolvedValue({
+        data: {
+          results: [
+            { id: 40, status: 'published', name: 'Tomate', display_name: 'Tomate', variety: 'Roma', crop_species: 1, version: 2 },
+          ],
+        },
+      });
+      const onPublish = vi.fn();
+      renderWizard(GENERAL_CROP, { varieties: [VARIETY_ROMA, VARIETY_OCHSENHERZ], onPublish });
+
+      await screen.findByLabelText(/Offizielle Kulturart/i);
+      expect(await screen.findByText('bereits vorhanden – wird verknüpft')).toBeInTheDocument();
+      // Only the conflicting Sorte carries the hint.
+      expect(screen.getAllByText('bereits vorhanden – wird verknüpft')).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Jetzt veröffentlichen' }));
+
+      await waitFor(() => expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({
+        varieties: [
+          { cropId: 2, publicCropId: 40 },
+          { cropId: 3, publicCropId: null },
+        ],
+      })));
+    });
   });
 });
