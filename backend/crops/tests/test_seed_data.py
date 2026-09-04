@@ -6,8 +6,14 @@ from crops.seed_data import CROP_SPECIES_SEED_DATA, get_crop_species_seed_name
 class CropSpeciesSeedDataTest(SimpleTestCase):
     def test_seed_entries_have_stable_keys_and_initial_translations(self):
         keys = [entry.key for entry in CROP_SPECIES_SEED_DATA]
-        german_names = [get_crop_species_seed_name(entry, 'de') for entry in CROP_SPECIES_SEED_DATA]
-        english_names = [get_crop_species_seed_name(entry, 'en') for entry in CROP_SPECIES_SEED_DATA]
+        german_names = [
+            get_crop_species_seed_name(entry, 'de')
+            for entry in CROP_SPECIES_SEED_DATA
+        ]
+        english_names = [
+            get_crop_species_seed_name(entry, 'en')
+            for entry in CROP_SPECIES_SEED_DATA
+        ]
 
         self.assertEqual(len(keys), len(set(keys)))
         self.assertEqual(len(german_names), len(set(german_names)))
@@ -65,6 +71,20 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         for entry in CROP_SPECIES_SEED_DATA:
             self.assertIn('de', entry.translations)
             self.assertIn('en', entry.translations)
+            self.assertIsInstance(entry.scientific_name, str)
+            self.assertIsInstance(entry.family, str)
+            self.assertIsInstance(entry.categories, tuple)
+            for category in entry.categories:
+                self.assertEqual(category, category.strip().lower())
+
+    def test_seed_entries_can_carry_species_metadata(self):
+        leaf_mustard = next(
+            entry for entry in CROP_SPECIES_SEED_DATA if entry.key == 'leaf_mustard'
+        )
+
+        self.assertEqual(leaf_mustard.scientific_name, 'Brassica juncea')
+        self.assertEqual(leaf_mustard.family, 'Brassicaceae')
+        self.assertEqual(leaf_mustard.categories, ('vegetable',))
 
     def test_seed_entries_use_concrete_species_instead_of_supplier_categories(self):
         """Guards the naming convention documented in docs/crop-library-architecture.md.
@@ -73,8 +93,14 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         botanical species with different growing and harvest logic, so they
         must never become suggestable crop species again.
         """
-        german_names = [get_crop_species_seed_name(entry, 'de') for entry in CROP_SPECIES_SEED_DATA]
-        english_names = [get_crop_species_seed_name(entry, 'en') for entry in CROP_SPECIES_SEED_DATA]
+        german_names = [
+            get_crop_species_seed_name(entry, 'de')
+            for entry in CROP_SPECIES_SEED_DATA
+        ]
+        english_names = [
+            get_crop_species_seed_name(entry, 'en')
+            for entry in CROP_SPECIES_SEED_DATA
+        ]
 
         for name in german_names + english_names:
             self.assertNotIn('/', name)

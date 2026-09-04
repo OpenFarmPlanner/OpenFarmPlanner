@@ -5,6 +5,7 @@ are two translations of *one* language-independent species, never two species.
 """
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from rest_framework import status
@@ -143,6 +144,30 @@ class CropSpeciesApiTest(DRFAPITestCase):
         }
         self.assertEqual(translations, {'de': 'Tomate', 'en': 'Tomato'})
 
+    def test_exposes_species_metadata_for_reference_lists(self):
+        self.species.scientific_name = 'Solanum lycopersicum'
+        self.species.family = 'Solanaceae'
+        self.species.categories = ['vegetable']
+        self.species.save(update_fields=['scientific_name', 'family', 'categories'])
+
+        payload = self._get_species(language='de')
+
+        self.assertEqual(payload['scientific_name'], 'Solanum lycopersicum')
+        self.assertEqual(payload['family'], 'Solanaceae')
+        self.assertEqual(payload['categories'], ['vegetable'])
+
+    def test_moderator_updates_clean_species_categories(self):
+        self.user.user_permissions.add(Permission.objects.get(codename='moderate_crop_species'))
+
+        response = self.client.patch(
+            f'/openfarmplanner/api/crop-species/{self.species.id}/',
+            {'categories': [' Vegetable ', 'vegetable', 'Herb']},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['categories'], ['vegetable', 'herb'])
+
     def test_reports_which_language_was_served_so_the_ui_can_flag_fallbacks(self):
         only_english = CropSpecies.objects.create(name='Testart Nur Englisch')
         CropSpeciesTranslation.objects.create(
@@ -191,6 +216,8 @@ class CropSpeciesApiTest(DRFAPITestCase):
         self.assertIn(self.species.id, [item['id'] for item in results])
 
     def test_exposes_search_names_for_alias_transparency(self):
+        self.species.scientific_name = 'Solanum lycopersicum'
+        self.species.save(update_fields=['scientific_name'])
         translation = self.species.translations.get(language_code='de')
         translation.regional_names = {'austria': 'Paradeiser'}
         translation.synonyms = ['Paradeis']
@@ -199,8 +226,21 @@ class CropSpeciesApiTest(DRFAPITestCase):
         payload = self._get_species(q='Paradeis')
 
         self.assertIn('Tomate', payload['search_names'])
+        self.assertIn('Solanum lycopersicum', payload['search_names'])
         self.assertIn('Paradeiser', payload['search_names'])
         self.assertIn('Paradeis', payload['search_names'])
+
+    def test_finds_a_species_by_scientific_name(self):
+        self.species.scientific_name = 'Solanum lycopersicum'
+        self.species.save(update_fields=['scientific_name'])
+
+        response = self.client.get(
+            '/openfarmplanner/api/crop-species/',
+            {'q': 'Solanum lycopersicum'},
+        )
+        results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+        self.assertIn(self.species.id, [item['id'] for item in results])
 
     def test_rejects_a_proposal_that_duplicates_another_languages_name(self):
         # "Tomato" is already the English name of the Tomate species: proposing
@@ -299,6 +339,18 @@ class CropSearchTest(DRFAPITestCase):
 
     def test_public_crop_endpoint_searches_across_languages_too(self):
         response = self.client.get('/openfarmplanner/api/public-crops/', {'q': 'Tomato'})
+        results = response.data['results'] if isinstance(response.data, dict) else response.data
+
+        self.assertIn(self.crop.id, [item['id'] for item in results])
+
+    def test_public_crop_endpoint_searches_species_scientific_name(self):
+        self.species.scientific_name = 'Solanum lycopersicum'
+        self.species.save(update_fields=['scientific_name'])
+
+        response = self.client.get(
+            '/openfarmplanner/api/public-crops/',
+            {'q': 'Solanum lycopersicum'},
+        )
         results = response.data['results'] if isinstance(response.data, dict) else response.data
 
         self.assertIn(self.crop.id, [item['id'] for item in results])

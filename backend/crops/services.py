@@ -77,6 +77,7 @@ def build_public_crop_search_query(value: str, *, include_variety: bool = True) 
         query |= (
             Q(name_normalized__icontains=term)
             | Q(crop_species__name_normalized__icontains=term)
+            | Q(crop_species__scientific_name__icontains=stripped_value)
             | Q(crop_species__translations__common_name_normalized__icontains=term)
             | Q(crop_species__translations__search_text_normalized__icontains=term)
         )
@@ -90,6 +91,7 @@ def build_species_search_query(value: str) -> Q:
     if stripped_value:
         query |= (
             Q(name__icontains=stripped_value)
+            | Q(scientific_name__icontains=stripped_value)
             | Q(translations__common_name__icontains=stripped_value)
         )
     for term in build_crop_search_terms(value):

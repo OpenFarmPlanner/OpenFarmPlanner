@@ -11,6 +11,9 @@ class CropSpeciesSeedEntry:
 
     key: str
     translations: dict[str, str]
+    scientific_name: str = ''
+    family: str = ''
+    categories: tuple[str, ...] = ()
 
 
 CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
@@ -98,7 +101,13 @@ CROP_SPECIES_SEED_DATA: tuple[CropSpeciesSeedEntry, ...] = (
     CropSpeciesSeedEntry(key='kohlrabi', translations={'de': 'Kohlrabi', 'en': 'Kohlrabi'}),
     CropSpeciesSeedEntry(key='komatsuna', translations={'de': 'Komatsuna', 'en': 'Komatsuna'}),
     CropSpeciesSeedEntry(key='lavender', translations={'de': 'Lavendel', 'en': 'Lavender'}),
-    CropSpeciesSeedEntry(key='leaf_mustard', translations={'de': 'Blattsenf', 'en': 'Mustard greens'}),
+    CropSpeciesSeedEntry(
+        key='leaf_mustard',
+        translations={'de': 'Blattsenf', 'en': 'Mustard greens'},
+        scientific_name='Brassica juncea',
+        family='Brassicaceae',
+        categories=('vegetable',),
+    ),
     CropSpeciesSeedEntry(key='leek', translations={'de': 'Lauch', 'en': 'Leek'}),
     CropSpeciesSeedEntry(key='lemon_balm', translations={'de': 'Zitronenmelisse', 'en': 'Lemon balm'}),
     CropSpeciesSeedEntry(key='lentil', translations={'de': 'Linse', 'en': 'Lentil'}),

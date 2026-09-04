@@ -169,6 +169,9 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'scientific_name',
+            'family',
+            'categories',
             'status',
             'proposed_by_label',
             'reviewed_by_label',
@@ -225,6 +228,20 @@ class CropSpeciesSerializer(serializers.ModelSerializer):
         if translations is not None:
             self._write_translations(species, translations)
         return species
+
+    def validate_categories(self, value: list) -> list[str]:
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Categories must be a list of strings.')
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for entry in value:
+            if not isinstance(entry, str):
+                raise serializers.ValidationError('Categories must be strings.')
+            category = ' '.join(entry.split()).lower()
+            if category and category not in seen:
+                cleaned.append(category)
+                seen.add(category)
+        return cleaned
 
     @staticmethod
     def _write_translations(species: CropSpecies, translations: list[dict]) -> None:

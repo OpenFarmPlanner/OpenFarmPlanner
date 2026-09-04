@@ -231,6 +231,13 @@ stay out of the official list until a public-library moderator approves them.
 Approving a proposal promotes that same `CropSpecies` row to `published`;
 rejecting it keeps an auditable rejected proposal.
 
+`CropSpecies` also carries optional reference metadata for the official
+suggestion list: `scientific_name`, botanical `family`, and a list of broad
+`categories` such as `vegetable`. These fields belong to the moderated species
+identity. They are not copied into every variety row; project crop-family values
+are filled from the species metadata only when a general project crop has no
+user-entered `crop_family` yet.
+
 Crop species display names are language- and region-aware at the API boundary.
 The canonical German translation is standard Germany terminology; Austria and
 Switzerland are explicit regional overrides on `CropSpeciesTranslation`, while
