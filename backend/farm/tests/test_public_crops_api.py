@@ -291,6 +291,35 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertTrue(response.data['can_publish'])
         self.assertEqual(response.data['missing_required_fields'], [])
 
+    def test_publish_preview_accepts_required_fields_inherited_from_general_crop(self):
+        general_crop = Crop.objects.create(
+            name='Lettuce',
+            variety='',
+            crop_species=self.species,
+            growth_duration_days=55,
+            harvest_duration_days=25,
+            project=self.project,
+        )
+        self.assertIsNone(general_crop.variety_normalized)
+        self.crop.growth_duration_days = None
+        self.crop.harvest_duration_days = None
+        self.crop.save()
+
+        response = self.client.get(
+            f'/openfarmplanner/api/crops/{self.crop.id}/publish-public/preview/',
+            {'crop_species_id': self.species.id, 'original_language_code': 'en'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['missing_required_fields'], [])
+        self.assertTrue(response.data['can_publish'])
+
+        publish = self.publish_current_crop()
+        self.assertEqual(publish.status_code, status.HTTP_201_CREATED)
+        variety_entry = PublicCrop.objects.get(source_project_crop=self.crop)
+        self.assertEqual(variety_entry.growth_duration_days, 55)
+        self.assertEqual(variety_entry.harvest_duration_days, 25)
+
     def test_publish_preview_allows_update_of_owned_public_crop(self):
         public_crop = PublicCrop.objects.create(
             name=self.crop.name,
