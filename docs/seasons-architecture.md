@@ -302,6 +302,10 @@ decides once, at the point the concrete season is actually created.
   hint so it reads as a pending decision, not an error. Saving the pattern
   still has no confirmation dialog and persists nothing about the gap.
 - **Create flow (`SeasonCreateSuggestionDialog`).**
+  The whole response is assembled by
+  `farm/services/seasons.py::build_season_creation_options(project,
+  manual_start=…)`; the endpoint only parses the optional `manual_start_date`
+  query param and returns what the service builds.
   `GET /seasons/creation-options/` returns `last_season`, `due_period`,
   `transition`, `seamless_period` (option 2), a per-option `copy_preview`
   (`{total, copied, skipped}` for `adopt`/`transition`/`transition_followup`,
