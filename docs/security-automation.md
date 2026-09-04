@@ -31,6 +31,26 @@ came back, so there is nothing for a contributor to act on, and the weekly
 `schedule` re-scans the unchanged lockfile. A High or Critical finding
 still fails the workflow exactly as before.
 
+The first version of that retry loop made things worse, and the reason is
+worth keeping: a degraded endpoint does not always answer with a prompt
+503. npm runs its *own* fetch-retry loop with backoff, so one
+`npm audit` call blocked for 5m01s — and with a retry loop wrapped around
+it the two multiply. The job spent 5m02s on `npm ci`, 5m01s on a single
+audit call, and was cancelled at its 10-minute limit before the second
+attempt ever ran. Three things bound it now:
+
+- `--fetch-retries=0` on the audit call, so this workflow owns the retry
+  policy instead of layering one on top of npm's.
+- `timeout 45` around each attempt, as a hard stop if npm outlives its own
+  deadline. Exit 124 counts as a transport error, not a finding, so it
+  retries and never reports a stuck endpoint as a vulnerability. Worst
+  case for the whole loop is 3x45s plus 30s of backoff.
+- The wholesale `node_modules` cache the CI and Playwright workflows
+  already use. This job was the last one still paying `npm ci` in full,
+  which is what left it no budget to absorb a slow audit.
+
+`timeout-minutes` went 10 -> 15 for margin on a cold cache.
+
 `pip-audit` has the same shape of exit code and has not been given the same
 treatment, because it has not been observed failing this way. If it starts
 to, fix it the same way rather than pinning or skipping the scan.

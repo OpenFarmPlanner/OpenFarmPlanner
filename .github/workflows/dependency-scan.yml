@@ -66,19 +66,36 @@ jobs:
   npm-audit:
     name: npm audit (frontend)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 10 was not enough once the audit itself started hanging: `npm ci` spent
+    # 5m02s of it, one audit call blocked for 5m01s, and the job was cancelled
+    # mid-step. The cache below and the per-attempt cap in the audit step both
+    # bound that now; this leaves margin for a cold cache on top.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Setup Node (LTS)
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Same wholesale node_modules cache and key as the CI and Playwright
+      # workflows. This job was the last one still paying `npm ci` in full -
+      # 5m02s of a 10-minute budget, before the audit it exists to run had
+      # started.
+      - name: Cache frontend node_modules
+        id: node-modules-cache
+        uses: actions/cache@v6
+        with:
+          path: frontend/node_modules
+          key: node-modules-${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('frontend/package-lock.json') }}
+
       - name: Install frontend dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: |
           cd frontend
           npm ci
@@ -109,13 +126,28 @@ jobs:
           endpoint_unreachable=0
 
           while true; do
-            npm audit --audit-level=high 2>&1 | tee /tmp/npm-audit.txt
+            # --fetch-retries=0 so npm does not run its own backoff loop
+            # underneath this one (that is multiplicative: a degraded endpoint
+            # blocked a single call for 5m01s and the job was cancelled before
+            # the second attempt). The outer `timeout` is the hard stop, in
+            # case npm ignores or outlives its own deadline.
+            timeout 45 npm audit --audit-level=high \
+              --fetch-retries=0 --fetch-timeout=20000 2>&1 | tee /tmp/npm-audit.txt
             exit_code=${PIPESTATUS[0]}
 
             # A clean scan, or a scan that ran and found something: either way
-            # the answer is about the lockfile, so stop and report it.
-            if [ "$exit_code" -eq 0 ] || ! grep -qE 'audit endpoint returned an error|npm error code (ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN)' /tmp/npm-audit.txt; then
+            # the answer is about the lockfile, so stop and report it. 124 is
+            # the outer timeout firing, which is a stuck endpoint, not a finding.
+            if [ "$exit_code" -eq 0 ]; then
               break
+            fi
+            if [ "$exit_code" -ne 124 ] \
+              && ! grep -qE 'audit endpoint returned an error|npm error code (ENOTFOUND|ECONNRESET|ETIMEDOUT|EAI_AGAIN)' /tmp/npm-audit.txt; then
+              break
+            fi
+
+            if [ "$exit_code" -eq 124 ]; then
+              echo "npm audit did not answer within 45s (attempt ${attempt}/${max_attempts})." | tee -a /tmp/npm-audit.txt
             fi
 
             if [ "$attempt" -ge "$max_attempts" ]; then
@@ -123,8 +155,8 @@ jobs:
               break
             fi
 
-            echo "npm audit could not reach the advisory endpoint (attempt ${attempt}/${max_attempts}); retrying in $((attempt * 15))s."
-            sleep "$((attempt * 15))"
+            echo "npm audit could not reach the advisory endpoint (attempt ${attempt}/${max_attempts}); retrying in $((attempt * 10))s."
+            sleep "$((attempt * 10))"
             attempt=$((attempt + 1))
           done
 
