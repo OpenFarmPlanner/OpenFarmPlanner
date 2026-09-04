@@ -743,6 +743,25 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
         self.assertEqual(rows[general_kultur.id]['public_publish_blocked_reason'], 'no_local_changes')
 
+    def test_sorte_that_only_inherits_timing_reports_no_local_changes(self):
+        """A Sorte whose timing comes from its general Kultur has nothing extra to
+        contribute after publishing: the published entry already carries the
+        resolved values, so the detail view shows the "Aktuell" badge, not a
+        "Bibliothek aktualisieren" button."""
+        self._create_general_kultur(
+            growth_duration_days=50,
+            harvest_duration_days=20,
+            notes=self.crop.notes,
+            display_color=self.crop.display_color,
+        )
+        self.crop.growth_duration_days = None
+        self.crop.harvest_duration_days = None
+        self.crop.save()
+        self.publish_current_crop()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
+        self.assertEqual(rows[self.crop.id]['public_publish_blocked_reason'], 'no_local_changes')
+
     def test_publishing_the_general_kultur_updates_the_entry_created_by_the_sorte(self):
         general_kultur = self._create_general_kultur()
         self.publish_current_crop()

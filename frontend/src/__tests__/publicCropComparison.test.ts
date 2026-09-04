@@ -72,6 +72,22 @@ describe('buildPublicCropComparison', () => {
     expect(unchanged).toEqual([]);
   });
 
+  it('does not report a change for a field the Sorte only inherits from its general Kultur', () => {
+    const changes = buildPublicCropComparison(
+      {
+        ...privateCrop,
+        notes: 'Public notes',
+        growth_duration_days: undefined,
+        inherited_fields: ['growth_duration_days'],
+        effective_values: { growth_duration_days: 60 },
+      },
+      publicCrop,
+      t,
+    );
+
+    expect(changes.map((change) => change.field)).not.toContain('growth_duration_days');
+  });
+
   it('omits crop_family and nutrient_demand for a species-linked Sorte publish', () => {
     const changes = buildPublicCropComparison(
       {

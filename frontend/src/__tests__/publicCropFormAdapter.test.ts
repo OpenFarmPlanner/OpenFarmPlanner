@@ -150,4 +150,25 @@ describe('buildPublicCropUpdatePayload', () => {
 
     expect(payload.notes).toBe('Updated original notes');
   });
+
+  it('publishes inherited values a Sorte takes from its general Kultur, not blanks', () => {
+    const payload = buildPublicCropUpdatePayload(buildCropDraft({
+      growth_duration_days: undefined,
+      harvest_duration_days: undefined,
+      inherited_fields: ['growth_duration_days', 'harvest_duration_days'],
+      effective_values: { growth_duration_days: 55, harvest_duration_days: 25 },
+    }), 1);
+
+    expect(payload.growth_duration_days).toBe(55);
+    expect(payload.harvest_duration_days).toBe(25);
+  });
+
+  it('keeps the Sorte\'s own value when it overrides the inherited one', () => {
+    const payload = buildPublicCropUpdatePayload(buildCropDraft({
+      growth_duration_days: 70,
+      effective_values: { growth_duration_days: 55 },
+    }), 1);
+
+    expect(payload.growth_duration_days).toBe(70);
+  });
 });

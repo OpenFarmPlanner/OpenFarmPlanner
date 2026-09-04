@@ -162,11 +162,23 @@ The public Crop Library follows an open-data model:
   (409 `public_crop_update_blocked`) for the two divergence cases before the
   quality gate runs. A push becomes available again once the copy is aligned
   with the current public version *and* carries local edits made after that.
+  The comparison behind `no_local_changes` runs over the Sorte's *effective*
+  fields (`_resolved_copy_fields` / `public_crop_update_changes`), so a Sorte
+  that only inherits e.g. `growth_duration_days` from its general Kultur is not
+  mistaken for a copy with a local override to push — the published entry
+  already carries that resolved value. The serializer threads the per-project
+  general-Kultur index in, so the check adds no query per row.
 - The publishing wizard's comparison covers `variety` too. Before the Sorte
   became editable it was left out as immutable, which meant publishing an
   update could rename the public entry without the change ever appearing in
   the "Änderungen vor der Veröffentlichung" table. It is skipped only for a
   species-level publish, where the backend forces an empty variety anyway.
+- The comparison resolves inheritance before diffing: `buildPublicCropUpdatePayload`
+  overlays `effective_values` for every field in `inherited_fields`, so a Sorte
+  that only inherits e.g. `growth_duration_days` from its general Kultur is not
+  shown as clearing the public value (`privateValue` "Nicht angegeben"). This
+  mirrors `build_public_crop_payload` server-side, which resolves the same
+  fields through `resolve_crop_field`.
 - Reverting a public entry restores an older snapshot by creating another new
   version. It never deletes existing revisions.
 - Public crop data is intended to be reusable through the app, future

@@ -535,11 +535,11 @@ class CropSerializer(serializers.ModelSerializer):
         notice is gone, but `public_update_rejected` keeps the divergence
         visible so the diff stays reachable.
         """
-        return has_open_public_crop_update(obj)
+        return has_open_public_crop_update(obj, self._general_crop_index(obj))
 
     def get_public_update_rejected(self, obj: Crop) -> bool:
         """Whether the pending library version was explicitly declined by the user."""
-        return is_public_crop_update_rejected(obj)
+        return is_public_crop_update_rejected(obj, self._general_crop_index(obj))
 
     def get_public_crop_species_pending(self, obj: Crop) -> bool:
         """Whether this crop's own public entry sits under an unreviewed species.
@@ -554,7 +554,9 @@ class CropSerializer(serializers.ModelSerializer):
 
     def get_public_publish_blocked_reason(self, obj: Crop) -> str | None:
         """Why publishing/updating the public entry from this copy is blocked, if it is."""
-        return resolve_public_publish_block(obj, self._resolve_owned_public_crop(obj))
+        return resolve_public_publish_block(
+            obj, self._resolve_owned_public_crop(obj), self._general_crop_index(obj),
+        )
 
     def _can_moderate_public_crops(self, user) -> bool:
         request = self.context.get('request')
