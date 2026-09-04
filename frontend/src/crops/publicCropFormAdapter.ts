@@ -103,10 +103,35 @@ export function publicCropToCropFormData(crop: PublicCrop): Crop {
   };
 }
 
+/**
+ * Overlays the effective (inherited) value onto every field a Sorte does not
+ * set itself, so a value it takes from its general Kultur is published as that
+ * resolved value instead of as blank. Mirrors `build_public_crop_payload` on
+ * the backend, which resolves the same fields through `resolve_crop_field`.
+ * A no-op for crops without inheritance data (a general Kultur, a free-text
+ * Sorte, or a draft built from a public crop).
+ */
+function resolveInheritedCropValues(draft: Crop): Crop {
+  const inheritedFields = draft.inherited_fields;
+  const effectiveValues = draft.effective_values;
+  if (!inheritedFields?.length || !effectiveValues) {
+    return draft;
+  }
+  const resolved: Crop = { ...draft };
+  for (const field of inheritedFields) {
+    const value = effectiveValues[field];
+    if (value !== undefined) {
+      Object.assign(resolved, { [field]: value });
+    }
+  }
+  return resolved;
+}
+
 export function buildPublicCropUpdatePayload(
-  draft: Crop,
+  rawDraft: Crop,
   baseVersion: number,
 ): Partial<PublicCrop> & { base_version: number } {
+  const draft = resolveInheritedCropValues(rawDraft);
   const cultivationTypes = resolveDraftCultivationTypes(draft);
   const seedRateFallbackFields = buildSeedRateByCultivation(
     draft,

@@ -35,6 +35,7 @@ from farm.models import (
 from farm.services.crop_inheritance import (
     CROP_INHERITABLE_FIELDS,
     CROP_SPECIES_INVARIANT_FIELDS,
+    GeneralCropIndex,
     clear_species_invariant_overrides,
     get_general_crop,
     resolve_crop_field,
@@ -246,6 +247,28 @@ def _copy_fields(instance: Any) -> dict[str, Any]:
     payload = {field: getattr(instance, field) for field in CROP_COPY_FIELDS}
     payload['cultivation_types'] = list(payload.get('cultivation_types') or [])
     payload['seed_rate_by_cultivation'] = payload.get('seed_rate_by_cultivation') or None
+    return payload
+
+
+def _resolved_copy_fields(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> dict[str, Any]:
+    """``_copy_fields`` with every inheritable field resolved to its effective value.
+
+    A Sorte that leaves an inheritable field unset takes its general Kultur's
+    value; comparisons and the published payload must use that resolved value,
+    not the blank stored on the Sorte, so an inherited value never reads as a
+    local change to contribute (or as a field the publish would clear).
+    Species-invariant fields are excluded — callers that need them resolve
+    those explicitly. ``distance``/``row_spacing``/``sowing_depth`` and the
+    per-method seed rates use different field names here than
+    ``CROP_INHERITABLE_FIELDS`` and are intentionally left untouched.
+    """
+    payload = _copy_fields(crop)
+    for field in CROP_INHERITABLE_FIELDS:
+        if field in payload and field not in CROP_SPECIES_INVARIANT_FIELDS:
+            payload[field] = resolve_crop_field(crop, field, index)
     return payload
 
 
@@ -496,14 +519,10 @@ def build_public_crop_payload(
     species-level entry takes them from the project's general Kultur rather
     than from the Sorte being published.
     """
-    payload = _copy_fields(crop)
-    # A Sorte that leaves an inheritable field unset takes its general Kultur's
-    # value as the effective one; the public entry must carry that resolved
-    # value, not the blank stored on the Sorte. Species-invariant fields are
-    # resolved explicitly further down and are left out here.
-    for field in CROP_INHERITABLE_FIELDS:
-        if field in payload and field not in CROP_SPECIES_INVARIANT_FIELDS:
-            payload[field] = resolve_crop_field(crop, field)
+    # Inheritable fields are resolved to the Sorte's effective value; the public
+    # entry must carry that, not the blank stored on the Sorte. Species-invariant
+    # fields are resolved explicitly further down.
+    payload = _resolved_copy_fields(crop)
     if public_variety is not None:
         payload['variety'] = public_variety
     payload['seed_packages'] = _seed_packages_payload_from_crop(crop)
@@ -726,6 +745,65 @@ def link_project_crop_to_public_reference(*, crop: Crop, public_crop: PublicCrop
     ])
     sync_crop_species_across_crop_group(crop)
     return crop
+
+
+def _owned_entry_is_locally_modified(local_crop: Crop, entry: PublicCrop) -> bool:
+    """Whether ``local_crop`` carries library-relevant content the entry lacks.
+
+    Uses the same compared-field set and inheritance resolution as
+    :func:`public_crop_update_changes`, so "nothing to contribute" stays
+    consistent between the push gate and this baseline flag. ``variety`` is
+    dropped when the entry is species-level: a specific Sorte linked to the
+    general entry is an inherent granularity difference, not a local edit.
+    """
+    local = _resolved_copy_fields(local_crop)
+    remote = _copy_fields(entry)
+    fields = _compared_public_update_fields(local_crop)
+    if not (entry.variety or '').strip():
+        fields = [field for field in fields if field != 'variety']
+    return any(local[field] != remote[field] for field in fields)
+
+
+def link_local_crop_to_owned_public_entry(local_crop: Crop, entry: PublicCrop) -> None:
+    """Record ``entry`` as ``local_crop``'s library baseline after a publish/push.
+
+    Mirrors an import link (``source_public_crop`` / ``source_public_version``)
+    so the pull flow — update notice, diff dialog, reject — works for a crop the
+    user *published*, not only for one they imported. Unlike an import it never
+    sets ``origin_type='imported'``: the row stays the user's own and the
+    "Importiert" chip must not appear. A queryset ``update`` keeps
+    ``Crop.save``'s divergence pass and revision recording out of it.
+    """
+    is_modified = _owned_entry_is_locally_modified(local_crop, entry)
+    Crop.objects.filter(pk=local_crop.pk).update(
+        source_public_crop=entry,
+        source_public_version=entry.version,
+        is_modified_from_source=is_modified,
+        rejected_public_version=None,
+    )
+    local_crop.source_public_crop = entry
+    local_crop.source_public_version = entry.version
+    local_crop.is_modified_from_source = is_modified
+    local_crop.rejected_public_version = None
+
+
+def _link_owned_entry_to_project_rows(
+    *,
+    crop: Crop,
+    entry: PublicCrop,
+    crop_species: CropSpecies,
+    publish_as_general: bool,
+) -> None:
+    """Link the local rows that own ``entry`` to it: the published crop, and —
+    for a variety publish — its general Kultur against the species-level entry,
+    so a later library change to either surfaces as a pull on the right row."""
+    link_local_crop_to_owned_public_entry(crop, entry)
+    if publish_as_general or not (crop.variety or '').strip():
+        return
+    general_crop = get_general_crop(crop)
+    general_entry = find_general_public_crop(crop_species)
+    if general_crop is not None and general_entry is not None and general_crop.pk != crop.pk:
+        link_local_crop_to_owned_public_entry(general_crop, general_entry)
 
 
 def detect_public_crop_duplicates(
@@ -1119,6 +1197,12 @@ def publish_crop_to_public_library(
                 user=user,
             )
         sync_original_language_translation(updated_public_crop)
+        _link_owned_entry_to_project_rows(
+            crop=crop,
+            entry=updated_public_crop,
+            crop_species=check_result.crop_species,
+            publish_as_general=publish_as_general,
+        )
         non_target_duplicates = [item for item in duplicates if item.id != update_target.id]
         return updated_public_crop, non_target_duplicates, 'updated'
 
@@ -1162,6 +1246,12 @@ def publish_crop_to_public_library(
         public_crop=public_crop,
         user=user,
         action=PublicCropRevision.ACTION_CREATED,
+    )
+    _link_owned_entry_to_project_rows(
+        crop=crop,
+        entry=public_crop,
+        crop_species=check_result.crop_species,
+        publish_as_general=publish_as_general,
     )
     return public_crop, duplicates, 'created'
 
@@ -1349,6 +1439,10 @@ def _apply_public_crop_update(*, crop: Crop, public_crop: PublicCrop) -> Crop:
     # (see `_compared_public_update_fields`), so a pull must not silently
     # overwrite it either.
     payload.pop('display_color', None)
+    # A crop the user *published* is linked to its own entry the same way an
+    # import is, but pulling a later library change into it must not relabel it
+    # as imported — `origin_type` stays whatever it was.
+    payload.pop('origin_type', None)
     for field, value in payload.items():
         setattr(crop, field, value)
     crop.save()
@@ -1409,13 +1503,20 @@ def _compared_public_update_fields(crop: Crop) -> list[str]:
     return [field for field in CROP_COPY_FIELDS if field not in excluded]
 
 
-def public_crop_update_changes(crop: Crop) -> list[tuple[str, Any, Any]]:
+def public_crop_update_changes(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> list[tuple[str, Any, Any]]:
     """``(field, local_value, public_value)`` for every compared field that differs
-    between ``crop`` and its linked public entry (empty when not linked)."""
+    between ``crop`` and its linked public entry (empty when not linked).
+
+    The local side is resolved through inheritance, so a Sorte field that only
+    takes its value from the general Kultur is not reported as a local change.
+    """
     public_crop = crop.source_public_crop
     if public_crop is None:
         return []
-    local = _copy_fields(crop)
+    local = _resolved_copy_fields(crop, index)
     remote = _copy_fields(public_crop)
     return [
         (field, local[field], remote[field])
@@ -1424,7 +1525,10 @@ def public_crop_update_changes(crop: Crop) -> list[tuple[str, Any, Any]]:
     ]
 
 
-def has_pending_public_crop_update(crop: Crop) -> bool:
+def has_pending_public_crop_update(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> bool:
     """Whether the linked library entry carries content this copy has not taken.
 
     Version-based first — the entry moved past the version this copy imported —
@@ -1438,38 +1542,46 @@ def has_pending_public_crop_update(crop: Crop) -> bool:
         return False
     if crop.source_public_version == public_crop.version:
         return False
-    return bool(public_crop_update_changes(crop))
+    return bool(public_crop_update_changes(crop, index))
 
 
-def is_public_crop_update_rejected(crop: Crop) -> bool:
+def is_public_crop_update_rejected(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> bool:
     """Whether the user explicitly declined exactly the version that is pending.
 
     The rejection is stored as a version number rather than a flag, so a later
     public edit produces a new version the user never decided on and the notice
     comes back on its own.
     """
-    if not has_pending_public_crop_update(crop):
+    if not has_pending_public_crop_update(crop, index):
         return False
     return crop.rejected_public_version == crop.source_public_crop.version
 
 
-def has_open_public_crop_update(crop: Crop) -> bool:
+def has_open_public_crop_update(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> bool:
     """A pending library update the user has not decided on yet (drives the notice)."""
-    if not has_pending_public_crop_update(crop):
+    if not has_pending_public_crop_update(crop, index):
         return False
-    return not is_public_crop_update_rejected(crop)
+    return not is_public_crop_update_rejected(crop, index)
 
 
 def resolve_public_publish_block(
     crop: Crop,
     owned_public_crop: PublicCrop | None,
+    index: GeneralCropIndex | None = None,
 ) -> str | None:
     """Why pushing this crop into the public library is currently blocked, if it is.
 
     ``owned_public_crop`` is the entry an actual publish would target —
     callers resolve it themselves (respecting per-request ownership/moderator
     rules, and any prefetching they already did for it), so this stays a pure
-    comparison and never issues its own query. The reasons are ordered by how
+    comparison and never issues its own query when ``index`` is supplied (and a
+    single general-Kultur lookup per crop otherwise). The reasons are ordered by how
     the versions relate, so the UI can explain the exact situation instead of a
     generic hint:
 
@@ -1485,7 +1597,7 @@ def resolve_public_publish_block(
         # No entry of the user's own to update. A push would fork a new entry,
         # so it is only worth offering when the copy actually diverges from the
         # public source it was imported from.
-        if crop.source_public_crop_id and not public_crop_update_changes(crop):
+        if crop.source_public_crop_id and not public_crop_update_changes(crop, index):
             return 'no_local_changes'
         return None
 
@@ -1496,11 +1608,11 @@ def resolve_public_publish_block(
         # apply clears it) — a copy edited then edited back, or overtaken by a
         # matching public edit, still carries it. Compare the actual fields so
         # a copy that matches the entry reports nothing to contribute.
-        if not crop.is_modified_from_source or not public_crop_update_changes(crop):
+        if not crop.is_modified_from_source or not public_crop_update_changes(crop, index):
             return 'no_local_changes'
         return None
 
-    if _copy_fields(crop) == _copy_fields(owned_public_crop):
+    if _resolved_copy_fields(crop, index) == _copy_fields(owned_public_crop):
         return 'no_local_changes'
     return None
 

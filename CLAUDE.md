@@ -281,7 +281,7 @@ tests, screenshots, or manual checks were performed.
 - Keep commit and PR titles concise.
 
 ## Release and Production Deploy Workflow
-- Production deploys must use an exact release tag in the `OpenFarmPlanner`
+- Production deploys must use an exact release tag in the `planner`
   checkout. Before deploying production, run
   `git describe --tags --exact-match HEAD` from this repo and confirm it
   returns the intended `vX.Y.Z` tag.

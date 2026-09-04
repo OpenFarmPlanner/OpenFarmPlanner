@@ -416,6 +416,22 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(updated_public.version, 2)
         self.assertEqual(updated_public.notes, 'Updated local notes')
 
+    def test_publish_links_local_crop_to_its_owned_public_entry(self):
+        response = self.publish_current_crop()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        public_crop_id = response.data['public_crop']['id']
+
+        self.crop.refresh_from_db()
+        self.assertEqual(self.crop.source_public_crop_id, public_crop_id)
+        self.assertEqual(
+            self.crop.source_public_version,
+            PublicCrop.objects.get(id=public_crop_id).version,
+        )
+        # A freshly published crop matches its entry, so no pull is pending and
+        # the "Importiert" origin must not be set on the user's own row.
+        self.assertFalse(self.crop.is_modified_from_source)
+        self.assertNotEqual(self.crop.origin_type, Crop.ORIGIN_IMPORTED)
+
     def test_publish_updates_own_imported_public_crop(self):
         own_public = PublicCrop.objects.create(
             name='Carrot',
@@ -742,6 +758,25 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
         rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
         self.assertEqual(rows[general_kultur.id]['public_publish_blocked_reason'], 'no_local_changes')
+
+    def test_sorte_that_only_inherits_timing_reports_no_local_changes(self):
+        """A Sorte whose timing comes from its general Kultur has nothing extra to
+        contribute after publishing: the published entry already carries the
+        resolved values, so the detail view shows the "Aktuell" badge, not a
+        "Bibliothek aktualisieren" button."""
+        self._create_general_kultur(
+            growth_duration_days=50,
+            harvest_duration_days=20,
+            notes=self.crop.notes,
+            display_color=self.crop.display_color,
+        )
+        self.crop.growth_duration_days = None
+        self.crop.harvest_duration_days = None
+        self.crop.save()
+        self.publish_current_crop()
+
+        rows = {row['id']: row for row in self.client.get('/openfarmplanner/api/crops/').data['results']}
+        self.assertEqual(rows[self.crop.id]['public_publish_blocked_reason'], 'no_local_changes')
 
     def test_publishing_the_general_kultur_updates_the_entry_created_by_the_sorte(self):
         general_kultur = self._create_general_kultur()
