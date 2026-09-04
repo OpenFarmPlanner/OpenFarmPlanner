@@ -62,7 +62,10 @@ test('public crop library supports quick import, direct edit, versions, discussi
     await importDialog.getByRole('option', { name: new RegExp(publicCrop.variety) }).click();
     await expect(page.getByRole('button', { name: 'In Projekt importieren' })).toBeEnabled();
     await page.getByRole('button', { name: 'In Projekt importieren' }).click();
-    await expect(page.getByText(/wurde in dieses Projekt importiert/i)).toBeVisible();
+    // The crop was published from this project, so it is already linked to the
+    // public entry and identical to it: the quick import reports "unchanged"
+    // rather than creating a second copy.
+    await expect(page.getByText(/ist bereits identisch/i)).toBeVisible();
 
     // The dialog now stays open after a successful import (so multiple
     // crops can be imported in one sitting) instead of closing itself.
