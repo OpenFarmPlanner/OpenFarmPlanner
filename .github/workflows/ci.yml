@@ -7,8 +7,18 @@ on:
 
 jobs:
   frontend-tests:
+    # Split across two runners with `vitest --shard`. Together with the
+    # in-process parallelism re-enabled in vite.config.ts this took the
+    # frontend gate from one ~9.5 minute job to two ~3 minute ones. Vitest
+    # shards by test file, so the two jobs are disjoint and cover the whole
+    # suite between them - keep `--shard=N/<count>` in step with the matrix.
+    name: frontend-tests (shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -31,21 +41,21 @@ jobs:
         run: |
           set -euxo pipefail
           cd frontend
-          echo "Running test command (CI, non-watch): npm run test:ci"
+          echo "Running test command (CI, non-watch): npm run test:ci -- --shard=${{ matrix.shard }}/2"
           # Guards against a hung worker (hence the process dump below), not
-          # against the suite growing: a green run already takes ~8.5 minutes
-          # of the job's 15, so a cap sitting on the current runtime turns the
-          # next added test into a red build. Keep it clear of both the real
+          # against the suite growing: a green shard takes ~3 minutes of the
+          # job's 12, so a cap sitting on the current runtime turns the next
+          # added test into a red build. Keep it clear of both the real
           # runtime and the job's timeout-minutes.
-          echo "Applying shell hard timeout: 12m"
+          echo "Applying shell hard timeout: 8m"
           echo "Test step start: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           set +e
-          timeout --foreground 12m npm run test:ci
+          timeout --foreground 8m npm run test:ci -- --shard=${{ matrix.shard }}/2
           exit_code=$?
           set -e
           echo "Test step end: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           if [ "$exit_code" -eq 124 ]; then
-            echo "Frontend tests were terminated by GNU timeout after 12 minutes." >&2
+            echo "Frontend tests were terminated by GNU timeout after 8 minutes." >&2
             echo "Active node-related processes at timeout:" >&2
             set +e
             ps -ef | grep -E 'node|vitest|v8' | grep -v grep >&2
@@ -130,6 +140,11 @@ jobs:
           npm install --force
 
       - name: Run quality gate
+        # The backend suite is the `backend-tests` job's, not this job's: with
+        # it enabled here too, `quality` ran the identical pytest+coverage
+        # command a second time and took as long as the job it duplicated.
+        env:
+          SKIP_BACKEND_TESTS: '1'
         run: make quality
 
       - name: Upload quality reports

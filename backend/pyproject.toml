@@ -39,6 +39,9 @@ test = [
     "iniconfig>=2.0.0",
     "packaging>=24.0",
     "pygments>=2.18.0",
+    # Runs the suite across one worker per core; see the note in pytest.ini
+    # for why the distribution mode is `loadfile` and not the default.
+    "pytest-xdist>=3.8.0",
 ]
 quality = [
     "ruff==0.8.6",
