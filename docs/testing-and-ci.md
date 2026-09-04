@@ -155,14 +155,16 @@ duration optimises noise.
 
 One shard, measured end to end:
 
-| step | time |
-| --- | --- |
-| setup (checkout, node, python, uv) | 12s |
-| `npm ci` | 1m49s |
-| Chrome check | 9s |
-| `npm run build` (tsc 15s, vite 1.3s, prerender 7s) | 23s |
-| backend boot (uv venv + migrate + daphne) | 19s |
-| **tests** | **4m48s** |
+| step | before | with a warm cache |
+| --- | --- | --- |
+| setup (checkout, node, python, uv) | 12s | 10s |
+| `npm ci` / node_modules restore | 1m49s | **5s** (install skipped) |
+| Chrome check | 9s | 6s |
+| `npm run build` | 23s | 20s |
+| **tests** (incl. backend boot) | **~5m** | **3m40s** |
+
+Everything outside the tests now adds up to well under a minute, so the
+job is ~85% test execution — which is where the remaining work is.
 
 The tests are the majority, and inside them the per-test cost is roughly
 4-8 seconds of which a UI sign-in is a large part — the log shows an
@@ -202,10 +204,15 @@ incompatible tree. Nothing is lost by skipping the install: npm reports
 core-js's postinstall as *not* run under this project's allow-scripts
 policy, so no install script has a side effect to preserve.
 
-Expect no gain on the first run of a branch — Actions caches are scoped to
-the branch and its base, so a new branch always misses and populates.
-Judge the effect from the second run onward, and over several runs, or
-the variance above will swamp the comparison.
+Measured on the run right after the cache was populated: the restore takes
+**5 seconds** and the install step is skipped outright, against `npm ci`
+runs of 1m49s to 5m03s on the same branch. The e2e shard-1 job went from
+7m55s to 4m24s on that change alone, and `frontend-build` from ~2-4
+minutes to 43 seconds.
+
+Expect no gain on the *first* run of a branch — Actions caches are scoped
+to the branch and its base, so a new branch always misses and populates.
+Judge the effect from the second run onward.
 
 There used to be a `Cache Playwright browsers` step in the two Playwright
 workflows. It was dead: the log shows `Cache not found for input keys` on
