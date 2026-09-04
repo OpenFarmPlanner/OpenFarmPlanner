@@ -125,13 +125,25 @@ Verify a shard-count change with `npx playwright test --list --shard=N/<count>`
 — it needs no browser and no backend, and the shards must add up to the
 unsharded total: 88 tests in 28 files, currently split 33 / 26 / 29.
 
-Playwright shards by test count, not runtime, so the balance is
-approximate. At two shards the halves measured 4m45s and 3m32s against
-7m10s-7m51s unsharded — and note which way that fell: the shard holding
-both screenshot specs (`landing-screenshots`, `responsive-layouts`) was
-the *faster* one. The expensive specs are the login-heavy flows
-(`invitation-flow`, `fields-beds-*`, `gantt-*`), because nearly every test
-signs in through the UI.
+Playwright shards by test count, not runtime, and for this suite that
+balances badly. Measured test-step times:
+
+| shards | per shard | critical path |
+| --- | --- | --- |
+| 1 (none) | 7m10s-7m51s | ~7m30s |
+| 2 | 4m45s / 3m32s | 4m45s |
+| 3 | **4m11s** / 2m17s / 2m14s | **4m11s** |
+
+The third shard bought 34 seconds for a whole extra runner, because the
+expensive specs cluster: shard 1 holds the login-heavy `fields-beds-*`,
+`gantt-*` and `invitation-flow` files and runs 1.8x as long as either of
+the others. Note also which way this falls — the shard holding both
+screenshot specs (`landing-screenshots`, `responsive-layouts`) is among
+the *fast* ones.
+
+Adding shards is therefore close to exhausted as a lever: a fourth would
+split one of the already-fast shards and leave shard 1's 4m11s standing.
+What is left is making the tests themselves cheaper.
 
 **Measure the test step, not the job.** Job wall time is dominated by
 `npm ci` variance (below); two consecutive runs of the same two shards
@@ -153,14 +165,23 @@ One shard, measured end to end:
 | **tests** | **4m48s** |
 
 The tests are the majority, and inside them the per-test cost is roughly
-4-6 seconds of which a UI sign-in is a large part — the log shows an
+4-8 seconds of which a UI sign-in is a large part — the log shows an
 `Unauthorized: /api/auth/me/` followed by a login before almost every
-test. Reusing an authenticated `storageState` across the specs in a
-scenario, instead of signing in per test, is the next real lever on that
-4m48s, and the one thing that would shrink the suite rather than
-redistribute it. It is a refactor of `e2e/utils.ts` and every spec that
+test. Shard 1 spends 4m11s on 33 tests, i.e. 7.6s each.
+
+Reusing an authenticated `storageState` across the specs in a scenario,
+instead of signing in per test, is the next real lever — and, given the
+table above, the only one left that shrinks the suite rather than
+redistributing it. It is a refactor of `e2e/utils.ts` and every spec that
 calls it, so it needs its own change and its own before/after
 measurement.
+
+A second, cheaper thing to try first: raising `workers` above 1 *within* a
+shard. Each shard now has its own backend and its own SQLite file, and the
+WAL + `transaction_mode=IMMEDIATE` settings that `config/settings.py`
+documents were added specifically to survive concurrent e2e load. Whether
+that is enough for two workers on one database is untested — try it on a
+branch and watch for `database is locked`.
 
 ### `npm ci` variance, and why node_modules is cached
 
