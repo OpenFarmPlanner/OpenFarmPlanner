@@ -113,6 +113,17 @@ The public Crop Library follows an open-data model:
   confirming in the dialog calls `public-crops/<id>/import/` with
   `mode=update`, so the private crop page and the library page share one
   import/update path.
+- This link is recorded on **publish**, not only on import.
+  `publish_crop_to_public_library` calls `link_local_crop_to_owned_public_entry`
+  for the published crop (and, on a variety publish, links the project's
+  general Kultur to the auto-created species-level entry), setting
+  `source_public_crop` / `source_public_version` without ever flipping
+  `origin_type` to `imported` — the row stays the user's own and the
+  "Importiert" chip must not appear. `_apply_public_crop_update` therefore
+  also pops `origin_type` from the pull payload. Migration
+  `0103_link_published_crops_to_owned_entries` backfills the link for
+  entries published before this change (skipping rows already linked or
+  imported), taking the entry's current `version` as the new baseline.
 - **One control carries all of this.** The crop detail badge row has a single
   `CropLibraryActionButton` (next to the "Importiert" badge) whose label,
   colour, enabled state and target follow the context — it replaced the header

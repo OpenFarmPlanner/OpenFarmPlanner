@@ -416,6 +416,22 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertEqual(updated_public.version, 2)
         self.assertEqual(updated_public.notes, 'Updated local notes')
 
+    def test_publish_links_local_crop_to_its_owned_public_entry(self):
+        response = self.publish_current_crop()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        public_crop_id = response.data['public_crop']['id']
+
+        self.crop.refresh_from_db()
+        self.assertEqual(self.crop.source_public_crop_id, public_crop_id)
+        self.assertEqual(
+            self.crop.source_public_version,
+            PublicCrop.objects.get(id=public_crop_id).version,
+        )
+        # A freshly published crop matches its entry, so no pull is pending and
+        # the "Importiert" origin must not be set on the user's own row.
+        self.assertFalse(self.crop.is_modified_from_source)
+        self.assertNotEqual(self.crop.origin_type, Crop.ORIGIN_IMPORTED)
+
     def test_publish_updates_own_imported_public_crop(self):
         own_public = PublicCrop.objects.create(
             name='Carrot',

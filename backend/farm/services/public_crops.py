@@ -747,6 +747,65 @@ def link_project_crop_to_public_reference(*, crop: Crop, public_crop: PublicCrop
     return crop
 
 
+def _owned_entry_is_locally_modified(local_crop: Crop, entry: PublicCrop) -> bool:
+    """Whether ``local_crop`` carries library-relevant content the entry lacks.
+
+    Uses the same compared-field set and inheritance resolution as
+    :func:`public_crop_update_changes`, so "nothing to contribute" stays
+    consistent between the push gate and this baseline flag. ``variety`` is
+    dropped when the entry is species-level: a specific Sorte linked to the
+    general entry is an inherent granularity difference, not a local edit.
+    """
+    local = _resolved_copy_fields(local_crop)
+    remote = _copy_fields(entry)
+    fields = _compared_public_update_fields(local_crop)
+    if not (entry.variety or '').strip():
+        fields = [field for field in fields if field != 'variety']
+    return any(local[field] != remote[field] for field in fields)
+
+
+def link_local_crop_to_owned_public_entry(local_crop: Crop, entry: PublicCrop) -> None:
+    """Record ``entry`` as ``local_crop``'s library baseline after a publish/push.
+
+    Mirrors an import link (``source_public_crop`` / ``source_public_version``)
+    so the pull flow — update notice, diff dialog, reject — works for a crop the
+    user *published*, not only for one they imported. Unlike an import it never
+    sets ``origin_type='imported'``: the row stays the user's own and the
+    "Importiert" chip must not appear. A queryset ``update`` keeps
+    ``Crop.save``'s divergence pass and revision recording out of it.
+    """
+    is_modified = _owned_entry_is_locally_modified(local_crop, entry)
+    Crop.objects.filter(pk=local_crop.pk).update(
+        source_public_crop=entry,
+        source_public_version=entry.version,
+        is_modified_from_source=is_modified,
+        rejected_public_version=None,
+    )
+    local_crop.source_public_crop = entry
+    local_crop.source_public_version = entry.version
+    local_crop.is_modified_from_source = is_modified
+    local_crop.rejected_public_version = None
+
+
+def _link_owned_entry_to_project_rows(
+    *,
+    crop: Crop,
+    entry: PublicCrop,
+    crop_species: CropSpecies,
+    publish_as_general: bool,
+) -> None:
+    """Link the local rows that own ``entry`` to it: the published crop, and —
+    for a variety publish — its general Kultur against the species-level entry,
+    so a later library change to either surfaces as a pull on the right row."""
+    link_local_crop_to_owned_public_entry(crop, entry)
+    if publish_as_general or not (crop.variety or '').strip():
+        return
+    general_crop = get_general_crop(crop)
+    general_entry = find_general_public_crop(crop_species)
+    if general_crop is not None and general_entry is not None and general_crop.pk != crop.pk:
+        link_local_crop_to_owned_public_entry(general_crop, general_entry)
+
+
 def detect_public_crop_duplicates(
     crop: Crop,
     *,
@@ -1138,6 +1197,12 @@ def publish_crop_to_public_library(
                 user=user,
             )
         sync_original_language_translation(updated_public_crop)
+        _link_owned_entry_to_project_rows(
+            crop=crop,
+            entry=updated_public_crop,
+            crop_species=check_result.crop_species,
+            publish_as_general=publish_as_general,
+        )
         non_target_duplicates = [item for item in duplicates if item.id != update_target.id]
         return updated_public_crop, non_target_duplicates, 'updated'
 
@@ -1181,6 +1246,12 @@ def publish_crop_to_public_library(
         public_crop=public_crop,
         user=user,
         action=PublicCropRevision.ACTION_CREATED,
+    )
+    _link_owned_entry_to_project_rows(
+        crop=crop,
+        entry=public_crop,
+        crop_species=check_result.crop_species,
+        publish_as_general=publish_as_general,
     )
     return public_crop, duplicates, 'created'
 
@@ -1368,6 +1439,10 @@ def _apply_public_crop_update(*, crop: Crop, public_crop: PublicCrop) -> Crop:
     # (see `_compared_public_update_fields`), so a pull must not silently
     # overwrite it either.
     payload.pop('display_color', None)
+    # A crop the user *published* is linked to its own entry the same way an
+    # import is, but pulling a later library change into it must not relabel it
+    # as imported — `origin_type` stays whatever it was.
+    payload.pop('origin_type', None)
     for field, value in payload.items():
         setattr(crop, field, value)
     crop.save()
