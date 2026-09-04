@@ -10,16 +10,35 @@ gates to run locally, see the "Testing Rules" section of
 `.github/workflows/ci.yml` runs on every pull request and on pushes to
 `main`:
 
-| Job | What it runs | Roughly |
-| --- | --- | --- |
-| `frontend-tests` | `vitest run` | ~5 min |
-| `backend-tests` | `pytest` (xdist, with coverage) | ~6.5-7.5 min |
-| `quality` | ruff, radon, ESLint, madge | ~3 min |
+| Job | What it runs | Test step | Whole job |
+| --- | --- | --- | --- |
+| `frontend-tests` | `vitest run` | 3m54s-5m06s | 5m23s-9m13s |
+| `backend-tests` | `pytest` (xdist, with coverage) | 4m41s-7m29s | 5m48s-8m04s |
+| `quality` | ruff, radon, ESLint, madge | 36s | 2m00s-6m11s |
 
 `.github/workflows/e2e.yml` runs the Playwright suite against a production
 build on pull requests, split across three shards of its own.
 
 All jobs run concurrently, so the pipeline is as long as its slowest job.
+
+**Distinguish the test step from the job.** The two time columns above
+tell different stories, and only the first is about the tests. Four
+consecutive runs, test step against whole job:
+
+| run | `frontend-tests` | `backend-tests` | `quality` |
+| --- | --- | --- | --- |
+| PR, warm cache | 5m06s / 5m23s | 7m08s / 7m51s | 36s / 2m00s |
+| main | 3m54s / **9m13s** | 7m12s / 7m48s | 36s / 5m51s |
+| PR | 4m39s / **8m16s** | 4m41s / 5m48s | 36s / 6m11s |
+| main | 5m00s / 7m03s | 7m29s / 8m04s | 36s / 6m07s |
+
+`frontend-tests` is the longest *job* in half of these, while its *test
+step* is the steadiest thing in the table. The gap is `npm ci` on a
+node_modules cache miss — 5m03s and 3m22s in the two bad rows. A
+`frontend-tests` job that looks like the pipeline's bottleneck is
+therefore almost always an install problem, not a test problem: read the
+step times before optimising the suite. What the pipeline actually waits
+for is the backend test step, ~7 minutes in three runs out of four.
 
 ## Frontend: one job, parallel within it
 
@@ -43,23 +62,62 @@ be kept in step), and verify with `npx vitest run --shard=N/<count>` that
 the parts add up to the whole. Do that when the suite approaches the
 backend job's runtime — currently about two minutes of headroom.
 
-Note the shape of the trade: because each shard already saturates the
-runner's cores, splitting is close to *additive* rather than free (locally
-104s + 136s against 240s unsharded). Sharding buys wall-clock only when
-the job is the one holding the pipeline up.
+Re-measured on a 4-core box with `CI=1`, so the fork pool matches CI:
+
+| | wall | tests |
+| --- | --- | --- |
+| unsharded | 276s | 2405 |
+| `--shard=1/2` | 123s | 1186 (120 files) |
+| `--shard=2/2` | **163s** | 1219 (120 files) |
+
+The split is *not* additive: 123s + 163s is 286s against 276s, about 10s
+of overhead, and the critical path drops 276s -> 163s (-41%). An earlier
+note here claimed otherwise by comparing the wrong pair of numbers.
+
+Sharding is still not worth doing, but for the other reason in this
+section rather than that one: the backend test step is ~7 minutes, so
+those 113 seconds come off a job that is not holding the pipeline up.
+Revisit when the backend suite gets faster.
+
+The uneven split is not chance — shard 2 draws both of the heavyweight
+files below, 98s of its 163s. Any future 2-way shard is bounded by them.
 
 ### Where the frontend time actually goes
 
-The suite is heavily concentrated: the five slowest files are ~39% of the
-total runtime, and the twenty slowest are ~69%. They are the
-integration-style tests that render a real form or page
-(`PublicCropLibraryPage`, `CropForm*`, `App`, `FieldsBedsHierarchy.*`)
+The suite is heavily concentrated. 240 files, 386s of summed file time,
+276s of wall time:
+
+| file | | share |
+| --- | --- | --- |
+| `PublicCropLibraryPage.test.tsx` | 66.0s | 17% |
+| `CropFormLibraryAutocomplete.test.tsx` | 31.7s | 8% |
+| `App.test.tsx` | 19.4s | 5% |
+| `CropForm.test.tsx` | 17.5s | 5% |
+| `FieldsBedsHierarchy.editCancel.test.tsx` | 16.0s | 4% |
+| top 10 | 208s | 54% |
+| top 20 | 269s | 70% |
+
+They are the integration-style tests that render a real form or page
 rather than anything accidentally slow — there are no real sleeps, no
 skipped tests and no snapshot tests to reclaim.
 
-The practical consequence: making the suite faster means either more
-parallelism or narrowing what those specific files mount, not deleting
-tests elsewhere.
+`PublicCropLibraryPage.test.tsx` is the one file worth naming on its own:
+2343 lines, 65 tests, 66s, and no single test in it above 7.4s. It is
+long, not slow. Because a file never splits across workers it puts a hard
+floor under every worker and every future shard — exactly the scheduling
+problem the *Adding tests* section warns about. Splitting it along its
+own `describe` seams (the list/edit tests against the discussion-thread
+tests) is the one change that would make this suite genuinely faster
+instead of redistributing it, and it deserves its own change and its own
+before/after measurement.
+
+Two things measured and rejected:
+
+- **`pool: 'threads'` instead of the CI `'forks'`**: 262s against 276s,
+  same 2405 passing tests. ~5%, inside run-to-run noise, in exchange for
+  giving up process isolation. Left as `forks`.
+- **Trimming tests elsewhere**: the 220 files outside the top 20 are 30%
+  of the time between them. There is nothing there to win.
 
 ## Backend: one job, parallel workers
 
@@ -103,6 +161,16 @@ twice per pipeline and `quality` took as long as the job it duplicated.
 
 If you add a backend gate, put it in `backend-tests` if it needs the test
 run, and in `quality.sh` if it only needs the source.
+
+The job's *frontend* install was the other half of the same story. It was
+the last CI consumer of `frontend/node_modules` with no wholesale cache,
+and it installed with `npm install --force` rather than the `npm ci`
+every other job uses — measured at 4m49s and 5m02s in front of a
+36-second gate, so ~90% of the job was an install it need not repeat. It
+now takes the same cache and the same key as `frontend-tests` and the
+Playwright workflows, and skips the install outright on a hit. The
+`--force` came in with the workflow's initial import rather than from a
+resolution failure; `npm ci` installs the same lockfile cleanly.
 
 ## E2E: sharded across runners, serial inside one
 
