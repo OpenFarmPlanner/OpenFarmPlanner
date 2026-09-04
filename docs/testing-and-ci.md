@@ -125,26 +125,41 @@ Verify a shard-count change with `npx playwright test --list --shard=N/<count>`
 — it needs no browser and no backend, and the shards must add up to the
 unsharded total (currently 88 tests in 28 files, split 47 and 41).
 
-### The E2E job's real cost is `npm ci`
+Measured on the split's first run: shard 1 spends 4m45s in the test step
+and shard 2 3m32s, against 7m10s-7m51s unsharded. Playwright shards by
+test count rather than runtime, so the balance is approximate — and note
+which way it falls: shard 2 owns both screenshot specs
+(`landing-screenshots`, `responsive-layouts`) and is still the *faster*
+one. The slow half is shard 1's login-heavy flows (`invitation-flow`,
+`fields-beds-*`, `gantt-*`).
 
-Roughly a third of that job is neither building nor testing:
+### `npm ci` is wildly variable, and it is the biggest remaining cost
 
-| step | e2e | frontend-build | frontend-tests |
-| --- | --- | --- | --- |
-| `npm ci` | ~3m20s-4m | ~3m45s | ~15s |
+`npm ci` takes anywhere from ~18 seconds to ~5 minutes. This is **runner
+variance, not a property of any one workflow**: the clearest evidence is a
+single e2e matrix run where the two shards — same commit, same workflow,
+same lockfile, same restored `cache: npm` — took 18s and 5m03s
+respectively. Sampling one job at a time makes it look like `e2e` and
+`frontend-build` are "slow" and `frontend-tests` is "fast"; they are not,
+they just drew different runners.
 
-Same lockfile, same `cache: npm`, same runner label — and it reproduces
-across runs. It is *not* Playwright downloading browsers: the job's
-post-run step reports `Path(s) specified in the action for caching do(es)
-not exist` for `~/.cache/ms-playwright`, so nothing was ever written
-there. (That also means the `Cache Playwright browsers` steps in `e2e.yml`
-and `frontend-build.yml` never save or restore anything — the Chrome the
+On a bad draw `npm ci` is the single largest step in the job, larger than
+the tests it sets up, and sharding multiplies it across runners rather
+than removing it.
+
+It is *not* Playwright downloading browsers: the post-run step reports
+`Path(s) specified in the action for caching do(es) not exist` for
+`~/.cache/ms-playwright`, so nothing is ever written there. That also
+means the `Cache Playwright browsers` steps in `e2e.yml` and
+`frontend-build.yml` never save or restore anything — the Chrome the
 config pins comes from the runner image, which is the fast path
-`scripts/ci/install-playwright-chrome.sh` documents.)
+`scripts/ci/install-playwright-chrome.sh` documents.
 
-The cause is not yet identified, and sharding does not fix it — it
-duplicates it onto both runners. Whoever picks this up: that is ~3.5
-minutes on the pipeline's critical path, worth more than another shard.
+Since `cache: npm` only restores the *download* cache (`~/.npm`) and the
+slow runs still have to link ~1000 packages into `node_modules`, the
+promising fix is caching `node_modules` itself, keyed on the lockfile
+hash. That is untested — measure before and after, over several runs, or
+runner variance will make any single comparison meaningless.
 
 ## Adding tests
 
