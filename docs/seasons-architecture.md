@@ -46,14 +46,17 @@ deleted for real, but `_delete_planting_plans_with_season` records an
   (see [versioning-and-history.md](./versioning-and-history.md#batch-operations-grouping-a-cascade)).
   `season_create`, `season_undelete` and `season_copy_data` batch the same way;
 - `SeasonViewSet.undelete` (the 10s undo snackbar in the season switcher, and
-  any later manual undelete) recreates them. It finds the season's most recent
-  `ACTION_DELETED` revision and hands it to
-  `farm/history/restore.py::restore_plans_and_tasks_deleted_with_season`, which
-  re-inserts every `planting_plan` whose latest revision at/after that
-  timestamp is a deletion with `snapshot['season_id']` pointing at this season
-  — keeping the original primary keys and skipping any plan a user had already
-  deleted individually beforehand — and then the `task` rows that DB-cascaded
-  away with those plans.
+  any later manual undelete) recreates them, through
+  `farm/history/restore.py::restore_season_planting_plans`. That finds the
+  season's most recent `ACTION_DELETED` revision and re-inserts every
+  `planting_plan` whose latest revision at/after that timestamp is a deletion
+  with `snapshot['season_id']` pointing at this season — keeping the original
+  primary keys and skipping any plan a user had already deleted individually
+  beforehand — and then the `task` rows that DB-cascaded away with those plans.
+  Creating a season over a deleted one's period is the same undelete, so
+  `POST /seasons/`, `POST /seasons/create-transition/` and `undelete` all go
+  through `farm/services/seasons.py::resurrect_season` rather than repeating
+  it.
 
 On the client, `useActiveSeason.deleteSeason` treats deleting the **active**
 season as an active-season change: it repoints the stored id at the newest

@@ -18,10 +18,7 @@ from farm.history import (
     _serialize_instance,
     start_batch_operation,
 )
-from farm.history.restore import (
-    _record_cascade_deletions,
-    restore_plans_and_tasks_deleted_with_season,
-)
+from farm.history.restore import _record_cascade_deletions, restore_season_planting_plans
 from farm.models import BatchOperation, EntityRevision, PlantingPlan, Season, SeasonPattern
 from farm.project_context import get_active_project_or_400
 from farm.services.seasons import (
@@ -32,11 +29,14 @@ from farm.services.seasons import (
     compute_preview_periods,
     compute_setup_target_period,
     copy_planting_plans,
+    create_or_resurrect_season,
     distribute_planting_plans,
     find_due_but_missing_season,
+    find_soft_deleted_season,
     get_or_create_season_for_period,
     get_or_create_season_pattern,
     latest_existing_season,
+    resurrect_season,
     serialize_period_transition,
 )
 
@@ -61,28 +61,17 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
         # the unique constraint, and the active-only overlap check in the
         # serializer cannot see it. Resurrect it instead of hitting an
         # IntegrityError when the same period is created again.
-        resurrected = (
-            Season.all_objects
-            .filter(project=project, start_date=serializer.validated_data['start_date'], deleted_at__isnull=False)
-            .first()
-        )
+        resurrected = find_soft_deleted_season(project, serializer.validated_data['start_date'])
         if resurrected is not None:
-            resurrected.deleted_at = None
-            resurrected.end_date = serializer.validated_data['end_date']
-            resurrected.created_by = current_user
-            resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
             batch = start_batch_operation(
                 project=project, operation_type=BatchOperation.TYPE_SEASON_CREATE,
                 context={'season_label': resurrected.label},
                 user_name=_current_actor_label(request=self.request),
             )
-            self.record_revision(
-                resurrected, EntityRevision.ACTION_UPDATED,
-                changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
+            resurrect_season(
+                resurrected, serializer.validated_data['end_date'], current_user, batch,
+                user_name=_current_actor_label(request=self.request),
             )
-            # Re-creating a season's period is an undelete — bring its planting
-            # plans back too, same as the `undelete` action does.
-            self._restore_season_planting_plans(resurrected, batch)
             serializer.instance = (
                 Season.objects
                 .annotate(planting_plan_count=Count('planting_plans'))
@@ -164,28 +153,11 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                     season, EntityRevision.ACTION_UPDATED,
                     changed_fields=['deleted_at'], batch_operation=batch,
                 )
-                self._restore_season_planting_plans(season, batch)
+                restore_season_planting_plans(
+                    self.request.active_project, season, batch,
+                    user_name=_current_actor_label(request=self.request),
+                )
         return Response(SeasonSerializer(season).data)
-
-    def _restore_season_planting_plans(self, season: Season, batch: BatchOperation) -> None:
-        """Recreate the planting plans hard-deleted when `season` was deleted,
-        from the revisions recorded at that time."""
-        deleted_revision = (
-            EntityRevision.objects
-            .filter(
-                project=self.request.active_project,
-                entity_type='season',
-                object_id=season.pk,
-                action=EntityRevision.ACTION_DELETED,
-            )
-            .order_by('-created_at')
-            .first()
-        )
-        if deleted_revision is not None:
-            restore_plans_and_tasks_deleted_with_season(
-                self.request.active_project, season, deleted_revision.created_at, batch,
-                user_name=_current_actor_label(request=self.request),
-            )
 
     @action(detail=True, methods=['post'], url_path='copy-from')
     def copy_from(self, request, pk=None):
@@ -251,35 +223,6 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
             build_season_creation_options(self.request.active_project, manual_start=manual_start),
         )
 
-    def _create_or_resurrect_season(self, project, start_date, end_date, user, batch):
-        """Create a season for `[start_date, end_date]`, or resurrect a
-        soft-deleted one occupying the same (project, start_date) slot,
-        restoring the planting plans hard-deleted with it (an undelete)."""
-        resurrected = (
-            Season.all_objects
-            .filter(project=project, start_date=start_date, deleted_at__isnull=False)
-            .first()
-        )
-        if resurrected is not None:
-            resurrected.deleted_at = None
-            resurrected.end_date = end_date
-            resurrected.created_by = user
-            resurrected.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
-            self.record_revision(
-                resurrected, EntityRevision.ACTION_UPDATED,
-                changed_fields=['deleted_at', 'end_date'], batch_operation=batch,
-            )
-            # Re-creating a season's period is an undelete — bring back the
-            # planting plans (and their tasks) hard-deleted with it, matching
-            # the `perform_create` resurrection path and the `undelete` action.
-            self._restore_season_planting_plans(resurrected, batch)
-            return resurrected
-        season = Season.objects.create(
-            project=project, start_date=start_date, end_date=end_date, created_by=user,
-        )
-        self.record_revision(season, EntityRevision.ACTION_CREATED, batch_operation=batch)
-        return season
-
     @action(detail=False, methods=['post'], url_path='create-transition')
     def create_transition(self, request):
         """Create the gap-filling transition season AND the regular follow-up
@@ -314,11 +257,12 @@ class SeasonViewSet(ProjectScopedMixin, ProjectRevisionMixin, viewsets.ModelView
                 context={'season_label': transition_label},
                 user_name=_current_actor_label(request=request),
             )
-            transition_season = self._create_or_resurrect_season(
-                project, seamless_start, seamless_end, user, batch,
+            actor_label = _current_actor_label(request=request)
+            transition_season = create_or_resurrect_season(
+                project, seamless_start, seamless_end, user, batch, user_name=actor_label,
             )
-            followup_season = self._create_or_resurrect_season(
-                project, due_start, due_end, user, batch,
+            followup_season = create_or_resurrect_season(
+                project, due_start, due_end, user, batch, user_name=actor_label,
             )
             distribution = {'transition': [], 'followup': [], 'skipped': 0}
             if copy_requested:

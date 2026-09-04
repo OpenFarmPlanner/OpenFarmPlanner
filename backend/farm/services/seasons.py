@@ -10,7 +10,7 @@ import calendar
 from datetime import date, timedelta
 from typing import Any
 
-from farm.models import PlantingPlan, Project, Season, SeasonPattern
+from farm.models import EntityRevision, PlantingPlan, Project, Season, SeasonPattern
 
 # Fields copied from a source PlantingPlan onto a new one in the target
 # season. Excludes the primary key, timestamps, audit fields, and the
@@ -569,3 +569,80 @@ def build_season_creation_options(
             )
 
     return payload
+
+
+def find_soft_deleted_season(project: Project, start_date: date) -> Season | None:
+    """The soft-deleted season occupying this project's `start_date` slot.
+
+    Creating a season for a period a deleted one already holds has to undelete
+    that row rather than insert a second one, which the unique constraint on
+    (project, start_date) would reject anyway.
+    """
+    return (
+        Season.all_objects
+        .filter(project=project, start_date=start_date, deleted_at__isnull=False)
+        .first()
+    )
+
+
+def resurrect_season(
+    season: Season,
+    end_date: date,
+    user,
+    batch,
+    *,
+    user_name: str,
+) -> Season:
+    """Undelete `season` into `[season.start_date, end_date]` and bring back the
+    planting plans (and their tasks) hard-deleted with it.
+
+    Re-creating a season's period is an undelete, so this is what the create,
+    create-transition and `undelete` paths all do once they find a deleted row.
+    """
+    from farm.history import _entity_display_name, _serialize_instance, record_entity_revision
+    from farm.history.restore import restore_season_planting_plans
+
+    season.deleted_at = None
+    season.end_date = end_date
+    season.created_by = user
+    season.save(update_fields=['deleted_at', 'end_date', 'created_by', 'updated_at'])
+    record_entity_revision(
+        project=season.project, entity_type='season', object_id=season.pk,
+        action=EntityRevision.ACTION_UPDATED,
+        snapshot=_serialize_instance(season),
+        display_name=_entity_display_name(season),
+        changed_fields=['deleted_at', 'end_date'],
+        user_name=user_name, batch_operation=batch,
+    )
+    restore_season_planting_plans(season.project, season, batch, user_name=user_name)
+    return season
+
+
+def create_or_resurrect_season(
+    project: Project,
+    start_date: date,
+    end_date: date,
+    user,
+    batch,
+    *,
+    user_name: str,
+) -> Season:
+    """Create a season for `[start_date, end_date]`, or resurrect the
+    soft-deleted one occupying the same (project, start_date) slot."""
+    from farm.history import _entity_display_name, _serialize_instance, record_entity_revision
+
+    resurrected = find_soft_deleted_season(project, start_date)
+    if resurrected is not None:
+        return resurrect_season(resurrected, end_date, user, batch, user_name=user_name)
+
+    season = Season.objects.create(
+        project=project, start_date=start_date, end_date=end_date, created_by=user,
+    )
+    record_entity_revision(
+        project=project, entity_type='season', object_id=season.pk,
+        action=EntityRevision.ACTION_CREATED,
+        snapshot=_serialize_instance(season),
+        display_name=_entity_display_name(season),
+        user_name=user_name, batch_operation=batch,
+    )
+    return season
