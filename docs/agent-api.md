@@ -536,3 +536,8 @@ naming the same crop is blocked with `duplicate_in_payload`.
 | `backend/farm/services/crop_import/analysis.py` | preview generation |
 | `backend/farm/services/crop_import/apply.py` | transactional execution |
 | `frontend/src/pages/accountSettingsApiTokensCard.tsx` | token management UI |
+
+`backend/farm/services/crop_import/spreadsheet.py` sits in the same package but
+is **not** part of this surface: it backs the crops page's own
+`POST /api/crops/import/preview/` and `/import/apply/`, which take spreadsheet
+rows directly instead of going through a `CropImportDraft`.

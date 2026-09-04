@@ -11,8 +11,8 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.consent import has_accepted_current, record_acceptance
+from accounts.demo_access import guest_demo_forbidden_response, is_active_guest_demo_user
 from accounts.models import DocumentConsent
 from farm.common.mixins import ProjectScopedMixin
 from farm.history import (
@@ -27,10 +27,10 @@ from farm.models import (
     MediaFile,
     PlantingPlan,
     PublicCrop,
-    Supplier,
     format_crop_display_name,
 )
 from farm.services.crop_import.field_specs import seed_rate_unit_constraints_payload
+from farm.services.crop_import.spreadsheet import apply_crop_import, preview_crop_import
 from farm.services.public_crops import (
     DuplicatePublicCropError,
     PublicCropPublishingValidationError,
@@ -41,7 +41,6 @@ from farm.services.public_crops import (
     publish_crop_to_public_library,
     reject_public_crop_update,
 )
-
 
 from ..serializers import (
     CropSerializer,
@@ -229,298 +228,35 @@ class CropViewSet(ProjectScopedMixin, viewsets.ModelViewSet):
         """Return backend-owned seed-rate value constraints for crop forms."""
         return Response({'units': seed_rate_unit_constraints_payload()})
 
-    def _resolve_supplier(self, crop_data: dict) -> Supplier | None:
-        """Resolve supplier from crop data using supplier_id or supplier_name.
-        
-        :param crop_data: Dictionary containing crop data
-        :return: Supplier instance or None
-        """
-        from farm.utils import normalize_supplier_name
-        
-        supplier_id = crop_data.get('supplier_id')
-        supplier_name = crop_data.get('supplier_name')
-        
-        if supplier_id:
-            # Project-scoped so a supplied id cannot pull in a supplier from
-            # another project and attach it to this project's crop.
-            try:
-                return Supplier.objects.get(id=supplier_id, project=self.request.active_project)
-            except Supplier.DoesNotExist:
-                return None
-        elif supplier_name:
-            normalized = normalize_supplier_name(supplier_name)
-            if normalized:
-                supplier, _ = Supplier.objects.get_or_create(
-                    name_normalized=normalized,
-                    project=self.request.active_project,
-                    defaults={
-                        'name': supplier_name,
-                        'homepage_url': 'https://example.invalid',
-                        'project': self.request.active_project,
-                    },
-                )
-                return supplier
-        
-        return None
-    
-    def _find_matching_crop(
-        self,
-        name: str,
-        variety: str | None,
-        supplier: Supplier | None,
-        supplier_name: str | None = None,
-    ) -> Crop | None:
-        """Find existing crop by normalized fields.
-        
-        :param name: Crop name
-        :param variety: Crop variety (optional)
-        :param supplier: Supplier instance (optional)
-        :param supplier_name: Supplier name from import data for legacy matching
-        :return: Matching Crop instance or None
-        """
-        from farm.utils import normalize_supplier_name, normalize_text
-        
-        name_norm = normalize_text(name) or ''
-        variety_norm = normalize_text(variety)
-
-        # Scoped to the active project: without this filter an import row could
-        # match — and then overwrite — a crop belonging to a different
-        # project that happens to share a name/variety pair.
-        base_queryset = Crop.objects.filter(
-            project=self.request.active_project,
-            name_normalized=name_norm,
-            variety_normalized=variety_norm,
-        )
-
-        # Prefer exact FK match when supplier could be resolved.
-        if supplier:
-            direct_match = base_queryset.filter(supplier=supplier).first()
-            if direct_match:
-                return direct_match
-
-        # Fallback for legacy/partial imports: match supplier names case-insensitively,
-        # whether supplier is stored as FK supplier or legacy seed_supplier text.
-        supplier_name_normalized = normalize_supplier_name(supplier_name)
-        if not supplier_name_normalized and supplier:
-            supplier_name_normalized = supplier.name_normalized
-
-        if supplier_name_normalized:
-            for candidate in base_queryset.select_related('supplier'):
-                candidate_supplier_normalized = normalize_supplier_name(
-                    candidate.supplier.name if candidate.supplier else candidate.seed_supplier
-                )
-                if candidate_supplier_normalized == supplier_name_normalized:
-                    return candidate
-
-        # Final fallback: legacy behavior when no supplier information is available.
-        return base_queryset.filter(supplier__isnull=True).first()
-    
-    def _compute_diff(self, existing_crop: Crop, import_data: dict) -> list[dict]:
-        """Compute field differences between existing crop and import data.
-        
-        :param existing_crop: Existing Crop instance
-        :param import_data: Dictionary of import data
-        :return: List of field differences
-        """
-        diff = []
-        serializer = CropSerializer(existing_crop)
-        existing_data = serializer.data
-        
-        # Fields to compare (excluding read-only and auto-generated fields)
-        comparable_fields = [
-            'name', 'variety', 'notes', 'seed_supplier',
-            'crop_family', 'nutrient_demand', 'cultivation_type',
-            'growth_duration_days', 'harvest_duration_days', 'propagation_duration_days',
-            'harvest_method', 'expected_yield',
-            'distance_within_row_cm', 'row_spacing_cm', 'sowing_depth_cm',
-            'seed_rate_value', 'seed_rate_unit', 'sowing_calculation_safety_percent',
-            'seed_rate_direct_value', 'seed_rate_direct_unit', 'sowing_calculation_safety_percent_direct',
-            'seed_rate_pre_cultivation_value', 'seed_rate_pre_cultivation_unit', 'sowing_calculation_safety_percent_pre_cultivation',
-            'thousand_kernel_weight_g',
-            'seeding_requirement', 'seeding_requirement_type', 'display_color'
-        ]
-        
-        for field in comparable_fields:
-            if field in import_data:
-                import_value = import_data[field]
-                existing_value = existing_data.get(field)
-                
-                # Normalize for comparison
-                if import_value != existing_value:
-                    # Special handling for None vs empty string
-                    if (import_value == '' and existing_value is None) or \
-                       (import_value is None and existing_value == ''):
-                        continue
-                    
-                    diff.append({
-                        'field': field,
-                        'current': existing_value,
-                        'new': import_value
-                    })
-        
-        return diff
-    
     @action(detail=False, methods=['post'], url_path='import/preview')
     def import_preview(self, request):
-        """Preview crop import without writing to database.
-        
-        Analyzes import data and returns status for each item:
-        - 'create': New crop
-        - 'update_candidate': Matches existing crop
-        
-        :param request: HTTP request containing array of crop objects
-        :return: Response with preview results for each item
-        """
+        """Report per row whether importing it would create or update a crop."""
         if not isinstance(request.data, list):
             return Response(
                 {'message': 'Request body must be an array of crop objects.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
-        results = []
-        
-        for idx, crop_data in enumerate(request.data):
-            if not isinstance(crop_data, dict) or not crop_data.get('name'):
-                results.append({
-                    'index': idx,
-                    'error': 'Entry must be an object with at least a "name" field.',
-                    'import_data': crop_data
-                })
-                continue
-            
-            try:
-                # Resolve supplier
-                supplier = self._resolve_supplier(crop_data)
-                
-                # Find matching crop
-                name = crop_data['name']
-                variety = crop_data.get('variety', '')
-                matching_crop = self._find_matching_crop(
-                    name,
-                    variety,
-                    supplier,
-                    crop_data.get('supplier_name') or crop_data.get('seed_supplier')
-                )
-                
-                if matching_crop:
-                    # Compute diff
-                    diff = self._compute_diff(matching_crop, crop_data)
-                    
-                    results.append({
-                        'index': idx,
-                        'status': 'update_candidate',
-                        'matched_crop_id': matching_crop.id,
-                        'diff': diff,
-                        'import_data': crop_data
-                    })
-                else:
-                    results.append({
-                        'index': idx,
-                        'status': 'create',
-                        'import_data': crop_data
-                    })
-            except Exception as e:
-                results.append({
-                    'index': idx,
-                    'error': str(e),
-                    'import_data': crop_data
-                })
-        
+
+        results = preview_crop_import(request.active_project, request.data)
         return Response({'results': results}, status=status.HTTP_200_OK)
-    
+
     @action(detail=False, methods=['post'], url_path='import/apply')
     def import_apply(self, request):
-        """Apply crop import with optional update confirmation.
-        
-        Creates new crops and optionally updates existing ones.
-        
-        :param request: HTTP request with items array and confirm_updates flag
-        :return: Response with import summary
-        """
+        """Create the new crops and, when confirmed, update the matching ones."""
         items = request.data.get('items', [])
-        confirm_updates = request.data.get('confirm_updates', False)
-        
         if not isinstance(items, list):
             return Response(
                 {'message': 'Items must be an array of crop objects.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
-        created_count = 0
-        updated_count = 0
-        skipped_count = 0
-        errors = []
-        
-        for idx, crop_data in enumerate(items):
-            if not isinstance(crop_data, dict) or not crop_data.get('name'):
-                errors.append({
-                    'index': idx,
-                    'error': 'Entry must be an object with at least a "name" field.'
-                })
-                continue
-            
-            try:
-                # Resolve supplier
-                supplier = self._resolve_supplier(crop_data)
-                if supplier:
-                    crop_data['supplier'] = supplier.id
-                
-                # Find matching crop
-                name = crop_data['name']
-                variety = crop_data.get('variety', '')
-                matching_crop = self._find_matching_crop(
-                    name,
-                    variety,
-                    supplier,
-                    crop_data.get('supplier_name') or crop_data.get('seed_supplier')
-                )
-                
-                if matching_crop:
-                    if confirm_updates:
-                        # Update existing crop
-                        serializer = CropSerializer(
-                            matching_crop,
-                            data=crop_data,
-                            partial=True
-                        )
-                        if serializer.is_valid():
-                            serializer.save()
-                            updated_count += 1
-                        else:
-                            errors.append({
-                                'index': idx,
-                                'error': serializer.errors
-                            })
-                    else:
-                        # Skip update without confirmation
-                        skipped_count += 1
-                else:
-                    # Create new crop. `project` is read-only on the
-                    # serializer, so it is assigned server-side from the active
-                    # project here; any client-supplied project in the payload
-                    # is intentionally ignored to keep imports project-scoped.
-                    serializer = CropSerializer(data=crop_data)
-                    if serializer.is_valid():
-                        serializer.save(project=request.active_project)
-                        created_count += 1
-                    else:
-                        errors.append({
-                            'index': idx,
-                            'error': serializer.errors
-                        })
-            except Exception as e:
-                errors.append({
-                    'index': idx,
-                    'error': str(e)
-                })
-        
-        return Response({
-            'created_count': created_count,
-            'updated_count': updated_count,
-            'skipped_count': skipped_count,
-            'errors': errors
-        }, status=status.HTTP_200_OK)
-    
+
+        summary = apply_crop_import(
+            request.active_project,
+            items,
+            confirm_updates=request.data.get('confirm_updates', False),
+        )
+        return Response(summary, status=status.HTTP_200_OK)
+
     def destroy(self, request, *args, **kwargs):
         crop = self.get_object()
         if crop.deleted_at is not None:
