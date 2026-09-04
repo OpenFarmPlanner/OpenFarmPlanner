@@ -36,7 +36,6 @@ import { useProjectRequirement } from '../hooks/useProjectRequirement';
 import ProjectRequiredState from '../components/project/ProjectRequiredState';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { ContextMenuHint, FullCellTooltip, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
-import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { getFirstMissingProjectSetupStep, getTranslatedProjectSetupActions } from './requirementFlow';
 import { closestContextMenuElement, shouldOpenCustomContextMenu, suppressNativeContextMenu } from '../utils/contextMenu';
 import { TypeaheadSelect as Select } from '../components/inputs/TypeaheadSelect';
@@ -643,11 +642,8 @@ export default function SeedDemandPage() {
       <CustomContextMenu
         open={contextMenuState !== null}
         onClose={closeContextMenu}
-        autoFocus
-        disableAutoFocusItem={false}
+        keyboardNavigation
         listRef={contextMenuListRef}
-        onListKeyDown={(event: KeyboardEvent<HTMLUListElement>) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
-        onKeyDown={(event) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
         mouseX={contextMenuState?.mouseX}
         mouseY={contextMenuState?.mouseY}
       >

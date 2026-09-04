@@ -48,7 +48,6 @@ frontend/src/components/data-grid/
   StableScrollbarTrack.tsx       shared track/thumb overlay for useStableDataGridScrollbar
   keyboardEditing.ts       "just start typing" / F2 spreadsheet-edit-start behavior
   keyboardNavigation.ts    Tab/Arrow cell navigation rules, grid-API-agnostic
-  contextMenuFocus.ts      Arrow/Home/End/Enter/Esc navigation *inside* an open menu
   AreaM2EditCell.tsx, DateEditCell.tsx, PlantsCountEditCell.tsx,
   SearchableSelectEditCell.tsx                            custom edit cells
   SelectEditCellContext.tsx, selectEditMenuClose.ts        select dropdown open/close bridge
@@ -66,6 +65,8 @@ frontend/src/components/data-grid/
 
 frontend/src/components/contextMenu/
   CustomContextMenu.tsx          shared MUI Menu shell for app context menus
+  contextMenuFocus.ts            Arrow/Home/End/Enter/Esc navigation *inside* an
+                                 open menu, plus focus restoration on close
   useContextMenuPositionState.ts generic open/close/reposition state
   useRowContextMenuState.ts      row-menu state plus focus restoration
   useLongPressTimer.ts           touch long-press helper
@@ -325,7 +326,11 @@ focus to whatever opened it.
 
 Use `components/contextMenu/CustomContextMenu.tsx` for the rendered menu
 shell instead of repeating MUI's `hideBackdrop`, pointer-events, paper class,
-`anchorReference`, and optional list-focus props in each page. Use
+`anchorReference`, and optional list-focus props in each page. Pass
+`keyboardNavigation` on a menu that is reachable by keyboard: the shell then
+focuses the list on open and wires `contextMenuFocus.ts`'s
+Arrow/Home/End/Enter/Esc handling to its own `onClose`, so no page repeats it.
+Use
 `useContextMenuPositionState.ts` for positioned chart-style menus, and
 `useRowContextMenuState.ts` when the menu should restore focus to the row or
 cell that opened it.

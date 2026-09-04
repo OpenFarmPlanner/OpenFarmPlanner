@@ -38,7 +38,6 @@ import ProjectRequiredState from '../components/project/ProjectRequiredState';
 import EmptyStateCard from '../components/project/EmptyStateCard';
 import { useRegisterCreateActions } from '../commands/useCommandContext';
 import { ContextMenuHint, DeleteUndoSnackbar, TableCopyMenuItems, useContextMenuHint } from '../components/data-grid';
-import { handleContextMenuKeyboardNavigation } from '../components/data-grid/contextMenuFocus';
 import { useRowContextMenuState } from '../components/contextMenu/useRowContextMenuState';
 import { ROW_LONG_PRESS_MS, useLongPressTimer } from '../components/contextMenu/useLongPressTimer';
 import { extractApiErrorMessage } from '../api/errors';
@@ -626,11 +625,8 @@ export default function Suppliers() {
       <CustomContextMenu
         open={contextMenuState !== null}
         onClose={closeContextMenu}
-        autoFocus
-        disableAutoFocusItem={false}
+        keyboardNavigation
         listRef={contextMenuListRef}
-        onListKeyDown={(event: KeyboardEvent<HTMLUListElement>) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
-        onKeyDown={(event) => handleContextMenuKeyboardNavigation(event, closeContextMenu)}
         mouseX={contextMenuState?.mouseX}
         mouseY={contextMenuState?.mouseY}
       >

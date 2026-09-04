@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { focusContextMenuOrigin, useContextMenuFocus } from '../data-grid/contextMenuFocus';
+import { focusContextMenuOrigin, useContextMenuFocus } from './contextMenuFocus';
 import {
   useContextMenuPositionState,
   type ContextMenuPositionState,

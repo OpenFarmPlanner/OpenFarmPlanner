@@ -14,7 +14,7 @@ import type { RefObject } from 'react';
  * input against the *shrunk* viewport — two different scroll targets a
  * moment apart read as a visible jump-then-correct. Every other
  * programmatic focus in this grid (`keyboardNavigation.ts`'s `focusEditor`,
- * `keyboardEditing.ts`, `contextMenuFocus.ts`) already uses
+ * `keyboardEditing.ts`, `../contextMenu/contextMenuFocus.ts`) already uses
  * `preventScroll: true` for the same reason; this hook is the one
  * `hasFocus`-driven path shared by the custom numeric edit cells that
  * didn't, before this fix.
