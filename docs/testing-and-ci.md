@@ -18,7 +18,7 @@ gates to run locally, see the "Testing Rules" section of
 | `quality` | ruff, radon, ESLint, madge | ~4.5 min |
 
 `.github/workflows/e2e.yml` runs the Playwright suite against a production
-build on pull requests, split across two shards of its own.
+build on pull requests, split across three shards of its own.
 
 All jobs run concurrently, so the pipeline is as long as its slowest job.
 
@@ -123,43 +123,75 @@ run, which is why splitting them at any file boundary is safe.
 
 Verify a shard-count change with `npx playwright test --list --shard=N/<count>`
 — it needs no browser and no backend, and the shards must add up to the
-unsharded total (currently 88 tests in 28 files, split 47 and 41).
+unsharded total: 88 tests in 28 files, currently split 33 / 26 / 29.
 
-Measured on the split's first run: shard 1 spends 4m45s in the test step
-and shard 2 3m32s, against 7m10s-7m51s unsharded. Playwright shards by
-test count rather than runtime, so the balance is approximate — and note
-which way it falls: shard 2 owns both screenshot specs
-(`landing-screenshots`, `responsive-layouts`) and is still the *faster*
-one. The slow half is shard 1's login-heavy flows (`invitation-flow`,
-`fields-beds-*`, `gantt-*`).
+Playwright shards by test count, not runtime, so the balance is
+approximate. At two shards the halves measured 4m45s and 3m32s against
+7m10s-7m51s unsharded — and note which way that fell: the shard holding
+both screenshot specs (`landing-screenshots`, `responsive-layouts`) was
+the *faster* one. The expensive specs are the login-heavy flows
+(`invitation-flow`, `fields-beds-*`, `gantt-*`), because nearly every test
+signs in through the UI.
 
-### `npm ci` is wildly variable, and it is the biggest remaining cost
+**Measure the test step, not the job.** Job wall time is dominated by
+`npm ci` variance (below); two consecutive runs of the same two shards
+came out 10m27s/4m57s and then 7m27s/9m21s — a complete reversal — while
+the test steps stayed at 4m45s and 3m32s. Tuning the balance against job
+duration optimises noise.
+
+### Where an e2e job's time actually goes
+
+One shard, measured end to end:
+
+| step | time |
+| --- | --- |
+| setup (checkout, node, python, uv) | 12s |
+| `npm ci` | 1m49s |
+| Chrome check | 9s |
+| `npm run build` (tsc 15s, vite 1.3s, prerender 7s) | 23s |
+| backend boot (uv venv + migrate + daphne) | 19s |
+| **tests** | **4m48s** |
+
+The tests are the majority, and inside them the per-test cost is roughly
+4-6 seconds of which a UI sign-in is a large part — the log shows an
+`Unauthorized: /api/auth/me/` followed by a login before almost every
+test. Reusing an authenticated `storageState` across the specs in a
+scenario, instead of signing in per test, is the next real lever on that
+4m48s, and the one thing that would shrink the suite rather than
+redistribute it. It is a refactor of `e2e/utils.ts` and every spec that
+calls it, so it needs its own change and its own before/after
+measurement.
+
+### `npm ci` variance, and why node_modules is cached
 
 `npm ci` takes anywhere from ~18 seconds to ~5 minutes. This is **runner
 variance, not a property of any one workflow**: the clearest evidence is a
-single e2e matrix run where the two shards — same commit, same workflow,
-same lockfile, same restored `cache: npm` — took 18s and 5m03s
-respectively. Sampling one job at a time makes it look like `e2e` and
-`frontend-build` are "slow" and `frontend-tests` is "fast"; they are not,
-they just drew different runners.
+single e2e matrix run where two shards — same commit, same workflow, same
+lockfile, same restored `cache: npm` — took 18s and 5m03s respectively.
+Sampling one job at a time makes it look like some workflows are "slow"
+and others "fast"; they are not, they drew different runners.
 
-On a bad draw `npm ci` is the single largest step in the job, larger than
-the tests it sets up, and sharding multiplies it across runners rather
-than removing it.
+`cache: npm` only restores the *download* cache (`~/.npm`); the slow runs
+still link ~840 packages into `node_modules`. So `e2e.yml`,
+`frontend-build.yml` and `ci.yml`'s frontend job additionally cache
+`frontend/node_modules` itself and skip the install on a hit. The key
+pins the lockfile hash and the resolved Node version, so a dependency
+bump or a Node major misses and reinstalls instead of reusing an
+incompatible tree. Nothing is lost by skipping the install: npm reports
+core-js's postinstall as *not* run under this project's allow-scripts
+policy, so no install script has a side effect to preserve.
 
-It is *not* Playwright downloading browsers: the post-run step reports
-`Path(s) specified in the action for caching do(es) not exist` for
-`~/.cache/ms-playwright`, so nothing is ever written there. That also
-means the `Cache Playwright browsers` steps in `e2e.yml` and
-`frontend-build.yml` never save or restore anything — the Chrome the
-config pins comes from the runner image, which is the fast path
-`scripts/ci/install-playwright-chrome.sh` documents.
+Expect no gain on the first run of a branch — Actions caches are scoped to
+the branch and its base, so a new branch always misses and populates.
+Judge the effect from the second run onward, and over several runs, or
+the variance above will swamp the comparison.
 
-Since `cache: npm` only restores the *download* cache (`~/.npm`) and the
-slow runs still have to link ~1000 packages into `node_modules`, the
-promising fix is caching `node_modules` itself, keyed on the lockfile
-hash. That is untested — measure before and after, over several runs, or
-runner variance will make any single comparison meaningless.
+There used to be a `Cache Playwright browsers` step in the two Playwright
+workflows. It was dead: the log shows `Cache not found for input keys` on
+restore and `Path(s) specified in the action for caching do(es) not exist`
+on save, because `~/.cache/ms-playwright` is never written — the Chrome
+the config pins comes from the runner image, which is the fast path
+`scripts/ci/install-playwright-chrome.sh` documents. Both steps are gone.
 
 ## Adding tests
 

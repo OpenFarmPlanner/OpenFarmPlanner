@@ -24,13 +24,24 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Node (LTS)
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # See e2e.yml for why node_modules is cached wholesale: `npm ci` swings
+      # between 20s and 5 minutes on an identical lockfile purely by runner.
+      - name: Cache frontend node_modules
+        id: node-modules-cache
+        uses: actions/cache@v6
+        with:
+          path: frontend/node_modules
+          key: node-modules-${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('frontend/package-lock.json') }}
+
       - name: Install frontend dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: |
           set -euxo pipefail
           cd frontend
