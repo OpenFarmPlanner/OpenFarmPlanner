@@ -2,10 +2,6 @@ import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-# The crops tables are not rolled back together with farm's, so species rows are
-# created through the current model instead of a historical one.
-from crops.models import CropSpecies
-
 
 @pytest.mark.django_db(transaction=True)
 class TestRelinkGeneralPublicCropsMigration:
@@ -18,6 +14,32 @@ class TestRelinkGeneralPublicCropsMigration:
     migrate_from = ('farm', '0092_add_seasons')
     migrate_to = ('farm', '0093_relink_general_public_cultures')
 
+    def _create_species_id(self, name):
+        columns = {
+            column.name
+            for column in connection.introspection.get_table_description(
+                connection.cursor(),
+                'crops_cropspecies',
+            )
+        }
+        values = {
+            'name': name,
+            'name_normalized': name.lower(),
+            'status': 'published',
+            'review_note': '',
+        }
+        insert_values = {
+            column: value for column, value in values.items() if column in columns
+        }
+        column_names = ', '.join(insert_values)
+        placeholders = ', '.join(['%s'] * len(insert_values))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f'INSERT INTO crops_cropspecies ({column_names}) VALUES ({placeholders})',
+                list(insert_values.values()),
+            )
+            return cursor.lastrowid
+
     def setup_method(self):
         self.executor = MigrationExecutor(connection)
         self.executor.migrate([self.migrate_from])
@@ -28,15 +50,15 @@ class TestRelinkGeneralPublicCropsMigration:
         public_crop_model = old_apps.get_model('farm', 'PublicCulture')
 
         project = project_model.objects.create(name='Migration Project', slug='migration-project')
-        species = CropSpecies.objects.create(name='Lettuce')
-        other_species = CropSpecies.objects.create(name='Carrot')
+        species_id = self._create_species_id('Lettuce')
+        other_species_id = self._create_species_id('Carrot')
 
         self.general_crop = crop_model.objects.create(
             name='Lettuce',
             name_normalized='lettuce',
             variety='',
             variety_normalized=None,
-            crop_species_id=species.id,
+            crop_species_id=species_id,
             project_id=project.id,
         )
         self.variety_crop = crop_model.objects.create(
@@ -44,7 +66,7 @@ class TestRelinkGeneralPublicCropsMigration:
             name_normalized='lettuce',
             variety='Bijella',
             variety_normalized='bijella',
-            crop_species_id=species.id,
+            crop_species_id=species_id,
             project_id=project.id,
         )
         self.orphan_variety_crop = crop_model.objects.create(
@@ -52,7 +74,7 @@ class TestRelinkGeneralPublicCropsMigration:
             name_normalized='carrot',
             variety='Nantes',
             variety_normalized='nantes',
-            crop_species_id=other_species.id,
+            crop_species_id=other_species_id,
             project_id=project.id,
         )
 
@@ -62,7 +84,7 @@ class TestRelinkGeneralPublicCropsMigration:
             variety='',
             variety_normalized='',
             status='published',
-            crop_species_id=species.id,
+            crop_species_id=species_id,
             source_project_culture_id=self.variety_crop.id,
             source_project_id=project.id,
         )
@@ -72,7 +94,7 @@ class TestRelinkGeneralPublicCropsMigration:
             variety='Bijella',
             variety_normalized='bijella',
             status='published',
-            crop_species_id=species.id,
+            crop_species_id=species_id,
             source_project_culture_id=self.variety_crop.id,
             source_project_id=project.id,
         )
@@ -82,7 +104,7 @@ class TestRelinkGeneralPublicCropsMigration:
             variety='',
             variety_normalized='',
             status='published',
-            crop_species_id=other_species.id,
+            crop_species_id=other_species_id,
             source_project_culture_id=self.orphan_variety_crop.id,
             source_project_id=project.id,
         )
