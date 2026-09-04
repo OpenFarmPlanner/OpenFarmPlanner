@@ -121,7 +121,7 @@ function resolveInheritedCropValues(draft: Crop): Crop {
   for (const field of inheritedFields) {
     const value = effectiveValues[field];
     if (value !== undefined) {
-      (resolved as Record<string, unknown>)[field] = value;
+      Object.assign(resolved, { [field]: value });
     }
   }
   return resolved;
