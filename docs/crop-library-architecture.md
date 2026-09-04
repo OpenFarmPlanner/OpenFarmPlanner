@@ -331,6 +331,24 @@ public values against the private crop. An unchanged private crop cannot
 create a redundant public version; confirmation explicitly updates the linked
 public entry rather than merely linking it again.
 
+Publishing a general Kultur can take the project's Sorten along. The wizard
+lists the Kultur group's Sorten below the species picker, all pre-checked, and
+publishes the checked ones right after the Kultur itself — the Kultur
+publication is what creates the species-level entry a Sorte hangs off. A Sorte
+whose name already matches a published entry for that species (same
+"same or similar name" rule as the species picker,
+`hasStrongCropSpeciesIdentityMatch`) is linked to that entry instead of being
+proposed as a duplicate, and says so in its row. Sorten already connected to
+the library (`owned_public_crop_id` or `source_public_crop`) are not offered:
+re-linking them would flip an owned row's `origin_type` to `imported`. The
+section is hidden for a Sorte publish (a Sorte has no Sorten of its own), for a
+Kultur without Sorten, and for the owned-entry update flow, which keeps its
+existing scope — a Sorte added after publication is published from its own
+page. The frontend owns this end to end (`frontend/src/crops/publishVarieties.ts`):
+each Sorte goes through the same `publish-public` / `link-public-crop`
+endpoints as a manual single publish, one at a time, and a failing Sorte is
+reported without aborting the rest.
+
 The project Crop Library and the full public Crop Library now render the same
 species → variety hierarchy. A public or private row with a selected
 `crop_species` and an empty `variety` is the current "general crop" entry for
