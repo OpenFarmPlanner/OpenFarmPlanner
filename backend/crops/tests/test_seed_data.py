@@ -36,6 +36,9 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
         self.assertIn('Wirsing', german_names)
         self.assertIn('Raps', german_names)
         self.assertIn('Dinkel', german_names)
+        self.assertNotIn('Fenchel', german_names)
+        self.assertIn('Gewürzfenchel', german_names)
+        self.assertIn('Knollenfenchel', german_names)
         self.assertNotIn('Gründüngung', german_names)
         self.assertNotIn('Green manure', english_names)
 
@@ -78,10 +81,22 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
                 self.assertEqual(category, category.strip().lower())
 
     def test_seed_entries_can_carry_species_metadata(self):
+        bulb_fennel = next(
+            entry for entry in CROP_SPECIES_SEED_DATA if entry.key == 'fennel_bulb'
+        )
+        herb_fennel = next(
+            entry for entry in CROP_SPECIES_SEED_DATA if entry.key == 'fennel_herb'
+        )
         leaf_mustard = next(
             entry for entry in CROP_SPECIES_SEED_DATA if entry.key == 'leaf_mustard'
         )
 
+        self.assertEqual(bulb_fennel.scientific_name, 'Foeniculum vulgare var. azoricum')
+        self.assertEqual(bulb_fennel.family, 'Apiaceae')
+        self.assertEqual(bulb_fennel.categories, ('vegetable',))
+        self.assertEqual(herb_fennel.scientific_name, 'Foeniculum vulgare')
+        self.assertEqual(herb_fennel.family, 'Apiaceae')
+        self.assertEqual(herb_fennel.categories, ('herb',))
         self.assertEqual(leaf_mustard.scientific_name, 'Brassica juncea')
         self.assertEqual(leaf_mustard.family, 'Brassicaceae')
         self.assertEqual(leaf_mustard.categories, ('vegetable',))
@@ -112,6 +127,8 @@ class CropSpeciesSeedDataTest(SimpleTestCase):
             'Asiasalat',
             'Asiasalate',
             'Asian greens',
+            'Fenchel',
+            'Fennel',
         ]
         for name in supplier_category_names:
             self.assertNotIn(name, german_names)

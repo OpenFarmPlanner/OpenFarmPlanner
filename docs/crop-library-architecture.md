@@ -961,7 +961,7 @@ aligned with the crop categories covered by established German, Austrian,
 and Swiss organic seed suppliers such as ReinSaat, Bingenheimer, Samen Maier,
 Austrosaat, Dreschflegel, Culinaris, and Sativa Rheinau. Entries already carry
 stable keys and translation maps for the future multilingual species library.
-The catalogue stores concrete crop species only: use categories such as
+The catalogue stores concrete crop species only: usage categories such as
 `Gründüngung` / `Green manure` are represented by concrete species like
 Buchweizen, Phacelia, Inkarnatklee, or Ölrettich instead of becoming upload
 targets themselves.
@@ -977,6 +977,11 @@ Naming conventions for `CROP_SPECIES_SEED_DATA` entries:
   Asia-greens shelf covers Blattsenf, Pak Choi, Tatsoi, Mizuna, Mibuna,
   Komatsuna and Chinakohl — species that are planned, spaced and harvested
   differently.
+- No parent crop name when the catalogue represents all practical choices as
+  complete, disjoint child entries. For fennel, use `Knollenfenchel` /
+  `Florence fennel` for the bulb crop and `Gewürzfenchel` / `Common fennel`
+  for the herb/seed crop; do not keep generic `Fenchel` / `Fennel` beside
+  them.
 - Add the concrete, user-recognizable species instead, one entry per species,
   and do not introduce an umbrella entry alongside them.
 
