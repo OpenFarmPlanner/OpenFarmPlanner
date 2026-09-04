@@ -125,18 +125,18 @@ vi.mock('../crops/CropDetail', () => ({
     detailLoadingHistory.push(Boolean(isLoading));
 
     return (
-    <div data-testid="crop-detail-mock">
-      <span data-testid="selected-crop-id">{selectedCropId ?? 'none'}</span>
-      {crops.map((crop) => (
-        <span key={crop.id} data-testid={`crop-row-${crop.id}`}>{crop.name}</span>
-      ))}
-      <button type="button" onClick={() => onCreateCrop?.()}>Kultur hinzufügen</button>
-      <button type="button" onClick={() => onPublishCrop?.()}>Veröffentlichen</button>
-      <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
-      <button type="button" onClick={() => onEditCrop?.(crops[0])}>Kultur bearbeiten</button>
-      <button type="button" onClick={() => onDeleteCrop?.(crops[0])}>Kultur löschen</button>
-      <button type="button" onClick={() => onCropSelect(crops[0] ?? null)}>select-crop</button>
-    </div>
+      <div data-testid="crop-detail-mock">
+        <span data-testid="selected-crop-id">{selectedCropId ?? 'none'}</span>
+        {crops.map((crop) => (
+          <span key={crop.id} data-testid={`crop-row-${crop.id}`}>{crop.name}</span>
+        ))}
+        <button type="button" onClick={() => onCreateCrop?.()}>Kultur hinzufügen</button>
+        <button type="button" onClick={() => onPublishCrop?.()}>Veröffentlichen</button>
+        <button type="button" onClick={() => onCreatePlan?.()} disabled={!canCreatePlan}>Anbauplan erstellen</button>
+        <button type="button" onClick={() => onEditCrop?.(crops[0])}>Kultur bearbeiten</button>
+        <button type="button" onClick={() => onDeleteCrop?.(crops[0])}>Kultur löschen</button>
+        <button type="button" onClick={() => onCropSelect(crops[0] ?? null)}>select-crop</button>
+      </div>
     );
   },
 }));
@@ -393,13 +393,17 @@ describe('Crops action area', () => {
     // loading state there unmounts the crop list and resets its scroll
     // position.
     let resolveRefetch = (): void => {};
-    const refetchResponse = await listMock.mock.results[0]?.value ?? { data: { count: 0, next: null, previous: null, results: [] } };
 
     renderCrops();
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Veröffentlichen' })).toBeInTheDocument();
     });
+
+    // Captured after the initial load, so the held-open refetch resolves with
+    // the same rows the list is already showing instead of an empty payload.
+    const refetchResponse = await listMock.mock.results[0]?.value;
+    expect(refetchResponse).toBeDefined();
 
     listMock.mockImplementationOnce(() => new Promise((resolve) => {
       resolveRefetch = () => resolve(refetchResponse);
@@ -418,12 +422,14 @@ describe('Crops action area', () => {
 
     expect(detailLoadingHistory).not.toContain(true);
     expect(screen.getByTestId('crop-detail-mock')).toBeInTheDocument();
+    expect(screen.getByTestId('crop-row-1')).toBeInTheDocument();
 
     await act(async () => {
       resolveRefetch();
     });
 
     expect(detailLoadingHistory).not.toContain(true);
+    expect(screen.getByTestId('crop-row-1')).toBeInTheDocument();
   });
 
   it('preselects the official crop species when the crop name matches', async () => {
