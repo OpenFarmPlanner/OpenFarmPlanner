@@ -10,13 +10,25 @@ concurrency:
 
 jobs:
   e2e:
+    # Split across two runners with `playwright test --shard`. Each runner is a
+    # fresh VM that starts its own Django backend against its own SQLite file
+    # (see the webServer block in playwright.config.ts), so the shards share no
+    # database and no fixture users - the isolation the suite needs comes from
+    # the split itself, and `workers: 1` still holds inside a shard.
+    # Keep `--shard=N/<count>` in step with the matrix.
+    name: e2e (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Setup Node (LTS)
+        id: setup-node
         uses: actions/setup-node@v7
         with:
           node-version: lts/*
@@ -31,15 +43,25 @@ jobs:
       - name: Install uv
         run: python -m pip install --upgrade pip uv
 
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-
-      - name: Cache Playwright browsers
+      # `npm ci` costs anywhere from 20s to 5 minutes on an identical lockfile
+      # and an identical warm ~/.npm - it is runner variance, and on a bad draw
+      # it was the largest step in this job. Restoring node_modules wholesale
+      # skips the install entirely. The key pins the lockfile hash and the
+      # resolved Node version, so a dependency bump or a Node major misses the
+      # cache and reinstalls rather than reusing an incompatible tree.
+      # (npm reports core-js's postinstall as *not* run under this project's
+      # allow-scripts policy, so no install-script side effect is lost.)
+      - name: Cache frontend node_modules
+        id: node-modules-cache
         uses: actions/cache@v6
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chrome-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          path: frontend/node_modules
+          key: node-modules-${{ runner.os }}-node${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install frontend dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci
+        working-directory: frontend
 
       # Must run before the build below: the frontend's `postbuild` script
       # (build/prerender.ts) launches Playwright's Chrome channel itself, so
@@ -63,14 +85,16 @@ jobs:
           VITE_WS_BASE_URL: ws://127.0.0.1:8000
 
       - name: Run E2E tests against the production build
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/3
         working-directory: frontend
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          # Must be unique per shard: two jobs uploading the same artifact
+          # name in one run is an error, not a merge.
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             frontend/playwright-report/
             frontend/test-results/

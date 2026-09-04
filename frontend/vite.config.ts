@@ -90,7 +90,14 @@ export default defineConfig({
     hookTimeout: 15000,
     teardownTimeout: 5000,
     pool: process.env.CI ? 'forks' : 'threads',
-    fileParallelism: !process.env.CI,
+    // Run test files in parallel everywhere, CI included. This used to be
+    // disabled under CI, which serialized all ~240 files onto one worker and
+    // was the single biggest contributor to the job's runtime (392s -> 240s
+    // locally on 4 cores when re-enabled, with an unchanged 2405-test result).
+    // The pool size is left at Vitest's default, which already derives from the
+    // machine's available parallelism; each fork carries a full jsdom + MUI
+    // module graph, so raising it past that costs more in memory than it wins.
+    fileParallelism: true,
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'build/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     server: {

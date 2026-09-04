@@ -62,7 +62,22 @@ if [[ -d "$ROOT_DIR/backend" ]]; then
     run_tool "Backend Ruff" "backend-ruff.txt" "0,1" bash -lc "cd \"$ROOT_DIR/backend\" && pdm run ruff check ."
     run_tool "Backend Radon CC" "backend-radon-cc.txt" "0" bash -lc "cd \"$ROOT_DIR/backend\" && pdm run radon cc farm -s -a"
 
-    if [[ -f "$ROOT_DIR/backend/pytest.ini" ]]; then
+    if [[ "${SKIP_BACKEND_TESTS:-0}" == "1" ]]; then
+      # CI's `quality` job sets this. The `backend-tests` job runs the same
+      # suite with the same coverage flags, so running it here too doubled the
+      # backend suite across two jobs and made `quality` as long as the test
+      # job it duplicated. Locally the variable is unset and the full report is
+      # produced as before.
+      note="$ARCHIVE_DIR/backend-pytest-cov.txt"
+      {
+        echo "# Backend Pytest Coverage"
+        echo "# Timestamp: $(date -Iseconds)"
+        echo
+        echo "Skipped: SKIP_BACKEND_TESTS=1 (the backend-tests CI job owns this run)."
+      } > "$note"
+      copy_latest "backend-pytest-cov.txt"
+      echo "[SKIP] Backend Pytest Coverage: SKIP_BACKEND_TESTS=1."
+    elif [[ -f "$ROOT_DIR/backend/pytest.ini" ]]; then
       run_tool "Backend Pytest Coverage" "backend-pytest-cov.txt" "0,1,5" bash -lc "cd \"$ROOT_DIR/backend\" && pdm run pytest --cov=farm --cov-report=term-missing"
     else
       note="$ARCHIVE_DIR/backend-pytest-cov.txt"

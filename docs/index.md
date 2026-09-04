@@ -100,6 +100,9 @@ table of what is and isn't implemented.
 
 ## Process / QA
 
+- [`testing-and-ci.md`](./testing-and-ci.md) — how the frontend, backend and
+  E2E suites are split across CI jobs, why the frontend is sharded and the
+  backend runs under xdist, and where the runtime actually goes.
 - [`security-automation.md`](./security-automation.md) — automated dependency,
   SAST, Django deployment, and GitHub-native security coverage and triggers.
 - [`qa-strategy.md`](./qa-strategy.md) — when to do a full vs. targeted
