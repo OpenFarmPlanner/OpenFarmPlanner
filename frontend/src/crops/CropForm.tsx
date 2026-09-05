@@ -37,7 +37,7 @@ import {
 import type { AutocompleteChangeReason } from '@mui/material/Autocomplete';
 import { alpha } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { cropAPI, publicCropAPI, supplierAPI } from '../api/api';
+import { cropAPI, supplierAPI } from '../api/api';
 import { useActiveSaveShortcut } from '../hooks/useActiveSaveShortcut';
 import { useDialogKeyboardScroll } from '../hooks/useDialogKeyboardScroll';
 import { ConfirmationDialog } from '../components/feedback/ConfirmationDialog';
@@ -59,12 +59,10 @@ import { stripCitationMarkers } from '../components/data-grid/markdown';
 import { SupplierFormDialog } from '../components/suppliers/SupplierFormDialog';
 import { findSpeciesCrop } from './cropHierarchy';
 import {
-  dedupePublicCropsBySpecies,
-  dedupePublicCropVarieties,
   isLikelyTestPublicCropEntry,
   normalizeIdentityValue,
 } from './publicCropNameSuggestions';
-import { normalizeCropSpeciesSearchValue } from './cropSpeciesMatching';
+import { usePublicCropSuggestions } from './usePublicCropSuggestions';
 import {
   buildInheritedValueBaseline,
   getVarietyOwnValueSource,
@@ -203,7 +201,6 @@ const PublicCropApplyHint = ({ hintText, actionLabel, onApply }: { hintText: str
 );
 
 const DUPLICATE_CHECK_DEBOUNCE_MS = 400;
-const PUBLIC_CROP_SEARCH_DEBOUNCE_MS = 250;
 
 const metersToCentimeters = (value: number | null | undefined): number | undefined => (
   typeof value === 'number' ? Math.round(value * 100) : undefined
@@ -423,17 +420,20 @@ export function CropForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [duplicateErrorKey, setDuplicateErrorKey] = useState<string>('');
   const [isDuplicateChecking, setIsDuplicateChecking] = useState(false);
-  const [publicCropOptions, setPublicCropOptions] = useState<PublicCrop[]>([]);
-  const [publicCropOptionsLoading, setPublicCropOptionsLoading] = useState(false);
   const [publicCropSearchTerm, setPublicCropSearchTerm] = useState('');
-  const [matchedCropSpeciesId, setMatchedCropSpeciesId] = useState<number | null>(null);
-  const [varietyPublicCrops, setVarietyPublicCrops] = useState<PublicCrop[]>([]);
-  // Which crop species `varietyPublicCrops` actually belongs to. Needed
-  // because an empty list is ambiguous between "not loaded yet" and "species
-  // has no entries", and the pending species prefill must only act on rows
-  // that really belong to the species the user just picked.
-  const [loadedVarietySpeciesId, setLoadedVarietySpeciesId] = useState<number | null>(null);
-  const [varietyOptionsLoading, setVarietyOptionsLoading] = useState(false);
+  const {
+    nameOptions,
+    nameOptionsLoading,
+    matchedNameOption,
+    varietyPublicCrops,
+    varietyOptions,
+    varietyOptionsLoading,
+    loadedVarietySpeciesId,
+  } = usePublicCropSuggestions({
+    enabled: isProjectForm,
+    searchTerm: publicCropSearchTerm,
+    nameText: formData.name,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([]);
   const [seedRateUnitConstraints, setSeedRateUnitConstraints] = useState<SeedRateUnitConstraints | null>(null);
@@ -449,7 +449,6 @@ export function CropForm({
   const formRef = useRef<HTMLFormElement | null>(null);
   const supplierOptionsRef = useRef<Supplier[]>([]);
   const duplicateCheckSequenceRef = useRef(0);
-  const publicCropSearchSequenceRef = useRef(0);
   // Crop species whose general ("no variety") library entry should be applied
   // as soon as that species' entries finish loading. Set when the user picks a
   // Name suggestion; the species entries are fetched by the variety-options
@@ -525,13 +524,7 @@ export function CropForm({
     setErrors({});
     setDuplicateErrorKey('');
     setIsDuplicateChecking(false);
-    setPublicCropOptions([]);
-    setPublicCropOptionsLoading(false);
     setPublicCropSearchTerm('');
-    setMatchedCropSpeciesId(null);
-    setVarietyPublicCrops([]);
-    setLoadedVarietySpeciesId(null);
-    setVarietyOptionsLoading(false);
     setIsDirty(false);
     setIsValid(true);
     setHasSubmitted(false);
@@ -663,123 +656,6 @@ export function CropForm({
       abortController.abort();
     };
   }, [crop?.id, crop?.crop_display_name, crop?.name, crop?.variety, formData.name, formData.variety, formKind, hasFirstVarietyName, isProjectForm]);
-
-  useEffect(() => {
-    if (!isProjectForm) {
-      queueMicrotask(() => {
-        setPublicCropOptions([]);
-        setPublicCropOptionsLoading(false);
-      });
-      return undefined;
-    }
-
-    const searchTerm = publicCropSearchTerm.trim();
-    const currentSequence = publicCropSearchSequenceRef.current + 1;
-    publicCropSearchSequenceRef.current = currentSequence;
-
-    if (!searchTerm) {
-      queueMicrotask(() => {
-        setPublicCropOptions([]);
-        setPublicCropOptionsLoading(false);
-      });
-      return undefined;
-    }
-
-    queueMicrotask(() => setPublicCropOptionsLoading(true));
-    const abortController = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      publicCropAPI.list({ q: searchTerm }, abortController.signal)
-        .then((response) => {
-          if (publicCropSearchSequenceRef.current !== currentSequence) {
-            return;
-          }
-          setPublicCropOptions(response.data.results);
-        })
-        .catch(() => {
-          if (publicCropSearchSequenceRef.current === currentSequence && !abortController.signal.aborted) {
-            setPublicCropOptions([]);
-          }
-        })
-        .finally(() => {
-          if (publicCropSearchSequenceRef.current === currentSequence) {
-            setPublicCropOptionsLoading(false);
-          }
-        });
-    }, PUBLIC_CROP_SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      abortController.abort();
-    };
-  }, [isProjectForm, publicCropSearchTerm]);
-
-  // "Name" suggestions must be unique crop species, never "Species · Variety"
-  // combinations — the Variety field below covers the sorte-specific part.
-  const nameOptions = useMemo(
-    () => dedupePublicCropsBySpecies(publicCropOptions, publicCropSearchTerm),
-    [publicCropOptions, publicCropSearchTerm],
-  );
-
-  // The library entry the typed Name text matches exactly, regardless of how
-  // it got there (dropdown pick or free text). Used both to fetch Variety
-  // suggestions below and to offer an explicit "apply values" hint when the
-  // match wasn't picked from the dropdown (see nameApplyHintOption).
-  const matchedNameOption = useMemo(() => {
-    const normalizedName = normalizeCropSpeciesSearchValue(formData.name);
-    return normalizedName
-      ? nameOptions.find((option) => (
-        option.searchNames.some((name) => normalizeCropSpeciesSearchValue(name) === normalizedName)
-      ))
-      : undefined;
-  }, [formData.name, nameOptions]);
-
-  // The Variety field only gets suggestions once the Name field's text
-  // exactly matches an existing public crop species; free text otherwise.
-  useEffect(() => {
-    if (!isProjectForm) {
-      queueMicrotask(() => setMatchedCropSpeciesId(null));
-      return;
-    }
-    queueMicrotask(() => setMatchedCropSpeciesId(matchedNameOption?.cropSpeciesId ?? null));
-  }, [isProjectForm, matchedNameOption]);
-
-  useEffect(() => {
-    if (!isProjectForm || matchedCropSpeciesId === null) {
-      queueMicrotask(() => {
-        setVarietyPublicCrops([]);
-        setLoadedVarietySpeciesId(null);
-        setVarietyOptionsLoading(false);
-      });
-      return undefined;
-    }
-
-    let cancelled = false;
-    const abortController = new AbortController();
-    queueMicrotask(() => setVarietyOptionsLoading(true));
-    publicCropAPI.list({ crop_species: matchedCropSpeciesId }, abortController.signal)
-      .then((response) => {
-        if (cancelled) return;
-        setVarietyPublicCrops(response.data.results);
-        setLoadedVarietySpeciesId(matchedCropSpeciesId);
-      })
-      .catch(() => {
-        if (cancelled || abortController.signal.aborted) return;
-        setVarietyPublicCrops([]);
-        // Still mark the species as resolved so a pending prefill falls back
-        // to "crop_species linked only" instead of waiting forever.
-        setLoadedVarietySpeciesId(matchedCropSpeciesId);
-      })
-      .finally(() => {
-        if (!cancelled) setVarietyOptionsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      abortController.abort();
-    };
-  }, [isProjectForm, matchedCropSpeciesId]);
-
-  const varietyOptions = useMemo(() => dedupePublicCropVarieties(varietyPublicCrops), [varietyPublicCrops]);
 
   // Creating a second crop under a name the project already uses is almost
   // always meant as "add another variety of that crop". The hint offers that
@@ -1357,7 +1233,7 @@ export function CropForm({
                 </Alert>
               ) : null}
               nameOptions={isProjectForm ? nameOptions : undefined}
-              nameOptionsLoading={publicCropOptionsLoading}
+              nameOptionsLoading={nameOptionsLoading}
               onNameSearchChange={isProjectForm ? handleManualPublicCropSearchChange : undefined}
               onNameOptionSelect={isProjectForm ? handleNameOptionSelect : undefined}
               nameApplyHint={showNameApplyHint && matchedNameOption ? (
