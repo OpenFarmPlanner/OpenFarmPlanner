@@ -64,6 +64,23 @@ The immediately preceding security change capped image pixel counts before
 Pillow verification/decoding and refreshed dependencies reported by the
 advisory scanners. Those protections remain part of this baseline.
 
+### External base URL validation (medium, configuration hardening)
+
+`PUBLIC_FRONTEND_URL` previously accepted any absolute URI scheme, and the
+separately configurable OAuth callback base did not receive equivalent
+validation. Both settings now require an absolute HTTP(S) URL without embedded
+credentials, a query string, or a fragment; both also reject loopback hosts
+outside development and test environments. This prevents a malformed or
+injected deployment value from generating unsafe account-email or OAuth URLs.
+
+## CI follow-up
+
+The CI-equivalent `compilemessages` command was reproduced with Python 3.12.
+Because the PDM virtual environment lives below `backend/`, Django recursively
+visited dependency locale trees in `.venv`, producing very large logs and
+doing unnecessary work. The shared PDM command now ignores `.venv`, while
+continuing to compile repository-owned translations before backend tests.
+
 ## Reviewed controls with no confirmed defect
 
 - API tokens derive their project from the token row, re-check active user,

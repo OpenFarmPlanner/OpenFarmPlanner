@@ -62,7 +62,7 @@ test = "python -m pytest"
 createsuperuser = "python manage.py createsuperuser"
 shell = "python manage.py shell"
 collectstatic = "python manage.py collectstatic --noinput"
-compilemessages = "python manage.py compilemessages --settings=config.settings_test"
+compilemessages = "python manage.py compilemessages --settings=config.settings_test --ignore=.venv"
 
 [tool.ruff]
 line-length = 100
