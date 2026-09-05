@@ -139,14 +139,20 @@ The public Crop Library follows an open-data model:
   2b. **`public_update_rejected`** -> no button at all, only a neutral
      "Update abgelehnt" status chip (`crop-detail-library-status`, sync-disabled
      icon). Declining is a decision the UI has to respect, so the action
-     disappears until the facts change: because the rejection is stored as the
-     public *version* number, the pull button of case 2 comes back on its own
-     the moment the entry changes into a version the user never decided on, and
-     an identical re-publish (same version, or a bump with no compared-field
-     change) does not bring it back. The chip stays clickable and reopens the
+     disappears until the facts change: because the rejection is stored as a
+     fingerprint of the declined public values, the pull button of case 2 comes
+     back on its own as soon as the entry carries a diff the user never decided
+     on — and a version bump that leaves those values alone (an identical
+     re-publish, a translation-only edit) does not bring it back. The chip stays clickable and reopens the
      same diff, so a change of mind never needs another public edit. It is
-     ranked above the push cases deliberately: pushing a declined copy would
-     silently undo the very change the user declined.
+     ranked above the push cases deliberately: on the entry the update came
+     from — the common case, and the only one `resolve_public_publish_block`
+     reports as `update_rejected` — pushing would silently undo the very change
+     the user declined. A copy imported from *someone else's* entry is caught by
+     the same case although its push would fork a new entry rather than
+     overwrite anything; that is a deliberate simplification (unchanged from
+     before this state existed), and it means such a copy cannot be contributed
+     while the decline stands. Revisit if that combination turns out to matter.
   3./4. **linked with local changes** (`public_publish_blocked_reason` is
      `null` — the `update_pending` reason always coincides with case 2 and
      `update_rejected` with case 2b, which also catches an imported foreign
@@ -166,23 +172,33 @@ The public Crop Library follows an open-data model:
   the `CropSpeciesPendingChip` stays in the row as the explanation.
 - Declining a public change is a third, explicit outcome next to applying and
   cancelling. `POST /api/crops/<id>/public-update/reject/` stores
-  `Crop.rejected_public_version` and touches no library-sourced field, so the
-  notice disappears for exactly that version while the local copy stays as it
-  was. Because the decision is a *version number* rather than a flag, a later
-  public edit produces a version the user never decided on and the notice comes
-  back on its own; taking an update over (`build_project_crop_payload`)
-  clears the rejection again. Cancelling remains the "no decision" path — the
-  notice returns on the next visit.
+  `Crop.rejected_public_fingerprint` — a SHA-256 over exactly the public values
+  the diff showed (`public_crop_rejection_fingerprint()`, the compared field set
+  for that crop) — and touches no library-sourced field, so the notice
+  disappears for that content while the local copy stays as it was. The
+  fingerprint identifies *what* was declined, not *when*: a push always bumps
+  `version` even when the payload is identical
+  (`_update_public_crop_from_project_crop`), and a bump may change only fields
+  this copy never compares against (a translation, `display_color`, a
+  species-owned field on a Sorte) — over any of those the same question must not
+  be asked again. A public edit that really does change the diff yields a
+  different fingerprint and the notice comes back on its own; taking an update
+  over (`build_project_crop_payload`) clears the rejection. `rejected_public_version`
+  is still written as human-readable provenance and is the read fallback for
+  rejections recorded before the fingerprint existed (migration `0104`); it can
+  be dropped once no such rows are left. Cancelling remains the "no decision"
+  path — the notice returns on the next visit.
 - The diff stays reachable after a decision: `build_public_crop_update_status()`
   is still built for a rejected version, and case 2b's "Update abgelehnt" chip
   reopens the same dialog (with the "already declined" hint and a disabled
   "Ablehnen" button). Reachable, but no longer offered as an open action — that
   is the whole difference between "Ablehnen" and "Abbrechen" in the dialog:
   cancelling stores nothing and leaves the "Kultur aktualisieren" button
-  standing, declining stores `rejected_public_version` and retires it.
+  standing, declining stores the fingerprint and retires it.
 - `CropSerializer.public_publish_blocked_reason` reports why a *push* is not on
-  offer: `update_pending` / `update_rejected` (the library is ahead — the
-  button shows case 2 instead) and `no_local_changes` (aligned copy with
+  offer: `update_pending` (the library is ahead — the button shows case 2
+  instead), `update_rejected` (the library is ahead and the user declined it —
+  case 2b) and `no_local_changes` (aligned copy with
   nothing to contribute — case 5). The lock is not only cosmetic:
   `publish_crop_to_public_library()` raises `PublicCropUpdateBlockedError`
   (409 `public_crop_update_blocked`) for the two divergence cases before the

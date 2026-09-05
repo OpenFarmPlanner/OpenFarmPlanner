@@ -1749,6 +1749,49 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
         self.assertTrue(row['public_update_available'])
         self.assertFalse(row['public_update_rejected'])
 
+    def test_a_version_bump_that_changes_nothing_compared_keeps_the_rejection(self):
+        """A push that re-writes the same values must not ask the declined question again.
+
+        Publishing an update always bumps the version, even when the payload is
+        identical, so a version-only comparison would resurface the very diff
+        the user declined.
+        """
+        public_crop, imported = self._import_and_rename_variety()
+        self._reject_public_update(imported.id)
+
+        PublicCrop.objects.filter(pk=public_crop.pk).update(version=public_crop.version + 5)
+
+        response = self.client.get('/openfarmplanner/api/crops/')
+        row = {item['id']: item for item in response.data['results']}[imported.id]
+        self.assertFalse(row['public_update_available'])
+        self.assertTrue(row['public_update_rejected'])
+
+    def test_a_bump_touching_only_uncompared_fields_keeps_the_rejection(self):
+        """`display_color` is project-local and never part of the diff."""
+        public_crop, imported = self._import_and_rename_variety()
+        self._reject_public_update(imported.id)
+
+        PublicCrop.objects.filter(pk=public_crop.pk).update(
+            version=public_crop.version + 1, display_color='#abcdef',
+        )
+
+        response = self.client.get('/openfarmplanner/api/crops/')
+        row = {item['id']: item for item in response.data['results']}[imported.id]
+        self.assertFalse(row['public_update_available'])
+        self.assertTrue(row['public_update_rejected'])
+
+    def test_a_rejection_recorded_before_the_fingerprint_existed_still_counts(self):
+        """Rows migrated in with only `rejected_public_version` keep their decision."""
+        public_crop, imported = self._import_and_rename_variety()
+        Crop.objects.filter(pk=imported.pk).update(
+            rejected_public_version=public_crop.version, rejected_public_fingerprint='',
+        )
+
+        response = self.client.get('/openfarmplanner/api/crops/')
+        row = {item['id']: item for item in response.data['results']}[imported.id]
+        self.assertFalse(row['public_update_available'])
+        self.assertTrue(row['public_update_rejected'])
+
     def test_applying_the_update_clears_an_earlier_rejection(self):
         public_crop, imported = self._import_and_rename_variety()
         self._reject_public_update(imported.id)
@@ -1761,6 +1804,7 @@ class PublicCropLibraryApiTest(DRFAPITestCase):
 
         imported.refresh_from_db()
         self.assertIsNone(imported.rejected_public_version)
+        self.assertEqual(imported.rejected_public_fingerprint, '')
 
     def test_rejecting_without_a_pending_update_is_a_bad_request(self):
         public_crop = PublicCrop.objects.create(

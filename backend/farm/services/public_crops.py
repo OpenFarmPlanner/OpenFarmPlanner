@@ -7,6 +7,7 @@ from __future__ import annotations
 # project-history/EntityRevision or other farm-app-internal concerns here.
 
 from dataclasses import dataclass
+import hashlib
 import json
 import re
 from typing import Any
@@ -709,6 +710,7 @@ def build_project_crop_payload(public_crop: PublicCrop) -> dict[str, Any]:
     payload['is_modified_from_source'] = False
     # Taking a version over ends any earlier rejection: the copy is aligned again.
     payload['rejected_public_version'] = None
+    payload['rejected_public_fingerprint'] = ''
     return payload
 
 
@@ -780,11 +782,13 @@ def link_local_crop_to_owned_public_entry(local_crop: Crop, entry: PublicCrop) -
         source_public_version=entry.version,
         is_modified_from_source=is_modified,
         rejected_public_version=None,
+        rejected_public_fingerprint='',
     )
     local_crop.source_public_crop = entry
     local_crop.source_public_version = entry.version
     local_crop.is_modified_from_source = is_modified
     local_crop.rejected_public_version = None
+    local_crop.rejected_public_fingerprint = ''
 
 
 def _link_owned_entry_to_project_rows(
@@ -1545,18 +1549,49 @@ def has_pending_public_crop_update(
     return bool(public_crop_update_changes(crop, index))
 
 
+def public_crop_rejection_fingerprint(
+    crop: Crop,
+    index: GeneralCropIndex | None = None,
+) -> str:
+    """SHA-256 over the public values this copy compares itself against.
+
+    The fingerprint identifies *what* was declined rather than *when*: the
+    compared fields of the linked entry, in the field set that applies to this
+    crop (a species-linked Sorte leaves the species-owned fields out). It is
+    computed from the already-loaded ``source_public_crop``, so it costs no
+    query.
+    """
+    public_crop = crop.source_public_crop
+    if public_crop is None:
+        return ''
+    remote = _copy_fields(public_crop)
+    payload = {field: _json_safe(remote[field]) for field in _compared_public_update_fields(crop)}
+    encoded = json.dumps(payload, sort_keys=True, cls=DjangoJSONEncoder)
+    return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
+
+
 def is_public_crop_update_rejected(
     crop: Crop,
     index: GeneralCropIndex | None = None,
 ) -> bool:
-    """Whether the user explicitly declined exactly the version that is pending.
+    """Whether the user explicitly declined exactly the change that is pending.
 
-    The rejection is stored as a version number rather than a flag, so a later
-    public edit produces a new version the user never decided on and the notice
-    comes back on its own.
+    The decision is stored as a fingerprint of the declined public values, not
+    as a flag and not as a version number: the library entry gets a new version
+    on every push even when the payload is identical, and a bump may well change
+    only fields this copy does not compare against (a translation, a colour, a
+    species-owned field on a Sorte). Asking the same question again over such a
+    bump would make the decision feel ignored. A public change that really does
+    alter the diff produces a different fingerprint, and the notice comes back on
+    its own.
+
+    ``rejected_public_version`` is the fallback for rejections recorded before
+    the fingerprint existed; it can go once no such rows are left.
     """
     if not has_pending_public_crop_update(crop, index):
         return False
+    if crop.rejected_public_fingerprint:
+        return crop.rejected_public_fingerprint == public_crop_rejection_fingerprint(crop, index)
     return crop.rejected_public_version == crop.source_public_crop.version
 
 
@@ -1618,18 +1653,26 @@ def resolve_public_publish_block(
 
 
 def reject_public_crop_update(crop: Crop) -> Crop:
-    """Record that the user declined the pending public version for this copy.
+    """Record that the user declined the pending public change for this copy.
 
-    Deliberately does not touch a single library-sourced field: rejecting is a
-    decision about the *notice*, not an edit of the local copy. The write uses a
-    queryset update so it never runs :meth:`Crop.save`'s divergence pass or
-    records a revision for what is not a content change.
+    Stores the fingerprint of the declined public values (see
+    :func:`is_public_crop_update_rejected`) alongside the version the decision
+    was made on, which stays as human-readable provenance. Deliberately does not
+    touch a single library-sourced field: rejecting is a decision about the
+    *notice*, not an edit of the local copy. The write uses a queryset update so
+    it never runs :meth:`Crop.save`'s divergence pass or records a revision for
+    what is not a content change.
     """
     public_crop = crop.source_public_crop
     if public_crop is None:
         return crop
-    Crop.objects.filter(pk=crop.pk).update(rejected_public_version=public_crop.version)
+    fingerprint = public_crop_rejection_fingerprint(crop)
+    Crop.objects.filter(pk=crop.pk).update(
+        rejected_public_version=public_crop.version,
+        rejected_public_fingerprint=fingerprint,
+    )
     crop.rejected_public_version = public_crop.version
+    crop.rejected_public_fingerprint = fingerprint
     return crop
 
 

@@ -294,8 +294,20 @@ class Crop(TimestampedModel):
         blank=True,
         help_text=(
             'Public-library version the user explicitly declined to take over. '
-            'Only silences the update notice for exactly that version; a newer '
-            'public version surfaces the notice again.'
+            'Kept for rejections recorded before rejected_public_fingerprint '
+            'existed; the fingerprint is what silences the notice now.'
+        ),
+    )
+    rejected_public_fingerprint = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text=(
+            'SHA-256 over the public values the declined diff showed. The notice '
+            'stays silent while the public entry still carries exactly those '
+            'values, so a version bump that changes nothing the copy compares '
+            'against (an identical re-publish, a translation-only edit) does not '
+            'ask the same question again.'
         ),
     )
     origin_type = models.CharField(max_length=50, choices=ORIGIN_TYPE_CHOICES, default=ORIGIN_MANUAL)

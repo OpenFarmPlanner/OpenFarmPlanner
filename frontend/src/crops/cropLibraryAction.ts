@@ -56,8 +56,11 @@ export interface CropLibraryAction {
  *    decision is stored per public version, so the pull button comes back on
  *    its own once the entry changes again; the chip stays clickable so the
  *    same diff can still be reopened and applied after a change of mind. This
- *    case sits above the push cases on purpose: pushing a declined copy would
- *    silently undo the very change the user declined.
+ *    case sits above the push cases on purpose: on the entry the update came
+ *    from, pushing would silently undo the very change the user declined. A
+ *    copy imported from someone else's entry lands here too, where a push would
+ *    fork a new entry instead — a deliberate simplification, unchanged from
+ *    before this state existed (see docs/crop-library-architecture.md).
  * 3./4. Connected (own entry or imported) with local changes to contribute
  *    -> push. `public_publish_blocked_reason` is `null` exactly then; the
  *    `update_pending` reason always coincides with case 2 and is handled there.
