@@ -1,10 +1,11 @@
 /**
  * Shared state for the "Aktualisierung aus der Bibliothek" diff dialog.
  *
- * The dialog has two entry points on the same crop — the update notice and
- * the permanent marker next to the "Importiert" badge — so the loading/apply/
- * reject state cannot live inside either of them. The owning page holds this
- * controller once and hands it to both.
+ * The dialog has two entry points on the same crop — the badge row's "Kultur
+ * aktualisieren" button and, after a decline, its "Update abgelehnt" chip
+ * (both `CropLibraryActionButton`) — so the loading/apply/reject state cannot
+ * live inside either of them. The owning page holds this controller once and
+ * hands it to the button and the dialog alike.
  */
 
 import { useCallback, useState } from 'react';
@@ -18,12 +19,12 @@ export interface PublicCropUpdateController {
   update: CropPublicUpdate | null;
   /** An undecided library update exists — the notice should be shown. */
   hasOpenUpdate: boolean;
-  /** The pending library version was explicitly declined. */
+  /**
+   * The pending library version was explicitly declined. The decision is
+   * stored per public version, so this clears itself once the entry changes
+   * again (see `Crop.rejected_public_version` on the backend).
+   */
   isRejected: boolean;
-  /** The copy differs from the current library version, decided or not. */
-  isDiverged: boolean;
-  /** The crop is linked to a public library entry at all. */
-  isLinked: boolean;
   isLoading: boolean;
   isApplying: boolean;
   isRejecting: boolean;
@@ -46,7 +47,6 @@ export function usePublicCropUpdate(
   const cropId = crop?.id;
   const hasOpenUpdate = Boolean(crop?.public_update_available);
   const isRejected = Boolean(crop?.public_update_rejected);
-  const isLinked = Boolean(crop?.source_public_crop);
 
   const openDiff = useCallback((): void => {
     if (!cropId) {
@@ -131,8 +131,6 @@ export function usePublicCropUpdate(
     update,
     hasOpenUpdate,
     isRejected,
-    isDiverged: hasOpenUpdate || isRejected,
-    isLinked,
     isLoading,
     isApplying,
     isRejecting,

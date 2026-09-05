@@ -860,6 +860,8 @@
       "rejected": "The changes to “{{name}}” were declined. Your local copy stays unchanged.",
       "rejectError": "The changes could not be declined.",
       "rejectedHint": "You already declined this version. You can still apply it here at any time.",
+      "markerRejectedLabel": "Update declined",
+      "markerRejectedTooltip": "You declined this version from the crop library. Click to review the changes again. The notice comes back on its own as soon as the public crop changes again.",
       "markerUpToDateLabel": "Up to date",
       "markerUpToDateTooltip": "This crop matches the current version in the crop library.",
       "publishBlocked": {

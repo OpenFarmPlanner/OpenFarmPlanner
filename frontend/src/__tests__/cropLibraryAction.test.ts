@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Crop } from '../api/types';
 import { resolveCropLibraryAction } from '../crops/cropLibraryAction';
 
-const diverged = { isDiverged: true };
-const inSync = { isDiverged: false };
+const openUpdate = { hasOpenUpdate: true, isRejected: false };
+const rejectedUpdate = { hasOpenUpdate: false, isRejected: true };
+const inSync = { hasOpenUpdate: false, isRejected: false };
 
 const crop = (over: Partial<Crop> = {}): Crop => ({
   name: 'Tomate',
@@ -28,7 +29,7 @@ describe('resolveCropLibraryAction', () => {
   it('state 2: library is ahead -> pull, blue, opens the diff', () => {
     const action = resolveCropLibraryAction(
       crop({ source_public_crop: 9, public_update_available: true }),
-      diverged,
+      openUpdate,
     );
     expect(action).toMatchObject({
       kind: 'pullUpdate',
@@ -40,7 +41,7 @@ describe('resolveCropLibraryAction', () => {
     });
   });
 
-  it('state 2 also covers a declined newer version (isDiverged via rejection)', () => {
+  it('state 2b: a declined version drops the button for a clickable status chip', () => {
     const action = resolveCropLibraryAction(
       crop({
         source_public_crop: 9,
@@ -50,10 +51,63 @@ describe('resolveCropLibraryAction', () => {
         public_update_rejected: true,
         public_publish_blocked_reason: 'update_rejected',
       }),
-      diverged,
+      rejectedUpdate,
     );
-    expect(action.kind).toBe('pullUpdate');
-    expect(action.trigger).toBe('diff');
+    expect(action).toMatchObject({
+      kind: 'updateRejected',
+      variant: 'chip',
+      labelKey: 'publicUpdate.markerRejectedLabel',
+      color: 'default',
+      disabled: false,
+      tooltipKey: 'publicUpdate.markerRejectedTooltip',
+      trigger: 'diff',
+    });
+  });
+
+  it('state 2b wins over a push offer, so a decline is never silently undone', () => {
+    // An imported (not owned) copy reports no publish block, which would
+    // otherwise offer "Bibliothek aktualisieren" right after a decline.
+    const action = resolveCropLibraryAction(
+      crop({
+        source_public_crop: 9,
+        owned_public_crop_role: null,
+        is_modified_from_source: true,
+        public_update_available: false,
+        public_update_rejected: true,
+        public_publish_blocked_reason: null,
+      }),
+      rejectedUpdate,
+    );
+    expect(action.kind).toBe('updateRejected');
+  });
+
+  it('state 2: a new public version after a decline brings the pull button back', () => {
+    const action = resolveCropLibraryAction(
+      crop({
+        source_public_crop: 9,
+        public_update_available: true,
+        public_update_rejected: false,
+      }),
+      openUpdate,
+    );
+    expect(action).toMatchObject({ kind: 'pullUpdate', variant: 'button', trigger: 'diff' });
+  });
+
+  it('freezes the declined chip into an inert one while the species is under review', () => {
+    const action = resolveCropLibraryAction(
+      crop({
+        source_public_crop: 9,
+        public_update_rejected: true,
+        public_crop_species_pending: true,
+      }),
+      rejectedUpdate,
+    );
+    expect(action).toMatchObject({
+      kind: 'updateRejected',
+      disabled: true,
+      tooltipKey: 'badges.speciesPendingTooltip',
+      trigger: null,
+    });
   });
 
   it('state 2 wins over a push offer: local changes AND library ahead -> pull', () => {
@@ -65,7 +119,7 @@ describe('resolveCropLibraryAction', () => {
         public_publish_blocked_reason: null,
         is_modified_from_source: true,
       }),
-      diverged,
+      openUpdate,
     );
     expect(action.kind).toBe('pullUpdate');
   });
@@ -115,6 +169,8 @@ describe('resolveCropLibraryAction', () => {
       labelKey: 'publicUpdate.markerUpToDateLabel',
       tooltipKey: 'publicUpdate.markerUpToDateTooltip',
       trigger: null,
+      // A passive status, not a disabled control: nothing is greyed out.
+      disabled: false,
     });
   });
 
@@ -138,7 +194,7 @@ describe('resolveCropLibraryAction', () => {
   it('freezes the button while the crop species is still under moderation', () => {
     const pull = resolveCropLibraryAction(
       crop({ source_public_crop: 9, public_update_available: true, public_crop_species_pending: true }),
-      diverged,
+      openUpdate,
     );
     expect(pull).toMatchObject({
       kind: 'pullUpdate',

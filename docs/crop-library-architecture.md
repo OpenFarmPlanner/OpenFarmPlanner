@@ -133,14 +133,25 @@ The public Crop Library follows an open-data model:
   tooltip, on hover and on keyboard focus):
   1. **not linked** -> button "In Bibliothek teilen", up arrow, opens
      the publishing wizard.
-  2. **`public_update_available` or `public_update_rejected`** (both surface as
-     the `usePublicCropUpdate` controller's `isDiverged`) -> button "Kultur
-     aktualisieren", blue, down arrow (pull), opens the pull diff/apply dialog.
-     Wins over any push offer, and it is the only way a declined version stays
-     applyable now that the marker chip is gone.
+  2. **`public_update_available`** (an undecided pending version) -> button
+     "Kultur aktualisieren", blue, down arrow (pull), opens the pull diff/apply
+     dialog. Wins over any push offer.
+  2b. **`public_update_rejected`** -> no button at all, only a neutral
+     "Update abgelehnt" status chip (`crop-detail-library-status`, sync-disabled
+     icon). Declining is a decision the UI has to respect, so the action
+     disappears until the facts change: because the rejection is stored as the
+     public *version* number, the pull button of case 2 comes back on its own
+     the moment the entry changes into a version the user never decided on, and
+     an identical re-publish (same version, or a bump with no compared-field
+     change) does not bring it back. The chip stays clickable and reopens the
+     same diff, so a change of mind never needs another public edit. It is
+     ranked above the push cases deliberately: pushing a declined copy would
+     silently undo the very change the user declined.
   3./4. **linked with local changes** (`public_publish_blocked_reason` is
-     `null` — the `update_pending` / `update_rejected` reasons always coincide
-     with case 2) -> button "Bibliothek aktualisieren", green, up arrow (push),
+     `null` — the `update_pending` reason always coincides with case 2 and
+     `update_rejected` with case 2b, which also catches an imported foreign
+     copy whose decline leaves the reason `null`) -> button "Bibliothek
+     aktualisieren", green, up arrow (push),
      opens the wizard (which routes an owned-entry update through its own flow).
      Own entry vs a foreign imported one is the same direct-update path, so the
      label does not distinguish them.
@@ -151,7 +162,8 @@ The public Crop Library follows an open-data model:
 
   A crop species still under moderation (`public_crop_species_pending`) freezes
   cases 2-4 as a disabled button with the existing "Vorschlag in Prüfung"
-  tooltip; the `CropSpeciesPendingChip` stays in the row as the explanation.
+  tooltip (case 2b as an inert, non-clickable chip carrying the same tooltip);
+  the `CropSpeciesPendingChip` stays in the row as the explanation.
 - Declining a public change is a third, explicit outcome next to applying and
   cancelling. `POST /api/crops/<id>/public-update/reject/` stores
   `Crop.rejected_public_version` and touches no library-sourced field, so the
@@ -162,9 +174,12 @@ The public Crop Library follows an open-data model:
   clears the rejection again. Cancelling remains the "no decision" path — the
   notice returns on the next visit.
 - The diff stays reachable after a decision: `build_public_crop_update_status()`
-  is still built for a rejected version, and case 2 of the badge-row button
-  (triggered by `isDiverged`, not just `public_update_available`) reopens the
-  dialog whenever the copy and the library version differ.
+  is still built for a rejected version, and case 2b's "Update abgelehnt" chip
+  reopens the same dialog (with the "already declined" hint and a disabled
+  "Ablehnen" button). Reachable, but no longer offered as an open action — that
+  is the whole difference between "Ablehnen" and "Abbrechen" in the dialog:
+  cancelling stores nothing and leaves the "Kultur aktualisieren" button
+  standing, declining stores `rejected_public_version` and retires it.
 - `CropSerializer.public_publish_blocked_reason` reports why a *push* is not on
   offer: `update_pending` / `update_rejected` (the library is ahead — the
   button shows case 2 instead) and `no_local_changes` (aligned copy with

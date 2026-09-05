@@ -860,6 +860,8 @@
       "rejected": "Die Änderungen an „{{name}}“ wurden abgelehnt. Deine lokale Kopie bleibt unverändert.",
       "rejectError": "Die Änderungen konnten nicht abgelehnt werden.",
       "rejectedHint": "Du hast diese Version bereits abgelehnt. Du kannst sie hier jederzeit doch noch übernehmen.",
+      "markerRejectedLabel": "Update abgelehnt",
+      "markerRejectedTooltip": "Du hast diese Version aus der Kulturbibliothek abgelehnt. Klicke, um die Änderungen erneut anzusehen. Der Hinweis erscheint von selbst wieder, sobald sich die öffentliche Kultur erneut ändert.",
       "markerUpToDateLabel": "Aktuell",
       "markerUpToDateTooltip": "Diese Kultur entspricht dem aktuellen Stand in der Kulturbibliothek.",
       "publishBlocked": {
