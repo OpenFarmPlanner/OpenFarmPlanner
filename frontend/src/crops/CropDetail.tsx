@@ -101,15 +101,12 @@ interface CropDetailProps {
 }
 
 import {
-  CROP_FILTERS_STORAGE_KEY,
-  LEGACY_CROP_FILTERS_STORAGE_KEY,
   formatDistance,
   formatNumber,
   formatPackageSizes,
   getSowingMonths,
-  type PersistedCropFilters,
 } from './cropDetailFormatters';
-import { readWithLegacyKey, removeWithLegacyKey } from '../compat/legacyCropNames';
+import { usePersistedCropFilters } from './usePersistedCropFilters';
 
 
 export function CropDetail({
@@ -171,65 +168,8 @@ export function CropDetail({
       resizeObserver?.disconnect();
     };
   }, [useUnifiedMobileLayout, isLoading, crops.length]);
-  const supplierIdFromQuery = searchParams.get('supplierId') ?? '';
 
-  // Initialize filters from sessionStorage
-  const initializeFilters = (): PersistedCropFilters => {
-    const raw = readWithLegacyKey(
-      window.sessionStorage,
-      CROP_FILTERS_STORAGE_KEY,
-      LEGACY_CROP_FILTERS_STORAGE_KEY,
-    );
-    if (!raw) {
-      return {
-        searchQuery: '',
-        selectedFamilyFilter: '',
-        selectedCultivationFilter: '',
-        selectedNutrientFilter: '',
-        selectedSupplierFilter: supplierIdFromQuery,
-        growthDaysMin: '',
-        growthDaysMax: '',
-        yieldMin: '',
-        yieldMax: '',
-        selectedSowingMonths: [],
-      };
-    }
-    try {
-      const parsed = JSON.parse(raw) as PersistedCropFilters;
-      return {
-        searchQuery: parsed.searchQuery ?? '',
-        selectedFamilyFilter: parsed.selectedFamilyFilter ?? '',
-        selectedCultivationFilter: parsed.selectedCultivationFilter ?? '',
-        selectedNutrientFilter: parsed.selectedNutrientFilter ?? '',
-        selectedSupplierFilter: supplierIdFromQuery || parsed.selectedSupplierFilter || '',
-        growthDaysMin: parsed.growthDaysMin ?? '',
-        growthDaysMax: parsed.growthDaysMax ?? '',
-        yieldMin: parsed.yieldMin ?? '',
-        yieldMax: parsed.yieldMax ?? '',
-        selectedSowingMonths: Array.isArray(parsed.selectedSowingMonths) ? parsed.selectedSowingMonths : [],
-      };
-    } catch {
-      removeWithLegacyKey(
-        window.sessionStorage,
-        CROP_FILTERS_STORAGE_KEY,
-        LEGACY_CROP_FILTERS_STORAGE_KEY,
-      );
-      return {
-        searchQuery: '',
-        selectedFamilyFilter: '',
-        selectedCultivationFilter: '',
-        selectedNutrientFilter: '',
-        selectedSupplierFilter: supplierIdFromQuery,
-        growthDaysMin: '',
-        growthDaysMax: '',
-        yieldMin: '',
-        yieldMax: '',
-        selectedSowingMonths: [],
-      };
-    }
-  };
-
-  const [filters, setFilters] = useState<PersistedCropFilters>(initializeFilters);
+  const { filters, updateFilter, resetFilters } = usePersistedCropFilters(searchParams, setSearchParams);
   // The clear button unmounts as it empties the field, so focus has to be put
   // back on the input explicitly instead of dropping to the document body.
   // The input is addressed by id because `searchInputRef` belongs to the
@@ -323,14 +263,6 @@ const detailSectionGridSx = {
     [crops, filters.selectedSupplierFilter, t],
   );
 
-  // Helper functions to update individual filter fields
-  const updateFilter = <K extends keyof PersistedCropFilters>(
-    key: K,
-    value: PersistedCropFilters[K],
-  ) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
-
   const monthFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { month: 'short' }),
     [locale],
@@ -343,35 +275,6 @@ const detailSectionGridSx = {
     })),
     [monthFormatter],
   );
-
-  // Persist filters to sessionStorage whenever they change
-  useEffect(() => {
-    window.sessionStorage.setItem(CROP_FILTERS_STORAGE_KEY, JSON.stringify(filters));
-  }, [filters]);
-
-  useEffect(() => {
-    const supplierIdFromQuery = searchParams.get('supplierId');
-    if (!supplierIdFromQuery) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setFilters((prev) => (
-        prev.selectedSupplierFilter === supplierIdFromQuery
-          ? prev
-          : {
-            ...prev,
-            selectedSupplierFilter: supplierIdFromQuery,
-          }
-      ));
-
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.delete('supplierId');
-      setSearchParams(nextSearchParams, { replace: true });
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [searchParams, setSearchParams]);
 
   const normalizedSearchQuery = normalizeCropSearchQuery(filters.searchQuery);
 
@@ -790,18 +693,7 @@ const detailSectionGridSx = {
           supplierOptions={supplierOptions}
           monthOptions={monthOptions}
           onReset={() => {
-            setFilters({
-              searchQuery: '',
-              selectedFamilyFilter: '',
-              selectedCultivationFilter: '',
-              selectedNutrientFilter: '',
-              selectedSupplierFilter: '',
-              growthDaysMin: '',
-              growthDaysMax: '',
-              yieldMin: '',
-              yieldMax: '',
-              selectedSowingMonths: [],
-            });
+            resetFilters();
             setFilterAnchorEl(null);
           }}
         />
@@ -1465,20 +1357,7 @@ const detailSectionGridSx = {
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
               <Button
                 variant="outlined"
-                onClick={() => {
-                  setFilters({
-                    searchQuery: '',
-                    selectedFamilyFilter: '',
-                    selectedCultivationFilter: '',
-                    selectedNutrientFilter: '',
-                    selectedSupplierFilter: '',
-                    growthDaysMin: '',
-                    growthDaysMax: '',
-                    yieldMin: '',
-                    yieldMax: '',
-                    selectedSowingMonths: [],
-                  });
-                }}
+                onClick={resetFilters}
               >
                 {t('emptySearch.resetAction')}
               </Button>
